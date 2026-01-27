@@ -4,93 +4,45 @@
 
 We follow a **lean, phased approach** focused on rapid prototyping (~1 month per prototype) to iterate quickly with stakeholder feedback.
 
-## Phase Overview
+---
 
-```mermaid
-gantt
-    title Cardano PubSub Roadmap
-    dateFormat YYYY-MM
-    section Phase 1: Design
-    Architecture Design     :2025-01, 3M
-    Prototyping            :2025-04, 4M
-    section Phase 2: Network
-    SPO Testnet             :2025-08, 6M
-    Mainnet Launch          :2026-02, 6M
-    section Phase 3: Economy
-    Tokenomics Design       :2026-08, 4M
-    Economic Launch         :2026-12, 4M
-```
-
-## Detailed Timeline
-
-### Phase 1: Architecture & Prototyping (2025)
+## Phase 1: Architecture & Prototyping
 
 **Goal:** Validate architecture and build working prototypes.
 
-| Sub-Phase | Timeline | Deliverables |
-|-----------|----------|--------------|
-| **1A: Architecture** | Q1 2025 | Architecture finalized, Tech Lead hired, vendor selection |
-| **1B: Prototyping** | Q2-Q3 2025 | Working P2P prototype, Identus integration, SDK draft |
+- Finalize architecture design
+- Hire Tech Lead, complete vendor selection
+- Build working P2P prototype with Identus integration
+- Produce SDK draft for early integrators
 
-**Key Milestones:**
+**Prototypes:**
 
-- [ ] Q1: Architecture design approved
-- [ ] Q1: Tech Lead onboarded
-- [ ] Q2: P2P prototype demo
-- [ ] Q3: SDK alpha for early integrators
-
-### Phase 2: PubSub Network (2026 H1)
-
-**Goal:** Launch decentralized, SPO-operated messaging network.
-
-| Sub-Phase | Timeline | Deliverables |
-|-----------|----------|--------------|
-| **2A: Testnet** | Q4 2025 - Q1 2026 | SPO testnet, performance tuning, security audit |
-| **2B: Mainnet** | Q2 2026 | Production launch, wallet integrations, developer docs |
-
-**Key Milestones:**
-
-- [ ] Q4 2025: First SPO testnet nodes
-- [ ] Q1 2026: 50+ SPO testnet nodes
-- [ ] Q2 2026: Mainnet launch
-- [ ] Q2 2026: First wallet integrations live
-
-### Phase 3: Full Economy (2026 H2+)
-
-**Goal:** Sustainable economic model with community governance.
-
-| Sub-Phase | Timeline | Deliverables |
-|-----------|----------|--------------|
-| **3A: Design** | Q3 2026 | Tokenomics RFC, community feedback, governance framework |
-| **3B: Launch** | Q4 2026 | Economic incentives live, DAO established |
-
-**Key Milestones:**
-
-- [ ] Q3 2026: Economic model RFC published
-- [ ] Q4 2026: Incentivized mainnet
-- [ ] Q4 2026: DAO governance live
+| Prototype | Focus |
+|-----------|-------|
+| P1: Networking | Ouroboros + GossipSub hybrid |
+| P2: Identity | Identus DID integration |
+| P3: Storage | Tiered storage (hot/durable) |
+| P4: Integration | Full stack prototype |
 
 ---
 
-## Development Approach
+## Phase 2: PubSub Network
 
-### Prototyping Strategy
+**Goal:** Launch decentralized, SPO-operated messaging network.
 
-| Prototype | Focus | Duration |
-|-----------|-------|----------|
-| **P1: Networking** | Ouroboros + GossipSub hybrid | 4-6 weeks |
-| **P2: Identity** | Identus DID integration | 4-6 weeks |
-| **P3: Storage** | Tiered storage (hot/durable) | 4-6 weeks |
-| **P4: Integration** | Full stack prototype | 6-8 weeks |
+- Deploy SPO testnet, tune performance, complete security audit
+- Launch production mainnet
+- Ship wallet integrations and developer documentation
 
-### Vendor Engagement
+---
 
-| Milestone | Target |
-|-----------|--------|
-| Initial outreach | Q1 2025 |
-| Technical discussions | Q1 2025 |
-| Vendor selection | Q1 2025 |
-| Development start | Q2 2025 |
+## Phase 3: Full Economy
+
+**Goal:** Sustainable economic model with community governance.
+
+- Publish tokenomics RFC and gather community feedback
+- Design governance framework
+- Launch economic incentives and establish DAO
 
 ---
 
