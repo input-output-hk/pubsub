@@ -70,6 +70,13 @@ nav:
     - Overview: architecture/index.md
     - Philosophy: architecture/philosophy.md
     - System Layers: architecture/layers.md
+    - Key Use Cases:
+      - Overview: architecture/use-cases/index.md
+      - DEF-01 DeFi Intents: architecture/use-cases/def-01-defi-intents.md
+      - GOV-01 Governance: architecture/use-cases/gov-01-governance.md
+      - AI-01 Agents: architecture/use-cases/ai-01-agents.md
+      - XCB-01 Cross-Chain: architecture/use-cases/xcb-01-cross-chain.md
+      - SOC-01 Social: architecture/use-cases/soc-01-social.md
     - Use Case Coverage: architecture/use-case-coverage.md
     - Development Strategy: architecture/development-strategy.md
     - Build vs Buy: architecture/build-vs-buy.md
