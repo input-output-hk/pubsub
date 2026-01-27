@@ -1,10 +1,10 @@
 # SOC-01: Token-Gated Social Feeds
 
-**Use Case Definition: Agora for Token-Gated Social Feeds**
+**Use Case Definition: Cardano PubSub for Token-Gated Social Feeds**
 
 ## Executive Summary
 
-This use case defines Cardano Agora's role as the **"Web3 Social Layer"**, specifically focusing on Token-Gated Communities.
+This use case defines Cardano Cardano PubSub's role as the **"Web3 Social Layer"**, specifically focusing on Token-Gated Communities.
 
 Currently, Web3 communities rely on Web2 platforms (Discord, Telegram, X) which present critical risks:
 
@@ -12,24 +12,24 @@ Currently, Web3 communities rely on Web2 platforms (Discord, Telegram, X) which 
 2. **Security:** "Verify your wallet" bots are a primary vector for phishing attacks
 3. **Data Extraction:** User metadata is harvested for ad targeting
 
-Agora replaces this with a native, decentralized communication infrastructure where **"Your Wallet is Your Login"** and **"Your Assets are Your Permissions."** Users access encrypted chat groups automatically based on their on-chain holdings, with no middleman server to ban them or leak their data.
+Cardano PubSub replaces this with a native, decentralized communication infrastructure where **"Your Wallet is Your Login"** and **"Your Assets are Your Permissions."** Users access encrypted chat groups automatically based on their on-chain holdings, with no middleman server to ban them or leak their data.
 
 ## Strategic Value Proposition
 
 | Value | Description |
 |-------|-------------|
 | **Native Gating (No Bots)** | Permissions are derived directly from the ledger. If you hold the NFT, you are in. If you sell it, you are out. No clunky "Collab.land" bots required |
-| **Privacy First (E2EE)** | All messages are End-to-End Encrypted using MLS (Messaging Layer Security). Only fellow token holders can decrypt the content; even the Agora nodes relaying the messages cannot read them |
+| **Privacy First (E2EE)** | All messages are End-to-End Encrypted using MLS (Messaging Layer Security). Only fellow token holders can decrypt the content; even the Cardano PubSub nodes relaying the messages cannot read them |
 | **Censorship Resistance** | The social graph lives on a distributed network of SPOs. As long as the blockchain exists, the community exists |
 | **Sovereign Identity** | Users build a portable reputation linked to their DID/Wallet, not a siloed Discord ID that can be deleted |
 
 ## Actors & Roles
 
-| Actor | Role in Agora | Description |
+| Actor | Role in Cardano PubSub | Description |
 |-------|---------------|-------------|
 | **Community / DAO** | Admin / Creator | The entity defining the access rules (e.g., "Must hold PolicyID X"). They typically initialize the Group Key for encryption |
 | **Member (Holder)** | Publisher & Subscriber | The user holding the required asset. They publish encrypted messages and subscribe to the group topic |
-| **Agora Node** | Relayer & Gatekeeper | The node propagates messages. Crucially, it performs **Ingress Validation**—checking L1 state to ensure a sender actually holds the required token before relaying |
+| **Cardano PubSub Node** | Relayer & Gatekeeper | The node propagates messages. Crucially, it performs **Ingress Validation**—checking L1 state to ensure a sender actually holds the required token before relaying |
 | **Archive Node** | Store | Specialized nodes that store long-term chat history (optional service, as standard nodes may prune old chat logs) |
 
 ## Operational Flow: "The Clay Nation Holders Chat"
@@ -38,8 +38,8 @@ Agora replaces this with a native, decentralized communication infrastructure wh
 
 ### Step 1: Access & Discovery
 
-- **User Action:** Alice connects her wallet to a community interface (e.g., a dApp or generic Agora Client)
-- **Discovery:** The client scans for Agora topics matching her assets. It finds `social/group/clay-nation-verified`
+- **User Action:** Alice connects her wallet to a community interface (e.g., a dApp or generic Cardano PubSub Client)
+- **Discovery:** The client scans for Cardano PubSub topics matching her assets. It finds `social/group/clay-nation-verified`
 - **Validation:** The client proves Alice's ownership of the specific NFT Policy ID
 
 ### Step 2: Key Exchange (MLS)
@@ -52,11 +52,11 @@ Agora replaces this with a native, decentralized communication infrastructure wh
 
 - **Composition:** Alice types "GM! Just bought my first Clay."
 - **Encryption:** Her client encrypts the text using the current Group Epoch Key
-- **Broadcast:** The client sends the encrypted blob to the Agora network topic `social/group/clay-nation-verified`
+- **Broadcast:** The client sends the encrypted blob to the Cardano PubSub network topic `social/group/clay-nation-verified`
 
 ### Step 4: Network Enforcement
 
-- **Ingress Check:** The receiving Agora Node observes the message. It queries the Cardano L1 (via local DB or Ogmios): *"Does Sender Address X still hold Asset Y?"*
+- **Ingress Check:** The receiving Cardano PubSub Node observes the message. It queries the Cardano L1 (via local DB or Ogmios): *"Does Sender Address X still hold Asset Y?"*
 - **Relay:**
     - **If Yes:** The node propagates the message to peers
     - **If No:** The node drops the message (preventing spam from former holders)
@@ -69,8 +69,8 @@ Agora replaces this with a native, decentralized communication infrastructure wh
 ```mermaid
 sequenceDiagram
     participant Alice as Alice (Holder)
-    participant Client as Agora Client
-    participant Node as Agora Node
+    participant Client as Cardano PubSub Client
+    participant Node as Cardano PubSub Node
     participant L1 as Cardano L1
     participant Bob as Bob (Holder)
     
@@ -136,7 +136,7 @@ message SocialMessage {
 
 ## Requirements Integration
 
-| Social Requirement | Agora Feature Support |
+| Social Requirement | Cardano PubSub Feature Support |
 |-------------------|----------------------|
 | **Privacy (E2EE)** | SEC-1 (Encryption): Native support for MLS (IETF RFC 9420) to manage group keys efficiently, even as members join/leave dynamically |
 | **Access Control** | DP-10 (State Awareness): The node's ability to check L1 ledger state (UTXO set) is the critical enforcement mechanism for "Token Gating" |
@@ -146,7 +146,7 @@ message SocialMessage {
 ## Open Questions / Next Steps
 
 1. **History Storage Economics:** Who pays to store the chat history of 2024?
-    - *Idea:* Communities might run their own Agora Node (embedded in a desktop app) to serve their own history
+    - *Idea:* Communities might run their own Cardano PubSub Node (embedded in a desktop app) to serve their own history
 
 2. **Moderation:** If the network is censorship-resistant, how does a community ban an abusive user who still holds the token?
     - *Solution:* The MLS protocol allows the "Group Administrator" to forcibly remove a member from the Encryption Key Tree, effectively muting them even if they broadcast messages (peers won't be able to decrypt them)

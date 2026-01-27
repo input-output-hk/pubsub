@@ -1,6 +1,6 @@
 # System Layers
 
-The Agora Node is composed of five distinct layers. Each layer is designed with specific use cases driving its architecture.
+The Cardano PubSub Node is composed of five distinct layers. Each layer is designed with specific use cases driving its architecture.
 
 ## Layer 1: P2P Networking Layer
 
@@ -8,7 +8,7 @@ The Agora Node is composed of five distinct layers. Each layer is designed with 
 
 ### Strategic Direction
 
-While libp2p offers robust gossip capabilities, we will **not limit the architecture to it**. The networking stack will prioritize compatibility with the **Ouroboros Network** (Cardano's native stack). This ensures that SPOs can run Agora side-by-side with their block producers using familiar connection managers and multiplexing protocols.
+While libp2p offers robust gossip capabilities, we will **not limit the architecture to it**. The networking stack will prioritize compatibility with the **Ouroboros Network** (Cardano's native stack). This ensures that SPOs can run Cardano PubSub side-by-side with their block producers using familiar connection managers and multiplexing protocols.
 
 ### Key Components
 
@@ -50,7 +50,7 @@ While libp2p offers robust gossip capabilities, we will **not limit the architec
 
 ### Strategic Direction
 
-This layer is **explicitly built on Identus**. We do not use generic crypto-keys; we use DIDs. Every publisher on Agora is identified by a DID, allowing for rich, portable reputation and credential verification.
+This layer is **explicitly built on Identus**. We do not use generic crypto-keys; we use DIDs. Every publisher on Cardano PubSub is identified by a DID, allowing for rich, portable reputation and credential verification.
 
 ### Key Components
 
@@ -94,7 +94,7 @@ This layer is **explicitly built on Identus**. We do not use generic crypto-keys
 | Component | Purpose |
 |-----------|---------|
 | **gRPC / GraphQL API** | High-performance node interaction |
-| **Agora SDK (TS/Rust)** | Client libraries handling connection, signing, and encryption complexity |
+| **Cardano PubSub SDK (TS/Rust)** | Client libraries handling connection, signing, and encryption complexity |
 
 ### Use Case Drivers
 

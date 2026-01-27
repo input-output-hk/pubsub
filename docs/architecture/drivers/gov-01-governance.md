@@ -1,30 +1,30 @@
 # GOV-01: Actionable DAO Governance
 
-**Use Case Definition: Agora for Actionable DAO Governance**
+**Use Case Definition: Cardano PubSub for Actionable DAO Governance**
 
 !!! info "Related Documents"
-    - PRD_Cardano Agora
+    - PRD_Cardano Cardano PubSub
 
 ## Executive Summary
 
-This use case defines the role of Cardano Agora as the **"Secure Notification & Voting Bus"** for the Voltaire era and DAO governance.
+This use case defines the role of Cardano Cardano PubSub as the **"Secure Notification & Voting Bus"** for the Voltaire era and DAO governance.
 
 Currently, governance is fragmented: proposals are posted on forums (IdeaScale, GitHub), discussions happen on Discord, and voting occurs on separate dApps. Users often miss critical voting windows because they rely on social media feeds for alerts.
 
-Agora solves this by enabling a **direct, authenticated communication channel** between Governance Bodies (DAOs, Constitutional Committee, DReps) and the Voter. It transforms governance from a passive, "pull-based" activity (checking a website) into an active, **"push-based" experience** where users receive Actionable Notifications in their wallets and can cast votes without leaving the interface.
+Cardano PubSub solves this by enabling a **direct, authenticated communication channel** between Governance Bodies (DAOs, Constitutional Committee, DReps) and the Voter. It transforms governance from a passive, "pull-based" activity (checking a website) into an active, **"push-based" experience** where users receive Actionable Notifications in their wallets and can cast votes without leaving the interface.
 
 ## Strategic Value Proposition
 
 | Value | Description |
 |-------|-------------|
-| **Reliability (Guaranteed Delivery)** | Unlike Twitter or Discord algorithms that may bury an announcement, Agora ensures that every subscribed wallet receives the "New Proposal" notification. This is critical for achieving quorum |
+| **Reliability (Guaranteed Delivery)** | Unlike Twitter or Discord algorithms that may bury an announcement, Cardano PubSub ensures that every subscribed wallet receives the "New Proposal" notification. This is critical for achieving quorum |
 | **Security (Anti-Phishing)** | Governance messages are cryptographically signed by the proposal creator (e.g., the Constitutional Committee's multisig DID). Wallets can display a "Verified" badge, protecting users from fake proposal scams |
-| **In-Wallet Experience** | By embedding the "Vote" action directly into the notification payload, Agora reduces the friction of voting from ~5 minutes (connect wallet, find dApp, navigate) to <10 seconds |
-| **Censorship Resistance** | Relying on centralized Web2 platforms for governance discussion introduces a central point of failure. Agora ensures the debate and the voting signals travel over a decentralized network of SPOs |
+| **In-Wallet Experience** | By embedding the "Vote" action directly into the notification payload, Cardano PubSub reduces the friction of voting from ~5 minutes (connect wallet, find dApp, navigate) to <10 seconds |
+| **Censorship Resistance** | Relying on centralized Web2 platforms for governance discussion introduces a central point of failure. Cardano PubSub ensures the debate and the voting signals travel over a decentralized network of SPOs |
 
 ## Actors & Roles
 
-| Actor | Role in Agora | Description |
+| Actor | Role in Cardano PubSub | Description |
 |-------|---------------|-------------|
 | **Governance Body** | Publisher | The entity initiating a vote. This could be a DAO Smart Contract, the Constitutional Committee, or a DRep. They publish the Proposal Notification |
 | **Voter / Wallet** | Subscriber & Publisher | The ADA holder. They subscribe to governance topics to receive alerts and publish their signed "Vote" message back to the network |
@@ -38,9 +38,9 @@ Agora solves this by enabling a **direct, authenticated communication channel** 
 ### Step 1: Proposal Submission & Notification
 
 - **Action:** The Committee submits the proposal on-chain (L1)
-- **Broadcast:** Simultaneously, they publish an Agora Message to the topic `governance/cip-1694/alerts`
+- **Broadcast:** Simultaneously, they publish an Cardano PubSub Message to the topic `governance/cip-1694/alerts`
 - **Payload:** Proposal Hash, Title ("Motion of No Confidence"), Summary, End Epoch, and Action: Vote
-- **Verification:** Agora nodes verify the message is signed by the known Committee keys before relaying
+- **Verification:** Cardano PubSub nodes verify the message is signed by the known Committee keys before relaying
 
 ### Step 2: Delivery & Alert
 
@@ -50,7 +50,7 @@ Agora solves this by enabling a **direct, authenticated communication channel** 
 ### Step 3: In-Wallet Review
 
 - **Interaction:** Alice taps the notification. The wallet expands the message, showing the summary and a link to the full text (IPFS)
-- **Context:** The wallet may also pull "DRep Recommendations" from a separate Agora topic (`governance/dreps/recommendations`) to help Alice decide
+- **Context:** The wallet may also pull "DRep Recommendations" from a separate Cardano PubSub topic (`governance/dreps/recommendations`) to help Alice decide
 
 ### Step 4: Casting the Vote
 
@@ -62,23 +62,23 @@ Agora solves this by enabling a **direct, authenticated communication channel** 
 
 - **Tallying:** Aggregator nodes (subscribers) collect all signed vote messages for that proposal ID
 - **Settlement:** Depending on the governance model:
-    - **Direct:** The vote is a signal; Alice later submits an L1 transaction to finalize (Agora acted as the coordination layer)
-    - **Batch:** An aggregator bundles 1,000 Agora vote signatures into a single L1 transaction to save fees
+    - **Direct:** The vote is a signal; Alice later submits an L1 transaction to finalize (Cardano PubSub acted as the coordination layer)
+    - **Batch:** An aggregator bundles 1,000 Cardano PubSub vote signatures into a single L1 transaction to save fees
 
 ```mermaid
 sequenceDiagram
     participant CC as Constitutional Committee
-    participant Agora as Agora Network
+    participant Cardano PubSub as Cardano PubSub Network
     participant Alice as Alice (Wallet)
     participant Agg as Vote Aggregator
     participant L1 as Cardano L1
     
     CC->>L1: Submit proposal on-chain
-    CC->>Agora: Publish proposal alert
-    Agora->>Alice: Deliver notification
+    CC->>Cardano PubSub: Publish proposal alert
+    Cardano PubSub->>Alice: Deliver notification
     Alice->>Alice: Review proposal
-    Alice->>Agora: Publish signed vote
-    Agora->>Agg: Collect votes
+    Alice->>Cardano PubSub: Publish signed vote
+    Cardano PubSub->>Agg: Collect votes
     Agg->>L1: Submit aggregated result
 ```
 
@@ -131,7 +131,7 @@ Unlike "DeFi Intents" which can expire in minutes, Governance messages must adhe
 
 ## Requirements Integration
 
-| Governance Requirement | Agora Feature Support |
+| Governance Requirement | Cardano PubSub Feature Support |
 |-----------------------|----------------------|
 | **Reliable Notification** | CP-4 (Persistence): Ensures proposal data is available for the full 14-day voting window, even if users come online late |
 | **Verified Source** | SEC-3 (Authentication): Ensures alerts claim to be from the "Constitutional Committee" are actually signed by their keys |
@@ -140,8 +140,8 @@ Unlike "DeFi Intents" which can expire in minutes, Governance messages must adhe
 
 ## Open Questions / Next Steps
 
-1. **Vote Aggregation Standardization:** If Agora is used for "Soft Signaling" before on-chain votes, do we need a standard specification for how Aggregators prove the result?
+1. **Vote Aggregation Standardization:** If Cardano PubSub is used for "Soft Signaling" before on-chain votes, do we need a standard specification for how Aggregators prove the result?
 
-2. **DRep Identity Integration:** How do we link an Agora Publisher ID to a registered DRep ID (CIP-1694) to display their "Reputation" alongside their forum posts?
+2. **DRep Identity Integration:** How do we link an Cardano PubSub Publisher ID to a registered DRep ID (CIP-1694) to display their "Reputation" alongside their forum posts?
 
 3. **Large Scale Discussion:** A controversial proposal could generate 100k+ discussion messages. Do we need "Sharding" for the discussion topic type?

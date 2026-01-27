@@ -1,44 +1,89 @@
 # Vision & Problem Statement
 
+!!! info "Audience: All stakeholders"
+
 ## Mission
 
-To provide the Cardano ecosystem (Cardano, Midnight, Partner Chains) with the open-source tools and protocols necessary to build and participate in a unified, secure, and decentralized communication network.
+To provide the Cardano ecosystem with the **open-source tools and protocols** necessary to build and participate in a unified, secure, and decentralized communication network.
 
 ## Vision
 
-To create a decentralized, trustless, and censorship-resistant communication protocol available across Cardano, Midnight and PartnerChains, transforming them into a truly interactive and interoperable multi-chain ecosystem.
+**Every Cardano wallet becomes a communication endpoint.**
 
-## Problem
+Users receive governance proposals, DeFi alerts, and community messages directly in their wallet — verified, actionable, and private. No Discord. No phishing. No middlemen.
 
-The IOG ecosystem lacks a native, unified, and secure communication layer. This forces projects on Cardano and Midnight to plan for a future reliant on insecure, centralized Web2 platforms (Discord, X) or incompatible Web3 solutions.
+## The Problem
 
-### Core Problems
+The Cardano ecosystem lacks a native, unified, and secure communication layer. Today, critical information flows through:
+
+| Current Channel | Problem |
+|-----------------|---------|
+| **Discord/Telegram** | Centralized, censorable, prime target for phishing |
+| **Twitter/X** | Algorithm-controlled visibility, no verification |
+| **Email** | Requires PII, spam-prone, not Web3-native |
+| **dApp websites** | Users must actively check; no push notifications |
+
+### Impact on Users
+
+| Scenario | What Happens Today | With PubSub |
+|----------|-------------------|-------------|
+| **DeFi liquidation warning** | Posted on Discord; user misses it; loses funds | Push notification with "Add Collateral" button |
+| **Governance proposal** | Announced on Twitter; buried in feed; low turnout | Verified alert with embedded "Vote" action |
+| **NFT drop** | Scammer impersonates project; users get phished | Cryptographically verified from project's DID |
+| **SPO maintenance** | Delegators don't know pool is down | Direct notification to delegator wallets |
+
+### The Core Problems
 
 | Problem | Impact |
 |---------|--------|
-| **Cross-Chain Fragmentation** | Without a unified standard, each chain develops isolated solutions, creating a disjointed user experience and preventing seamless interoperability |
-| **Significant Security Risks** | Communicating critical financial information (e.g., DeFi liquidations, governance votes) through untrusted channels exposes all users to phishing, scams, and censorship |
-| **Incompatible Technology** | Existing pub/sub solutions like libp2p and XMTP are not compatible with Cardano's native mini-protocol network stack, making them inefficient and burdensome for SPOs to run |
-| **Stifled Innovation** | The absence of a real-time, cross-chain communication primitive prevents developers from building sophisticated applications that can interact seamlessly across Cardano and Midnight |
+| **Cross-Chain Fragmentation** | Cardano, Midnight, and Partner Chains will each build isolated solutions without a standard |
+| **Security Risks** | Critical financial information transmitted through unverified channels |
+| **Incompatible Technology** | Existing solutions (libp2p, XMTP) don't integrate with Cardano's network stack |
+| **Stifled Innovation** | Developers can't build interactive, real-time dApps without a messaging primitive |
 
-## Solution
+## The Solution
 
-Agora provides a unified, phased solution designed specifically for the IOG ecosystem:
+Cardano PubSub provides a **unified, phased solution** designed specifically for the Cardano ecosystem:
 
-### Unified Standard
-A single protocol for Cardano, Midnight, and partner chains, ensuring interoperability from day one.
+### 1. Unified Standard
 
-### Decentralized Identity
-Use of Hyperledger Identus DIDs as the core identifier, enabling true cross-chain communication and identity management.
+A single protocol for Cardano, Midnight, and Partner Chains. Build once, communicate everywhere.
 
-### Native Network Integration
-Prioritizing native network integration using Cardano's core protocols (with a mini-protocol being the leading approach under evaluation) to ensure optimal performance, security, and low operational overhead for SPOs.
+### 2. Native Identity (Identus)
 
-### Data Availability Layer
-Incorporating a DA layer to provide censorship resistance and verifiable proof of message delivery for all subscribers.
+Every message is signed by a Decentralized Identifier (DID). No more "verify your wallet" phishing vectors.
 
-### Phased Decentralization
-Launching with Beacon, a centralized backend for Midnight, to meet immediate deadlines, while building the fully decentralized Agora network for the long term.
+```
+Message from: did:prism:constitutional-committee-xyz
+Verified: ✓ Constitutional Committee Member
+Action: [Vote Yes] [Vote No] [Abstain]
+```
 
-### Private & Secure
-End-to-end encryption for all messages, with research into Trusted Execution Environments (TEEs) to enable truly private communication channels.
+### 3. SPO-Powered Infrastructure
+
+The PubSub network runs on the same 3,000+ SPOs that secure Cardano. No new network to bootstrap.
+
+### 4. Actionable Messages
+
+Messages aren't just text — they're **interactive**. Vote, swap, stake, and respond without leaving your wallet.
+
+### 5. Privacy by Default
+
+End-to-end encryption (MLS) for private messages. Even relay nodes can't read your content.
+
+### 6. Phased Rollout
+
+| Phase | What | When |
+|-------|------|------|
+| **Beacon** | Centralized MVP for Midnight | Q3 2025 |
+| **PubSub Network** | Decentralized SPO network | 2026 |
+| **Full Economy** | Token incentives, DAO governance | 2027 |
+
+## Success Criteria
+
+| Metric | Target | Why It Matters |
+|--------|--------|----------------|
+| **Midnight launch support** | 100% notification delivery | Proves production readiness |
+| **Governance participation** | +20% voter turnout | Validates "actionable" value prop |
+| **SPO adoption** | 100+ relay nodes | Demonstrates decentralization path |
+| **dApp integrations** | 30+ in Year 1 | Proves developer demand |

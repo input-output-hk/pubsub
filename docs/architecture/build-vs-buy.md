@@ -1,6 +1,6 @@
 # Build vs Buy Decisions
 
-Strategic technology adoption decisions for the Agora architecture.
+Strategic technology adoption decisions for the Cardano PubSub architecture.
 
 ## Decision Matrix
 
@@ -44,7 +44,7 @@ Strategic technology adoption decisions for the Agora architecture.
     - Ecosystem alignment and support
     - Portable reputation across Cardano dApps
     - Verifiable Credentials support out of the box
-    - Maintenance burden on Identus team, not Agora team
+    - Maintenance burden on Identus team, not Cardano PubSub team
 
 ---
 

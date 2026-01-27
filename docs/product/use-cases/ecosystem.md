@@ -2,7 +2,7 @@
 
 **Cross-Chain Growth**
 
-This vertical directly addresses the challenge of user base expansion by using Agora as a communication and interaction bridge to attract users and liquidity from other ecosystems. *A key requirement identified by Minswap.*
+This vertical directly addresses the challenge of user base expansion by using Cardano PubSub as a communication and interaction bridge to attract users and liquidity from other ecosystems. *A key requirement identified by Minswap.*
 
 ## Use Cases
 
@@ -24,6 +24,6 @@ A Cardano DeFi protocol sends a targeted, interactive message to users on other 
 
 ### Portable Cross-Chain Reputation
 
-An identity protocol on Agora aggregates a user's interactions across multiple chains (e.g., governance on Cardano, lending on Aave) to build a holistic, portable on-chain reputation score using their Hyperledger Identus DID.
+An identity protocol on Cardano PubSub aggregates a user's interactions across multiple chains (e.g., governance on Cardano, lending on Aave) to build a holistic, portable on-chain reputation score using their Hyperledger Identus DID.
 
 **Core Benefit:** Creates a valuable, portable digital identity asset for users and a powerful trust layer for the entire Web3 ecosystem, anchored by Cardano.

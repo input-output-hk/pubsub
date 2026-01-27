@@ -1,5 +1,5 @@
-site_name: Pubsub Documentation
-site_description: Decentralized communication/messaging system for Cardano
+site_name: Cardano PubSub Documentation
+site_description: The native communication layer for the Cardano ecosystem
 site_url: https://input-output-hk.github.io/pubsub/
 
 repo_name: input-output-hk/pubsub
@@ -25,9 +25,11 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.indexes
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.tabs.link
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -44,9 +46,12 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - toc:
+      permalink: true
 
 nav:
   - Home: index.md
+  - Glossary: glossary.md
   - Product:
     - Overview: product/index.md
     - Vision & Problem: product/vision.md
@@ -70,13 +75,19 @@ nav:
     - Overview: architecture/index.md
     - Philosophy: architecture/philosophy.md
     - System Layers: architecture/layers.md
-    - Key Use Cases:
-      - Overview: architecture/use-cases/index.md
-      - DEF-01 DeFi Intents: architecture/use-cases/def-01-defi-intents.md
-      - GOV-01 Governance: architecture/use-cases/gov-01-governance.md
-      - AI-01 Agents: architecture/use-cases/ai-01-agents.md
-      - XCB-01 Cross-Chain: architecture/use-cases/xcb-01-cross-chain.md
-      - SOC-01 Social: architecture/use-cases/soc-01-social.md
+    - Architectural Drivers:
+      - Overview: architecture/drivers/index.md
+      - DEF-01 DeFi Intents: architecture/drivers/def-01-defi-intents.md
+      - GOV-01 Governance: architecture/drivers/gov-01-governance.md
+      - AI-01 Agents: architecture/drivers/ai-01-agents.md
+      - XCB-01 Cross-Chain: architecture/drivers/xcb-01-cross-chain.md
+      - SOC-01 Social: architecture/drivers/soc-01-social.md
     - Use Case Coverage: architecture/use-case-coverage.md
     - Development Strategy: architecture/development-strategy.md
     - Build vs Buy: architecture/build-vs-buy.md
+  - Beacon:
+    - Overview: beacon/index.md
+  - Economics:
+    - Overview: economics/index.md
+  - API Reference:
+    - Overview: api/index.md

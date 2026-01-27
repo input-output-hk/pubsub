@@ -2,7 +2,7 @@
 
 **Building the Cardano Fediverse**
 
-This vertical leverages Agora's unique features for on-chain permissioning and decentralized moderation to build a rich, community-governed social ecosystem on Cardano.
+This vertical leverages Cardano PubSub's unique features for on-chain permissioning and decentralized moderation to build a rich, community-governed social ecosystem on Cardano.
 
 ## Use Cases
 
@@ -24,6 +24,6 @@ A system where users and dApps can subscribe to moderation lists curated by trus
 
 ### ActivityPub Bridge
 
-A specialized bridge service that connects Cardano to the wider decentralized social web (the "Fediverse") by translating public Agora messages into the standard ActivityPub format.
+A specialized bridge service that connects Cardano to the wider decentralized social web (the "Fediverse") by translating public Cardano PubSub messages into the standard ActivityPub format.
 
 **Core Benefit:** Dramatically expands Cardano's reach and interoperability, allowing on-chain events to be visible and interactive on external platforms like Mastodon.

@@ -2,7 +2,7 @@
 
 **The Autonomous Economy**
 
-This vertical leverages Agora as a foundational operating system for a new class of participants: autonomous AI agents. These use cases represent the frontier of Web3, enabling a machine-driven economy on Cardano.
+This vertical leverages Cardano PubSub as a foundational operating system for a new class of participants: autonomous AI agents. These use cases represent the frontier of Web3, enabling a machine-driven economy on Cardano.
 
 ## Use Cases
 
@@ -24,6 +24,6 @@ AI agents that enhance DAO efficiency by summarizing complex proposals, automati
 
 ### Network Infrastructure Agents
 
-A swarm of autonomous agents deployed by a "Network Health DAO" to monitor Agora node uptime and performance, and collaboratively trigger slashing if a node is malicious.
+A swarm of autonomous agents deployed by a "Network Health DAO" to monitor Cardano PubSub node uptime and performance, and collaboratively trigger slashing if a node is malicious.
 
-**Core Benefit:** Automates network maintenance and security enforcement, making the entire Agora protocol more robust and resilient.
+**Core Benefit:** Automates network maintenance and security enforcement, making the entire Cardano PubSub protocol more robust and resilient.

@@ -1,6 +1,6 @@
 # Use Cases
 
-Agora use cases are organized into five strategic verticals:
+Cardano PubSub use cases are organized into five strategic verticals:
 
 1. **[Foundational](foundational.md)** — Securing & Enhancing the Core Experience
 2. **[Social & Community](social.md)** — Building the Cardano Fediverse

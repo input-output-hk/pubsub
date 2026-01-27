@@ -2,7 +2,7 @@
 
 **Securing & Enhancing the Core Experience**
 
-This vertical focuses on leveraging Agora to solve the immediate communication challenges within the IOG ecosystem, making core on-chain interactions safer, more efficient, and more intuitive for all users.
+This vertical focuses on leveraging Cardano PubSub to solve the immediate communication challenges within the IOG ecosystem, making core on-chain interactions safer, more efficient, and more intuitive for all users.
 
 ## Use Cases
 

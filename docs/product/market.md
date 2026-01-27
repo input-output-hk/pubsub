@@ -1,34 +1,118 @@
 # Market Analysis
 
+!!! info "Audience: Executives, Product Managers"
+
 ## Market Size and Opportunity
 
-By creating a unified communication standard, Agora is positioned to become the core messaging infrastructure for the entire IOG ecosystem. This is a significantly larger opportunity than a Cardano-only solution.
+By creating a unified communication standard, Cardano PubSub is positioned to become the **core messaging infrastructure** for the entire Cardano ecosystem.
 
-### Key Opportunities
+### The Opportunity
 
-| Opportunity | Description |
-|-------------|-------------|
-| **De-Facto Standard** | Establish the essential communication layer for all dApps and users on Cardano, Midnight, and future partner chains |
-| **Multi-Chain Economy** | Provide the "connective tissue" for cross-chain DeFi, governance, and identity |
-| **Core "Workhorse"** | Serve as the underlying communication layer for other critical IOG protocols, including Mithril, Leios, and future data availability solutions |
-| **Technical Moat** | Build a deeply integrated, native protocol stack that avoids the compatibility and incentive problems of generic, off-the-shelf solutions |
+| Dimension | Scope |
+|-----------|-------|
+| **Addressable Users** | 4M+ Cardano wallets, growing Midnight user base |
+| **dApp Ecosystem** | 1,000+ Cardano dApps needing user communication |
+| **SPO Network** | 3,000+ operators (potential relay nodes) |
+| **Partner Chains** | Midnight + future sidechains |
+
+### Strategic Positions to Win
+
+| Position | Description | Moat |
+|----------|-------------|------|
+| **De-Facto Standard** | The messaging layer everyone uses | Network effects |
+| **Protocol Infrastructure** | Underlying layer for Mithril, Leios, DA | Deep integration |
+| **Identity Hub** | Identus DIDs as the universal identifier | Ecosystem lock-in |
+| **SPO Revenue Stream** | New income source for operators | Aligned incentives |
 
 ## Competitive Landscape
 
-Our primary advantage is our **native-first approach**. While competitors validate the market need, their generic architectures create weaknesses we can exploit.
+Our primary advantage is the **native-first approach**. While competitors validate market need, their generic architectures create exploitable weaknesses.
 
-### Competitor Analysis
+### Competitor Deep Dive
 
-| Competitor | Context | Key Weakness / Strategic Lesson |
-|------------|---------|--------------------------------|
-| **Waku / libp2p** | Mature decentralized messaging protocols ([Waku Docs](https://docs.waku.org/)) | Technologically incompatible with Cardano's mini-protocol stack. Adopting this would be inefficient and costly for SPOs. |
-| **XMTP** | Build messaging for Web3 apps | Relies on EVM-style identity and struggles to incentivize its node network. Our use of DIDs and the existing SPO network solves both problems. |
-| **Dialect (Solana)** | Solana-native messaging | The "action layer" concept is a powerful UX primitive. **Lesson:** We must focus on making messages interactive, not just informational. |
-| **Push Protocol** | Cross-chain notification protocol | The move to a dedicated L1 shows the immense complexity of trying to be truly chain-agnostic. Our ecosystem-first approach is more focused and efficient. |
+#### Waku / libp2p
+
+| Aspect | Assessment |
+|--------|------------|
+| **What they do well** | Battle-tested gossip protocols, strong privacy focus, active development |
+| **Key weakness** | Technologically incompatible with Cardano's Ouroboros miniprotocol stack |
+| **Strategic lesson** | Their RLN (Rate Limiting Nullifiers) spam prevention is worth studying |
+| **Our advantage** | Native Ouroboros integration means SPOs can run PubSub alongside block producers |
+
+#### XMTP
+
+| Aspect | Assessment |
+|--------|------------|
+| **What they do well** | Clean developer experience, good SDKs, growing EVM adoption |
+| **Key weakness** | EVM-centric identity; struggles to incentivize node operators |
+| **Strategic lesson** | Their "portable inbox" concept resonates with users |
+| **Our advantage** | Identus DIDs + existing SPO incentive structure solves both problems |
+
+#### Dialect (Solana)
+
+| Aspect | Assessment |
+|--------|------------|
+| **What they do well** | "Actions" concept — messages that trigger on-chain transactions |
+| **Key weakness** | Solana-only; no path to Cardano |
+| **Strategic lesson** | **Critical: Focus on making messages interactive, not just informational** |
+| **Our advantage** | Same concept, native to Cardano, with cross-chain potential |
+
+#### Push Protocol
+
+| Aspect | Assessment |
+|--------|------------|
+| **What they do well** | True cross-chain vision, growing adoption |
+| **Key weakness** | Building dedicated L1 shows complexity of chain-agnostic approach |
+| **Strategic lesson** | Cross-chain is hard; ecosystem-first is more achievable |
+| **Our advantage** | Focused scope (Cardano + Partner Chains) enables deeper integration |
+
+### Competitive Positioning Matrix
+
+```
+                    Native Integration
+                           ↑
+                           │
+         PubSub ●          │           
+                           │
+    ───────────────────────┼───────────────────────→ Cross-Chain
+                           │                         Reach
+              ● XMTP       │        ● Push
+                           │
+              ● Waku       │        ● Dialect
+                           │
+```
 
 ## Strategic Differentiators
 
-1. **Native Cardano Integration** — Built on Cardano's mini-protocol stack, not bolted on
-2. **SPO Network Leverage** — Utilizes existing infrastructure and incentive structures
-3. **Hyperledger Identus DIDs** — Cross-chain identity without EVM dependency
-4. **Phased Approach** — Pragmatic centralized MVP (Beacon) before full decentralization
+| Differentiator | What It Means | Why It Wins |
+|----------------|---------------|-------------|
+| **Ouroboros Native** | Uses Cardano's actual network stack | SPO adoption is frictionless |
+| **Identus Identity** | DIDs, not just addresses | Rich reputation, VCs, cross-chain identity |
+| **SPO Leverage** | 3,000+ existing operators | No cold-start problem |
+| **Phased Approach** | Beacon (centralized) → PubSub (decentralized) | Ship fast, decentralize later |
+| **Actionable Messages** | Vote, swap, stake from notifications | Dialect's best idea, on Cardano |
+
+## Go-to-Market Strategy
+
+### Phase 1: Beacon (Lighthouse Customers)
+
+| Customer | Value Proposition | Status |
+|----------|-------------------|--------|
+| **Midnight Foundation** | Launch notifications, governance | 🟡 In Discussion |
+| **Lace Wallet** | Native notification support | 🟡 In Discussion |
+| **1-2 DeFi protocols** | Liquidation alerts, actionable DeFi | ⬜ Targeting |
+
+### Phase 2: PubSub Network (Ecosystem Growth)
+
+| Segment | Acquisition Strategy |
+|---------|---------------------|
+| **SPOs** | Revenue opportunity + governance participation |
+| **Wallets** | SDK + integration support + case studies |
+| **dApps** | Free tier + documentation + hackathon presence |
+| **Users** | Organic via integrated wallets/dApps |
+
+### Phase 3: Full Economy (Network Effects)
+
+- Community-driven growth
+- Cross-chain expansion to Partner Chains
+- Protocol integrations (Mithril, Leios)

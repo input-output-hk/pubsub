@@ -8,7 +8,7 @@ This vertical focuses on realizing a "Super Wallet" strategy by enabling a vibra
 
 ### In-Wallet NFT Marketplace
 
-A dApplet that allows users to securely browse, bid on, and purchase NFTs via actionable Agora messages without ever leaving their wallet.
+A dApplet that allows users to securely browse, bid on, and purchase NFTs via actionable Cardano PubSub messages without ever leaving their wallet.
 
 **Core Benefit:** Streamlines the user experience and reduces security risks from connecting to third-party sites, capturing more economic activity.
 

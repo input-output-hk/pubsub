@@ -6,13 +6,13 @@ The architecture is built on core principles derived from AUEB research and exec
 
 ### 1. Decoupling
 
-We separate the **Signaling Layer (Agora)** from the **Settlement Layer (Cardano L1)**.
+We separate the **Signaling Layer (Cardano PubSub)** from the **Settlement Layer (Cardano L1)**.
 
-This allows Agora to operate at speeds (milliseconds) and costs (near-zero) that the L1 cannot match, while relying on the L1 for finality.
+This allows Cardano PubSub to operate at speeds (milliseconds) and costs (near-zero) that the L1 cannot match, while relying on the L1 for finality.
 
 ```
 ┌──────────────────┐     ┌──────────────────┐
-│   Agora (DMB)    │     │   Cardano L1     │
+│   Cardano PubSub (DMB)    │     │   Cardano L1     │
 │                  │     │                  │
 │  • Milliseconds  │     │  • Seconds       │
 │  • Near-zero $   │────▶│  • Tx fees       │
@@ -29,7 +29,7 @@ The system must **not be an alien component** to Stake Pool Operators (SPOs).
 It must leverage existing Cardano networking primitives and identity standards (Identus) to ensure frictionless adoption.
 
 !!! tip "Why This Matters"
-    SPOs already run complex infrastructure. Agora should feel like a natural extension of their existing stack, not a foreign system requiring new expertise.
+    SPOs already run complex infrastructure. Cardano PubSub should feel like a natural extension of their existing stack, not a foreign system requiring new expertise.
 
 ### 3. Hybrid Dissemination
 
