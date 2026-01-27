@@ -61,10 +61,15 @@ nav:
       - Commerce & Services: product/use-cases/commerce.md
       - AI & Agentic Systems: product/use-cases/ai-agents.md
       - Ecosystem Expansion: product/use-cases/ecosystem.md
-    - Architecture: product/architecture.md
+    - Architecture Drivers: product/architecture.md
     - Market Analysis: product/market.md
     - Roadmap: product/roadmap.md
     - Stakeholders & Team: product/stakeholders.md
     - Risks & Asks: product/risks.md
   - Architecture:
     - Overview: architecture/index.md
+    - Philosophy: architecture/philosophy.md
+    - System Layers: architecture/layers.md
+    - Use Case Coverage: architecture/use-case-coverage.md
+    - Development Strategy: architecture/development-strategy.md
+    - Build vs Buy: architecture/build-vs-buy.md
