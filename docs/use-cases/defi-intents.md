@@ -3,7 +3,7 @@
 **Cardano PubSub provides the Decentralised Message Bus for the DeFi Intents architecture.**
 
 !!! info "Context"
-    DeFi Intents is a broader initiative involving multiple teams and components. Cardano PubSub specifically provides the **communication layer** — the Decentralised Message Bus that connects users to agents. For the complete architecture, see the [DeFi Intents PRD](https://docs.google.com/document/d/defi-intents-prd).
+    DeFi Intents is a broader initiative involving multiple teams and components. Cardano PubSub specifically provides the **communication layer** — the Decentralised Message Bus that connects users to agents.
 
 ## The Broader Initiative
 
@@ -204,7 +204,6 @@ sequenceDiagram
 
 ## Related
 
-- [DeFi Intents PRD](https://docs.google.com/document/d/defi-intents-prd) — Full architecture
-- [CIP-118: Nested Transactions](https://github.com/cardano-foundation/CIPs/pull/XXX)
+- [CIP-118: Nested Transactions](https://github.com/cardano-foundation/CIPs)
 - [Requirements: FR1.1, FR1.4, FR5.1](../product/requirements/functional.md)
 - [Requirements: NFR1.1, NFR1.2](../product/requirements/non-functional.md)
