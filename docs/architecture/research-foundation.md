@@ -118,6 +118,44 @@ The paper proposes a three-layer protocol stack for message dissemination, with 
 
 ---
 
+## Design Principles & Clarifications
+
+Based on discussions with the research authors, several important design principles have been established:
+
+### Subscription Access Control
+
+!!! info "Key Design Decision"
+    **Subscription access control is NOT enforced at the infrastructure level.** Anyone can subscribe to any topic, including "permissioned" topics.
+
+**Rationale:**
+
+1. **False security** — Stating access control exists on disseminated messages is misleading; any subscriber could disclose content externally
+2. **P2P incompatibility** — Subscribers act as relay nodes; access control would require trusting all nodes to enforce rules
+3. **Use encryption instead** — For confidential topics, publishers encrypt messages client-side with external key distribution
+
+### Retention vs TTL
+
+!!! warning "Message-Level TTL Not Recommended"
+    The research explicitly recommends **against** message-level Time-to-Live (TTL). Use topic-level `retentionPeriod` only.
+
+**Why message TTL is problematic:**
+
+- Creates false expectations about ephemeral data (any receiver could have saved it)
+- Requires per-message metadata storage even after expiry
+- Conflicts with the decentralized indexing scheme (can't distinguish "expired" from "missing")
+- Impossible to verify nodes actually deleted the message
+
+### Security Model
+
+| Topic Type | Security | Mechanism |
+|------------|----------|-----------|
+| **Open** | Authenticity | Publisher signature (required) |
+| **Private** | Confidentiality | Client-side encryption + external key distribution |
+
+E2E encryption (MLS) is optional and recommended only for private topics where confidentiality matters.
+
+---
+
 ## On-Chain Topic Registry
 
 Topics are administered via a smart contract deployed on Cardano, providing global knowledge of all topics and their configurations.
@@ -168,6 +206,10 @@ The paper proposes a **clique-structured DHT** optimized for the expected scale 
 | **Routing** | One-hop (direct contact to responsible node) |
 | **Similarity** | Amazon Dynamo / DynamoDB |
 | **Membership** | On-chain registration of replication servers |
+| **Hashing** | Consistent hashing (like Chord), NOT Kademlia |
+
+!!! warning "Important Clarification"
+    The DHT uses **consistent hashing** with global knowledge of all nodes (registered on-chain), enabling 1-hop routing. This is different from Kademlia-based DHTs which use iterative routing. The global knowledge of registered replication servers makes the simpler clique approach feasible.
 
 **Advantages:**
 
@@ -255,12 +297,38 @@ The research provides the communication foundation. We extend it with:
 
 ---
 
+## Performance Targets
+
+Based on the research and related product requirements:
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| **Message latency (p99)** | <1 second | Online subscriber propagation |
+| **Network throughput** | 10,000+ msg/sec | Network-wide capacity |
+| **Concurrent topics** | 10,000+ | Supported simultaneously |
+| **Active subscribers** | 1M+ | Connection capacity |
+| **Node sync time** | <6 hours | Full synchronization |
+
+### Replication Server Requirements
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| **CPU** | 4 cores @ 2.4GHz | 8 cores |
+| **RAM** | 16 GB | 32 GB |
+| **Storage** | 500 GB SSD | 1 TB NVMe |
+| **Bandwidth** | 100 Mbps dedicated | 1 Gbps |
+| **Uptime SLA** | 99.5% | — |
+
+---
+
 ## References
 
 - Antonov, A., Kolyvas, E., Voulgaris, S. (2024). *Cardano Pub/Sub Framework: Design and Architecture*. Athens University of Economics and Business.
 - Voulgaris, S., van Steen, M. (2007). *Hybrid Dissemination: Adding Determinism to Probabilistic Multicasting in Large-Scale P2P Systems*. Middleware.
 - Antonov, A., Voulgaris, S. (2023). *SecureCyclon: Dependable Peer Sampling*. IEEE ICDCS.
 - Voulgaris, S., van Steen, M. (2013). *Vicinity: A Pinch of Randomness Brings Out the Structure*. Middleware.
+
+**Acknowledgment:** Design clarifications informed by discussions with Prof. Spyros Voulgaris (AUEB).
 
 ---
 
