@@ -32,7 +32,11 @@ theme:
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - admonition
@@ -45,5 +49,22 @@ nav:
   - Home: index.md
   - Product:
     - Overview: product/index.md
+    - Vision & Problem: product/vision.md
+    - Requirements:
+      - Overview: product/requirements/index.md
+      - Functional: product/requirements/functional.md
+      - Non-Functional: product/requirements/non-functional.md
+    - Use Cases:
+      - Overview: product/use-cases/index.md
+      - Foundational: product/use-cases/foundational.md
+      - Social & Community: product/use-cases/social.md
+      - Commerce & Services: product/use-cases/commerce.md
+      - AI & Agentic Systems: product/use-cases/ai-agents.md
+      - Ecosystem Expansion: product/use-cases/ecosystem.md
+    - Architecture: product/architecture.md
+    - Market Analysis: product/market.md
+    - Roadmap: product/roadmap.md
+    - Stakeholders & Team: product/stakeholders.md
+    - Risks & Asks: product/risks.md
   - Architecture:
     - Overview: architecture/index.md
