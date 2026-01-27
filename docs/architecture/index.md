@@ -18,8 +18,6 @@ This architecture adheres to two key strategic directives:
 |---------|-------------|
 | [Philosophy](philosophy.md) | Core principles and design rationale |
 | [System Layers](layers.md) | The five layers of the PubSub Node |
-| [Architectural Drivers](drivers/index.md) | The 5 use cases that shape the architecture |
-| [Use Case Coverage](use-case-coverage.md) | How architecture satisfies requirements |
 | [Development Strategy](development-strategy.md) | Phased kernel-out approach |
 | [Build vs Buy](build-vs-buy.md) | Technology adoption decisions |
 
@@ -62,33 +60,20 @@ This architecture adheres to two key strategic directives:
 | **Storage** | Tiered (RAM + RocksDB) | Different TTLs for different use cases |
 | **Verification** | Custom L1 oracle | Unique to Cardano ecosystem |
 
-## Architectural Drivers
+## Use Cases Drive Architecture
 
-The architecture is shaped by five extreme use cases (see [Drivers](drivers/index.md)):
+The architecture is shaped by five core use cases (see [Use Cases](../use-cases/index.md)):
 
-| Driver | Pushes | Architectural Response |
-|--------|--------|------------------------|
-| **DEF-01: DeFi Intents** | Latency | GossipSub + Hot Cache |
-| **GOV-01: Governance** | Reliability | Harary Graph + Durable DHT |
-| **AI-01: Agents** | Throughput | Burst handling + CBOR |
-| **XCB-01: Cross-Chain** | Interop | Verifier plugins |
-| **SOC-01: Social** | Privacy | MLS + L1 State Oracle |
-
-## Beacon vs. PubSub Network
-
-| Aspect | Beacon (Phase 1) | PubSub Network (Phase 2+) |
-|--------|------------------|---------------------------|
-| **Topology** | Centralized service | P2P SPO network |
-| **Storage** | PostgreSQL | Distributed DHT |
-| **Networking** | REST/WebSocket | Ouroboros + GossipSub |
-| **Identity** | Identus DIDs | Identus DIDs (same) |
-| **API** | REST/WebSocket | gRPC/GraphQL + REST gateway |
-
-The key insight: **APIs and identity are consistent across both phases**, enabling seamless migration.
+| Use Case | Architectural Stress Test | Key Decision |
+|----------|---------------------------|--------------|
+| [DeFi Intents](../use-cases/defi-intents.md) | Latency <500ms | GossipSub + Hot Cache |
+| [Governance](../use-cases/governance.md) | 100% delivery guarantee | Harary Graph + Durable DHT |
+| [Agents](../use-cases/autonomous-agents.md) | 10k+ msg/sec throughput | Burst handling + CBOR |
+| [Cross-Chain](../use-cases/cross-chain.md) | Foreign chain proofs | Verifier plugins |
+| [Social](../use-cases/token-gated-social.md) | E2EE + token gating | MLS + L1 State Oracle |
 
 ## Related Documents
 
 - [Product Requirements](../product/index.md)
-
+- [Use Cases](../use-cases/index.md)
 - [Glossary](../glossary.md)
-- AUEB Paper: "Topic-Based Pub/Sub" *(internal)*

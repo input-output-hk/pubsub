@@ -14,8 +14,18 @@ Cardano PubSub is a decentralized messaging protocol that lets Cardano applicati
 | Audience | Start Here |
 |----------|------------|
 | **Executives & Decision Makers** | [Product Overview](product/index.md) → [Vision](product/vision.md) → [Market Analysis](product/market.md) |
-| **Product Managers** | [Use Cases](product/use-cases/index.md) → [Requirements](product/requirements/index.md) → [Roadmap](product/roadmap.md) |
-| **Engineers & Architects** | [Architecture Overview](architecture/index.md) → [System Layers](architecture/layers.md) → [Architectural Drivers](architecture/drivers/index.md) |
+| **Product Managers** | [Use Cases](use-cases/index.md) → [Requirements](product/requirements/index.md) → [Roadmap](product/roadmap.md) |
+| **Engineers & Architects** | [Architecture Overview](architecture/index.md) → [System Layers](architecture/layers.md) → [Use Cases](use-cases/index.md) |
+
+## The Five Use Cases
+
+| Use Case | Problem Solved |
+|----------|----------------|
+| [DeFi Intents](use-cases/defi-intents.md) | Trade without ADA — agents cover your fees |
+| [Governance](use-cases/governance.md) | One-click voting directly in your wallet |
+| [Autonomous Agents](use-cases/autonomous-agents.md) | AI agents coordinate at machine speed |
+| [Cross-Chain](use-cases/cross-chain.md) | Bridge and stake in a single action |
+| [Token-Gated Social](use-cases/token-gated-social.md) | Private communities enforced by the blockchain |
 
 ## Quick Links
 
@@ -25,9 +35,9 @@ Cardano PubSub is a decentralized messaging protocol that lets Cardano applicati
   
   Why Cardano needs a native messaging layer
 
-- :material-road-variant: **[Roadmap](product/roadmap.md)**
+- :material-target: **[Use Cases](use-cases/index.md)**
   
-  Phased delivery plan
+  The five scenarios driving design
 
 - :material-layers: **[Architecture](architecture/index.md)**
   
@@ -43,7 +53,8 @@ Cardano PubSub is a decentralized messaging protocol that lets Cardano applicati
 
 | Milestone | Status | Target |
 |-----------|--------|--------|
-| Product requirements | ✅ Draft Complete | - |
+| Product requirements | ✅ Complete | - |
+| Use cases defined | ✅ Complete | - |
 | Architecture design | 🟡 In Progress | Q1 2025 |
 | Prototype development | ⬜ Not Started | Q2 2025 |
 | SPO testnet | ⬜ Not Started | 2026 |
@@ -52,7 +63,8 @@ Cardano PubSub is a decentralized messaging protocol that lets Cardano applicati
 
 ## Documentation Sections
 
-- **[Product](product/index.md)** — Vision, requirements, use cases, market analysis
-- **[Architecture](architecture/index.md)** — Technical design and architectural decisions  
+- **[Product](product/index.md)** — Vision, requirements, market analysis, roadmap
+- **[Use Cases](use-cases/index.md)** — The five core scenarios  
+- **[Architecture](architecture/index.md)** — Technical design and decisions
 - **[Economics](economics/index.md)** — Economic model design *(early stage)*
 - **[Glossary](glossary.md)** — Key terms and definitions

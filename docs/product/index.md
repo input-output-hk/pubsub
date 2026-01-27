@@ -6,12 +6,6 @@
 
 **Cardano PubSub** is the native communication layer for the Cardano ecosystem. It lets applications talk directly to your wallet — so you can vote on governance proposals, respond to DeFi alerts, and interact with dApps without ever leaving your interface.
 
-The project follows a phased rollout:
-
-- **Phase 1: Architecture & Prototyping** — Design and validate the decentralized network
-- **Phase 2: PubSub Network** — Fully decentralized, SPO-operated messaging
-- **Phase 3: Full Economy** — On-chain incentives and DAO governance
-
 ## The Elevator Pitch
 
 > **For Cardano users and developers**, Cardano PubSub is a native messaging protocol that delivers **actionable notifications directly to your wallet**. 
@@ -33,6 +27,18 @@ Today, critical information in the Cardano ecosystem flows through:
 
 **Cardano PubSub solves this** by providing a native, decentralized, and secure communication channel.
 
+## Use Cases
+
+PubSub is designed around five core scenarios. See [Use Cases](../use-cases/index.md) for details.
+
+| Use Case | One-Line Summary |
+|----------|------------------|
+| [DeFi Intents](../use-cases/defi-intents.md) | Trade without ADA — agents cover your fees |
+| [Governance](../use-cases/governance.md) | One-click voting directly in your wallet |
+| [Autonomous Agents](../use-cases/autonomous-agents.md) | AI agents coordinate at machine speed |
+| [Cross-Chain](../use-cases/cross-chain.md) | Bridge and stake in a single action |
+| [Token-Gated Social](../use-cases/token-gated-social.md) | Private communities enforced by the blockchain |
+
 ## Architecture Overview
 
 ```
@@ -52,6 +58,8 @@ Today, critical information in the Cardano ecosystem flows through:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+See [Architecture](../architecture/index.md) for technical details.
+
 ## Key Differentiators
 
 | Feature | PubSub | Generic Solutions |
@@ -67,8 +75,6 @@ Today, critical information in the Cardano ecosystem flows through:
 |---------|-------------|----------|
 | [Vision & Problem](vision.md) | Why this exists | All |
 | [Requirements](requirements/index.md) | What we're building | PMs, Engineers |
-| [Use Cases](use-cases/index.md) | Business scenarios | PMs, Stakeholders |
-| [Architecture Drivers](architecture.md) | Technical constraints | Engineers |
 | [Market Analysis](market.md) | Competition & opportunity | Executives |
 | [Roadmap](roadmap.md) | When we're delivering | All |
 | [Stakeholders & Team](stakeholders.md) | Who's involved | All |
@@ -82,4 +88,4 @@ Today, critical information in the Cardano ecosystem flows through:
 | Tech Lead | Hiring | Target: Q1 2025 |
 | Product Requirements | ✅ Draft Complete | [View](index.md) |
 | Architecture Design | 🟡 In Progress | [View](../architecture/index.md) |
-| Market Requirements | ✅ Draft Complete | [View](market.md) |
+| Use Cases | ✅ Defined | [View](../use-cases/index.md) |

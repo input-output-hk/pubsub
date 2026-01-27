@@ -51,7 +51,6 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Glossary: glossary.md
   - Product:
     - Overview: product/index.md
     - Vision & Problem: product/vision.md
@@ -59,31 +58,23 @@ nav:
       - Overview: product/requirements/index.md
       - Functional: product/requirements/functional.md
       - Non-Functional: product/requirements/non-functional.md
-    - Use Cases:
-      - Overview: product/use-cases/index.md
-      - Foundational: product/use-cases/foundational.md
-      - Social & Community: product/use-cases/social.md
-      - Commerce & Services: product/use-cases/commerce.md
-      - AI & Agentic Systems: product/use-cases/ai-agents.md
-      - Ecosystem Expansion: product/use-cases/ecosystem.md
-    - Architecture Drivers: product/architecture.md
     - Market Analysis: product/market.md
     - Roadmap: product/roadmap.md
     - Stakeholders & Team: product/stakeholders.md
     - Risks & Asks: product/risks.md
+  - Use Cases:
+    - Overview: use-cases/index.md
+    - DeFi Intents: use-cases/defi-intents.md
+    - Governance: use-cases/governance.md
+    - Autonomous Agents: use-cases/autonomous-agents.md
+    - Cross-Chain: use-cases/cross-chain.md
+    - Token-Gated Social: use-cases/token-gated-social.md
   - Architecture:
     - Overview: architecture/index.md
     - Philosophy: architecture/philosophy.md
     - System Layers: architecture/layers.md
-    - Architectural Drivers:
-      - Overview: architecture/drivers/index.md
-      - DEF-01 DeFi Intents: architecture/drivers/def-01-defi-intents.md
-      - GOV-01 Governance: architecture/drivers/gov-01-governance.md
-      - AI-01 Agents: architecture/drivers/ai-01-agents.md
-      - XCB-01 Cross-Chain: architecture/drivers/xcb-01-cross-chain.md
-      - SOC-01 Social: architecture/drivers/soc-01-social.md
-    - Use Case Coverage: architecture/use-case-coverage.md
     - Development Strategy: architecture/development-strategy.md
     - Build vs Buy: architecture/build-vs-buy.md
   - Economics:
     - Overview: economics/index.md
+  - Glossary: glossary.md
