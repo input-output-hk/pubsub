@@ -18,6 +18,7 @@ This architecture adheres to two key strategic directives:
 |---------|-------------|
 | [Philosophy](philosophy.md) | Core principles and design rationale |
 | [System Layers](layers.md) | The five layers of the PubSub Node |
+| [Identity & DIDs](identity.md) | Chain-agnostic DID integration strategy |
 | [Development Strategy](development-strategy.md) | Phased kernel-out approach |
 | [Build vs Buy](build-vs-buy.md) | Technology adoption decisions |
 

@@ -25,8 +25,18 @@ Key terms and concepts used throughout the Cardano PubSub documentation.
 | Term | Definition |
 |------|------------|
 | **DID (Decentralized Identifier)** | A globally unique identifier that doesn't require a central registry. Format: `did:method:specific-id` (e.g., `did:prism:abc123`). |
-| **Identus** | Hyperledger's decentralized identity platform (formerly Atala PRISM). PubSub uses Identus DIDs for all authentication. |
+| **DID Document** | A JSON-LD document containing verification methods (public keys) and service endpoints for a DID. The "Rosetta Stone" that normalizes identity across chains. |
+| **DID Method** | The specific mechanism for creating, resolving, and managing a DID. Examples: `did:prism`, `did:pkh`, `did:peer`, `did:key`. |
+| **did:prism** | Identus/Cardano DID method. DIDs anchored on Cardano via PRISM Node batching. |
+| **did:pkh** | "Public Key Hash" method. Turns any blockchain address into a DID algorithmically — no registration needed. Enables cross-chain identity. |
+| **did:peer** | Off-chain DID method for pairwise relationships. Stored locally, exchanged during peering. |
+| **Identus** | Hyperledger's decentralized identity platform (formerly Atala PRISM). PubSub supports Identus as a premier identity plugin. |
 | **Verifiable Credential (VC)** | A cryptographically signed statement about an identity (e.g., "This DID is a Constitutional Committee member"). |
+| **AnonCreds** | Anonymous credentials using zero-knowledge proofs. Supported by Identus. |
+| **JWT-VC** | JSON Web Token format for Verifiable Credentials. Common in EVM/Web3 ecosystems. |
+| **CAIP-10** | Chain Agnostic Improvement Proposal 10. Standard format for blockchain addresses: `{namespace}:{chainId}:{address}`. |
+| **Resolver Mesh** | PubSub's plugin-based DID resolution architecture. Routes DIDs to appropriate drivers based on method. |
+| **VDR (Verifiable Data Registry)** | The underlying storage layer for DIDs (e.g., Cardano blockchain). Treated as a pluggable component. |
 | **MLS (Messaging Layer Security)** | IETF RFC 9420 — a protocol for end-to-end encrypted group messaging with efficient key rotation. |
 | **Sealed Sender** | A privacy technique where relay nodes know the destination but not the source of a message. |
 | **E2EE (End-to-End Encryption)** | Messages encrypted so only the intended recipient(s) can decrypt them — relay nodes cannot read content. |

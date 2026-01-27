@@ -73,6 +73,7 @@ nav:
     - Overview: architecture/index.md
     - Philosophy: architecture/philosophy.md
     - System Layers: architecture/layers.md
+    - Identity & DIDs: architecture/identity.md
     - Development Strategy: architecture/development-strategy.md
     - Build vs Buy: architecture/build-vs-buy.md
   - Economics:
