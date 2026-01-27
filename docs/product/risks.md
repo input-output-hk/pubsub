@@ -9,7 +9,7 @@
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | **Technical Complexity** | High | High | Phased approach; proven tech choices (MLS, RocksDB) |
-| **Ouroboros Integration Challenges** | Medium | High | Early prototyping with TXpipe/Anastasia Labs; fallback to libp2p-only if needed |
+| **Ouroboros Integration Challenges** | Medium | High | Early prototyping with TXpipe/Anastasia Labs; IOG Research protocols provide proven foundation |
 | **Identus Dependency** | Medium | Medium | Maintain abstraction layer; Identus team is internal to IOG |
 | **Performance Targets Unmet** | Medium | Medium | Conservative initial targets; benchmark early |
 

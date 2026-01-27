@@ -19,7 +19,7 @@ We follow a **lean, phased approach** focused on rapid prototyping (~1 month per
 
 | Prototype | Focus |
 |-----------|-------|
-| P1: Networking | Ouroboros + GossipSub hybrid |
+| P1: Networking | Three-layer protocol (SecureCyclon + Vicinity + Hybrid Dissemination) |
 | P2: Identity | Identus DID integration |
 | P3: Storage | Tiered storage (hot/durable) |
 | P4: Integration | Full stack prototype |

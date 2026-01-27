@@ -4,19 +4,28 @@ The Cardano PubSub Node is composed of five distinct layers. Each layer is desig
 
 ## Layer 1: P2P Networking Layer
 
-**Function:** Handles peer discovery, connection management, and raw byte propagation.
+**Function:** Handles peer discovery, connection management, and message propagation.
 
 ### Strategic Direction
 
-While libp2p offers robust gossip capabilities, we will **not limit the architecture to it**. The networking stack will prioritize compatibility with the **Ouroboros Network** (Cardano's native stack). This ensures that SPOs can run Cardano PubSub side-by-side with their block producers using familiar connection managers and multiplexing protocols.
+The networking layer is based on the [IOG Research Foundation](research-foundation.md) — a three-layer dissemination protocol designed specifically for Cardano. The stack prioritizes compatibility with the **Ouroboros Network** (Cardano's native stack), ensuring that SPOs can run Cardano PubSub side-by-side with their block producers using familiar connection managers and multiplexing protocols.
 
-### Key Components
+### Three-Layer Dissemination Protocol
 
-| Component | Purpose |
-|-----------|---------|
-| **Ouroboros Miniprotocols** | Support for native Cardano node-to-node communication patterns |
-| **GossipSub v1.1** | High-speed, flood-fill message propagation |
-| **Harary Graph Overlay** | Structured, resilient backbone ensuring no node is isolated (prevents eclipsing) |
+| Sub-Layer | Protocol | Purpose |
+|-----------|----------|---------|
+| **Peer Sampling** | SecureCyclon | Maintains connected overlay, provides random peer samples, eclipse-resistant |
+| **Navigation** | Vicinity | Efficient O(log T) routing to discover same-topic subscribers |
+| **Dissemination** | Hybrid (Harary + Random) | Fast propagation with guaranteed delivery |
+
+### Key Properties
+
+| Property | Mechanism |
+|----------|-----------|
+| **Speed** | Random links enable exponential message spread |
+| **Reliability** | Harary Graph guarantees delivery under node failures |
+| **Eclipse Resistance** | SecureCyclon prevents adversary isolation attacks |
+| **Topic Discovery** | Vicinity enables logarithmic-hop routing to any topic |
 
 ### Use Case Drivers
 

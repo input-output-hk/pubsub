@@ -33,12 +33,14 @@ It must leverage existing Cardano networking primitives and identity standards (
 
 ### 3. Hybrid Dissemination
 
-To satisfy both **high reliability** (Governance) and **low latency** (DeFi), the network utilizes a hybrid topology:
+To satisfy both **high reliability** (Governance) and **low latency** (DeFi), the network utilizes a [hybrid dissemination protocol](research-foundation.md):
 
-| Topology | Purpose | Use Case |
-|----------|---------|----------|
+| Component | Purpose | Use Case |
+|-----------|---------|----------|
 | **Harary Graph** | Structured backbone for guaranteed delivery | Governance proposals |
-| **GossipSub** | Randomized flood-fill for speed | DeFi intents |
+| **Random Links** | Exponential-speed flood-fill propagation | DeFi intents |
+
+This approach, based on IOG Research, combines deterministic reliability with probabilistic speed — random links spread messages quickly, while the Harary backbone ensures 100% delivery even under node failures.
 
 ### 4. Tiered Storage
 

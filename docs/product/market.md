@@ -30,12 +30,12 @@ Our primary advantage is the **native-first approach**. While competitors valida
 
 ### Competitor Deep Dive
 
-#### Waku / libp2p
+#### Waku
 
 | Aspect | Assessment |
 |--------|------------|
 | **What they do well** | Battle-tested gossip protocols, strong privacy focus, active development |
-| **Key weakness** | Technologically incompatible with Cardano's Ouroboros miniprotocol stack |
+| **Key weakness** | Generic architecture not optimized for Cardano's network stack and identity model |
 | **Strategic lesson** | Their RLN (Rate Limiting Nullifiers) spam prevention is worth studying |
 | **Our advantage** | Native Ouroboros integration means SPOs can run PubSub alongside block producers |
 

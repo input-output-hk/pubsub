@@ -38,7 +38,7 @@ The Cardano ecosystem lacks a native, unified, and secure communication layer. T
 |---------|--------|
 | **Ecosystem Fragmentation** | Each project builds isolated notification solutions; no interoperability |
 | **Security Risks** | Critical financial information transmitted through unverified channels |
-| **Incompatible Technology** | Existing solutions (libp2p, XMTP) don't integrate with Cardano's network stack |
+| **Incompatible Technology** | Existing solutions (XMTP, etc.) don't integrate with Cardano's network stack and identity model |
 | **Stifled Innovation** | Developers can't build interactive, real-time dApps without a messaging primitive |
 
 ## The Solution

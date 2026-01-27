@@ -14,8 +14,10 @@ Key terms and concepts used throughout the Cardano PubSub documentation.
 | Term | Definition |
 |------|------------|
 | **DMB (Decentralized Message Bus)** | The core abstraction — a censorship-resistant transport layer for messages between wallets, dApps, and protocols. |
-| **Harary Graph** | A structured network topology that ensures every node has multiple independent paths to every other node, preventing "eclipse attacks" where a malicious actor isolates a node. |
-| **GossipSub** | A pub/sub protocol (from libp2p) that propagates messages by "gossiping" to random peers. Fast but probabilistic delivery. |
+| **Harary Graph** | A structured network topology that ensures every node has multiple independent paths to every other node, preventing "eclipse attacks" where a malicious actor isolates a node. Part of the Hybrid Dissemination protocol. |
+| **Hybrid Dissemination** | A message propagation protocol combining Harary Graph (reliability) with random links (speed). Based on IOG Research. |
+| **SecureCyclon** | A peer sampling protocol that maintains network connectivity and provides random peer samples. Eclipse-resistant. Developed for IOG. |
+| **Vicinity** | A gossip protocol for self-organizing overlay networks. Used for efficient topic navigation in O(log T) hops. |
 | **Hot Cache** | RAM-based storage for ephemeral messages with short TTLs (e.g., DeFi intents that expire in minutes). |
 | **Durable DHT** | Disk-based distributed hash table for messages requiring long-term storage (e.g., governance proposals). |
 | **Tiered Storage** | Architecture pattern combining Hot Cache and Durable DHT, with retention policies per topic. |

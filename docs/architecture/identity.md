@@ -141,7 +141,7 @@ Messaging Layer Security (MLS / RFC 9420) requires a **Delivery Service (DS)** f
 
 | MLS Concept | PubSub Implementation |
 |-------------|----------------------|
-| **Broadcast Channel** | Layer 1 (Hybrid Gossip) — MLS messages wrapped in PubSub packets |
+| **Broadcast Channel** | Layer 1 (Hybrid Dissemination) — MLS messages wrapped in PubSub packets |
 | **Ordering** | Layer 1 (Harary Graph) — ensures consistent message sequence |
 | **Welcome Messages** | Topics — e.g., `pubsub/group/{groupID}/welcome` |
 | **Offline History** | Layer 2 (Durable DHT) — persists epoch history for sync |

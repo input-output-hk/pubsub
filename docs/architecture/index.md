@@ -16,6 +16,7 @@ This architecture adheres to two key strategic directives:
 
 | Section | Description |
 |---------|-------------|
+| [Research Foundation](research-foundation.md) | IOG Research paper analysis — foundational protocol design |
 | [Philosophy](philosophy.md) | Core principles and design rationale |
 | [System Layers](layers.md) | The five layers of the PubSub Node |
 | [Identity & DIDs](identity.md) | Chain-agnostic DID integration strategy |
@@ -47,7 +48,7 @@ This architecture adheres to two key strategic directives:
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │              Layer 1: P2P Networking Layer                      │
-│   Ouroboros Miniprotocols  •  GossipSub  •  Harary Graph       │
+│   SecureCyclon  •  Vicinity  •  Hybrid Dissemination           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,10 +56,10 @@ This architecture adheres to two key strategic directives:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **Networking** | Hybrid (Ouroboros + libp2p) | SPO familiarity + proven gossip |
+| **Networking** | [IOG Research Protocol](research-foundation.md) | Cardano-native, SPO-compatible, proven algorithms |
 | **Identity** | Identus DIDs | Ecosystem alignment, portable reputation |
 | **Encryption** | MLS (RFC 9420) | IETF standard, efficient group crypto |
-| **Storage** | Tiered (RAM + RocksDB) | Different TTLs for different use cases |
+| **Storage** | Tiered (RAM + DHT) | Different TTLs for different use cases |
 | **Verification** | Custom L1 oracle | Unique to Cardano ecosystem |
 
 ## Use Cases Drive Architecture
@@ -67,7 +68,7 @@ The architecture is shaped by five core use cases (see [Use Cases](../use-cases/
 
 | Use Case | Architectural Stress Test | Key Decision |
 |----------|---------------------------|--------------|
-| [DeFi Intents](../use-cases/defi-intents.md) | Latency <500ms | GossipSub + Hot Cache |
+| [DeFi Intents](../use-cases/defi-intents.md) | Latency <500ms | Hybrid Dissemination + Hot Cache |
 | [Governance](../use-cases/governance.md) | 100% delivery guarantee | Harary Graph + Durable DHT |
 | [Agents](../use-cases/autonomous-agents.md) | 10k+ msg/sec throughput | Burst handling + CBOR |
 | [Cross-Chain](../use-cases/cross-chain.md) | Foreign chain proofs | Verifier plugins |

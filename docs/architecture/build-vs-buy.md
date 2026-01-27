@@ -6,7 +6,7 @@ Strategic technology adoption decisions for the Cardano PubSub architecture.
 
 | Component | Decision | Rationale |
 |-----------|----------|-----------|
-| **Networking** | HYBRID | Adopt libp2p components where efficient, BUILD necessary adapters for Ouroboros compatibility, BUILD custom Harary Graph overlay logic |
+| **Networking** | ADOPT + BUILD | Adopt [IOG Research protocols](research-foundation.md) (SecureCyclon, Vicinity, Hybrid Dissemination), BUILD Ouroboros compatibility adapters |
 | **Identity** | ADOPT (Identus) | Strictly integrate Identus for all DID and Credential operations rather than building custom identity solution |
 | **Encryption** | BUY (Adopt) | Implement IETF standard MLS (RFC 9420) rather than rolling custom crypto |
 | **Database** | BUY | Embedded RocksDB or Sled for local node storage |
@@ -16,23 +16,25 @@ Strategic technology adoption decisions for the Cardano PubSub architecture.
 
 ## Detailed Rationale
 
-### Networking: HYBRID
+### Networking: ADOPT + BUILD
 
 ```
 ┌─────────────────────────────────────────────────┐
 │              Networking Stack                    │
 ├─────────────────────────────────────────────────┤
-│  BUILD: Ouroboros adapters                      │
-│  BUILD: Harary Graph overlay                    │
-│  ADOPT: libp2p GossipSub                        │
-│  ADOPT: libp2p connection management            │
+│  ADOPT: SecureCyclon (peer sampling)            │
+│  ADOPT: Vicinity (topic navigation)             │
+│  ADOPT: Hybrid Dissemination (Harary + random)  │
+│  BUILD: Ouroboros compatibility adapters        │
+│  BUILD: Topic Registry smart contract           │
 └─────────────────────────────────────────────────┘
 ```
 
-**Why Hybrid?**
-- libp2p provides battle-tested gossip and connection primitives
-- But SPO adoption requires Ouroboros compatibility
-- Harary Graph overlay is unique to our reliability requirements
+**Why this approach?**
+- IOG Research protocols are purpose-built for Cardano Pub/Sub
+- SecureCyclon developed for IOG's eclipse-resistance project (2020-2022)
+- SPO adoption requires Ouroboros compatibility
+- Harary Graph + random links provide both speed and reliability
 
 ---
 

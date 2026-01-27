@@ -31,7 +31,7 @@ A working public broadcast network.
 
 | Deliverable | Description |
 |-------------|-------------|
-| **Rust Node** | Cardano Native / Libp2p Hybrid Networking |
+| **Rust Node** | Three-layer protocol (SecureCyclon + Vicinity + Hybrid Dissemination) |
 | **Identus Integration** | Basic DID resolution and signature verification |
 | **Durable Storage** | RocksDB for Governance proposals |
 
@@ -56,7 +56,7 @@ Support high-frequency trading and agents.
 | Deliverable | Description |
 |-------------|-------------|
 | **Hot Cache** | Implementation for ephemeral topics |
-| **Latency Optimizations** | Gossip tuning for sub-second delivery |
+| **Latency Optimizations** | Dissemination tuning for sub-second delivery |
 | **Schema Registry** | Protobuf/CBOR schema enforcement |
 
 ### Rationale
