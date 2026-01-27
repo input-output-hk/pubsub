@@ -8,7 +8,7 @@
 
 The project follows a phased rollout:
 
-- **Phase 1: Beacon** — A centralized service for Midnight mainnet launch (Q3 2025)
+- **Phase 1: Architecture & Prototyping** — Design and validate the decentralized network
 - **Phase 2: PubSub Network** — Fully decentralized, SPO-operated messaging
 - **Phase 3: Full Economy** — On-chain incentives and DAO governance
 
@@ -20,27 +20,18 @@ The project follows a phased rollout:
 >
 > This means: **One-click governance voting. Instant DeFi alerts. Token-gated communities. All without leaving your wallet.**
 
-## Strategic Context: Why Now?
+## The Problem We're Solving
 
-### The Midnight Forcing Function
+Today, critical information in the Cardano ecosystem flows through:
 
-Midnight mainnet launches in **Q3 2025**. The Midnight Foundation needs a way to communicate with users (wallet notifications, governance alerts, node updates). Without PubSub, they'll be forced to use:
+| Current Channel | Problem |
+|-----------------|---------|
+| **Discord/Telegram** | Centralized, censorable, prime target for phishing |
+| **Twitter/X** | Algorithm-controlled visibility, no verification |
+| **Email** | Requires PII, spam-prone, not Web3-native |
+| **dApp websites** | Users must actively check; no push notifications |
 
-- ❌ Discord/Telegram (centralized, phishing-prone)
-- ❌ Email (requires PII collection)
-- ❌ Custom solution (fragments the ecosystem)
-
-**Beacon is the answer** — a production-ready notification service that Midnight can use at launch, with a clear path to decentralization.
-
-### The Competitive Window
-
-| Competitor | Status | Our Advantage |
-|------------|--------|---------------|
-| XMTP | Growing on EVM | No Cardano support; EVM-centric identity |
-| Push Protocol | Building own L1 | Complexity; we leverage existing SPO network |
-| Waku | Mature but generic | Not compatible with Cardano's network stack |
-
-**If we don't build this, someone else will** — and it won't be native to Cardano.
+**Cardano PubSub solves this** by providing a native, decentralized, and secure communication channel.
 
 ## Architecture Overview
 
@@ -51,19 +42,13 @@ Midnight mainnet launches in **Q3 2025**. The Midnight Foundation needs a way to
 └─────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────┐
-│                  Beacon (Phase 1: Centralized)                  │
-│  Production-ready pub/sub with forward-compatible interfaces   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                PubSub Network (Phase 2: Decentralized)          │
+│                PubSub Network (Decentralized)                   │
 │         P2P network run by Cardano SPOs                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │              Shared Data Availability Layer                     │
-│       Message persistence anchored on Cardano/Midnight         │
+│          Message persistence anchored on Cardano               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -94,8 +79,7 @@ Midnight mainnet launches in **Q3 2025**. The Midnight Foundation needs a way to
 | Resource | Status | Owner |
 |----------|--------|-------|
 | Product Manager | Active | @Reza Baram |
-| Tech Lead | Hiring | Target: Feb 2025 |
-| Beacon PRD | 🟡 In Progress | [View](../beacon/index.md) |
-| Public Roadmap | 🟡 Draft | [View](roadmap.md) |
-| Market Requirements | 🟡 In Progress | [View](market.md) |
-| Go To Market Plan | ⬜ Not Started | Target: Q2 2025 |
+| Tech Lead | Hiring | Target: Q1 2025 |
+| Product Requirements | ✅ Draft Complete | [View](index.md) |
+| Architecture Design | 🟡 In Progress | [View](../architecture/index.md) |
+| Market Requirements | ✅ Draft Complete | [View](market.md) |

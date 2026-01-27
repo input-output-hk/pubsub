@@ -10,10 +10,10 @@ By creating a unified communication standard, Cardano PubSub is positioned to be
 
 | Dimension | Scope |
 |-----------|-------|
-| **Addressable Users** | 4M+ Cardano wallets, growing Midnight user base |
+| **Addressable Users** | 4M+ Cardano wallets |
 | **dApp Ecosystem** | 1,000+ Cardano dApps needing user communication |
 | **SPO Network** | 3,000+ operators (potential relay nodes) |
-| **Partner Chains** | Midnight + future sidechains |
+| **Partner Chains** | Future sidechains and L2s |
 
 ### Strategic Positions to Win
 
@@ -55,7 +55,7 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | **What they do well** | "Actions" concept — messages that trigger on-chain transactions |
 | **Key weakness** | Solana-only; no path to Cardano |
 | **Strategic lesson** | **Critical: Focus on making messages interactive, not just informational** |
-| **Our advantage** | Same concept, native to Cardano, with cross-chain potential |
+| **Our advantage** | Same concept, native to Cardano |
 
 #### Push Protocol
 
@@ -64,7 +64,7 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | **What they do well** | True cross-chain vision, growing adoption |
 | **Key weakness** | Building dedicated L1 shows complexity of chain-agnostic approach |
 | **Strategic lesson** | Cross-chain is hard; ecosystem-first is more achievable |
-| **Our advantage** | Focused scope (Cardano + Partner Chains) enables deeper integration |
+| **Our advantage** | Focused scope (Cardano ecosystem) enables deeper integration |
 
 ### Competitive Positioning Matrix
 
@@ -87,22 +87,21 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | Differentiator | What It Means | Why It Wins |
 |----------------|---------------|-------------|
 | **Ouroboros Native** | Uses Cardano's actual network stack | SPO adoption is frictionless |
-| **Identus Identity** | DIDs, not just addresses | Rich reputation, VCs, cross-chain identity |
+| **Identus Identity** | DIDs, not just addresses | Rich reputation, VCs, portable identity |
 | **SPO Leverage** | 3,000+ existing operators | No cold-start problem |
-| **Phased Approach** | Beacon (centralized) → PubSub (decentralized) | Ship fast, decentralize later |
 | **Actionable Messages** | Vote, swap, stake from notifications | Dialect's best idea, on Cardano |
 
 ## Go-to-Market Strategy
 
-### Phase 1: Beacon (Lighthouse Customers)
+### Phase 1: Build & Validate
 
-| Customer | Value Proposition | Status |
-|----------|-------------------|--------|
-| **Midnight Foundation** | Launch notifications, governance | 🟡 In Discussion |
-| **Lace Wallet** | Native notification support | 🟡 In Discussion |
-| **1-2 DeFi protocols** | Liquidation alerts, actionable DeFi | ⬜ Targeting |
+| Activity | Goal |
+|----------|------|
+| Engage DeFi protocols | Validate use cases (liquidation alerts, etc.) |
+| Engage wallet teams | Understand integration requirements |
+| SPO outreach | Gauge interest in running relay nodes |
 
-### Phase 2: PubSub Network (Ecosystem Growth)
+### Phase 2: Launch & Grow
 
 | Segment | Acquisition Strategy |
 |---------|---------------------|
@@ -111,8 +110,8 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | **dApps** | Free tier + documentation + hackathon presence |
 | **Users** | Organic via integrated wallets/dApps |
 
-### Phase 3: Full Economy (Network Effects)
+### Phase 3: Network Effects
 
 - Community-driven growth
-- Cross-chain expansion to Partner Chains
 - Protocol integrations (Mithril, Leios)
+- Ecosystem-wide adoption

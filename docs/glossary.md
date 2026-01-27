@@ -6,9 +6,8 @@ Key terms and concepts used throughout the Cardano PubSub documentation.
 
 | Term | Definition |
 |------|------------|
-| **Cardano PubSub** | The umbrella name for the entire decentralized messaging initiative for the Cardano ecosystem. Formerly referred to internally as "Agora." |
-| **Beacon** | Phase 1 product: a centralized pub/sub service designed to meet Midnight mainnet launch requirements. Forward-compatible with the decentralized PubSub network. |
-| **PubSub Network** | Phase 2+: The fully decentralized, SPO-operated messaging network that replaces Beacon. |
+| **Cardano PubSub** | The decentralized messaging protocol for the Cardano ecosystem. Provides native, secure communication between wallets, dApps, and protocols. |
+| **PubSub Network** | The fully decentralized, SPO-operated messaging network. |
 
 ## Architecture Terms
 
@@ -46,7 +45,7 @@ Key terms and concepts used throughout the Cardano PubSub documentation.
 
 | Term | Definition |
 |------|------------|
-| **SPO (Stake Pool Operator)** | Entities running Cardano block-producing nodes. In Phase 2, SPOs also run PubSub relay nodes. |
+| **SPO (Stake Pool Operator)** | Entities running Cardano block-producing nodes. SPOs also run PubSub relay nodes. |
 | **Publisher** | Any entity broadcasting messages to the network (wallets, dApps, protocols). |
 | **Subscriber** | Any entity receiving messages from specific topics (wallets, agents, indexers). |
 | **Relayer** | Nodes that propagate messages through the network without being the source or destination. |

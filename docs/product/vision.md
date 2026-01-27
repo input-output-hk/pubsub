@@ -36,18 +36,18 @@ The Cardano ecosystem lacks a native, unified, and secure communication layer. T
 
 | Problem | Impact |
 |---------|--------|
-| **Cross-Chain Fragmentation** | Cardano, Midnight, and Partner Chains will each build isolated solutions without a standard |
+| **Ecosystem Fragmentation** | Each project builds isolated notification solutions; no interoperability |
 | **Security Risks** | Critical financial information transmitted through unverified channels |
 | **Incompatible Technology** | Existing solutions (libp2p, XMTP) don't integrate with Cardano's network stack |
 | **Stifled Innovation** | Developers can't build interactive, real-time dApps without a messaging primitive |
 
 ## The Solution
 
-Cardano PubSub provides a **unified, phased solution** designed specifically for the Cardano ecosystem:
+Cardano PubSub provides a **unified solution** designed specifically for the Cardano ecosystem:
 
 ### 1. Unified Standard
 
-A single protocol for Cardano, Midnight, and Partner Chains. Build once, communicate everywhere.
+A single protocol for the entire Cardano ecosystem. Build once, communicate everywhere.
 
 ### 2. Native Identity (Identus)
 
@@ -75,7 +75,7 @@ End-to-end encryption (MLS) for private messages. Even relay nodes can't read yo
 
 | Phase | What | When |
 |-------|------|------|
-| **Beacon** | Centralized MVP for Midnight | Q3 2025 |
+| **Architecture & Design** | Finalize architecture, prototype | 2025 |
 | **PubSub Network** | Decentralized SPO network | 2026 |
 | **Full Economy** | Token incentives, DAO governance | 2027 |
 
@@ -83,7 +83,7 @@ End-to-end encryption (MLS) for private messages. Even relay nodes can't read yo
 
 | Metric | Target | Why It Matters |
 |--------|--------|----------------|
-| **Midnight launch support** | 100% notification delivery | Proves production readiness |
 | **Governance participation** | +20% voter turnout | Validates "actionable" value prop |
-| **SPO adoption** | 100+ relay nodes | Demonstrates decentralization path |
+| **SPO adoption** | 100+ relay nodes | Demonstrates decentralization |
 | **dApp integrations** | 30+ in Year 1 | Proves developer demand |
+| **User reach** | 100k+ wallets | Validates product-market fit |

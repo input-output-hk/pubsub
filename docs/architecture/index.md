@@ -89,6 +89,6 @@ The key insight: **APIs and identity are consistent across both phases**, enabli
 ## Related Documents
 
 - [Product Requirements](../product/index.md)
-- [Beacon MVP](../beacon/index.md)
+
 - [Glossary](../glossary.md)
 - AUEB Paper: "Topic-Based Pub/Sub" *(internal)*

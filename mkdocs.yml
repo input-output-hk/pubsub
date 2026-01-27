@@ -85,9 +85,5 @@ nav:
     - Use Case Coverage: architecture/use-case-coverage.md
     - Development Strategy: architecture/development-strategy.md
     - Build vs Buy: architecture/build-vs-buy.md
-  - Beacon:
-    - Overview: beacon/index.md
   - Economics:
     - Overview: economics/index.md
-  - API Reference:
-    - Overview: api/index.md
