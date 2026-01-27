@@ -78,3 +78,5 @@ nav:
   - Economics:
     - Overview: economics/index.md
   - Glossary: glossary.md
+  - References:
+    - DeFi Intents PRD: references/defi-intents-prd.md

@@ -1,118 +1,210 @@
 # DeFi Intents
 
-**Enable fee-free trading by separating intent expression from execution.**
+**Cardano PubSub provides the Decentralised Message Bus for the DeFi Intents architecture.**
 
-## The Problem
+!!! info "Context"
+    DeFi Intents is a broader initiative involving multiple teams and components. Cardano PubSub specifically provides the **communication layer** — the Decentralised Message Bus that connects users to agents. For the complete architecture, see the [DeFi Intents PRD](https://docs.google.com/document/d/defi-intents-prd).
 
-A user wants to swap BTC for a Cardano stablecoin, but they have no ADA to pay transaction fees. Today, they're stuck — they can't interact with Cardano DeFi without first acquiring ADA through a centralized exchange.
+## The Broader Initiative
 
-## The Solution
+The DeFi Intents architecture enables users to express **what they want** (e.g., "swap 0.05 BTC for USDX") without worrying about **how it's executed**. Specialized agents compete to fulfill these intents, covering fees and optimizing execution.
 
-With Cardano PubSub, users broadcast **intents** — partial transactions expressing what they want (e.g., "swap 0.1 BTC for USDM") without worrying about fees or execution. **Agents** (solvers, market makers) compete to fulfill these intents, covering fees in exchange for a spread.
+### Key Components
 
-## Value Proposition
+| Component | Owner | Description |
+|-----------|-------|-------------|
+| **User Intents** | Wallets | Partial transactions expressing desired outcomes |
+| **Decentralised Message Bus** | **Cardano PubSub** | Broadcasts intents to agents; censorship-resistant propagation |
+| **Agent Layer** | Service Providers | Off-chain agents that fulfill intents (Babel Fee Agents, Exchange Agents, etc.) |
+| **Nested Transactions (CIP-118)** | Ledger Team | On-chain primitive enabling atomic multi-party transactions |
 
-| Benefit | Description |
-|---------|-------------|
-| **Fee Abstraction** | Users trade without holding ADA — agents cover fees |
-| **Better Prices** | Agents compete, driving prices toward optimal execution |
-| **Censorship Resistance** | No single entity can block a user's trade intent |
-| **Unified Standard** | Wallets integrate once; all agents can fulfill intents |
+## PubSub's Role
 
-## Actors
-
-| Actor | Role | Description |
-|-------|------|-------------|
-| **User/Wallet** | Publisher | Broadcasts intent to the network |
-| **Agent** | Subscriber | Discovers intents, competes to fulfill them |
-| **SPO Node** | Relayer | Propagates intents across the network |
-
-## Scenario: BTC-to-Stablecoin Swap
-
-**Alice has 0.1 BTC but no ADA. She wants USDM.**
+Cardano PubSub is the **Decentralised Message Bus** — the permissionless network where User Intents are broadcast and agents subscribe.
 
 ```mermaid
-sequenceDiagram
-    participant Alice as Alice (Wallet)
-    participant PubSub as PubSub Network
-    participant Agent as Agent (Solver)
-    participant L1 as Cardano L1
+flowchart LR
+    subgraph Wallets
+        W1[User Wallet]
+    end
     
-    Alice->>PubSub: "I want to swap 0.1 BTC for ≥1000 USDM"
-    PubSub->>Agent: Deliver intent (<500ms)
-    Agent->>Agent: Check profitability
-    Agent->>L1: Submit transaction (Alice's BTC + Agent's ADA/USDM)
-    L1->>Alice: 1000 USDM received
-    L1->>Agent: 0.1 BTC + spread
+    subgraph PubSub["Cardano PubSub (Message Bus)"]
+        MB[Intent Broadcasting]
+    end
+    
+    subgraph Agents
+        A1[Babel Fee Agent]
+        A2[Exchange Agent]
+        A3[Bridge Agent]
+    end
+    
+    subgraph Cardano
+        L1[Nested Tx Settlement]
+    end
+    
+    W1 -->|User Intent| MB
+    MB -->|Subscribe| A1
+    MB -->|Subscribe| A2
+    MB -->|Subscribe| A3
+    A1 & A2 & A3 -->|Nested Tx| L1
 ```
 
-### Step-by-Step
+### Why PubSub Matters
 
-1. **Alice creates intent**: Her wallet constructs a partial transaction — 0.1 BTC in, ≥1000 USDM out, no fee specified
-2. **Wallet publishes**: Intent broadcast to `intents/market-order` topic
-3. **Network propagates**: SPO nodes relay the intent across the network in <500ms
-4. **Agents compete**: Multiple agents see the intent, calculate profitability
-5. **Winner executes**: Best agent bundles Alice's intent with their own liquidity, submits to L1
-6. **Settlement**: Alice gets USDM, agent gets BTC + profit margin
+| Property | Benefit |
+|----------|---------|
+| **Permissionless** | Any agent can subscribe — no gatekeepers |
+| **Censorship-resistant** | No single entity can block a user's intent |
+| **ADA-free broadcasting** | Users publish intents without holding ADA |
+| **Standard format** | All intents follow interoperable specifications |
+
+## User Intent Format
+
+A User Intent is a message broadcast via PubSub with the following structure:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Topic** | Message category | `"intent"` |
+| **Subject** | Intent type | `"limitOrder"`, `"marketOrder"`, `"btcVmxBridge"` |
+| **SubTx** | Partial transaction (may be unbalanced) | See below |
+
+### Example: Limit Order
+
+A user wants to buy at least 100 BAR tokens for 50 FOO tokens:
+
+```
+msg = {
+  Topic: "intent",
+  Subject: "limitOrder",
+  SubTx: {
+    body: {
+      inputs: [txIn0 (FOO 50, ADA 0.1)],   // User's input
+      outputs: [txOut0 (BAR 100, ADA 0.1)] // Desired output
+    },
+    wits: {
+      redeemers: [(RedeemerPtr Spending 0)],
+      scripts: [spendingScript0]
+    }
+  }
+}
+```
+
+**Note:** No ADA is provided for transaction fees. An agent will cover fees and take a spread (e.g., match with a seller offering 100 BAR for 45 FOO, keeping 5 FOO as profit).
+
+### Example: Market Order with Constraints
+
+A user wants immediate execution at best price, with minimum output and whitelisted agents:
+
+```
+msg = {
+  Topic: "intent",
+  Subject: "marketOrder",
+  SubTx: {
+    body: {
+      inputs: [txIn0 (FOO 50, ADA 0.1)],
+      outputs: [txOut0 (BAR 80, ADA 0.1)],  // Minimum acceptable
+      requiredObservers: [
+        (scriptHash1, data1),  // Route extra tokens to user
+        (scriptHash2, data2)   // Whitelist trusted agents
+      ]
+    },
+    wits: { ... }
+  }
+}
+```
+
+The `requiredObservers` scripts enforce user constraints on-chain, even though agent logic is opaque.
 
 ---
 
-## Technical Specification
+## Technical Specification (PubSub)
 
 ### Topics
 
 | Topic | Purpose | Retention |
 |-------|---------|-----------|
-| `intents/market-order` | General swap intents | 10 min |
-| `intents/babel-fee` | Fee coverage requests | 10 min |
-| `intents/limit-order` | Price-conditional intents | 1 hour |
-| `intents/private/{agent_did}` | Direct-to-agent (OTC) | 1 hour |
-
-### Message Schema
-
-```protobuf
-message IntentMessage {
-  string intent_type = 1;        // "market", "limit", "babel"
-  bytes partial_tx_cbor = 2;     // The unsigned partial transaction
-  
-  message Constraints {
-    int64 min_output = 1;        // Minimum acceptable output
-    int64 max_slippage_bps = 2;  // Max slippage in basis points
-    int64 expiry_slot = 3;       // When intent expires
-  }
-  Constraints constraints = 3;
-  
-  bytes user_signature = 4;      // Signs (intent_type + constraints)
-}
-```
+| `intent` | General intent broadcasting | 10-15 min |
+| `intent/limitOrder` | Price-conditional orders | 1 hour |
+| `intent/marketOrder` | Immediate execution | 10 min |
+| `intent/babel` | Fee abstraction requests | 10 min |
+| `intent/bridge/{protocol}` | Cross-chain bridging | 15 min |
 
 ### Performance Requirements
 
 | Metric | Target | Rationale |
 |--------|--------|-----------|
-| **Propagation latency** | <500ms p95 | Agents need fresh data to compete |
-| **Message TTL** | 10 minutes | Prevents stale intent execution |
-| **Throughput** | 1000 intents/sec | Handle market volatility spikes |
+| **Propagation latency** | <500ms p95 | Agents need fresh intents to compete |
+| **Message TTL** | Configurable per topic | Prevents stale intent execution |
+| **Throughput** | 1,000+ intents/sec | Handle market volatility |
 
-### Architectural Implications
+### Message Bus Properties
 
-This use case drives:
+From the DeFi Intents PRD:
 
-- **Hot Cache storage** — intents are ephemeral, RAM-only
-- **GossipSub propagation** — speed over guaranteed delivery
-- **Bloom filter subscriptions** — agents filter by asset pairs
+| Requirement | PubSub Support |
+|-------------|----------------|
+| **DMB-1: Permissionless** | Any entity can subscribe to the network |
+| **DMB-2: ADA-free broadcasting** | Users publish without holding ADA |
+| **DMB-3: Anti-censorship** | Decentralized propagation via SPO network |
+| **DMB-4: Standard format** | Interoperable intent specifications |
 
 ---
 
-## Open Questions
+## Agent Types (Context)
+
+PubSub enables various agent types to subscribe and compete:
+
+| Agent Type | Service | How They Use PubSub |
+|------------|---------|---------------------|
+| **Babel Fee Agent** | Covers ADA fees, takes payment in other tokens | Subscribes to intents lacking ADA |
+| **Exchange Agent** | Market making, order matching | Aggregates limit orders, matches complementary intents |
+| **Bridge Agent** | Cross-chain asset movement | Listens for bridge intents, provides collateral |
+| **Arbitrage Agent** | Price equalization across venues | Monitors intents for profitable combinations |
+
+---
+
+## Example Flow: BTC Bridge with Babel Fees
+
+**Scenario:** Alice wants to bridge 0.01 BTC to Cardano. She has no ADA.
+
+1. **Alice's wallet** constructs a User Intent to mint xBTC via BitcoinVMX bridge
+2. **Wallet broadcasts** intent to PubSub topic `intent/bridge/btcvmx`
+3. **Babel Fee Agent** receives intent, verifies BTC lock proof
+4. **Agent constructs** Nested Transaction:
+   - Top-level: Agent provides ADA for fees/collateral
+   - Sub-tx: Alice's intent to mint xBTC
+5. **Agent submits** Nested Transaction to Cardano
+6. **Settlement:** Alice receives 0.01 xBTC; Agent receives fee in xBTC
+
+```mermaid
+sequenceDiagram
+    participant Alice as Alice (Wallet)
+    participant PubSub as Cardano PubSub
+    participant Agent as Babel Fee Agent
+    participant Cardano as Cardano L1
+    
+    Alice->>PubSub: Broadcast bridge intent
+    PubSub->>Agent: Deliver intent
+    Agent->>Agent: Verify BTC lock, calculate fees
+    Agent->>Cardano: Submit Nested Transaction
+    Cardano->>Alice: 0.01 xBTC minted
+    Cardano->>Agent: Fee in xBTC
+```
+
+---
+
+## Open Questions (PubSub-specific)
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| How do users pay PubSub broadcast fees without ADA? | 🟡 Design | Likely: agents sponsor, or wallets subsidize |
-| Standard schema for cross-DEX intent compatibility? | ⬜ Not started | Need DeFi protocol input |
-| MEV protection (front-running by malicious agents)? | ⬜ Not started | Consider commit-reveal or sealed bids |
+| Intent message schema standardization | 🟡 In progress | Coordinating with DeFi Intents team |
+| Topic hierarchy for different intent types | ⬜ Not started | Need input from agent developers |
+| Rate limiting / spam prevention | ⬜ Not started | Consider stake-based access |
+| Agent discovery (which agents support which intents) | ⬜ Not started | May need registry or advertisement protocol |
 
 ## Related
 
+- [DeFi Intents PRD](https://docs.google.com/document/d/defi-intents-prd) — Full architecture
+- [CIP-118: Nested Transactions](https://github.com/cardano-foundation/CIPs/pull/XXX)
 - [Requirements: FR1.1, FR1.4, FR5.1](../product/requirements/functional.md)
 - [Requirements: NFR1.1, NFR1.2](../product/requirements/non-functional.md)
