@@ -8,7 +8,7 @@ A critical governance proposal is live. It's announced on Twitter, discussed on 
 
 ## The Solution
 
-With Cardano PubSub, governance bodies push **verified, actionable notifications** directly to voter wallets. Users see the proposal, read the summary, and vote — all without leaving their wallet. One click, done.
+With Cardano PubSub, governance bodies push **verified, actionable notifications** directly to voters via any PubSub-compatible client — wallets, dashboards, or dedicated governance apps. Users see the proposal, read the summary, and vote. One click, done.
 
 ## Value Proposition
 
@@ -24,7 +24,7 @@ With Cardano PubSub, governance bodies push **verified, actionable notifications
 | Actor | Role | Description |
 |-------|------|-------------|
 | **Governance Body** | Publisher | Constitutional Committee, DAOs, DReps publish proposals |
-| **Voter/Wallet** | Subscriber + Publisher | Receives proposals, publishes signed votes |
+| **Voter** | Subscriber + Publisher | Receives proposals, publishes signed votes |
 | **Vote Aggregator** | Subscriber | Collects votes, submits results to L1 |
 | **SPO Node** | Relayer + Store | Propagates messages, stores proposals for voting period |
 
@@ -52,9 +52,9 @@ sequenceDiagram
 ### Step-by-Step
 
 1. **Proposal created**: Committee submits proposal on-chain, publishes notification to `governance/proposals`
-2. **Verified delivery**: Alice's wallet receives notification, verifies Committee's DID signature
-3. **In-wallet review**: Alice reads summary, optionally follows link to full text
-4. **One-click vote**: Alice taps "Vote No" — wallet signs and publishes to `governance/votes/{proposal_id}`
+2. **Verified delivery**: Alice's PubSub client receives notification, verifies Committee's DID signature
+3. **Review**: Alice reads summary, optionally follows link to full text
+4. **One-click vote**: Alice taps "Vote No" — client signs and publishes to `governance/votes/{proposal_id}`
 5. **Aggregation**: Aggregator collects all votes, submits proof to L1
 6. **Settlement**: Proposal passes or fails based on vote tally
 

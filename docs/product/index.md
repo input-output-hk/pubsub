@@ -4,15 +4,15 @@
 
 ## Executive Summary
 
-**Cardano PubSub** is the native communication layer for the Cardano ecosystem. It lets applications talk directly to your wallet — so you can vote on governance proposals, respond to DeFi alerts, and interact with dApps without ever leaving your interface.
+**Cardano PubSub** is the native communication layer for the Cardano ecosystem. It enables real-time, actionable messaging between users, dApps, and services — so you can vote on governance proposals, respond to DeFi alerts, and interact with the ecosystem from any compatible interface.
 
 ## The Elevator Pitch
 
-> **For Cardano users and developers**, Cardano PubSub is a native messaging protocol that delivers **actionable notifications directly to your wallet**. 
+> **For Cardano users and developers**, Cardano PubSub is a native messaging protocol that delivers **actionable notifications to users wherever they are** — in wallets, standalone clients, dashboards, or any PubSub-compatible application.
 >
 > Unlike generic Web3 messaging (XMTP, Push Protocol) or centralized platforms (Discord, Telegram), PubSub is **built into Cardano's infrastructure** — using the SPO network for delivery and Identus DIDs for identity.
 >
-> This means: **One-click governance voting. Instant DeFi alerts. Token-gated communities. All without leaving your wallet.**
+> This means: **One-click governance voting. Instant DeFi alerts. Token-gated communities. Access from any client you choose.**
 
 ## The Problem We're Solving
 
@@ -34,7 +34,7 @@ PubSub is designed around five core scenarios. See [Use Cases](../use-cases/inde
 | Use Case | One-Line Summary |
 |----------|------------------|
 | [DeFi Intents](../use-cases/defi-intents.md) | Trade without ADA — agents cover your fees |
-| [Governance](../use-cases/governance.md) | One-click voting directly in your wallet |
+| [Governance](../use-cases/governance.md) | One-click voting from any PubSub client |
 | [Autonomous Agents](../use-cases/autonomous-agents.md) | AI agents coordinate at machine speed |
 | [Cross-Chain](../use-cases/cross-chain.md) | Bridge and stake in a single action |
 | [Token-Gated Social](../use-cases/token-gated-social.md) | Private communities enforced by the blockchain |
@@ -44,7 +44,7 @@ PubSub is designed around five core scenarios. See [Use Cases](../use-cases/inde
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Application Plane                           │
-│        Wallets & dApps using PubSub SDK (TS/Rust)              │
+│   Wallets, dApps, Dashboards & Clients using PubSub SDK        │
 └─────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────┐

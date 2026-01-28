@@ -8,9 +8,9 @@ To provide the Cardano ecosystem with the **open-source tools and protocols** ne
 
 ## Vision
 
-**Every Cardano wallet becomes a communication endpoint.**
+**Every Cardano identity becomes a communication endpoint.**
 
-Users receive governance proposals, DeFi alerts, and community messages directly in their wallet — verified, actionable, and private. No Discord. No phishing. No middlemen.
+Users receive governance proposals, DeFi alerts, and community messages through any PubSub-compatible interface — wallets, standalone clients, dashboards, or custom applications. Verified, actionable, and private. No Discord. No phishing. No middlemen.
 
 ## The Problem
 
@@ -30,7 +30,7 @@ The Cardano ecosystem lacks a native, unified, and secure communication layer. T
 | **DeFi liquidation warning** | Posted on Discord; user misses it; loses funds | Push notification with "Add Collateral" button |
 | **Governance proposal** | Announced on Twitter; buried in feed; low turnout | Verified alert with embedded "Vote" action |
 | **NFT drop** | Scammer impersonates project; users get phished | Cryptographically verified from project's DID |
-| **SPO maintenance** | Delegators don't know pool is down | Direct notification to delegator wallets |
+| **SPO maintenance** | Delegators don't know pool is down | Direct notification to delegators via their preferred client |
 
 ### The Core Problems
 
@@ -65,7 +65,7 @@ The PubSub network runs on the same 3,000+ SPOs that secure Cardano. No new netw
 
 ### 4. Actionable Messages
 
-Messages aren't just text — they're **interactive**. Vote, swap, stake, and respond without leaving your wallet.
+Messages aren't just text — they're **interactive**. Vote, swap, stake, and respond directly from any PubSub client.
 
 ### 5. Privacy by Default
 
