@@ -32,7 +32,7 @@ A working public broadcast network.
 | Deliverable | Description |
 |-------------|-------------|
 | **Rust Node** | Three-layer protocol (SecureCyclon + Vicinity + Hybrid Dissemination) |
-| **Identus Integration** | Basic DID resolution and signature verification |
+| **DID Resolver Mesh** | Modular DID resolution (did:key → did:prism) and signature verification |
 | **Durable Storage** | RocksDB for Governance proposals |
 
 ### Rationale

@@ -275,7 +275,7 @@ The research paper's design aligns well with our existing architecture and fills
 |-----------|--------------------------|-----------|
 | **P2P Networking** | Three-layer protocol (SecureCyclon + Vicinity + Hybrid) | ✅ Harary Graph already planned; adds Peer Sampling and Navigation |
 | **Storage & Persistence** | One-hop DHT with SPO replication servers | ✅ Aligns with SPO-operated vision; adds concrete DHT design |
-| **Identity** | — | Our addition (Identus DIDs not in research scope) |
+| **Identity** | — | Our addition (modular DID support not in research scope) |
 | **Topic Administration** | On-chain Topic Registry | ✅ Provides concrete smart contract design |
 
 ### Key Adoptions
@@ -290,7 +290,7 @@ The research paper's design aligns well with our existing architecture and fills
 
 The research provides the communication foundation. We extend it with:
 
-- **Identus DID integration** — Decentralized identity for publishers/subscribers
+- **Modular DID identity** — Chain-agnostic identity via Resolver Mesh (Identus, did:pkh, did:peer)
 - **MLS encryption** — End-to-end encrypted private topics
 - **DeFi Intents support** — User Intent message format and agent discovery
 - **L1 State Oracle** — Token-gated access control

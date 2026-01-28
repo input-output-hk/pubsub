@@ -10,7 +10,7 @@ This architecture adheres to two key strategic directives:
 
 1. **Native Ecosystem Compatibility** — The networking layer integrates natively with the Cardano Node (Ouroboros) stack, not bolted on as an afterthought.
 
-2. **Identus-Powered Identity** — Decentralized Identity (DID) is a first-class citizen, utilizing Identus for all actor authentication and reputation.
+2. **Modular DID Identity** — Decentralized Identity (DID) is a first-class citizen, with a pluggable resolver supporting multiple methods (Identus, did:pkh, did:peer) for authentication and reputation.
 
 ## Documentation Structure
 
@@ -38,7 +38,7 @@ This architecture adheres to two key strategic directives:
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │          Layer 3: Identity & Verification Layer                 │
-│     Identus Resolver  •  VC Verifier  •  L1 State Oracle       │
+│     DID Resolver Mesh  •  VC Verifier  •  L1 State Oracle      │
 └─────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────┐
@@ -57,7 +57,7 @@ This architecture adheres to two key strategic directives:
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | **Networking** | [IOG Research Protocol](research-foundation.md) | Cardano-native, SPO-compatible, proven algorithms |
-| **Identity** | Identus DIDs | Ecosystem alignment, portable reputation |
+| **Identity** | Modular DID (Identus, did:pkh, did:peer) | Chain-agnostic, no lock-in, portable reputation |
 | **Encryption** | MLS (RFC 9420) | IETF standard, efficient group crypto |
 | **Storage** | Tiered (RAM + DHT) | Different TTLs for different use cases |
 | **Verification** | Custom L1 oracle | Unique to Cardano ecosystem |

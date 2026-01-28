@@ -10,7 +10,7 @@
 
 > **For Cardano users and developers**, Cardano PubSub is a native messaging protocol that delivers **actionable notifications to users wherever they are** — in wallets, standalone clients, dashboards, or any PubSub-compatible application.
 >
-> Unlike generic Web3 messaging (XMTP, Push Protocol) or centralized platforms (Discord, Telegram), PubSub is **built into Cardano's infrastructure** — using the SPO network for delivery and Identus DIDs for identity.
+> Unlike generic Web3 messaging (XMTP, Push Protocol) or centralized platforms (Discord, Telegram), PubSub is **built into Cardano's infrastructure** — using the SPO network for delivery and a modular DID-based identity layer.
 >
 > This means: **One-click governance voting. Instant DeFi alerts. Token-gated communities. Access from any client you choose.**
 
@@ -64,7 +64,7 @@ See [Architecture](../architecture/index.md) for technical details.
 
 | Feature | PubSub | Generic Solutions |
 |---------|--------|-------------------|
-| **Identity** | Identus DIDs (native to Cardano) | EVM addresses or custom |
+| **Identity** | Modular DID support (Identus, did:pkh, did:peer) | EVM addresses or custom |
 | **Infrastructure** | SPO network (3,000+ operators) | Bootstrap new network |
 | **Compatibility** | Ouroboros miniprotocols | Requires adapters |
 | **Governance** | Integrated with CIP-1694 | External to chain |

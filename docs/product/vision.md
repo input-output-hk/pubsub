@@ -49,9 +49,9 @@ Cardano PubSub provides a **unified solution** designed specifically for the Car
 
 A single protocol for the entire Cardano ecosystem. Build once, communicate everywhere.
 
-### 2. Native Identity (Identus)
+### 2. Modular DID-Based Identity
 
-Every message is signed by a Decentralized Identifier (DID). No more "verify your wallet" phishing vectors.
+Every message is signed by a Decentralized Identifier (DID). The identity layer supports multiple DID methods — Identus (did:prism) for Cardano-native users, did:pkh for cross-chain wallets, and did:peer for private channels. No more "verify your wallet" phishing vectors.
 
 ```
 Message from: did:prism:constitutional-committee-xyz

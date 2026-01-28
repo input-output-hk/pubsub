@@ -21,7 +21,7 @@ By creating a unified communication standard, Cardano PubSub is positioned to be
 |----------|-------------|------|
 | **De-Facto Standard** | The messaging layer everyone uses | Network effects |
 | **Protocol Infrastructure** | Underlying layer for Mithril, Leios, DA | Deep integration |
-| **Identity Hub** | Identus DIDs as the universal identifier | Ecosystem lock-in |
+| **Identity Hub** | Modular DID layer as the universal identifier standard | Interoperability, no lock-in |
 | **SPO Revenue Stream** | New income source for operators | Aligned incentives |
 
 ## Competitive Landscape
@@ -46,7 +46,7 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | **What they do well** | Clean developer experience, good SDKs, growing EVM adoption |
 | **Key weakness** | EVM-centric identity; struggles to incentivize node operators |
 | **Strategic lesson** | Their "portable inbox" concept resonates with users |
-| **Our advantage** | Identus DIDs + existing SPO incentive structure solves both problems |
+| **Our advantage** | Modular DID identity + existing SPO incentive structure solves both problems |
 
 #### Dialect (Solana)
 
@@ -87,7 +87,7 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | Differentiator | What It Means | Why It Wins |
 |----------------|---------------|-------------|
 | **Ouroboros Native** | Uses Cardano's actual network stack | SPO adoption is frictionless |
-| **Identus Identity** | DIDs, not just addresses | Rich reputation, VCs, portable identity |
+| **Modular DID Identity** | DIDs (not just addresses), multiple methods supported | Rich reputation, VCs, portable identity, no vendor lock-in |
 | **SPO Leverage** | 3,000+ existing operators | No cold-start problem |
 | **Actionable Messages** | Vote, swap, stake from notifications | Dialect's best idea, on Cardano |
 

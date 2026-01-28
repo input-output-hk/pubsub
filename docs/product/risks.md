@@ -10,7 +10,7 @@
 |------|------------|--------|------------|
 | **Technical Complexity** | High | High | Phased approach; proven tech choices (MLS, RocksDB) |
 | **Ouroboros Integration Challenges** | Medium | High | Early prototyping with TXpipe/Anastasia Labs; IOG Research protocols provide proven foundation |
-| **Identus Dependency** | Medium | Medium | Maintain abstraction layer; Identus team is internal to IOG |
+| **Identity Provider Dependency** | Low | Medium | Modular DID Resolver Mesh supports multiple methods; no single-vendor lock-in |
 | **Performance Targets Unmet** | Medium | Medium | Conservative initial targets; benchmark early |
 
 ### Delivery Risks
@@ -34,7 +34,7 @@
 | Scenario | Trigger | Response |
 |----------|---------|----------|
 | **SPO adoption fails** | <30 nodes after 6 months | Hybrid model with professional relay operators |
-| **Identus pivots away** | Major roadmap change | Fork or migrate to did:web / did:key |
+| **Identus pivots away** | Major roadmap change | Modular design allows seamless switch to did:pkh / did:key / did:web |
 | **Wallet adoption slow** | <3 integrations after 1 year | Focus on dApp integrations instead |
 
 ---
@@ -54,7 +54,7 @@
 | Ask | Rationale | Owner |
 |-----|-----------|-------|
 | **Plutus Events in Leios roadmap** | Enables on-chain triggers for notifications | Core team |
-| **Identus partnership formalization** | DID integration support | Product |
+| **Identity provider partnerships** | DID integration support (Identus, Veramo) | Product |
 | **SPO communication channel** | Adoption outreach | Community |
 
 ### Stakeholder Commitments

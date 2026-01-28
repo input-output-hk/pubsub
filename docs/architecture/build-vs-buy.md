@@ -7,7 +7,7 @@ Strategic technology adoption decisions for the Cardano PubSub architecture.
 | Component | Decision | Rationale |
 |-----------|----------|-----------|
 | **Networking** | ADOPT + BUILD | Adopt [IOG Research protocols](research-foundation.md) (SecureCyclon, Vicinity, Hybrid Dissemination), BUILD Ouroboros compatibility adapters |
-| **Identity** | ADOPT (Identus) | Strictly integrate Identus for all DID and Credential operations rather than building custom identity solution |
+| **Identity** | ADOPT (DID Standards) | Implement modular DID Resolver Mesh supporting multiple methods (Identus, did:pkh, did:peer) rather than building custom identity solution |
 | **Encryption** | BUY (Adopt) | Implement IETF standard MLS (RFC 9420) rather than rolling custom crypto |
 | **Database** | BUY | Embedded RocksDB or Sled for local node storage |
 | **Verification** | BUILD | Logic to check Cardano L1 state or Midnight proofs is unique to our ecosystem |
@@ -38,15 +38,17 @@ Strategic technology adoption decisions for the Cardano PubSub architecture.
 
 ---
 
-### Identity: ADOPT (Identus)
+### Identity: ADOPT (DID Standards via Resolver Mesh)
 
 !!! success "Strategic Alignment"
-    Identus is the Cardano ecosystem's native identity solution. Using it ensures:
+    Rather than building custom identity, we adopt W3C DID standards with a modular Resolver Mesh supporting multiple methods:
     
-    - Ecosystem alignment and support
-    - Portable reputation across Cardano dApps
-    - Verifiable Credentials support out of the box
-    - Maintenance burden on Identus team, not Cardano PubSub team
+    - **did:prism (Identus)** — Native Cardano identity, VCs, ecosystem alignment
+    - **did:pkh** — Zero-friction onboarding for EVM/cross-chain users
+    - **did:peer** — Off-chain pairwise identities for private channels
+    - **did:key** — Self-contained, no external resolution needed
+    
+    This approach avoids vendor lock-in while leveraging existing identity infrastructure. See [Identity Architecture](identity.md) for details.
 
 ---
 
