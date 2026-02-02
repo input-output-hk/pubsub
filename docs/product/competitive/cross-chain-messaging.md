@@ -313,10 +313,10 @@ All protocols need off-chain coordination:
 6. [LayerZero Security Stack DVNs](https://docs.layerzero.network/v2/concepts/modular-security/security-stack-dvns) - LayerZero Docs
 7. [Axelar General Message Passing](https://docs.axelar.dev/dev/general-message-passing/overview/) - Axelar Docs
 8. [Axelar Network Flow](https://docs.axelar.dev/learn/network/flow/) - Axelar Docs
-9. [Chainlink CCIP Analysis](https://0xgreythorn.medium.com/an-exploration-into-chainlink-and-its-ccip-b002fbee22f0) - 0xGreythorn
+9. [Chainlink CCIP Architecture](https://docs.chain.link/ccip/concepts/architecture) - Chainlink Docs
 10. [Wormhole Hack Analysis](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022) - Halborn
 11. [Wormhole Hack Report](https://www.trmlabs.com/resources/blog/solana-wormhole-compromise-120k-stolen-eth) - TRM Labs
 12. [Cardano eUTXO Model](https://developers.cardano.org/docs/learn/core-concepts/eutxo/) - Cardano Developer Portal
-13. [Cardano Concurrency](https://iohk.io/en/blog/posts/2021/09/10/concurrency-and-all-that-cardano-smart-contracts-and-the-eutxo-model/) - IOG Blog
+13. [Cardano Concurrency & eUTXO](https://docs.cardano.org/about-cardano/learn/eutxo-explainer) - Cardano Docs
 14. [Rosen Bridge](https://rosen.tech/) - Rosen Tech
 15. [Mithril ZK Bridge Architecture](https://medium.com/@agustinenada/building-a-zk-bridge-for-cardano-with-mithril-architecture-tradeoffs-and-the-road-ahead-6ed9c35eec84) - Medium
