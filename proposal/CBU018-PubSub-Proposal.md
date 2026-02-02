@@ -7,17 +7,43 @@
 
 ## 1.1 Description
 
-Cardano users today face a critical friction point: to participate in DeFi, they must first acquire ADA for transaction fees. A new user wanting to swap tokens, provide liquidity, or interact with a dApp cannot do so without this prerequisite—a barrier that competing ecosystems like Ethereum (via ERC-4337 account abstraction) and Solana (via Jito) are actively eliminating.
+### The Problem: Coordination is the Missing Layer
 
-The Cardano ecosystem lacks a native, decentralized communication layer to solve this. Currently, DeFi alerts flow through Discord and Telegram where users miss liquidation warnings; governance proposals are announced on Twitter where algorithm-controlled visibility drives chronically low voter turnout; and each DEX builds isolated order flow with no shared liquidity or standard message format.
+Blockchains have solved settlement. On-chain verification works. What remains primitive — across every network — is off-chain coordination: how actors discover, negotiate, and prepare transactions before they hit the chain.
 
-**Cardano PubSub** is the missing infrastructure primitive that enables the DeFi Intents initiative. It provides the **Decentralized Message Bus** that allows users to broadcast trading intents without paying ADA fees, while specialized agents discover and fulfill these intents—covering transaction costs via Babel Fees and earning fees in return.
+This gap has cost the industry over $1 billion. The Ronin Bridge hack went undetected for six days because no alert system existed. Terra's collapse saw ad-hoc Twitter threads attempting to coordinate chain halts. Solana restarts require validators to paste ledger heights into Discord chat. Networks that orchestrate thousands of nodes for consensus still rely on Discord pings for emergencies.
 
-The system works as follows: A user wants to swap USDC for ADA but holds no ADA for fees. They broadcast a signed intent to the PubSub network specifying their desired trade. DeFi agents monitoring the network discover this intent, compete to fulfill it, and submit the transaction on-chain—covering the ADA fee and taking a small spread. The user receives their ADA without ever holding gas tokens. This "invisible gas" experience is table stakes for mainstream DeFi adoption.
+Cardano feels this acutely:
 
-PubSub delivers four core capabilities: (1) a **permissionless network** where anyone can publish or subscribe without gatekeepers; (2) **ADA-free broadcasting** so users can participate without holding native tokens; (3) **censorship resistance** through operation by 3,000+ Cardano SPOs; and (4) a **standard message format** enabling interoperability across wallets, agents, and dApps.
+- **No authenticated broadcast system** for protocol-level alerts or SPO coordination
+- **No standard way** for dApps to push notifications to users
+- **No infrastructure for intent-based systems** where users broadcast what they want and agents compete to fulfill it
+- **Each application builds its own messaging stack**, fragmenting the ecosystem and inheriting centralization risks
 
-**Why now?** Nested Transactions (CIP-118) shipping in 2026 enables Babel Fees at the protocol level—but without a message bus, intents have no delivery mechanism. The DeFi Intents initiative is active and has designated PubSub as the communication layer. IOG Research has validated the protocol design through collaboration with Athens University. And critically, the SPO infrastructure already exists—we don't need to bootstrap a new network.
+### The Solution: Cardano PubSub
+
+**Cardano PubSub** is a decentralized message bus operated by Cardano's 3,000+ SPOs. It provides permissionless publish/subscribe infrastructure for any application that needs reliable, censorship-resistant messaging.
+
+PubSub is designed around five core use cases:
+
+| Use Case | Problem It Solves |
+|----------|-------------------|
+| **DeFi Intents** | Users broadcast trading intents; agents discover and fulfill them, enabling Babel Fees and "invisible gas" UX |
+| **Governance** | Verified proposals with one-click voting actions, reducing participation friction under CIP-1694 |
+| **Network Operations** | Authenticated emergency alerts with delivery guarantees, replacing fragmented Discord/Telegram channels |
+| **Cross-Chain** | Foundation for bridge protocols and multi-chain coordination |
+| **Agent Coordination** | High-throughput coordination for automated systems (keepers, solvers, searchers) |
+
+### Why Cardano Can Lead Here
+
+Cardano has structural advantages that competitors lack:
+
+- **3,000+ SPOs** already run distributed infrastructure — no need to bootstrap a new network
+- **Mithril network** proves the model: 250 SPOs already participate in coordinated threshold signatures
+- **libp2p stack** is deployed internally (Hydra, Mithril) and needs only to be exposed to applications
+- **CIP-0137** has already proposed using Cardano's network layer for decentralized messaging
+
+**Why now?** The competitive window is 12-18 months before XMTP and Anoma reach production mainnet. Nested Transactions (CIP-118) shipping in 2026 enables Babel Fees — but without a message bus, there's no delivery mechanism. IOG Research has validated the protocol design through collaboration with Athens University. The infrastructure exists; we need to expose it.
 
 ---
 
@@ -34,7 +60,15 @@ PubSub delivers four core capabilities: (1) a **permissionless network** where a
 
 # 2. Proposed Value Delivered (Why)
 
-PubSub is **critical enabling infrastructure** for the DeFi Intents initiative. Without it, users cannot broadcast intents, agents cannot discover them, and Babel Fees cannot function. This directly impacts Cardano's ability to compete with Ethereum and Solana on DeFi UX.
+### Strategic Context
+
+PubSub is foundational infrastructure. Like networking in traditional software, messaging is invisible when it works — but its absence constrains everything built on top.
+
+The proposal addresses three gaps:
+
+1. **Emergency coordination** — Authenticated alerts replacing Discord, with $1B+ in documented losses from the current gap (Ronin, Terra, Solana outages)
+2. **Application messaging** — Standard infrastructure so dApps don't each build their own fragmented solutions
+3. **Intent delivery** — Enabling Babel Fees and next-generation DeFi by giving intents a delivery mechanism
 
 ## 2.1 KPIs
 
@@ -55,15 +89,17 @@ PubSub is **critical enabling infrastructure** for the DeFi Intents initiative. 
 | **Governance: DRep Participation Rate** | Yes, enable | PubSub enables verified governance notifications with one-click voting actions. Projected +20% voter turnout improvement. |
 | **Scalability: Throughput Capacity per day** | Yes, enable | Intent batching by agents can optimize transaction throughput. Agents aggregate multiple intents into efficient transaction bundles. |
 
+The governance angle matters: CIP-1694 introduces on-chain governance, but participation requires tracking proposals across scattered channels. PubSub enables direct, authenticated notifications with embedded voting actions — reducing friction between awareness and action.
+
 ## 2.3 Pillars
 
 | Cardano 2030 Pillars | Alignment | Pillar Alignment Description |
 |----------------------|-----------|------------------------------|
-| **Pillar 1: Infrastructure & Research Excellence** — *Keep Cardano secure, fast, and interoperable so it can host more economic activity.* | Yes, directly | PubSub is core communication infrastructure for the Cardano network. Protocol design based on IOG Research paper (Athens University collaboration). SPO-operated network leverages existing infrastructure. |
-| **Pillar 2: Adoption & Utility** — *Driving widespread, non-speculative utility by focusing on high-value verticals, superior UX, and enterprise-grade security.* | Yes, directly | Enables ADA-free transactions via Babel Fees, dramatically lowering barrier to entry. Powers DeFi (intents, swaps), Governance (verified voting), and Social (token-gated communities) use cases. Superior UX through "invisible gas" experience. |
+| **Pillar 1: Infrastructure & Research Excellence** — *Keep Cardano secure, fast, and interoperable so it can host more economic activity.* | Yes, directly | PubSub is core communication infrastructure for the Cardano network. Protocol design validated by IOG Research (Athens University collaboration). SPO-operated network leverages existing infrastructure. |
+| **Pillar 2: Adoption & Utility** — *Driving widespread, non-speculative utility by focusing on high-value verticals, superior UX, and enterprise-grade security.* | Yes, directly | Enables ADA-free transactions via Babel Fees, dramatically lowering barrier to entry. Powers DeFi (intents), Governance (verified voting), and Network Operations (emergency coordination) use cases. Superior UX through "invisible gas" experience. |
 | **Pillar 3: Governance** — *Cardano governance must be hard to capture, easy to use, and paced.* | Yes, enable | Enables verified, cryptographically-signed governance notifications. One-click voting from any PubSub-compatible client. Reduces phishing risk that plagues current Discord/Telegram governance communications. |
-| **Pillar 4: Community & Ecosystem Growth** — *Driving global engagement through market-centric approach, cultivating skilled developer base, and demonstrating ecosystem value.* | Yes, enable | Provides developer SDKs (JavaScript, Rust, Python) and REST/WebSocket APIs. Creates new economic category of "agent operators" in ecosystem. Enables new dApp categories (intent-based DeFi, token-gated social). |
-| **Pillar 5: Ecosystem Sustainability & Resilience** — *Ensuring the long-term financial health and operational integrity of the network infrastructure.* | Yes, enable | SPO-operated relay network creates new revenue stream for stake pool operators (relay fees). Decentralized architecture ensures no single point of failure. Aligns SPO incentives with network utility beyond block production. |
+| **Pillar 4: Community & Ecosystem Growth** — *Driving global engagement through market-centric approach, cultivating skilled developer base, and demonstrating ecosystem value.* | Yes, enable | Provides developer SDKs (JavaScript, Rust, Python) and REST/WebSocket APIs. Creates new economic category of "agent operators" in ecosystem. Enables new dApp categories (intent-based DeFi, cross-chain bridges). |
+| **Pillar 5: Ecosystem Sustainability & Resilience** — *Ensuring the long-term financial health and operational integrity of the network infrastructure.* | Yes, enable | SPO-operated relay network creates new revenue stream for stake pool operators (relay fees). Diversifies SPO income beyond block production, strengthening network decentralization. |
 
 ---
 
@@ -104,7 +140,7 @@ Q3 2026              Q4 2026              Q1 2027              Q2 2027
 | BitcoinVMX Bridge | Torben Poguntke | Integration — cross-chain intent use case |
 
 ## Documentation
-- **Product Docs:** http://192.168.1.155:8000 (internal)
+- **Product Docs:** https://input-output-hk.github.io/pubsub/
 - **Research Foundation:** IOG Research Paper (Athens University collaboration)
 
 ---
@@ -121,7 +157,7 @@ Q3 2026              Q4 2026              Q1 2027              Q2 2027
 | **KPIs** | Builder NPS, TVL (enable), Monthly Transactions (direct), MAU (enable) |
 | **Pillars** | Pillar 1 (directly), Pillar 2 (directly), Pillar 3-5 (enable) |
 | **Personas** | Builder (core infra + tooling), Crypto Novice, Crypto Savvy, Developer (Dapps), Finance Professional, Operator SPO, Influencer |
-| **AI Augmented** | Partially (enables autonomous AI agents) |
+| **AI Augmented** | Partially (enables agent coordination) |
 | **Value to Midnight** | Potential (messaging infrastructure could extend to Midnight) |
 | **T-Shirt Size** | M |
 | **Funding (USD)** | ~$800,000 - $1,000,000 (4 devs × 9-12 months + architecture) |
@@ -129,11 +165,9 @@ Q3 2026              Q4 2026              Q1 2027              Q2 2027
 
 ---
 
----
-
-*Prepared: 2026-01-29*
+*Prepared: 2026-02-02*
 *PM: Reza Baram*
-*Status: READY FOR REVIEW*
+*Status: DRAFT*
 
 **Assumptions:**
 - Team: Hire or vendor (no existing team)
