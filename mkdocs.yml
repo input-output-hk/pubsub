@@ -72,9 +72,9 @@ nav:
     - Overview: use-cases/index.md
     - DeFi Intents: use-cases/defi-intents.md
     - Governance: use-cases/governance.md
-    - Autonomous Agents: use-cases/autonomous-agents.md
+    - Network Operations: use-cases/network-operations.md
     - Cross-Chain: use-cases/cross-chain.md
-    - Token-Gated Social: use-cases/token-gated-social.md
+    - Agent Coordination: use-cases/agent-coordination.md
   - Architecture:
     - Overview: architecture/index.md
     - Research Foundation: architecture/research-foundation.md
