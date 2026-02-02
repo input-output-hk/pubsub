@@ -73,17 +73,38 @@ This is a validated, high-growth category with significant capital deployment.
 
 ### Use Case 2: Governance
 
-**Cardano's gap:** No native notification layer for proposals. Governance announcements rely on Twitter/Discord.
+**Cardano's gap:** No native notification layer for proposals. CIP-1694 has no standard for notifying DReps of new governance actions.
 
-| Competitor | Protocol | Metrics | What They Enable |
-|------------|----------|---------|------------------|
-| **Push Protocol** | Push Notifications | **96% opt-in rate** (fintech); 120% retention lift | Verified alerts, one-click actions |
-| **XMTP** | Messaging | 2.2M identities; **1B messages** | Wallet-to-wallet coordination |
-| **Snapshot + Push** | Governance alerts | Widely adopted | Proposal notifications |
+| Tool | Type | Metrics | Limitation |
+|------|------|---------|------------|
+| **Push Protocol** | Web3 notifications | **100M+ notifications**; 300k subscribers | EVM-centric; no Cardano support |
+| **Snapshot** | Off-chain voting | **80% of DAO votes** | Weak native notifications; relies on bots |
+| **Tally** | On-chain governance | Email-based alerts | Centralized delivery |
+| **Boardroom** | Aggregator | Multi-DAO dashboard | Pull-based; requires active checking |
 
-**Key insight:** "Users receiving at least one notification per week show **120% higher retention**. This jumps to **820% higher** for daily notifications."
+**The "Pull" vs "Push" Problem:**
+- Current governance is "pull-based" — users must actively check forums/dashboards
+- Voter turnout: **5-10%** for major DeFi protocols
+- **53% of DAOs inactive** (no proposals in 6 months)
+- Uniswap: <10% participation despite $3B treasury
+
+**Emergency Communication Failures:**
+
+| Incident | Loss | Communication Failure |
+|----------|------|----------------------|
+| **Ronin (2022)** | $624M | **6 days to discover** — no anomaly alerts |
+| **Wormhole (2022)** | $320M | Used on-chain tx messages to contact hacker |
+| **Terra (2022)** | $40B | Governance spam; chain halted via Discord |
+
+**Cardano-specific gaps (CIP-1694/Voltaire):**
+- No standard for notifying DReps of new governance actions
+- No DRep-to-Delegator bidirectional messaging
+- No "Red Phone" emergency channel for Constitutional Committee
+- Reliance on proactive checking of GovTool
 
 **Midnight angle:** Thomas Upfield (PM, Governance) stated PubSub is "critical at times of stress where there is an emergency need to coordinate the community."
+
+**Key insight:** "The history of blockchain governance failures—from the silence of the Ronin hack to the cacophony of the Terra collapse—demonstrates that **code is not enough**. Governance requires coordination, and coordination requires communication."
 
 ---
 
@@ -264,7 +285,7 @@ From analyst reports (Messari, Delphi Digital) and the Gemini research:
 |-------|--------|----------------|-------|
 | **DeFi Intents** | ✅ Covered | Core use case | ERC-4337, Jito, CoW Protocol analyzed |
 | **Token-gated communities** | ✅ Covered | Social use case | Guild.xyz, Collab.land, Farcaster, Lens, XMTP, Waku analyzed |
-| **Governance-specific messaging** | 🟡 Partial | Midnight needs emergency coordination | Need: DAO coordination tools, emergency broadcast patterns |
+| **Governance-specific messaging** | ✅ Covered | Midnight needs emergency coordination | Push Protocol, Snapshot, Tally analyzed; emergency case studies (Ronin, Wormhole, Terra); CIP-1694 gaps identified |
 | **Autonomous agents** | ✅ Covered | AI agent coordination | XMTP/Waku messaging, Autonolas/Fetch.ai execution, MEV protection analyzed |
 | **Cross-chain messaging** | ✅ Covered | Bridge use case | IBC, LayerZero, Wormhole, Axelar, Hyperlane, CCIP compared; Cardano integration status mapped |
 | **Emergency broadcast systems** | 🔴 Gap | Midnight's "critical stress" scenario | How do protocols handle urgent security communications? |
