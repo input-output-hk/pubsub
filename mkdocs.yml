@@ -64,6 +64,7 @@ nav:
       - Overview: product/competitive-landscape.md
       - Intent Coordination: product/competitive/intent-coordination.md
       - Cross-Chain Messaging: product/competitive/cross-chain-messaging.md
+      - Emergency Coordination: product/competitive/emergency-coordination.md
     - Roadmap: product/roadmap.md
     - Stakeholders & Team: product/stakeholders.md
     - Risks & Asks: product/risks.md
