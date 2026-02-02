@@ -123,14 +123,30 @@ This is a validated, high-growth category with significant capital deployment.
 
 **Cardano's gap:** No standard cross-chain messaging. Cardinal bridge is still in research phase.
 
-| Competitor | Protocol | Metrics | What They Enable |
-|------------|----------|---------|------------------|
-| **Cosmos** | IBC | **115+ chains; $900M/mo volume** | Native cross-chain messaging |
-| **Near** | Near Intents | 20+ chains in single click | Chain abstraction |
-| **LayerZero** | Omnichain messaging | Multi-chain | Unified cross-chain UX |
-| **Wormhole** | Bridge + messaging | Multi-chain | Cross-chain coordination |
+| Protocol | Security Model | Chains | Volume | Latency | Cardano Status |
+|----------|---------------|--------|--------|---------|----------------|
+| **IBC** | Native light clients | 117+ | $884M/mo | ~19s | 🟡 Development |
+| **LayerZero** | Modular DVN | 150+ | **$44B cumulative** | 3-10s | ❌ None |
+| **Wormhole** | 19 Guardian nodes | 40+ | **$60B+ cumulative** | Variable | ❌ None |
+| **Axelar** | PoS hub network | 64+ | $13B+ cumulative | ~10s | ❌ None |
+| **Hyperlane** | Permissionless ISMs | 150+ | $6.2B cumulative | Variable | ❌ None |
+| **CCIP** | DON + Risk Mgmt | EVM+ | $7B TVL | Variable | 🟡 Proposal |
 
-**Key insight:** IBC has been live since April 2021. Cardano's cross-chain story is 5 years behind.
+**Current Cardano bridges:**
+- **Wanchain:** Production — brought first USDC/USDT to Cardano mainnet
+- **Rosen Bridge:** Production — Bitcoin Runes on Cardano DeFi
+- **Cardinal (IOG):** Research — trust-minimized Bitcoin bridge
+
+**Technical barriers for Cardano:**
+- EUTXO model vs account-based (bridges must construct UTXO transactions)
+- Signature compatibility (Cardano uses EdDSA/Curve25519, others use Secp256k1)
+- Ouroboros light client development is complex
+
+**Security context:** **$2.87 billion stolen from bridges since 2016** — Wormhole ($326M, 2022), Ronin ($625M, 2022), Nomad ($190M, 2022)
+
+**Market trend:** "Chain Abstraction" — making underlying blockchain invisible to users. LayerZero captures **75% of bridge volume**.
+
+**Key insight:** The 2026 unified proposal (Cardano Foundation + IOG + EMURGO + Intersect) identifies LayerZero and Wormhole integration as critical for unlocking global liquidity.
 
 ---
 
@@ -250,7 +266,7 @@ From analyst reports (Messari, Delphi Digital) and the Gemini research:
 | **Token-gated communities** | ✅ Covered | Social use case | Guild.xyz, Collab.land, Farcaster, Lens, XMTP, Waku analyzed |
 | **Governance-specific messaging** | 🟡 Partial | Midnight needs emergency coordination | Need: DAO coordination tools, emergency broadcast patterns |
 | **Autonomous agents** | ✅ Covered | AI agent coordination | XMTP/Waku messaging, Autonolas/Fetch.ai execution, MEV protection analyzed |
-| **Cross-chain messaging** | 🟡 Partial | Bridge use case | Need: IBC vs LayerZero vs Wormhole comparison |
+| **Cross-chain messaging** | ✅ Covered | Bridge use case | IBC, LayerZero, Wormhole, Axelar, Hyperlane, CCIP compared; Cardano integration status mapped |
 | **Emergency broadcast systems** | 🔴 Gap | Midnight's "critical stress" scenario | How do protocols handle urgent security communications? |
 | **SPO communication patterns** | 🔴 Gap | Our distribution advantage | How do other networks coordinate with validators? |
 
