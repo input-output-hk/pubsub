@@ -40,7 +40,9 @@ This is a validated, high-growth category with significant capital deployment.
 | Market Segment | 2024 Value | 2032-2035 Projection | CAGR |
 |----------------|------------|---------------------|------|
 | **Blockchain Messaging Apps** | $45.9B | **$825.9B** (2032) | 43.5% |
+| **Web3 Social Media** | — | **$471B** (2034) | 51.9% |
 | **Web 3.0 Blockchain** | $4.6B | **$198.5B** (2035) | 43.4% |
+| **On-Chain Governance** | — | **$12B** (2033) | — |
 | **Decentralized Apps (dApps)** | $34.7B | **$86.6B** (2029) | — |
 
 ### 2025 Funding Activity
@@ -118,14 +120,28 @@ This is a validated, high-growth category with significant capital deployment.
 
 **Cardano's gap:** Communities rely on Discord + Collab.land. No native, censorship-resistant alternative.
 
-| Competitor | Protocol | What They Enable |
-|------------|----------|------------------|
-| **XMTP** | E2EE messaging | Wallet-native DMs, group chats |
-| **Waku** | Privacy-preserving pubsub | Censorship-resistant communities |
-| **Dialect** | Solana-native messaging | Token-gated alerts |
-| **Farcaster** | Decentralized social | Protocol-level social graph |
+| Platform | Type | Key Metrics | What They Enable |
+|----------|------|-------------|------------------|
+| **Collab.land** | Token-gating | 50+ chains; $17-449/mo SaaS | Discord/Telegram role verification |
+| **Guild.xyz** | Token-gating | Platform-agnostic API; Guild Network L1 | Boolean logic gating (AND/OR), Web2+Web3 actions |
+| **Farcaster** | DeSoc Protocol | 40-60k DAU; $2.8M protocol revenue | Off-chain Hubs, Frames mini-apps, storage rent model |
+| **Lens Protocol** | DeSoc Protocol | Profile NFTs, Follow NFTs | On-chain social graph, Collect Modules monetization |
+| **XMTP** | Messaging | 2.2M identities; 1B messages | MLS encryption, wallet-to-wallet DMs |
+| **Waku** | P2P Messaging | 10k node clusters | GossipSub mesh, RLN spam protection |
 
-**Research gap:** Need deeper analysis on Guild.xyz, Collab.land alternatives, and decentralized social protocols (Lens, Farcaster) as they relate to token-gated communities.
+**The Discord Problem — Security Failures:**
+- **Fractal hack (2021):** Webhook exploit drained $150k in SOL from 373 users
+- **Mee6 bot compromises:** Attackers gain admin roles, ban legitimate mods
+- **Social engineering:** Scammers impersonate admins; no on-chain identity verification
+
+**Market size:** Web3 Social Media projected to reach **$471 billion by 2034** (51.9% CAGR)
+
+**Key insight:** "The chat room must be as secure as the ledger itself." Discord was designed for gamers, not for securing high-value financial assets.
+
+**Cardano architecture opportunity:** "Hydra-Waku-Midnight" stack combining:
+- **Hydra** for instant, free messaging in state channels
+- **Waku-style gossip** for P2P message routing
+- **Midnight** for ZK-based spam protection (RLN) and private gating
 
 ---
 
@@ -140,6 +156,33 @@ This is a validated, high-growth category with significant capital deployment.
 | Architecture | Appchain on Arbitrum Orbit, settles to Base |
 | Target performance | 99.99% reliability; <10ms median response; <$0.001 per message |
 | Key integrations | Coinbase, Lens, ENS, Family |
+| Encryption | **MLS (RFC 9420)** — TreeKEM for O(log n) group encryption |
+| Key innovation | "Universal inbox" — wallet address = messaging address |
+
+### Waku — P2P Privacy Mesh
+
+| Metric | Value |
+|--------|-------|
+| Node clusters | **10,000 nodes** |
+| Architecture | libp2p GossipSub mesh routing |
+| Spam protection | **RLN (Rate Limit Nullifiers)** — ZK-based spam prevention |
+| Privacy | No central server; metadata-resistant routing |
+| Key innovation | Solves "Anonymity Trilemma" via ZK proofs |
+
+### Token-Gating Platforms
+
+| Platform | Pricing | Key Feature |
+|----------|---------|-------------|
+| **Collab.land** | Free → $449/mo | Real-time balance checks (premium), 50+ chains |
+| **Guild.xyz** | Transaction fees | Boolean logic (AND/OR), platform-agnostic API |
+| **Guild Network** | — | Experimental L1 for decentralized verification |
+
+### DeSoc Protocols
+
+| Protocol | DAU | Revenue | Architecture |
+|----------|-----|---------|--------------|
+| **Farcaster** | 40-60k | $2.8M | Off-chain Hubs + Optimism identity |
+| **Lens** | — | Collect fees | On-chain graph (Polygon) + Momoka DA |
 
 ### Jito — Solana's MEV/Intent Layer
 
@@ -183,14 +226,15 @@ From analyst reports (Messari, Delphi Digital) and the Gemini research:
 
 ## Research Gaps to Address
 
-The Gemini research covered DeFi and messaging well, but we need additional research on:
-
-| Topic | Why It Matters | Suggested Research |
-|-------|----------------|-------------------|
-| **Governance-specific messaging** | Midnight needs emergency coordination | How do DAOs coordinate votes today? What's the standard? |
-| **Token-gated community platforms** | Our Social use case | Deep dive on Guild.xyz, Collab.land, Farcaster, Lens |
-| **Emergency broadcast systems** | Midnight's "critical stress" scenario | How do protocols handle urgent security communications? |
-| **SPO communication patterns** | Our distribution advantage | How do other networks coordinate with validators? |
+| Topic | Status | Why It Matters | Notes |
+|-------|--------|----------------|-------|
+| **DeFi Intents** | ✅ Covered | Core use case | ERC-4337, Jito, CoW Protocol analyzed |
+| **Token-gated communities** | ✅ Covered | Social use case | Guild.xyz, Collab.land, Farcaster, Lens, XMTP, Waku analyzed |
+| **Governance-specific messaging** | 🟡 Partial | Midnight needs emergency coordination | Need: DAO coordination tools, emergency broadcast patterns |
+| **Autonomous agents** | 🟡 Partial | AI agent coordination | Need: Agent-to-agent messaging, MEV coordination details |
+| **Cross-chain messaging** | 🟡 Partial | Bridge use case | Need: IBC vs LayerZero vs Wormhole comparison |
+| **Emergency broadcast systems** | 🔴 Gap | Midnight's "critical stress" scenario | How do protocols handle urgent security communications? |
+| **SPO communication patterns** | 🔴 Gap | Our distribution advantage | How do other networks coordinate with validators? |
 
 ---
 
