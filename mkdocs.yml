@@ -61,7 +61,7 @@ nav:
       - Non-Functional: product/requirements/non-functional.md
     - Market Analysis: product/market.md
     - Competitive Landscape:
-      - Overview: product/competitive-landscape.md
+      - product/competitive/index.md
       - Intent Coordination: product/competitive/intent-coordination.md
       - Cross-Chain Messaging: product/competitive/cross-chain-messaging.md
       - Emergency Coordination: product/competitive/emergency-coordination.md
