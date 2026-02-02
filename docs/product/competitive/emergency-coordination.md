@@ -240,17 +240,19 @@ From this research:
 
 ---
 
-## Sources
+## References
 
-1. Halborn Ronin Hack Analysis
-2. Merkle Science Ronin Analysis
-3. CryptoSlate Terra War Room Logs
-4. arXiv Terra Emergency Management Paper
-5. Solana Mainnet Beta Outage Reports
-6. Solana Cluster Restart Documentation
-7. Prysm Mainnet Postmortems
-8. Wormhole Governor Whitepaper
-9. LayerZero Pre-Crime Documentation
-10. Cosmos Circuit Breaker Module Docs
-
-*Full citations available in source document.*
+1. [Ronin Hack Analysis](https://www.halborn.com/blog/post/explained-the-ronin-hack-march-2022) - Halborn
+2. [Ronin Network Exploit](https://www.merklescience.com/blog/hack-track-analysis-of-ronin-network-exploit) - Merkle Science
+3. [Ronin Bridge Heist](https://www.elliptic.co/blog/540-million-stolen-from-the-ronin-defi-bridge) - Elliptic
+4. [Terra War Room Logs](https://cryptoslate.com/validator-leaks-secret-luna-war-room-chat-logs/) - CryptoSlate
+5. [Terra Emergency Management](https://arxiv.org/pdf/2207.01700) - arXiv
+6. [Solana Mainnet Beta Stall Postmortem](https://solana.com/news/mainnet-beta-stall---postmortem) - Solana
+7. [Solana Feb 2024 Outage Report](https://solana.com/news/02-06-24-solana-mainnet-beta-outage-report) - Solana
+8. [Restarting a Solana Cluster](https://docs.solanalabs.com/operations/guides/restart-cluster) - Solana Docs
+9. [Solana Validator Monitoring](https://docs.solanalabs.com/operations/best-practices/monitoring) - Solana Docs
+10. [Prysm Mainnet Postmortems](https://prysm.offchainlabs.com/docs/misc/mainnet-postmortems/) - Prysm Docs
+11. [Wormhole Governor Whitepaper](https://github.com/wormhole-foundation/wormhole/blob/main/whitepapers/0007_governor.md) - GitHub
+12. [LayerZero Pre-Crime](https://medium.com/layerzero-official/introducing-pre-crime-49bef4a581d5) - LayerZero Blog
+13. [Cosmos Circuit Breaker Module](https://docs.cosmos.network/v0.53/build/modules/circuit) - Cosmos SDK Docs
+14. [Circuit Breaker Deep Dive](https://medium.com/the-interchain-foundation/building-resilience-in-blockchain-applications-with-the-circuit-breaker-module-5df0e0df930c) - Interchain Foundation

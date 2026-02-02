@@ -303,19 +303,20 @@ All protocols need off-chain coordination:
 
 ---
 
-## Sources
+## References
 
-1. Wormhole VAA Docs, Architecture
-2. Wormhole Guardian Analysis (01node)
-3. LayerZero V2 Paper (arXiv)
-4. LayerZero Whitepaper V2.1.0
-5. Axelar GMP Documentation
-6. Chainlink CCIP Analysis (0xGreythorn)
-7. Halborn Wormhole Hack Analysis
-8. TRM Labs Wormhole Report
-9. Cardano eUTXO Documentation
-10. IOG Concurrency Blog
-11. Rosen Bridge Documentation
-12. Mithril ZK Bridge Analysis (Medium)
-
-*Full citations available in source document.*
+1. [Wormhole VAAs](https://wormhole.com/docs/protocol/infrastructure/vaas/) - Wormhole Docs
+2. [Wormhole Architecture](https://wormhole.com/docs/protocol/architecture/) - Wormhole Docs
+3. [01node as Wormhole Guardian](https://01node.com/01node-a-wormhole-guardian/) - 01node
+4. [LayerZero V2 Paper](https://arxiv.org/html/2312.09118v2) - arXiv
+5. [LayerZero Whitepaper V2.1.0](https://layerzero.network/publications/LayerZero_Whitepaper_V2.1.0.pdf) - LayerZero
+6. [LayerZero Security Stack DVNs](https://docs.layerzero.network/v2/concepts/modular-security/security-stack-dvns) - LayerZero Docs
+7. [Axelar General Message Passing](https://docs.axelar.dev/dev/general-message-passing/overview/) - Axelar Docs
+8. [Axelar Network Flow](https://docs.axelar.dev/learn/network/flow/) - Axelar Docs
+9. [Chainlink CCIP Analysis](https://0xgreythorn.medium.com/an-exploration-into-chainlink-and-its-ccip-b002fbee22f0) - 0xGreythorn
+10. [Wormhole Hack Analysis](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022) - Halborn
+11. [Wormhole Hack Report](https://www.trmlabs.com/resources/blog/solana-wormhole-compromise-120k-stolen-eth) - TRM Labs
+12. [Cardano eUTXO Model](https://developers.cardano.org/docs/learn/core-concepts/eutxo/) - Cardano Developer Portal
+13. [Cardano Concurrency](https://iohk.io/en/blog/posts/2021/09/10/concurrency-and-all-that-cardano-smart-contracts-and-the-eutxo-model/) - IOG Blog
+14. [Rosen Bridge](https://rosen.tech/) - Rosen Tech
+15. [Mithril ZK Bridge Architecture](https://medium.com/@agustinenada/building-a-zk-bridge-for-cardano-with-mithril-architecture-tradeoffs-and-the-road-ahead-6ed9c35eec84) - Medium

@@ -257,17 +257,17 @@ From this research:
 
 ---
 
-## Sources
+## References
 
-1. CoW Protocol Architecture - MetaLamp
-2. CoW Swap Design - MixBytes
-3. CoW Auction Rules - CoW Docs
-4. UniswapX Dutch Auction Design - Xangle
-5. 1inch Fusion Analysis - LI.FI
-6. Anoma Architecture Specs
-7. ERC-7683 Standard - ERC7683.org
-8. GlueX Solver Slashing Incident - CoW Forum
-9. 1inch Fusion Exploit Analysis - Olympix, Halborn
-10. Flashbots SUAVE TEEs - Eden Network
-
-*Full citations available in source document.*
+1. [CoW Protocol Architecture](https://metalamp.io/magazine/article/cow-dao-and-cow-protocol-how-intent-based-trading-and-mev-protection-transform-defi) - MetaLamp
+2. [CoW Swap Design](https://mixbytes.io/blog/modern-dex-es-how-they-re-made-cow-protocol) - MixBytes
+3. [CoW Auction Competition Rules](https://docs.cow.fi/cow-protocol/reference/core/auctions/competition-rules) - CoW Docs
+4. [UniswapX Dutch Auction Design](https://xangle.io/en/research/detail/1611) - Xangle Research
+5. [UniswapX Filler Strategy](https://docs.uniswap.org/contracts/uniswapx/fillers/mainnet/createfiller) - Uniswap Docs
+6. [1inch Fusion Deep Dive](https://li.fi/knowledge-hub/with-intents-its-solvers-all-the-way-down/) - LI.FI
+7. [Anoma Architecture Specs](https://specs.anoma.net/) - Anoma
+8. [ERC-7683 Cross-Chain Intents Standard](https://www.erc7683.org/spec) - ERC7683.org
+9. [GlueX Solver Slashing](https://forum.cow.fi/t/cip-55-slashing-of-the-gluex-solver/2649) - CoW Forum
+10. [1inch Fusion Exploit Analysis](https://www.halborn.com/blog/post/explained-the-1inch-hack-march-2025) - Halborn
+11. [TEE Party with SUAVE](https://edennetwork.io/blog/tee-party-with-suave/) - Eden Network
+12. [Solver Competition Analysis](http://blog.sprinter.tech/building-economic-trust-in-solver-based-networks-part-2/) - Sprinter
