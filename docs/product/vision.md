@@ -79,6 +79,32 @@ End-to-end encryption (MLS) for private messages. Even relay nodes can't read yo
 | **PubSub Network** | Decentralized SPO network | 2026 |
 | **Full Economy** | Token incentives, DAO governance | 2027 |
 
+## Why Now
+
+Three factors make this the right moment for PubSub:
+
+### 1. DeFi Intents Initiative
+
+The DeFi Intents initiative (led by Michael Smolenski) is actively building gasless trading for Cardano. **PubSub is the designated message bus** — without it, users have no way to broadcast intents to agents.
+
+### 2. Nested Transactions (CIP-118)
+
+Nested Transactions land in 2026, enabling Babel Fees. This unlocks ADA-free transactions where agents cover user fees. But gasless trading requires users to broadcast intents somewhere — that's PubSub.
+
+### 3. Competitive Pressure
+
+Our competitors aren't waiting:
+
+| Ecosystem | Intent Infrastructure |
+|-----------|----------------------|
+| **Ethereum** | ERC-4337 account abstraction + intent protocols (CoW, 1inch Fusion) |
+| **Solana** | Jito for MEV/intent infrastructure |
+| **Cardano** | ❌ No native messaging layer |
+
+If we don't build this, Cardano falls further behind on user experience. The SPO network gives us a unique advantage — we just need to use it.
+
+---
+
 ## Success Criteria
 
 | Metric | Target | Why It Matters |

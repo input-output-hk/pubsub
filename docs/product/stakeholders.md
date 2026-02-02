@@ -12,6 +12,12 @@
 
 ## Key Stakeholders
 
+### IOG Colleagues
+
+| Name | Role | Project | Email | Status |
+|------|------|---------|-------|--------|
+| **Michael Smolenski** | Product Manager - Cardano Core | DeFi Intents | michael.smolenski@iohk.io | ✅ Active |
+
 ### Wallet Teams (Integration Partners)
 
 | Team | Engagement Status |

@@ -76,6 +76,7 @@ See [Architecture](../architecture/index.md) for technical details.
 | [Vision & Problem](vision.md) | Why this exists | All |
 | [Requirements](requirements/index.md) | What we're building | PMs, Engineers |
 | [Market Analysis](market.md) | Competition & opportunity | Executives |
+| [KPI Alignment](kpi-alignment.md) | Cardano 2030 mapping | Executives, Intersect |
 | [Roadmap](roadmap.md) | When we're delivering | All |
 | [Stakeholders & Team](stakeholders.md) | Who's involved | All |
 | [Risks & Asks](risks.md) | What we need | Executives |
