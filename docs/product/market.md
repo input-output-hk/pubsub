@@ -26,6 +26,10 @@ By creating a unified communication standard, Cardano PubSub is positioned to be
 
 ## Competitive Landscape
 
+!!! tip "See Also"
+    
+    For detailed competitive analysis with 2025-2026 market data, metrics, and gap analysis, see **[Competitive Landscape (2025-2026)](competitive-landscape.md)**.
+
 Our primary advantage is the **native-first approach**. While competitors validate market need, their generic architectures create exploitable weaknesses.
 
 ### Competitor Deep Dive
@@ -90,6 +94,29 @@ Our primary advantage is the **native-first approach**. While competitors valida
 | **Modular DID Identity** | DIDs (not just addresses), multiple methods supported | Rich reputation, VCs, portable identity, no vendor lock-in |
 | **SPO Leverage** | 3,000+ existing operators | No cold-start problem |
 | **Actionable Messages** | Vote, swap, stake from notifications | Dialect's best idea, on Cardano |
+
+## Ecosystem Revenue Opportunities
+
+PubSub isn't just infrastructure — it enables entirely new business models on Cardano:
+
+### New Revenue Streams
+
+| Opportunity | Description | Who Benefits |
+|-------------|-------------|--------------|
+| **Premium Notification Services** | Protocols charge for priority alerts (liquidation warnings, whale movements, arbitrage signals) | DeFi protocols, data providers |
+| **Intent Marketplaces** | Agents compete to fulfill user intents, paying fees to access order flow | Market makers, MEV searchers, liquidity providers |
+| **Subscription-Based dApps** | Real-time data feeds, portfolio alerts, governance digests delivered via PubSub | dApp developers, content creators |
+| **Cross-Protocol Coordination** | Atomic swaps, bridge notifications, multi-dApp workflows requiring messaging | Bridge operators, aggregators |
+
+### Why This Matters
+
+These revenue streams don't exist today because there's no messaging layer to build on. PubSub unlocks:
+
+- **For SPOs:** New income from relay fees
+- **For dApps:** Monetization paths beyond transaction fees
+- **For the Protocol:** Increased transaction volume → more fees to treasury
+
+---
 
 ## Go-to-Market Strategy
 

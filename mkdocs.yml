@@ -60,6 +60,7 @@ nav:
       - Functional: product/requirements/functional.md
       - Non-Functional: product/requirements/non-functional.md
     - Market Analysis: product/market.md
+    - Competitive Landscape: product/competitive-landscape.md
     - Roadmap: product/roadmap.md
     - Stakeholders & Team: product/stakeholders.md
     - Risks & Asks: product/risks.md
