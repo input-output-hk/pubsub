@@ -108,9 +108,9 @@ This is a validated, high-growth category with significant capital deployment.
 
 ---
 
-### Use Case 3: Autonomous Agents
+### Use Case 3: Agent Coordination
 
-**Cardano's gap:** No high-throughput coordination layer for AI agents.
+**Cardano's gap:** No high-throughput coordination layer for automated systems.
 
 | Layer | Competitor | Metrics | What They Enable |
 |-------|------------|---------|------------------|
@@ -171,9 +171,9 @@ This is a validated, high-growth category with significant capital deployment.
 
 ---
 
-### Use Case 5: Token-Gated Social
+### Use Case 5: Network Operations & Social
 
-**Cardano's gap:** Communities rely on Discord + Collab.land. No native, censorship-resistant alternative.
+**Cardano's gap:** No authenticated emergency coordination. Communities rely on Discord + Collab.land with no censorship-resistant alternative.
 
 | Platform | Type | Key Metrics | What They Enable |
 |----------|------|-------------|------------------|

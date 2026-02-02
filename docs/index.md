@@ -4,7 +4,7 @@
 
 ## What is Cardano PubSub?
 
-Cardano PubSub is a decentralized messaging protocol that enables real-time communication between Cardano users, dApps, and services. Vote on governance proposals, respond to DeFi alerts, and interact with the ecosystem — from wallets, standalone clients, dashboards, or any PubSub-compatible application.
+Cardano PubSub is a decentralized messaging protocol that enables real-time communication between Cardano users, dApps, and infrastructure operators. Broadcast trading intents, receive governance proposals, coordinate emergency responses, and interact with the ecosystem — from wallets, validator clients, dashboards, or any PubSub-compatible application.
 
 !!! tip "Current Status: Architecture & Design Phase"
     We're finalizing the architecture for the decentralized PubSub network, designed to be operated by Cardano SPOs.
@@ -23,9 +23,9 @@ Cardano PubSub is a decentralized messaging protocol that enables real-time comm
 |----------|----------------|
 | [DeFi Intents](use-cases/defi-intents.md) | Trade without ADA — agents cover your fees |
 | [Governance](use-cases/governance.md) | One-click voting from any PubSub client |
-| [Autonomous Agents](use-cases/autonomous-agents.md) | AI agents coordinate at machine speed |
+| [Network Operations](use-cases/network-operations.md) | Authenticated emergency alerts and SPO coordination |
 | [Cross-Chain](use-cases/cross-chain.md) | Bridge and stake in a single action |
-| [Token-Gated Social](use-cases/token-gated-social.md) | Private communities enforced by the blockchain |
+| [Agent Coordination](use-cases/agent-coordination.md) | Automated systems coordinate at machine speed |
 
 ## Quick Links
 

@@ -70,9 +70,9 @@ The architecture is shaped by five core use cases (see [Use Cases](../use-cases/
 |----------|---------------------------|--------------|
 | [DeFi Intents](../use-cases/defi-intents.md) | Latency <500ms | Hybrid Dissemination + Hot Cache |
 | [Governance](../use-cases/governance.md) | 100% delivery guarantee | Harary Graph + Durable DHT |
-| [Agents](../use-cases/autonomous-agents.md) | 10k+ msg/sec throughput | Burst handling + CBOR |
+| [Network Operations](../use-cases/network-operations.md) | Works during chain halts | Independent P2P + Authority Registry |
 | [Cross-Chain](../use-cases/cross-chain.md) | Foreign chain proofs | Verifier plugins |
-| [Social](../use-cases/token-gated-social.md) | E2EE + token gating | MLS + L1 State Oracle |
+| [Agent Coordination](../use-cases/agent-coordination.md) | 10k+ msg/sec throughput | Burst handling + CBOR |
 
 ## Related Documents
 

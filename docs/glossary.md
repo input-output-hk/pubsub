@@ -68,9 +68,9 @@ Key terms and concepts used throughout the Cardano PubSub documentation.
 |----|------|---------------|
 | **DEF-01** | DeFi Intents | Low-latency intent propagation for swaps, liquidations |
 | **GOV-01** | DAO Governance | Reliable delivery of proposals and vote collection |
-| **AI-01** | Autonomous Agents | High-throughput M2M coordination |
+| **OPS-01** | Network Operations | Authenticated emergency alerts and SPO coordination |
 | **XCB-01** | Cross-Chain Bridge | Foreign chain proof verification |
-| **SOC-01** | Token-Gated Social | E2EE messaging with on-chain access control |
+| **AGT-01** | Agent Coordination | High-throughput M2M coordination |
 
 ## Protocols & Standards
 

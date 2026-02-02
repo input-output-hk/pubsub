@@ -35,9 +35,9 @@ PubSub is designed around five core scenarios. See [Use Cases](../use-cases/inde
 |----------|------------------|
 | [DeFi Intents](../use-cases/defi-intents.md) | Trade without ADA — agents cover your fees |
 | [Governance](../use-cases/governance.md) | One-click voting from any PubSub client |
-| [Autonomous Agents](../use-cases/autonomous-agents.md) | AI agents coordinate at machine speed |
+| [Network Operations](../use-cases/network-operations.md) | Authenticated emergency alerts and SPO coordination |
 | [Cross-Chain](../use-cases/cross-chain.md) | Bridge and stake in a single action |
-| [Token-Gated Social](../use-cases/token-gated-social.md) | Private communities enforced by the blockchain |
+| [Agent Coordination](../use-cases/agent-coordination.md) | Automated systems coordinate at machine speed |
 
 ## Architecture Overview
 
