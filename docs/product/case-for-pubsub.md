@@ -78,67 +78,27 @@ PubSub is infrastructure. It enables these applications but doesn't implement th
 
 ---
 
-## Why Not Just Use XMTP?
+## Why Native Infrastructure
 
-If PubSub is just a messaging layer, why not use XMTP? They already built one. It works. It has users.
+Cardano's messaging infrastructure should be:
 
-The reasons to build native aren't about messaging capabilities — they're about infrastructure ownership, identity, governance, and economic alignment.
+- **Operated by Cardano SPOs** — Three thousand independent operators with economic stake in Cardano's success
+- **Integrated with Cardano identity** — Native Identus (did:prism) support, seamless wallet experience
+- **Governed on Cardano** — Topic administration through on-chain smart contracts, transparent and auditable
+- **Economically aligned with Cardano** — Relay fees for SPOs, strengthening the operator network
+- **Independent** — Our roadmap, our priorities, our governance
 
-### Who operates the infrastructure
-
-XMTP runs all its nodes through a single company (Ephemera). They promise decentralization eventually, but today it's centralized infrastructure controlled by an Ethereum-focused organization.
-
-Cardano PubSub would be operated by SPOs from day one. Three thousand independent operators with economic stake in Cardano's success, geographic distribution, and proven operational expertise. We don't need to bootstrap a network — we already have one.
-
-### Identity
-
-XMTP uses Ethereum addresses as identities. Cardano users would need identity bridges, and we'd always be second-class citizens in their system.
-
-Native PubSub integrates directly with Identus (did:prism). Cardano identity works seamlessly — no bridges, no workarounds, no dependency on Ethereum address formats.
-
-### On-chain administration
-
-The IOG Research design puts topic administration on-chain. Creating a topic, setting permissions, configuring retention — all done through a Cardano smart contract. Transparent, auditable, governed by the same mechanisms as the rest of Cardano.
-
-XMTP has its own governance and administration model that we don't control.
-
-### Economic model
-
-Native PubSub creates relay fees for SPOs — a new revenue stream paid in ADA that strengthens the operator network. It fits naturally into Cardano's existing incentive structure.
-
-XMTP has its own token economy. Operating XMTP infrastructure benefits XMTP token holders, not Cardano SPOs.
-
-### Independence
-
-XMTP's roadmap is set by a company focused on Ethereum. If they pivot priorities, deprecate features, change pricing, or shut down, any Cardano infrastructure built on top is affected.
-
-Native means we control our own messaging layer. Our roadmap, our priorities, our governance.
-
-### What We're NOT Arguing
-
-We're not arguing that XMTP can't do messaging — it can.
-
-We're not arguing that we need to build application logic into PubSub — we don't. Intent schemas and governance flows are separate projects.
-
-We're arguing that Cardano's messaging infrastructure should be:
-
-- **Operated by Cardano SPOs**, not a single external company
-- **Integrated with Cardano identity**, not Ethereum addresses
-- **Governed on Cardano**, not by an external organization
-- **Economically aligned with Cardano**, benefiting SPOs rather than external token holders
-- **Independent**, so our infrastructure roadmap isn't controlled by others
-
-That's what native gives us.
+This is what native gives us.
 
 ---
 
-## Cardano Has Something They Don't
+## Cardano Has Something Special
 
-Here's what makes this interesting: Cardano has an advantage that Ethereum didn't have when they built their coordination layer.
+Here's what makes this interesting: Cardano has an advantage that other ecosystems didn't have when they built their coordination layers.
 
 We have 3,000 stake pool operators.
 
-XMTP raised $50 million dollars and still runs all their nodes themselves. They're trying to bootstrap an operator network from scratch. It's hard. You need to find people willing to run infrastructure, design incentives for them to participate, and build trust over years.
+Building a decentralized messaging network usually means bootstrapping an operator network from scratch. It's hard. You need to find people willing to run infrastructure, design incentives for them to participate, and build trust over years.
 
 Cardano already did that. SPOs aren't just validators — they're infrastructure businesses. They compete for delegation by offering services, maintaining uptime, and building reputation. They have the technical expertise, the operational discipline, and the economic stake in the ecosystem's success.
 
@@ -152,9 +112,9 @@ We're also not starting from a blank page technically. IOG commissioned Athens U
 
 Building native doesn't mean reinventing everything. It means implementing validated research using an operator network we already have.
 
-### The Difference
+### Assembling Existing Pieces
 
-Ethereum had to build messaging infrastructure AND bootstrap an operator network AND create an economic model AND solve identity. They're still working on it — XMTP remains centralized years after launch.
+Other ecosystems had to build messaging infrastructure AND bootstrap an operator network AND create an economic model AND solve identity.
 
 Cardano only needs to build the messaging infrastructure. The operators, the economic model, and the identity layer already exist. We're assembling pieces that are already there.
 
@@ -170,15 +130,13 @@ A governance proposal comes up for vote. Today, it gets posted on a forum, tweet
 
 A critical bug is found in node software. Today, the team tweets about it and hopes everyone sees it in time. Some operators are asleep; some don't check Twitter; some mistake it for a scam. With PubSub, the alert goes out signed by a registered authority, propagates through the SPO network in seconds, and validator software can even respond automatically — entering safe mode while the operator reviews. Response time drops from hours to seconds.
 
-These aren't hypothetical benefits. They're what Ethereum gets from their coordination infrastructure. We're just catching up.
+These aren't hypothetical benefits. They're what other ecosystems get from their coordination infrastructure. We're just catching up.
 
 ---
 
-## The Competitive Window
+## The Opportunity Window
 
-There's also a timing element. XMTP is planning to decentralize in 2026. Anoma is building decentralized intent infrastructure but won't hit mainnet for a while. If Cardano builds now, we can have native, SPO-operated coordination infrastructure before the competition fully matures.
-
-And our version will be more decentralized from day one — because we're not bootstrapping a new operator network. We're using the one we've spent years building.
+There's also a timing element. If Cardano builds now, we can have native, SPO-operated coordination infrastructure that's decentralized from day one — because we're not bootstrapping a new operator network. We're using the one we've spent years building.
 
 ---
 
@@ -194,7 +152,7 @@ The total cost is under a million dollars. That's a rounding error compared to w
 
 ## The Real Question
 
-The question isn't whether Cardano needs a coordination layer. Every serious ecosystem has one. The question is whether we build it ourselves — using our unique advantages — or depend on external infrastructure built for other ecosystems.
+The question isn't whether Cardano needs a coordination layer. Every serious ecosystem has one.
 
 We have the research. We have the operators. We have the identity infrastructure. We have the use cases waiting. What we need is the decision to build.
 
