@@ -50,7 +50,7 @@ Five core use cases:
 | **Governance** | Verified proposals with one-click voting, delivered directly to wallets |
 | **Network Operations** | Authenticated emergency alerts with guaranteed delivery to SPOs |
 | **Cross-Chain** | Coordination layer for bridge protocols and multi-chain messaging |
-| **Agent Coordination** | High-throughput communication for keepers, solvers, and automated systems |
+| **Agent Coordination** | High-throughput communication for automated systems — liquidation bots, order solvers, price oracles |
 
 PubSub doesn't define message contents or handle application logic. The DeFi Intents team builds intent schemas. Governance tooling builds voting flows. PubSub just moves messages — reliably, quickly, without centralized intermediaries.
 
