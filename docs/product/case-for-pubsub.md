@@ -42,6 +42,16 @@ PubSub is the foundational messaging layer — the infrastructure that everythin
 
 Publish messages to a topic, subscribe to receive them. Users publish intents; agents receive them. The Constitutional Committee publishes proposals; wallets receive them. Security teams publish alerts; SPO nodes receive them.
 
+Five core use cases:
+
+| Use Case | What It Enables |
+|----------|-----------------|
+| **DeFi Intents** | Users broadcast trading intents; agents fulfill them, enabling Babel Fees |
+| **Governance** | Verified proposals with one-click voting, delivered directly to wallets |
+| **Network Operations** | Authenticated emergency alerts with guaranteed delivery to SPOs |
+| **Cross-Chain** | Coordination layer for bridge protocols and multi-chain messaging |
+| **Agent Coordination** | High-throughput communication for keepers, solvers, and automated systems |
+
 PubSub doesn't define message contents or handle application logic. The DeFi Intents team builds intent schemas. Governance tooling builds voting flows. PubSub just moves messages — reliably, quickly, without centralized intermediaries.
 
 ---
