@@ -48,12 +48,10 @@ PubSub doesn't define message contents or handle application logic. The DeFi Int
 
 ## Why Native
 
-Cardano's messaging infrastructure should be:
-
-- **Operated by SPOs** — 3,000 independent operators, not a single company
-- **Integrated with Cardano identity** — Native Identus support
-- **Governed on-chain** — Topic administration via smart contracts
-- **Economically aligned** — Relay fees for SPOs, strengthening the network
+- **Operated by SPOs** — Decentralized from day one. No dependency on a single company that could change priorities, raise prices, or shut down.
+- **Integrated with Cardano identity** — Wallets work seamlessly. No bridges to external identity systems.
+- **Governed on-chain** — Topic administration is transparent and auditable, using the same mechanisms as the rest of Cardano.
+- **Economically aligned** — Relay fees create a new revenue stream for SPOs, strengthening the operator network that secures Cardano.
 
 ---
 
