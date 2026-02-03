@@ -53,6 +53,7 @@ nav:
   - Home: index.md
   - Product:
     - Overview: product/index.md
+    - The Case for PubSub: product/case-for-pubsub.md
     - Vision & Problem: product/vision.md
     - Requirements:
       - Overview: product/requirements/index.md
