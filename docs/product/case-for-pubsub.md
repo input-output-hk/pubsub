@@ -18,9 +18,9 @@ The industry has lost over a billion dollars to communication failures. The Roni
 
 Other ecosystems solved this years ago.
 
-| Ecosystem | Messaging Layer | Status |
-|-----------|-----------------|--------|
-| **Ethereum** | XMTP, Push Protocol | 40M+ smart accounts, 100M+ notifications |
+| Ecosystem | Messaging Layer | Adoption |
+|-----------|-----------------|----------|
+| **Ethereum** | XMTP, Push Protocol | 2M+ identities, 100M+ notifications delivered |
 | **Solana** | Dialect | 1M+ daily active users |
 | **Cardano** | ❌ None | Zero |
 
@@ -32,7 +32,7 @@ It's not that our technology is worse. We haven't built the connective tissue th
 
 **Babel Fees are coming.** CIP-118 ships in 2026, enabling users to pay fees in tokens other than ADA. But Babel Fees require coordination — users broadcast intents, agents fulfill them. Without a messaging layer, there's no way for them to find each other. The capability exists but nobody can use it.
 
-**Governance needs it.** CIP-1694 gives us on-chain voting, but turnout depends on people knowing there's something to vote on. Verified notifications with one-click voting would transform participation.
+**Governance needs it.** CIP-1694 gives us on-chain voting, but proposals get buried in forum posts and tweets. Turnout suffers because people don't see them in time or forget to vote. Verified notifications delivered directly to wallets — with vote buttons built in — would transform participation.
 
 ---
 
@@ -52,7 +52,7 @@ Five core use cases:
 | **Cross-Chain** | Coordination layer for bridge protocols and multi-chain messaging |
 | **Agent Coordination** | High-throughput communication for automated systems — liquidation bots, order solvers, price oracles |
 
-PubSub doesn't define message contents or handle application logic. The DeFi Intents team builds intent schemas. Governance tooling builds voting flows. PubSub just moves messages — reliably, quickly, without centralized intermediaries.
+PubSub is the foundation. The DeFi Intents team builds intent schemas on top. Governance tooling builds voting flows on top. Every application benefits from one shared, reliable, decentralized transport layer.
 
 ---
 
@@ -83,7 +83,7 @@ We're not starting from scratch. We're assembling pieces that already exist.
 
 **Frictionless onboarding.** New user has USDC, wants ADA. Today: stuck without ADA for fees. With PubSub + Babel Fees: broadcast intent, agent fulfills it, done.
 
-**Better governance.** Proposal notifications delivered directly to wallets with vote buttons. Participation up, friction down.
+**Better governance.** Constitutional Committee proposal hits your wallet with a "Vote Now" button. No checking forums. No missing deadlines. Participation goes from single digits to meaningful turnout.
 
 **Faster emergency response.** Signed alerts propagate in seconds, not hours. Validator software can respond automatically.
 
@@ -97,13 +97,15 @@ That's what unlocks Cardano's 2026 roadmap — turning capabilities into product
 
 ---
 
-## The Question
+## The Decision
 
-It's not whether Cardano needs a coordination layer. Every serious ecosystem has one.
+Every serious ecosystem has a coordination layer. Cardano doesn't — yet.
 
-We have the research. We have the operators. We have the identity infrastructure. We have the use cases.
+We have the research. We have the operators. We have the identity infrastructure. We have the use cases waiting.
 
-Cardano's settlement layer is world-class. Time to build the coordination layer to match.
+The settlement layer is ready. The 2026 roadmap is ready. The missing piece is the infrastructure that connects them to users.
+
+Let's build it.
 
 ---
 
