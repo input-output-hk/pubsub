@@ -89,6 +89,39 @@ We're not starting from scratch. We're assembling pieces that already exist.
 
 ---
 
+## 2030 Alignment
+
+PubSub maps directly to Cardano's 2030 strategic KPIs:
+
+| KPI | Current | 2030 Target | How PubSub Contributes |
+|-----|---------|-------------|------------------------|
+| **TVL** | $200M | $3B | Enables intent-based DeFi, Babel Fees, cross-chain bridges — the infrastructure that grows TVL |
+| **Transactions** | ~1M/month | 27M/month | Every fulfilled intent settles on-chain. Agent competition increases settlement activity |
+| **Users** | 100K-300K | Growth | Removes barriers — users don't need ADA to start, don't need to understand UTXOs |
+
+**Pillar alignment:** Core Infrastructure, DeFi Enablement, Governance Tooling
+
+---
+
+## Assumptions & Dependencies
+
+**Dependencies:**
+
+- **CIP-118 Nested Transactions** (Ledger Team) — Required for full DeFi Intents flow. Users sign partial transactions; agents complete them. Without CIP-118, Babel Fees can't work as designed.
+- **DeFi Intents Initiative** — Defines intent schemas and agent layer. PubSub is the transport; they build the application logic on top.
+
+**Assumptions:**
+
+- SPOs will operate relays when economically incentivized (Mithril adoption suggests yes)
+- Agent ecosystem emerges organically once infrastructure exists (we'll seed with reference implementations)
+- Wallet integrations follow standardized messaging APIs
+
+**What works independently:**
+
+PubSub delivers value even if dependencies slip. Governance notifications, emergency alerts, and agent coordination don't require CIP-118. The DeFi Intents use case specifically depends on it — others don't.
+
+---
+
 ## What It Takes
 
 12 months. Under $1M. Small team building on existing research and operator network.
