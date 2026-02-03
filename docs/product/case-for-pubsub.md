@@ -38,7 +38,7 @@ It's not that our technology is worse. We haven't built the connective tissue th
 
 ## What PubSub Is
 
-A messaging layer. Nothing more.
+PubSub is the foundational messaging layer — the infrastructure that everything else builds on.
 
 Publish messages to a topic, subscribe to receive them. Users publish intents; agents receive them. The Constitutional Committee publishes proposals; wallets receive them. Security teams publish alerts; SPO nodes receive them.
 
