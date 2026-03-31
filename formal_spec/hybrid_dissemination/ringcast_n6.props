@@ -1,0 +1,43 @@
+// Properties for the RingCast N=6 DTMC model (with optional node failures)
+//
+// Usage:
+//   prism ringcast_n6.prism ringcast_n6.props -const RF=1,p_fail=0
+//   prism ringcast_n6.prism ringcast_n6.props -const RF=1,p_fail=0.1
+//   prism ringcast_n6.prism ringcast_n6.props -const RF=2,p_fail=0.2
+//
+// Goal labels:
+//   "all_informed"      — first state with all nodes informed (for P=? queries)
+//   "coverage_complete" — phase 4 with all informed  (R=? with full coverage)
+//   "terminated"        — phase 4 with full coverage OR no active forwarders left
+//                         (R=? including failure scenarios)
+//
+// For expected coverage at termination: R{"coverage"}=? [F "terminated"] + 1
+// (the +1 accounts for the source, which is pre-informed and not counted in the reward)
+
+// -----------------------------------------------------------------------
+// Coverage probability
+// -----------------------------------------------------------------------
+
+// Probability of full coverage  (= 1.0 when p_fail=0; may be < 1 with failures)
+P=? [ F "all_informed" ]
+
+// CDF: probability of full coverage within k rounds
+P=? [ F ("all_informed" & round=0) ]
+P=? [ F ("all_informed" & round<=1) ]
+P=? [ F ("all_informed" & round<=2) ]
+P=? [ F ("all_informed" & round<=3) ]
+
+// -----------------------------------------------------------------------
+// Expected speed and overhead  (use "terminated" to handle failures cleanly)
+// -----------------------------------------------------------------------
+
+// Expected number of rounds until termination (coverage or stuck)
+R{"rounds"}=? [ F "terminated" ]
+
+// Expected total messages sent until termination
+R{"messages"}=? [ F "terminated" ]
+
+// Expected number of nodes informed beyond the source at termination
+// Total informed = this value + 1  (1 = source)
+// Coverage fraction = (this + 1) / 6
+R{"coverage"}=? [ F "terminated" ]
