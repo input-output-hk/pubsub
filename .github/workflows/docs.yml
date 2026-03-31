@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'site/**'
+      - 'mkdocs.yml'
   workflow_dispatch:
 
 permissions:
@@ -27,7 +30,7 @@ jobs:
       - run: mkdocs build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _build
 
   deploy:
     environment:
