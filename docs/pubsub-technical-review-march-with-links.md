@@ -11,13 +11,13 @@
 - [Functional requirements](https://input-output-hk.github.io/pubsub/product/requirements/functional/)
 - [Non-functional requirements](https://input-output-hk.github.io/pubsub/product/requirements/non-functional/)
 - [Use cases overview](https://input-output-hk.github.io/pubsub/use-cases/)
-- [AUEB technical report](https://drive.google.com/file/d/1jZC969uPPUwHoUuovf6DRDDIeg-DR3MB/view)
+- [AUEB technical report](D2-Cardano-PubSub-Framework-Design-and-Architecture.pdf)
 
 ---
 
 ## 1. Executive Summary
 
-This review examines the Cardano PubSub [product documentation](https://input-output-hk.github.io/pubsub/) (five use cases, requirements) and the accompanying [technical report](https://drive.google.com/file/d/1jZC969uPPUwHoUuovf6DRDDIeg-DR3MB/view) describing a three-layer P2P overlay architecture with DHT-based persistence. The review finds that:
+This review examines the Cardano PubSub [product documentation](https://input-output-hk.github.io/pubsub/) (five use cases, requirements) and the accompanying [technical report](D2-Cardano-PubSub-Framework-Design-and-Architecture.pdf) describing a three-layer P2P overlay architecture with DHT-based persistence. The review finds that:
 
 1. **The five proposed use cases each suffer from specific technical issues** — including incentive misalignment, unrealistic performance targets, conflation of messaging with application logic, and redundancy with on-chain capabilities.
 
