@@ -13,6 +13,5 @@ Thumbs.db
 *.tmp
 *.bak
 
-# MkDocs
-site/
-resources/
+# MkDocs build output
+_build/
