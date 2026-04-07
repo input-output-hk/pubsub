@@ -42,22 +42,21 @@ quint test topic_registry_test.qnt --backend typescript
 
 ## Model checking
 
-Exhaustively verify invariants with TLC. Requires Java and
-[Apalache](https://apalache-mc.org/) installed at
-`~/.quint/apalache-dist-0.51.1/`.
+Exhaustively verify invariants with TLC (requires Java):
 
 ```
 # Check a single invariant
-./check_with_tlc.sh topic_registry_props.qnt \
+quint verify topic_registry_props.qnt \
   --main topic_registry_props \
   --step env_next \
   --invariant inv_aliveTopicHasOwner
 
 # Check a temporal property
-./check_with_tlc.sh topic_registry_props.qnt \
+quint verify topic_registry_props.qnt \
   --main topic_registry_props \
   --step env_next \
   --temporal temp_inboxEventuallyDrained
 ```
 
-See `./check_with_tlc.sh --help` for all options.
+There is also a `check_with_tlc.sh` wrapper for custom TLC/Apalache
+setups — see `./check_with_tlc.sh --help`.
