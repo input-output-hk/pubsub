@@ -13,6 +13,10 @@ Thumbs.db
 *.tmp
 *.bak
 
-# MkDocs
-site/
-resources/
+# MkDocs build output
+_build/
+
+# Quint / TLC / Apalache build artifacts
+_apalache-out/
+*.tla
+*.cfg

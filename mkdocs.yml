@@ -5,9 +5,12 @@ site_url: https://input-output-hk.github.io/pubsub/
 repo_name: input-output-hk/pubsub
 repo_url: https://github.com/input-output-hk/pubsub
 
+docs_dir: site
+site_dir: _build
+
 theme:
   name: material
-  custom_dir: docs/overrides
+  custom_dir: site/overrides
   palette:
     - scheme: default
       primary: indigo

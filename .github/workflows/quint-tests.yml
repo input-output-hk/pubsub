@@ -1,0 +1,20 @@
+name: Quint Tests
+
+on:
+  push:
+    paths:
+      - 'formal_spec/topic_registry/**/*.qnt'
+  pull_request:
+    paths:
+      - 'formal_spec/topic_registry/**/*.qnt'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @informalsystems/quint
+      - run: quint test formal_spec/topic_registry/topic_registry_test.qnt
