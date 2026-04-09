@@ -1,0 +1,665 @@
+// RingCast — PRISM DTMC model (fixed r-links + asymmetric forwarding + catastrophic failures)
+//
+// Extends ringcast_n6_fixed_catastr.prism with the correct forwarding rule from Fig. 5:
+//
+//   function selectGossipTargets(Q):
+//     if ringNeighbor1 ≠ Q then targets += {ringNeighbor1}
+//     if ringNeighbor2 ≠ Q then targets += {ringNeighbor2}
+//     targets += (F − targets.size) random nodes from (view−{Q})
+//
+// This introduces two corrections relative to the symmetric model:
+//   1. D-link back-send: a node received via d-link from Q sends d-link to the OTHER
+//      ring neighbor only (not back to Q). Saves 1 d-link; gains 1 r-link instead.
+//   2. Q-exclusion in r-links: any pre-established r-link slot equal to Q is skipped.
+//
+// Parameter redefinition:
+//   RF = total pre-established r-links per node = F − 1, where F = total fanout.
+//   Supported: RF = 2 (total fanout 3; comparable to old symmetric RF=1 model).
+//   For RF=3 (fanout 4) the Phase 5 triples (5P3=60 per node) can be added analogously.
+//
+//   Reception path     | D-links sent | R-links used
+//   -------------------+--------------+-------------
+//   Source or r-link   |      2       |   RF−1  (= 1 for RF=2)
+//   Via d-link         |      1       |   RF    (= 2 for RF=2)
+//   Total fanout in both cases: RF+1 = F
+//
+// R-link pre-establishment uses ORDERED sampling without replacement:
+//   slot 1 ~ Uniform(peers), slot 2 ~ Uniform(peers \ {slot 1}), …
+// This ensures each slot has a uniform marginal distribution, so using any subset
+// of slots is unbiased (critical for the asymmetric case where only slot 1 is used
+// in the r-link/source path).
+//
+// recv_i tracks who sent node i the message (sentinel 6 = source / no exclusion).
+// It is set once (at first reception) and used to determine forwarding asymmetry.
+//
+// Phase ordering (unchanged from ringcast_n6_fixed_catastr.prism):
+//   Phase 5 — R-link init : sample RF ordered r-link targets per node
+//   Phase 6 — Kill        : each non-source node dies independently with p_kill
+//   Phase 0 — Snapshot    : set active flags
+//   Phase 1 — Fail-det.   : per-forwarding failure (p_fail)
+//   Phase 2 — D-links     : asymmetric, sequential (turn 0..5); sets recv for new informees
+//   Phase 3 — R-links     : deterministic, conditional use; sets recv for new informees
+//   Phase 4 — Commit      : absorb or advance round
+//
+// Parameters:
+//   RF      : pre-established r-links per node; must be 2 (RF=3 not yet implemented)
+//   p_kill  : pre-dissemination kill probability (non-source nodes only)
+//   p_fail  : per-round forwarding failure probability
+//   MAX_ROUND : safety bound
+
+dtmc
+
+const int RF;
+const double p_kill;
+const double p_fail;
+const int MAX_ROUND = 30;
+
+// ------------------------------------------------------------------
+// Termination predicates
+// ------------------------------------------------------------------
+
+formula all_live_informed =
+    (alive0=0 | info0=1) & (alive1=0 | info1=1) & (alive2=0 | info2=1) &
+    (alive3=0 | info3=1) & (alive4=0 | info4=1) & (alive5=0 | info5=1);
+
+formula no_active =
+    active0=0 & active1=0 & active2=0 & active3=0 & active4=0 & active5=0;
+
+module Dissemination
+
+  // ------------------------------------------------------------------
+  // Per-node state
+  // ------------------------------------------------------------------
+
+  info0 : [0..1] init 1;   // source always starts informed
+  info1 : [0..1] init 0;
+  info2 : [0..1] init 0;
+  info3 : [0..1] init 0;
+  info4 : [0..1] init 0;
+  info5 : [0..1] init 0;
+
+  done0 : [0..1] init 0;
+  done1 : [0..1] init 0;
+  done2 : [0..1] init 0;
+  done3 : [0..1] init 0;
+  done4 : [0..1] init 0;
+  done5 : [0..1] init 0;
+
+  active0 : [0..1] init 0;
+  active1 : [0..1] init 0;
+  active2 : [0..1] init 0;
+  active3 : [0..1] init 0;
+  active4 : [0..1] init 0;
+  active5 : [0..1] init 0;
+
+  alive0 : [0..1] init 1;
+  alive1 : [0..1] init 1;
+  alive2 : [0..1] init 1;
+  alive3 : [0..1] init 1;
+  alive4 : [0..1] init 1;
+  alive5 : [0..1] init 1;
+
+  // recv_i : who sent node i the message first.
+  // 0..5 = a specific peer; 6 = source / not yet received (no exclusion).
+  // Set once at first reception; never changed after that.
+  recv0 : [0..6] init 6;   // source: no exclusion ever
+  recv1 : [0..6] init 6;
+  recv2 : [0..6] init 6;
+  recv3 : [0..6] init 6;
+  recv4 : [0..6] init 6;
+  recv5 : [0..6] init 6;
+
+  // ------------------------------------------------------------------
+  // Fixed r-link targets (RF slots per node; slot 3 unused for RF=2)
+  // Ordered without replacement: slot 1 uniform over peers,
+  // slot 2 uniform over peers\{slot1}, slot 3 uniform over peers\{slot1,slot2}.
+  // ------------------------------------------------------------------
+
+  rlink0_1 : [0..5] init 0;  rlink0_2 : [0..5] init 0;  rlink0_3 : [0..5] init 0;
+  rlink1_1 : [0..5] init 0;  rlink1_2 : [0..5] init 0;  rlink1_3 : [0..5] init 0;
+  rlink2_1 : [0..5] init 0;  rlink2_2 : [0..5] init 0;  rlink2_3 : [0..5] init 0;
+  rlink3_1 : [0..5] init 0;  rlink3_2 : [0..5] init 0;  rlink3_3 : [0..5] init 0;
+  rlink4_1 : [0..5] init 0;  rlink4_2 : [0..5] init 0;  rlink4_3 : [0..5] init 0;
+  rlink5_1 : [0..5] init 0;  rlink5_2 : [0..5] init 0;  rlink5_3 : [0..5] init 0;
+
+  // ------------------------------------------------------------------
+  // Control state
+  // ------------------------------------------------------------------
+
+  phase : [0..6] init 5;
+  turn  : [0..5] init 0;
+  round : [0..MAX_ROUND] init 0;
+
+  // ==================================================================
+  // Phase 5 — R-link initialisation
+  //
+  // Ordered sampling without replacement: slot k drawn uniformly from
+  // peers not yet chosen. 20 outcomes per node for RF=2 (5×4 ordered pairs).
+  // slot3 unused for RF=2 (stays at init value 0).
+  // ==================================================================
+
+  // ---- Node 0: peers {1,2,3,4,5} ----
+  [] phase=5 & turn=0 & RF=2 ->
+      1/20:(rlink0_1'=1)&(rlink0_2'=2)&(turn'=1) + 1/20:(rlink0_1'=1)&(rlink0_2'=3)&(turn'=1) +
+      1/20:(rlink0_1'=1)&(rlink0_2'=4)&(turn'=1) + 1/20:(rlink0_1'=1)&(rlink0_2'=5)&(turn'=1) +
+      1/20:(rlink0_1'=2)&(rlink0_2'=1)&(turn'=1) + 1/20:(rlink0_1'=2)&(rlink0_2'=3)&(turn'=1) +
+      1/20:(rlink0_1'=2)&(rlink0_2'=4)&(turn'=1) + 1/20:(rlink0_1'=2)&(rlink0_2'=5)&(turn'=1) +
+      1/20:(rlink0_1'=3)&(rlink0_2'=1)&(turn'=1) + 1/20:(rlink0_1'=3)&(rlink0_2'=2)&(turn'=1) +
+      1/20:(rlink0_1'=3)&(rlink0_2'=4)&(turn'=1) + 1/20:(rlink0_1'=3)&(rlink0_2'=5)&(turn'=1) +
+      1/20:(rlink0_1'=4)&(rlink0_2'=1)&(turn'=1) + 1/20:(rlink0_1'=4)&(rlink0_2'=2)&(turn'=1) +
+      1/20:(rlink0_1'=4)&(rlink0_2'=3)&(turn'=1) + 1/20:(rlink0_1'=4)&(rlink0_2'=5)&(turn'=1) +
+      1/20:(rlink0_1'=5)&(rlink0_2'=1)&(turn'=1) + 1/20:(rlink0_1'=5)&(rlink0_2'=2)&(turn'=1) +
+      1/20:(rlink0_1'=5)&(rlink0_2'=3)&(turn'=1) + 1/20:(rlink0_1'=5)&(rlink0_2'=4)&(turn'=1);
+
+  // ---- Node 1: peers {0,2,3,4,5} ----
+  [] phase=5 & turn=1 & RF=2 ->
+      1/20:(rlink1_1'=0)&(rlink1_2'=2)&(turn'=2) + 1/20:(rlink1_1'=0)&(rlink1_2'=3)&(turn'=2) +
+      1/20:(rlink1_1'=0)&(rlink1_2'=4)&(turn'=2) + 1/20:(rlink1_1'=0)&(rlink1_2'=5)&(turn'=2) +
+      1/20:(rlink1_1'=2)&(rlink1_2'=0)&(turn'=2) + 1/20:(rlink1_1'=2)&(rlink1_2'=3)&(turn'=2) +
+      1/20:(rlink1_1'=2)&(rlink1_2'=4)&(turn'=2) + 1/20:(rlink1_1'=2)&(rlink1_2'=5)&(turn'=2) +
+      1/20:(rlink1_1'=3)&(rlink1_2'=0)&(turn'=2) + 1/20:(rlink1_1'=3)&(rlink1_2'=2)&(turn'=2) +
+      1/20:(rlink1_1'=3)&(rlink1_2'=4)&(turn'=2) + 1/20:(rlink1_1'=3)&(rlink1_2'=5)&(turn'=2) +
+      1/20:(rlink1_1'=4)&(rlink1_2'=0)&(turn'=2) + 1/20:(rlink1_1'=4)&(rlink1_2'=2)&(turn'=2) +
+      1/20:(rlink1_1'=4)&(rlink1_2'=3)&(turn'=2) + 1/20:(rlink1_1'=4)&(rlink1_2'=5)&(turn'=2) +
+      1/20:(rlink1_1'=5)&(rlink1_2'=0)&(turn'=2) + 1/20:(rlink1_1'=5)&(rlink1_2'=2)&(turn'=2) +
+      1/20:(rlink1_1'=5)&(rlink1_2'=3)&(turn'=2) + 1/20:(rlink1_1'=5)&(rlink1_2'=4)&(turn'=2);
+
+  // ---- Node 2: peers {0,1,3,4,5} ----
+  [] phase=5 & turn=2 & RF=2 ->
+      1/20:(rlink2_1'=0)&(rlink2_2'=1)&(turn'=3) + 1/20:(rlink2_1'=0)&(rlink2_2'=3)&(turn'=3) +
+      1/20:(rlink2_1'=0)&(rlink2_2'=4)&(turn'=3) + 1/20:(rlink2_1'=0)&(rlink2_2'=5)&(turn'=3) +
+      1/20:(rlink2_1'=1)&(rlink2_2'=0)&(turn'=3) + 1/20:(rlink2_1'=1)&(rlink2_2'=3)&(turn'=3) +
+      1/20:(rlink2_1'=1)&(rlink2_2'=4)&(turn'=3) + 1/20:(rlink2_1'=1)&(rlink2_2'=5)&(turn'=3) +
+      1/20:(rlink2_1'=3)&(rlink2_2'=0)&(turn'=3) + 1/20:(rlink2_1'=3)&(rlink2_2'=1)&(turn'=3) +
+      1/20:(rlink2_1'=3)&(rlink2_2'=4)&(turn'=3) + 1/20:(rlink2_1'=3)&(rlink2_2'=5)&(turn'=3) +
+      1/20:(rlink2_1'=4)&(rlink2_2'=0)&(turn'=3) + 1/20:(rlink2_1'=4)&(rlink2_2'=1)&(turn'=3) +
+      1/20:(rlink2_1'=4)&(rlink2_2'=3)&(turn'=3) + 1/20:(rlink2_1'=4)&(rlink2_2'=5)&(turn'=3) +
+      1/20:(rlink2_1'=5)&(rlink2_2'=0)&(turn'=3) + 1/20:(rlink2_1'=5)&(rlink2_2'=1)&(turn'=3) +
+      1/20:(rlink2_1'=5)&(rlink2_2'=3)&(turn'=3) + 1/20:(rlink2_1'=5)&(rlink2_2'=4)&(turn'=3);
+
+  // ---- Node 3: peers {0,1,2,4,5} ----
+  [] phase=5 & turn=3 & RF=2 ->
+      1/20:(rlink3_1'=0)&(rlink3_2'=1)&(turn'=4) + 1/20:(rlink3_1'=0)&(rlink3_2'=2)&(turn'=4) +
+      1/20:(rlink3_1'=0)&(rlink3_2'=4)&(turn'=4) + 1/20:(rlink3_1'=0)&(rlink3_2'=5)&(turn'=4) +
+      1/20:(rlink3_1'=1)&(rlink3_2'=0)&(turn'=4) + 1/20:(rlink3_1'=1)&(rlink3_2'=2)&(turn'=4) +
+      1/20:(rlink3_1'=1)&(rlink3_2'=4)&(turn'=4) + 1/20:(rlink3_1'=1)&(rlink3_2'=5)&(turn'=4) +
+      1/20:(rlink3_1'=2)&(rlink3_2'=0)&(turn'=4) + 1/20:(rlink3_1'=2)&(rlink3_2'=1)&(turn'=4) +
+      1/20:(rlink3_1'=2)&(rlink3_2'=4)&(turn'=4) + 1/20:(rlink3_1'=2)&(rlink3_2'=5)&(turn'=4) +
+      1/20:(rlink3_1'=4)&(rlink3_2'=0)&(turn'=4) + 1/20:(rlink3_1'=4)&(rlink3_2'=1)&(turn'=4) +
+      1/20:(rlink3_1'=4)&(rlink3_2'=2)&(turn'=4) + 1/20:(rlink3_1'=4)&(rlink3_2'=5)&(turn'=4) +
+      1/20:(rlink3_1'=5)&(rlink3_2'=0)&(turn'=4) + 1/20:(rlink3_1'=5)&(rlink3_2'=1)&(turn'=4) +
+      1/20:(rlink3_1'=5)&(rlink3_2'=2)&(turn'=4) + 1/20:(rlink3_1'=5)&(rlink3_2'=4)&(turn'=4);
+
+  // ---- Node 4: peers {0,1,2,3,5} ----
+  [] phase=5 & turn=4 & RF=2 ->
+      1/20:(rlink4_1'=0)&(rlink4_2'=1)&(turn'=5) + 1/20:(rlink4_1'=0)&(rlink4_2'=2)&(turn'=5) +
+      1/20:(rlink4_1'=0)&(rlink4_2'=3)&(turn'=5) + 1/20:(rlink4_1'=0)&(rlink4_2'=5)&(turn'=5) +
+      1/20:(rlink4_1'=1)&(rlink4_2'=0)&(turn'=5) + 1/20:(rlink4_1'=1)&(rlink4_2'=2)&(turn'=5) +
+      1/20:(rlink4_1'=1)&(rlink4_2'=3)&(turn'=5) + 1/20:(rlink4_1'=1)&(rlink4_2'=5)&(turn'=5) +
+      1/20:(rlink4_1'=2)&(rlink4_2'=0)&(turn'=5) + 1/20:(rlink4_1'=2)&(rlink4_2'=1)&(turn'=5) +
+      1/20:(rlink4_1'=2)&(rlink4_2'=3)&(turn'=5) + 1/20:(rlink4_1'=2)&(rlink4_2'=5)&(turn'=5) +
+      1/20:(rlink4_1'=3)&(rlink4_2'=0)&(turn'=5) + 1/20:(rlink4_1'=3)&(rlink4_2'=1)&(turn'=5) +
+      1/20:(rlink4_1'=3)&(rlink4_2'=2)&(turn'=5) + 1/20:(rlink4_1'=3)&(rlink4_2'=5)&(turn'=5) +
+      1/20:(rlink4_1'=5)&(rlink4_2'=0)&(turn'=5) + 1/20:(rlink4_1'=5)&(rlink4_2'=1)&(turn'=5) +
+      1/20:(rlink4_1'=5)&(rlink4_2'=2)&(turn'=5) + 1/20:(rlink4_1'=5)&(rlink4_2'=3)&(turn'=5);
+
+  // ---- Node 5: peers {0,1,2,3,4} — last: → phase 6 ----
+  [] phase=5 & turn=5 & RF=2 ->
+      1/20:(rlink5_1'=0)&(rlink5_2'=1)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=0)&(rlink5_2'=2)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=0)&(rlink5_2'=3)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=0)&(rlink5_2'=4)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=1)&(rlink5_2'=0)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=1)&(rlink5_2'=2)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=1)&(rlink5_2'=3)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=1)&(rlink5_2'=4)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=2)&(rlink5_2'=0)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=2)&(rlink5_2'=1)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=2)&(rlink5_2'=3)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=2)&(rlink5_2'=4)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=3)&(rlink5_2'=0)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=3)&(rlink5_2'=1)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=3)&(rlink5_2'=2)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=3)&(rlink5_2'=4)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=4)&(rlink5_2'=0)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=4)&(rlink5_2'=1)&(phase'=6)&(turn'=0) +
+      1/20:(rlink5_1'=4)&(rlink5_2'=2)&(phase'=6)&(turn'=0) + 1/20:(rlink5_1'=4)&(rlink5_2'=3)&(phase'=6)&(turn'=0);
+
+  // ==================================================================
+  // Phase 6 — Kill phase (unchanged from ringcast_n6_fixed_catastr.prism)
+  // ==================================================================
+
+  [] phase=6 & turn=0 -> (turn'=1);
+
+  [] phase=6 & turn=1 ->
+      p_kill : (alive1'=0)&(done1'=1)&(turn'=2) + (1-p_kill) : (turn'=2);
+  [] phase=6 & turn=2 ->
+      p_kill : (alive2'=0)&(done2'=1)&(turn'=3) + (1-p_kill) : (turn'=3);
+  [] phase=6 & turn=3 ->
+      p_kill : (alive3'=0)&(done3'=1)&(turn'=4) + (1-p_kill) : (turn'=4);
+  [] phase=6 & turn=4 ->
+      p_kill : (alive4'=0)&(done4'=1)&(turn'=5) + (1-p_kill) : (turn'=5);
+  [] phase=6 & turn=5 ->
+      p_kill : (alive5'=0)&(done5'=1)&(phase'=0)&(turn'=0) + (1-p_kill) : (phase'=0)&(turn'=0);
+
+  // ==================================================================
+  // Phase 0 — Snapshot (unchanged)
+  // Dead nodes have done_i=1 → active_i = info_i*(1-done_i) = 0.
+  // ==================================================================
+
+  [] phase=0 ->
+      (active0' = info0*(1-done0)) & (active1' = info1*(1-done1)) &
+      (active2' = info2*(1-done2)) & (active3' = info3*(1-done3)) &
+      (active4' = info4*(1-done4)) & (active5' = info5*(1-done5)) &
+      (phase' = 1) & (turn' = 0);
+
+  // ==================================================================
+  // Phase 1 — Failure determination (unchanged)
+  // ==================================================================
+
+  [] phase=1 & turn=0 -> (turn'=1);
+
+  [] phase=1 & turn=1 & active1=1 ->
+      p_fail : (active1'=0)&(done1'=1)&(turn'=2) + (1-p_fail) : (turn'=2);
+  [] phase=1 & turn=1 & active1=0 -> (turn'=2);
+
+  [] phase=1 & turn=2 & active2=1 ->
+      p_fail : (active2'=0)&(done2'=1)&(turn'=3) + (1-p_fail) : (turn'=3);
+  [] phase=1 & turn=2 & active2=0 -> (turn'=3);
+
+  [] phase=1 & turn=3 & active3=1 ->
+      p_fail : (active3'=0)&(done3'=1)&(turn'=4) + (1-p_fail) : (turn'=4);
+  [] phase=1 & turn=3 & active3=0 -> (turn'=4);
+
+  [] phase=1 & turn=4 & active4=1 ->
+      p_fail : (active4'=0)&(done4'=1)&(turn'=5) + (1-p_fail) : (turn'=5);
+  [] phase=1 & turn=4 & active4=0 -> (turn'=5);
+
+  [] phase=1 & turn=5 & active5=1 ->
+      p_fail : (active5'=0)&(done5'=1)&(phase'=2)&(turn'=0) + (1-p_fail) : (phase'=2)&(turn'=0);
+  [] phase=1 & turn=5 & active5=0 -> (phase'=2)&(turn'=0);
+
+  // ==================================================================
+  // Phase 2 — D-links (asymmetric, sequential)
+  //
+  // H(6,2) ring neighbors: node i → L=(i+5)%6, R=(i+1)%6
+  //   Node 0: L=5, R=1    Node 3: L=2, R=4
+  //   Node 1: L=0, R=2    Node 4: L=3, R=5
+  //   Node 2: L=1, R=3    Node 5: L=4, R=0
+  //
+  // Three cases per active node i (recv_i = L, recv_i = R, or neither):
+  //   recv=L : send d-link to R only  → fewer d-links but more r-links in Phase 3
+  //   recv=R : send d-link to L only
+  //   other  : send to both L and R   (source has recv=6; r-link reception also here)
+  //
+  // recv_j is set for any newly-informed ring neighbor j:
+  //   recv_j' = (info_j=0 ? i : recv_j)   [i = literal index of sending node]
+  // If j was already informed, recv_j is preserved.
+  // ==================================================================
+
+  // ---- Node 0 (L=5, R=1) ----
+  [] phase=2 & turn=0 & active0=1 & recv0=5 ->
+      (info1'=1) & (recv1'=(info1=0 ? 0 : recv1)) & (turn'=1);
+  [] phase=2 & turn=0 & active0=1 & recv0=1 ->
+      (info5'=1) & (recv5'=(info5=0 ? 0 : recv5)) & (turn'=1);
+  [] phase=2 & turn=0 & active0=1 & !(recv0=5|recv0=1) ->
+      (info5'=1) & (recv5'=(info5=0 ? 0 : recv5)) &
+      (info1'=1) & (recv1'=(info1=0 ? 0 : recv1)) & (turn'=1);
+  [] phase=2 & turn=0 & active0=0 -> (turn'=1);
+
+  // ---- Node 1 (L=0, R=2) ----
+  [] phase=2 & turn=1 & active1=1 & recv1=0 ->
+      (info2'=1) & (recv2'=(info2=0 ? 1 : recv2)) & (turn'=2);
+  [] phase=2 & turn=1 & active1=1 & recv1=2 ->
+      (info0'=1) & (recv0'=(info0=0 ? 1 : recv0)) & (turn'=2);
+  [] phase=2 & turn=1 & active1=1 & !(recv1=0|recv1=2) ->
+      (info0'=1) & (recv0'=(info0=0 ? 1 : recv0)) &
+      (info2'=1) & (recv2'=(info2=0 ? 1 : recv2)) & (turn'=2);
+  [] phase=2 & turn=1 & active1=0 -> (turn'=2);
+
+  // ---- Node 2 (L=1, R=3) ----
+  [] phase=2 & turn=2 & active2=1 & recv2=1 ->
+      (info3'=1) & (recv3'=(info3=0 ? 2 : recv3)) & (turn'=3);
+  [] phase=2 & turn=2 & active2=1 & recv2=3 ->
+      (info1'=1) & (recv1'=(info1=0 ? 2 : recv1)) & (turn'=3);
+  [] phase=2 & turn=2 & active2=1 & !(recv2=1|recv2=3) ->
+      (info1'=1) & (recv1'=(info1=0 ? 2 : recv1)) &
+      (info3'=1) & (recv3'=(info3=0 ? 2 : recv3)) & (turn'=3);
+  [] phase=2 & turn=2 & active2=0 -> (turn'=3);
+
+  // ---- Node 3 (L=2, R=4) ----
+  [] phase=2 & turn=3 & active3=1 & recv3=2 ->
+      (info4'=1) & (recv4'=(info4=0 ? 3 : recv4)) & (turn'=4);
+  [] phase=2 & turn=3 & active3=1 & recv3=4 ->
+      (info2'=1) & (recv2'=(info2=0 ? 3 : recv2)) & (turn'=4);
+  [] phase=2 & turn=3 & active3=1 & !(recv3=2|recv3=4) ->
+      (info2'=1) & (recv2'=(info2=0 ? 3 : recv2)) &
+      (info4'=1) & (recv4'=(info4=0 ? 3 : recv4)) & (turn'=4);
+  [] phase=2 & turn=3 & active3=0 -> (turn'=4);
+
+  // ---- Node 4 (L=3, R=5) ----
+  [] phase=2 & turn=4 & active4=1 & recv4=3 ->
+      (info5'=1) & (recv5'=(info5=0 ? 4 : recv5)) & (turn'=5);
+  [] phase=2 & turn=4 & active4=1 & recv4=5 ->
+      (info3'=1) & (recv3'=(info3=0 ? 4 : recv3)) & (turn'=5);
+  [] phase=2 & turn=4 & active4=1 & !(recv4=3|recv4=5) ->
+      (info3'=1) & (recv3'=(info3=0 ? 4 : recv3)) &
+      (info5'=1) & (recv5'=(info5=0 ? 4 : recv5)) & (turn'=5);
+  [] phase=2 & turn=4 & active4=0 -> (turn'=5);
+
+  // ---- Node 5 (L=4, R=0) — last: → phase 3 ----
+  [] phase=2 & turn=5 & active5=1 & recv5=4 ->
+      (info0'=1) & (recv0'=(info0=0 ? 5 : recv0)) & (phase'=3) & (turn'=0);
+  [] phase=2 & turn=5 & active5=1 & recv5=0 ->
+      (info4'=1) & (recv4'=(info4=0 ? 5 : recv4)) & (phase'=3) & (turn'=0);
+  [] phase=2 & turn=5 & active5=1 & !(recv5=4|recv5=0) ->
+      (info4'=1) & (recv4'=(info4=0 ? 5 : recv4)) &
+      (info0'=1) & (recv0'=(info0=0 ? 5 : recv0)) & (phase'=3) & (turn'=0);
+  [] phase=2 & turn=5 & active5=0 -> (phase'=3) & (turn'=0);
+
+  // ==================================================================
+  // Phase 3 — R-links (deterministic; asymmetric + Q-exclusion)
+  //
+  // Two transitions per active node i:
+  //   D-link case   (recv_i ∈ {L,R}): use all RF slots; skip any slot = recv_i
+  //   Other case    (recv_i ∉ {L,R}): use only slot 1; skip if = recv_i
+  //
+  // Update pattern for target j, slot k, sender i:
+  //   info_j'  = max(info_j, (rlink_i_k=j & rlink_i_k!=recv_i) ? 1:0)
+  //   recv_j'  = (info_j=0 & rlink_i_k=j & rlink_i_k!=recv_i) ? i : recv_j
+  //
+  // Since slots are distinct (ordered without replacement), at most one slot
+  // hits any given j, so the conditions simplify cleanly.
+  // Self-sends are impossible (Phase 5 excludes self), so info_i never changes.
+  // ==================================================================
+
+  // ---- Node 0 (L=5, R=1) ----
+
+  // d-link reception: use both slots
+  [] phase=3 & turn=0 & active0=1 & (recv0=5|recv0=1) ->
+      (info1' = max(info1, (rlink0_1=1&rlink0_1!=recv0)?1:0, (rlink0_2=1&rlink0_2!=recv0)?1:0)) &
+      (recv1' = (info1=0 & ((rlink0_1=1&rlink0_1!=recv0)|(rlink0_2=1&rlink0_2!=recv0))) ? 0 : recv1) &
+      (info2' = max(info2, (rlink0_1=2&rlink0_1!=recv0)?1:0, (rlink0_2=2&rlink0_2!=recv0)?1:0)) &
+      (recv2' = (info2=0 & ((rlink0_1=2&rlink0_1!=recv0)|(rlink0_2=2&rlink0_2!=recv0))) ? 0 : recv2) &
+      (info3' = max(info3, (rlink0_1=3&rlink0_1!=recv0)?1:0, (rlink0_2=3&rlink0_2!=recv0)?1:0)) &
+      (recv3' = (info3=0 & ((rlink0_1=3&rlink0_1!=recv0)|(rlink0_2=3&rlink0_2!=recv0))) ? 0 : recv3) &
+      (info4' = max(info4, (rlink0_1=4&rlink0_1!=recv0)?1:0, (rlink0_2=4&rlink0_2!=recv0)?1:0)) &
+      (recv4' = (info4=0 & ((rlink0_1=4&rlink0_1!=recv0)|(rlink0_2=4&rlink0_2!=recv0))) ? 0 : recv4) &
+      (info5' = max(info5, (rlink0_1=5&rlink0_1!=recv0)?1:0, (rlink0_2=5&rlink0_2!=recv0)?1:0)) &
+      (recv5' = (info5=0 & ((rlink0_1=5&rlink0_1!=recv0)|(rlink0_2=5&rlink0_2!=recv0))) ? 0 : recv5) &
+      (turn'=1);
+
+  // r-link/source reception: slot 1 only
+  [] phase=3 & turn=0 & active0=1 & !(recv0=5|recv0=1) ->
+      (info1' = max(info1, (rlink0_1=1&rlink0_1!=recv0)?1:0)) &
+      (recv1' = (info1=0 & rlink0_1=1 & rlink0_1!=recv0) ? 0 : recv1) &
+      (info2' = max(info2, (rlink0_1=2&rlink0_1!=recv0)?1:0)) &
+      (recv2' = (info2=0 & rlink0_1=2 & rlink0_1!=recv0) ? 0 : recv2) &
+      (info3' = max(info3, (rlink0_1=3&rlink0_1!=recv0)?1:0)) &
+      (recv3' = (info3=0 & rlink0_1=3 & rlink0_1!=recv0) ? 0 : recv3) &
+      (info4' = max(info4, (rlink0_1=4&rlink0_1!=recv0)?1:0)) &
+      (recv4' = (info4=0 & rlink0_1=4 & rlink0_1!=recv0) ? 0 : recv4) &
+      (info5' = max(info5, (rlink0_1=5&rlink0_1!=recv0)?1:0)) &
+      (recv5' = (info5=0 & rlink0_1=5 & rlink0_1!=recv0) ? 0 : recv5) &
+      (turn'=1);
+
+  [] phase=3 & turn=0 & active0=0 -> (turn'=1);
+
+  // ---- Node 1 (L=0, R=2) ----
+
+  [] phase=3 & turn=1 & active1=1 & (recv1=0|recv1=2) ->
+      (info0' = max(info0, (rlink1_1=0&rlink1_1!=recv1)?1:0, (rlink1_2=0&rlink1_2!=recv1)?1:0)) &
+      (recv0' = (info0=0 & ((rlink1_1=0&rlink1_1!=recv1)|(rlink1_2=0&rlink1_2!=recv1))) ? 1 : recv0) &
+      (info2' = max(info2, (rlink1_1=2&rlink1_1!=recv1)?1:0, (rlink1_2=2&rlink1_2!=recv1)?1:0)) &
+      (recv2' = (info2=0 & ((rlink1_1=2&rlink1_1!=recv1)|(rlink1_2=2&rlink1_2!=recv1))) ? 1 : recv2) &
+      (info3' = max(info3, (rlink1_1=3&rlink1_1!=recv1)?1:0, (rlink1_2=3&rlink1_2!=recv1)?1:0)) &
+      (recv3' = (info3=0 & ((rlink1_1=3&rlink1_1!=recv1)|(rlink1_2=3&rlink1_2!=recv1))) ? 1 : recv3) &
+      (info4' = max(info4, (rlink1_1=4&rlink1_1!=recv1)?1:0, (rlink1_2=4&rlink1_2!=recv1)?1:0)) &
+      (recv4' = (info4=0 & ((rlink1_1=4&rlink1_1!=recv1)|(rlink1_2=4&rlink1_2!=recv1))) ? 1 : recv4) &
+      (info5' = max(info5, (rlink1_1=5&rlink1_1!=recv1)?1:0, (rlink1_2=5&rlink1_2!=recv1)?1:0)) &
+      (recv5' = (info5=0 & ((rlink1_1=5&rlink1_1!=recv1)|(rlink1_2=5&rlink1_2!=recv1))) ? 1 : recv5) &
+      (turn'=2);
+
+  [] phase=3 & turn=1 & active1=1 & !(recv1=0|recv1=2) ->
+      (info0' = max(info0, (rlink1_1=0&rlink1_1!=recv1)?1:0)) &
+      (recv0' = (info0=0 & rlink1_1=0 & rlink1_1!=recv1) ? 1 : recv0) &
+      (info2' = max(info2, (rlink1_1=2&rlink1_1!=recv1)?1:0)) &
+      (recv2' = (info2=0 & rlink1_1=2 & rlink1_1!=recv1) ? 1 : recv2) &
+      (info3' = max(info3, (rlink1_1=3&rlink1_1!=recv1)?1:0)) &
+      (recv3' = (info3=0 & rlink1_1=3 & rlink1_1!=recv1) ? 1 : recv3) &
+      (info4' = max(info4, (rlink1_1=4&rlink1_1!=recv1)?1:0)) &
+      (recv4' = (info4=0 & rlink1_1=4 & rlink1_1!=recv1) ? 1 : recv4) &
+      (info5' = max(info5, (rlink1_1=5&rlink1_1!=recv1)?1:0)) &
+      (recv5' = (info5=0 & rlink1_1=5 & rlink1_1!=recv1) ? 1 : recv5) &
+      (turn'=2);
+
+  [] phase=3 & turn=1 & active1=0 -> (turn'=2);
+
+  // ---- Node 2 (L=1, R=3) ----
+
+  [] phase=3 & turn=2 & active2=1 & (recv2=1|recv2=3) ->
+      (info0' = max(info0, (rlink2_1=0&rlink2_1!=recv2)?1:0, (rlink2_2=0&rlink2_2!=recv2)?1:0)) &
+      (recv0' = (info0=0 & ((rlink2_1=0&rlink2_1!=recv2)|(rlink2_2=0&rlink2_2!=recv2))) ? 2 : recv0) &
+      (info1' = max(info1, (rlink2_1=1&rlink2_1!=recv2)?1:0, (rlink2_2=1&rlink2_2!=recv2)?1:0)) &
+      (recv1' = (info1=0 & ((rlink2_1=1&rlink2_1!=recv2)|(rlink2_2=1&rlink2_2!=recv2))) ? 2 : recv1) &
+      (info3' = max(info3, (rlink2_1=3&rlink2_1!=recv2)?1:0, (rlink2_2=3&rlink2_2!=recv2)?1:0)) &
+      (recv3' = (info3=0 & ((rlink2_1=3&rlink2_1!=recv2)|(rlink2_2=3&rlink2_2!=recv2))) ? 2 : recv3) &
+      (info4' = max(info4, (rlink2_1=4&rlink2_1!=recv2)?1:0, (rlink2_2=4&rlink2_2!=recv2)?1:0)) &
+      (recv4' = (info4=0 & ((rlink2_1=4&rlink2_1!=recv2)|(rlink2_2=4&rlink2_2!=recv2))) ? 2 : recv4) &
+      (info5' = max(info5, (rlink2_1=5&rlink2_1!=recv2)?1:0, (rlink2_2=5&rlink2_2!=recv2)?1:0)) &
+      (recv5' = (info5=0 & ((rlink2_1=5&rlink2_1!=recv2)|(rlink2_2=5&rlink2_2!=recv2))) ? 2 : recv5) &
+      (turn'=3);
+
+  [] phase=3 & turn=2 & active2=1 & !(recv2=1|recv2=3) ->
+      (info0' = max(info0, (rlink2_1=0&rlink2_1!=recv2)?1:0)) &
+      (recv0' = (info0=0 & rlink2_1=0 & rlink2_1!=recv2) ? 2 : recv0) &
+      (info1' = max(info1, (rlink2_1=1&rlink2_1!=recv2)?1:0)) &
+      (recv1' = (info1=0 & rlink2_1=1 & rlink2_1!=recv2) ? 2 : recv1) &
+      (info3' = max(info3, (rlink2_1=3&rlink2_1!=recv2)?1:0)) &
+      (recv3' = (info3=0 & rlink2_1=3 & rlink2_1!=recv2) ? 2 : recv3) &
+      (info4' = max(info4, (rlink2_1=4&rlink2_1!=recv2)?1:0)) &
+      (recv4' = (info4=0 & rlink2_1=4 & rlink2_1!=recv2) ? 2 : recv4) &
+      (info5' = max(info5, (rlink2_1=5&rlink2_1!=recv2)?1:0)) &
+      (recv5' = (info5=0 & rlink2_1=5 & rlink2_1!=recv2) ? 2 : recv5) &
+      (turn'=3);
+
+  [] phase=3 & turn=2 & active2=0 -> (turn'=3);
+
+  // ---- Node 3 (L=2, R=4) ----
+
+  [] phase=3 & turn=3 & active3=1 & (recv3=2|recv3=4) ->
+      (info0' = max(info0, (rlink3_1=0&rlink3_1!=recv3)?1:0, (rlink3_2=0&rlink3_2!=recv3)?1:0)) &
+      (recv0' = (info0=0 & ((rlink3_1=0&rlink3_1!=recv3)|(rlink3_2=0&rlink3_2!=recv3))) ? 3 : recv0) &
+      (info1' = max(info1, (rlink3_1=1&rlink3_1!=recv3)?1:0, (rlink3_2=1&rlink3_2!=recv3)?1:0)) &
+      (recv1' = (info1=0 & ((rlink3_1=1&rlink3_1!=recv3)|(rlink3_2=1&rlink3_2!=recv3))) ? 3 : recv1) &
+      (info2' = max(info2, (rlink3_1=2&rlink3_1!=recv3)?1:0, (rlink3_2=2&rlink3_2!=recv3)?1:0)) &
+      (recv2' = (info2=0 & ((rlink3_1=2&rlink3_1!=recv3)|(rlink3_2=2&rlink3_2!=recv3))) ? 3 : recv2) &
+      (info4' = max(info4, (rlink3_1=4&rlink3_1!=recv3)?1:0, (rlink3_2=4&rlink3_2!=recv3)?1:0)) &
+      (recv4' = (info4=0 & ((rlink3_1=4&rlink3_1!=recv3)|(rlink3_2=4&rlink3_2!=recv3))) ? 3 : recv4) &
+      (info5' = max(info5, (rlink3_1=5&rlink3_1!=recv3)?1:0, (rlink3_2=5&rlink3_2!=recv3)?1:0)) &
+      (recv5' = (info5=0 & ((rlink3_1=5&rlink3_1!=recv3)|(rlink3_2=5&rlink3_2!=recv3))) ? 3 : recv5) &
+      (turn'=4);
+
+  [] phase=3 & turn=3 & active3=1 & !(recv3=2|recv3=4) ->
+      (info0' = max(info0, (rlink3_1=0&rlink3_1!=recv3)?1:0)) &
+      (recv0' = (info0=0 & rlink3_1=0 & rlink3_1!=recv3) ? 3 : recv0) &
+      (info1' = max(info1, (rlink3_1=1&rlink3_1!=recv3)?1:0)) &
+      (recv1' = (info1=0 & rlink3_1=1 & rlink3_1!=recv3) ? 3 : recv1) &
+      (info2' = max(info2, (rlink3_1=2&rlink3_1!=recv3)?1:0)) &
+      (recv2' = (info2=0 & rlink3_1=2 & rlink3_1!=recv3) ? 3 : recv2) &
+      (info4' = max(info4, (rlink3_1=4&rlink3_1!=recv3)?1:0)) &
+      (recv4' = (info4=0 & rlink3_1=4 & rlink3_1!=recv3) ? 3 : recv4) &
+      (info5' = max(info5, (rlink3_1=5&rlink3_1!=recv3)?1:0)) &
+      (recv5' = (info5=0 & rlink3_1=5 & rlink3_1!=recv3) ? 3 : recv5) &
+      (turn'=4);
+
+  [] phase=3 & turn=3 & active3=0 -> (turn'=4);
+
+  // ---- Node 4 (L=3, R=5) ----
+
+  [] phase=3 & turn=4 & active4=1 & (recv4=3|recv4=5) ->
+      (info0' = max(info0, (rlink4_1=0&rlink4_1!=recv4)?1:0, (rlink4_2=0&rlink4_2!=recv4)?1:0)) &
+      (recv0' = (info0=0 & ((rlink4_1=0&rlink4_1!=recv4)|(rlink4_2=0&rlink4_2!=recv4))) ? 4 : recv0) &
+      (info1' = max(info1, (rlink4_1=1&rlink4_1!=recv4)?1:0, (rlink4_2=1&rlink4_2!=recv4)?1:0)) &
+      (recv1' = (info1=0 & ((rlink4_1=1&rlink4_1!=recv4)|(rlink4_2=1&rlink4_2!=recv4))) ? 4 : recv1) &
+      (info2' = max(info2, (rlink4_1=2&rlink4_1!=recv4)?1:0, (rlink4_2=2&rlink4_2!=recv4)?1:0)) &
+      (recv2' = (info2=0 & ((rlink4_1=2&rlink4_1!=recv4)|(rlink4_2=2&rlink4_2!=recv4))) ? 4 : recv2) &
+      (info3' = max(info3, (rlink4_1=3&rlink4_1!=recv4)?1:0, (rlink4_2=3&rlink4_2!=recv4)?1:0)) &
+      (recv3' = (info3=0 & ((rlink4_1=3&rlink4_1!=recv4)|(rlink4_2=3&rlink4_2!=recv4))) ? 4 : recv3) &
+      (info5' = max(info5, (rlink4_1=5&rlink4_1!=recv4)?1:0, (rlink4_2=5&rlink4_2!=recv4)?1:0)) &
+      (recv5' = (info5=0 & ((rlink4_1=5&rlink4_1!=recv4)|(rlink4_2=5&rlink4_2!=recv4))) ? 4 : recv5) &
+      (turn'=5);
+
+  [] phase=3 & turn=4 & active4=1 & !(recv4=3|recv4=5) ->
+      (info0' = max(info0, (rlink4_1=0&rlink4_1!=recv4)?1:0)) &
+      (recv0' = (info0=0 & rlink4_1=0 & rlink4_1!=recv4) ? 4 : recv0) &
+      (info1' = max(info1, (rlink4_1=1&rlink4_1!=recv4)?1:0)) &
+      (recv1' = (info1=0 & rlink4_1=1 & rlink4_1!=recv4) ? 4 : recv1) &
+      (info2' = max(info2, (rlink4_1=2&rlink4_1!=recv4)?1:0)) &
+      (recv2' = (info2=0 & rlink4_1=2 & rlink4_1!=recv4) ? 4 : recv2) &
+      (info3' = max(info3, (rlink4_1=3&rlink4_1!=recv4)?1:0)) &
+      (recv3' = (info3=0 & rlink4_1=3 & rlink4_1!=recv4) ? 4 : recv3) &
+      (info5' = max(info5, (rlink4_1=5&rlink4_1!=recv4)?1:0)) &
+      (recv5' = (info5=0 & rlink4_1=5 & rlink4_1!=recv4) ? 4 : recv5) &
+      (turn'=5);
+
+  [] phase=3 & turn=4 & active4=0 -> (turn'=5);
+
+  // ---- Node 5 (L=4, R=0) — last: → phase 4 ----
+
+  [] phase=3 & turn=5 & active5=1 & (recv5=4|recv5=0) ->
+      (info0' = max(info0, (rlink5_1=0&rlink5_1!=recv5)?1:0, (rlink5_2=0&rlink5_2!=recv5)?1:0)) &
+      (recv0' = (info0=0 & ((rlink5_1=0&rlink5_1!=recv5)|(rlink5_2=0&rlink5_2!=recv5))) ? 5 : recv0) &
+      (info1' = max(info1, (rlink5_1=1&rlink5_1!=recv5)?1:0, (rlink5_2=1&rlink5_2!=recv5)?1:0)) &
+      (recv1' = (info1=0 & ((rlink5_1=1&rlink5_1!=recv5)|(rlink5_2=1&rlink5_2!=recv5))) ? 5 : recv1) &
+      (info2' = max(info2, (rlink5_1=2&rlink5_1!=recv5)?1:0, (rlink5_2=2&rlink5_2!=recv5)?1:0)) &
+      (recv2' = (info2=0 & ((rlink5_1=2&rlink5_1!=recv5)|(rlink5_2=2&rlink5_2!=recv5))) ? 5 : recv2) &
+      (info3' = max(info3, (rlink5_1=3&rlink5_1!=recv5)?1:0, (rlink5_2=3&rlink5_2!=recv5)?1:0)) &
+      (recv3' = (info3=0 & ((rlink5_1=3&rlink5_1!=recv5)|(rlink5_2=3&rlink5_2!=recv5))) ? 5 : recv3) &
+      (info4' = max(info4, (rlink5_1=4&rlink5_1!=recv5)?1:0, (rlink5_2=4&rlink5_2!=recv5)?1:0)) &
+      (recv4' = (info4=0 & ((rlink5_1=4&rlink5_1!=recv5)|(rlink5_2=4&rlink5_2!=recv5))) ? 5 : recv4) &
+      (phase'=4) & (turn'=0);
+
+  [] phase=3 & turn=5 & active5=1 & !(recv5=4|recv5=0) ->
+      (info0' = max(info0, (rlink5_1=0&rlink5_1!=recv5)?1:0)) &
+      (recv0' = (info0=0 & rlink5_1=0 & rlink5_1!=recv5) ? 5 : recv0) &
+      (info1' = max(info1, (rlink5_1=1&rlink5_1!=recv5)?1:0)) &
+      (recv1' = (info1=0 & rlink5_1=1 & rlink5_1!=recv5) ? 5 : recv1) &
+      (info2' = max(info2, (rlink5_1=2&rlink5_1!=recv5)?1:0)) &
+      (recv2' = (info2=0 & rlink5_1=2 & rlink5_1!=recv5) ? 5 : recv2) &
+      (info3' = max(info3, (rlink5_1=3&rlink5_1!=recv5)?1:0)) &
+      (recv3' = (info3=0 & rlink5_1=3 & rlink5_1!=recv5) ? 5 : recv3) &
+      (info4' = max(info4, (rlink5_1=4&rlink5_1!=recv5)?1:0)) &
+      (recv4' = (info4=0 & rlink5_1=4 & rlink5_1!=recv5) ? 5 : recv4) &
+      (phase'=4) & (turn'=0);
+
+  [] phase=3 & turn=5 & active5=0 -> (phase'=4) & (turn'=0);
+
+  // ==================================================================
+  // Phase 4 — Commit (unchanged)
+  // ==================================================================
+
+  [] phase=4 & all_live_informed -> true;
+  [] phase=4 & !all_live_informed & no_active -> true;
+  [] phase=4 & round < MAX_ROUND & !all_live_informed & !no_active ->
+      (done0'=max(done0,active0)) & (done1'=max(done1,active1)) &
+      (done2'=max(done2,active2)) & (done3'=max(done3,active3)) &
+      (done4'=max(done4,active4)) & (done5'=max(done5,active5)) &
+      (round'=round+1) & (phase'=0);
+
+endmodule
+
+// ==================================================================
+// Labels
+// ==================================================================
+
+label "all_live_informed" = all_live_informed;
+label "terminated"        = phase=4 & (all_live_informed | no_active);
+label "all_informed"      = info0=1 & info1=1 & info2=1 & info3=1 & info4=1 & info5=1;
+
+// ==================================================================
+// Rewards
+// ==================================================================
+
+rewards "rounds"
+  phase=0 : 1;
+endrewards
+
+// D-link messages: 1 if received via d-link (send to one neighbor only),
+// 2 if source or received via r-link (send to both). Per-turn in Phase 2.
+// R-link messages: for RF=2, d-link case uses both slots (minus skipped),
+// r-link/source case uses slot 1 only (minus skipped if =recv_i).
+rewards "messages"
+  // -- Phase 2 d-links --
+  phase=2 & turn=0 & active0=1 & (recv0=5|recv0=1)  : 1;
+  phase=2 & turn=0 & active0=1 & !(recv0=5|recv0=1) : 2;
+  phase=2 & turn=1 & active1=1 & (recv1=0|recv1=2)  : 1;
+  phase=2 & turn=1 & active1=1 & !(recv1=0|recv1=2) : 2;
+  phase=2 & turn=2 & active2=1 & (recv2=1|recv2=3)  : 1;
+  phase=2 & turn=2 & active2=1 & !(recv2=1|recv2=3) : 2;
+  phase=2 & turn=3 & active3=1 & (recv3=2|recv3=4)  : 1;
+  phase=2 & turn=3 & active3=1 & !(recv3=2|recv3=4) : 2;
+  phase=2 & turn=4 & active4=1 & (recv4=3|recv4=5)  : 1;
+  phase=2 & turn=4 & active4=1 & !(recv4=3|recv4=5) : 2;
+  phase=2 & turn=5 & active5=1 & (recv5=4|recv5=0)  : 1;
+  phase=2 & turn=5 & active5=1 & !(recv5=4|recv5=0) : 2;
+  // -- Phase 3 r-links (d-link case: both slots; other: slot 1 only; subtract skipped) --
+  phase=3 & turn=0 & active0=1 & (recv0=5|recv0=1)  : (rlink0_1!=recv0?1:0)+(rlink0_2!=recv0?1:0);
+  phase=3 & turn=0 & active0=1 & !(recv0=5|recv0=1) : (rlink0_1!=recv0?1:0);
+  phase=3 & turn=1 & active1=1 & (recv1=0|recv1=2)  : (rlink1_1!=recv1?1:0)+(rlink1_2!=recv1?1:0);
+  phase=3 & turn=1 & active1=1 & !(recv1=0|recv1=2) : (rlink1_1!=recv1?1:0);
+  phase=3 & turn=2 & active2=1 & (recv2=1|recv2=3)  : (rlink2_1!=recv2?1:0)+(rlink2_2!=recv2?1:0);
+  phase=3 & turn=2 & active2=1 & !(recv2=1|recv2=3) : (rlink2_1!=recv2?1:0);
+  phase=3 & turn=3 & active3=1 & (recv3=2|recv3=4)  : (rlink3_1!=recv3?1:0)+(rlink3_2!=recv3?1:0);
+  phase=3 & turn=3 & active3=1 & !(recv3=2|recv3=4) : (rlink3_1!=recv3?1:0);
+  phase=3 & turn=4 & active4=1 & (recv4=3|recv4=5)  : (rlink4_1!=recv4?1:0)+(rlink4_2!=recv4?1:0);
+  phase=3 & turn=4 & active4=1 & !(recv4=3|recv4=5) : (rlink4_1!=recv4?1:0);
+  phase=3 & turn=5 & active5=1 & (recv5=4|recv5=0)  : (rlink5_1!=recv5?1:0)+(rlink5_2!=recv5?1:0);
+  phase=3 & turn=5 & active5=1 & !(recv5=4|recv5=0) : (rlink5_1!=recv5?1:0);
+endrewards
+
+// Coverage: newly-informed LIVE nodes only (multiply by alive_j).
+// slot_cov(node_i, slot_k, recv_i): gain from sending slot k (0 if = recv_i or already informed).
+rewards "coverage"
+  // -- Phase 2 d-links --
+  phase=2 & turn=0 & active0=1 & recv0=5          : (1-info1)*alive1;
+  phase=2 & turn=0 & active0=1 & recv0=1          : (1-info5)*alive5;
+  phase=2 & turn=0 & active0=1 & !(recv0=5|recv0=1) : (1-info5)*alive5+(1-info1)*alive1;
+  phase=2 & turn=1 & active1=1 & recv1=0          : (1-info2)*alive2;
+  phase=2 & turn=1 & active1=1 & recv1=2          : (1-info0)*alive0;
+  phase=2 & turn=1 & active1=1 & !(recv1=0|recv1=2) : (1-info0)*alive0+(1-info2)*alive2;
+  phase=2 & turn=2 & active2=1 & recv2=1          : (1-info3)*alive3;
+  phase=2 & turn=2 & active2=1 & recv2=3          : (1-info1)*alive1;
+  phase=2 & turn=2 & active2=1 & !(recv2=1|recv2=3) : (1-info1)*alive1+(1-info3)*alive3;
+  phase=2 & turn=3 & active3=1 & recv3=2          : (1-info4)*alive4;
+  phase=2 & turn=3 & active3=1 & recv3=4          : (1-info2)*alive2;
+  phase=2 & turn=3 & active3=1 & !(recv3=2|recv3=4) : (1-info2)*alive2+(1-info4)*alive4;
+  phase=2 & turn=4 & active4=1 & recv4=3          : (1-info5)*alive5;
+  phase=2 & turn=4 & active4=1 & recv4=5          : (1-info3)*alive3;
+  phase=2 & turn=4 & active4=1 & !(recv4=3|recv4=5) : (1-info3)*alive3+(1-info5)*alive5;
+  phase=2 & turn=5 & active5=1 & recv5=4          : (1-info0)*alive0;
+  phase=2 & turn=5 & active5=1 & recv5=0          : (1-info4)*alive4;
+  phase=2 & turn=5 & active5=1 & !(recv5=4|recv5=0) : (1-info4)*alive4+(1-info0)*alive0;
+  // -- Phase 3 r-links (slot k skipped if = recv_i; slot 2 not used in r-link/source case) --
+  phase=3 & turn=0 & active0=1 & (recv0=5|recv0=1) :
+      (rlink0_1!=recv0?1:0)*((rlink0_1=1?(1-info1)*alive1:0)+(rlink0_1=2?(1-info2)*alive2:0)+(rlink0_1=3?(1-info3)*alive3:0)+(rlink0_1=4?(1-info4)*alive4:0)+(rlink0_1=5?(1-info5)*alive5:0)) +
+      (rlink0_2!=recv0?1:0)*((rlink0_2=1?(1-info1)*alive1:0)+(rlink0_2=2?(1-info2)*alive2:0)+(rlink0_2=3?(1-info3)*alive3:0)+(rlink0_2=4?(1-info4)*alive4:0)+(rlink0_2=5?(1-info5)*alive5:0));
+  phase=3 & turn=0 & active0=1 & !(recv0=5|recv0=1) :
+      (rlink0_1!=recv0?1:0)*((rlink0_1=1?(1-info1)*alive1:0)+(rlink0_1=2?(1-info2)*alive2:0)+(rlink0_1=3?(1-info3)*alive3:0)+(rlink0_1=4?(1-info4)*alive4:0)+(rlink0_1=5?(1-info5)*alive5:0));
+  phase=3 & turn=1 & active1=1 & (recv1=0|recv1=2) :
+      (rlink1_1!=recv1?1:0)*((rlink1_1=0?(1-info0)*alive0:0)+(rlink1_1=2?(1-info2)*alive2:0)+(rlink1_1=3?(1-info3)*alive3:0)+(rlink1_1=4?(1-info4)*alive4:0)+(rlink1_1=5?(1-info5)*alive5:0)) +
+      (rlink1_2!=recv1?1:0)*((rlink1_2=0?(1-info0)*alive0:0)+(rlink1_2=2?(1-info2)*alive2:0)+(rlink1_2=3?(1-info3)*alive3:0)+(rlink1_2=4?(1-info4)*alive4:0)+(rlink1_2=5?(1-info5)*alive5:0));
+  phase=3 & turn=1 & active1=1 & !(recv1=0|recv1=2) :
+      (rlink1_1!=recv1?1:0)*((rlink1_1=0?(1-info0)*alive0:0)+(rlink1_1=2?(1-info2)*alive2:0)+(rlink1_1=3?(1-info3)*alive3:0)+(rlink1_1=4?(1-info4)*alive4:0)+(rlink1_1=5?(1-info5)*alive5:0));
+  phase=3 & turn=2 & active2=1 & (recv2=1|recv2=3) :
+      (rlink2_1!=recv2?1:0)*((rlink2_1=0?(1-info0)*alive0:0)+(rlink2_1=1?(1-info1)*alive1:0)+(rlink2_1=3?(1-info3)*alive3:0)+(rlink2_1=4?(1-info4)*alive4:0)+(rlink2_1=5?(1-info5)*alive5:0)) +
+      (rlink2_2!=recv2?1:0)*((rlink2_2=0?(1-info0)*alive0:0)+(rlink2_2=1?(1-info1)*alive1:0)+(rlink2_2=3?(1-info3)*alive3:0)+(rlink2_2=4?(1-info4)*alive4:0)+(rlink2_2=5?(1-info5)*alive5:0));
+  phase=3 & turn=2 & active2=1 & !(recv2=1|recv2=3) :
+      (rlink2_1!=recv2?1:0)*((rlink2_1=0?(1-info0)*alive0:0)+(rlink2_1=1?(1-info1)*alive1:0)+(rlink2_1=3?(1-info3)*alive3:0)+(rlink2_1=4?(1-info4)*alive4:0)+(rlink2_1=5?(1-info5)*alive5:0));
+  phase=3 & turn=3 & active3=1 & (recv3=2|recv3=4) :
+      (rlink3_1!=recv3?1:0)*((rlink3_1=0?(1-info0)*alive0:0)+(rlink3_1=1?(1-info1)*alive1:0)+(rlink3_1=2?(1-info2)*alive2:0)+(rlink3_1=4?(1-info4)*alive4:0)+(rlink3_1=5?(1-info5)*alive5:0)) +
+      (rlink3_2!=recv3?1:0)*((rlink3_2=0?(1-info0)*alive0:0)+(rlink3_2=1?(1-info1)*alive1:0)+(rlink3_2=2?(1-info2)*alive2:0)+(rlink3_2=4?(1-info4)*alive4:0)+(rlink3_2=5?(1-info5)*alive5:0));
+  phase=3 & turn=3 & active3=1 & !(recv3=2|recv3=4) :
+      (rlink3_1!=recv3?1:0)*((rlink3_1=0?(1-info0)*alive0:0)+(rlink3_1=1?(1-info1)*alive1:0)+(rlink3_1=2?(1-info2)*alive2:0)+(rlink3_1=4?(1-info4)*alive4:0)+(rlink3_1=5?(1-info5)*alive5:0));
+  phase=3 & turn=4 & active4=1 & (recv4=3|recv4=5) :
+      (rlink4_1!=recv4?1:0)*((rlink4_1=0?(1-info0)*alive0:0)+(rlink4_1=1?(1-info1)*alive1:0)+(rlink4_1=2?(1-info2)*alive2:0)+(rlink4_1=3?(1-info3)*alive3:0)+(rlink4_1=5?(1-info5)*alive5:0)) +
+      (rlink4_2!=recv4?1:0)*((rlink4_2=0?(1-info0)*alive0:0)+(rlink4_2=1?(1-info1)*alive1:0)+(rlink4_2=2?(1-info2)*alive2:0)+(rlink4_2=3?(1-info3)*alive3:0)+(rlink4_2=5?(1-info5)*alive5:0));
+  phase=3 & turn=4 & active4=1 & !(recv4=3|recv4=5) :
+      (rlink4_1!=recv4?1:0)*((rlink4_1=0?(1-info0)*alive0:0)+(rlink4_1=1?(1-info1)*alive1:0)+(rlink4_1=2?(1-info2)*alive2:0)+(rlink4_1=3?(1-info3)*alive3:0)+(rlink4_1=5?(1-info5)*alive5:0));
+  phase=3 & turn=5 & active5=1 & (recv5=4|recv5=0) :
+      (rlink5_1!=recv5?1:0)*((rlink5_1=0?(1-info0)*alive0:0)+(rlink5_1=1?(1-info1)*alive1:0)+(rlink5_1=2?(1-info2)*alive2:0)+(rlink5_1=3?(1-info3)*alive3:0)+(rlink5_1=4?(1-info4)*alive4:0)) +
+      (rlink5_2!=recv5?1:0)*((rlink5_2=0?(1-info0)*alive0:0)+(rlink5_2=1?(1-info1)*alive1:0)+(rlink5_2=2?(1-info2)*alive2:0)+(rlink5_2=3?(1-info3)*alive3:0)+(rlink5_2=4?(1-info4)*alive4:0));
+  phase=3 & turn=5 & active5=1 & !(recv5=4|recv5=0) :
+      (rlink5_1!=recv5?1:0)*((rlink5_1=0?(1-info0)*alive0:0)+(rlink5_1=1?(1-info1)*alive1:0)+(rlink5_1=2?(1-info2)*alive2:0)+(rlink5_1=3?(1-info3)*alive3:0)+(rlink5_1=4?(1-info4)*alive4:0));
+endrewards

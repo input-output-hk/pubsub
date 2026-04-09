@@ -1,0 +1,39 @@
+// Properties for catastrophic-failure models
+//   ringcast_n6_fixed_catastr.prism  — RingCast with H(6,2) ring + fixed r-links
+//   randcast_n6_catastr.prism        — RandCast pure gossip (re-sampled, equivalent to fixed)
+//
+// Fair equal-fanout comparison (set p_fail=0 to isolate catastrophic failures):
+//   prism ringcast_n6_fixed_catastr.prism  catastr.props  -const RF=1,p_kill=0.05,p_fail=0
+//   prism randcast_n6_catastr.prism        catastr.props  -const fanout=3,p_kill=0.05,p_fail=0
+//   (both use total fanout 3)
+//
+//   prism ringcast_n6_fixed_catastr.prism  catastr.props  -const RF=2,p_kill=0.05,p_fail=0
+//   prism randcast_n6_catastr.prism        catastr.props  -const fanout=4,p_kill=0.05,p_fail=0
+//   (both use total fanout 4)
+//
+// Statistical model checking (for RF=2 RingCast, which is too large for exact):
+//   prism ringcast_n6_fixed_catastr.prism  catastr.props  -const RF=2,p_kill=0.05,p_fail=0
+//         -sim -simsamples 100000
+//
+// Sweep p_kill ∈ {0, 0.01, 0.02, 0.05, 0.10} to match §7.2 of hybrid_diss.pdf.
+// Always use p_fail=0 unless testing the compound (kill + per-forwarding) failure mode.
+
+// ------------------------------------------------------------------
+// Coverage probability (primary metric for catastrophic failures)
+// ------------------------------------------------------------------
+
+// Probability that ALL LIVE nodes are informed (the only achievable goal
+// when some nodes may be dead — dead nodes are trivially "informed" in the
+// sense that they can't receive anything).
+P=? [ F "all_live_informed" ]
+
+// Probability of FULL coverage including all nodes (only non-trivial at p_kill=0).
+P=? [ F "all_informed" ]
+
+// ------------------------------------------------------------------
+// Expected speed and overhead (conditional on reaching all_live_informed)
+// ------------------------------------------------------------------
+
+R{"rounds"}=?   [ F "terminated" ]
+R{"messages"}=? [ F "terminated" ]
+R{"coverage"}=? [ F "terminated" ]
