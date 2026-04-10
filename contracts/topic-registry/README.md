@@ -14,6 +14,9 @@ A one-time **bootstrap** transaction consumes a designated UTxO and mints a `reg
 
 **Removing a publisher** spends the publisher vault UTxO and burns the role token. Also requires owner or admin signature, checked against the topic's reference input.
 
+> [!NOTE]
+> **Why separate publisher tokens instead of a list in the topic datum?** A topic may have hundreds or thousands of authorized publishers. Storing them all in the `TopicDatum` would hit Plutus execution budget and transaction size limits — every publisher change would require deserializing and re-serializing the entire list. By giving each publisher its own minted token and vault UTxO, adding or removing a publisher is a constant-cost operation regardless of how many publishers a topic has. The topic UTxO is only needed as a reference input for authorization checks, never modified during publisher management.
+
 ## Validators
 
 | Validator | Purpose |
