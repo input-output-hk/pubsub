@@ -17,13 +17,57 @@ A one-time **bootstrap** transaction consumes a designated UTxO and mints a `reg
 > [!NOTE]
 > **Why separate publisher tokens instead of a list in the topic datum?** A topic may have hundreds or thousands of authorized publishers. Storing them all in the `TopicDatum` would hit Plutus execution budget and transaction size limits — every publisher change would require deserializing and re-serializing the entire list. By giving each publisher its own minted token and vault UTxO, adding or removing a publisher is a constant-cost operation regardless of how many publishers a topic has. The topic UTxO is only needed as a reference input for authorization checks, never modified during publisher management.
 
+## Transaction Flow
+
+```mermaid
+flowchart TD
+    subgraph Bootstrap["1 · Bootstrap (one-time)"]
+        B_IN["Bootstrap UTxO"] -->|consume| B_TX(("BootstrapRegistry"))
+        B_TX -->|mint registry_head NFT| B_OUT["Registry Head UTxO\n─────────\ncounter: 0\nepoch: 0"]
+    end
+
+    subgraph CreateTopic["2 · Create Topic"]
+        CT_HEAD["Registry Head UTxO\ncounter: N"] -->|spend| CT_TX(("CreateTopic"))
+        CT_TX -->|mint topic NFT| CT_TOPIC["Topic UTxO\n─────────\ntopic_id: N\nowners: [signer]\nalive: true"]
+        CT_TX -->|update| CT_HEAD_OUT["Registry Head UTxO\ncounter: N+1"]
+    end
+
+    subgraph ManageTopic["3 · Manage Topic"]
+        MT_TOPIC["Topic UTxO\ntopic_id: N"] -->|spend| MT_TX(("TopicAction\n(AddOwner, SetConfig,\nDeleteTopic, ...)"))
+        MT_TX -->|return with updated datum| MT_OUT["Topic UTxO\n(updated)"]
+        MT_SIG["Owner / Admin\nsignature"] -.->|authorize| MT_TX
+    end
+
+    subgraph AddPub["4 · Add Publisher"]
+        AP_TOPIC["Topic UTxO"] -.->|reference input| AP_TX(("MintPublisher"))
+        AP_SIG["Owner / Admin\nsignature"] -.->|authorize| AP_TX
+        AP_TX -->|mint publisher token| AP_VAULT["Publisher Vault UTxO\n─────────\ntopic_id: N\npublisher: pkh"]
+    end
+
+    subgraph RemovePub["5 · Remove Publisher"]
+        RP_VAULT["Publisher Vault UTxO"] -->|spend| RP_TX(("RemovePublisher"))
+        RP_TOPIC["Topic UTxO"] -.->|reference input| RP_TX
+        RP_SIG["Owner / Admin\nsignature"] -.->|authorize| RP_TX
+        RP_TX -->|burn publisher token| RP_OUT["Token burned"]
+    end
+
+    Bootstrap --> CreateTopic
+    CreateTopic --> ManageTopic
+    CreateTopic --> AddPub
+    AddPub --> RemovePub
+```
+
+Solid lines are spent/produced UTxOs. Dashed lines are reference inputs and signatures.
+
 ## Validators
 
 | Validator | Purpose |
 |---|---|
-| `registry` | Minting policy (all token types) + registry head spend logic |
-| `topic` | Topic UTxO spend logic (parameterized by registry policy ID) |
-| `publisher` | Publisher vault spend logic (parameterized by registry policy ID) |
+| [`registry`](validators/registry.ak) | Minting policy (all token types) + registry head spend logic |
+| [`topic`](validators/topic.ak) | Topic UTxO spend logic (parameterized by registry policy ID) |
+| [`publisher`](validators/publisher.ak) | Publisher vault spend logic (parameterized by registry policy ID) |
+
+Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_registry/auth.ak), [`validation`](lib/topic_registry/validation.ak), [`utils`](lib/topic_registry/utils.ak).
 
 ## Token Encoding
 
@@ -50,10 +94,13 @@ A one-time **bootstrap** transaction consumes a designated UTxO and mints a `reg
 | `name` | `ByteArray` | Human-readable topic name |
 | `owners` | `List<ByteArray>` | Pubkey hashes with full control |
 | `admins` | `List<ByteArray>` | Pubkey hashes with limited management rights |
-| `replication_factor` | `Int` | Persistence replication target (must be > 0) |
-| `retention_period` | `Int` | How long messages are retained (must be > 0) |
+| `replication_factor` | `Int` | Persistence replication target (must be > 0). See note below. |
+| `retention_period` | `Int` | How long messages are retained (must be > 0). See note below. |
 | `alive` | `Bool` | `False` after deletion (tombstoned) |
 | `published_at_epoch` | `Int` | Epoch when the topic was created |
+
+> [!NOTE]
+> **`replication_factor` and `retention_period` vs the two-tier incentive model.** The current contract requires both fields to be > 0, carried over from the Quint formal spec and the AUEB design which assumed persistence for all topics. Under the proposed two-tier incentive model, Tier 1 topics (cooperative dissemination, no persistence) don't need these fields — they only become economically meaningful at Tier 2 when the persistence layer and escrow mechanism are active. This constraint may need revisiting to allow zero values for Tier 1 topics.
 
 ### PublisherVaultDatum
 
