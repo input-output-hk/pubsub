@@ -30,9 +30,9 @@ to suppress notifications. Hundreds to low thousands of nodes.
 | Property | What it means | Building block | Status | Notes |
 |----------|--------------|----------------|--------|-------|
 | Topic management | Create/delete topics, manage roles (owner/admin/publisher) | On-chain Topic Registry smart contract | Quint spec complete, needs Plutus/Aiken implementation | D2 Ch.2, formal spec covers this fully |
-| Publisher authentication | Messages are signed, subscribers verify sender identity | DID-based signing + on-chain publisher lists | Design exists, needs implementation | Deliverable D2 |
+| Publisher authentication | Messages are signed, subscribers verify sender identity | Static-key signing + on-chain publisher lists (prototype); DID-based identity as Tier 2 upgrade | Design exists, needs implementation | Deliverable D2. Static keys are sufficient for the base use case — subscribers only need to verify the signer is in the on-chain publisher list. DIDs add key rotation, delegation, and multi-device support but are not required for the prototype. |
 | Message dissemination | Published messages reach all online subscribers | Gossip protocol (random links at minimum) | AUEB design exists, needs prototype | Core of D1 deliverable |
-| Peer discovery | New nodes find same-topic peers | Peer sampling + topic-aware filtering | SecureCyclon + Vicinity designed | D2 Ch.3.3 |
+| Peer discovery | New nodes find same-topic peers | SecureCyclon (peer sampling) + Vicinity (topic-aware clustering) | SecureCyclon + Vicinity designed | D2 Ch.3.3. SecureCyclon is required even with RandCast: it prevents hub formation, link manipulation, and eclipse attacks at the peer sampling layer. Without it, an adversary can poison a node's random view, compromising Vicinity from the start. Vicinity remains necessary regardless of dissemination choice — SecureCyclon provides random peers network-wide, Vicinity clusters peers by topic proximity. Upper-layer descriptor signing (Tier 2) complements but does not replace SecureCyclon. |
 | Crash fault tolerance | Network stays connected when nodes fail/leave | Redundant links (random or structured) | Harary graph designed, RandCast alternative under analysis | PRISM model partially covers this |
 | Basic Sybil resistance | Joining the network has a cost | On-chain identity (staking credential requirement) | Natural fit with SPO model, not formally designed | Implicit in the SPO participant model |
 
@@ -44,7 +44,7 @@ to suppress notifications. Hundreds to low thousands of nodes.
 | Deterministic delivery guarantee | Mathematical guarantee that messages reach all honest nodes under bounded failures | Harary graph (RingCast) | Tier 1 peer discovery + ring convergence protocol | Only valuable if BFT ring positioning is solved. Without it, RandCast may be simpler and sufficient. |
 | Censorship resistance | No single node or small coalition can suppress a specific message | Redundant dissemination paths + Byzantine-aware protocol | Tier 2 BFT | Deliverable D1 asks to prove this. Requires formal threat model. |
 | Store-and-forward persistence | Subscribers who were offline can catch up on missed messages | Lightweight buffer on peers or dedicated storage nodes | Tier 1 dissemination | D2 Ch.4 designs a full DHT; base use case may only need hours of buffering |
-| Cross-layer descriptor integrity | Vicinity gossip exchanges verify descriptor authenticity | Signed descriptors verified at every layer, not just SecureCyclon | Tier 1 peer discovery | Closes the gap Ezequiel identified. Relatively straightforward to add. |
+| Cross-layer descriptor integrity | Vicinity gossip exchanges verify descriptor authenticity | Signed descriptors verified at Vicinity and dissemination layers | Tier 1 peer discovery (SecureCyclon) | Closes the gap Ezequiel identified. SecureCyclon protects peer sampling integrity (hub/eclipse resistance); this block adds descriptor verification at Vicinity and dissemination to prevent forged descriptors at upper layers. Both are needed — SecureCyclon is necessary but not sufficient, and upper-layer signing alone cannot compensate for a compromised sampling layer. |
 | Anti-spam / rate limiting | Prevent topic flooding | Per-topic rate limits, stake-weighted quotas | Tier 1 topic management | FR5.1 requirement, completely undesigned |
 | Navigation efficiency | O(log T) routing to any topic from any entry point | Vicinity finger links across topics | Tier 1 peer sampling | D2 Ch.3.2. Useful at scale (10k+ topics), overkill for initial deployment |
 
@@ -86,8 +86,8 @@ adding the Harary structure (Tier 2) is justified by the threat model.
 
 | Deliverable | Tier 1 blocks needed | Tier 2 blocks (stretch) |
 |-------------|---------------------|------------------------|
-| **D1: Byzantine resilient prototype + cost analysis** | Dissemination (RandCast), peer discovery, crash FT, basic Sybil resistance | BFT (descriptor signing, VRF positioning), censorship resistance proof |
-| **D2: DID + on-chain topic management** | Topic registry (Quint spec → Plutus/Aiken), publisher authentication (DID signing) | Cross-layer descriptor integrity |
+| **D1: Byzantine resilient prototype + cost analysis** | Dissemination (RandCast), peer discovery (SecureCyclon + Vicinity), crash FT, basic Sybil resistance | BFT (upper-layer descriptor signing, VRF positioning), censorship resistance proof |
+| **D2: Identity + on-chain topic management** | Topic registry (Quint spec → Plutus/Aiken), publisher authentication (static-key signing) | DID-based identity upgrade, cross-layer descriptor integrity |
 | **D3: Fee & incentive analysis** | Basic Sybil resistance (stake requirement) | Anti-spam/rate limiting, store-and-forward incentives |
 
 ---
@@ -97,11 +97,20 @@ adding the Harary structure (Tier 2) is justified by the threat model.
 1. **Topic Registry Contract** — Implement Plutus/Aiken contract from
    Quint spec. Includes on-chain tests. (Tier 1, Deliverable D2)
 
-2. **DID Integration** — Publisher signing and subscriber verification
-   using DIDs. (Tier 1, Deliverable D2)
+2. **Publisher Authentication** — Publisher signing and subscriber
+   verification using static keys registered in the Topic Registry
+   contract. For the prototype, subscribers verify message signatures
+   against the on-chain publisher list — no DID infrastructure required.
+   DID-based identity (key rotation, delegation, multi-device) is a
+   Tier 2 upgrade if richer identity management is needed.
+   (Tier 1, Deliverable D2)
 
 3. **Dissemination Prototype (RandCast)** — Random-link gossip within a
-   topic. Peer sampling via Cyclon. No ring structure initially.
+   topic. Peer sampling via SecureCyclon (required even without a ring —
+   prevents hub formation and eclipse attacks at the sampling layer).
+   Vicinity provides topic-aware peer clustering on top: SecureCyclon
+   gives random peers across the whole network, Vicinity narrows to
+   same-topic peers. No ring structure initially.
    (Tier 1, Deliverable D1)
 
 4. **Formal Dissemination Analysis** — Extend PRISM model or build
@@ -110,8 +119,15 @@ adding the Harary structure (Tier 2) is justified by the threat model.
    (Tier 1–2, Deliverable D1)
 
 5. **Threat Model & Security Analysis** — Define adversary capabilities,
-   analyse descriptor integrity across layers, node ID assignment,
-   positional Sybil resistance. Decide if Harary structure is needed.
+   node ID assignment, positional Sybil resistance. Decide if Harary
+   structure is needed. **Must resolve the upper-layer signing strategy:**
+   SecureCyclon protects peer sampling integrity (Tier 1), but Vicinity
+   and dissemination layers also need descriptor verification to prevent
+   forged descriptors at upper layers — this is the gap Ezequiel
+   identified. Both defences are complementary: SecureCyclon is necessary
+   but not sufficient, and upper-layer signing alone cannot compensate
+   for a compromised sampling layer. This epic should formalise exactly
+   what verification is required at each layer boundary.
    (Tier 2, Deliverable D1)
 
 6. **Fee & Incentive Model** — Cost analysis for SPO participation,
@@ -140,5 +156,12 @@ adding the Harary structure (Tier 2) is justified by the threat model.
 4. Should the formal verification effort focus on the dissemination
    protocol (extending the PRISM work) or the smart contract (extending
    the Quint work), or both?
-5. Is SecureCyclon needed over plain Cyclon if we add descriptor
-   signing at all layers? (Ezequiel's question)
+5. **Descriptor signing strategy** (Ezequiel's question): SecureCyclon
+   and upper-layer descriptor signing are complementary, not
+   alternatives. SecureCyclon prevents hub formation and eclipse attacks
+   at the peer sampling layer — without it, an adversary can poison a
+   node's view before Vicinity ever sees it. Upper-layer signing at
+   Vicinity and dissemination prevents forged descriptors being accepted
+   at those layers — without it, the gap Ezequiel identified remains
+   open. Both are needed. Epic #5 should formalise the verification
+   requirements at each layer boundary.
