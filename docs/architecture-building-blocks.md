@@ -72,58 +72,6 @@ to suppress notifications. Hundreds to low thousands of nodes.
 
 ---
 
-## Suggested Epic Breakdown
-
-1. **Topic Registry Contract** — Implement Plutus/Aiken contract from
-   Quint spec. Includes on-chain tests. (Tier 1, Deliverable D2)
-
-2. **Publisher Authentication** — Publisher signing and subscriber
-   verification using static keys registered in the Topic Registry
-   contract. For the prototype, subscribers verify message signatures
-   against the on-chain publisher list — no DID infrastructure required.
-   DID-based identity (key rotation, delegation, multi-device) is a
-   Tier 2 upgrade if richer identity management is needed.
-   (Tier 1, Deliverable D2)
-
-3. **Dissemination Prototype (RandCast)** — Random-link gossip within a
-   topic. Peer sampling via SecureCyclon (required even without a ring —
-   prevents hub formation and eclipse attacks at the sampling layer).
-   Vicinity provides topic-aware peer clustering on top: SecureCyclon
-   gives random peers across the whole network, Vicinity narrows to
-   same-topic peers. No ring structure initially.
-   (Tier 1, Deliverable D1)
-
-4. **Formal Dissemination Analysis** — Extend PRISM model or build
-   simulator. Compare RandCast vs RingCast. Quantify coverage, latency,
-   message overhead under crash and Byzantine failure models.
-   (Tier 1–2, Deliverable D1)
-
-5. **Threat Model & Security Analysis** — Define adversary capabilities,
-   node ID assignment, positional Sybil resistance. Decide if Harary
-   structure is needed. **Must resolve the upper-layer signing strategy:**
-   SecureCyclon protects peer sampling integrity (Tier 1), but Vicinity
-   and dissemination layers also need descriptor verification to prevent
-   forged descriptors at upper layers — this is the gap Ezequiel
-   identified. Both defences are complementary: SecureCyclon is necessary
-   but not sufficient, and upper-layer signing alone cannot compensate
-   for a compromised sampling layer. This epic should formalise exactly
-   what verification is required at each layer boundary.
-   (Tier 2, Deliverable D1)
-
-6. **Fee & Incentive Model** — Cost analysis for SPO participation,
-   stake-weighted rate limiting design, storage incentives if persistence
-   is added. (Tier 1–2, Deliverable D3)
-
-7. **Byzantine Hardening** (if justified by #5) — Add descriptor signing
-   at Vicinity layers, VRF-based ring positioning, upgrade to RingCast
-   if warranted. (Tier 2, Deliverable D1)
-
-8. **Store-and-Forward** (if needed) — Lightweight catch-up buffer for
-   offline subscribers. Scoped version of D2 Ch.4 DHT.
-   (Tier 2, Deliverable D1/D3)
-
----
-
 ## Open Questions
 
 1. Does the base use case (SPO notifications) actually need Byzantine
