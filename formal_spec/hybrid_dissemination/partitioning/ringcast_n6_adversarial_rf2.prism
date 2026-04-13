@@ -1,0 +1,302 @@
+// Adversarial graph partitioning model for RingCast H(6,2) — RF=2
+//
+// Same question as ringcast_n6_adversarial.prism but with RF=2:
+// each node has 2 pre-established r-link slots, sampled as an ordered
+// pair WITHOUT replacement (20 outcomes per node, as in the asymmetric
+// dissemination model ringcast_n6_fixed_asym_catastr.prism).
+//
+// Sampling: for node i,
+//   slot 1: rl_i_1 ~ Uniform({0..5}\{i})              (5 choices)
+//   slot 2: rl_i_2 ~ Uniform({0..5}\{i, rl_i_1})       (4 choices)
+// Ordered pair ensures each slot has uniform marginal distribution.
+//
+// Run via adversarial_sweep_rf2.sh (same logic as adversarial_sweep.sh).
+
+dtmc
+
+const bool dead1;
+const bool dead2;
+const bool dead3;
+const bool dead4;
+const bool dead5;
+
+// -----------------------------------------------------------------------
+// Single module
+// -----------------------------------------------------------------------
+//
+// sn = sampling step counter:
+//   sn=0,1   : sample node 0's r-links (slot 1, then slot 2)
+//   sn=2,3   : sample node 1's r-links (or skip if dead1)
+//   sn=4,5   : sample node 2's r-links (or skip if dead2)
+//   sn=6,7   : sample node 3's r-links (or skip if dead3)
+//   sn=8,9   : sample node 4's r-links (or skip if dead4)
+//   sn=10,11 : sample node 5's r-links (or skip if dead5)
+//   sn=12    : all done, enter BFS phase
+
+module main
+
+    phase : [0..2] init 0;
+    sn    : [0..12] init 0;
+
+    // R-link slots for each node
+    rl0_1 : [0..5] init 0;  rl0_2 : [0..5] init 0;
+    rl1_1 : [0..5] init 0;  rl1_2 : [0..5] init 0;
+    rl2_1 : [0..5] init 0;  rl2_2 : [0..5] init 0;
+    rl3_1 : [0..5] init 0;  rl3_2 : [0..5] init 0;
+    rl4_1 : [0..5] init 0;  rl4_2 : [0..5] init 0;
+    rl5_1 : [0..5] init 0;  rl5_2 : [0..5] init 0;
+
+    // BFS reachability from node 0
+    reach1 : bool init false;
+    reach2 : bool init false;
+    reach3 : bool init false;
+    reach4 : bool init false;
+    reach5 : bool init false;
+    bfs    : [0..5] init 0;
+
+    // ------------------------------------------------------------------
+    // Phase 0: R-link sampling
+    // ------------------------------------------------------------------
+
+    // === Node 0 (always alive) ===
+    // Slot 1: uniform over {1,2,3,4,5}
+    [] phase=0 & sn=0 ->
+        1/5:(rl0_1'=1)&(sn'=1) + 1/5:(rl0_1'=2)&(sn'=1) + 1/5:(rl0_1'=3)&(sn'=1) +
+        1/5:(rl0_1'=4)&(sn'=1) + 1/5:(rl0_1'=5)&(sn'=1);
+
+    // Slot 2: uniform over {0..5}\{0, rl0_1} = {1..5}\{rl0_1}
+    [] phase=0 & sn=1 & rl0_1=1 ->
+        1/4:(rl0_2'=2)&(sn'=2) + 1/4:(rl0_2'=3)&(sn'=2) +
+        1/4:(rl0_2'=4)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=2 ->
+        1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=3)&(sn'=2) +
+        1/4:(rl0_2'=4)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=3 ->
+        1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=2)&(sn'=2) +
+        1/4:(rl0_2'=4)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=4 ->
+        1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=2)&(sn'=2) +
+        1/4:(rl0_2'=3)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=5 ->
+        1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=2)&(sn'=2) +
+        1/4:(rl0_2'=3)&(sn'=2) + 1/4:(rl0_2'=4)&(sn'=2);
+
+    // === Node 1 ===
+    [] phase=0 & sn=2 & dead1 -> (sn'=3);   // skip slot 1
+    [] phase=0 & sn=3 & dead1 -> (sn'=4);   // skip slot 2
+
+    // Slot 1: uniform over {0,2,3,4,5}
+    [] phase=0 & sn=2 & !dead1 ->
+        1/5:(rl1_1'=0)&(sn'=3) + 1/5:(rl1_1'=2)&(sn'=3) + 1/5:(rl1_1'=3)&(sn'=3) +
+        1/5:(rl1_1'=4)&(sn'=3) + 1/5:(rl1_1'=5)&(sn'=3);
+
+    // Slot 2: uniform over {0..5}\{1, rl1_1}
+    [] phase=0 & sn=3 & !dead1 & rl1_1=0 ->
+        1/4:(rl1_2'=2)&(sn'=4) + 1/4:(rl1_2'=3)&(sn'=4) +
+        1/4:(rl1_2'=4)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & !dead1 & rl1_1=2 ->
+        1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=3)&(sn'=4) +
+        1/4:(rl1_2'=4)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & !dead1 & rl1_1=3 ->
+        1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=2)&(sn'=4) +
+        1/4:(rl1_2'=4)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & !dead1 & rl1_1=4 ->
+        1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=2)&(sn'=4) +
+        1/4:(rl1_2'=3)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & !dead1 & rl1_1=5 ->
+        1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=2)&(sn'=4) +
+        1/4:(rl1_2'=3)&(sn'=4) + 1/4:(rl1_2'=4)&(sn'=4);
+
+    // === Node 2 ===
+    [] phase=0 & sn=4 & dead2 -> (sn'=5);
+    [] phase=0 & sn=5 & dead2 -> (sn'=6);
+
+    // Slot 1: uniform over {0,1,3,4,5}
+    [] phase=0 & sn=4 & !dead2 ->
+        1/5:(rl2_1'=0)&(sn'=5) + 1/5:(rl2_1'=1)&(sn'=5) + 1/5:(rl2_1'=3)&(sn'=5) +
+        1/5:(rl2_1'=4)&(sn'=5) + 1/5:(rl2_1'=5)&(sn'=5);
+
+    // Slot 2: uniform over {0..5}\{2, rl2_1}
+    [] phase=0 & sn=5 & !dead2 & rl2_1=0 ->
+        1/4:(rl2_2'=1)&(sn'=6) + 1/4:(rl2_2'=3)&(sn'=6) +
+        1/4:(rl2_2'=4)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & !dead2 & rl2_1=1 ->
+        1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=3)&(sn'=6) +
+        1/4:(rl2_2'=4)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & !dead2 & rl2_1=3 ->
+        1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=1)&(sn'=6) +
+        1/4:(rl2_2'=4)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & !dead2 & rl2_1=4 ->
+        1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=1)&(sn'=6) +
+        1/4:(rl2_2'=3)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & !dead2 & rl2_1=5 ->
+        1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=1)&(sn'=6) +
+        1/4:(rl2_2'=3)&(sn'=6) + 1/4:(rl2_2'=4)&(sn'=6);
+
+    // === Node 3 ===
+    [] phase=0 & sn=6 & dead3 -> (sn'=7);
+    [] phase=0 & sn=7 & dead3 -> (sn'=8);
+
+    // Slot 1: uniform over {0,1,2,4,5}
+    [] phase=0 & sn=6 & !dead3 ->
+        1/5:(rl3_1'=0)&(sn'=7) + 1/5:(rl3_1'=1)&(sn'=7) + 1/5:(rl3_1'=2)&(sn'=7) +
+        1/5:(rl3_1'=4)&(sn'=7) + 1/5:(rl3_1'=5)&(sn'=7);
+
+    // Slot 2: uniform over {0..5}\{3, rl3_1}
+    [] phase=0 & sn=7 & !dead3 & rl3_1=0 ->
+        1/4:(rl3_2'=1)&(sn'=8) + 1/4:(rl3_2'=2)&(sn'=8) +
+        1/4:(rl3_2'=4)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & !dead3 & rl3_1=1 ->
+        1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=2)&(sn'=8) +
+        1/4:(rl3_2'=4)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & !dead3 & rl3_1=2 ->
+        1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=1)&(sn'=8) +
+        1/4:(rl3_2'=4)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & !dead3 & rl3_1=4 ->
+        1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=1)&(sn'=8) +
+        1/4:(rl3_2'=2)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & !dead3 & rl3_1=5 ->
+        1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=1)&(sn'=8) +
+        1/4:(rl3_2'=2)&(sn'=8) + 1/4:(rl3_2'=4)&(sn'=8);
+
+    // === Node 4 ===
+    [] phase=0 & sn=8 & dead4 -> (sn'=9);
+    [] phase=0 & sn=9 & dead4 -> (sn'=10);
+
+    // Slot 1: uniform over {0,1,2,3,5}
+    [] phase=0 & sn=8 & !dead4 ->
+        1/5:(rl4_1'=0)&(sn'=9) + 1/5:(rl4_1'=1)&(sn'=9) + 1/5:(rl4_1'=2)&(sn'=9) +
+        1/5:(rl4_1'=3)&(sn'=9) + 1/5:(rl4_1'=5)&(sn'=9);
+
+    // Slot 2: uniform over {0..5}\{4, rl4_1}
+    [] phase=0 & sn=9 & !dead4 & rl4_1=0 ->
+        1/4:(rl4_2'=1)&(sn'=10) + 1/4:(rl4_2'=2)&(sn'=10) +
+        1/4:(rl4_2'=3)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & !dead4 & rl4_1=1 ->
+        1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=2)&(sn'=10) +
+        1/4:(rl4_2'=3)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & !dead4 & rl4_1=2 ->
+        1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=1)&(sn'=10) +
+        1/4:(rl4_2'=3)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & !dead4 & rl4_1=3 ->
+        1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=1)&(sn'=10) +
+        1/4:(rl4_2'=2)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & !dead4 & rl4_1=5 ->
+        1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=1)&(sn'=10) +
+        1/4:(rl4_2'=2)&(sn'=10) + 1/4:(rl4_2'=3)&(sn'=10);
+
+    // === Node 5 ===
+    [] phase=0 & sn=10 & dead5 -> (sn'=11);
+    [] phase=0 & sn=11 & dead5 -> (sn'=12);
+
+    // Slot 1: uniform over {0,1,2,3,4}
+    [] phase=0 & sn=10 & !dead5 ->
+        1/5:(rl5_1'=0)&(sn'=11) + 1/5:(rl5_1'=1)&(sn'=11) + 1/5:(rl5_1'=2)&(sn'=11) +
+        1/5:(rl5_1'=3)&(sn'=11) + 1/5:(rl5_1'=4)&(sn'=11);
+
+    // Slot 2: uniform over {0..5}\{5, rl5_1}
+    [] phase=0 & sn=11 & !dead5 & rl5_1=0 ->
+        1/4:(rl5_2'=1)&(sn'=12) + 1/4:(rl5_2'=2)&(sn'=12) +
+        1/4:(rl5_2'=3)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & !dead5 & rl5_1=1 ->
+        1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=2)&(sn'=12) +
+        1/4:(rl5_2'=3)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & !dead5 & rl5_1=2 ->
+        1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=1)&(sn'=12) +
+        1/4:(rl5_2'=3)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & !dead5 & rl5_1=3 ->
+        1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=1)&(sn'=12) +
+        1/4:(rl5_2'=2)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & !dead5 & rl5_1=4 ->
+        1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=1)&(sn'=12) +
+        1/4:(rl5_2'=2)&(sn'=12) + 1/4:(rl5_2'=3)&(sn'=12);
+
+    // All r-links sampled: enter BFS phase
+    [] phase=0 & sn=12 -> (phase'=1);
+
+    // ------------------------------------------------------------------
+    // Phase 1: BFS reachability (5 parallel-expansion rounds)
+    //
+    // Edges to node j now include BOTH r-link slots from each alive reached
+    // node i: (rl_i_1=j | rl_i_2=j) & reach_i & !dead_i.
+    // Node 0 always alive and reached (source).
+    // ------------------------------------------------------------------
+
+    [] phase=1 & bfs<5 ->
+        // --- reach1 ---
+        (reach1' = reach1 | (!dead1 & (
+            true                                           |  // d-link 0→1
+            (reach2 & !dead2)                              |  // d-link 2→1
+            (rl0_1=1 | rl0_2=1)                           |  // r-links 0→1
+            ((rl2_1=1 | rl2_2=1) & reach2 & !dead2)       |  // r-links 2→1
+            ((rl3_1=1 | rl3_2=1) & reach3 & !dead3)       |  // r-links 3→1
+            ((rl4_1=1 | rl4_2=1) & reach4 & !dead4)       |  // r-links 4→1
+            ((rl5_1=1 | rl5_2=1) & reach5 & !dead5)          // r-links 5→1
+        ))) &
+        // --- reach2 ---
+        (reach2' = reach2 | (!dead2 & (
+            (reach1 & !dead1)                              |  // d-link 1→2
+            (reach3 & !dead3)                              |  // d-link 3→2
+            (rl0_1=2 | rl0_2=2)                           |  // r-links 0→2
+            ((rl1_1=2 | rl1_2=2) & reach1 & !dead1)       |  // r-links 1→2
+            ((rl3_1=2 | rl3_2=2) & reach3 & !dead3)       |  // r-links 3→2
+            ((rl4_1=2 | rl4_2=2) & reach4 & !dead4)       |  // r-links 4→2
+            ((rl5_1=2 | rl5_2=2) & reach5 & !dead5)          // r-links 5→2
+        ))) &
+        // --- reach3 ---
+        (reach3' = reach3 | (!dead3 & (
+            (reach2 & !dead2)                              |  // d-link 2→3
+            (reach4 & !dead4)                              |  // d-link 4→3
+            (rl0_1=3 | rl0_2=3)                           |  // r-links 0→3
+            ((rl1_1=3 | rl1_2=3) & reach1 & !dead1)       |  // r-links 1→3
+            ((rl2_1=3 | rl2_2=3) & reach2 & !dead2)       |  // r-links 2→3
+            ((rl4_1=3 | rl4_2=3) & reach4 & !dead4)       |  // r-links 4→3
+            ((rl5_1=3 | rl5_2=3) & reach5 & !dead5)          // r-links 5→3
+        ))) &
+        // --- reach4 ---
+        (reach4' = reach4 | (!dead4 & (
+            (reach3 & !dead3)                              |  // d-link 3→4
+            (reach5 & !dead5)                              |  // d-link 5→4
+            (rl0_1=4 | rl0_2=4)                           |  // r-links 0→4
+            ((rl1_1=4 | rl1_2=4) & reach1 & !dead1)       |  // r-links 1→4
+            ((rl2_1=4 | rl2_2=4) & reach2 & !dead2)       |  // r-links 2→4
+            ((rl3_1=4 | rl3_2=4) & reach3 & !dead3)       |  // r-links 3→4
+            ((rl5_1=4 | rl5_2=4) & reach5 & !dead5)          // r-links 5→4
+        ))) &
+        // --- reach5 ---
+        (reach5' = reach5 | (!dead5 & (
+            (reach4 & !dead4)                              |  // d-link 4→5
+            true                                           |  // d-link 0→5
+            (rl0_1=5 | rl0_2=5)                           |  // r-links 0→5
+            ((rl1_1=5 | rl1_2=5) & reach1 & !dead1)       |  // r-links 1→5
+            ((rl2_1=5 | rl2_2=5) & reach2 & !dead2)       |  // r-links 2→5
+            ((rl3_1=5 | rl3_2=5) & reach3 & !dead3)       |  // r-links 3→5
+            ((rl4_1=5 | rl4_2=5) & reach4 & !dead4)          // r-links 4→5
+        ))) &
+        (bfs' = bfs + 1);
+
+    [] phase=1 & bfs=5 -> (phase'=2);
+
+    [] phase=2 -> true;
+
+endmodule
+
+// -----------------------------------------------------------------------
+// Labels
+// -----------------------------------------------------------------------
+
+label "partition" = phase=2 & (
+    (!dead1 & !reach1) |
+    (!dead2 & !reach2) |
+    (!dead3 & !reach3) |
+    (!dead4 & !reach4) |
+    (!dead5 & !reach5)
+);
+
+label "connected" = phase=2 & (
+    (dead1 | reach1) &
+    (dead2 | reach2) &
+    (dead3 | reach3) &
+    (dead4 | reach4) &
+    (dead5 | reach5)
+);

@@ -1,0 +1,163 @@
+// RandCast graph partitioning model — N=6, RF=2
+//
+// Question: in a pure random gossip graph (no ring backbone, no adversary),
+// what is P(source cannot reach some node)?
+//
+// Model: N=6, node 0 = source (always reached).
+// Each node samples 2 outgoing r-links without replacement from {0..5}\{self}.
+// Directed reachability from source computed by BFS.
+//
+// No adversary, no d-links. Compare with ringcast_n6_adversarial_rf2.prism
+// which adds a ring backbone and an adversarial kill set.
+//
+// Usage:
+//   prism randcast_n6_partition_rf2.prism adversarial.props
+
+dtmc
+
+module main
+
+    phase : [0..2] init 0;
+    sn    : [0..12] init 0;  // 2 sampling steps per node × 6 nodes
+
+    // Two r-link slots per node, sampled without replacement from {0..5}\{self}
+    rl0_1 : [0..5] init 0;  rl0_2 : [0..5] init 0;  // node 0: pool {1,2,3,4,5}
+    rl1_1 : [0..5] init 0;  rl1_2 : [0..5] init 0;  // node 1: pool {0,2,3,4,5}
+    rl2_1 : [0..5] init 0;  rl2_2 : [0..5] init 0;  // node 2: pool {0,1,3,4,5}
+    rl3_1 : [0..5] init 0;  rl3_2 : [0..5] init 0;  // node 3: pool {0,1,2,4,5}
+    rl4_1 : [0..5] init 0;  rl4_2 : [0..5] init 0;  // node 4: pool {0,1,2,3,5}
+    rl5_1 : [0..5] init 0;  rl5_2 : [0..5] init 0;  // node 5: pool {0,1,2,3,4}
+
+    reach1 : bool init false;
+    reach2 : bool init false;
+    reach3 : bool init false;
+    reach4 : bool init false;
+    reach5 : bool init false;
+    bfs    : [0..5] init 0;
+
+    // ------------------------------------------------------------------
+    // Phase 0: sequential r-link sampling (2 slots per node)
+    // Slot 1: uniform over pool; Slot 2: uniform over pool \ {slot1}
+    // ------------------------------------------------------------------
+
+    // Node 0 — pool {1,2,3,4,5}
+    [] phase=0 & sn=0 ->
+        1/5:(rl0_1'=1)&(sn'=1) + 1/5:(rl0_1'=2)&(sn'=1) + 1/5:(rl0_1'=3)&(sn'=1) +
+        1/5:(rl0_1'=4)&(sn'=1) + 1/5:(rl0_1'=5)&(sn'=1);
+    [] phase=0 & sn=1 & rl0_1=1 -> 1/4:(rl0_2'=2)&(sn'=2) + 1/4:(rl0_2'=3)&(sn'=2) + 1/4:(rl0_2'=4)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=2 -> 1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=3)&(sn'=2) + 1/4:(rl0_2'=4)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=3 -> 1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=2)&(sn'=2) + 1/4:(rl0_2'=4)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=4 -> 1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=2)&(sn'=2) + 1/4:(rl0_2'=3)&(sn'=2) + 1/4:(rl0_2'=5)&(sn'=2);
+    [] phase=0 & sn=1 & rl0_1=5 -> 1/4:(rl0_2'=1)&(sn'=2) + 1/4:(rl0_2'=2)&(sn'=2) + 1/4:(rl0_2'=3)&(sn'=2) + 1/4:(rl0_2'=4)&(sn'=2);
+
+    // Node 1 — pool {0,2,3,4,5}
+    [] phase=0 & sn=2 ->
+        1/5:(rl1_1'=0)&(sn'=3) + 1/5:(rl1_1'=2)&(sn'=3) + 1/5:(rl1_1'=3)&(sn'=3) +
+        1/5:(rl1_1'=4)&(sn'=3) + 1/5:(rl1_1'=5)&(sn'=3);
+    [] phase=0 & sn=3 & rl1_1=0 -> 1/4:(rl1_2'=2)&(sn'=4) + 1/4:(rl1_2'=3)&(sn'=4) + 1/4:(rl1_2'=4)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & rl1_1=2 -> 1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=3)&(sn'=4) + 1/4:(rl1_2'=4)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & rl1_1=3 -> 1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=2)&(sn'=4) + 1/4:(rl1_2'=4)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & rl1_1=4 -> 1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=2)&(sn'=4) + 1/4:(rl1_2'=3)&(sn'=4) + 1/4:(rl1_2'=5)&(sn'=4);
+    [] phase=0 & sn=3 & rl1_1=5 -> 1/4:(rl1_2'=0)&(sn'=4) + 1/4:(rl1_2'=2)&(sn'=4) + 1/4:(rl1_2'=3)&(sn'=4) + 1/4:(rl1_2'=4)&(sn'=4);
+
+    // Node 2 — pool {0,1,3,4,5}
+    [] phase=0 & sn=4 ->
+        1/5:(rl2_1'=0)&(sn'=5) + 1/5:(rl2_1'=1)&(sn'=5) + 1/5:(rl2_1'=3)&(sn'=5) +
+        1/5:(rl2_1'=4)&(sn'=5) + 1/5:(rl2_1'=5)&(sn'=5);
+    [] phase=0 & sn=5 & rl2_1=0 -> 1/4:(rl2_2'=1)&(sn'=6) + 1/4:(rl2_2'=3)&(sn'=6) + 1/4:(rl2_2'=4)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & rl2_1=1 -> 1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=3)&(sn'=6) + 1/4:(rl2_2'=4)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & rl2_1=3 -> 1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=1)&(sn'=6) + 1/4:(rl2_2'=4)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & rl2_1=4 -> 1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=1)&(sn'=6) + 1/4:(rl2_2'=3)&(sn'=6) + 1/4:(rl2_2'=5)&(sn'=6);
+    [] phase=0 & sn=5 & rl2_1=5 -> 1/4:(rl2_2'=0)&(sn'=6) + 1/4:(rl2_2'=1)&(sn'=6) + 1/4:(rl2_2'=3)&(sn'=6) + 1/4:(rl2_2'=4)&(sn'=6);
+
+    // Node 3 — pool {0,1,2,4,5}
+    [] phase=0 & sn=6 ->
+        1/5:(rl3_1'=0)&(sn'=7) + 1/5:(rl3_1'=1)&(sn'=7) + 1/5:(rl3_1'=2)&(sn'=7) +
+        1/5:(rl3_1'=4)&(sn'=7) + 1/5:(rl3_1'=5)&(sn'=7);
+    [] phase=0 & sn=7 & rl3_1=0 -> 1/4:(rl3_2'=1)&(sn'=8) + 1/4:(rl3_2'=2)&(sn'=8) + 1/4:(rl3_2'=4)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & rl3_1=1 -> 1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=2)&(sn'=8) + 1/4:(rl3_2'=4)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & rl3_1=2 -> 1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=1)&(sn'=8) + 1/4:(rl3_2'=4)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & rl3_1=4 -> 1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=1)&(sn'=8) + 1/4:(rl3_2'=2)&(sn'=8) + 1/4:(rl3_2'=5)&(sn'=8);
+    [] phase=0 & sn=7 & rl3_1=5 -> 1/4:(rl3_2'=0)&(sn'=8) + 1/4:(rl3_2'=1)&(sn'=8) + 1/4:(rl3_2'=2)&(sn'=8) + 1/4:(rl3_2'=4)&(sn'=8);
+
+    // Node 4 — pool {0,1,2,3,5}
+    [] phase=0 & sn=8 ->
+        1/5:(rl4_1'=0)&(sn'=9) + 1/5:(rl4_1'=1)&(sn'=9) + 1/5:(rl4_1'=2)&(sn'=9) +
+        1/5:(rl4_1'=3)&(sn'=9) + 1/5:(rl4_1'=5)&(sn'=9);
+    [] phase=0 & sn=9 & rl4_1=0 -> 1/4:(rl4_2'=1)&(sn'=10) + 1/4:(rl4_2'=2)&(sn'=10) + 1/4:(rl4_2'=3)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & rl4_1=1 -> 1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=2)&(sn'=10) + 1/4:(rl4_2'=3)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & rl4_1=2 -> 1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=1)&(sn'=10) + 1/4:(rl4_2'=3)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & rl4_1=3 -> 1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=1)&(sn'=10) + 1/4:(rl4_2'=2)&(sn'=10) + 1/4:(rl4_2'=5)&(sn'=10);
+    [] phase=0 & sn=9 & rl4_1=5 -> 1/4:(rl4_2'=0)&(sn'=10) + 1/4:(rl4_2'=1)&(sn'=10) + 1/4:(rl4_2'=2)&(sn'=10) + 1/4:(rl4_2'=3)&(sn'=10);
+
+    // Node 5 — pool {0,1,2,3,4}
+    [] phase=0 & sn=10 ->
+        1/5:(rl5_1'=0)&(sn'=11) + 1/5:(rl5_1'=1)&(sn'=11) + 1/5:(rl5_1'=2)&(sn'=11) +
+        1/5:(rl5_1'=3)&(sn'=11) + 1/5:(rl5_1'=4)&(sn'=11);
+    [] phase=0 & sn=11 & rl5_1=0 -> 1/4:(rl5_2'=1)&(sn'=12) + 1/4:(rl5_2'=2)&(sn'=12) + 1/4:(rl5_2'=3)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & rl5_1=1 -> 1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=2)&(sn'=12) + 1/4:(rl5_2'=3)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & rl5_1=2 -> 1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=1)&(sn'=12) + 1/4:(rl5_2'=3)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & rl5_1=3 -> 1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=1)&(sn'=12) + 1/4:(rl5_2'=2)&(sn'=12) + 1/4:(rl5_2'=4)&(sn'=12);
+    [] phase=0 & sn=11 & rl5_1=4 -> 1/4:(rl5_2'=0)&(sn'=12) + 1/4:(rl5_2'=1)&(sn'=12) + 1/4:(rl5_2'=2)&(sn'=12) + 1/4:(rl5_2'=3)&(sn'=12);
+
+    [] phase=0 & sn=12 -> (phase'=1);
+
+    // ------------------------------------------------------------------
+    // Phase 1: BFS reachability (5 rounds)
+    //
+    // Directed edges TO node j via r-links only — no d-links.
+    // Node 0 is always reached. No dead nodes.
+    //
+    // reach_j' = reach_j OR (some reached node has an r-link to j)
+    // ------------------------------------------------------------------
+
+    [] phase=1 & bfs<5 ->
+        // reach1
+        (reach1' = reach1 |
+            (rl0_1=1 | rl0_2=1) |
+            ((rl2_1=1 | rl2_2=1) & reach2) |
+            ((rl3_1=1 | rl3_2=1) & reach3) |
+            ((rl4_1=1 | rl4_2=1) & reach4) |
+            ((rl5_1=1 | rl5_2=1) & reach5)) &
+        // reach2
+        (reach2' = reach2 |
+            (rl0_1=2 | rl0_2=2) |
+            ((rl1_1=2 | rl1_2=2) & reach1) |
+            ((rl3_1=2 | rl3_2=2) & reach3) |
+            ((rl4_1=2 | rl4_2=2) & reach4) |
+            ((rl5_1=2 | rl5_2=2) & reach5)) &
+        // reach3
+        (reach3' = reach3 |
+            (rl0_1=3 | rl0_2=3) |
+            ((rl1_1=3 | rl1_2=3) & reach1) |
+            ((rl2_1=3 | rl2_2=3) & reach2) |
+            ((rl4_1=3 | rl4_2=3) & reach4) |
+            ((rl5_1=3 | rl5_2=3) & reach5)) &
+        // reach4
+        (reach4' = reach4 |
+            (rl0_1=4 | rl0_2=4) |
+            ((rl1_1=4 | rl1_2=4) & reach1) |
+            ((rl2_1=4 | rl2_2=4) & reach2) |
+            ((rl3_1=4 | rl3_2=4) & reach3) |
+            ((rl5_1=4 | rl5_2=4) & reach5)) &
+        // reach5
+        (reach5' = reach5 |
+            (rl0_1=5 | rl0_2=5) |
+            ((rl1_1=5 | rl1_2=5) & reach1) |
+            ((rl2_1=5 | rl2_2=5) & reach2) |
+            ((rl3_1=5 | rl3_2=5) & reach3) |
+            ((rl4_1=5 | rl4_2=5) & reach4)) &
+        (bfs' = bfs + 1);
+
+    [] phase=1 & bfs=5 -> (phase'=2);
+
+    [] phase=2 -> true;
+
+endmodule
+
+// ------------------------------------------------------------------
+// Labels
+// ------------------------------------------------------------------
+
+label "partition" = phase=2 & (!reach1 | !reach2 | !reach3 | !reach4 | !reach5);
+label "connected" = phase=2 & reach1 & reach2 & reach3 & reach4 & reach5;

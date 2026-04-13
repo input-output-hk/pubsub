@@ -1,0 +1,229 @@
+// Adversarial graph partitioning model for RingCast H(6,2)
+//
+// Question: if an adversary controls k nodes (chosen before r-links are
+// sampled) and removes them, what is P(source cannot reach some live node)?
+//
+// Model: N=6, node 0 = source (always alive).
+// Graph: directed d-links (ring: i→(i+1)%6 and i→(i-1+6)%6 for each node i)
+//        + directed r-links (each node i has 1 r-link, sampled uniform over
+//        {0..5}\{i} — RF=1, symmetric model).
+//
+// Adversary model: adversary commits to killed set S before r-links are
+// sampled. R-links are then drawn randomly. We compute P(partition | S)
+// for each S separately (one PRISM run per S) and take the max externally.
+//
+// Usage (run via adversarial_sweep.sh):
+//   prism ringcast_n6_adversarial.prism adversarial.props \
+//         -const dead1=true,dead2=true,dead3=false,dead4=false,dead5=false
+//
+// To get the adversary's best strategy for budget k, compare all C(5,k)
+// choices and take the maximum P=? [F "partition"] result.
+
+dtmc
+
+// Adversary's kill choices — set on command line
+// Node 0 (source) is never killed.
+const bool dead1;
+const bool dead2;
+const bool dead3;
+const bool dead4;
+const bool dead5;
+
+// -----------------------------------------------------------------------
+// Single module: sequential r-link sampling followed by BFS reachability
+// -----------------------------------------------------------------------
+//
+// Phase 0: sample r-links for all 6 nodes one at a time (sn = current node)
+// Phase 1: BFS to compute directed reachability from node 0
+// Phase 2: absorbing (done)
+//
+// D-links (bidirectional ring): node i sends to (i+1)%6 and (i-1+6)%6.
+// Edges TO node j via d-links: from (j-1+6)%6 and (j+1)%6.
+// Edges FROM node 0: to 1 (d-link) and to 5 (d-link).
+//
+// R-link OF node i: rl_i, sampled uniform over {0..5}\{i}.
+// Edge i→rl_i exists iff node i is alive and reached.
+//
+// BFS: 5 parallel-expansion rounds (diameter of graph ≤ 5 for N=6).
+// All reach variables updated simultaneously per round using old values.
+
+module main
+
+    phase : [0..2] init 0;
+    sn    : [0..6] init 0;  // sampling node counter: 0..5 = next to sample, 6 = all done
+
+    // R-link of each node i (uniform over {0..5}\{i})
+    rl0 : [0..5] init 0;   // node 0: r-link ∈ {1,2,3,4,5}
+    rl1 : [0..5] init 0;   // node 1: r-link ∈ {0,2,3,4,5}
+    rl2 : [0..5] init 0;   // node 2: r-link ∈ {0,1,3,4,5}
+    rl3 : [0..5] init 0;   // node 3: r-link ∈ {0,1,2,4,5}
+    rl4 : [0..5] init 0;   // node 4: r-link ∈ {0,1,2,3,5}
+    rl5 : [0..5] init 0;   // node 5: r-link ∈ {0,1,2,3,4}
+
+    // BFS reachability from node 0 (reach0 is trivially true; not stored)
+    reach1 : bool init false;
+    reach2 : bool init false;
+    reach3 : bool init false;
+    reach4 : bool init false;
+    reach5 : bool init false;
+    bfs    : [0..5] init 0;   // current BFS round (0..4 active, 5 = done)
+
+    // ------------------------------------------------------------------
+    // Phase 0: sequential r-link sampling
+    // ------------------------------------------------------------------
+
+    // Sample rl0: uniform over {1,2,3,4,5}
+    [] phase=0 & sn=0 ->
+        1/5:(rl0'=1)&(sn'=1) +
+        1/5:(rl0'=2)&(sn'=1) +
+        1/5:(rl0'=3)&(sn'=1) +
+        1/5:(rl0'=4)&(sn'=1) +
+        1/5:(rl0'=5)&(sn'=1);
+
+    // Sample rl1: uniform over {0,2,3,4,5}
+    [] phase=0 & sn=1 ->
+        1/5:(rl1'=0)&(sn'=2) +
+        1/5:(rl1'=2)&(sn'=2) +
+        1/5:(rl1'=3)&(sn'=2) +
+        1/5:(rl1'=4)&(sn'=2) +
+        1/5:(rl1'=5)&(sn'=2);
+
+    // Sample rl2: uniform over {0,1,3,4,5}
+    [] phase=0 & sn=2 ->
+        1/5:(rl2'=0)&(sn'=3) +
+        1/5:(rl2'=1)&(sn'=3) +
+        1/5:(rl2'=3)&(sn'=3) +
+        1/5:(rl2'=4)&(sn'=3) +
+        1/5:(rl2'=5)&(sn'=3);
+
+    // Sample rl3: uniform over {0,1,2,4,5}
+    [] phase=0 & sn=3 ->
+        1/5:(rl3'=0)&(sn'=4) +
+        1/5:(rl3'=1)&(sn'=4) +
+        1/5:(rl3'=2)&(sn'=4) +
+        1/5:(rl3'=4)&(sn'=4) +
+        1/5:(rl3'=5)&(sn'=4);
+
+    // Sample rl4: uniform over {0,1,2,3,5}
+    [] phase=0 & sn=4 ->
+        1/5:(rl4'=0)&(sn'=5) +
+        1/5:(rl4'=1)&(sn'=5) +
+        1/5:(rl4'=2)&(sn'=5) +
+        1/5:(rl4'=3)&(sn'=5) +
+        1/5:(rl4'=5)&(sn'=5);
+
+    // Sample rl5: uniform over {0,1,2,3,4}
+    [] phase=0 & sn=5 ->
+        1/5:(rl5'=0)&(sn'=6) +
+        1/5:(rl5'=1)&(sn'=6) +
+        1/5:(rl5'=2)&(sn'=6) +
+        1/5:(rl5'=3)&(sn'=6) +
+        1/5:(rl5'=4)&(sn'=6);
+
+    // All r-links sampled: enter BFS phase
+    [] phase=0 & sn=6 -> (phase'=1);
+
+    // ------------------------------------------------------------------
+    // Phase 1: BFS reachability (5 parallel-expansion rounds)
+    //
+    // reach_j' = reach_j  OR  (j is alive AND some alive reached node has
+    //            a directed edge to j).
+    //
+    // Directed edges TO node j:
+    //   D-links: from (j-1+6)%6 and (j+1)%6
+    //   R-links: from any alive reached node i with rl_i = j
+    //
+    // Node 0 is always alive and always reached (source).
+    // All BFS updates use old (pre-step) values of reach variables.
+    // ------------------------------------------------------------------
+
+    [] phase=1 & bfs<5 ->
+        // --- reach1 ---
+        // D-links to 1: from 0 (0→1, node 0 always alive & reached)
+        //               from 2 (2→1, if reach2 & !dead2)
+        // R-links to 1: from i with rl_i=1 (and reach_i & !dead_i)
+        //   Note: rl1≠1 by construction; rl0, rl2..rl5 can equal 1.
+        (reach1' = reach1 | (!dead1 & (
+            true                          |  // d-link 0→1
+            (reach2 & !dead2)             |  // d-link 2→1
+            (rl0=1)                       |  // r-link 0→1 (reach0 always true)
+            (rl2=1 & reach2 & !dead2)     |  // r-link 2→1
+            (rl3=1 & reach3 & !dead3)     |  // r-link 3→1
+            (rl4=1 & reach4 & !dead4)     |  // r-link 4→1
+            (rl5=1 & reach5 & !dead5)        // r-link 5→1
+        ))) &
+        // --- reach2 ---
+        // D-links to 2: from 1 (if reach1 & !dead1), from 3 (if reach3 & !dead3)
+        (reach2' = reach2 | (!dead2 & (
+            (reach1 & !dead1)             |  // d-link 1→2
+            (reach3 & !dead3)             |  // d-link 3→2
+            (rl0=2)                       |  // r-link 0→2
+            (rl1=2 & reach1 & !dead1)     |  // r-link 1→2
+            (rl3=2 & reach3 & !dead3)     |  // r-link 3→2
+            (rl4=2 & reach4 & !dead4)     |  // r-link 4→2
+            (rl5=2 & reach5 & !dead5)        // r-link 5→2
+        ))) &
+        // --- reach3 ---
+        // D-links to 3: from 2 (if reach2 & !dead2), from 4 (if reach4 & !dead4)
+        (reach3' = reach3 | (!dead3 & (
+            (reach2 & !dead2)             |  // d-link 2→3
+            (reach4 & !dead4)             |  // d-link 4→3
+            (rl0=3)                       |  // r-link 0→3
+            (rl1=3 & reach1 & !dead1)     |  // r-link 1→3
+            (rl2=3 & reach2 & !dead2)     |  // r-link 2→3
+            (rl4=3 & reach4 & !dead4)     |  // r-link 4→3
+            (rl5=3 & reach5 & !dead5)        // r-link 5→3
+        ))) &
+        // --- reach4 ---
+        // D-links to 4: from 3 (if reach3 & !dead3), from 5 (if reach5 & !dead5)
+        (reach4' = reach4 | (!dead4 & (
+            (reach3 & !dead3)             |  // d-link 3→4
+            (reach5 & !dead5)             |  // d-link 5→4
+            (rl0=4)                       |  // r-link 0→4
+            (rl1=4 & reach1 & !dead1)     |  // r-link 1→4
+            (rl2=4 & reach2 & !dead2)     |  // r-link 2→4
+            (rl3=4 & reach3 & !dead3)     |  // r-link 3→4
+            (rl5=4 & reach5 & !dead5)        // r-link 5→4
+        ))) &
+        // --- reach5 ---
+        // D-links to 5: from 4 (if reach4 & !dead4), from 0 (0→5, always alive & reached)
+        (reach5' = reach5 | (!dead5 & (
+            (reach4 & !dead4)             |  // d-link 4→5
+            true                          |  // d-link 0→5
+            (rl0=5)                       |  // r-link 0→5
+            (rl1=5 & reach1 & !dead1)     |  // r-link 1→5
+            (rl2=5 & reach2 & !dead2)     |  // r-link 2→5
+            (rl3=5 & reach3 & !dead3)     |  // r-link 3→5
+            (rl4=5 & reach4 & !dead4)        // r-link 4→5
+        ))) &
+        (bfs' = bfs + 1);
+
+    // BFS complete: enter done phase
+    [] phase=1 & bfs=5 -> (phase'=2);
+
+    // Phase 2: absorbing state
+    [] phase=2 -> true;
+
+endmodule
+
+// -----------------------------------------------------------------------
+// Labels
+// -----------------------------------------------------------------------
+
+// Partition: some live node is not reachable from the source
+label "partition" = phase=2 & (
+    (!dead1 & !reach1) |
+    (!dead2 & !reach2) |
+    (!dead3 & !reach3) |
+    (!dead4 & !reach4) |
+    (!dead5 & !reach5)
+);
+
+// Connected: all live nodes are reachable from the source
+label "connected" = phase=2 & (
+    (dead1 | reach1) &
+    (dead2 | reach2) &
+    (dead3 | reach3) &
+    (dead4 | reach4) &
+    (dead5 | reach5)
+);

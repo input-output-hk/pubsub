@@ -1,0 +1,127 @@
+// RandCast graph partitioning model — N=6, RF=1
+//
+// Question: in a pure random gossip graph (no ring backbone, no adversary),
+// what is P(source cannot reach some node)?
+//
+// Model: N=6, node 0 = source (always reached).
+// Each node samples 1 outgoing r-link uniformly over {0..5}\{self}.
+// Directed reachability from source computed by BFS.
+//
+// No adversary, no d-links. Compare with ringcast_n6_adversarial.prism
+// (RF=1) which adds a ring backbone and an adversarial kill set.
+//
+// Usage:
+//   prism randcast_n6_partition_rf1.prism adversarial.props
+
+dtmc
+
+module main
+
+    phase : [0..2] init 0;
+    sn    : [0..6] init 0;
+
+    // R-link of each node i (uniform over {0..5}\{i})
+    rl0 : [0..5] init 0;   // node 0: r-link ∈ {1,2,3,4,5}
+    rl1 : [0..5] init 0;   // node 1: r-link ∈ {0,2,3,4,5}
+    rl2 : [0..5] init 0;   // node 2: r-link ∈ {0,1,3,4,5}
+    rl3 : [0..5] init 0;   // node 3: r-link ∈ {0,1,2,4,5}
+    rl4 : [0..5] init 0;   // node 4: r-link ∈ {0,1,2,3,5}
+    rl5 : [0..5] init 0;   // node 5: r-link ∈ {0,1,2,3,4}
+
+    // BFS reachability from node 0 (reach0 trivially true; not stored)
+    reach1 : bool init false;
+    reach2 : bool init false;
+    reach3 : bool init false;
+    reach4 : bool init false;
+    reach5 : bool init false;
+    bfs    : [0..5] init 0;
+
+    // ------------------------------------------------------------------
+    // Phase 0: sequential r-link sampling
+    // ------------------------------------------------------------------
+
+    [] phase=0 & sn=0 ->
+        1/5:(rl0'=1)&(sn'=1) + 1/5:(rl0'=2)&(sn'=1) + 1/5:(rl0'=3)&(sn'=1) +
+        1/5:(rl0'=4)&(sn'=1) + 1/5:(rl0'=5)&(sn'=1);
+
+    [] phase=0 & sn=1 ->
+        1/5:(rl1'=0)&(sn'=2) + 1/5:(rl1'=2)&(sn'=2) + 1/5:(rl1'=3)&(sn'=2) +
+        1/5:(rl1'=4)&(sn'=2) + 1/5:(rl1'=5)&(sn'=2);
+
+    [] phase=0 & sn=2 ->
+        1/5:(rl2'=0)&(sn'=3) + 1/5:(rl2'=1)&(sn'=3) + 1/5:(rl2'=3)&(sn'=3) +
+        1/5:(rl2'=4)&(sn'=3) + 1/5:(rl2'=5)&(sn'=3);
+
+    [] phase=0 & sn=3 ->
+        1/5:(rl3'=0)&(sn'=4) + 1/5:(rl3'=1)&(sn'=4) + 1/5:(rl3'=2)&(sn'=4) +
+        1/5:(rl3'=4)&(sn'=4) + 1/5:(rl3'=5)&(sn'=4);
+
+    [] phase=0 & sn=4 ->
+        1/5:(rl4'=0)&(sn'=5) + 1/5:(rl4'=1)&(sn'=5) + 1/5:(rl4'=2)&(sn'=5) +
+        1/5:(rl4'=3)&(sn'=5) + 1/5:(rl4'=5)&(sn'=5);
+
+    [] phase=0 & sn=5 ->
+        1/5:(rl5'=0)&(sn'=6) + 1/5:(rl5'=1)&(sn'=6) + 1/5:(rl5'=2)&(sn'=6) +
+        1/5:(rl5'=3)&(sn'=6) + 1/5:(rl5'=4)&(sn'=6);
+
+    [] phase=0 & sn=6 -> (phase'=1);
+
+    // ------------------------------------------------------------------
+    // Phase 1: BFS reachability (5 rounds)
+    //
+    // Directed edges TO node j via r-links only — no d-links.
+    // Node 0 is always reached (source). No dead nodes.
+    //
+    // reach_j' = reach_j OR (some reached node has r-link to j)
+    // ------------------------------------------------------------------
+
+    [] phase=1 & bfs<5 ->
+        // reach1: r-link from node 0 (always reached) or from any reached node
+        (reach1' = reach1 |
+            (rl0=1) |
+            (rl2=1 & reach2) |
+            (rl3=1 & reach3) |
+            (rl4=1 & reach4) |
+            (rl5=1 & reach5)) &
+        // reach2
+        (reach2' = reach2 |
+            (rl0=2) |
+            (rl1=2 & reach1) |
+            (rl3=2 & reach3) |
+            (rl4=2 & reach4) |
+            (rl5=2 & reach5)) &
+        // reach3
+        (reach3' = reach3 |
+            (rl0=3) |
+            (rl1=3 & reach1) |
+            (rl2=3 & reach2) |
+            (rl4=3 & reach4) |
+            (rl5=3 & reach5)) &
+        // reach4
+        (reach4' = reach4 |
+            (rl0=4) |
+            (rl1=4 & reach1) |
+            (rl2=4 & reach2) |
+            (rl3=4 & reach3) |
+            (rl5=4 & reach5)) &
+        // reach5
+        (reach5' = reach5 |
+            (rl0=5) |
+            (rl1=5 & reach1) |
+            (rl2=5 & reach2) |
+            (rl3=5 & reach3) |
+            (rl4=5 & reach4)) &
+        (bfs' = bfs + 1);
+
+    [] phase=1 & bfs=5 -> (phase'=2);
+
+    [] phase=2 -> true;
+
+endmodule
+
+// ------------------------------------------------------------------
+// Labels
+// ------------------------------------------------------------------
+
+label "partition" = phase=2 & (!reach1 | !reach2 | !reach3 | !reach4 | !reach5);
+label "connected" = phase=2 & reach1 & reach2 & reach3 & reach4 & reach5;

@@ -1,0 +1,13 @@
+// Properties for adversarial partitioning model
+// Model: ringcast_n6_adversarial.prism
+//
+// Run via adversarial_sweep.sh to get results for all adversary budgets k.
+// For each k, the script runs PRISM for all C(5,k) adversary choices and
+// reports the maximum P(partition) — the adversary's best strategy.
+
+// Primary: probability that the adversary's chosen kill set S disconnects
+// some live node from the source (node 0).
+P=? [ F "partition" ]
+
+// Complementary: probability that the overlay stays fully connected.
+P=? [ F "connected" ]
