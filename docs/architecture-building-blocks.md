@@ -62,26 +62,6 @@ to suppress notifications. Hundreds to low thousands of nodes.
 
 ---
 
-## Architecture Decision: RandCast vs RingCast
-
-This is the key design choice that determines complexity:
-
-| | RandCast (random links only) | RingCast (Harary + random links) |
-|---|---|---|
-| **Delivery guarantee** | Probabilistic (high but not 100%) | Deterministic under t-1 crash failures |
-| **Join/leave complexity** | Trivial — get random peers, done | Convergence period to find ring position |
-| **Positional Sybil risk** | N/A — no ring to game | Requires unpredictable position assignment |
-| **New joiner experience** | Immediately fully integrated | Degraded until ring converges |
-| **Implementation complexity** | Low | Medium-high (ring maintenance, convergence) |
-| **BFT story** | Simpler — fewer attack surfaces | Stronger guarantee but more gaps to close |
-| **When to choose** | SPO-scale, low churn, notification use case | High-failure environments, strict delivery SLAs |
-
-**Recommendation for discussion:** Start with RandCast for the prototype
-(Tier 1), prove dissemination properties formally, then evaluate whether
-adding the Harary structure (Tier 2) is justified by the threat model.
-
----
-
 ## Mapping to Deliverables
 
 | Deliverable | Tier 1 blocks needed | Tier 2 blocks (stretch) |
