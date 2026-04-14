@@ -230,6 +230,61 @@ k=2 to create any partitioning risk.
 
 ---
 
+## Extension: Isolating Multiple Subscribers (Comb Attack)
+
+The single-target attack requires 2 adversarial nodes to isolate one subscriber.
+A natural question is how the adversarial cost scales when the goal is to isolate
+m subscribers simultaneously.
+
+### Naive approach — independent attacks
+
+Mount m independent single-target attacks. Each requires 2 adversarial nodes,
+giving a total budget of 2m. Each target is isolated independently with probability
+e^{−RF}, so P(all m targets isolated) = e^{−RF·m}.
+
+### Comb attack — 2× more efficient
+
+The adversary can do better by exploiting the ring structure. Place adversarial
+nodes in an alternating pattern along a contiguous arc of the ring:
+
+```
+... A  H  A  H  A  H  A ...
+```
+
+With m+1 adversarial nodes, all m sandwiched honest nodes have both ring neighbors
+adversarial. Each adversarial node serves double duty: it is simultaneously the
+right neighbor of one honest node and the left neighbor of the next. The budget
+is therefore **m+1 ≈ m adversarial nodes** to isolate m targets — roughly half
+the cost of independent attacks.
+
+The isolation events are **independent across targets**: whether target j_i is
+reached via r-links depends on the N−3 other alive nodes' r-link draws, which are
+distinct for each j_i (as long as m ≪ N). Each sandwiched node is therefore
+isolated with probability e^{−RF}, independently of the others.
+
+### Cost summary
+
+| | Independent attacks | Comb attack |
+|---|---|---|
+| Adversarial nodes for m targets | 2m | m + 1 |
+| Grinding cost (total) | O(m·N) | O(m·N) |
+| P(specific target isolated) | e^{−RF} | e^{−RF} |
+| Targets isolated simultaneously | m (independent) | m (independent) |
+
+Grinding cost is the same order for both: each adversarial node must land in an
+interval of width ~1/N, requiring O(N) key generations per node.
+
+### This attack is structural — specific to RingCast
+
+The comb pattern works because the ring ordering is deterministic and known in
+advance. In RandCast, all links are random and there are no fixed ring positions
+to exploit. An adversary with m Sybil nodes in RandCast cannot target specific
+nodes' incoming links, so the comb strategy does not apply. RandCast's natural
+fragility (P(partition) → 1 for fixed RF as N grows) arises from a different cause
+entirely — see `randcast_partition_report.md`.
+
+---
+
 ## Severity Assessment
 
 The attack is significant for the following reasons:
