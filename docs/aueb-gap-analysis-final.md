@@ -91,6 +91,14 @@ Every gossip node must maintain knowledge of all topics to compute finger distan
 
 ---
 
+#### S-11 · Identity Grinding for Targeted Placement in the Harary Ring
+
+Node positions in the Harary dissemination ring are determined by sorted 256-bit node IDs: a node's ring neighbors are the nodes whose IDs are numerically adjacent to its own. This placement is a deterministic, public function of the node's identity key. S-04 describes the global Sybil threat of crossing an adversary-fraction threshold across the whole network. Targeted placement is a distinct threat with a much smaller budget: an adversary that wants to attack a specific topic mines Ed25519 keys until one falls adjacent to a target subscriber's ID on that topic's ring. Identity generation takes microseconds, so this requires seconds to minutes per target. The result is a small number of identities positioned as ring neighbors of chosen subscribers on a chosen topic, enabling targeted eclipse, message suppression, or selective forwarding without violating any network-wide Sybil bound.
+
+This class of attack has been explored in the PRISM model developed in this workstream. Mitigations — identity binding to on-chain material (e.g., stake pool keys) or topic-specific unpredictable salts in the ring position function — are left for later design work.
+
+---
+
 ### Design Gaps
 
 #### S-11 · SecureCyclon and Vicinity Security Guarantees Are Heuristic and Simulation-Based
@@ -185,21 +193,27 @@ The following observations are lower-level gaps and unspecified details to be ad
 
 **I-07 · On-chain confirmation latency.** Topic registry updates are confirmed on-chain only after block finality (~20 seconds with Ouroboros Praos). During this window, removed publishers can still inject messages that will be forwarded and stored. Adding a confirmation delay (waiting N blocks before acting on registry changes) mitigates most lag window issues. However, for the compromised publisher case, an actively exploited key continues injecting messages during both the confirmation window and any additional delay.
 
-**I-08 · Privacy — encryption not designed.** The report acknowledges all topics are public and states that "if privacy is required, encryption should be employed." No encryption mechanism, key distribution scheme, group key management, or rekeying protocol is designed.
+**I-08 · Registry behavior under chain rollback.** I-07 addresses the confirmation-latency window: the interval between a registry transaction appearing on-chain and being safe to act on. Distinct concern: Cardano's settlement model permits rollbacks of up to K blocks. A topic registration, publisher-list change, or `setReplicationFactor` call that is confirmed but not yet deeply finalized can be reverted. The report specifies no rollback-handling protocol for off-chain state derived from on-chain events: how nodes detect that a registry action has been undone, what happens to messages signed under a now-reverted publisher list, and whether replication servers excise events that were accepted under a reverted owner configuration. Treating settled blocks as final compresses the confirmation window at the cost of rollback hazards; the tradeoff is not analyzed.
 
-**I-09 · Bootstrapping mechanism unspecified.** New nodes need an initial set of contacts to begin participating in SecureCyclon. The bootstrap mechanism — and how the certificate chain requirements interact with the initial join process — is not described.
+**I-09 · Privacy — encryption not designed.** The report acknowledges all topics are public and states that "if privacy is required, encryption should be employed." No encryption mechanism, key distribution scheme, group key management, or rekeying protocol is designed.
 
-**I-10 · Historical publisher validation gap.** The topic registry reflects the current publisher list, not its history. A node catching up on historical events cannot validate signatures from publishers that have since been removed. A replication server presenting events from removed publishers cannot be challenged, nor can it be verified that events from removed publishers are being correctly excluded. An on-chain history of publisher list changes, or timestamp-scoped registry queries, would be needed to validate historical events correctly.
+**I-10 · Bootstrapping mechanism unspecified.** New nodes need an initial set of contacts to begin participating in SecureCyclon. The bootstrap mechanism — and how the certificate chain requirements interact with the initial join process — is not described.
 
-**I-11 · SecureCyclon certificate mechanism requires an unspecified PKI.** SecureCyclon requires each node to sign its descriptor and each subsequent transfer, forming a certificate chain that proves legitimate ownership through each intermediate holder. This requires per-node asymmetric key pairs and a PKI to bootstrap and verify them. The report does not specify how nodes generate these keys, whether they are the same as on-chain identity keys, how revocation works, or how initial key material is bootstrapped.
+**I-11 · Historical publisher validation gap.** The topic registry reflects the current publisher list, not its history. A node catching up on historical events cannot validate signatures from publishers that have since been removed. A replication server presenting events from removed publishers cannot be challenged, nor can it be verified that events from removed publishers are being correctly excluded. An on-chain history of publisher list changes, or timestamp-scoped registry queries, would be needed to validate historical events correctly.
 
-**I-12 · NAT traversal unaddressed.** The report assumes nodes connect directly to each other via IP address and port. If light clients are expected to participate in the gossip overlay — which the report does not rule out — NAT traversal becomes a blocker: the majority of light clients operate behind NAT and cannot receive inbound connections. The transport layer requirements are never specified.
+**I-12 · SecureCyclon certificate mechanism requires an unspecified PKI.** SecureCyclon requires each node to sign its descriptor and each subsequent transfer, forming a certificate chain that proves legitimate ownership through each intermediate holder. This requires per-node asymmetric key pairs and a PKI to bootstrap and verify them. The report does not specify how nodes generate these keys, whether they are the same as on-chain identity keys, how revocation works, or how initial key material is bootstrapped.
 
-**I-13 · Two delivery paths designed independently — no integrated subscriber behavior.** The live gossip path (Chapter 3) and the catch-up DHT path (Chapter 4) are designed independently. A real subscriber must use both simultaneously: receiving live events via gossip, detecting gaps using sequence numbers, filling gaps via DHT, and reconciling two asynchronous streams. This integrated subscriber behavior — buffering, gap detection, DHT queries, stream reconciliation — is entirely absent from the report. A related issue is that on the gossip path, messages arrive in an unpredictable order and carry no sequence number in their payload. A subscriber has no intrinsic way to establish the publisher-intended order of messages without relying on replication servers as an external authority — which defeats the purpose of the live gossip path as an independent delivery mechanism. Additionally, the publisher's signature covers message content but does not bind it to the sequence number, so a replication server can reorder messages within a publisher's stream while keeping all signatures valid, with no way for the subscriber to detect this at the routing level.
+**I-13 · NAT traversal unaddressed.** The report assumes nodes connect directly to each other via IP address and port. If light clients are expected to participate in the gossip overlay — which the report does not rule out — NAT traversal becomes a blocker: the majority of light clients operate behind NAT and cannot receive inbound connections. The transport layer requirements are never specified.
 
-**I-14 · Topic log and event store writes are not atomic.** When a publisher submits an event, two distinct writes must occur: the event stored at `hash(TOPIC · PUBLISHER · SEQUENCE_NR)` on the DHT, and an update to the topic log at `hash(TOPIC)` recording the latest sequence number. No distributed transaction protocol is described. If the topic log is updated before all replicas are stored, a recovering subscriber reads "last sequence = N" but the request for event N returns nothing — with no way to distinguish "not yet replicated" from "never published."
+**I-14 · Two delivery paths designed independently — no integrated subscriber behavior.** The live gossip path (Chapter 3) and the catch-up DHT path (Chapter 4) are designed independently. A real subscriber must use both simultaneously: receiving live events via gossip, detecting gaps using sequence numbers, filling gaps via DHT, and reconciling two asynchronous streams. This integrated subscriber behavior — buffering, gap detection, DHT queries, stream reconciliation — is entirely absent from the report. A related issue is that on the gossip path, messages arrive in an unpredictable order and carry no sequence number in their payload. A subscriber has no intrinsic way to establish the publisher-intended order of messages without relying on replication servers as an external authority — which defeats the purpose of the live gossip path as an independent delivery mechanism. Additionally, the publisher's signature covers message content but does not bind it to the sequence number, so a replication server can reorder messages within a publisher's stream while keeping all signatures valid, with no way for the subscriber to detect this at the routing level.
 
-**I-15 · Open topic attack surface: flooding and storage exhaustion.** If the publishers list is empty, any node can publish to a topic. The report provides no rate-limiting or anti-spam mechanism. An adversary can flood an open topic with high-frequency messages, consuming forwarding bandwidth across all subscribed nodes; replication servers are obligated to store every message that passes the publisher signature check, so a sustained attack also exhausts replication server disk storage. The security deposit mechanism creates no remedy — complying with the protocol is the attack. This gap is explicitly called out as functional requirement FR5.1 but is never addressed in the design.
+**I-15 · Topic log and event store writes are not atomic.** When a publisher submits an event, two distinct writes must occur: the event stored at `hash(TOPIC · PUBLISHER · SEQUENCE_NR)` on the DHT, and an update to the topic log at `hash(TOPIC)` recording the latest sequence number. No distributed transaction protocol is described. If the topic log is updated before all replicas are stored, a recovering subscriber reads "last sequence = N" but the request for event N returns nothing — with no way to distinguish "not yet replicated" from "never published."
+
+**I-16 · Open topic attack surface: flooding and storage exhaustion.** If the publishers list is empty, any node can publish to a topic. The report provides no rate-limiting or anti-spam mechanism. An adversary can flood an open topic with high-frequency messages, consuming forwarding bandwidth across all subscribed nodes; replication servers are obligated to store every message that passes the publisher signature check, so a sustained attack also exhausts replication server disk storage. The security deposit mechanism creates no remedy — complying with the protocol is the attack. This gap is explicitly called out as functional requirement FR5.1 but is never addressed in the design.
+
+**I-17 · Publisher signatures not bound to topic — cross-topic replay.** A message signed by a publisher is not a priori bound to a specific topic, so a malicious node could replay a signed message into another topic where the same publisher is also listed — every signature check passes. A simple mitigation is for publishers to use distinct key material per topic. Noted here for documentation purposes.
+
+**I-18 · Subscription patterns observable through gossip.** I-09 notes that payload encryption is not designed. Separately, subscription privacy — knowledge of which topics a given IP or node relays, catches up on, or serves ring-neighbor traffic for — is observable through traffic analysis by an adversary running gossip nodes across the overlay. This is independent of payload encryption: encrypted content does not hide the fact that a subscriber relays encrypted traffic for a specific topic. For use cases where subscription itself is sensitive — voting behavior, SPO affiliation, geographically scoped subscriptions — metadata privacy is a distinct requirement from payload privacy and is structurally hard to retrofit into gossip overlays.
 
 ---
 
@@ -219,6 +233,7 @@ The following observations are lower-level gaps and unspecified details to be ad
 | S-08 | Proof of storage undesigned — penalties unenforceable |
 | S-09 | Replication factor migration window — targeted attack surface |
 | S-10 | Navigation churn attack via topic creation and deletion |
+| S-11 | Identity grinding for targeted placement in the Harary ring |
 
 ### Structural — Design Gaps
 
@@ -245,11 +260,14 @@ The following observations are lower-level gaps and unspecified details to be ad
 | I-05 | Sequence number gaps — lost events indistinguishable from gaps |
 | I-06 | Online but missed — DHT query on convergence unspecified |
 | I-07 | On-chain confirmation latency — compromised publisher window |
-| I-08 | Privacy — encryption not designed |
-| I-09 | Bootstrapping mechanism unspecified |
-| I-10 | Historical publisher validation gap |
-| I-11 | SecureCyclon certificate mechanism requires an unspecified PKI |
-| I-12 | NAT traversal unaddressed |
-| I-13 | Two delivery paths designed independently — no integrated subscriber behavior |
-| I-14 | Topic log and event store writes not atomic |
-| I-15 | Open topic attack surface — flooding and storage exhaustion |
+| I-08 | Registry behavior under chain rollback |
+| I-09 | Privacy — encryption not designed |
+| I-10 | Bootstrapping mechanism unspecified |
+| I-11 | Historical publisher validation gap |
+| I-12 | SecureCyclon certificate mechanism requires an unspecified PKI |
+| I-13 | NAT traversal unaddressed |
+| I-14 | Two delivery paths designed independently — no integrated subscriber behavior |
+| I-15 | Topic log and event store writes not atomic |
+| I-16 | Open topic attack surface — flooding and storage exhaustion |
+| I-17 | Publisher signatures not bound to topic — cross-topic replay |
+| I-18 | Subscription patterns observable through gossip |
