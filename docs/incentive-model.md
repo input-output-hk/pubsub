@@ -29,7 +29,7 @@ The dissemination layer (SecureCyclon + Vicinity + RandCast/RingCast) operates w
 - **Intrinsic value:** SPOs need network operations alerts. Wallet backends need governance notifications. The data itself is the incentive.
 - **Negligible cost:** For notification-scale traffic (low hundreds of messages per topic per day), bandwidth and compute costs are trivially small relative to existing infrastructure costs.
 - **No suppression incentive:** Unlike DeFi intents, there is no economic gain from suppressing a governance notification or maintenance alert.
-- **Sybil resistance via delegation stake:** Nodes prove identity by referencing a Cardano staking credential (delegation to a pool). The ADA remains in their wallet, but the on-chain delegation record provides a verifiable cost-of-entry signal. No ADA is locked.
+- **Sybil resistance via delegation stake:** Nodes reference a Cardano staking credential (delegation to a pool). The ADA remains spendable. Delegation is possible with under 5 ADA, so this is an identity-binding mechanism rather than a strong economic barrier — the real spam deterrent comes from per-topic rate caps (Section 5) and escrow costs.
 
 This is consistent with [Ezequiel's Section 5.5 assessment](pubsub-technical-review-march-with-links.md#55-economic-sustainability). Anti-spam at this tier is handled by rate limiting at the topic level (quotas proportional to delegation stake, per-topic message caps), enforced locally by each node. This does not require on-chain settlement or locked collateral.
 
@@ -55,15 +55,15 @@ This is where the fee model applies. The [AUEB research (D2 Ch.4)](D2-Cardano-Pu
 
 The core evidence problem for the persistence layer is: did the replication server actually store the messages and can it serve them on retrieval? This is distinct from proving real-time delivery (which Tier 1 handles cooperatively).
 
-Each replication server maintains a **counting Bloom filter** of message hashes it stores for each topic. The hash scheme is `BLAKE2b(salt ‖ topicId ‖ publisherId ‖ sequenceNr)`, where `salt` is a per-filter random value chosen at filter creation time. The salt prevents adversarial input crafting: because publishers control their own `publisherId` and `sequenceNr`, an unsalted hash would allow a malicious publisher to deliberately saturate specific bit positions in the filter, inflating the false positive rate (cf. Ethereum log bloom filter saturation attacks). With a keyed construction the bit distribution remains uniform regardless of input choice.
+Each replication server maintains a **counting Bloom filter** of message hashes per topic. The hash scheme is `BLAKE2b(salt ‖ topicId ‖ publisherId ‖ sequenceNr)` with a per-filter random salt to prevent adversarial bit-saturation (publishers control their own inputs; cf. Ethereum log bloom filter attacks).
 
-**Sizing.** The standard Bloom filter formula `m = −n·ln(p) / (ln 2)²` gives ~96,000 bits (~12 KB) for n = 10,000 messages at a 1% false positive rate. A counting variant (4-bit counters, needed so expired messages can be removed) requires ~48 KB for the same parameters. This is still compact relative to the stored message data — under 5 bytes of filter overhead per message — and scales linearly. Topics with fewer messages (the common case for governance notifications) use proportionally less space.
+**Sizing.** The formula `m = −n·ln(p) / (ln 2)²` gives ~12 KB for 10,000 messages at 1% theoretical FPR; a counting variant (4-bit counters for deletion support) needs ~48 KB. In practice, counter churn and varying load push the effective FPR higher, so the filter should target ~0.1% theoretical to leave headroom. Exact parameters need empirical tuning before mainnet. Even conservatively sized, overhead is under 5 bytes per message.
 
-Verification works through spot-check challenges:
+**Proving flow.** No message content goes on-chain. The three components work together as follows:
 
-- **Challenge:** Any network participant can issue a challenge by selecting a random message key from the topic's known sequence range and posting a small challenge deposit on-chain. The deposit prevents griefing (frivolous challenges). The challenge references a specific `BLAKE2b(salt ‖ topicId ‖ publisherId ‖ sequenceNr)` tuple.
-- **Response:** The replication server must produce the message content whose hash matches the challenged key. The Bloom filter provides a fast pre-check; the actual content retrieval proves real storage.
-- **On-chain commitment:** The replication server periodically posts a Merkle root of all stored message hashes to the topic's on-chain record. This Merkle root uses the existing topic-partitioned structure from the Topic Registry.
+1. **On-chain commitment:** Each settlement period, the replication server posts a **Merkle root** of all stored message hashes to the topic's on-chain record. This is a single 32-byte hash — the tree itself and all message data remain off-chain.
+2. **Bloom filter (off-chain):** The server maintains a counting Bloom filter locally as a fast index of what it claims to store. This is not submitted on-chain; it serves as a pre-check during challenges.
+3. **Spot-check challenge:** Any participant can challenge a server by posting a small deposit on-chain and naming a specific message key (`BLAKE2b(salt ‖ topicId ‖ publisherId ‖ sequenceNr)`). The server must respond **off-chain** with: (a) the message content whose hash matches the key, and (b) a Merkle inclusion proof against the on-chain root. If the server fails to respond or the proof is invalid, the challenge succeeds and triggers slashing. The challenger's deposit is returned on success, forfeited on frivolous challenges.
 
 ### 3.2 Escrow and Conditional Release
 
@@ -133,7 +133,9 @@ Each topic has a maximum message rate configured in the Topic Registry (eg, 100 
 
 ### Delegation-Weighted Quotas
 
-For open topics (no publisher list), message publishing requires a Cardano staking credential. Each sender's rate limit scales with their delegated ADA (read from on-chain stake distribution snapshots), making spam proportionally expensive. A node delegating 100K ADA gets a higher quota than one delegating 1K. No ADA is locked or consumed: the delegation record is read-only. This provides Sybil resistance without on-chain transactions per message.
+For open topics (no publisher list), publishing requires a Cardano staking credential. Each sender's rate limit is derived from their delegated ADA (read from on-chain stake snapshots) via a **sublinear** function (e.g., `log(stake)` or `sqrt(stake)`) so that whales cannot monopolise topic bandwidth while small delegators still get a usable quota. The exact curve needs simulation against real stake distributions (see [Open Question 6](#6-open-questions)). No ADA is locked or consumed.
+
+Since delegation costs under 5 ADA, these quotas are rate-shaping, not an economic barrier. Inactive users could in theory rent their quota to spammers; binding quotas to peer identity (not just the credential) mitigates this.
 
 ### Persistence-Layer Cost Barrier
 
@@ -152,6 +154,8 @@ If a topic has persistence enabled, every published message costs the publisher 
 4. **Replication server minimum collateral:** The AUEB design mentions "minimum ADA threshold" but does not specify the locked amount. This affects Sybil resistance, slashing effectiveness, and barrier to entry for smaller SPOs.
 
 5. **Cross-topic storage incentives:** Should replication servers commit to storing all topics assigned by consistent hashing (as in D2 Ch.4), or can they selectively choose profitable topics? The former is simpler but may create unfunded mandates.
+
+6. **Delegation-weighted quota curve:** What sublinear function (`log`, `sqrt`, piecewise with floor/ceiling) best balances whale vs small-delegator access? Needs simulation against real Cardano stake distributions.
 
 ---
 
