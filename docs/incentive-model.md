@@ -55,11 +55,13 @@ This is where the fee model applies. The [AUEB research (D2 Ch.4)](D2-Cardano-Pu
 
 The core evidence problem for the persistence layer is: did the replication server actually store the messages and can it serve them on retrieval? This is distinct from proving real-time delivery (which Tier 1 handles cooperatively).
 
-Each replication server maintains a **counting Bloom filter** of message hashes it stores for each topic, indexed by the existing scheme: `hash(topicId.publisherId.sequenceNr)`. The filter acts as a compact proof of storage capacity: roughly 1 KB per 10,000 stored messages at 1% false positive rate (Bose et al, 2008).
+Each replication server maintains a **counting Bloom filter** of message hashes it stores for each topic. The hash scheme is `BLAKE2b(salt ‖ topicId ‖ publisherId ‖ sequenceNr)`, where `salt` is a per-filter random value chosen at filter creation time. The salt prevents adversarial input crafting: because publishers control their own `publisherId` and `sequenceNr`, an unsalted hash would allow a malicious publisher to deliberately saturate specific bit positions in the filter, inflating the false positive rate (cf. Ethereum log bloom filter saturation attacks). With a keyed construction the bit distribution remains uniform regardless of input choice.
+
+**Sizing.** The standard Bloom filter formula `m = −n·ln(p) / (ln 2)²` gives ~96,000 bits (~12 KB) for n = 10,000 messages at a 1% false positive rate. A counting variant (4-bit counters, needed so expired messages can be removed) requires ~48 KB for the same parameters. This is still compact relative to the stored message data — under 5 bytes of filter overhead per message — and scales linearly. Topics with fewer messages (the common case for governance notifications) use proportionally less space.
 
 Verification works through spot-check challenges:
 
-- **Challenge:** Any network participant can issue a challenge by selecting a random message key from the topic's known sequence range and posting a small challenge deposit on-chain. The deposit prevents griefing (frivolous challenges). The challenge references a specific `hash(topicId.publisherId.sequenceNr)` tuple.
+- **Challenge:** Any network participant can issue a challenge by selecting a random message key from the topic's known sequence range and posting a small challenge deposit on-chain. The deposit prevents griefing (frivolous challenges). The challenge references a specific `BLAKE2b(salt ‖ topicId ‖ publisherId ‖ sequenceNr)` tuple.
 - **Response:** The replication server must produce the message content whose hash matches the challenged key. The Bloom filter provides a fast pre-check; the actual content retrieval proves real storage.
 - **On-chain commitment:** The replication server periodically posts a Merkle root of all stored message hashes to the topic's on-chain record. This Merkle root uses the existing topic-partitioned structure from the Topic Registry.
 
