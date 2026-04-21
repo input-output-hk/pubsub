@@ -1,0 +1,62 @@
+// Mitigation: per-epoch delivery agent selection
+//
+// Subscriber j selects RF agents uniformly at random without replacement
+// from N-1 candidate nodes.  k of those N-1 nodes are adversarial.
+// j is isolated iff all RF selected agents happen to be adversarial.
+//
+// Model: sequential selection — RF steps, each step removes one node
+// from the remaining pool and checks whether it is adversarial.
+//
+// Analytical result: P(isolated) = C(k, RF) / C(N-1, RF)
+//
+// Usage:
+//   prism mitigation_epoch.prism mitigation_epoch.props -const k=3
+//   prism mitigation_epoch.prism mitigation_epoch.props -const N=20,RF=3,k=5
+//
+// k is required and has no default — always pass via -const k=...
+// N and RF use the defaults below unless overridden.
+
+dtmc
+
+const int N    = 10;  // total subscribers; j selects from N-1 others
+const int RF   = 2;   // delivery agents j selects per epoch
+const double k;       // adversarial nodes among N-1 (double forces real division)
+                      // pass as: -const k=3  (PRISM accepts integer literals for double constants)
+
+// State:
+//   step — agents selected so far (0 .. RF)
+//   a    — adversarial agents selected so far (0 .. RF)
+//
+// At step s with a adversarial agents already chosen:
+//   remaining pool size      = N-1-s
+//   adversarial in pool      = k-a
+//   honest in pool           = N-1-s-(k-a) = N-1-k-s+a
+//
+// Reachability invariant: a <= step always (adversarial selected <= total selected).
+// The guard `a <= step` makes this explicit so PRISM's symbolic engine does not
+// evaluate probability expressions at out-of-range states.
+
+module selection
+
+    step : [0..RF] init 0;
+    a    : [0..RF] init 0;
+
+    // Selection step: draw one from the remaining N-1-step nodes.
+    // Guard restricts to reachable states — three conditions:
+    //   a <= step        : adversarial picked ≤ total picked
+    //   a <= k           : adversarial picked ≤ adversarial available
+    //   k-a <= N-1-step  : adversarial remaining ≤ pool remaining
+    // Without all three the symbolic engine evaluates unreachable states
+    // where probability expressions fall outside [0,1].
+    [pick] step < RF & a <= step & a <= k & k-a <= N-1-step ->
+          (k-a)/(N-1-step)           : (step'=step+1) & (a'=a+1)
+        + (N-1-k-step+a)/(N-1-step)  : (step'=step+1);
+
+    // Terminal self-loop (step = RF: all agents selected)
+    [] step=RF -> true;
+
+endmodule
+
+// j is isolated iff all RF selected agents are adversarial
+label "isolated"     = (step=RF) & (a=RF);
+label "not_isolated" = (step=RF) & (a<RF);

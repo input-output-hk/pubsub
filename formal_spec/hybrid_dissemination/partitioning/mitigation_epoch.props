@@ -1,0 +1,9 @@
+// Properties for mitigation_epoch.prism
+//
+// P(isolated)     — all RF selected agents are adversarial
+//                   expected: C(k,RF) / C(N-1,RF)
+//
+// P(not_isolated) — at least one honest agent selected (complement)
+
+P=? [F "isolated"]
+P=? [F "not_isolated"]

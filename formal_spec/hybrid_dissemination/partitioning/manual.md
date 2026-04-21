@@ -64,10 +64,42 @@ for that budget k.
   single node removal can disconnect the graph.
 - **k=2**: optimal strategy is the *alternating cut* — kill both ring neighbors of a
   target node j. Partition probability converges to e^{−RF} as N grows.
-- **k=3**: non-monotone peak — killing both neighbors of the source simultaneously
-  gives higher partition probability than k=2 or k=4.
 
 See `adversarial_partition_report.md` for the full analysis.
+
+---
+
+## Mitigation: per-epoch delivery agent selection
+
+`mitigation_epoch.prism` models the proposed countermeasure: subscriber j selects RF
+agents uniformly at random from N−1 others. k of those N−1 nodes are adversarial.
+P(isolated) = C(k,RF) / C(N-1,RF).
+
+### Single query
+
+```
+prism mitigation_epoch.prism mitigation_epoch.props -const k=3
+```
+
+Prints P(isolated) and P(not_isolated). For N=10, RF=2, k=3 the expected result is
+C(3,2)/C(9,2) = 1/12 ≈ 0.0833.
+
+Override N or RF:
+
+```
+prism mitigation_epoch.prism mitigation_epoch.props -const N=20,RF=3,k=5
+```
+
+### Full sweep
+
+```
+bash mitigation_sweep.sh
+```
+
+Runs PRISM for k=0..N−1 and prints each result alongside the analytical formula,
+confirming all values match to floating-point precision.
+
+See `mitigation_epoch_report.md` for the full analysis.
 
 ---
 
