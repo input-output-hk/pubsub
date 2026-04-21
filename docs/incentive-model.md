@@ -75,9 +75,11 @@ Publishers who configure persistence deposit fees into a Plutus escrow script. T
 
 Fee per settlement period per topic:
 
-> `fee = message_count × per_message_rate × replicationFactor × retentionPeriod_factor`
+> `fee = message_count × avg_message_size × per_byte_rate × replicationFactor × retentionPeriod_factor`
 
-`per_message_rate` emerges from competition among replication servers. Note that the Plutus validator does **not** verify the Merkle proof itself on-chain (too expensive) — it checks that a `StorageProofDatum` was posted for that server and period, and that no successful challenge (slashing) exists. The actual proof verification happens off-chain during spot-checks; the on-chain contract acts as a settlement layer.
+**Rate discovery.** The publisher posts a storage request on-chain specifying the topic parameters (expected message rate, max message size, retention period, replication factor). Replication servers respond with `per_byte_rate` bids. The publisher selects the lowest N bids (where N = replicationFactor) and locks the escrow accordingly. This is a simple sealed-bid process, not a continuous auction — it runs once at topic creation and can be re-run at retention renewal. The exact bidding API is an open design question (see [Open Question 7](#6-open-questions)).
+
+**On-chain verification.** The Plutus validator does **not** verify Merkle proofs on-chain (too expensive). It checks that a `StorageProofDatum` was posted for that server and period, and that no successful challenge (slashing) exists. Proof verification happens off-chain during spot-checks; the on-chain contract is a settlement layer.
 
 ### 3.3 Replication Server Economics
 
@@ -157,6 +159,8 @@ If a topic has persistence enabled, every published message costs the publisher 
 5. **Cross-topic storage incentives:** Should replication servers commit to storing all topics assigned by consistent hashing (as in D2 Ch.4), or can they selectively choose profitable topics? The former is simpler but may create unfunded mandates.
 
 6. **Delegation-weighted quota curve:** What sublinear function (`log`, `sqrt`, piecewise with floor/ceiling) best balances whale vs small-delegator access? Needs simulation against real Cardano stake distributions.
+
+7. **Bidding API and rate discovery:** How do replication servers submit bids? On-chain (transparent but adds transactions) or off-chain with on-chain commitment? Should bids be sealed or open? How does re-bidding work at retention renewal?
 
 ---
 
