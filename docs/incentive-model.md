@@ -67,16 +67,17 @@ Each replication server maintains a **counting Bloom filter** of message hashes 
 
 ### 3.2 Escrow and Conditional Release
 
-Publishers who configure persistence for a topic deposit fees into a Plutus escrow contract. The deposit covers the cost of storage for the configured `retentionPeriod` and `replicationFactor`.
+Publishers who configure persistence deposit fees into a Plutus escrow script. The UTxO flow:
 
-- **Release condition:** Replication servers submit periodic storage proofs (Merkle root + Bloom filter commitment) once per settlement period. If proofs are valid and spot-checks pass, the Plutus validator releases the proportional fee share for that period.
-- **Rollback condition:** If no valid proof is submitted within the timeout, or if spot-checks fail, fees revert to the publisher. Refund is the default; payment requires proof. This is the "rollback-like" property.
+1. **Deposit.** Publisher creates a UTxO at the escrow script address carrying the total fee for the retention period. The datum records `topicId`, `replicationFactor`, `retentionPeriod`, number of settlement periods, and per-period release amount.
+2. **Claim.** Each settlement period, a replication server submits a transaction that spends the escrow UTxO and produces two outputs: (a) a new escrow UTxO with the remaining balance and decremented period count, and (b) a payment UTxO to the server's address. The validator checks that the transaction's redeemer includes a valid `StorageProofDatum` (Merkle root matching the server's on-chain commitment for that period) and that the claimed amount matches the per-period share.
+3. **Timeout / rollback.** If no valid claim transaction is submitted before the period deadline (a slot range encoded in the datum), the publisher can reclaim the UTxO. Refund is the default; payment requires proof.
 
-Fee calculation per settlement period per topic:
+Fee per settlement period per topic:
 
-> `fee = message_count x per_message_rate x replicationFactor x retentionPeriod_factor`
+> `fee = message_count × per_message_rate × replicationFactor × retentionPeriod_factor`
 
-The `per_message_rate` emerges from competition among replication servers. The `retentionPeriod_factor` reflects that longer storage costs more. The `replicationFactor` multiplier accounts for the redundancy the publisher requested.
+`per_message_rate` emerges from competition among replication servers. Note that the Plutus validator does **not** verify the Merkle proof itself on-chain (too expensive) — it checks that a `StorageProofDatum` was posted for that server and period, and that no successful challenge (slashing) exists. The actual proof verification happens off-chain during spot-checks; the on-chain contract acts as a settlement layer.
 
 ### 3.3 Replication Server Economics
 
@@ -103,8 +104,8 @@ The `per_message_rate` emerges from competition among replication servers. The `
 
 The fee mechanism extends the existing [Topic Registry contract](../contracts/topic-registry/README.md) (see also [formal spec](../formal_spec/topic_registry/README.md)) with two new datum types:
 
-- **EscrowDatum:** Attached to the publisher's deposit UTxO. Contains `topicId`, `depositAmount`, `retentionPeriod`, `replicationFactor`, and `settlementStart`. The Plutus validator enforces release only on valid storage proof.
-- **StorageProofDatum:** Submitted by replication servers per settlement period. Contains `topicId`, `serverId`, `merkleRoot`, `bloomFilterCommitment`, and `settlementPeriodNumber`. Validated against the escrow conditions.
+- **EscrowDatum:** Inline datum on the publisher's deposit UTxO. Fields: `topicId`, `depositAmount`, `replicationFactor`, `retentionPeriod`, `periodsRemaining`, `perPeriodRelease`, `deadlineSlot`. Consumed and re-created each settlement period as servers claim their share (see Section 3.2 step 2).
+- **StorageProofDatum:** Posted by replication servers as a reference datum each settlement period. Fields: `topicId`, `serverId`, `merkleRoot`, `settlementPeriodNumber`. The escrow validator checks for its existence when processing a claim.
 
 Per-settlement-period on-chain cost per topic: one StorageProof transaction per replication server, plus one fee-release transaction. For a topic with `replicationFactor=3` and modest retention, this is four transactions per settlement period.
 
