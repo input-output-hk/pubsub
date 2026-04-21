@@ -85,9 +85,9 @@ Fee per settlement period per topic:
 
 **Locked collateral:** Replication servers deposit collateral into a Plutus script address when registering on-chain (at Cardano epoch boundaries, per D2 design). This collateral is locked for the duration of their registration and slashable on provable storage failure. It is separate from the server operator's delegation stake. The collateral asset (ADA vs USD stablecoin) is an open question (see [Open Question 8](#6-open-questions)) — ADA is simpler but exposes both parties to volatility; a stablecoin gives predictable slashing value but adds a token dependency. Either way, locked collateral has an opportunity cost (forgone staking rewards or DeFi yield), so the minimum should be low enough to not deter smaller SPOs while still making slashing meaningful. Expected range: tens to low hundreds of USD equivalent.
 
-**Earnings:** Proportional to confirmed settlement periods. A server storing 100 topics with high retrieval success earns more than one storing 10 topics with spotty availability. This naturally selects for reliable infrastructure.
+**Earnings:** Proportional to confirmed settlement periods. A server storing more topics with consistent spot-check success earns more. Servers that fail checks lose both the settlement period fee and risk collateral slashing, so unreliable infrastructure is penalised directly rather than through a separate reputation system.
 
-**Loyalty effect:** Topics with consistent storage success (high spot-check pass rate over time) attract lower per-message rates because the risk premium decreases. This creates an implicit reputation: the fee discount is the reputation. No separate scoring system needed.
+**Race-to-bottom risk.** Competitive bidding on `per_byte_rate` could drive rates below sustainable operating cost, selecting for cheap-but-unreliable servers. Mitigations: (a) the collateral requirement sets a floor — a server bidding below cost still risks slashing, (b) publishers can filter bids by on-chain track record (consecutive settlement periods without slashing), and (c) a protocol-level minimum rate floor could be enforced in the escrow validator. Whether a minimum floor is needed or market dynamics suffice is an open question (see [Open Question 9](#6-open-questions)).
 
 ---
 
@@ -163,6 +163,8 @@ If a topic has persistence enabled, every published message costs the publisher 
 7. **Bidding API and rate discovery:** How do replication servers submit bids? On-chain (transparent but adds transactions) or off-chain with on-chain commitment? Should bids be sealed or open? How does re-bidding work at retention renewal?
 
 8. **Collateral asset:** Should locked collateral be ADA or a USD stablecoin (e.g., DJED, iUSD)? ADA is native and simple but volatile — a price drop can make slashing ineffective. Stablecoins give predictable value but add a token dependency and may have liquidity constraints for smaller SPOs.
+
+9. **Minimum rate floor:** Should the escrow validator enforce a protocol-level minimum `per_byte_rate` to prevent race-to-bottom bidding, or is collateral slashing + publisher filtering sufficient?
 
 ---
 
