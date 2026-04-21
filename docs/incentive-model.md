@@ -83,7 +83,7 @@ Fee per settlement period per topic:
 
 ### 3.3 Replication Server Economics
 
-**Locked collateral:** Replication servers deposit ADA into a Plutus script address when registering on-chain (at Cardano epoch boundaries, per D2 design). This ADA is locked for the duration of their registration and slashable on provable storage failure. It is separate from and independent of the server operator's delegation stake.
+**Locked collateral:** Replication servers deposit collateral into a Plutus script address when registering on-chain (at Cardano epoch boundaries, per D2 design). This collateral is locked for the duration of their registration and slashable on provable storage failure. It is separate from the server operator's delegation stake. The collateral asset (ADA vs USD stablecoin) is an open question (see [Open Question 8](#6-open-questions)) — ADA is simpler but exposes both parties to volatility; a stablecoin gives predictable slashing value but adds a token dependency. Either way, locked collateral has an opportunity cost (forgone staking rewards or DeFi yield), so the minimum should be low enough to not deter smaller SPOs while still making slashing meaningful. Expected range: tens to low hundreds of USD equivalent.
 
 **Earnings:** Proportional to confirmed settlement periods. A server storing 100 topics with high retrieval success earns more than one storing 10 topics with spotty availability. This naturally selects for reliable infrastructure.
 
@@ -161,6 +161,8 @@ If a topic has persistence enabled, every published message costs the publisher 
 6. **Delegation-weighted quota curve:** What sublinear function (`log`, `sqrt`, piecewise with floor/ceiling) best balances whale vs small-delegator access? Needs simulation against real Cardano stake distributions.
 
 7. **Bidding API and rate discovery:** How do replication servers submit bids? On-chain (transparent but adds transactions) or off-chain with on-chain commitment? Should bids be sealed or open? How does re-bidding work at retention renewal?
+
+8. **Collateral asset:** Should locked collateral be ADA or a USD stablecoin (e.g., DJED, iUSD)? ADA is native and simple but volatile — a price drop can make slashing ineffective. Stablecoins give predictable value but add a token dependency and may have liquidity constraints for smaller SPOs.
 
 ---
 
