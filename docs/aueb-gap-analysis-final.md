@@ -25,6 +25,8 @@ Observations are organized into two tiers:
 
 The navigation layer uses Vicinity to build per-node views of which nodes are close to which topics. There is no mechanism to verify that a node actually subscribes to the topics it advertises. An adversary can claim membership in strategically chosen topics to maximize its appearance in other nodes' finger tables. By advertising membership in the most subscribed or most central topics, the adversary positions itself as a routing hub at the navigation layer — legitimate nodes' finger links will naturally point to it, giving it control over topic discovery routing for those topics. This attack operates entirely at the Vicinity layer and bypasses SecureCyclon, which provides no protection against false topic membership claims.
 
+**Effect.** A successful attack has two compounding consequences: (1) denial of discovery — nodes subscribing to or recovering connectivity for the target topic fail to find legitimate peers, or do so only after long delay; (2) redirection — the adversary returns descriptors of other adversary-controlled nodes, placing the victim in an attacker-chosen neighborhood. Once the adversary selects a victim's topic neighbors, downstream attacks at the dissemination layer (S-02, S-03, S-06) become viable against that victim. Both new subscribers and existing nodes recovering from churn are affected.
+
 ---
 
 #### S-02 · SecureCyclon Security Scope Is Misrepresented: Topology ≠ Delivery
@@ -55,6 +57,8 @@ SecureCyclon descriptors carry a creator-assigned timestamp used to establish fr
 
 This attack is compounded by the synchrony assumption underlying SecureCyclon's security analysis: detection rates are derived from synchronized gossip cycles, but real deployments have heterogeneous hardware and variable network latency, reducing detection effectiveness under asynchronous operation.
 
+**Note on the selection rule.** The timestamp-based freshness preference is not incidental — it serves two roles in SecureCyclon: (1) a *liveness signal*, since the certificate chain proves legitimate propagation but says nothing about whether the referenced node is still online, so without a freshness criterion views accumulate dead nodes; and (2) *replay resistance*, since a selection rule indifferent to age would let an adversary re-inject very old but validly-signed descriptors to poison views with stale nodes or nodes with rotated keys. Switching away from time-based replacement (e.g., to random selection or active liveness probing) is possible but requires deeper analysis of the impact on both properties before it can be recommended.
+
 ---
 
 #### S-06 · Vicinity Has No Byzantine Resistance — Navigation and Dissemination Layers Are Undefended
@@ -79,19 +83,13 @@ Section 4.1.2 states that Proof of Replication / Proof of Retrieval protocols "m
 
 ---
 
-#### S-09 · Replication Factor Migration Window Creates a Targeted Attack Surface
-
-Owners can change the replication factor of a topic via `setReplicationFactor`. The report does not specify the migration protocol: whether excess replicas are purged, whether new replicas are created immediately or lazily, or how the system behaves during the transition. During the migration window, the actual replication factor is undefined. A compromised or malicious topic owner can exploit this deliberately: reduce the replication factor temporarily, then attack the replication servers now holding the sole copy.
-
----
-
-#### S-10 · Navigation Churn Attack via Topic Creation and Deletion
+#### S-09 · Navigation Churn Attack via Topic Creation and Deletion
 
 Every gossip node must maintain knowledge of all topics to compute finger distances in the navigation layer. Inserting or deleting a topic shifts the circular topic ring, requiring all nodes to recompute affected finger links and establish new connections. An adversary can register and delete topics repeatedly, forcing continuous navigation layer churn across all participating nodes. The cost to the attacker is linear in the number of topics created; the cost to the network is proportional to the number of participating nodes × topics affected. On-chain registration fees provide partial rate-limiting but not a defense.
 
 ---
 
-#### S-11 · Identity Grinding for Targeted Placement in the Harary Ring
+#### S-10 · Identity Grinding for Targeted Placement in the Harary Ring
 
 Node positions in the Harary dissemination ring are determined by sorted 256-bit node IDs: a node's ring neighbors are the nodes whose IDs are numerically adjacent to its own. This placement is a deterministic, public function of the node's identity key. S-04 describes the global Sybil threat of crossing an adversary-fraction threshold across the whole network. Targeted placement is a distinct threat with a much smaller budget: an adversary that wants to attack a specific topic mines Ed25519 keys until one falls adjacent to a target subscriber's ID on that topic's ring. Identity generation takes microseconds, so this requires seconds to minutes per target. The result is a small number of identities positioned as ring neighbors of chosen subscribers on a chosen topic, enabling targeted eclipse, message suppression, or selective forwarding without violating any network-wide Sybil bound.
 
@@ -215,6 +213,8 @@ The following observations are lower-level gaps and unspecified details to be ad
 
 **I-18 · Subscription patterns observable through gossip.** I-09 notes that payload encryption is not designed. Separately, subscription privacy — knowledge of which topics a given IP or node relays, catches up on, or serves ring-neighbor traffic for — is observable through traffic analysis by an adversary running gossip nodes across the overlay. This is independent of payload encryption: encrypted content does not hide the fact that a subscriber relays encrypted traffic for a specific topic. For use cases where subscription itself is sensitive — voting behavior, SPO affiliation, geographically scoped subscriptions — metadata privacy is a distinct requirement from payload privacy and is structurally hard to retrofit into gossip overlays.
 
+**I-19 · Replication factor migration semantics unspecified.** Owners can change a topic's replication factor via `setReplicationFactor`, but the migration protocol is not defined: whether excess replicas are purged or retained, whether new replicas are created eagerly or lazily, and how the system behaves during the transition are all unspecified. If a topic owner is compromised, changes to this parameter may cause harm whose severity depends both on the semantics the protocol ultimately adopts and on the use case. The observation here is the undefined behavior itself; impact cannot be assessed further until migration semantics are specified.
+
 ---
 
 ## Summary
@@ -231,9 +231,8 @@ The following observations are lower-level gaps and unspecified details to be ad
 | S-06 | Vicinity Byzantine resistance absent — overlay structure formation undefended |
 | S-07 | Byzantine failure notifications / ejection-by-false-accusation |
 | S-08 | Proof of storage undesigned — penalties unenforceable |
-| S-09 | Replication factor migration window — targeted attack surface |
-| S-10 | Navigation churn attack via topic creation and deletion |
-| S-11 | Identity grinding for targeted placement in the Harary ring |
+| S-09 | Navigation churn attack via topic creation and deletion |
+| S-10 | Identity grinding for targeted placement in the Harary ring |
 
 ### Structural — Design Gaps
 
@@ -271,3 +270,4 @@ The following observations are lower-level gaps and unspecified details to be ad
 | I-16 | Open topic attack surface — flooding and storage exhaustion |
 | I-17 | Publisher signatures not bound to topic — cross-topic replay |
 | I-18 | Subscription patterns observable through gossip |
+| I-19 | Replication factor migration semantics unspecified |
