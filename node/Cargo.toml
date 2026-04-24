@@ -31,9 +31,6 @@ rand = "0.8"
 quinn = "0.11"            # QUIC transport
 rustls = { version = "0.23", default-features = false }
 
-# gRPC
-tonic = "0.12"
-prost = "0.13"
 
 # Logging & tracing
 tracing = "0.1"

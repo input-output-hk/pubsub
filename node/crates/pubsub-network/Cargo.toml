@@ -23,3 +23,10 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 rcgen = "0.13"
 serde_json = { workspace = true }
+
+[features]
+cardano = ["dep:pallas"]
+
+[dependencies.pallas]
+version = "0.34"
+optional = true

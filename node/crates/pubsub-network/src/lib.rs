@@ -8,17 +8,18 @@ pub mod relay_policy;
 pub mod store;
 pub mod mock_chain;
 pub mod mock_registry;
+#[cfg(feature = "cardano")]
+pub mod pallas_chain;
 
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::sync::Arc;
     use std::time::Duration;
 
     use bytes::Bytes;
 
-    use pubsub_types::message::{Message, MessageId, PublisherId, TopicId};
-    use pubsub_types::node::{NodeId, NodeInfo};
+    use pubsub_types::message::{Message, MessageId, PublisherCredential, PublisherId, TopicId};
+    use pubsub_types::node::NodeId;
     use pubsub_types::topic::TopicConfig;
     use pubsub_types::traits::{
         ChainState, Codec, MessageStore, RelayDecision, RelayPolicy,
@@ -38,7 +39,7 @@ mod tests {
             topic_id: make_topic_id(topic_seed),
             sequence_nr: seq,
             timestamp_ms: 42_000,
-            publisher_id: PublisherId(Bytes::from(vec![0xABu8; 32])),
+            publisher_id: PublisherId(PublisherCredential::ed25519(Bytes::from(vec![0xABu8; 32]))),
             signature: Bytes::from(vec![0u8; 64]),
             payload: Bytes::from(format!("payload-{seq}")),
             metadata: BTreeMap::new(),
@@ -83,7 +84,7 @@ mod tests {
         let cache = HotCache::with_defaults();
         let id = MessageId {
             topic_id: make_topic_id(99),
-            publisher_id: PublisherId(Bytes::from(vec![0u8; 32])),
+            publisher_id: PublisherId(PublisherCredential::ed25519(Bytes::from(vec![0u8; 32]))),
             sequence_nr: 0,
         };
         let got = cache.get(&id).await.expect("get");
