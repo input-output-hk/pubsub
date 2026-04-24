@@ -16,6 +16,9 @@ Thumbs.db
 # Local dev / deployment files (keys, .env, test UTxOs — never commit)
 local/
 
+# Seed node deployment scripts (contain server addresses and credentials)
+node/scripts/
+
 # MkDocs build output
 _build/
 
