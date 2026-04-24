@@ -1,6 +1,7 @@
 mod aiken;
 mod blockfrost;
 mod bootstrap;
+mod create_topic;
 mod publish_scripts;
 mod split;
 mod tx;
@@ -13,6 +14,7 @@ use clap::{Parser, Subcommand};
 use dialoguer::Select;
 
 use bootstrap::{BootstrapArgs, Network};
+use create_topic::CreateTopicArgs;
 use publish_scripts::PublishScriptsArgs;
 use split::SplitArgs;
 
@@ -96,6 +98,51 @@ enum Command {
         /// UTxO to fund all four script-publication outputs (needs ~12 ADA).
         #[arg(long)]
         funding_utxo: Option<String>,
+    },
+
+    /// Register a new topic on-chain via the topic-registry contract.
+    /// Must be run after `publish-scripts`. Reads the registry head UTxO,
+    /// mints a topic token, and writes a TopicDatum to the topic validator address.
+    CreateTopic {
+        /// Path to the .env file written by `bootstrap` (e.g. local/.env.preprod).
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+
+        /// Cardano network.
+        #[arg(long)]
+        network: Option<String>,
+
+        /// Blockfrost project ID. Falls back to $BLOCKFROST_PROJECT_ID.
+        #[arg(long)]
+        blockfrost_project_id: Option<String>,
+
+        /// Bech32 payment address that will become the topic owner.
+        #[arg(long)]
+        payment_addr: Option<String>,
+
+        /// Path to the payment signing key JSON file.
+        #[arg(long)]
+        payment_skey: Option<PathBuf>,
+
+        /// Directory containing compiled contract blueprints.
+        #[arg(long, default_value = "../contracts")]
+        contracts_dir: PathBuf,
+
+        /// UTxO to fund the transaction (needs ~3 ADA for fees + 2 ADA topic output).
+        #[arg(long)]
+        funding_utxo: Option<String>,
+
+        /// Human-readable topic name (e.g. "iog/spo/alerts").
+        #[arg(long)]
+        name: String,
+
+        /// Number of relay nodes that must cache each message (must be > 0).
+        #[arg(long, default_value = "1")]
+        replication_factor: u64,
+
+        /// Message retention window in seconds (must be > 0).
+        #[arg(long, default_value = "86400")]
+        retention_period: u64,
     },
 
     /// Split a single UTxO into two — useful when you only have one UTxO but need
@@ -183,6 +230,46 @@ async fn main() -> Result<()> {
                 contracts_dir,
                 env_file,
                 funding_utxo,
+            })
+            .await?;
+        }
+
+        Command::CreateTopic {
+            env_file,
+            network,
+            blockfrost_project_id,
+            payment_addr,
+            payment_skey,
+            contracts_dir,
+            funding_utxo,
+            name,
+            replication_factor,
+            retention_period,
+        } => {
+            if replication_factor == 0 {
+                return Err(anyhow!("--replication-factor must be > 0"));
+            }
+            if retention_period == 0 {
+                return Err(anyhow!("--retention-period must be > 0"));
+            }
+            let network = resolve_network(network)?;
+            let blockfrost_project_id = resolve_blockfrost_id(blockfrost_project_id)?;
+            let payment_addr = resolve_payment_addr(payment_addr)?;
+            let payment_skey_path = resolve_skey_path(payment_skey)?;
+            let env_file = resolve_env_file(env_file, &network)?;
+            let funding_utxo = resolve_utxo(funding_utxo, "funding UTxO")?;
+
+            create_topic::run(CreateTopicArgs {
+                network,
+                blockfrost_project_id,
+                payment_addr,
+                payment_skey_path,
+                contracts_dir,
+                env_file,
+                funding_utxo,
+                name,
+                replication_factor,
+                retention_period,
             })
             .await?;
         }

@@ -16,6 +16,9 @@ pub struct BlockfrostClient {
 pub struct ProtocolParams {
     pub min_fee_a: u64,
     pub min_fee_b: u64,
+    /// Lovelace per serialised UTxO byte (Conway era). Blockfrost returns as string.
+    #[serde(default)]
+    pub coins_per_utxo_size: Option<String>,
     /// Absent or null on some Blockfrost responses; only needed for Plutus txs.
     #[serde(default)]
     pub execution_unit_prices: Option<ExecPrices>,
@@ -74,6 +77,20 @@ impl ProtocolParams {
             .clone()
             .unwrap_or_else(ExecPrices::default_prices)
     }
+
+    /// Minimum lovelace for a UTxO that carries a reference script of `script_size` bytes.
+    ///
+    /// Formula: `coins_per_utxo_byte × (160 + output_overhead + script_size)`
+    /// where 160 is the UTxO map-key overhead and ~75 covers address + value + CBOR framing.
+    /// Falls back to a safe 4310 lovelace/byte if the param is absent.
+    pub fn min_ref_script_lovelace(&self, script_size: u64) -> u64 {
+        let cost_per_byte: u64 = self
+            .coins_per_utxo_size
+            .as_deref()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(4310);
+        cost_per_byte * (160 + 75 + script_size)
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -81,6 +98,9 @@ pub struct Utxo {
     pub tx_hash: String,
     pub tx_index: u64,
     pub amount: Vec<Amount>,
+    /// Inline datum as CBOR hex (Conway era).
+    #[serde(default)]
+    pub inline_datum: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

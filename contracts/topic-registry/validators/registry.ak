@@ -88,38 +88,23 @@ validator registry(bootstrap_utxo: OutputReference) {
   spend(
     datum: Option<RegistryHeadDatum>,
     redeemer: RegistryHeadAction,
-    _utxo: OutputReference,
+    utxo: OutputReference,
     self: Transaction,
   ) {
     expect Some(head_datum) = datum
 
     // Derive policy_id from the validator's own script hash.
     // For a multi-validator, the spend and mint handlers share the same hash.
-    let policy_id: PolicyId =
-      when
-        list.find(
-          self.inputs,
-          fn(i) {
-            assets.quantity_of(
-              i.output.value,
-              // We find the input that has the registry head token.
-              // The policy ID is embedded in the token we're looking for.
-              // Bootstrap: we check all inputs for any that have registry_head in value.
-              // Since we don't yet know our own policy_id, we derive it from the
-              // input's address (which must be a script address matching our hash).
-              assets.ada_policy_id,
-              assets.ada_asset_name,
-            ) > 0
-          },
-        )
-      is {
-        Some(input) ->
-          when input.output.address.payment_credential is {
-            Script(hash) -> hash
-            _ -> fail @"Registry head must be at script address"
-          }
-        None -> fail @"No inputs found"
+    // We find our own input using the spending UTxO reference (guaranteed to be
+    // the registry head) and extract the script hash from its address.
+    let policy_id: PolicyId = {
+      expect Some(own_input) =
+        list.find(self.inputs, fn(i) { i.output_reference == utxo })
+      when own_input.output.address.payment_credential is {
+        Script(hash) -> hash
+        _ -> fail @"Registry head must be at script address"
       }
+    }
 
     when redeemer is {
       CreateTopic { name, replication_factor, retention_period } -> {

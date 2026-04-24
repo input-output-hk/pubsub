@@ -108,7 +108,8 @@ pub async fn run(args: PublishScriptsArgs) -> Result<()> {
     let mut current_ix = fund_ix;
 
     for (label, bytes) in &script_bytes {
-        println!("\nPublishing {label} ({} bytes)...", bytes.len());
+        let min_lovelace = params.min_ref_script_lovelace(bytes.len() as u64);
+        println!("\nPublishing {label} ({} bytes, min-ADA {} lovelace)...", bytes.len(), min_lovelace);
 
         // Two-pass fee: first estimate, then exact.
         let tx = build_script_tx(
@@ -120,6 +121,7 @@ pub async fn run(args: PublishScriptsArgs) -> Result<()> {
             params.min_fee_a,
             params.min_fee_b,
             &signing_key,
+            min_lovelace,
             500_000,
         )?;
         let actual_fee = params.min_fee_a * tx.len() as u64 + params.min_fee_b;
@@ -132,6 +134,7 @@ pub async fn run(args: PublishScriptsArgs) -> Result<()> {
             params.min_fee_a,
             params.min_fee_b,
             &signing_key,
+            min_lovelace,
             actual_fee,
         )?;
 
@@ -142,7 +145,7 @@ pub async fn run(args: PublishScriptsArgs) -> Result<()> {
 
         // The change output (#1) becomes the input for the next script tx.
         let change = remaining
-            .checked_sub(SCRIPT_OUTPUT_LOVELACE + actual_fee)
+            .checked_sub(min_lovelace + actual_fee)
             .ok_or_else(|| anyhow!("insufficient funds after publishing {label}"))?;
         remaining = change;
         current_hash = hex::decode(&txid)
@@ -168,9 +171,6 @@ pub async fn run(args: PublishScriptsArgs) -> Result<()> {
     Ok(())
 }
 
-// Minimum lovelace for a UTxO carrying a reference script (~3 ADA is typical).
-const SCRIPT_OUTPUT_LOVELACE: u64 = 3_000_000;
-
 #[allow(clippy::too_many_arguments)]
 fn build_script_tx(
     utxo_hash: [u8; 32],
@@ -181,20 +181,21 @@ fn build_script_tx(
     min_fee_a: u64,
     _min_fee_b: u64,
     signing_key: &pallas_crypto::key::ed25519::SecretKey,
+    min_lovelace: u64,
     fee: u64,
 ) -> Result<Vec<u8>> {
     let _ = min_fee_a;
 
     let change = input_lovelace
-        .checked_sub(SCRIPT_OUTPUT_LOVELACE + fee)
+        .checked_sub(min_lovelace + fee)
         .ok_or_else(|| {
             anyhow!(
-                "insufficient funds: have {} lovelace, need {} (3 ADA output + {} fee)",
-                input_lovelace, SCRIPT_OUTPUT_LOVELACE + fee, fee
+                "insufficient funds: have {} lovelace, need {} ({} min-ADA output + {} fee)",
+                input_lovelace, min_lovelace + fee, min_lovelace, fee
             )
         })?;
 
-    let script_output = Output::new(payment_addr.clone(), SCRIPT_OUTPUT_LOVELACE)
+    let script_output = Output::new(payment_addr.clone(), min_lovelace)
         .set_inline_script(ScriptKind::PlutusV3, script_bytes.to_vec());
     let change_output = Output::new(payment_addr.clone(), change);
 

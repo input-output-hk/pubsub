@@ -42,36 +42,23 @@ validator node_registry(bootstrap_utxo: OutputReference) {
   spend(
     datum: Option<NodeRegistryDatum>,
     redeemer: NodeRegistryAction,
-    _utxo: OutputReference,
+    utxo: OutputReference,
     self: Transaction,
   ) {
     expect Some(reg) = datum
 
-    // Derive policy_id from the own input's script address.
-    // The registry head NFT is always at the script address, so any input
-    // that carries the head token gives us our policy_id.
-    let policy_id: PolicyId =
-      when
-        list.find(
-          self.inputs,
-          fn(i) {
-            assets.quantity_of(
-              i.output.value,
-              // Search all tokens; head token is unique, so this gives us
-              // the policy_id embedded in the value.
-              assets.ada_policy_id,
-              assets.ada_asset_name,
-            ) > 0
-          },
-        )
-      is {
-        Some(input) ->
-          when input.output.address.payment_credential is {
-            Script(hash) -> hash
-            _ -> fail @"Node registry must be at script address"
-          }
-        None -> fail @"No inputs found"
+    // Derive policy_id from the validator's own script hash.
+    // For a multi-validator, the spend and mint handlers share the same hash.
+    // We find our own input using the spending UTxO reference (guaranteed to be
+    // the registry head) and extract the script hash from its address.
+    let policy_id: PolicyId = {
+      expect Some(own_input) =
+        list.find(self.inputs, fn(i) { i.output_reference == utxo })
+      when own_input.output.address.payment_credential is {
+        Script(hash) -> hash
+        _ -> fail @"Node registry must be at script address"
       }
+    }
 
     let head_address =
       Address { payment_credential: Script(policy_id), stake_credential: None }
