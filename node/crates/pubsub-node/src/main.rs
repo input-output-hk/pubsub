@@ -279,6 +279,23 @@ async fn main() -> Result<()> {
             }
         }
         cyclon.bootstrap(bootstrap_peers).await?;
+
+        // Run a few eager Cyclon cycles so the view fills quickly from the
+        // seed before the periodic gossip loop takes over.  Each cycle asks
+        // the seed (or the oldest known peer) for their shuffle buffer, which
+        // propagates knowledge of other nodes transitively.
+        for _ in 0..5 {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            if let Err(e) = cyclon.cycle().await {
+                warn!(error = %e, "Initial bootstrap cycle failed");
+            }
+            let view_size = cyclon.view().await.len();
+            if view_size >= 3 {
+                break;
+            }
+        }
+        let view_size = cyclon.view().await.len();
+        info!(view_size, "Peer view after initial bootstrap cycles");
     }
 
     for topic_name in &args.topics {

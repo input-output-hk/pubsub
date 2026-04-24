@@ -7,14 +7,17 @@
 #
 # Nodes bind to ports 9001-9005 on localhost.
 # All nodes subscribe to the topics defined in TOPICS.
-# Peer discovery uses testnet/nodes.json (generated automatically).
+#
+# Peer discovery uses single-seed bootstrapping:
+#   - Node 1 starts alone and acts as the seed.
+#   - Nodes 2-5 each know only node 1 at startup.
+#   - SecureCyclon gossip exchanges fill the peer views over time.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NODE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
-NODES_JSON="$SCRIPT_DIR/nodes.json"
 
 NUM_NODES=5
 BASE_PORT=9001
@@ -35,39 +38,9 @@ if [[ "${1:-}" == "build" ]]; then
     echo -e "${GREEN}Build complete.${NC}"
 fi
 
-# ── Generate nodes.json ──────────────────────────────────────────────────────
-
 mkdir -p "$LOG_DIR"
 
-echo -e "${BLUE}Generating $NODES_JSON...${NC}"
-
-# Build the JSON array of topic strings from the TOPICS variable
-topics_json=$(python3 -c "
-import json, sys
-topics = sys.argv[1].split(',')
-print(json.dumps(topics))
-" "$TOPICS" 2>/dev/null || echo '["ops/emergency/critical","gov/drep/test","dapp/test/notifications"]')
-
-{
-    echo '{'
-    echo '  "nodes": ['
-    for i in $(seq 1 $NUM_NODES); do
-        port=$((BASE_PORT + i - 1))
-        comma=""
-        [[ $i -lt $NUM_NODES ]] && comma=","
-        cat <<EOF
-    {
-      "addr": "127.0.0.1:${port}",
-      "public_key": null,
-      "subscribed_topics": ${topics_json}
-    }${comma}
-EOF
-    done
-    echo '  ]'
-    echo '}'
-} > "$NODES_JSON"
-
-echo -e "${GREEN}nodes.json written (${NUM_NODES} nodes).${NC}"
+SEED_ADDR="127.0.0.1:${BASE_PORT}"
 
 # ── Find binary (prefer newest of release/debug) ─────────────────────────────
 
@@ -126,18 +99,33 @@ for i in $(seq 1 $NUM_NODES); do
     name="node-$i"
     log_file="$LOG_DIR/$name.log"
 
-    echo -e "${GREEN}  Starting $name on QUIC :$port  HTTP :$http_port${NC}"
-
-    $BINARY \
-        --bind "127.0.0.1:$port" \
-        --name "$name" \
-        --topics "$TOPICS" \
-        --registry "$NODES_JSON" \
-        --http-port "$http_port" \
-        --log-level debug \
-        > "$log_file" 2>&1 &
-
-    echo $! > "$LOG_DIR/$name.pid"
+    if [[ $i -eq 1 ]]; then
+        # Node 1 is the seed — starts with no bootstrap peers.
+        echo -e "${GREEN}  Starting $name (seed) on QUIC :$port  HTTP :$http_port${NC}"
+        $BINARY \
+            --bind "127.0.0.1:$port" \
+            --name "$name" \
+            --topics "$TOPICS" \
+            --http-port "$http_port" \
+            --log-level debug \
+            > "$log_file" 2>&1 &
+        echo $! > "$LOG_DIR/$name.pid"
+        # Give the seed node a moment to open its QUIC listener before
+        # the other nodes try to connect.
+        sleep 1
+    else
+        # Nodes 2-N only know the seed at startup; Cyclon fills the rest.
+        echo -e "${GREEN}  Starting $name on QUIC :$port  HTTP :$http_port  (seed: $SEED_ADDR)${NC}"
+        $BINARY \
+            --bind "127.0.0.1:$port" \
+            --name "$name" \
+            --topics "$TOPICS" \
+            --peers "$SEED_ADDR" \
+            --http-port "$http_port" \
+            --log-level debug \
+            > "$log_file" 2>&1 &
+        echo $! > "$LOG_DIR/$name.pid"
+    fi
 done
 
 # Build ?nodes= query param for cluster view
@@ -150,7 +138,7 @@ done
 
 echo ""
 echo -e "${GREEN}All $NUM_NODES nodes launched.${NC}"
-echo -e "Registry: $NODES_JSON"
+echo -e "Seed node: $SEED_ADDR"
 echo -e "Logs: $LOG_DIR/"
 echo ""
 echo -e "Nodes:"
