@@ -3,8 +3,6 @@ use std::{path::Path, process::Command};
 
 /// Apply a CBOR-encoded parameter to a specific validator in a blueprint,
 /// writing the parameterized blueprint to `output`.
-///
-/// `module` and `validator` select the target (e.g. "registry", "registry").
 pub fn apply_param(
     blueprint_in: &Path,
     blueprint_out: &Path,
@@ -37,7 +35,12 @@ pub fn apply_param(
 
 /// Derive the bech32 script address for a validator in a blueprint.
 /// `mainnet=true` produces an `addr1...` address; otherwise `addr_test1...`.
+///
+/// `project_dir` must be the root of the Aiken project (contains `aiken.toml`).
+/// `blueprint` is the (possibly parameterized) blueprint to use instead of the
+/// project's own `plutus.json`.
 pub fn address(
+    project_dir: &Path,
     blueprint: &Path,
     module: &str,
     validator: &str,
@@ -47,6 +50,7 @@ pub fn address(
     cmd.args([
         "blueprint",
         "address",
+        &project_dir.to_string_lossy(),
         "--in",
         &blueprint.to_string_lossy(),
         "--module",
@@ -73,11 +77,14 @@ pub fn address(
 }
 
 /// Derive the policy ID (script hash) for a minting validator in a blueprint.
-pub fn policy_id(blueprint: &Path, module: &str, validator: &str) -> Result<String> {
+///
+/// `project_dir` must be the root of the Aiken project (contains `aiken.toml`).
+pub fn policy_id(project_dir: &Path, blueprint: &Path, module: &str, validator: &str) -> Result<String> {
     let out = Command::new("aiken")
         .args([
             "blueprint",
             "policy",
+            &project_dir.to_string_lossy(),
             "--in",
             &blueprint.to_string_lossy(),
             "--module",

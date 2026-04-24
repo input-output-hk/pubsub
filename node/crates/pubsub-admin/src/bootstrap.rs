@@ -70,7 +70,8 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
     // ── Topic registry ──────────────────────────────────────────────────────
     println!("\nParameterizing topic-registry contracts...");
 
-    let topic_bp_raw = contracts_dir.join("topic-registry/plutus.json");
+    let topic_project_dir = contracts_dir.join("topic-registry");
+    let topic_bp_raw = topic_project_dir.join("plutus.json");
     let topic_bp_1 = tmp.path().join("topic-bp-1.json");
     let topic_bp_2 = tmp.path().join("topic-bp-2.json");
     let topic_bp_3 = tmp.path().join("topic-bp-3.json");
@@ -80,7 +81,7 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
 
     aiken::apply_param(&topic_bp_raw, &topic_bp_1, "registry", "registry", &topic_cbor)?;
 
-    let registry_policy_id = aiken::policy_id(&topic_bp_1, "registry", "registry")?;
+    let registry_policy_id = aiken::policy_id(&topic_project_dir, &topic_bp_1, "registry", "registry")?;
     println!("  registry policy ID: {registry_policy_id}");
 
     let policy_cbor = cbor_policy_id(&registry_policy_id)?;
@@ -88,9 +89,9 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
     aiken::apply_param(&topic_bp_1, &topic_bp_2, "topic", "topic", &policy_cbor)?;
     aiken::apply_param(&topic_bp_2, &topic_bp_3, "publisher", "publisher", &policy_cbor)?;
 
-    let topic_registry_addr = aiken::address(&topic_bp_3, "registry", "registry", args.network.is_mainnet())?;
-    let topic_validator_addr = aiken::address(&topic_bp_3, "topic", "topic", args.network.is_mainnet())?;
-    let publisher_vault_addr = aiken::address(&topic_bp_3, "publisher", "publisher", args.network.is_mainnet())?;
+    let topic_registry_addr = aiken::address(&topic_project_dir, &topic_bp_3, "registry", "registry", args.network.is_mainnet())?;
+    let topic_validator_addr = aiken::address(&topic_project_dir, &topic_bp_3, "topic", "topic", args.network.is_mainnet())?;
+    let publisher_vault_addr = aiken::address(&topic_project_dir, &topic_bp_3, "publisher", "publisher", args.network.is_mainnet())?;
 
     println!("  topic-registry addr: {topic_registry_addr}");
     println!("  topic validator addr: {topic_validator_addr}");
@@ -136,7 +137,8 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
     // ── Node registry ───────────────────────────────────────────────────────
     println!("\nParameterizing node-registry contracts...");
 
-    let node_bp_raw = contracts_dir.join("node-registry/plutus.json");
+    let node_project_dir = contracts_dir.join("node-registry");
+    let node_bp_raw = node_project_dir.join("plutus.json");
     let node_bp_1 = tmp.path().join("node-bp-1.json");
 
     let (node_tx_hash, node_tx_ix) = split_utxo(&args.node_bootstrap_utxo)?;
@@ -144,8 +146,8 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
 
     aiken::apply_param(&node_bp_raw, &node_bp_1, "node_registry", "node_registry", &node_cbor)?;
 
-    let node_registry_policy_id = aiken::policy_id(&node_bp_1, "node_registry", "node_registry")?;
-    let node_registry_addr = aiken::address(&node_bp_1, "node_registry", "node_registry", args.network.is_mainnet())?;
+    let node_registry_policy_id = aiken::policy_id(&node_project_dir, &node_bp_1, "node_registry", "node_registry")?;
+    let node_registry_addr = aiken::address(&node_project_dir, &node_bp_1, "node_registry", "node_registry", args.network.is_mainnet())?;
 
     println!("  node-registry policy ID: {node_registry_policy_id}");
     println!("  node-registry addr:      {node_registry_addr}");
