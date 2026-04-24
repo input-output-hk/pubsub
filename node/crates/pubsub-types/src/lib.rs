@@ -11,8 +11,8 @@ mod tests {
 
     use bytes::Bytes;
 
-    use crate::message::{Message, MessageId, PublisherId, TopicId};
-    use crate::node::{NodeId, NodeInfo};
+    use crate::message::{Message, PublisherCredential, PublisherId, TopicId};
+    use crate::node::NodeId;
     use crate::topic::TopicConfig;
 
     fn make_topic_id(seed: u8) -> TopicId {
@@ -20,7 +20,7 @@ mod tests {
     }
 
     fn make_publisher_id(seed: u8) -> PublisherId {
-        PublisherId(Bytes::from(vec![seed; 32]))
+        PublisherId(PublisherCredential::ed25519(Bytes::from(vec![seed; 32])))
     }
 
     fn make_message(topic_seed: u8, seq: u64) -> Message {

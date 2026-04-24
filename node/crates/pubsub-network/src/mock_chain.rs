@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use bytes::Bytes;
 use tracing::debug;
 
 use pubsub_types::error::PubSubError;
@@ -17,17 +18,31 @@ const MOCK_STAKE: u64 = 1_000_000;
 pub struct MockChainState {
     nodes: Vec<NodeInfo>,
     topics: Vec<TopicConfig>,
+    /// Ed25519 keys registered as KES keys for some stake pool.
+    pool_kes_keys: Vec<Bytes>,
+    /// Ed25519 keys registered as DRep credentials (CIP-1694).
+    drep_keys: Vec<Bytes>,
+    /// Ed25519 keys authorised to publish emergency alerts.
+    authority_keys: Vec<Bytes>,
 }
 
 impl MockChainState {
-    /// Create a new mock chain state from a set of nodes and topic configs.
+    /// Create a new mock chain state from nodes and topic configs.
+    /// Credential registries are empty by default; use the builder
+    /// methods to populate them for testing.
     pub fn new(nodes: Vec<NodeInfo>, topics: Vec<TopicConfig>) -> Self {
         debug!(
             num_nodes = nodes.len(),
             num_topics = topics.len(),
             "Initialized MockChainState"
         );
-        Self { nodes, topics }
+        Self {
+            nodes,
+            topics,
+            pool_kes_keys: Vec::new(),
+            drep_keys: Vec::new(),
+            authority_keys: Vec::new(),
+        }
     }
 
     /// Create an empty mock chain state.
@@ -43,6 +58,24 @@ impl MockChainState {
     /// Add a topic configuration to the mock registry.
     pub fn add_topic(&mut self, topic: TopicConfig) {
         self.topics.push(topic);
+    }
+
+    /// Register a key as a valid pool KES key.
+    pub fn with_pool_kes_key(mut self, key: impl Into<Bytes>) -> Self {
+        self.pool_kes_keys.push(key.into());
+        self
+    }
+
+    /// Register a key as a valid DRep credential.
+    pub fn with_drep_key(mut self, key: impl Into<Bytes>) -> Self {
+        self.drep_keys.push(key.into());
+        self
+    }
+
+    /// Register a key as an authority key.
+    pub fn with_authority_key(mut self, key: impl Into<Bytes>) -> Self {
+        self.authority_keys.push(key.into());
+        self
     }
 }
 
@@ -76,7 +109,22 @@ impl ChainState for MockChainState {
     }
 
     async fn get_node_stake(&self, node: &NodeId) -> Result<u64, PubSubError> {
-        debug!(node = ?node, stake = MOCK_STAKE, "MockChainState: get_node_stake (fixed)");
+        debug!(node = %node, stake = MOCK_STAKE, "MockChainState: get_node_stake (fixed)");
         Ok(MOCK_STAKE)
+    }
+
+    async fn get_pool_kes_keys(&self) -> Result<Vec<Bytes>, PubSubError> {
+        debug!(count = self.pool_kes_keys.len(), "MockChainState: get_pool_kes_keys");
+        Ok(self.pool_kes_keys.clone())
+    }
+
+    async fn get_drep_keys(&self) -> Result<Vec<Bytes>, PubSubError> {
+        debug!(count = self.drep_keys.len(), "MockChainState: get_drep_keys");
+        Ok(self.drep_keys.clone())
+    }
+
+    async fn get_authority_keys(&self) -> Result<Vec<Bytes>, PubSubError> {
+        debug!(count = self.authority_keys.len(), "MockChainState: get_authority_keys");
+        Ok(self.authority_keys.clone())
     }
 }
