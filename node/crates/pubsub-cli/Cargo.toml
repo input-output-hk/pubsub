@@ -1,0 +1,24 @@
+[package]
+name = "pubsub-cli"
+description = "CLI tool for interacting with a Cardano PubSub node"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "pubsub-cli"
+path = "src/main.rs"
+
+[dependencies]
+pubsub-types = { path = "../pubsub-types" }
+pubsub-network = { path = "../pubsub-network" }
+tokio = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand = { workspace = true }
+bytes = { workspace = true }
+blake2 = "0.10"
