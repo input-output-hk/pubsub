@@ -13,6 +13,9 @@ Thumbs.db
 *.tmp
 *.bak
 
+# Local dev / deployment files (keys, .env, test UTxOs — never commit)
+local/
+
 # MkDocs build output
 _build/
 
