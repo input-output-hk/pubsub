@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PubSub Testnet Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e0e0e0;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 48px 1fr;
+    grid-template-columns: 1fr 340px;
+    grid-template-areas:
+      "header header"
+      "graph  sidebar";
+  }
+
+  header {
+    grid-area: header;
+    background: #1a1d27;
+    border-bottom: 1px solid #2d3148;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+  }
+
+  header h1 { font-size: 16px; font-weight: 600; color: #a78bfa; }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+  }
+  .status-dot.disconnected { background: #f87171; box-shadow: 0 0 6px #f87171; }
+
+  #node-selector {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #9ca3af;
+  }
+  #node-selector input {
+    background: #2d3148;
+    border: 1px solid #3d4168;
+    border-radius: 6px;
+    color: #e0e0e0;
+    padding: 4px 8px;
+    font-size: 13px;
+    width: 220px;
+  }
+  #node-selector button {
+    background: #4f46e5;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    padding: 4px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #node-selector button:hover { background: #6366f1; }
+
+  #graph-area {
+    grid-area: graph;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #graph-area svg { width: 100%; height: 100%; }
+
+  .node circle {
+    cursor: pointer;
+    stroke-width: 2;
+    transition: r 0.15s;
+  }
+  .node.self circle { fill: #a78bfa; stroke: #c4b5fd; }
+  .node.peer circle { fill: #38bdf8; stroke: #7dd3fc; }
+  .node.active circle { r: 14; }
+
+  .node text {
+    fill: #e0e0e0;
+    font-size: 11px;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+  }
+
+  .link { stroke-opacity: 0.6; }
+  .link.neighbor { stroke: #a78bfa; stroke-width: 2; }
+  .link.random    { stroke: #38bdf8; stroke-width: 1.5; stroke-dasharray: 5 3; }
+
+  .pulse {
+    fill: #fbbf24;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #sidebar {
+    grid-area: sidebar;
+    background: #13151f;
+    border-left: 1px solid #2d3148;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel {
+    border-bottom: 1px solid #2d3148;
+    padding: 12px 14px;
+  }
+
+  .panel h2 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+
+  #stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .stat { background: #1a1d27; border-radius: 6px; padding: 8px 10px; }
+  .stat .val { font-size: 20px; font-weight: 700; color: #a78bfa; }
+  .stat .lbl { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+  #topic-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+  .topic-pill {
+    background: #1a1d27;
+    border: 1px solid #3d4168;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  .topic-pill.active { background: #4f46e5; border-color: #6366f1; color: #fff; }
+
+  #node-detail {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #9ca3af;
+  }
+  #node-detail strong { color: #e0e0e0; }
+  #node-detail .no-sel { color: #4b5563; font-style: italic; }
+
+  #message-feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .msg-item {
+    padding: 8px 14px;
+    border-bottom: 1px solid #1f2235;
+    font-size: 12px;
+    transition: background 0.3s;
+  }
+  .msg-item.new { background: #1e2040; }
+
+  .msg-topic {
+    color: #a78bfa;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .msg-payload {
+    color: #d1d5db;
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .msg-meta { color: #4b5563; font-size: 11px; margin-top: 2px; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="status-dot disconnected" id="status-dot"></div>
+  <h1>PubSub Testnet</h1>
+  <div id="header-node-id" style="font-size:12px;color:#6b7280;font-family:monospace"></div>
+  <div id="node-selector">
+    <label>Node URL:</label>
+    <input type="text" id="node-url-input" placeholder="http://localhost:10001">
+    <button id="connect-btn">Connect</button>
+    <span id="multi-hint" style="color:#6b7280;font-size:11px"></span>
+  </div>
+</header>
+
+<div id="graph-area">
+  <svg id="graph-svg">
+    <defs>
+      <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L6,3 z" fill="#6b7280"/>
+      </marker>
+    </defs>
+    <g id="graph-root"></g>
+  </svg>
+  <div id="empty-graph" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#4b5563;font-size:14px;text-align:center;">
+    Enter a node URL above and click Connect
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="panel">
+    <h2>Stats</h2>
+    <div id="stats-grid">
+      <div class="stat"><div class="val" id="stat-peers">0</div><div class="lbl">Peers</div></div>
+      <div class="stat"><div class="val" id="stat-topics">0</div><div class="lbl">Topics</div></div>
+      <div class="stat"><div class="val" id="stat-msgs">0</div><div class="lbl">Messages</div></div>
+      <div class="stat"><div class="val" id="stat-uptime">0s</div><div class="lbl">Uptime</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Topics</h2>
+    <div id="topic-filter"></div>
+  </div>
+
+  <div class="panel" style="max-height:140px;overflow-y:auto">
+    <h2>Selected Node</h2>
+    <div id="node-detail"><span class="no-sel">Click a node in the graph</span></div>
+  </div>
+
+  <div style="padding:8px 14px;border-bottom:1px solid #2d3148;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280">
+    Message Feed
+  </div>
+  <div id="message-feed"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let nodeUrl = '';
+let es = null;            // EventSource
+let pollTimer = null;
+let activeTopic = null;   // null = all
+let msgCount = 0;
+
+const nodes = new Map();  // id → {id, addr, label, isSelf}
+const links = [];         // {source, target, type}
+
+// D3 simulation
+const svg = d3.select('#graph-svg');
+const root = d3.select('#graph-root');
+let simulation = null;
+let linkSel, nodeSel;
+
+// ---------------------------------------------------------------------------
+// URL / multi-node support
+// ---------------------------------------------------------------------------
+function parseUrlParam() {
+  const params = new URLSearchParams(window.location.search);
+  const nodesParam = params.get('nodes');
+  if (nodesParam) {
+    const urls = nodesParam.split(',').map(s => s.trim()).filter(Boolean);
+    if (urls.length > 0) {
+      document.getElementById('node-url-input').value = `http://${urls[0]}`;
+      if (urls.length > 1) {
+        document.getElementById('multi-hint').textContent =
+          `+${urls.length - 1} more in URL`;
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Connect / disconnect
+// ---------------------------------------------------------------------------
+function connect() {
+  const raw = document.getElementById('node-url-input').value.trim();
+  if (!raw) return;
+  nodeUrl = raw.replace(/\/$/, '');
+
+  if (es) { es.close(); es = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+
+  nodes.clear();
+  links.length = 0;
+  d3.select('#graph-root').selectAll('*').remove();
+  document.getElementById('message-feed').innerHTML = '';
+  document.getElementById('empty-graph').style.display = 'none';
+  setStatus(false);
+
+  pollAll();
+  pollTimer = setInterval(pollAll, 4000);
+
+  connectSSE();
+}
+
+function connectSSE() {
+  es = new EventSource(`${nodeUrl}/events`);
+  es.onopen = () => setStatus(true);
+  es.onerror = () => setStatus(false);
+  es.onmessage = (e) => {
+    try { handleEvent(JSON.parse(e.data)); } catch {}
+  };
+}
+
+function setStatus(online) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot' + (online ? '' : ' disconnected');
+}
+
+// ---------------------------------------------------------------------------
+// API polling
+// ---------------------------------------------------------------------------
+async function pollAll() {
+  try {
+    const [status, peers, topology] = await Promise.all([
+      fetch(`${nodeUrl}/api/status`).then(r => r.json()),
+      fetch(`${nodeUrl}/api/peers`).then(r => r.json()),
+      fetch(`${nodeUrl}/api/topology`).then(r => r.json()),
+    ]);
+
+    updateStats(status);
+    updateTopics(status);
+    updateGraph(topology, peers, status);
+    updateHeaderNodeId(status.node_id);
+    setStatus(true);
+  } catch {
+    setStatus(false);
+  }
+
+  try {
+    const msgs = await fetch(
+      `${nodeUrl}/api/messages?limit=20` +
+      (activeTopic ? `&topic=${activeTopic}` : '')
+    ).then(r => r.json());
+    renderMessages(msgs);
+  } catch {}
+}
+
+function updateHeaderNodeId(id) {
+  document.getElementById('header-node-id').textContent =
+    id ? id.substring(0, 12) + '…' : '';
+}
+
+function updateStats(s) {
+  document.getElementById('stat-peers').textContent = s.peer_count ?? 0;
+  document.getElementById('stat-topics').textContent = s.topic_count ?? 0;
+  document.getElementById('stat-msgs').textContent = s.message_count ?? 0;
+  document.getElementById('stat-uptime').textContent = formatUptime(s.uptime_secs ?? 0);
+}
+
+function formatUptime(secs) {
+  if (secs < 60) return secs + 's';
+  if (secs < 3600) return Math.floor(secs / 60) + 'm';
+  return Math.floor(secs / 3600) + 'h';
+}
+
+function updateTopics(s) {
+  // Topics come from /api/topics — just show from status for now
+  fetch(`${nodeUrl}/api/topics`)
+    .then(r => r.json())
+    .then(topics => renderTopicPills(topics))
+    .catch(() => {});
+}
+
+function renderTopicPills(topics) {
+  const container = document.getElementById('topic-filter');
+  container.innerHTML = '';
+
+  const allPill = document.createElement('div');
+  allPill.className = 'topic-pill' + (activeTopic === null ? ' active' : '');
+  allPill.textContent = 'All';
+  allPill.onclick = () => { activeTopic = null; renderTopicPills(topics); pollMessages(); };
+  container.appendChild(allPill);
+
+  topics.forEach(t => {
+    const label = t.name || t.topic_id.substring(0, 8) + '…';
+    const pill = document.createElement('div');
+    pill.className = 'topic-pill' + (activeTopic === t.topic_id ? ' active' : '');
+    pill.textContent = label;
+    pill.title = t.topic_id;
+    pill.onclick = () => { activeTopic = t.topic_id; renderTopicPills(topics); pollMessages(); };
+    container.appendChild(pill);
+  });
+}
+
+async function pollMessages() {
+  try {
+    const msgs = await fetch(
+      `${nodeUrl}/api/messages?limit=20` +
+      (activeTopic ? `&topic=${activeTopic}` : '')
+    ).then(r => r.json());
+    renderMessages(msgs);
+  } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Graph rendering
+// ---------------------------------------------------------------------------
+function updateGraph(topology, peers, status) {
+  const selfId = topology.self_id || status.node_id;
+
+  // Upsert self
+  if (!nodes.has(selfId)) {
+    nodes.set(selfId, { id: selfId, addr: status.addr, label: status.addr, isSelf: true });
+  }
+
+  // Upsert peers from topology
+  const allPeers = topology.peers || [];
+  allPeers.forEach(p => {
+    if (!nodes.has(p.peer_id)) {
+      nodes.set(p.peer_id, { id: p.peer_id, addr: p.addr, label: p.addr, isSelf: false });
+    }
+  });
+
+  // Rebuild links (topology peers = neighbor links)
+  links.length = 0;
+  allPeers.forEach(p => {
+    links.push({ source: selfId, target: p.peer_id, type: 'neighbor' });
+  });
+
+  renderGraph(selfId);
+}
+
+function renderGraph(selfId) {
+  const svgEl = document.getElementById('graph-svg');
+  const W = svgEl.clientWidth || 800;
+  const H = svgEl.clientHeight || 600;
+
+  const nodeArr = Array.from(nodes.values());
+
+  if (!simulation) {
+    simulation = d3.forceSimulation(nodeArr)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(W / 2, H / 2))
+      .force('collision', d3.forceCollide(30))
+      .on('tick', ticked);
+  } else {
+    simulation.nodes(nodeArr);
+    simulation.force('link').links(links);
+    simulation.force('center', d3.forceCenter(W / 2, H / 2));
+    simulation.alpha(0.3).restart();
+  }
+
+  // Links
+  linkSel = root.selectAll('.link')
+    .data(links, d => `${d.source?.id ?? d.source}-${d.target?.id ?? d.target}-${d.type}`)
+    .join(
+      enter => enter.append('line')
+        .attr('class', d => `link ${d.type}`),
+      update => update.attr('class', d => `link ${d.type}`),
+      exit => exit.remove()
+    );
+
+  // Nodes
+  nodeSel = root.selectAll('.node')
+    .data(nodeArr, d => d.id)
+    .join(
+      enter => {
+        const g = enter.append('g')
+          .attr('class', d => 'node ' + (d.isSelf ? 'self' : 'peer'))
+          .call(d3.drag()
+            .on('start', dragstart)
+            .on('drag', dragged)
+            .on('end', dragend))
+          .on('click', (event, d) => showNodeDetail(d));
+
+        g.append('circle').attr('r', 12);
+
+        // Pulse ring for animation
+        g.append('circle')
+          .attr('class', 'pulse')
+          .attr('r', 12);
+
+        g.append('text').attr('dy', 16).text(d => shortLabel(d.label));
+        return g;
+      },
+      update => {
+        update.attr('class', d => 'node ' + (d.isSelf ? 'self' : 'peer'));
+        update.select('text').text(d => shortLabel(d.label));
+        return update;
+      },
+      exit => exit.remove()
+    );
+}
+
+function shortLabel(addr) {
+  if (!addr) return '';
+  // Show just the port for localhost
+  const m = addr.match(/:(\d+)$/);
+  return m ? `:${m[1]}` : addr.split('.').pop() || addr.substring(0, 8);
+}
+
+function ticked() {
+  if (linkSel) {
+    linkSel
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+  }
+  if (nodeSel) {
+    nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  }
+}
+
+function dragstart(event, d) {
+  if (!event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x; d.fy = d.y;
+}
+function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+function dragend(event, d) {
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null; d.fy = null;
+}
+
+// ---------------------------------------------------------------------------
+// Node detail panel
+// ---------------------------------------------------------------------------
+function showNodeDetail(d) {
+  const el = document.getElementById('node-detail');
+  el.innerHTML = `
+    <div><strong>ID</strong> <span style="font-family:monospace;font-size:10px">${d.id.substring(0,16)}…</span></div>
+    <div><strong>Addr</strong> ${d.addr || '—'}</div>
+    <div><strong>Role</strong> ${d.isSelf ? 'Self (this node)' : 'Remote peer'}</div>
+  `;
+
+  // Highlight node
+  root.selectAll('.node').classed('active', n => n.id === d.id);
+}
+
+// ---------------------------------------------------------------------------
+// SSE event handler
+// ---------------------------------------------------------------------------
+function handleEvent(evt) {
+  if (evt.type === 'message_received') {
+    animateMessage(evt);
+    msgCount++;
+    document.getElementById('stat-msgs').textContent = msgCount;
+  } else if (evt.type === 'peer_connected') {
+    nodes.set(evt.peer_id, { id: evt.peer_id, addr: evt.addr, label: evt.addr, isSelf: false });
+    links.push({ source: getSelfId(), target: evt.peer_id, type: 'neighbor' });
+    renderGraph(getSelfId());
+  } else if (evt.type === 'peer_disconnected') {
+    nodes.delete(evt.peer_id);
+    const idx = links.findIndex(l =>
+      (l.source === evt.peer_id || l.target === evt.peer_id)
+    );
+    if (idx !== -1) links.splice(idx, 1);
+    renderGraph(getSelfId());
+  }
+}
+
+function getSelfId() {
+  for (const [id, n] of nodes) { if (n.isSelf) return id; }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Message animation: pulse ring on source node
+// ---------------------------------------------------------------------------
+function animateMessage(evt) {
+  const fromId = evt.from;
+  root.selectAll('.node')
+    .filter(d => d.id.startsWith(fromId.substring(0, 16)))
+    .select('.pulse')
+    .attr('r', 12)
+    .attr('stroke', '#fbbf24')
+    .attr('stroke-width', 2)
+    .attr('fill', 'none')
+    .style('opacity', 0.9)
+    .transition().duration(800)
+    .attr('r', 28)
+    .style('opacity', 0)
+    .on('end', function() { d3.select(this).style('opacity', 0); });
+
+  // Also prepend to feed
+  prependMessage({
+    from: evt.from,
+    topic: evt.topic,
+    seq: evt.seq,
+    payload_preview: evt.payload_preview,
+    received_at_ms: Date.now(),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Message feed
+// ---------------------------------------------------------------------------
+function renderMessages(msgs) {
+  if (!Array.isArray(msgs)) return;
+  const feed = document.getElementById('message-feed');
+  feed.innerHTML = '';
+  msgs.forEach(m => {
+    feed.appendChild(buildMsgItem(m, false));
+  });
+}
+
+function prependMessage(m) {
+  const feed = document.getElementById('message-feed');
+  const item = buildMsgItem(m, true);
+  feed.prepend(item);
+  // Cap at 50 items
+  while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+  // Remove highlight
+  setTimeout(() => item.classList.remove('new'), 1500);
+}
+
+function buildMsgItem(m, isNew) {
+  const div = document.createElement('div');
+  div.className = 'msg-item' + (isNew ? ' new' : '');
+
+  const topicShort = m.topic ? m.topic.substring(0, 12) + '…' : '—';
+  const time = new Date(m.received_at_ms).toLocaleTimeString();
+
+  div.innerHTML = `
+    <div class="msg-topic" title="${m.topic}">${topicShort}</div>
+    <div class="msg-payload">${escapeHtml(m.payload_preview || '')}</div>
+    <div class="msg-meta">seq ${m.seq} · from ${(m.from||'').substring(0,8)}… · ${time}</div>
+  `;
+  return div;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+document.getElementById('connect-btn').addEventListener('click', connect);
+document.getElementById('node-url-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') connect();
+});
+
+parseUrlParam();
+
+// Auto-connect if URL param provided
+const params = new URLSearchParams(window.location.search);
+if (params.get('nodes')) {
+  setTimeout(connect, 100);
+}
+
+// Resize simulation center on window resize
+window.addEventListener('resize', () => {
+  if (simulation) {
+    const svgEl = document.getElementById('graph-svg');
+    simulation.force('center', d3.forceCenter(svgEl.clientWidth / 2, svgEl.clientHeight / 2));
+    simulation.alpha(0.1).restart();
+  }
+});
+</script>
+</body>
+</html>
