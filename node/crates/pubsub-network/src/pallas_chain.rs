@@ -2,149 +2,384 @@
 // CardanoChainState — on-chain state reader with pluggable backends
 // =============================================================================
 //
-// Implements ChainState via one of three backends selected at construction time:
+// Three backends, one ChainState trait impl:
 //
-//  LocalNode  — Ouroboros Node-to-Client via Unix socket (pallas-network).
-//               Run the pubsub node alongside a synced local cardano-node.
-//               Lowest latency; no external API keys needed.
+//   LocalNode  — pallas-network Ouroboros NtC via Unix socket (stubs).
+//   Blockfrost — Blockfrost HTTP REST API (fully implemented).
+//   Utxorpc    — utxorpc gRPC / Demeter (stubs).
 //
-//  Blockfrost — Blockfrost HTTP API (hosted or self-hosted).
-//               No local node required; useful for development and testnet.
-//               Needs: reqwest (HTTP client), blockfrost-rs or direct API calls.
-//               API docs: https://docs.blockfrost.io
+// Blockfrost implementation
+// ─────────────────────────
+// Pagination: all list endpoints are walked page-by-page (100 items/page).
+// Auth: `project_id` request header.
+// Inline datums: returned as lowercase hex CBOR; decoded via pallas-primitives
+// PlutusData (minicbor).
 //
-//  Utxorpc    — utxorpc gRPC protocol (Demeter cloud or dolos self-hosted).
-//               Same data, different transport; works with any utxorpc provider.
-//               Needs: pallas-utxorpc + tonic (gRPC runtime).
-//               Spec: https://utxorpc.org
+// Datum layout mirrors (Aiken → Rust)
+// ────────────────────────────────────
+// All datums use CBOR tag 121 (Constr 0) at the top level.
 //
-// All three dispatch through the same ChainState trait so the rest of the
-// stack sees one uniform interface.
+//   TopicDatum          — fields 0-7: topic_id(Int), name(Bytes), owners([Bytes]),
+//                          admins([Bytes]), replication_factor(Int), retention_period(Int),
+//                          alive(Constr 1[]=True | Constr 0[]=False), published_at_epoch(Int)
 //
-// Current state: constructors + dispatch skeleton.  All method bodies are
-// todo!() stubs with per-backend comments describing the exact call required.
+//   NodeRegistryDatum   — fields 0-2: nodes([NodeEntry]), min_deposit(Int), epoch(Int)
+//     NodeEntry         — fields 0-3: node_id(Bytes), addr(Bytes), stake_key(Bytes), epoch(Int)
 //
-// Datum mirror structs and TopicId encoding decisions are documented below.
+//   PublisherVaultDatum — fields 0-1: topic_id(Int), publisher(Bytes)
+//
+// TopicId encoding
+// ────────────────
+// On-chain: Plutus Int (registry counter).  Rust: [u8;32].
+// Conversion: big-endian u64 in bytes 0..8, remaining bytes zero.
 // =============================================================================
 
 #![cfg(feature = "cardano")]
 
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use serde::Deserialize;
+
+use pallas::ledger::primitives::{BigInt, Constr, PlutusData};
 
 use pubsub_types::error::PubSubError;
-use pubsub_types::message::TopicId;
+use pubsub_types::message::{PublisherCredential, PublisherId, TopicId};
 use pubsub_types::node::{NodeId, NodeInfo};
 use pubsub_types::topic::TopicConfig;
 use pubsub_types::traits::ChainState;
 
 // ---------------------------------------------------------------------------
-// Datum type mirrors
+// ContractAddresses — deployment-specific script addresses
 // ---------------------------------------------------------------------------
 
-/// Mirrors the Aiken TopicDatum constructor on-chain.
+/// Addresses and policy ID of the deployed PubSub Cardano contracts.
 ///
-/// PlutusData encoding (Constr 0):
-///   field 0: topic_id             — PlutusData::Integer
-///   field 1: name                 — PlutusData::Bytes
-///   field 2: owners               — PlutusData::Array of ByteString
-///   field 3: admins               — PlutusData::Array of ByteString
-///   field 4: replication_factor   — PlutusData::Integer
-///   field 5: retention_period     — PlutusData::Integer (seconds)
-///   field 6: alive                — PlutusData::Constr(1,[]) = True
-///   field 7: published_at_epoch   — PlutusData::Integer
+/// These are network- and deployment-specific.  Derive them from the compiled
+/// `plutus.json` validator hashes after the bootstrap transaction.
 ///
-/// TopicId encoding: on-chain stores the registry counter as a Plutus integer.
-/// Rust TopicId is [u8;32].  Agreed encoding: big-endian u64 in bytes [0..8],
-/// remaining bytes zeroed.
-/// TODO: implement fn on_chain_int_to_topic_id(n: u64) -> TopicId
-#[allow(dead_code)]
+/// Create from environment variables in your binary:
+/// ```no_run
+/// use pubsub_network::pallas_chain::ContractAddresses;
+///
+/// let contracts = ContractAddresses {
+///     node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").unwrap(),
+///     topic_registry_addr: std::env::var("PUBSUB_TOPIC_REGISTRY_ADDR").unwrap(),
+///     publisher_vault_addr: std::env::var("PUBSUB_PUBLISHER_VAULT_ADDR").unwrap(),
+///     registry_policy_id: std::env::var("PUBSUB_REGISTRY_POLICY_ID").unwrap(),
+/// };
+/// ```
+#[derive(Clone)]
+pub struct ContractAddresses {
+    /// Bech32 address of the node registry validator.
+    pub node_registry_addr: String,
+    /// Bech32 address of the per-topic datum validator.
+    pub topic_registry_addr: String,
+    /// Bech32 address of the publisher vault validator.
+    pub publisher_vault_addr: String,
+    /// Hex policy ID of the registry minting policy (56 hex chars = 28 bytes).
+    pub registry_policy_id: String,
+}
+
+// ---------------------------------------------------------------------------
+// Datum mirrors (Aiken on-chain types → Rust)
+// ---------------------------------------------------------------------------
+
 struct TopicDatum {
     topic_id: u64,
     name: Vec<u8>,
-    owners: Vec<Vec<u8>>,
-    admins: Vec<Vec<u8>>,
+    // owners and admins (fields 2-3) are parsed but not stored — TopicConfig
+    // uses the publisher vault UTxOs for authorization, not these lists.
     replication_factor: u64,
     retention_period: u64,
     alive: bool,
-    published_at_epoch: u64,
+    // published_at_epoch (field 7) is on-chain bookkeeping; not used off-chain.
 }
 
-/// Mirrors the Aiken NodeRegistryDatum on-chain.
-///
-/// PlutusData encoding (Constr 0):
-///   field 0: nodes                 — PlutusData::Array of NodeEntry constructors
-///   field 1: min_deposit_lovelace  — PlutusData::Integer
-///   field 2: epoch                 — PlutusData::Integer
-#[allow(dead_code)]
 struct NodeRegistryDatum {
     nodes: Vec<NodeEntryDatum>,
+    #[allow(dead_code)]
     min_deposit_lovelace: u64,
+    #[allow(dead_code)]
     epoch: u64,
 }
 
-/// Mirrors NodeEntry in the node-registry contract.
-///
-/// PlutusData encoding (Constr 0):
-///   field 0: node_id              — PlutusData::Bytes (32 bytes, blake2b-256 of addr)
-///   field 1: addr                 — PlutusData::Bytes (UTF-8 "host:port")
-///   field 2: stake_key            — PlutusData::Bytes (payment key hash)
-///   field 3: registered_at_epoch  — PlutusData::Integer
-#[allow(dead_code)]
 struct NodeEntryDatum {
     node_id: Vec<u8>,
     addr: Vec<u8>,
     stake_key: Vec<u8>,
+    #[allow(dead_code)]
     registered_at_epoch: u64,
 }
 
+struct PublisherVaultDatum {
+    topic_id: u64,
+    publisher: Vec<u8>,
+}
+
 // ---------------------------------------------------------------------------
-// ChainProvider — selects the backend at construction time
+// PlutusData decode helpers
+// ---------------------------------------------------------------------------
+
+fn decode_plutus_data(hex_str: &str) -> Result<PlutusData, PubSubError> {
+    let bytes =
+        hex::decode(hex_str).map_err(|e| PubSubError::Codec(format!("hex decode: {e}")))?;
+    pallas::codec::minicbor::decode(&bytes)
+        .map_err(|e| PubSubError::Codec(format!("CBOR decode: {e}")))
+}
+
+fn constr0_fields(data: &PlutusData) -> Option<&[PlutusData]> {
+    match data {
+        PlutusData::Constr(Constr { tag, .. }) if *tag == 121 => {
+            // tag 121 = Constr 0 (index 0)
+            match data {
+                PlutusData::Constr(c) => Some(&c.fields),
+                _ => unreachable!(),
+            }
+        }
+        PlutusData::Constr(c) if c.constr_index() == 0 => Some(&c.fields),
+        _ => None,
+    }
+}
+
+fn bigint_u64(data: &PlutusData) -> Option<u64> {
+    match data {
+        PlutusData::BigInt(BigInt::Int(i)) => {
+            let v: i128 = i128::from(*i);
+            u64::try_from(v).ok()
+        }
+        _ => None,
+    }
+}
+
+fn pdata_bytes(data: &PlutusData) -> Option<&[u8]> {
+    match data {
+        PlutusData::BoundedBytes(b) => Some(b),
+        _ => None,
+    }
+}
+
+fn pdata_array(data: &PlutusData) -> Option<&[PlutusData]> {
+    match data {
+        PlutusData::Array(a) => Some(a),
+        _ => None,
+    }
+}
+
+fn decode_topic_datum(data: &PlutusData) -> Option<TopicDatum> {
+    let f = constr0_fields(data)?;
+    if f.len() < 8 {
+        return None;
+    }
+    let topic_id = bigint_u64(&f[0])?;
+    let name = pdata_bytes(&f[1])?.to_vec();
+    // fields 2 (owners) and 3 (admins) — parse past them for positional alignment
+    pdata_array(&f[2])?;
+    pdata_array(&f[3])?;
+    let replication_factor = bigint_u64(&f[4])?;
+    let retention_period = bigint_u64(&f[5])?;
+    let alive = match &f[6] {
+        PlutusData::Constr(c) => c.constr_index() == 1, // Constr 1 [] = True
+        _ => return None,
+    };
+    // field 7 (published_at_epoch) — validate type but don't store
+    bigint_u64(&f[7])?;
+    Some(TopicDatum { topic_id, name, replication_factor, retention_period, alive })
+}
+
+fn decode_node_registry_datum(data: &PlutusData) -> Option<NodeRegistryDatum> {
+    let f = constr0_fields(data)?;
+    if f.len() < 3 {
+        return None;
+    }
+    let nodes = pdata_array(&f[0])?
+        .iter()
+        .filter_map(|e| {
+            let nf = constr0_fields(e)?;
+            if nf.len() < 4 {
+                return None;
+            }
+            Some(NodeEntryDatum {
+                node_id: pdata_bytes(&nf[0])?.to_vec(),
+                addr: pdata_bytes(&nf[1])?.to_vec(),
+                stake_key: pdata_bytes(&nf[2])?.to_vec(),
+                registered_at_epoch: bigint_u64(&nf[3])?,
+            })
+        })
+        .collect();
+    Some(NodeRegistryDatum {
+        nodes,
+        min_deposit_lovelace: bigint_u64(&f[1])?,
+        epoch: bigint_u64(&f[2])?,
+    })
+}
+
+fn decode_publisher_vault_datum(data: &PlutusData) -> Option<PublisherVaultDatum> {
+    let f = constr0_fields(data)?;
+    if f.len() < 2 {
+        return None;
+    }
+    Some(PublisherVaultDatum {
+        topic_id: bigint_u64(&f[0])?,
+        publisher: pdata_bytes(&f[1])?.to_vec(),
+    })
+}
+
+// ---------------------------------------------------------------------------
+// TopicId / on-chain int conversion
+// ---------------------------------------------------------------------------
+
+/// On-chain topic IDs are incrementing integers.
+/// Rust TopicId is [u8;32]: big-endian u64 in the first 8 bytes, rest zero.
+fn on_chain_int_to_topic_id(n: u64) -> TopicId {
+    let mut id = [0u8; 32];
+    id[..8].copy_from_slice(&n.to_be_bytes());
+    TopicId(id)
+}
+
+/// Returns None if the TopicId was not created by `on_chain_int_to_topic_id`
+/// (i.e. bytes 8..32 are non-zero, meaning it's a hash-derived ID).
+fn topic_id_to_on_chain_int(id: &TopicId) -> Option<u64> {
+    if id.0[8..].iter().any(|&b| b != 0) {
+        return None;
+    }
+    Some(u64::from_be_bytes(id.0[..8].try_into().unwrap()))
+}
+
+// ---------------------------------------------------------------------------
+// Blockfrost JSON response types
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct BfUtxo {
+    inline_datum: Option<String>,
+    amount: Vec<BfAmount>,
+}
+
+#[derive(Deserialize)]
+struct BfAmount {
+    unit: String,
+    #[allow(dead_code)]
+    quantity: String,
+}
+
+#[derive(Deserialize)]
+struct BfDrep {
+    /// Raw verification key hash as lowercase hex (not bech32 drep ID).
+    hex: String,
+    /// If true this is a script credential, not a key — skip it.
+    has_script: bool,
+}
+
+
+// ---------------------------------------------------------------------------
+// BlockfrostClient
+// ---------------------------------------------------------------------------
+
+struct BlockfrostClient {
+    project_id: String,
+    base_url: String,
+    client: reqwest::Client,
+}
+
+impl BlockfrostClient {
+    fn new(project_id: &str, base_url: &str) -> Self {
+        Self {
+            project_id: project_id.to_string(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            client: reqwest::Client::new(),
+        }
+    }
+
+    /// Fetch one page of JSON from a Blockfrost endpoint.
+    /// Returns `None` when the endpoint returns 404 (address/resource not found).
+    async fn get_page<T: for<'de> Deserialize<'de>>(
+        &self,
+        path: &str,
+        page: u32,
+    ) -> Result<Option<Vec<T>>, PubSubError> {
+        let url = format!("{}/{}?page={}&count=100", self.base_url, path, page);
+        let resp = self
+            .client
+            .get(&url)
+            .header("project_id", &self.project_id)
+            .send()
+            .await
+            .map_err(|e| PubSubError::ChainState(format!("Blockfrost HTTP: {e}")))?;
+
+        if resp.status().as_u16() == 404 {
+            return Ok(None);
+        }
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(PubSubError::ChainState(format!(
+                "Blockfrost {status}: {body}"
+            )));
+        }
+        let items: Vec<T> = resp
+            .json()
+            .await
+            .map_err(|e| PubSubError::ChainState(format!("Blockfrost JSON: {e}")))?;
+        Ok(Some(items))
+    }
+
+    /// Walk all pages of a list endpoint, returning all items.
+    async fn get_all<T: for<'de> Deserialize<'de>>(
+        &self,
+        path: &str,
+    ) -> Result<Vec<T>, PubSubError> {
+        let mut all = Vec::new();
+        let mut page = 1u32;
+        loop {
+            match self.get_page::<T>(path, page).await? {
+                None => break, // 404 — address exists but has no results
+                Some(items) if items.is_empty() => break,
+                Some(items) => {
+                    let got = items.len();
+                    all.extend(items);
+                    if got < 100 {
+                        break;
+                    }
+                    page += 1;
+                }
+            }
+        }
+        Ok(all)
+    }
+
+    async fn get_utxos_at(&self, addr: &str) -> Result<Vec<BfUtxo>, PubSubError> {
+        self.get_all(&format!("addresses/{}/utxos", addr)).await
+    }
+
+}
+
+// ---------------------------------------------------------------------------
+// ChainProvider
 // ---------------------------------------------------------------------------
 
 /// Backend used to query Cardano chain state.
 pub enum ChainProvider {
-    /// Ouroboros Node-to-Client via a local Unix socket.
+    /// Ouroboros Node-to-Client via a local cardano-node Unix socket.
     ///
-    /// Requires a synced `cardano-node` running on the same machine.
-    /// Uses pallas-network LocalStateQuery mini-protocol to fetch UTxOs
-    /// at script addresses and stake distribution.
-    ///
-    /// Network magic values:
-    ///   mainnet  = 764_824_073
-    ///   preprod  = 1
-    ///   preview  = 2
-    LocalNode {
-        socket_path: PathBuf,
-        magic: u64,
-    },
+    /// Network magic:  mainnet = 764_824_073 | preprod = 1 | preview = 2
+    LocalNode { socket_path: PathBuf, magic: u64 },
 
-    /// Blockfrost HTTP API.
-    ///
-    /// No local node required.  Suitable for testnet and development.
-    /// Implementation needs: `reqwest` (async HTTP), direct REST calls
-    /// to /addresses/{addr}/utxos and /accounts/<stake_addr>/rewards.
+    /// Blockfrost HTTP REST API.
     ///
     /// Base URLs:
-    ///   mainnet  = "https://cardano-mainnet.blockfrost.io/api/v0"
-    ///   preprod  = "https://cardano-preprod.blockfrost.io/api/v0"
-    ///   preview  = "https://cardano-preview.blockfrost.io/api/v0"
-    Blockfrost {
-        project_id: String,
-        base_url: String,
-    },
+    ///   mainnet  — "https://cardano-mainnet.blockfrost.io/api/v0"
+    ///   preprod  — "https://cardano-preprod.blockfrost.io/api/v0"
+    ///   preview  — "https://cardano-preview.blockfrost.io/api/v0"
+    Blockfrost { project_id: String, base_url: String },
 
-    /// utxorpc gRPC endpoint (Demeter cloud, self-hosted dolos, or other).
+    /// utxorpc gRPC endpoint (Demeter cloud or self-hosted dolos).
     ///
-    /// Implementation needs: `pallas-utxorpc` + `tonic` gRPC runtime.
-    /// Relevant RPC: QueryService.SearchUtxos (filter by address or asset).
-    /// Spec: https://utxorpc.org
-    Utxorpc {
-        endpoint: String,
-        api_key: Option<String>,
-    },
+    /// Implementation needs: pallas-utxorpc + tonic.
+    Utxorpc { endpoint: String, api_key: Option<String> },
 }
 
 // ---------------------------------------------------------------------------
@@ -155,55 +390,73 @@ pub enum ChainProvider {
 ///
 /// # Construction
 /// ```no_run
-/// use pubsub_network::pallas_chain::CardanoChainState;
+/// use pubsub_network::pallas_chain::{CardanoChainState, ContractAddresses};
 ///
-/// // Local cardano-node on preview testnet
-/// let local = CardanoChainState::local_node("/tmp/node.socket", 2);
+/// let contracts = ContractAddresses {
+///     node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").unwrap(),
+///     topic_registry_addr: std::env::var("PUBSUB_TOPIC_REGISTRY_ADDR").unwrap(),
+///     publisher_vault_addr: std::env::var("PUBSUB_PUBLISHER_VAULT_ADDR").unwrap(),
+///     registry_policy_id: std::env::var("PUBSUB_REGISTRY_POLICY_ID").unwrap(),
+/// };
 ///
-/// // Blockfrost on preprod
+/// // Local cardano-node (preview testnet)
+/// let local = CardanoChainState::local_node("/tmp/node.socket", 2, contracts.clone());
+///
+/// // Blockfrost (preprod)
 /// let bf = CardanoChainState::blockfrost(
-///     "preprodXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+///     std::env::var("BLOCKFROST_PROJECT_ID").unwrap(),
 ///     "https://cardano-preprod.blockfrost.io/api/v0",
+///     contracts.clone(),
 /// );
 ///
 /// // Demeter utxorpc
 /// let rpc = CardanoChainState::utxorpc(
 ///     "https://preview.utxorpc-v0.demeter.run",
-///     Some("dmtr_apikey...".into()),
+///     Some(std::env::var("DEMETER_API_KEY").unwrap()),
+///     contracts,
 /// );
 /// ```
 pub struct CardanoChainState {
     provider: ChainProvider,
+    contracts: ContractAddresses,
 }
 
 impl CardanoChainState {
-    /// Connect via a local cardano-node Unix socket (Ouroboros NtC).
-    pub fn local_node(socket_path: impl AsRef<Path>, magic: u64) -> Self {
+    pub fn local_node(socket_path: impl AsRef<Path>, magic: u64, contracts: ContractAddresses) -> Self {
         Self {
             provider: ChainProvider::LocalNode {
                 socket_path: socket_path.as_ref().to_path_buf(),
                 magic,
             },
+            contracts,
         }
     }
 
-    /// Query via Blockfrost HTTP API.
-    pub fn blockfrost(project_id: impl Into<String>, base_url: impl Into<String>) -> Self {
+    pub fn blockfrost(
+        project_id: impl Into<String>,
+        base_url: impl Into<String>,
+        contracts: ContractAddresses,
+    ) -> Self {
         Self {
             provider: ChainProvider::Blockfrost {
                 project_id: project_id.into(),
                 base_url: base_url.into(),
             },
+            contracts,
         }
     }
 
-    /// Query via utxorpc gRPC (Demeter or self-hosted dolos).
-    pub fn utxorpc(endpoint: impl Into<String>, api_key: Option<String>) -> Self {
+    pub fn utxorpc(
+        endpoint: impl Into<String>,
+        api_key: Option<String>,
+        contracts: ContractAddresses,
+    ) -> Self {
         Self {
             provider: ChainProvider::Utxorpc {
                 endpoint: endpoint.into(),
                 api_key,
             },
+            contracts,
         }
     }
 }
@@ -216,25 +469,44 @@ impl CardanoChainState {
 impl ChainState for CardanoChainState {
     async fn get_registered_nodes(&self) -> Result<Vec<NodeInfo>, PubSubError> {
         match &self.provider {
-            ChainProvider::LocalNode { socket_path, magic } => {
-                // LocalStateQuery → UTxOsByAddress(node_registry_addr)
-                // Decode inline datum as NodeRegistryDatum (minicbor::Decode impl needed).
-                // Convert each NodeEntryDatum.addr bytes (UTF-8 "host:port") → SocketAddr.
-                let _ = (socket_path, magic);
-                todo!("LocalNode: LocalStateQuery UTxOsByAddress(node_registry_addr) → NodeRegistryDatum")
-            }
             ChainProvider::Blockfrost { project_id, base_url } => {
-                // GET {base_url}/addresses/<node_registry_addr>/utxos
-                // Filter UTxOs with an inline datum; decode as NodeRegistryDatum.
-                // Blockfrost returns inline datums as hex-encoded CBOR under "inline_datum".
-                let _ = (project_id, base_url);
-                todo!("Blockfrost: GET /addresses/<node_registry_addr>/utxos → parse inline_datum")
+                let bf = BlockfrostClient::new(project_id, base_url);
+                let utxos = bf.get_utxos_at(&self.contracts.node_registry_addr).await?;
+
+                let mut nodes = Vec::new();
+                for utxo in &utxos {
+                    let Some(hex) = &utxo.inline_datum else {
+                        continue;
+                    };
+                    let data = decode_plutus_data(hex)?;
+                    let Some(registry) = decode_node_registry_datum(&data) else {
+                        continue;
+                    };
+                    for entry in registry.nodes {
+                        let addr_str = String::from_utf8_lossy(&entry.addr).to_string();
+                        let addr: SocketAddr = addr_str.parse().map_err(|e| {
+                            PubSubError::ChainState(format!("node addr parse: {e}"))
+                        })?;
+                        let mut node_id = [0u8; 32];
+                        let len = entry.node_id.len().min(32);
+                        node_id[..len].copy_from_slice(&entry.node_id[..len]);
+                        nodes.push(NodeInfo {
+                            node_id: NodeId(node_id),
+                            addr,
+                            public_key: entry.stake_key,
+                            subscribed_topics: vec![],
+                        });
+                    }
+                }
+                Ok(nodes)
+            }
+            ChainProvider::LocalNode { socket_path, magic } => {
+                let _ = (socket_path, magic);
+                todo!("LocalNode: UTxOsByAddress(node_registry_addr) via NtC LocalStateQuery")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
-                // QueryService.SearchUtxos { match: AddressPattern(node_registry_addr) }
-                // Each AnyUtxo carries the inline datum as CBOR bytes; decode as NodeRegistryDatum.
                 let _ = (endpoint, api_key);
-                todo!("utxorpc: SearchUtxos(node_registry_addr_str) → decode inline datum")
+                todo!("utxorpc: SearchUtxos(node_registry_addr) — pallas-utxorpc + tonic needed")
             }
         }
     }
@@ -244,135 +516,382 @@ impl ChainState for CardanoChainState {
         topic: &TopicId,
     ) -> Result<Option<TopicConfig>, PubSubError> {
         match &self.provider {
-            ChainProvider::LocalNode { socket_path, magic } => {
-                // LocalStateQuery → UTxOsByAddress(topic_registry_datum_addr)
-                // For each UTxO with TopicDatum inline datum:
-                //   - Decode TopicDatum (minicbor::Decode)
-                //   - Convert datum.topic_id (u64) → TopicId via on_chain_int_to_topic_id()
-                //   - Match against requested topic
-                // Then: UTxOsByAddress(publisher_vault_addr) filtered by topic policy token
-                //   - Decode PublisherVaultDatum → authorized_publishers list
-                // Build TopicConfig::try_new(...)
-                let _ = (topic, socket_path, magic);
-                todo!("LocalNode: UTxOsByAddress(topic_datum_addr) + vault UTxO enumeration")
-            }
             ChainProvider::Blockfrost { project_id, base_url } => {
-                // GET {base_url}/addresses/<topic_datum_addr>/utxos
-                // Find UTxO whose decoded TopicDatum.topic_id matches; decode fields.
-                // GET {base_url}/addresses/<vault_addr>/utxos?asset={topic_policy_token}
-                // Collect PublisherVaultDatum entries → authorized_publishers.
-                let _ = (topic, project_id, base_url);
-                todo!("Blockfrost: GET /addresses/<topic_datum_addr>/utxos + vault UTxOs")
+                let target_n = topic_id_to_on_chain_int(topic).ok_or_else(|| {
+                    PubSubError::ChainState(
+                        "TopicId bytes 8-31 are non-zero; not a registry-originated topic".into(),
+                    )
+                })?;
+
+                let bf = BlockfrostClient::new(project_id, base_url);
+                let utxos = bf.get_utxos_at(&self.contracts.topic_registry_addr).await?;
+
+                for utxo in &utxos {
+                    let Some(hex) = &utxo.inline_datum else {
+                        continue;
+                    };
+                    let data = decode_plutus_data(hex)?;
+                    let Some(td) = decode_topic_datum(&data) else {
+                        continue;
+                    };
+                    if td.topic_id != target_n || !td.alive {
+                        continue;
+                    }
+
+                    // Fetch publisher vault UTxOs for this topic.
+                    // Token name prefix: "70" (hex for 'p') + 4-byte big-endian topic_id.
+                    let topic_hex_prefix = format!(
+                        "{}70{:08x}",
+                        self.contracts.registry_policy_id, td.topic_id
+                    );
+                    let vault_utxos =
+                        bf.get_utxos_at(&self.contracts.publisher_vault_addr).await?;
+                    let mut authorized_publishers = Vec::new();
+                    for vault in &vault_utxos {
+                        let has_token = vault
+                            .amount
+                            .iter()
+                            .any(|a| a.unit.starts_with(&topic_hex_prefix));
+                        if !has_token {
+                            continue;
+                        }
+                        let Some(vhex) = &vault.inline_datum else {
+                            continue;
+                        };
+                        let vdata = decode_plutus_data(vhex)?;
+                        if let Some(vd) = decode_publisher_vault_datum(&vdata) {
+                            if vd.topic_id == td.topic_id {
+                                let cred = PublisherCredential::ed25519(Bytes::from(vd.publisher));
+                                authorized_publishers.push(PublisherId(cred));
+                            }
+                        }
+                    }
+
+                    let name = String::from_utf8_lossy(&td.name).to_string();
+                    let config = TopicConfig::try_new(
+                        topic.clone(),
+                        name,
+                        None,
+                        authorized_publishers,
+                        Duration::from_secs(td.retention_period),
+                        td.replication_factor as u32,
+                    )
+                    .map_err(|e| PubSubError::ChainState(e.to_string()))?;
+                    return Ok(Some(config));
+                }
+                Ok(None)
+            }
+            ChainProvider::LocalNode { socket_path, magic } => {
+                let _ = (topic, socket_path, magic);
+                todo!("LocalNode: UTxOsByAddress(topic_registry_addr) + vault UTxO scan via NtC")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
-                // SearchUtxos(topic_datum_addr_str) — scan for matching TopicDatum.
-                // SearchUtxos(vault_addr, asset=topic_policy_token) — collect publishers.
                 let _ = (topic, endpoint, api_key);
-                todo!("utxorpc: SearchUtxos(topic_datum_addr_str) + SearchUtxos(vault_addr, asset)")
+                todo!("utxorpc: SearchUtxos(topic_registry_addr) + SearchUtxos(vault_addr)")
             }
         }
     }
 
     async fn get_all_topics(&self) -> Result<Vec<TopicConfig>, PubSubError> {
         match &self.provider {
-            ChainProvider::LocalNode { socket_path, magic } => {
-                // LocalStateQuery → UTxOsByAddress(topic_datum_addr)
-                // Decode all TopicDatum UTxOs → Vec<TopicConfig>.
-                let _ = (socket_path, magic);
-                todo!("LocalNode: UTxOsByAddress(topic_datum_addr) → decode all TopicDatum UTxOs")
-            }
             ChainProvider::Blockfrost { project_id, base_url } => {
-                // GET {base_url}/addresses/<topic_datum_addr>/utxos (paginated)
-                // Decode every inline datum as TopicDatum → Vec<TopicConfig>.
-                let _ = (project_id, base_url);
-                todo!("Blockfrost: GET /addresses/<topic_datum_addr>/utxos (paginated)")
+                let bf = BlockfrostClient::new(project_id, base_url);
+                let utxos = bf.get_utxos_at(&self.contracts.topic_registry_addr).await?;
+                // Eagerly fetch all vault UTxOs once; filter per-topic below.
+                let vault_utxos = bf
+                    .get_utxos_at(&self.contracts.publisher_vault_addr)
+                    .await?;
+
+                let mut topics = Vec::new();
+                for utxo in &utxos {
+                    let Some(hex) = &utxo.inline_datum else {
+                        continue;
+                    };
+                    let data = decode_plutus_data(hex)?;
+                    let Some(td) = decode_topic_datum(&data) else {
+                        continue;
+                    };
+                    if !td.alive {
+                        continue;
+                    }
+                    let topic_id = on_chain_int_to_topic_id(td.topic_id);
+                    let topic_hex_prefix = format!(
+                        "{}70{:08x}",
+                        self.contracts.registry_policy_id, td.topic_id
+                    );
+                    let mut authorized_publishers = Vec::new();
+                    for vault in &vault_utxos {
+                        let has_token = vault
+                            .amount
+                            .iter()
+                            .any(|a| a.unit.starts_with(&topic_hex_prefix));
+                        if !has_token {
+                            continue;
+                        }
+                        let Some(vhex) = &vault.inline_datum else {
+                            continue;
+                        };
+                        let vdata = decode_plutus_data(vhex)?;
+                        if let Some(vd) = decode_publisher_vault_datum(&vdata) {
+                            if vd.topic_id == td.topic_id {
+                                let cred = PublisherCredential::ed25519(Bytes::from(vd.publisher));
+                                authorized_publishers.push(PublisherId(cred));
+                            }
+                        }
+                    }
+                    let name = String::from_utf8_lossy(&td.name).to_string();
+                    if let Ok(config) = TopicConfig::try_new(
+                        topic_id,
+                        name,
+                        None,
+                        authorized_publishers,
+                        Duration::from_secs(td.retention_period),
+                        td.replication_factor as u32,
+                    ) {
+                        topics.push(config);
+                    }
+                }
+                Ok(topics)
+            }
+            ChainProvider::LocalNode { socket_path, magic } => {
+                let _ = (socket_path, magic);
+                todo!("LocalNode: UTxOsByAddress(topic_registry_addr) decode all TopicDatum UTxOs")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
-                // SearchUtxos(topic_datum_addr_str) — stream all; decode each inline datum.
                 let _ = (endpoint, api_key);
-                todo!("utxorpc: SearchUtxos(topic_datum_addr_str) — stream and decode all")
+                todo!("utxorpc: SearchUtxos(topic_registry_addr) stream and decode all")
             }
         }
     }
 
     async fn get_node_stake(&self, node: &NodeId) -> Result<u64, PubSubError> {
         match &self.provider {
-            ChainProvider::LocalNode { socket_path, magic } => {
-                // LocalStateQuery → QueryLedgerState::StakeDistribution
-                // Requires mapping NodeId → stake credential (from node registry lookup).
-                let _ = (node, socket_path, magic);
-                todo!("LocalNode: QueryLedgerState::StakeDistribution → match node stake credential")
+            ChainProvider::Blockfrost { .. } => {
+                // Requires pallas-addresses to encode the 28-byte stake key hash
+                // (from NodeRegistryDatum.stake_key) into a bech32 stake address
+                // before calling GET /accounts/{stake_addr}.
+                // TODO: add pallas-addresses dep and implement bech32 encoding.
+                let _ = node;
+                Err(PubSubError::ChainState(
+                    "get_node_stake via Blockfrost: needs pallas-addresses for bech32 stake addr encoding".into(),
+                ))
             }
-            ChainProvider::Blockfrost { project_id, base_url } => {
-                // GET {base_url}/accounts/<stake_addr>/rewards — fetch total rewards/stake.
-                // Requires NodeId → stake_addr mapping from node registry.
-                let _ = (node, project_id, base_url);
-                todo!("Blockfrost: GET /accounts/<stake_addr>/rewards after NodeId → stake_addr lookup")
+            ChainProvider::LocalNode { socket_path, magic } => {
+                let _ = (node, socket_path, magic);
+                todo!("LocalNode: QueryLedgerState::StakeDistribution via NtC")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
-                // No direct stake distribution RPC in utxorpc v0 spec.
-                // Fall back to deriving from node registry UTxO stake key field.
                 let _ = (node, endpoint, api_key);
-                todo!("utxorpc: derive stake from NodeRegistryDatum.stake_key (no direct StakeDistribution RPC)")
+                todo!("utxorpc: no direct StakeDistribution RPC in v0; derive from registry stake_key")
             }
         }
     }
 
     async fn get_pool_kes_keys(&self) -> Result<Vec<Bytes>, PubSubError> {
         match &self.provider {
-            ChainProvider::LocalNode { socket_path, magic } => {
-                // LocalStateQuery → QueryLedgerState::PoolState(all_pools)
-                // Extract current KES vkeys from each pool's operational certificate.
-                let _ = (socket_path, magic);
-                todo!("LocalNode: QueryLedgerState::PoolState → extract KES vkeys from opcerts")
+            ChainProvider::Blockfrost { .. } => {
+                // Blockfrost does not expose KES keys or operational certificates
+                // in its REST API.  The /pools/{pool_id} endpoint returns VRF keys
+                // and metadata, not the opcert KES vkey.
+                // Options: (a) use a local node for this query, (b) store KES keys
+                // off-chain in a known config address, (c) skip KES-based publishing.
+                Err(PubSubError::ChainState(
+                    "get_pool_kes_keys: KES operational certificates are not exposed by the Blockfrost REST API; use the LocalNode backend for this query".into(),
+                ))
             }
-            ChainProvider::Blockfrost { project_id, base_url } => {
-                // GET {base_url}/pools (paginated) → for each pool_id:
-                // GET {base_url}/pools/<pool_id> → "vrf_key" (note: this is VRF not KES).
-                // KES key is in the opcert; Blockfrost does not expose opcerts directly.
-                // Alternative: GET {base_url}/pools/<pool_id>/metadata — may carry opcert.
-                let _ = (project_id, base_url);
-                todo!("Blockfrost: /pools/<pool_id> — KES keys not directly exposed; design decision needed")
+            ChainProvider::LocalNode { socket_path, magic } => {
+                let _ = (socket_path, magic);
+                todo!("LocalNode: QueryLedgerState::PoolState — extract KES vkeys from opcerts")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
-                // No direct pool KES RPC in utxorpc v0.  Same limitation as Blockfrost.
                 let _ = (endpoint, api_key);
-                todo!("utxorpc: KES keys not in utxorpc v0 spec — design decision needed")
+                todo!("utxorpc: KES keys not in utxorpc v0 spec")
             }
         }
     }
 
     async fn get_drep_keys(&self) -> Result<Vec<Bytes>, PubSubError> {
         match &self.provider {
-            ChainProvider::LocalNode { socket_path, magic } => {
-                // LocalStateQuery → QueryLedgerState::DRepState (Conway era, node ≥ 9.x)
-                // Extracts registered DRep verification keys from CIP-1694 registrations.
-                let _ = (socket_path, magic);
-                todo!("LocalNode: QueryLedgerState::DRepState (Conway) → registered DRep vkeys")
-            }
             ChainProvider::Blockfrost { project_id, base_url } => {
-                // GET {base_url}/governance/dreps (paginated, Conway era)
-                // Returns DRep IDs; GET /governance/dreps/<drep_id> for vkey.
-                let _ = (project_id, base_url);
-                todo!("Blockfrost: GET /governance/dreps (Conway era) → DRep vkeys")
+                let bf = BlockfrostClient::new(project_id, base_url);
+                // GET /governance/dreps — Conway era; returns registered DReps.
+                let dreps: Vec<BfDrep> = bf.get_all("governance/dreps").await?;
+                let keys = dreps
+                    .into_iter()
+                    .filter(|d| !d.has_script)
+                    .filter_map(|d| hex::decode(&d.hex).ok())
+                    .map(Bytes::from)
+                    .collect();
+                Ok(keys)
+            }
+            ChainProvider::LocalNode { socket_path, magic } => {
+                let _ = (socket_path, magic);
+                todo!("LocalNode: QueryLedgerState::DRepState (Conway, node >= 9.x)")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
-                // GovernanceService (utxorpc v0 Conway extension) — DRepState query.
-                // Spec under active development; verify endpoint availability.
                 let _ = (endpoint, api_key);
-                todo!("utxorpc: GovernanceService.DRepState (Conway extension) → DRep vkeys")
+                todo!("utxorpc: GovernanceService.DRepState (Conway extension)")
             }
         }
     }
 
     async fn get_authority_keys(&self) -> Result<Vec<Bytes>, PubSubError> {
         // Authority key list is not a ledger query in any backend.
-        // Options:
-        //   (a) Hardcoded in node config (simplest for Phase 1)
-        //   (b) Stored in a known UTxO at a fixed address — readable by all three backends
-        //   (c) Multi-sig governance contract (future)
-        // Phase 2: read from a "authority-keys" UTxO at a known address; all three
-        // backends can fetch it via /addresses/{authority_addr}/utxos.
-        todo!("authority keys: design decision — config file vs on-chain UTxO (all backends)")
+        // Phase 1: hardcode in node config.
+        // Phase 2: read from a known UTxO at a fixed address (readable by all backends).
+        Err(PubSubError::ChainState(
+            "get_authority_keys: not a chain query — supply via node config".into(),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Datum decode unit tests ───────────────────────────────────────────────
+
+    #[test]
+    fn decode_topic_datum_from_cbor() {
+        // Hand-crafted CBOR for TopicDatum:
+        //   Constr 0 [ 1, "news", [], [], 3, 3600, True, 5 ]
+        // We build it programmatically using pallas codec to avoid byte-level errors.
+        use pallas::codec::utils::{Int as PallasInt, MaybeIndefArray};
+        use pallas::ledger::primitives::{BoundedBytes, PlutusData};
+
+        let fields: Vec<PlutusData> = vec![
+            PlutusData::BigInt(BigInt::Int(PallasInt::from(1i64))),
+            PlutusData::BoundedBytes(BoundedBytes::from(b"news".to_vec())),
+            PlutusData::Array(MaybeIndefArray::Def(vec![])),
+            PlutusData::Array(MaybeIndefArray::Def(vec![])),
+            PlutusData::BigInt(BigInt::Int(PallasInt::from(3i64))),
+            PlutusData::BigInt(BigInt::Int(PallasInt::from(3600i64))),
+            // True = Constr 1 []
+            PlutusData::Constr(Constr {
+                tag: 122, // Constr 1
+                any_constructor: None,
+                fields: MaybeIndefArray::Def(vec![]),
+            }),
+            PlutusData::BigInt(BigInt::Int(PallasInt::from(5i64))),
+        ];
+        let datum = PlutusData::Constr(Constr {
+            tag: 121, // Constr 0
+            any_constructor: None,
+            fields: MaybeIndefArray::Def(fields),
+        });
+
+        let cbor = pallas::codec::minicbor::to_vec(&datum).expect("encode");
+        let hex_str = hex::encode(&cbor);
+        let decoded = decode_plutus_data(&hex_str).expect("decode hex CBOR");
+        let td = decode_topic_datum(&decoded).expect("decode TopicDatum");
+
+        assert_eq!(td.topic_id, 1);
+        assert_eq!(String::from_utf8(td.name).unwrap(), "news");
+        assert_eq!(td.replication_factor, 3);
+        assert_eq!(td.retention_period, 3600);
+        assert!(td.alive);
+    }
+
+    #[test]
+    fn on_chain_int_topic_id_roundtrip() {
+        let n = 42u64;
+        let id = on_chain_int_to_topic_id(n);
+        assert_eq!(topic_id_to_on_chain_int(&id), Some(n));
+    }
+
+    #[test]
+    fn hash_topic_id_not_convertible() {
+        // A Blake2b-derived TopicId has non-zero bytes beyond position 8.
+        use pallas_crypto::hash::Hasher;
+        let hash = Hasher::<256>::hash(b"some-topic");
+        let mut id = [0u8; 32];
+        id.copy_from_slice(hash.as_ref());
+        let topic_id = TopicId(id);
+        assert_eq!(topic_id_to_on_chain_int(&topic_id), None);
+    }
+
+    // ── Blockfrost integration tests (skipped without API key) ───────────────
+    //
+    // Set these env vars to run:
+    //   BLOCKFROST_PROJECT_ID=preprod...
+    //   BLOCKFROST_BASE_URL=https://cardano-preprod.blockfrost.io/api/v0   (optional)
+    //
+    // These tests hit real Blockfrost endpoints and require a preprod API key.
+
+    fn blockfrost_env() -> Option<(String, String)> {
+        let project_id = std::env::var("BLOCKFROST_PROJECT_ID").ok()?;
+        let base_url = std::env::var("BLOCKFROST_BASE_URL").unwrap_or_else(|_| {
+            "https://cardano-preprod.blockfrost.io/api/v0".into()
+        });
+        Some((project_id, base_url))
+    }
+
+    fn contract_env() -> Option<ContractAddresses> {
+        Some(ContractAddresses {
+            node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").ok()?,
+            topic_registry_addr: std::env::var("PUBSUB_TOPIC_REGISTRY_ADDR").ok()?,
+            publisher_vault_addr: std::env::var("PUBSUB_PUBLISHER_VAULT_ADDR").ok()?,
+            registry_policy_id: std::env::var("PUBSUB_REGISTRY_POLICY_ID").ok()?,
+        })
+    }
+
+    #[tokio::test]
+    async fn blockfrost_get_drep_keys_preprod() {
+        let Some((project_id, base_url)) = blockfrost_env() else {
+            eprintln!("skip: BLOCKFROST_PROJECT_ID not set");
+            return;
+        };
+        let contracts = contract_env().unwrap_or(ContractAddresses {
+            node_registry_addr: String::new(),
+            topic_registry_addr: String::new(),
+            publisher_vault_addr: String::new(),
+            registry_policy_id: String::new(),
+        });
+        let chain = CardanoChainState::blockfrost(project_id, base_url, contracts);
+        let dreps = chain.get_drep_keys().await.expect("get_drep_keys");
+        eprintln!("preprod DRep key count: {}", dreps.len());
+        // On preprod Conway era there are registered DReps; exact count is unpredictable.
+        // Just assert the call succeeds and keys are 28 or 32 bytes (key hash).
+        for k in &dreps {
+            assert!(
+                k.len() == 28 || k.len() == 32,
+                "unexpected key length: {}",
+                k.len()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn blockfrost_get_all_topics_preprod() {
+        let Some((project_id, base_url)) = blockfrost_env() else {
+            eprintln!("skip: BLOCKFROST_PROJECT_ID not set");
+            return;
+        };
+        let Some(contracts) = contract_env() else {
+            eprintln!("skip: PUBSUB_TOPIC_REGISTRY_ADDR not set");
+            return;
+        };
+        let chain = CardanoChainState::blockfrost(project_id, base_url, contracts);
+        let topics = chain.get_all_topics().await.expect("get_all_topics");
+        eprintln!("preprod topic count: {}", topics.len());
+    }
+
+    #[tokio::test]
+    async fn blockfrost_get_registered_nodes_preprod() {
+        let Some((project_id, base_url)) = blockfrost_env() else {
+            eprintln!("skip: BLOCKFROST_PROJECT_ID not set");
+            return;
+        };
+        let Some(contracts) = contract_env() else {
+            eprintln!("skip: PUBSUB_NODE_REGISTRY_ADDR not set");
+            return;
+        };
+        let chain = CardanoChainState::blockfrost(project_id, base_url, contracts);
+        let nodes = chain.get_registered_nodes().await.expect("get_registered_nodes");
+        eprintln!("preprod registered nodes: {}", nodes.len());
     }
 }

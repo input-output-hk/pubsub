@@ -24,8 +24,17 @@ rcgen = "0.13"
 serde_json = { workspace = true }
 
 [features]
-cardano = ["dep:pallas"]
+cardano = ["dep:pallas", "dep:reqwest", "dep:hex"]
 
 [dependencies.pallas]
 version = "0.34"
+optional = true
+
+[dependencies.reqwest]
+version = "0.12"
+features = ["json"]
+optional = true
+
+[dependencies.hex]
+version = "0.4"
 optional = true
