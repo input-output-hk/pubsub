@@ -6,7 +6,7 @@ mod tx;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use dialoguer::Select;
 
@@ -186,19 +186,33 @@ fn resolve_skey_path(flag: Option<PathBuf>) -> Result<PathBuf> {
 
 fn resolve_payment_addr(flag: Option<String>) -> Result<String> {
     if let Some(a) = flag {
-        return validate_addr(a);
+        return load_addr(a);
     }
-    let s = prompt_validated("Payment address (addr1... or addr_test1...)", |s| {
-        if s.starts_with("addr") { Ok(()) } else { Err("must start with 'addr'") }
+    let s = prompt_validated("Payment address or .addr file path", |s| {
+        let resolved = if std::path::Path::new(s).exists() {
+            std::fs::read_to_string(s).unwrap_or_default()
+        } else {
+            s.to_string()
+        };
+        if resolved.trim().starts_with("addr") { Ok(()) } else { Err("must be a bech32 addr or a path to a .addr file") }
     })?;
-    validate_addr(s)
+    load_addr(s)
 }
 
-fn validate_addr(s: String) -> Result<String> {
-    if s.starts_with("addr") {
-        Ok(s)
+/// Accept either a bech32 address string or a path to a file containing one.
+fn load_addr(s: String) -> Result<String> {
+    let addr = if std::path::Path::new(&s).exists() {
+        std::fs::read_to_string(&s)
+            .with_context(|| format!("reading address file {s}"))?
+            .trim()
+            .to_string()
     } else {
-        Err(anyhow!("invalid payment address '{s}' — expected bech32 starting with 'addr'"))
+        s
+    };
+    if addr.starts_with("addr") {
+        Ok(addr)
+    } else {
+        Err(anyhow!("invalid payment address '{addr}' — expected bech32 starting with 'addr'"))
     }
 }
 
