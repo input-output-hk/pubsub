@@ -84,6 +84,7 @@ pubsub-cli --node 127.0.0.1:9001 publish --topic ops/emergency/critical --messag
 | `--peers` | none | Bootstrap peer addresses (comma-separated) |
 | `--name` | `node-0` | Node name for logging |
 | `--topics` | none | Topics to subscribe to (comma-separated) |
+| `--key-file` | none (ephemeral) | Path to 32-byte Ed25519 key file; created on first run if absent |
 | `--cyclon-interval` | `5` | Cyclon gossip interval (seconds) |
 | `--vicinity-interval` | `10` | Vicinity gossip interval (seconds) |
 | `--http-port` | bind+1000 | HTTP dashboard port (0 to disable) |
@@ -121,10 +122,11 @@ SSH key: `~/.ssh/pubsub`. See `scripts/deploy-seed.sh` for full details.
 - [x] Local testnet launcher (5 nodes)
 - [x] Live seed node (<<seed-host>>:9000)
 - [x] Cardano contract deployment CLI (`pubsub-admin`)
+- [x] Persistent node identity via `--key-file` (Ed25519 key survives restarts)
+- [x] TLS peer verification (NodeId derived from cert public key; mismatch drops connection)
 
 ## What's Next
 
-- [ ] Persistent node identity (load Ed25519 key from file across restarts)
 - [ ] gRPC streaming API for real-time subscriptions
 - [ ] Topic Registry on-chain integration (read via ogmios / pallas)
 - [ ] WebTransport listener for browser clients

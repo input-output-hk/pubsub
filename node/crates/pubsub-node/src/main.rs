@@ -2,10 +2,11 @@ mod api;
 
 use std::collections::HashSet;
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::Parser;
 use pallas_crypto::key::ed25519::SecretKey;
@@ -14,7 +15,7 @@ use tracing::{info, warn};
 
 use pubsub_types::error::PubSubError;
 use pubsub_types::message::{Message, TopicId};
-use pubsub_types::node::{node_id_from_addr, node_id_from_key, NodeInfo};
+use pubsub_types::node::{node_id_from_key, NodeInfo};
 use pubsub_types::topic::TopicConfig;
 use pubsub_types::traits::*;
 
@@ -54,6 +55,12 @@ struct Args {
     /// Vicinity gossip interval in seconds
     #[arg(long, default_value = "10")]
     vicinity_interval: u64,
+
+    /// Path to a 32-byte Ed25519 key file for persistent node identity.
+    /// Created automatically on first run if the file does not exist.
+    /// Omit to use an ephemeral key (identity lost on restart).
+    #[arg(long)]
+    key_file: Option<PathBuf>,
 
     /// Log level (trace, debug, info, warn, error)
     #[arg(long, default_value = "info")]
@@ -123,11 +130,8 @@ async fn main() -> Result<()> {
 
     info!(name = %args.name, bind = %args.bind, "Starting PubSub node");
 
-    let signing_key = {
-        let mut bytes = [0u8; 32];
-        getrandom::fill(&mut bytes).expect("OS RNG failed");
-        SecretKey::from(bytes)
-    };
+    let key_seed = load_or_generate_key(args.key_file.as_deref())?;
+    let signing_key = SecretKey::from(key_seed);
     let public_key = signing_key.public_key();
     // NodeId is derived from the Ed25519 public key (D2 paper, Ch.3).
     // Relay nodes are identified by their key, not their address.
@@ -139,7 +143,7 @@ async fn main() -> Result<()> {
         Arc::new(MockChainState::new(vec![], mock_topics));
 
     // Keep the concrete type so we can coerce to both Transport and GossipTransport.
-    let transport = Arc::new(QuicTransport::new(args.bind).await?);
+    let transport = Arc::new(QuicTransport::new(args.bind, &key_seed).await?);
     let transport_app: Arc<dyn Transport> = transport.clone();
     let transport_gossip: Arc<dyn pubsub_types::traits::GossipTransport> = transport.clone();
 
@@ -201,20 +205,25 @@ async fn main() -> Result<()> {
 
     // Bootstrap peers come from --peers only. Relay nodes join the overlay
     // permissionlessly via Cyclon gossip (D2 Ch.3) — no on-chain registration.
-    // Address-derived NodeIds here are placeholders; the correct key-derived IDs
-    // arrive in the first Cyclon gossip exchange.
+    // connect_bootstrap() derives the real key-based NodeId from the peer's TLS cert.
     let bootstrap_peers: Vec<NodeInfo> = if !args.peers.is_empty() {
         let local_topic_ids: Vec<TopicId> =
             args.topics.iter().map(|t| topic_id_from_name(t)).collect();
-        args.peers
-            .iter()
-            .map(|addr| NodeInfo {
-                node_id: node_id_from_addr(*addr),
-                addr: *addr,
-                public_key: vec![],
-                subscribed_topics: local_topic_ids.clone(),
-            })
-            .collect()
+        let mut peers = Vec::new();
+        for addr in &args.peers {
+            match transport.connect_bootstrap(*addr).await {
+                Ok(node_id) => {
+                    peers.push(NodeInfo {
+                        node_id,
+                        addr: *addr,
+                        public_key: vec![],
+                        subscribed_topics: local_topic_ids.clone(),
+                    });
+                }
+                Err(e) => warn!(addr = %addr, error = %e, "Failed to connect to bootstrap peer"),
+            }
+        }
+        peers
     } else {
         vec![]
     };
@@ -375,6 +384,43 @@ async fn main() -> Result<()> {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }
+    }
+}
+
+/// Load a 32-byte Ed25519 seed from `path`, or generate and save a fresh one.
+/// When `path` is `None` the key is ephemeral (not persisted).
+fn load_or_generate_key(path: Option<&Path>) -> Result<[u8; 32]> {
+    if let Some(p) = path {
+        if p.exists() {
+            let bytes = std::fs::read(p)
+                .with_context(|| format!("Failed to read key file {}", p.display()))?;
+            anyhow::ensure!(
+                bytes.len() == 32,
+                "Key file {} must be exactly 32 bytes (got {})",
+                p.display(),
+                bytes.len()
+            );
+            let mut seed = [0u8; 32];
+            seed.copy_from_slice(&bytes);
+            info!(path = %p.display(), "Loaded persistent node key");
+            return Ok(seed);
+        }
+        let mut seed = [0u8; 32];
+        getrandom::fill(&mut seed).expect("OS RNG failed");
+        if let Some(parent) = p.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("Failed to create key dir {}", parent.display()))?;
+            }
+        }
+        std::fs::write(p, &seed)
+            .with_context(|| format!("Failed to write key file {}", p.display()))?;
+        info!(path = %p.display(), "Generated new node key (saved)");
+        Ok(seed)
+    } else {
+        let mut seed = [0u8; 32];
+        getrandom::fill(&mut seed).expect("OS RNG failed");
+        Ok(seed)
     }
 }
 

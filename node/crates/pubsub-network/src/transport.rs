@@ -5,12 +5,12 @@ use std::time::Duration;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use quinn::{ClientConfig, Connection, Endpoint, ServerConfig, TransportConfig};
-use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
 use pubsub_types::error::PubSubError;
-use pubsub_types::node::{node_id_from_addr, NodeId, NodeInfo};
+use pubsub_types::node::{node_id_from_addr, node_id_from_key, NodeId, NodeInfo};
 use pubsub_types::traits::{GossipTransport, InboundGossip, Transport, GOSSIP_CYCLON, GOSSIP_VICINITY};
 
 /// QUIC-based transport.
@@ -22,6 +22,9 @@ use pubsub_types::traits::{GossipTransport, InboundGossip, Transport, GOSSIP_CYC
 /// Incoming gossip is routed by the leading tag byte to per-protocol channels so
 /// Cyclon and Vicinity can each call `next_inbound_gossip` concurrently without
 /// consuming each other's messages.
+///
+/// Each node uses its Ed25519 signing key as its TLS identity. Outbound connections
+/// verify that the peer's TLS cert public key matches the expected NodeId.
 pub struct QuicTransport {
     endpoint: Endpoint,
     connections: Arc<DashMap<NodeId, Connection>>,
@@ -42,9 +45,12 @@ pub struct QuicTransport {
 }
 
 impl QuicTransport {
-    pub async fn new(bind_addr: SocketAddr) -> Result<Self, PubSubError> {
+    /// Bind a QUIC endpoint at `bind_addr` using the node's Ed25519 signing key
+    /// as the TLS identity.  The cert public key doubles as the node's network
+    /// identity so peers can derive the NodeId from the TLS handshake alone.
+    pub async fn new(bind_addr: SocketAddr, signing_key_seed: &[u8; 32]) -> Result<Self, PubSubError> {
         let (server_config, client_config) =
-            Self::generate_self_signed_config().map_err(|e| {
+            Self::generate_tls_config(signing_key_seed).map_err(|e| {
                 PubSubError::Transport(format!("TLS setup failed: {e}"))
             })?;
 
@@ -94,14 +100,23 @@ impl QuicTransport {
         Ok(transport)
     }
 
-    fn generate_self_signed_config()
-    -> Result<(ServerConfig, ClientConfig), Box<dyn std::error::Error>> {
-        let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])?;
-        let cert_der = CertificateDer::from(cert.cert);
-        let key_der = PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
+    /// Build TLS server+client configs using the node's Ed25519 key as the cert identity.
+    /// The same key is used for both sides so the cert public key equals the signing key.
+    fn generate_tls_config(
+        seed: &[u8; 32],
+    ) -> Result<(ServerConfig, ClientConfig), Box<dyn std::error::Error>> {
+        // Ensure the ring crypto provider is installed. When quinn-proto pulls in
+        // both ring and aws-lc-rs as transitive deps, rustls cannot auto-select one.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let pkcs8_bytes = Self::seed_to_pkcs8_der(seed);
+        let private_key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(pkcs8_bytes.clone()));
+        let key_pair =
+            rcgen::KeyPair::from_der_and_sign_algo(&private_key, &rcgen::PKCS_ED25519)?;
+        let cert = rcgen::CertificateParams::new(vec!["pubsub-node".to_string()])?
+            .self_signed(&key_pair)?;
 
-        // Keep connections alive with PING frames; remove the default 30 s idle
-        // timeout so a quiet node doesn't lose all its connections.
+        let cert_der = cert.der().clone();
+
         let mut tc = TransportConfig::default();
         tc.keep_alive_interval(Some(Duration::from_secs(15)));
         tc.max_idle_timeout(None);
@@ -109,7 +124,7 @@ impl QuicTransport {
 
         let mut server_config = ServerConfig::with_single_cert(
             vec![cert_der.clone()],
-            key_der.into(),
+            PrivatePkcs8KeyDer::from(pkcs8_bytes).into(),
         )?;
         server_config.transport_config(tc.clone());
 
@@ -124,6 +139,82 @@ impl QuicTransport {
         client_config.transport_config(tc);
 
         Ok((server_config, client_config))
+    }
+
+    /// Encode a 32-byte Ed25519 seed as a PKCS8 v1 DER structure (RFC 8410).
+    ///
+    /// Layout (48 bytes):
+    ///   SEQUENCE {
+    ///     INTEGER 0                    -- version
+    ///     SEQUENCE { OID 1.3.101.112 } -- AlgorithmIdentifier (Ed25519)
+    ///     OCTET STRING { OCTET STRING { seed } }
+    ///   }
+    fn seed_to_pkcs8_der(seed: &[u8; 32]) -> Vec<u8> {
+        let mut der = Vec::with_capacity(48);
+        der.extend_from_slice(&[
+            0x30, 0x2E,                          // SEQUENCE (46 bytes)
+            0x02, 0x01, 0x00,                    // INTEGER 0 (version)
+            0x30, 0x05,                          // SEQUENCE (5 bytes) — AlgorithmIdentifier
+            0x06, 0x03, 0x2B, 0x65, 0x70,        // OID 1.3.101.112 (Ed25519)
+            0x04, 0x22,                          // OCTET STRING (34) — PrivateKey
+            0x04, 0x20,                          // OCTET STRING (32) — CurvePrivateKey
+        ]);
+        der.extend_from_slice(seed);
+        der
+    }
+
+    /// Scan a certificate DER for the Ed25519 SubjectPublicKeyInfo and return the 32-byte key.
+    ///
+    /// Looks for the Ed25519 OID (06 03 2B 65 70), then the BIT STRING header (03 21 00)
+    /// that immediately follows the SPKI SEQUENCE.
+    fn extract_ed25519_pubkey_from_cert_der(cert_der: &[u8]) -> Option<[u8; 32]> {
+        let oid = &[0x06u8, 0x03, 0x2B, 0x65, 0x70];
+        let pos = cert_der.windows(5).position(|w| w == oid)?;
+        let after_oid = &cert_der[pos + 5..];
+        // BIT STRING: tag 0x03, length 0x21 (33), unused-bits 0x00, then 32 bytes
+        let bs_tag = &[0x03u8, 0x21, 0x00];
+        let bs_pos = after_oid.windows(3).position(|w| w == bs_tag)?;
+        let key_start = pos + 5 + bs_pos + 3;
+        if key_start + 32 > cert_der.len() {
+            return None;
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&cert_der[key_start..key_start + 32]);
+        Some(key)
+    }
+
+    /// Derive the NodeId from the peer's TLS certificate public key.
+    ///
+    /// Returns `None` when no peer cert is available (inbound connections without
+    /// mutual TLS, or non-Ed25519 certs).
+    fn peer_cert_node_id(conn: &Connection) -> Option<NodeId> {
+        let identity = conn.peer_identity()?;
+        let certs = identity.downcast::<Vec<CertificateDer<'static>>>().ok()?;
+        let cert_der = certs.first()?;
+        let pubkey = Self::extract_ed25519_pubkey_from_cert_der(cert_der)?;
+        Some(node_id_from_key(&pubkey))
+    }
+
+    /// Connect to a bootstrap peer whose NodeId is not yet known.
+    ///
+    /// The real NodeId is derived from the peer's TLS certificate public key after
+    /// the QUIC handshake.  Falls back to an address-based placeholder when the cert
+    /// cannot be parsed (e.g. older node versions).
+    pub async fn connect_bootstrap(&self, addr: SocketAddr) -> Result<NodeId, PubSubError> {
+        let conn = self
+            .endpoint
+            .connect(addr, "pubsub-node")
+            .map_err(|e| PubSubError::Connection(format!("Bootstrap connect to {addr} failed: {e}")))?
+            .await
+            .map_err(|e| PubSubError::Connection(format!("Bootstrap handshake with {addr} failed: {e}")))?;
+
+        let node_id = Self::peer_cert_node_id(&conn)
+            .unwrap_or_else(|| node_id_from_addr(addr));
+
+        self.connections.insert(node_id.clone(), conn);
+        self.peer_addrs.insert(node_id.clone(), addr);
+        debug!(%addr, "Bootstrap connection established");
+        Ok(node_id)
     }
 
     async fn accept_loop(
@@ -158,6 +249,10 @@ impl QuicTransport {
     /// Bidirectional streams   → gossip channel routed by tag byte:
     ///   tag 0x01 (GOSSIP_CYCLON)   → cyclon channel
     ///   tag 0x02 (GOSSIP_VICINITY) → vicinity channel
+    ///
+    /// The sender NodeId is derived from the peer's TLS cert when available (requires
+    /// the peer to have set its Ed25519 key as its TLS identity), otherwise falls
+    /// back to an address-derived placeholder.
     async fn handle_connection(
         conn: Connection,
         _connections: Arc<DashMap<NodeId, Connection>>,
@@ -165,7 +260,9 @@ impl QuicTransport {
         cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
         vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
     ) {
-        let sender_id = node_id_from_addr(conn.remote_address());
+        // Try cert-based NodeId; without mutual TLS the server sees no client cert.
+        let sender_id = Self::peer_cert_node_id(&conn)
+            .unwrap_or_else(|| node_id_from_addr(conn.remote_address()));
 
         loop {
             tokio::select! {
@@ -285,16 +382,28 @@ impl QuicTransport {
         Ok(())
     }
 
+    /// Connect to `peer` at `addr`, verifying that the TLS cert NodeId matches `peer`.
     async fn get_or_connect(&self, peer: &NodeId, addr: SocketAddr) -> Result<Connection, PubSubError> {
         if let Some(conn) = self.connections.get(peer) {
             return Ok(conn.clone());
         }
         let conn = self
             .endpoint
-            .connect(addr, "localhost")
+            .connect(addr, "pubsub-node")
             .map_err(|e| PubSubError::Connection(format!("Connect initiation failed: {e}")))?
             .await
             .map_err(|e| PubSubError::Connection(format!("QUIC handshake failed: {e}")))?;
+
+        // Verify that the peer's TLS cert identity matches the NodeId we expect.
+        // This guards against connecting to a rogue node that has claimed a false NodeId in gossip.
+        if let Some(cert_id) = Self::peer_cert_node_id(&conn) {
+            if cert_id != *peer {
+                conn.close(0u32.into(), b"node-id-mismatch");
+                return Err(PubSubError::Connection(format!(
+                    "NodeId mismatch connecting to {addr}: cert does not match expected peer"
+                )));
+            }
+        }
 
         self.connections.insert(peer.clone(), conn.clone());
         self.peer_addrs.insert(peer.clone(), addr);
@@ -442,7 +551,7 @@ impl GossipTransport for QuicTransport {
 }
 
 // ---------------------------------------------------------------------------
-// TLS: skip verification — testnet / development only
+// TLS: skip CA verification — NodeId is verified via cert public key instead
 // ---------------------------------------------------------------------------
 
 #[derive(Debug)]

@@ -30,7 +30,7 @@ getrandom = "0.4"
 
 # Networking
 quinn = "0.11"            # QUIC transport
-rustls = { version = "0.23", default-features = false }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 
 # Logging & tracing

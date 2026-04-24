@@ -38,7 +38,8 @@ if [[ "${1:-}" == "build" ]]; then
     echo -e "${GREEN}Build complete.${NC}"
 fi
 
-mkdir -p "$LOG_DIR"
+KEYS_DIR="$SCRIPT_DIR/keys"
+mkdir -p "$LOG_DIR" "$KEYS_DIR"
 
 SEED_ADDR="127.0.0.1:${BASE_PORT}"
 
@@ -106,6 +107,7 @@ for i in $(seq 1 $NUM_NODES); do
             --bind "127.0.0.1:$port" \
             --name "$name" \
             --topics "$TOPICS" \
+            --key-file "$KEYS_DIR/node-$i.sk" \
             --http-port "$http_port" \
             --log-level debug \
             > "$log_file" 2>&1 &
@@ -121,6 +123,7 @@ for i in $(seq 1 $NUM_NODES); do
             --name "$name" \
             --topics "$TOPICS" \
             --peers "$SEED_ADDR" \
+            --key-file "$KEYS_DIR/node-$i.sk" \
             --http-port "$http_port" \
             --log-level debug \
             > "$log_file" 2>&1 &

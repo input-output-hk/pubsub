@@ -126,7 +126,9 @@ async fn publish(node_addr: &SocketAddr, topic_name: &str, payload: &str, cred_t
 
     // Connect to node and send
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
-    let transport = QuicTransport::new(bind_addr).await?;
+    let mut ephemeral_seed = [0u8; 32];
+    getrandom::fill(&mut ephemeral_seed).expect("OS RNG failed");
+    let transport = QuicTransport::new(bind_addr, &ephemeral_seed).await?;
 
     let node_info = pubsub_types::node::NodeInfo {
         node_id: pubsub_types::node::NodeId([0; 32]),
