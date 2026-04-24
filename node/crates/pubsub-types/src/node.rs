@@ -50,11 +50,11 @@ pub struct NodeInfo {
     pub subscribed_topics: Vec<crate::message::TopicId>,
 }
 
-/// View entry in SecureCyclon — a peer descriptor exchanged during gossip
+/// View entry in Cyclon — a peer descriptor exchanged during gossip
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerDescriptor {
     pub node_info: NodeInfo,
 
-    /// Age counter — incremented each SecureCyclon cycle, used to evict stale entries
+    /// Age counter — incremented each Cyclon cycle, used to evict stale entries
     pub age: u32,
 }

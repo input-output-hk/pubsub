@@ -1,6 +1,6 @@
 [package]
 name = "pubsub-network"
-description = "Network layer implementations: SecureCyclon, Vicinity, Hybrid Dissemination, QUIC transport"
+description = "Network layer implementations: Cyclon, Vicinity, Hybrid Dissemination, QUIC transport"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

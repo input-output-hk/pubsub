@@ -79,7 +79,7 @@ pub trait GossipTransport: Send + Sync + 'static {
 }
 
 /// Peer sampling — maintains the overlay and provides random peer views.
-/// Phase 1: SecureCyclon.
+/// Phase 1: Cyclon.
 #[async_trait]
 pub trait PeerSampler: Send + Sync + 'static {
     /// Get a random sample of peers from the current view

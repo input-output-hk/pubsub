@@ -22,7 +22,7 @@ pubsub-node [OPTIONS]
 | `--peers` | — | Comma-separated bootstrap addresses (overrides registry) |
 | `--name` | `node-0` | Human-readable name (appears in logs) |
 | `--topics` | — | Comma-separated topic names to subscribe to |
-| `--cyclon-interval` | `5` | SecureCyclon gossip interval in seconds |
+| `--cyclon-interval` | `5` | Cyclon gossip interval in seconds |
 | `--vicinity-interval` | `10` | Vicinity gossip interval in seconds |
 | `--log-level` | `info` | Log verbosity: `trace`, `debug`, `info`, `warn`, `error` |
 

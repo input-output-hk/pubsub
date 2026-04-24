@@ -15,7 +15,7 @@ Manages outgoing and incoming QUIC connections using [Quinn](https://github.com/
 - Testnet: self-signed TLS certificates, server verification skipped
 - Connections stored by `NodeId`; `connect(NodeInfo)` must be called before `send`
 
-### `cyclon` — SecureCyclon peer sampling (`SecureCyclon`)
+### `cyclon` — Cyclon peer sampling (`Cyclon`)
 
 Gossip-based partial view maintenance. Each cycle the oldest peer is selected, a shuffle buffer is exchanged, and the view is merged.
 

@@ -22,7 +22,7 @@ use pubsub_types::traits::*;
 
 use pubsub_network::codec::CborCodec;
 use pubsub_network::mock_registry::MockNodeRegistry;
-use pubsub_network::cyclon::{CyclonConfig, SecureCyclon};
+use pubsub_network::cyclon::{CyclonConfig, Cyclon};
 use pubsub_network::dissemination::{DisseminationConfig, HybridDisseminator};
 use pubsub_network::mock_chain::MockChainState;
 use pubsub_network::relay_policy::DefaultRelayPolicy;
@@ -50,7 +50,7 @@ struct Args {
     #[arg(short, long, value_delimiter = ',')]
     topics: Vec<String>,
 
-    /// SecureCyclon gossip interval in seconds
+    /// Cyclon gossip interval in seconds
     #[arg(long, default_value = "5")]
     cyclon_interval: u64,
 
@@ -161,7 +161,7 @@ async fn main() -> Result<()> {
         subscribed_topics: args.topics.iter().map(|t| topic_id_from_name(t)).collect(),
     };
 
-    let cyclon_concrete = Arc::new(SecureCyclon::new(
+    let cyclon_concrete = Arc::new(Cyclon::new(
         self_info.clone(),
         transport_app.clone(),
         transport_gossip.clone(),
@@ -313,7 +313,7 @@ async fn main() -> Result<()> {
         loop {
             interval.tick().await;
             if let Err(e) = cyclon_clone.cycle().await {
-                warn!(error = %e, "SecureCyclon cycle failed");
+                warn!(error = %e, "Cyclon cycle failed");
             }
         }
     });

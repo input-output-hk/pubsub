@@ -1,5 +1,5 @@
 // =============================================================================
-// SecureCyclon — Gossip-based peer sampling service
+// Cyclon — Gossip-based peer sampling service
 // =============================================================================
 //
 // Implements the Cyclon protocol (Voulgaris, Gavidia & van Steen, 2005).
@@ -8,6 +8,17 @@
 // sends a shuffle buffer, reads the response from the same stream, and closes
 // it.  Gossip traffic is therefore completely separate from the unidirectional
 // application-message channel — they can never steal each other's messages.
+//
+// Eclipse-resistance (future work — needed before production):
+//   The original Jesi–Montresor–Babaoglu "SecureCyclon" extensions add:
+//   1. Signed PeerDescriptors: each node signs its own descriptor with its
+//      Ed25519 key so recipients can verify before inserting into their view.
+//      Requires the on-chain Node Registry to be live (public key distribution).
+//   2. Bootstrap diversity: require entries from ≥ 2 distinct seed nodes
+//      before the view is considered warm.
+//   3. Rate-limited peer replacement: cap new-peer insertions to ≤ 50% of
+//      view_size per cycle to slow eclipse attacks.
+//   These are deferred until the on-chain registry provides key infrastructure.
 // =============================================================================
 
 use std::sync::Arc;
@@ -38,7 +49,7 @@ impl Default for CyclonConfig {
     }
 }
 
-pub struct SecureCyclon {
+pub struct Cyclon {
     local_info: NodeInfo,
     view: Arc<RwLock<Vec<PeerDescriptor>>>,
     config: CyclonConfig,
@@ -49,7 +60,7 @@ pub struct SecureCyclon {
     gossip: Arc<dyn GossipTransport>,
 }
 
-impl SecureCyclon {
+impl Cyclon {
     pub fn new(
         local_info: NodeInfo,
         transport: Arc<dyn Transport>,
@@ -59,7 +70,7 @@ impl SecureCyclon {
         info!(
             view_size = config.view_size,
             shuffle_length = config.shuffle_length,
-            "SecureCyclon initialised"
+            "Cyclon initialised"
         );
         Self {
             local_info,
@@ -171,7 +182,7 @@ impl SecureCyclon {
 }
 
 #[async_trait]
-impl PeerSampler for SecureCyclon {
+impl PeerSampler for Cyclon {
     async fn sample(&self, count: usize) -> Vec<PeerDescriptor> {
         let view = self.view.read().await;
         let mut rng = thread_rng();

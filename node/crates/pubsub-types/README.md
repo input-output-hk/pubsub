@@ -18,7 +18,7 @@ Single source of truth for all types and async trait interfaces used across the 
 | `MessageId` | Composite dedup key: `(TopicId, PublisherId, sequence_nr)` |
 | `NodeId` | 32-byte node identifier (first 32 bytes of Ed25519 public key) |
 | `NodeInfo` | Full node descriptor: ID, socket address, public key, subscribed topics |
-| `PeerDescriptor` | `NodeInfo` + age counter used by SecureCyclon gossip |
+| `PeerDescriptor` | `NodeInfo` + age counter used by Cyclon gossip |
 | `TopicConfig` | On-chain topic metadata: name, authorized publishers, retention period, replication factor |
 | `PubSubError` | Error enum covering transport, codec, validation, and chain-state failures |
 
@@ -27,7 +27,7 @@ Single source of truth for all types and async trait interfaces used across the 
 | Trait | Implemented by |
 |-------|---------------|
 | `Transport` | `QuicTransport` |
-| `PeerSampler` | `SecureCyclon` |
+| `PeerSampler` | `Cyclon` |
 | `TopicRouter` | `Vicinity` |
 | `Disseminator` | `HybridDisseminator` |
 | `Codec` | `CborCodec` |
