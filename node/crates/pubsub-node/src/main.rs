@@ -432,12 +432,20 @@ async fn main() -> Result<()> {
 
     let cyclon_clone = cyclon.clone();
     let cyclon_interval = Duration::from_secs(args.cyclon_interval);
+    let cyclon_api = api_state.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(cyclon_interval);
         loop {
             interval.tick().await;
             if let Err(e) = cyclon_clone.cycle().await {
                 warn!(error = %e, "Cyclon cycle failed");
+            }
+            // Sync Cyclon view → dashboard so peers discovered via gossip appear
+            // even if this node never explicitly dialled them.
+            if let Some(ref s) = cyclon_api {
+                for pd in cyclon_clone.view().await {
+                    s.record_peer_connected(&pd.node_info.node_id, &pd.node_info.addr.to_string());
+                }
             }
         }
     });
