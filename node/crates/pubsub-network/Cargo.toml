@@ -25,6 +25,8 @@ serde_json = { workspace = true }
 
 [features]
 cardano = ["dep:pallas", "dep:reqwest", "dep:hex"]
+# Enable MockNodeRegistry and the NodeRegistry trait (replication servers, D2 Ch.4).
+replicate = ["pubsub-types/replicate"]
 
 [dependencies.pallas]
 version = "0.35"

@@ -3,10 +3,24 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-/// Derive a stable `NodeId` from a socket address using BLAKE2b-256.
+/// Derive a canonical `NodeId` from an Ed25519 public key using BLAKE2b-256.
 ///
-/// This is the single canonical function for address-based NodeId derivation
-/// used everywhere in the testnet stack (transport, registry, main).
+/// Relay node identity comes from cryptographic keys (D2 paper, Ch.3).
+/// This is the authoritative source of identity; the key is propagated through
+/// Cyclon gossip as part of each node's `PeerDescriptor`.
+pub fn node_id_from_key(public_key: &[u8]) -> NodeId {
+    use pallas_crypto::hash::Hasher;
+    let hash = Hasher::<256>::hash(public_key);
+    let mut id = [0u8; 32];
+    id.copy_from_slice(hash.as_ref());
+    NodeId(id)
+}
+
+/// Derive a temporary `NodeId` from a socket address using BLAKE2b-256.
+///
+/// Used only by the transport layer to label inbound connections before
+/// the peer's public key is known (i.e., before the first Cyclon gossip exchange).
+/// The placeholder is overwritten once the peer sends its `PeerDescriptor`.
 pub fn node_id_from_addr(addr: SocketAddr) -> NodeId {
     use pallas_crypto::hash::Hasher;
     let hash = Hasher::<256>::hash(addr.to_string().as_bytes());
@@ -15,9 +29,8 @@ pub fn node_id_from_addr(addr: SocketAddr) -> NodeId {
     NodeId(id)
 }
 
-/// Identity of a registered PubSub relay node.
-/// In production, this comes from on-chain registration.
-/// In testnet, this is provided by mock config.
+/// Relay node identity, derived from the node's Ed25519 public key.
+/// Propagated through Cyclon gossip as part of each node's `PeerDescriptor`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeId(pub [u8; 32]);
 
@@ -30,10 +43,14 @@ impl fmt::Display for NodeId {
     }
 }
 
-/// Information about a registered relay node
+/// Information about a relay node, exchanged through Cyclon gossip.
+///
+/// Relay nodes join the overlay permissionlessly via gossip — they do not register
+/// on-chain. The on-chain Node Registry contract (D2 Ch.4) is for replication
+/// servers only.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
-    /// Unique node identifier (derived from public key)
+    /// Unique node identifier (derived from the node's Ed25519 public key)
     pub node_id: NodeId,
 
     /// Network address for PubSub protocol connections

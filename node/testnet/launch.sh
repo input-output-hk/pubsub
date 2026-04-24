@@ -8,10 +8,10 @@
 # Nodes bind to ports 9001-9005 on localhost.
 # All nodes subscribe to the topics defined in TOPICS.
 #
-# Peer discovery uses single-seed bootstrapping:
+# Peer discovery uses single-seed bootstrapping (D2 Ch.3):
 #   - Node 1 starts alone and acts as the seed.
 #   - Nodes 2-5 each know only node 1 at startup.
-#   - SecureCyclon gossip exchanges fill the peer views over time.
+#   - Cyclon gossip exchanges fill the peer views over time.
 
 set -euo pipefail
 

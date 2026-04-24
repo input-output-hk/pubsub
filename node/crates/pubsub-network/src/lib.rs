@@ -7,6 +7,9 @@ pub mod validator;
 pub mod relay_policy;
 pub mod store;
 pub mod mock_chain;
+/// MockNodeRegistry — replication server registry, D2 Ch.4.
+/// Not used by relay nodes; gated behind the `replicate` feature.
+#[cfg(feature = "replicate")]
 pub mod mock_registry;
 #[cfg(feature = "cardano")]
 pub mod pallas_chain;

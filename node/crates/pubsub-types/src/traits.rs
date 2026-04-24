@@ -268,34 +268,36 @@ pub trait SubscriptionManager: Send + Sync + 'static {
 }
 
 // =============================================================================
-// Node Registry Trait
+// Node Registry Trait (replication servers only — not relay nodes)
 // =============================================================================
 
-/// Node registry — tracks registered relay nodes.
-/// Phase 1: in-memory mock. Later: on-chain Cardano registry via Plutus script.
+/// Per D2 paper Ch.4 — only replication servers register on-chain, not relay nodes.
 ///
-/// Separate from ChainState: ChainState is read-only L1 observation;
-/// NodeRegistry is the mutable local view a node maintains of its peers.
+/// Relay nodes join the overlay permissionlessly via Cyclon gossip (D2 Ch.3).
+/// This trait is reserved for the future clique-DHT persistence layer where
+/// replication servers stake ADA to participate and are tracked on-chain.
+///
+/// Not used in Phase 1 (relay-only nodes).
+#[cfg(feature = "replicate")]
 #[async_trait]
 pub trait NodeRegistry: Send + Sync + 'static {
-    /// Register this node (or refresh an existing registration).
-    /// `commitment_epochs` is ignored in Phase 1; reserved for stake-weighted
-    /// registration in the production on-chain contract.
+    /// Register this replication server (or refresh an existing registration).
+    /// `commitment_epochs` is the number of epochs the server commits to serve.
     async fn register(
         &self,
         info: NodeInfo,
         commitment_epochs: u32,
     ) -> Result<(), PubSubError>;
 
-    /// Remove a node from the registry.
+    /// Remove a replication server from the registry.
     async fn deregister(&self, node_id: &NodeId) -> Result<(), PubSubError>;
 
-    /// Return all currently registered relay nodes.
+    /// Return all currently registered replication servers.
     async fn get_registered_nodes(&self) -> Result<Vec<NodeInfo>, PubSubError>;
 
-    /// Look up a specific node by ID.
+    /// Look up a specific replication server by ID.
     async fn get_node(&self, node_id: &NodeId) -> Result<Option<NodeInfo>, PubSubError>;
 
-    /// Check whether a node is currently registered.
+    /// Check whether a replication server is currently registered.
     async fn is_registered(&self, node_id: &NodeId) -> Result<bool, PubSubError>;
 }

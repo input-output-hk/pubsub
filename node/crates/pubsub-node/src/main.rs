@@ -2,7 +2,6 @@ mod api;
 
 use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -15,12 +14,11 @@ use tracing::{info, warn};
 
 use pubsub_types::error::PubSubError;
 use pubsub_types::message::{Message, TopicId};
-use pubsub_types::node::{node_id_from_addr, NodeId, NodeInfo};
+use pubsub_types::node::{node_id_from_addr, node_id_from_key, NodeInfo};
 use pubsub_types::topic::TopicConfig;
 use pubsub_types::traits::*;
 
 use pubsub_network::codec::CborCodec;
-use pubsub_network::mock_registry::MockNodeRegistry;
 use pubsub_network::cyclon::{CyclonConfig, Cyclon};
 use pubsub_network::dissemination::{DisseminationConfig, HybridDisseminator};
 use pubsub_network::mock_chain::MockChainState;
@@ -64,10 +62,6 @@ struct Args {
     /// HTTP API port (defaults to QUIC port + 1000; set 0 to disable)
     #[arg(long)]
     http_port: Option<u16>,
-
-    /// Path to node registry JSON file (nodes.json)
-    #[arg(long)]
-    registry: Option<PathBuf>,
 
     /// Public address to advertise to peers (defaults to bind address)
     #[arg(long)]
@@ -135,16 +129,14 @@ async fn main() -> Result<()> {
         SecretKey::from(bytes)
     };
     let public_key = signing_key.public_key();
-    // NodeId is derived from the advertised address — the same function used by
-    // the transport layer when it assigns an ID to an inbound connection.  This
-    // makes the ID consistent everywhere in the stack.
-    let node_id = node_id_from_addr(args.advertise_addr.unwrap_or(args.bind));
-    info!(node_id = %node_id, "Node identity derived from address");
+    // NodeId is derived from the Ed25519 public key (D2 paper, Ch.3).
+    // Relay nodes are identified by their key, not their address.
+    let node_id = node_id_from_key(public_key.as_ref());
+    info!(node_id = %node_id, "Node identity derived from public key");
 
     let mock_topics = default_topics(&args.topics);
-    let mock_nodes = build_peer_list(&args, &node_id);
     let chain_state: Arc<dyn ChainState> =
-        Arc::new(MockChainState::new(mock_nodes.clone(), mock_topics));
+        Arc::new(MockChainState::new(vec![], mock_topics));
 
     // Keep the concrete type so we can coerce to both Transport and GossipTransport.
     let transport = Arc::new(QuicTransport::new(args.bind).await?);
@@ -207,26 +199,10 @@ async fn main() -> Result<()> {
         DisseminationConfig::default(),
     ));
 
-    // Build and populate the node registry.
-    let registry: Arc<dyn NodeRegistry> = if let Some(ref path) = args.registry {
-        match MockNodeRegistry::from_file(path) {
-            Ok(r) => {
-                info!(path = %path.display(), "Loaded node registry from file");
-                Arc::new(r)
-            }
-            Err(e) => {
-                warn!(error = %e, "Failed to load registry file, using empty registry");
-                Arc::new(MockNodeRegistry::new())
-            }
-        }
-    } else {
-        Arc::new(MockNodeRegistry::new())
-    };
-
-    // Register self so other nodes that share this registry can discover us.
-    registry.register(self_info.clone(), 0).await?;
-
-    // Determine bootstrap peers: --peers flag overrides registry.
+    // Bootstrap peers come from --peers only. Relay nodes join the overlay
+    // permissionlessly via Cyclon gossip (D2 Ch.3) — no on-chain registration.
+    // Address-derived NodeIds here are placeholders; the correct key-derived IDs
+    // arrive in the first Cyclon gossip exchange.
     let bootstrap_peers: Vec<NodeInfo> = if !args.peers.is_empty() {
         let local_topic_ids: Vec<TopicId> =
             args.topics.iter().map(|t| topic_id_from_name(t)).collect();
@@ -240,13 +216,7 @@ async fn main() -> Result<()> {
             })
             .collect()
     } else {
-        let self_node_id = self_info.node_id.clone();
-        registry
-            .get_registered_nodes()
-            .await?
-            .into_iter()
-            .filter(|n| n.node_id != self_node_id)
-            .collect()
+        vec![]
     };
 
     // ---- HTTP API ----
@@ -426,18 +396,6 @@ fn default_topics(names: &[String]) -> Vec<TopicConfig> {
             authorized_publishers: vec![],
             retention_period: Duration::from_secs(3600),
             replication_factor: 1,
-        })
-        .collect()
-}
-
-fn build_peer_list(args: &Args, _self_id: &NodeId) -> Vec<NodeInfo> {
-    args.peers
-        .iter()
-        .map(|addr| NodeInfo {
-            node_id: node_id_from_addr(*addr),
-            addr: *addr,
-            public_key: vec![],
-            subscribed_topics: vec![],
         })
         .collect()
 }

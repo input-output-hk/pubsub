@@ -23,13 +23,15 @@ pub struct TopicConfig {
     /// How long messages should be retained in the hot cache
     pub retention_period: Duration,
 
-    /// Replication factor for persistence layer (Phase 1: ignored, all relay nodes cache)
+    /// Phase 1: ignored. Reserved for the future clique-DHT persistence layer (D2 Ch.4),
+    /// where replication servers cache messages for topics proportionally.
+    /// Relay nodes cache all messages in the hot cache regardless of this value.
     pub replication_factor: u32,
 }
 
 impl TopicConfig {
-    /// Validated constructor — mirrors the formal spec invariant
-    /// `alive_topic_positive_r_and_t`: replication_factor > 0 and retention_period > 0.
+    /// Validated constructor. Enforces retention_period > 0 (messages with no
+    /// retention window would be immediately evictable, which is nonsensical).
     pub fn try_new(
         topic_id: TopicId,
         name: String,
@@ -38,11 +40,6 @@ impl TopicConfig {
         retention_period: Duration,
         replication_factor: u32,
     ) -> Result<Self, PubSubError> {
-        if replication_factor == 0 {
-            return Err(PubSubError::InvalidConfig(
-                "replication_factor must be > 0".into(),
-            ));
-        }
         if retention_period.is_zero() {
             return Err(PubSubError::InvalidConfig(
                 "retention_period must be > 0".into(),
@@ -96,15 +93,6 @@ mod tests {
             tid(), "t".into(), None, vec![],
             Duration::from_secs(60), 1,
         ).is_ok());
-    }
-
-    #[test]
-    fn try_new_rejects_zero_replication_factor() {
-        let err = TopicConfig::try_new(
-            tid(), "t".into(), None, vec![],
-            Duration::from_secs(60), 0,
-        ).unwrap_err();
-        assert!(matches!(err, PubSubError::InvalidConfig(_)));
     }
 
     #[test]

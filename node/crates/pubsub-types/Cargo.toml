@@ -5,6 +5,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# Enable the NodeRegistry trait and related types.
+# Per D2 paper Ch.4: only replication servers register on-chain, not relay nodes.
+# Gate this feature until the clique-DHT persistence layer is built.
+replicate = []
+
 [dependencies]
 serde = { workspace = true }
 ciborium = { workspace = true }
