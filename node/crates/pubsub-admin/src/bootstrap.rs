@@ -225,7 +225,7 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn split_utxo(utxo: &str) -> Result<(String, u64)> {
+pub fn split_utxo(utxo: &str) -> Result<(String, u64)> {
     let mut parts = utxo.splitn(2, '#');
     let hash = parts
         .next()
@@ -323,6 +323,10 @@ fn write_env_file(
          # Minting policy IDs (56 hex chars = 28 bytes)\n\
          PUBSUB_REGISTRY_POLICY_ID={registry_policy_id}\n\
          PUBSUB_NODE_REGISTRY_POLICY_ID={node_registry_policy_id}\n\
+         \n\
+         # Bootstrap UTxO refs — used by publish-scripts to re-derive parameterized blueprints\n\
+         PUBSUB_TOPIC_BOOTSTRAP_UTXO={topic_utxo}\n\
+         PUBSUB_NODE_BOOTSTRAP_UTXO={node_utxo}\n\
          \n\
          # Optional: Demeter utxorpc endpoint\n\
          DEMETER_API_KEY=\n",

@@ -1,6 +1,7 @@
 mod aiken;
 mod blockfrost;
 mod bootstrap;
+mod publish_scripts;
 mod split;
 mod tx;
 
@@ -12,6 +13,7 @@ use clap::{Parser, Subcommand};
 use dialoguer::Select;
 
 use bootstrap::{BootstrapArgs, Network};
+use publish_scripts::PublishScriptsArgs;
 use split::SplitArgs;
 
 #[derive(Parser)]
@@ -61,6 +63,39 @@ enum Command {
         /// Directory to write the generated .env file.
         #[arg(long, default_value = ".")]
         output_dir: PathBuf,
+    },
+
+    /// Publish all four Plutus scripts as on-chain reference script UTxOs (CIP-33).
+    /// Must be run after `bootstrap`. Reads bootstrap UTxO refs from the .env file
+    /// to re-derive parameterized blueprints, then publishes each script in its own tx.
+    PublishScripts {
+        /// Path to the .env file written by `bootstrap` (e.g. local/.env.preprod).
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+
+        /// Cardano network.
+        #[arg(long)]
+        network: Option<String>,
+
+        /// Blockfrost project ID. Falls back to $BLOCKFROST_PROJECT_ID.
+        #[arg(long)]
+        blockfrost_project_id: Option<String>,
+
+        /// Bech32 payment address that owns the funding UTxO.
+        #[arg(long)]
+        payment_addr: Option<String>,
+
+        /// Path to the payment signing key JSON file.
+        #[arg(long)]
+        payment_skey: Option<PathBuf>,
+
+        /// Directory containing compiled contract blueprints.
+        #[arg(long, default_value = "../contracts")]
+        contracts_dir: PathBuf,
+
+        /// UTxO to fund all four script-publication outputs (needs ~12 ADA).
+        #[arg(long)]
+        funding_utxo: Option<String>,
     },
 
     /// Split a single UTxO into two — useful when you only have one UTxO but need
@@ -122,6 +157,34 @@ async fn main() -> Result<()> {
             };
 
             bootstrap::run(args, &contracts_dir, &output_dir).await?;
+        }
+
+        Command::PublishScripts {
+            env_file,
+            network,
+            blockfrost_project_id,
+            payment_addr,
+            payment_skey,
+            contracts_dir,
+            funding_utxo,
+        } => {
+            let network = resolve_network(network)?;
+            let blockfrost_project_id = resolve_blockfrost_id(blockfrost_project_id)?;
+            let payment_addr = resolve_payment_addr(payment_addr)?;
+            let payment_skey_path = resolve_skey_path(payment_skey)?;
+            let funding_utxo = resolve_utxo(funding_utxo, "funding UTxO")?;
+            let env_file = resolve_env_file(env_file, &network)?;
+
+            publish_scripts::run(PublishScriptsArgs {
+                network,
+                blockfrost_project_id,
+                payment_addr,
+                payment_skey_path,
+                contracts_dir,
+                env_file,
+                funding_utxo,
+            })
+            .await?;
         }
 
         Command::SplitUtxo {
@@ -297,4 +360,23 @@ fn validate_utxo_str(s: &str) -> Result<(), &'static str> {
         return Err("index must be a non-negative integer");
     }
     Ok(())
+}
+
+fn resolve_env_file(flag: Option<PathBuf>, network: &Network) -> Result<PathBuf> {
+    if let Some(p) = flag {
+        if !p.exists() {
+            return Err(anyhow!(".env file not found: {}", p.display()));
+        }
+        return Ok(p);
+    }
+    // Guess the default path written by bootstrap.
+    let default = PathBuf::from(format!("local/.env.{}", network.env_name()));
+    if default.exists() {
+        println!("Using .env file: {}", default.display());
+        return Ok(default);
+    }
+    let s = prompt_validated(".env file path (written by bootstrap)", |s| {
+        if std::path::Path::new(s).exists() { Ok(()) } else { Err("file not found") }
+    })?;
+    Ok(PathBuf::from(s))
 }
