@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt;
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -43,9 +44,28 @@ pub struct Message {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct TopicId(pub [u8; 32]);
 
+impl fmt::Display for TopicId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for b in &self.0[..4] {
+            write!(f, "{b:02x}")?;
+        }
+        Ok(())
+    }
+}
+
 /// Publisher identity — public key bytes for now, extensible to DIDs later
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PublisherId(pub Bytes);
+
+impl fmt::Display for PublisherId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.0.len().min(4);
+        for b in &self.0[..len] {
+            write!(f, "{b:02x}")?;
+        }
+        Ok(())
+    }
+}
 
 /// Unique identifier for a message within the network
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

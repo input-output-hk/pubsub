@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,15 @@ pub fn node_id_from_addr(addr: SocketAddr) -> NodeId {
 /// In testnet, this is provided by mock config.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeId(pub [u8; 32]);
+
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for b in &self.0[..4] {
+            write!(f, "{b:02x}")?;
+        }
+        Ok(())
+    }
+}
 
 /// Information about a registered relay node
 #[derive(Debug, Clone, Serialize, Deserialize)]
