@@ -32,6 +32,9 @@ pub enum PubSubError {
     #[error("Peer not found: {0}")]
     PeerNotFound(String),
 
+    #[error("Invalid topic config: {0}")]
+    InvalidConfig(String),
+
     #[error("{0}")]
     Other(String),
 }
