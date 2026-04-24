@@ -27,20 +27,21 @@ Every component is behind a trait interface for modularity. See `crates/pubsub-t
 
 ## Live Seed Node (preprod)
 
-A permanent seed node runs at `<<seed-host>>:9000`. Connect any local node to it:
+A permanent seed node runs on preprod. Contact the team for the current address.
+Connect any local node to it:
 
 ```sh
 pubsub-node \
   --bind 0.0.0.0:9001 \
-  --peers <<seed-host>>:9000 \
+  --peers <seed-host>:9000 \
   --name my-node \
-  --topics ops/emergency/critical
+  --topics iog/spo/alerts
 ```
 
 > **Note:** Bind to `0.0.0.0` (not `127.0.0.1`) when connecting to a remote seed — QUIC needs
-> a routable local address to exchange with the seed.
+> a routable local interface to send outbound packets.
 
-The seed's HTTP dashboard is at `http://<<seed-host>>:10000`.
+The seed's HTTP dashboard is at `http://<seed-host>:10000`.
 
 ## Quick Start (local testnet)
 
@@ -63,9 +64,9 @@ cargo run --release --bin pubsub-cli -- \
 ```sh
 pubsub-node \
   --bind 0.0.0.0:9001 \
-  --peers <<seed-host>>:9000 \
+  --peers <seed-host>:9000 \
   --name node-1 \
-  --topics ops/emergency/critical,gov/drep/test
+  --topics iog/spo/alerts
 ```
 
 ## CLI Usage
@@ -79,7 +80,7 @@ pubsub-cli --node 127.0.0.1:9001 publish --topic ops/emergency/critical --messag
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--bind` | `127.0.0.1:9000` | QUIC listen address (use `0.0.0.0` to reach remote peers) |
+| `--bind` | `0.0.0.0:9000` | QUIC listen address |
 | `--advertise-addr` | same as `--bind` | Address announced to peers in gossip |
 | `--peers` | none | Bootstrap peer addresses (comma-separated) |
 | `--name` | `node-0` | Node name for logging |
@@ -117,18 +118,19 @@ SSH key: `~/.ssh/pubsub`. See `scripts/deploy-seed.sh` for full details.
 - [x] QUIC transport (bidirectional streams for gossip, unidirectional for messages)
 - [x] Message signing and validation (Ed25519, pool KES keys, DRep credentials)
 - [x] In-memory hot cache with TTL eviction
-- [x] Mock chain state for testnet
-- [x] CLI for publish
+- [x] Ogmios chain state backend (reads topic and node registry from chain)
+- [x] CLI for publish/subscribe
 - [x] Local testnet launcher (5 nodes)
-- [x] Live seed node (<<seed-host>>:9000)
-- [x] Cardano contract deployment CLI (`pubsub-admin`)
+- [x] Live seed node (preprod)
+- [x] Cardano contract deployment CLI (`pubsub-admin bootstrap`, `publish-scripts`, `create-topic`)
 - [x] Persistent node identity via `--key-file` (Ed25519 key survives restarts)
 - [x] TLS peer verification (NodeId derived from cert public key; mismatch drops connection)
+- [x] HTTP dashboard with peer topology and message feed
 
 ## What's Next
 
 - [ ] gRPC streaming API for real-time subscriptions
-- [ ] Topic Registry on-chain integration (read via ogmios / pallas)
 - [ ] WebTransport listener for browser clients
 - [ ] SDK packages (TypeScript, Python)
+- [ ] Node registry on-chain integration (register/deregister relay nodes)
 - [ ] Replication servers + clique-DHT (D2 Ch.4)
