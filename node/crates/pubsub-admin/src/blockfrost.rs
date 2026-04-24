@@ -25,13 +25,21 @@ pub struct ProtocolParams {
     pub cost_models: Option<serde_json::Value>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct ExecPrices {
     pub price_memory: String,
     pub price_steps: String,
 }
 
 impl ExecPrices {
+    /// Cardano Conway-era defaults used when Blockfrost omits the field.
+    fn default_prices() -> Self {
+        Self {
+            price_memory: "0.0577".to_string(),
+            price_steps: "0.0000721".to_string(),
+        }
+    }
+
     /// Execution fee in lovelace for the given budget.
     pub fn fee(&self, mem: u64, steps: u64) -> u64 {
         let pm: f64 = self.price_memory.parse().unwrap_or(0.0577);
@@ -58,10 +66,10 @@ impl ProtocolParams {
             .collect()
     }
 
-    pub fn exec_prices(&self) -> Result<&ExecPrices> {
+    pub fn exec_prices(&self) -> ExecPrices {
         self.execution_unit_prices
-            .as_ref()
-            .ok_or_else(|| anyhow!("execution_unit_prices not present in protocol params"))
+            .clone()
+            .unwrap_or_else(ExecPrices::default_prices)
     }
 }
 
