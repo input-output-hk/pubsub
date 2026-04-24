@@ -3,11 +3,12 @@ mod blockfrost;
 mod bootstrap;
 mod tx;
 
+use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
-use dialoguer::{Input, Select};
+use dialoguer::Select;
 
 use bootstrap::{BootstrapArgs, Network};
 
@@ -101,6 +102,10 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Network (arrow-key Select — raw mode is fine here, no paste involved)
+// ---------------------------------------------------------------------------
+
 fn resolve_network(flag: Option<String>) -> Result<Network> {
     if let Some(s) = flag {
         return parse_network(&s);
@@ -126,6 +131,32 @@ fn parse_network(s: &str) -> Result<Network> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Text prompts — plain readline (no raw mode, paste-safe)
+// ---------------------------------------------------------------------------
+
+/// Print a prompt and read one trimmed line from stdin.
+fn readline(prompt: &str) -> Result<String> {
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+    write!(out, "{prompt}: ")?;
+    out.flush()?;
+    let mut line = String::new();
+    io::stdin().lock().read_line(&mut line)?;
+    Ok(line.trim().to_string())
+}
+
+/// Loop until `validate` returns Ok, printing the error on each bad attempt.
+fn prompt_validated(prompt: &str, validate: impl Fn(&str) -> Result<(), &'static str>) -> Result<String> {
+    loop {
+        let val = readline(prompt)?;
+        match validate(&val) {
+            Ok(()) => return Ok(val),
+            Err(msg) => eprintln!("  ✗ {msg}"),
+        }
+    }
+}
+
 fn resolve_blockfrost_id(flag: Option<String>) -> Result<String> {
     if let Some(id) = flag {
         return Ok(id);
@@ -135,13 +166,9 @@ fn resolve_blockfrost_id(flag: Option<String>) -> Result<String> {
             return Ok(id);
         }
     }
-    Input::new()
-        .with_prompt("Blockfrost project ID")
-        .validate_with(|s: &String| {
-            if s.is_empty() { Err("project ID cannot be empty") } else { Ok(()) }
-        })
-        .interact_text()
-        .map_err(|e| anyhow!("blockfrost project ID input failed: {e}"))
+    prompt_validated("Blockfrost project ID", |s| {
+        if s.is_empty() { Err("cannot be empty") } else { Ok(()) }
+    })
 }
 
 fn resolve_skey_path(flag: Option<PathBuf>) -> Result<PathBuf> {
@@ -151,28 +178,19 @@ fn resolve_skey_path(flag: Option<PathBuf>) -> Result<PathBuf> {
         }
         return Ok(p);
     }
-    let s: String = Input::new()
-        .with_prompt("Payment signing key path (.skey)")
-        .validate_with(|s: &String| {
-            if std::path::Path::new(s.trim()).exists() { Ok(()) }
-            else { Err("file not found") }
-        })
-        .interact_text()
-        .map_err(|e| anyhow!("skey path input failed: {e}"))?;
-    Ok(PathBuf::from(s.trim()))
+    let s = prompt_validated("Payment signing key path (.skey)", |s| {
+        if std::path::Path::new(s).exists() { Ok(()) } else { Err("file not found") }
+    })?;
+    Ok(PathBuf::from(s))
 }
 
 fn resolve_payment_addr(flag: Option<String>) -> Result<String> {
     if let Some(a) = flag {
         return validate_addr(a);
     }
-    let s: String = Input::new()
-        .with_prompt("Payment address (bech32, addr1... or addr_test1...)")
-        .validate_with(|s: &String| {
-            if s.starts_with("addr") { Ok(()) } else { Err("must start with 'addr'") }
-        })
-        .interact_text()
-        .map_err(|e| anyhow!("payment address input failed: {e}"))?;
+    let s = prompt_validated("Payment address (addr1... or addr_test1...)", |s| {
+        if s.starts_with("addr") { Ok(()) } else { Err("must start with 'addr'") }
+    })?;
     validate_addr(s)
 }
 
@@ -188,12 +206,10 @@ fn resolve_utxo(flag: Option<String>, label: &str) -> Result<String> {
     if let Some(u) = flag {
         return validate_utxo(u, label);
     }
-    let prompt = format!("{label} (<64-hex-txhash>#<index>)");
-    let s: String = Input::new()
-        .with_prompt(prompt)
-        .validate_with(|s: &String| validate_utxo_str(s))
-        .interact_text()
-        .map_err(|e| anyhow!("UTxO input failed: {e}"))?;
+    let s = prompt_validated(
+        &format!("{label} (<64-hex-txhash>#<index>)"),
+        validate_utxo_str,
+    )?;
     Ok(s)
 }
 
