@@ -1,6 +1,7 @@
 mod aiken;
 mod blockfrost;
 mod bootstrap;
+mod split;
 mod tx;
 
 use std::io::{self, BufRead, Write};
@@ -11,6 +12,7 @@ use clap::{Parser, Subcommand};
 use dialoguer::Select;
 
 use bootstrap::{BootstrapArgs, Network};
+use split::SplitArgs;
 
 #[derive(Parser)]
 #[command(name = "pubsub-admin", about = "PubSub Cardano contract deployment and management")]
@@ -60,6 +62,30 @@ enum Command {
         #[arg(long, default_value = ".")]
         output_dir: PathBuf,
     },
+
+    /// Split a single UTxO into two — useful when you only have one UTxO but need
+    /// separate ones for topic-registry and node-registry bootstrap.
+    SplitUtxo {
+        /// UTxO to split ("txhash#index").
+        #[arg(long)]
+        utxo: Option<String>,
+
+        /// Cardano network.
+        #[arg(long)]
+        network: Option<String>,
+
+        /// Blockfrost project ID. Falls back to $BLOCKFROST_PROJECT_ID.
+        #[arg(long)]
+        blockfrost_project_id: Option<String>,
+
+        /// Payment address that owns the UTxO.
+        #[arg(long)]
+        payment_addr: Option<String>,
+
+        /// Path to the payment signing key JSON file.
+        #[arg(long)]
+        payment_skey: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -96,6 +122,29 @@ async fn main() -> Result<()> {
             };
 
             bootstrap::run(args, &contracts_dir, &output_dir).await?;
+        }
+
+        Command::SplitUtxo {
+            utxo,
+            network,
+            blockfrost_project_id,
+            payment_addr,
+            payment_skey,
+        } => {
+            let network = resolve_network(network)?;
+            let blockfrost_project_id = resolve_blockfrost_id(blockfrost_project_id)?;
+            let payment_addr = resolve_payment_addr(payment_addr)?;
+            let payment_skey_path = resolve_skey_path(payment_skey)?;
+            let utxo = resolve_utxo(utxo, "UTxO to split")?;
+
+            split::run(SplitArgs {
+                blockfrost_project_id,
+                network_base_url: network.blockfrost_base_url(),
+                payment_addr,
+                payment_skey_path,
+                utxo,
+            })
+            .await?;
         }
     }
 
