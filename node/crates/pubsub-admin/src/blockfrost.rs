@@ -16,10 +16,13 @@ pub struct BlockfrostClient {
 pub struct ProtocolParams {
     pub min_fee_a: u64,
     pub min_fee_b: u64,
-    pub execution_unit_prices: ExecPrices,
+    /// Absent or null on some Blockfrost responses; only needed for Plutus txs.
+    #[serde(default)]
+    pub execution_unit_prices: Option<ExecPrices>,
     /// Cost model parameters per Plutus version (alphabetically-sorted BTreeMap
     /// via serde_json, which gives us the correct canonical ordering).
-    pub cost_models: serde_json::Value,
+    #[serde(default)]
+    pub cost_models: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -44,14 +47,21 @@ impl ProtocolParams {
     /// serde_json deserialises JSON objects into a BTreeMap (keys sorted
     /// alphabetically), which matches the Cardano canonical ordering.
     pub fn cost_model_v3(&self) -> Result<Vec<i64>> {
-        let obj = self
-            .cost_models
+        let models = self.cost_models.as_ref()
+            .ok_or_else(|| anyhow!("cost_models not present in protocol params"))?;
+        let obj = models
             .get("PlutusV3")
             .and_then(|v| v.as_object())
             .ok_or_else(|| anyhow!("PlutusV3 cost model not found in protocol params"))?;
         obj.values()
             .map(|v| v.as_i64().ok_or_else(|| anyhow!("cost model value is not an integer")))
             .collect()
+    }
+
+    pub fn exec_prices(&self) -> Result<&ExecPrices> {
+        self.execution_unit_prices
+            .as_ref()
+            .ok_or_else(|| anyhow!("execution_unit_prices not present in protocol params"))
     }
 }
 

@@ -85,7 +85,7 @@ pub fn build_bootstrap_tx(
 
     // Cost model for script_data_hash
     let cost_model = params.cost_model_v3()?;
-    let exec_fee = params.execution_unit_prices.fee(
+    let exec_fee = params.exec_prices()?.fee(
         BOOTSTRAP_EX_UNITS.mem,
         BOOTSTRAP_EX_UNITS.steps,
     );
