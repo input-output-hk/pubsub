@@ -1,0 +1,25 @@
+[package]
+name = "pubsub-network"
+description = "Network layer implementations: SecureCyclon, Vicinity, Hybrid Dissemination, QUIC transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pubsub-types = { path = "../pubsub-types" }
+tokio = { workspace = true }
+quinn = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+ciborium = { workspace = true }
+ed25519-dalek = { workspace = true }
+blake2 = { workspace = true }
+rand = { workspace = true }
+tracing = { workspace = true }
+dashmap = { workspace = true }
+bytes = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+rcgen = "0.13"
+serde_json = { workspace = true }
