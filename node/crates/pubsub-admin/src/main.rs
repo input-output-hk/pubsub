@@ -250,14 +250,19 @@ fn resolve_payment_addr(flag: Option<String>) -> Result<String> {
 
 /// Accept either a bech32 address string or a path to a file containing one.
 fn load_addr(s: String) -> Result<String> {
-    let addr = if std::path::Path::new(&s).exists() {
-        std::fs::read_to_string(&s)
-            .with_context(|| format!("reading address file {s}"))?
+    let path = std::path::Path::new(&s);
+    let looks_like_path = s.contains('/') || s.contains('\\') || path.extension().is_some();
+
+    let addr = if looks_like_path {
+        // Treat as file — give a clear error if it doesn't exist.
+        std::fs::read_to_string(path)
+            .with_context(|| format!("reading address file '{}' (cwd: {})", s, std::env::current_dir().unwrap_or_default().display()))?
             .trim()
             .to_string()
     } else {
         s
     };
+
     if addr.starts_with("addr") {
         Ok(addr)
     } else {
