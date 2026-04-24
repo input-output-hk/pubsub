@@ -19,10 +19,36 @@ use pubsub_types::node::{node_id_from_key, NodeInfo};
 use pubsub_types::topic::TopicConfig;
 use pubsub_types::traits::*;
 
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum Network {
+    Mainnet,
+    Preprod,
+    Preview,
+}
+
+impl Network {
+    /// Bech32 HRP for node identifiers on this network.
+    fn bech32_hrp(&self) -> &'static str {
+        match self {
+            Network::Mainnet => "psnode",
+            Network::Preprod | Network::Preview => "psnode_test",
+        }
+    }
+
+    fn as_str(&self) -> &'static str {
+        match self {
+            Network::Mainnet => "mainnet",
+            Network::Preprod => "preprod",
+            Network::Preview => "preview",
+        }
+    }
+}
+
 use pubsub_network::codec::CborCodec;
 use pubsub_network::cyclon::{CyclonConfig, Cyclon};
 use pubsub_network::dissemination::{DisseminationConfig, HybridDisseminator};
 use pubsub_network::mock_chain::MockChainState;
+use pubsub_network::pallas_chain::{CardanoChainState, ContractAddresses};
 use pubsub_network::relay_policy::DefaultRelayPolicy;
 use pubsub_network::store::HotCache;
 use pubsub_network::transport::QuicTransport;
@@ -62,6 +88,11 @@ struct Args {
     #[arg(long)]
     key_file: Option<PathBuf>,
 
+    /// Cardano network this node observes.
+    /// Affects the bech32 HRP used in node identifiers (psnode / psnode_test).
+    #[arg(long, value_enum, default_value = "preprod")]
+    network: Network,
+
     /// Log level (trace, debug, info, warn, error)
     #[arg(long, default_value = "info")]
     log_level: String,
@@ -73,6 +104,47 @@ struct Args {
     /// Public address to advertise to peers (defaults to bind address)
     #[arg(long)]
     advertise_addr: Option<SocketAddr>,
+
+    // ── Chain state backend (all optional; omit to use mock / local testnet) ──
+
+    /// How often (seconds) to poll the chain registry for new topics.
+    /// Set to 0 to disable. Default: 300 (5 min). Only active when a chain backend is configured.
+    #[arg(long, default_value = "300")]
+    topic_refresh_interval: u64,
+
+    /// Ogmios JSON-RPC URL for reading on-chain topic registry.
+    /// Requires Ogmios v6.0+ (HTTP POST interface). No API key needed.
+    /// Example: http://localhost:1337
+    /// Also requires --topic-registry-addr, --publisher-vault-addr, --registry-policy-id.
+    #[arg(long)]
+    ogmios_url: Option<String>,
+
+    /// Blockfrost project ID for reading on-chain topic registry.
+    /// Also requires --blockfrost-url (optional) and contract address flags.
+    #[arg(long)]
+    blockfrost_key: Option<String>,
+
+    /// Blockfrost base URL (default: preprod).
+    #[arg(long, default_value = "https://cardano-preprod.blockfrost.io/api/v0")]
+    blockfrost_url: String,
+
+    // ── Contract addresses (required when using any chain backend) ────────────
+
+    /// Bech32 address of the deployed topic registry validator.
+    #[arg(long)]
+    topic_registry_addr: Option<String>,
+
+    /// Bech32 address of the deployed node registry validator.
+    #[arg(long)]
+    node_registry_addr: Option<String>,
+
+    /// Bech32 address of the deployed publisher vault validator.
+    #[arg(long)]
+    publisher_vault_addr: Option<String>,
+
+    /// Hex policy ID of the registry minting policy (56 hex chars).
+    #[arg(long)]
+    registry_policy_id: Option<String>,
 }
 
 /// Minimal subscription manager: logs delivered messages to stdout.
@@ -138,9 +210,28 @@ async fn main() -> Result<()> {
     let node_id = node_id_from_key(public_key.as_ref());
     info!(node_id = %node_id, "Node identity derived from public key");
 
-    let mock_topics = default_topics(&args.topics);
-    let chain_state: Arc<dyn ChainState> =
-        Arc::new(MockChainState::new(vec![], mock_topics));
+    let chain_state: Arc<dyn ChainState> = build_chain_state(&args);
+
+    // Load the active topic set from the chain registry.
+    // Falls back to --topics (CLI) if the registry is empty or unreachable.
+    let active_topics: Vec<TopicConfig> = match chain_state.get_all_topics().await {
+        Ok(topics) if !topics.is_empty() => {
+            info!(count = topics.len(), "Loaded topics from chain registry");
+            topics
+        }
+        Ok(_) if !args.topics.is_empty() => {
+            info!("Chain registry empty; using --topics CLI fallback");
+            default_topics(&args.topics)
+        }
+        Ok(_) => {
+            info!("No topics from chain and no --topics; subscribing to nothing");
+            vec![]
+        }
+        Err(e) => {
+            warn!(error = %e, "Chain state unavailable; using --topics CLI fallback");
+            default_topics(&args.topics)
+        }
+    };
 
     // Keep the concrete type so we can coerce to both Transport and GossipTransport.
     let transport = Arc::new(QuicTransport::new(args.bind, &key_seed).await?);
@@ -157,7 +248,7 @@ async fn main() -> Result<()> {
         node_id: node_id.clone(),
         addr: args.advertise_addr.unwrap_or(args.bind),
         public_key: public_key.as_ref().to_vec(),
-        subscribed_topics: args.topics.iter().map(|t| topic_id_from_name(t)).collect(),
+        subscribed_topics: active_topics.iter().map(|t| t.topic_id.clone()).collect(),
     };
 
     let cyclon_concrete = Arc::new(Cyclon::new(
@@ -208,7 +299,7 @@ async fn main() -> Result<()> {
     // connect_bootstrap() derives the real key-based NodeId from the peer's TLS cert.
     let bootstrap_peers: Vec<NodeInfo> = if !args.peers.is_empty() {
         let local_topic_ids: Vec<TopicId> =
-            args.topics.iter().map(|t| topic_id_from_name(t)).collect();
+            active_topics.iter().map(|t| t.topic_id.clone()).collect();
         let mut peers = Vec::new();
         for addr in &args.peers {
             match transport.connect_bootstrap(*addr).await {
@@ -236,12 +327,15 @@ async fn main() -> Result<()> {
     };
 
     let api_state = if let Some(port) = http_port {
-        let (state, _tx) = api::ApiState::new(self_info.clone());
+        let (state, _tx) = api::ApiState::new(
+            self_info.clone(),
+            args.network.as_str().to_string(),
+            args.network.bech32_hrp().to_string(),
+        );
         // Seed topic names so they display immediately, not only after a message arrives.
-        for topic_name in &args.topics {
-            let tid = topic_id_from_name(topic_name);
-            let hex: String = tid.0.iter().map(|b| format!("{b:02x}")).collect();
-            state.topic_names.insert(hex, topic_name.clone());
+        for tc in &active_topics {
+            let hex: String = tc.topic_id.0.iter().map(|b| format!("{b:02x}")).collect();
+            state.topic_names.insert(hex, tc.name.clone());
         }
         let http_addr: SocketAddr = SocketAddr::new(args.bind.ip(), port);
         let state_clone = state.clone();
@@ -281,11 +375,53 @@ async fn main() -> Result<()> {
         info!(view_size, "Peer view after initial bootstrap cycles");
     }
 
-    for topic_name in &args.topics {
-        let tid = topic_id_from_name(topic_name);
-        vicinity.join_topic(&tid).await?;
-        subscription_mgr.subscribe(&tid).await?;
-        info!(topic = %topic_name, "Subscribed to topic");
+    for tc in &active_topics {
+        vicinity.join_topic(&tc.topic_id).await?;
+        subscription_mgr.subscribe(&tc.topic_id).await?;
+        info!(topic = %tc.name, topic_id = %tc.topic_id, "Subscribed to topic");
+    }
+
+    // Periodically refresh the topic list from chain so new topics are picked
+    // up without a node restart.
+    if args.topic_refresh_interval > 0
+        && (args.ogmios_url.is_some() || args.blockfrost_key.is_some())
+    {
+        let refresh_chain = chain_state.clone();
+        let refresh_vicinity = vicinity.clone();
+        let refresh_subs = subscription_mgr.clone();
+        let refresh_api = api_state.clone();
+        let refresh_interval = Duration::from_secs(args.topic_refresh_interval);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(refresh_interval);
+            interval.tick().await; // skip the immediate first tick
+            loop {
+                interval.tick().await;
+                match refresh_chain.get_all_topics().await {
+                    Ok(topics) => {
+                        let current = refresh_subs.subscriptions().await;
+                        for tc in &topics {
+                            if !current.contains(&tc.topic_id) {
+                                if let Err(e) = refresh_vicinity.join_topic(&tc.topic_id).await {
+                                    warn!(topic = %tc.name, error = %e, "join_topic failed");
+                                    continue;
+                                }
+                                if let Err(e) = refresh_subs.subscribe(&tc.topic_id).await {
+                                    warn!(topic = %tc.name, error = %e, "subscribe failed");
+                                    continue;
+                                }
+                                info!(topic = %tc.name, topic_id = %tc.topic_id, "New topic discovered on chain");
+                                if let Some(ref s) = refresh_api {
+                                    let hex: String =
+                                        tc.topic_id.0.iter().map(|b| format!("{b:02x}")).collect();
+                                    s.topic_names.insert(hex, tc.name.clone());
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => warn!(error = %e, "Topic refresh from chain failed"),
+                }
+            }
+        });
     }
 
     let cyclon_clone = cyclon.clone();
@@ -326,9 +462,9 @@ async fn main() -> Result<()> {
     });
 
     // Build topic-name lookup for event recording
-    let topic_name_map: std::collections::HashMap<TopicId, String> = args.topics
+    let topic_name_map: std::collections::HashMap<TopicId, String> = active_topics
         .iter()
-        .map(|t| (topic_id_from_name(t), t.clone()))
+        .map(|tc| (tc.topic_id.clone(), tc.name.clone()))
         .collect();
 
     info!("Node running. Waiting for messages...");
@@ -385,6 +521,45 @@ async fn main() -> Result<()> {
             }
         }
     }
+}
+
+fn contract_addresses(args: &Args) -> Option<ContractAddresses> {
+    Some(ContractAddresses {
+        topic_registry_addr: args.topic_registry_addr.clone()?,
+        node_registry_addr: args.node_registry_addr.clone().unwrap_or_default(),
+        publisher_vault_addr: args.publisher_vault_addr.clone()?,
+        registry_policy_id: args.registry_policy_id.clone()?,
+    })
+}
+
+fn build_chain_state(args: &Args) -> Arc<dyn ChainState> {
+    if let Some(url) = &args.ogmios_url {
+        match contract_addresses(args) {
+            Some(c) => {
+                info!(url = %url, "Using Ogmios chain state backend");
+                return Arc::new(CardanoChainState::ogmios(url, c));
+            }
+            None => warn!(
+                "–-ogmios-url requires --topic-registry-addr, --publisher-vault-addr, \
+                 and --registry-policy-id; falling back to mock chain state"
+            ),
+        }
+    } else if let Some(key) = &args.blockfrost_key {
+        match contract_addresses(args) {
+            Some(c) => {
+                info!(url = %args.blockfrost_url, "Using Blockfrost chain state backend");
+                return Arc::new(CardanoChainState::blockfrost(key, &args.blockfrost_url, c));
+            }
+            None => warn!(
+                "--blockfrost-key requires --topic-registry-addr, --publisher-vault-addr, \
+                 and --registry-policy-id; falling back to mock chain state"
+            ),
+        }
+    }
+
+    info!("Using mock chain state (local testnet mode)");
+    let mock_topics = default_topics(&args.topics);
+    Arc::new(MockChainState::new(vec![], mock_topics))
 }
 
 /// Load a 32-byte Ed25519 seed from `path`, or generate and save a fresh one.
@@ -503,7 +678,11 @@ mod tests {
     #[tokio::test]
     async fn duplicate_path_arrival_recorded_once() {
         let store = Arc::new(HotCache::with_defaults());
-        let (state, _tx) = api::ApiState::new(fixture_node());
+        let (state, _tx) = api::ApiState::new(
+            fixture_node(),
+            "preprod".into(),
+            "psnode_test".into(),
+        );
 
         let msg = fixture_msg();
         let peer_a = NodeId([1u8; 32]);
