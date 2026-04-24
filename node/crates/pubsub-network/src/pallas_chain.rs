@@ -539,9 +539,10 @@ impl ChainState for CardanoChainState {
                     }
 
                     // Fetch publisher vault UTxOs for this topic.
-                    // Token name prefix: "70" (hex for 'p') + 4-byte big-endian topic_id.
+                    // Publisher token name: [4-byte-big-endian-topic-id][28-byte-pkh][0x70]
+                    // Filter on policy_id + 4-byte topic_id; pkh and suffix follow.
                     let topic_hex_prefix = format!(
-                        "{}70{:08x}",
+                        "{}{:08x}",
                         self.contracts.registry_policy_id, td.topic_id
                     );
                     let vault_utxos =
@@ -615,8 +616,10 @@ impl ChainState for CardanoChainState {
                         continue;
                     }
                     let topic_id = on_chain_int_to_topic_id(td.topic_id);
+                    // Publisher token name: [4-byte-big-endian-topic-id][28-byte-pkh][0x70]
+                    // Filter on policy_id + 4-byte topic_id; pkh and suffix follow.
                     let topic_hex_prefix = format!(
-                        "{}70{:08x}",
+                        "{}{:08x}",
                         self.contracts.registry_policy_id, td.topic_id
                     );
                     let mut authorized_publishers = Vec::new();

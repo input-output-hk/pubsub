@@ -5,7 +5,6 @@ use anyhow::Result;
 use bytes::Bytes;
 use clap::{Parser, Subcommand};
 use pallas_crypto::key::ed25519::SecretKey;
-use rand::rngs::OsRng;
 
 use pubsub_types::message::{CredentialType, Message, PublisherCredential, PublisherId, TopicId};
 
@@ -78,7 +77,11 @@ async fn main() -> Result<()> {
 
 async fn publish(node_addr: &SocketAddr, topic_name: &str, payload: &str, cred_type_str: &str) -> Result<()> {
     // Generate ephemeral signing key (in production, load from keyfile)
-    let signing_key = SecretKey::new(&mut OsRng);
+    let signing_key = {
+        let mut bytes = [0u8; 32];
+        getrandom::fill(&mut bytes).expect("OS RNG failed");
+        SecretKey::from(bytes)
+    };
     let public_key = signing_key.public_key();
     let key_bytes = Bytes::copy_from_slice(public_key.as_ref());
 

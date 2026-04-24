@@ -98,7 +98,7 @@ impl QuicTransport {
     -> Result<(ServerConfig, ClientConfig), Box<dyn std::error::Error>> {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])?;
         let cert_der = CertificateDer::from(cert.cert);
-        let key_der = PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
+        let key_der = PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
 
         // Keep connections alive with PING frames; remove the default 30 s idle
         // timeout so a quiet node doesn't lose all its connections.

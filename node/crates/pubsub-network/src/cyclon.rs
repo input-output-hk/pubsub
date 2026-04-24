@@ -25,8 +25,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::prelude::SliceRandom;
+use rand::rng;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
@@ -96,7 +96,7 @@ impl Cyclon {
     }
 
     fn build_shuffle_buffer(&self, view: &[PeerDescriptor]) -> Vec<PeerDescriptor> {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let mut buffer = vec![self.self_descriptor()];
         let take = self.config.shuffle_length.saturating_sub(1).min(view.len());
         let mut indices: Vec<usize> = (0..view.len()).collect();
@@ -185,7 +185,7 @@ impl Cyclon {
 impl PeerSampler for Cyclon {
     async fn sample(&self, count: usize) -> Vec<PeerDescriptor> {
         let view = self.view.read().await;
-        let mut rng = thread_rng();
+        let mut rng = rng();
         if count >= view.len() {
             debug!(requested = count, in_view = view.len(), "sample: returning full view");
             return view.clone();

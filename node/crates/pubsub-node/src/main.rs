@@ -10,7 +10,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use pallas_crypto::key::ed25519::SecretKey;
-use rand::rngs::OsRng;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
@@ -130,7 +129,11 @@ async fn main() -> Result<()> {
 
     info!(name = %args.name, bind = %args.bind, "Starting PubSub node");
 
-    let signing_key = SecretKey::new(&mut OsRng);
+    let signing_key = {
+        let mut bytes = [0u8; 32];
+        getrandom::fill(&mut bytes).expect("OS RNG failed");
+        SecretKey::from(bytes)
+    };
     let public_key = signing_key.public_key();
     // NodeId is derived from the advertised address — the same function used by
     // the transport layer when it assigns an ID to an inbound connection.  This

@@ -35,8 +35,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::prelude::IndexedRandom;
+use rand::rng;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
@@ -482,7 +482,7 @@ impl TopicRouter for Vicinity {
         }
 
         let target = {
-            let mut rng = thread_rng();
+            let mut rng = rng();
             sample.choose(&mut rng).unwrap().clone()
         };
 
