@@ -4,30 +4,30 @@
 //
 // Implements the Vicinity / T-Man protocol for topic-space routing.
 //
-// Topics are mapped to positions on a circular ring of size T (2^32 by default)
-// using the first 4 bytes of the TopicId.  Each node that subscribes to a
-// topic occupies that topic's position on the ring.
-//
-// To enable O(log T) lookup, each node maintains *finger links* at
+// Topics are mapped to positions on a circular ring of size 2^32 using the
+// first 4 bytes of TopicId.  To find peers for topic T, each node maintains
+// per-topic finger tables centred on topic_position(T), with slots at
 // exponentially increasing distances in both directions:
 //
-//     distances = b^0, b^1, b^2, ... (b = 2 by default)
+//     distances = b^0, b^1, b^2, ...  (b = 2 by default)
 //
-// Each finger slot holds the peer whose subscribed-topic position is closest
-// to the target distance.
+// Per-topic tables (vs. a single global table) ensure that a node subscribing
+// to topics spread across the ring discovers peers near each topic, not just
+// near its lexicographically-smallest subscription.
 //
 // T-Man active exchange (cycle):
 //   Each Vicinity cycle picks a random peer from the Cyclon view, exchanges
-//   the local descriptor set with it, and merges the response to improve
-//   finger quality.  Both sides benefit from each exchange.
+//   the local descriptor set, and merges the response to improve ALL per-topic
+//   finger tables simultaneously.
 //
 // Key operations:
-//   - `find_topic_peers()`: follow finger links toward the target topic.
-//   - `join_topic()` / `leave_topic()`: update the local subscription set
-//     and immediately notify current finger-link neighbors.
-//   - `cycle()`: T-Man active exchange with a randomly-selected peer.
-//   - `serve_gossip()`: respond to inbound Vicinity exchanges and topic
-//     update notifications from other nodes.
+//   - `find_topic_peers()`: return known peers closest to the target topic.
+//   - `get_topic_subscribers()`: return all peers known to subscribe to a topic
+//     (used by the Harary graph builder in the dissemination layer).
+//   - `join_topic()` / `leave_topic()`: create/remove per-topic finger table
+//     and notify current finger neighbours.
+//   - `cycle()`: T-Man active exchange.
+//   - `serve_gossip()`: respond to inbound exchanges and topic-update notifications.
 // =============================================================================
 
 use std::collections::{HashMap, HashSet};
@@ -55,7 +55,6 @@ enum VicinityMessage {
     /// T-Man active exchange — both sides send their best descriptor sets.
     Exchange { descriptors: Vec<PeerDescriptor> },
     /// A peer's subscription set has changed (join or leave).
-    /// Contains the peer's full updated `NodeInfo`.
     TopicUpdate { node_info: NodeInfo },
 }
 
@@ -63,22 +62,16 @@ enum VicinityMessage {
 // Ring geometry helpers
 // ---------------------------------------------------------------------------
 
-/// Ring size — we use 2^32 so that the first 4 bytes of a TopicId map
-/// directly to a position.
 const RING_SIZE: u64 = 1u64 << 32;
 
-/// Map a TopicId to a position on the ring by interpreting the first 4 bytes
-/// as a big-endian u32.
 fn topic_position(topic: &TopicId) -> u64 {
     u32::from_be_bytes([topic.0[0], topic.0[1], topic.0[2], topic.0[3]]) as u64
 }
 
-/// Clockwise distance from `a` to `b` on the ring.
 fn ring_distance_cw(a: u64, b: u64) -> u64 {
     if b >= a { b - a } else { RING_SIZE - a + b }
 }
 
-/// Shortest (undirected) distance on the ring.
 fn ring_distance(a: u64, b: u64) -> u64 {
     ring_distance_cw(a, b).min(ring_distance_cw(b, a))
 }
@@ -111,14 +104,30 @@ impl Default for VicinityConfig {
     }
 }
 
+fn make_finger_table(config: &VicinityConfig) -> (Vec<Finger>, Vec<Finger>) {
+    let mut cw = Vec::with_capacity(config.max_fingers);
+    let mut ccw = Vec::with_capacity(config.max_fingers);
+    let mut dist: u64 = 1;
+    for _ in 0..config.max_fingers {
+        if dist >= RING_SIZE / 2 {
+            break;
+        }
+        cw.push(Finger { ideal_distance: dist, peer: None });
+        ccw.push(Finger { ideal_distance: dist, peer: None });
+        dist = dist.saturating_mul(config.finger_base);
+    }
+    (cw, ccw)
+}
+
 // ---------------------------------------------------------------------------
 // Inner state (behind RwLock)
 // ---------------------------------------------------------------------------
 
 struct VicinityState {
     local_subscriptions: HashSet<TopicId>,
-    cw_fingers: Vec<Finger>,
-    ccw_fingers: Vec<Finger>,
+    /// Per-topic finger tables: each topic T has fingers centred on topic_position(T).
+    topic_fingers: HashMap<TopicId, (Vec<Finger>, Vec<Finger>)>,
+    /// Known peers and their subscribed topic positions, updated on every exchange.
     peer_topics: HashMap<Vec<u8>, (PeerDescriptor, HashSet<u64>)>,
 }
 
@@ -141,31 +150,13 @@ impl Vicinity {
         gossip: Arc<dyn GossipTransport>,
         config: VicinityConfig,
     ) -> Self {
-        let mut cw_fingers = Vec::with_capacity(config.max_fingers);
-        let mut ccw_fingers = Vec::with_capacity(config.max_fingers);
-        let mut dist: u64 = 1;
-        for _ in 0..config.max_fingers {
-            if dist >= RING_SIZE / 2 {
-                break;
-            }
-            cw_fingers.push(Finger { ideal_distance: dist, peer: None });
-            ccw_fingers.push(Finger { ideal_distance: dist, peer: None });
-            dist = dist.saturating_mul(config.finger_base);
-        }
-
-        info!(
-            cw_fingers = cw_fingers.len(),
-            ccw_fingers = ccw_fingers.len(),
-            "Vicinity initialised"
-        );
-
+        info!("Vicinity initialised (per-topic finger tables)");
         Self {
             local_info,
             config,
             state: Arc::new(RwLock::new(VicinityState {
                 local_subscriptions: HashSet::new(),
-                cw_fingers,
-                ccw_fingers,
+                topic_fingers: HashMap::new(),
                 peer_topics: HashMap::new(),
             })),
             peer_sampler,
@@ -175,10 +166,8 @@ impl Vicinity {
 
     // ---- helpers ------------------------------------------------------------
 
-    fn local_position(subscriptions: &HashSet<TopicId>) -> Option<u64> {
-        subscriptions.iter().map(topic_position).min()
-    }
-
+    /// Is `candidate` a better fit for `finger` than its current occupant?
+    /// `origin` is the centre of the finger table (= topic_position for some T).
     fn is_better_finger(origin: u64, finger: &Finger, candidate_pos: u64, clockwise: bool) -> bool {
         let actual_dist = if clockwise {
             ring_distance_cw(origin, candidate_pos)
@@ -207,6 +196,7 @@ impl Vicinity {
         }
     }
 
+    /// Try to fill finger slots using `candidates`, relative to `origin`.
     fn try_improve_fingers(
         origin: u64,
         cw_fingers: &mut [Finger],
@@ -220,61 +210,71 @@ impl Vicinity {
             };
             for finger in cw_fingers.iter_mut() {
                 if Self::is_better_finger(origin, finger, cand_pos, true) {
-                    debug!(ideal = finger.ideal_distance, peer = %candidate.node_info.node_id, "CW finger improved");
                     finger.peer = Some(candidate.clone());
                 }
             }
             for finger in ccw_fingers.iter_mut() {
                 if Self::is_better_finger(origin, finger, cand_pos, false) {
-                    debug!(ideal = finger.ideal_distance, peer = %candidate.node_info.node_id, "CCW finger improved");
                     finger.peer = Some(candidate.clone());
                 }
             }
         }
     }
 
-    /// Collect all unique peers across both finger tables.
+    /// Improve all per-topic finger tables using `candidates`.
+    fn improve_all_topic_fingers(state: &mut VicinityState, candidates: &[PeerDescriptor]) {
+        for (topic, (cw, ccw)) in state.topic_fingers.iter_mut() {
+            let origin = topic_position(topic);
+            Self::try_improve_fingers(origin, cw, ccw, candidates);
+        }
+    }
+
+    /// Collect all unique peers across all per-topic finger tables.
     fn all_finger_peers(state: &VicinityState) -> Vec<PeerDescriptor> {
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        for finger in state.cw_fingers.iter().chain(state.ccw_fingers.iter()) {
-            if let Some(ref pd) = finger.peer {
-                let key = pd.node_info.node_id.0.to_vec();
-                if seen.insert(key) {
-                    out.push(pd.clone());
+        for (cw, ccw) in state.topic_fingers.values() {
+            for finger in cw.iter().chain(ccw.iter()) {
+                if let Some(ref pd) = finger.peer {
+                    let key = pd.node_info.node_id.0.to_vec();
+                    if seen.insert(key) {
+                        out.push(pd.clone());
+                    }
                 }
             }
         }
         out
     }
 
-    /// Apply an incoming `TopicUpdate` to whatever finger entries reference that node.
+    /// Apply an incoming `TopicUpdate`: refresh `peer_topics` and improve any
+    /// matching per-topic finger tables.
     fn apply_topic_update(state: &mut VicinityState, updated: &NodeInfo) {
-        let topics: HashSet<u64> = updated.subscribed_topics.iter().map(topic_position).collect();
-        state.peer_topics.insert(
-            updated.node_id.0.to_vec(),
-            (PeerDescriptor { node_info: updated.clone(), age: 0 }, topics),
-        );
-        for finger in state.cw_fingers.iter_mut().chain(state.ccw_fingers.iter_mut()) {
-            if let Some(ref mut pd) = finger.peer {
-                if pd.node_info.node_id == updated.node_id {
-                    pd.node_info = updated.clone();
+        let positions: HashSet<u64> = updated.subscribed_topics.iter().map(topic_position).collect();
+        let pd = PeerDescriptor { node_info: updated.clone(), age: 0 };
+        state.peer_topics.insert(updated.node_id.0.to_vec(), (pd.clone(), positions));
+        // Update any finger slot that already holds this peer.
+        for (cw, ccw) in state.topic_fingers.values_mut() {
+            for finger in cw.iter_mut().chain(ccw.iter_mut()) {
+                if let Some(ref mut fp) = finger.peer {
+                    if fp.node_info.node_id == updated.node_id {
+                        fp.node_info = updated.clone();
+                    }
                 }
             }
         }
+        // Try to improve finger tables for topics this peer subscribes to.
+        Self::improve_all_topic_fingers(state, std::slice::from_ref(&pd));
     }
 
     /// Respond to inbound Vicinity gossip (T-Man exchanges and topic updates).
-    ///
-    /// Spawn this in a dedicated task alongside the periodic `cycle()` loop.
     pub async fn serve_gossip(&self) {
         loop {
             match self.gossip.next_inbound_gossip(GOSSIP_VICINITY).await {
-                Ok((from, request_bytes, resp_tx)) => {
+                Ok((_from, request_bytes, resp_tx)) => {
                     let msg: VicinityMessage = match serde_json::from_slice(&request_bytes) {
                         Ok(m) => m,
                         Err(e) => {
-                            warn!(from = %from, "Failed to decode vicinity message: {e}");
+                            warn!("Failed to decode vicinity message: {e}");
                             continue;
                         }
                     };
@@ -283,17 +283,16 @@ impl Vicinity {
                         VicinityMessage::Exchange { descriptors: received } => {
                             let response_descs = {
                                 let mut state = self.state.write().await;
-                                let origin = Self::local_position(&state.local_subscriptions);
-                                if let Some(origin) = origin {
-                                    let state_mut = &mut *state;
-                                    Self::try_improve_fingers(
-                                        origin,
-                                        &mut state_mut.cw_fingers,
-                                        &mut state_mut.ccw_fingers,
-                                        &received,
+                                // Cache received peers.
+                                for peer in &received {
+                                    let positions: HashSet<u64> = peer.node_info.subscribed_topics
+                                        .iter().map(topic_position).collect();
+                                    state.peer_topics.insert(
+                                        peer.node_info.node_id.0.to_vec(),
+                                        (peer.clone(), positions),
                                     );
                                 }
-                                // Respond with our self-descriptor + all finger peers.
+                                Self::improve_all_topic_fingers(&mut state, &received);
                                 let mut descs = vec![PeerDescriptor {
                                     node_info: self.local_info.clone(),
                                     age: 0,
@@ -301,7 +300,6 @@ impl Vicinity {
                                 descs.extend(Self::all_finger_peers(&state));
                                 descs
                             };
-
                             let resp_msg = VicinityMessage::Exchange { descriptors: response_descs };
                             match serde_json::to_vec(&resp_msg) {
                                 Ok(encoded) => { let _ = resp_tx.send(encoded); }
@@ -314,7 +312,6 @@ impl Vicinity {
                                 let mut state = self.state.write().await;
                                 Self::apply_topic_update(&mut state, &node_info);
                             }
-                            // ACK: empty exchange
                             let ack = VicinityMessage::Exchange { descriptors: vec![] };
                             let _ = resp_tx.send(serde_json::to_vec(&ack).unwrap_or_default());
                         }
@@ -328,18 +325,16 @@ impl Vicinity {
         }
     }
 
-    /// Notify all current finger-link neighbors of a subscription change.
+    /// Notify all current finger-link neighbours of a subscription change.
     async fn notify_neighbors(&self, updated_info: &NodeInfo) {
         let neighbor_info: Vec<(NodeId, std::net::SocketAddr)> = {
             let state = self.state.read().await;
             let mut seen = HashSet::new();
             let mut out = Vec::new();
-            for finger in state.cw_fingers.iter().chain(state.ccw_fingers.iter()) {
-                if let Some(ref pd) = finger.peer {
-                    let key = pd.node_info.node_id.0.to_vec();
-                    if seen.insert(key) {
-                        out.push((pd.node_info.node_id.clone(), pd.node_info.addr));
-                    }
+            for pd in Self::all_finger_peers(&state) {
+                let key = pd.node_info.node_id.0.to_vec();
+                if seen.insert(key) {
+                    out.push((pd.node_info.node_id, pd.node_info.addr));
                 }
             }
             out
@@ -352,10 +347,7 @@ impl Vicinity {
         let msg = VicinityMessage::TopicUpdate { node_info: updated_info.clone() };
         let encoded = match serde_json::to_vec(&msg) {
             Ok(b) => b,
-            Err(e) => {
-                warn!("Failed to encode TopicUpdate: {e}");
-                return;
-            }
+            Err(e) => { warn!("Failed to encode TopicUpdate: {e}"); return; }
         };
 
         for (neighbor_id, neighbor_addr) in neighbor_info {
@@ -376,56 +368,72 @@ impl TopicRouter for Vicinity {
         let target_pos = topic_position(topic);
         let state = self.state.read().await;
 
-        let mut results: Vec<PeerDescriptor> = Vec::new();
+        let Some((cw, ccw)) = state.topic_fingers.get(topic) else {
+            return Vec::new();
+        };
+
         let mut seen: HashSet<Vec<u8>> = HashSet::new();
+        let mut direct: Vec<PeerDescriptor> = Vec::new();
+        let mut proximity: Vec<(u64, PeerDescriptor)> = Vec::new();
 
-        let all_fingers = state
-            .cw_fingers
-            .iter()
-            .chain(state.ccw_fingers.iter())
-            .filter_map(|f| f.peer.as_ref());
-
-        let mut scored: Vec<(u64, &PeerDescriptor)> = Vec::new();
-        for peer in all_fingers {
-            let id_bytes = peer.node_info.node_id.0.to_vec();
-            if !seen.insert(id_bytes) {
+        for finger in cw.iter().chain(ccw.iter()) {
+            let Some(ref pd) = finger.peer else { continue };
+            let key = pd.node_info.node_id.0.to_vec();
+            if !seen.insert(key) {
                 continue;
             }
-            let min_dist = peer
-                .node_info
-                .subscribed_topics
-                .iter()
-                .map(|t| ring_distance(topic_position(t), target_pos))
-                .min()
-                .unwrap_or(u64::MAX);
-
-            if peer.node_info.subscribed_topics.iter().any(|t| t == topic) {
-                results.push(peer.clone());
-                if results.len() >= max_results {
-                    return results;
-                }
+            if pd.node_info.subscribed_topics.iter().any(|t| t == topic) {
+                direct.push(pd.clone());
             } else {
-                scored.push((min_dist, peer));
+                let dist = pd.node_info.subscribed_topics.iter()
+                    .map(|t| ring_distance(topic_position(t), target_pos))
+                    .min()
+                    .unwrap_or(u64::MAX);
+                proximity.push((dist, pd.clone()));
             }
         }
 
-        scored.sort_by_key(|(dist, _)| *dist);
-        for (dist, peer) in scored {
+        proximity.sort_by_key(|(d, _)| *d);
+        let mut results = direct;
+        for (_, pd) in proximity {
             if results.len() >= max_results {
                 break;
             }
-            debug!(distance = dist, peer = %peer.node_info.node_id, "adding proximity result");
-            results.push(peer.clone());
+            results.push(pd);
         }
+        results.truncate(max_results);
 
         debug!(topic = %topic, found = results.len(), "find_topic_peers complete");
         results
+    }
+
+    async fn get_topic_subscribers(&self, topic: &TopicId) -> Vec<NodeId> {
+        let target_pos = topic_position(topic);
+        let state = self.state.read().await;
+        let mut ids: Vec<NodeId> = state.peer_topics.values()
+            .filter(|(_, positions)| positions.contains(&target_pos))
+            .map(|(pd, _)| pd.node_info.node_id.clone())
+            .collect();
+        if state.local_subscriptions.contains(topic) {
+            ids.push(self.local_info.node_id.clone());
+        }
+        ids
     }
 
     async fn join_topic(&self, topic: &TopicId) -> Result<(), PubSubError> {
         let updated_info = {
             let mut state = self.state.write().await;
             state.local_subscriptions.insert(topic.clone());
+            state.topic_fingers
+                .entry(topic.clone())
+                .or_insert_with(|| make_finger_table(&self.config));
+            // Seed the new table immediately from known peers.
+            let all_peers: Vec<PeerDescriptor> = state.peer_topics.values()
+                .map(|(pd, _)| pd.clone())
+                .collect();
+            let origin = topic_position(topic);
+            let (cw, ccw) = state.topic_fingers.get_mut(topic).unwrap();
+            Self::try_improve_fingers(origin, cw, ccw, &all_peers);
             info!(topic = %topic, "joined topic");
             NodeInfo {
                 node_id: self.local_info.node_id.clone(),
@@ -434,7 +442,6 @@ impl TopicRouter for Vicinity {
                 subscribed_topics: state.local_subscriptions.iter().cloned().collect(),
             }
         };
-
         self.notify_neighbors(&updated_info).await;
         Ok(())
     }
@@ -442,11 +449,11 @@ impl TopicRouter for Vicinity {
     async fn leave_topic(&self, topic: &TopicId) -> Result<(), PubSubError> {
         let updated = {
             let mut state = self.state.write().await;
-            let removed = state.local_subscriptions.remove(topic);
-            if !removed {
+            if !state.local_subscriptions.remove(topic) {
                 warn!(topic = %topic, "leave_topic called but was not subscribed");
                 return Ok(());
             }
+            state.topic_fingers.remove(topic);
             info!(topic = %topic, "left topic");
             Some(NodeInfo {
                 node_id: self.local_info.node_id.clone(),
@@ -455,7 +462,6 @@ impl TopicRouter for Vicinity {
                 subscribed_topics: state.local_subscriptions.iter().cloned().collect(),
             })
         };
-
         if let Some(updated_info) = updated {
             self.notify_neighbors(&updated_info).await;
         }
@@ -464,39 +470,32 @@ impl TopicRouter for Vicinity {
 
     /// T-Man active exchange cycle.
     ///
-    /// 1. Pick a random peer from the Cyclon sample.
-    /// 2. Send our descriptor set (self + current finger peers).
-    /// 3. Receive the peer's descriptor set.
-    /// 4. Merge both sides' descriptors to improve finger quality.
-    /// 5. Also passively improve using the full Cyclon sample.
+    /// Exchanges our descriptor set with one randomly-chosen Cyclon peer, then
+    /// merges received + sampled descriptors into ALL per-topic finger tables.
+    /// One exchange per cycle is sufficient because the received candidates are
+    /// evaluated against every topic's origin independently.
     async fn cycle(&self) -> Result<(), PubSubError> {
         let sample = self.peer_sampler.sample(self.config.gossip_sample_size).await;
         if sample.is_empty() {
-            debug!("vicinity cycle: peer sampler returned empty sample");
+            debug!("vicinity cycle: empty sample");
             return Ok(());
         }
 
-        // T-Man: pick one random peer for the active exchange.
-        // Drop rng before any await (ThreadRng is not Send).
         let target = {
             let mut rng = thread_rng();
             sample.choose(&mut rng).unwrap().clone()
         };
 
-        // Build our descriptor set: self + all finger peers.
         let our_descriptors: Vec<PeerDescriptor> = {
             let state = self.state.read().await;
-            let mut descs = vec![PeerDescriptor {
-                node_info: self.local_info.clone(),
-                age: 0,
-            }];
+            let mut descs = vec![PeerDescriptor { node_info: self.local_info.clone(), age: 0 }];
             descs.extend(Self::all_finger_peers(&state));
             descs
         };
 
         let msg = VicinityMessage::Exchange { descriptors: our_descriptors };
         let encoded = serde_json::to_vec(&msg)
-            .map_err(|e| PubSubError::Codec(format!("failed to encode vicinity exchange: {e}")))?;
+            .map_err(|e| PubSubError::Codec(format!("vicinity encode: {e}")))?;
 
         let response_bytes = self
             .gossip
@@ -505,34 +504,28 @@ impl TopicRouter for Vicinity {
             .map_err(|e| { debug!(error = %e, "vicinity exchange failed"); e })?;
 
         let response: VicinityMessage = serde_json::from_slice(&response_bytes)
-            .map_err(|e| PubSubError::Codec(format!("failed to decode vicinity response: {e}")))?;
+            .map_err(|e| PubSubError::Codec(format!("vicinity decode: {e}")))?;
 
         if let VicinityMessage::Exchange { descriptors: received } = response {
             let mut state = self.state.write().await;
-            let origin = match Self::local_position(&state.local_subscriptions) {
-                Some(pos) => pos,
-                None => {
-                    debug!("vicinity cycle: no local subscriptions, skipping finger update");
-                    return Ok(());
-                }
-            };
-
-            // Cache sampled peers' topic sets.
-            for peer in &sample {
-                let topics: HashSet<u64> =
+            // Update peer_topics cache.
+            for peer in sample.iter().chain(received.iter()) {
+                let positions: HashSet<u64> =
                     peer.node_info.subscribed_topics.iter().map(topic_position).collect();
-                state.peer_topics.insert(peer.node_info.node_id.0.to_vec(), (peer.clone(), topics));
+                state.peer_topics.insert(peer.node_info.node_id.0.to_vec(), (peer.clone(), positions));
             }
+            // Merge all candidates into every per-topic finger table.
+            let all_candidates: Vec<PeerDescriptor> = sample.iter().chain(received.iter()).cloned().collect();
+            Self::improve_all_topic_fingers(&mut state, &all_candidates);
 
-            let state_mut = &mut *state;
-            // Improve using peers received from the active exchange partner.
-            Self::try_improve_fingers(origin, &mut state_mut.cw_fingers, &mut state_mut.ccw_fingers, &received);
-            // Also improve passively using the full Cyclon sample.
-            Self::try_improve_fingers(origin, &mut state_mut.cw_fingers, &mut state_mut.ccw_fingers, &sample);
-
-            let occupied_cw = state.cw_fingers.iter().filter(|f| f.peer.is_some()).count();
-            let occupied_ccw = state.ccw_fingers.iter().filter(|f| f.peer.is_some()).count();
-            info!(occupied_cw, occupied_ccw, sampled = sample.len(), "vicinity cycle complete");
+            let total_filled: usize = state.topic_fingers.values()
+                .map(|(cw, ccw)| cw.iter().chain(ccw.iter()).filter(|f| f.peer.is_some()).count())
+                .sum();
+            info!(
+                topics = state.topic_fingers.len(),
+                filled_slots = total_filled,
+                "vicinity cycle complete"
+            );
         }
 
         Ok(())

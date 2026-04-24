@@ -38,7 +38,7 @@ use pubsub_types::error::PubSubError;
 use pubsub_types::message::{Message, MessageId, TopicId};
 use pubsub_types::node::NodeId;
 use pubsub_types::traits::{
-    Codec, Disseminator, PeerSampler, SubscriptionManager, TopicLinks, Transport,
+    Codec, Disseminator, PeerSampler, SubscriptionManager, TopicLinks, TopicRouter, Transport,
 };
 
 // ---------------------------------------------------------------------------
@@ -147,26 +147,22 @@ pub struct HybridDisseminator {
     config: DisseminationConfig,
     state: Arc<RwLock<DisseminationState>>,
 
-    /// Transport for sending messages to peers.
     transport: Arc<dyn Transport>,
-
-    /// Codec for encoding messages before forwarding.
     codec: Arc<dyn Codec>,
-
-    /// Peer sampler for refreshing random links.
     peer_sampler: Arc<dyn PeerSampler>,
-
-    /// Subscription manager for delivering messages to local consumers.
+    /// Topic router (Vicinity) — authoritative source of per-topic subscriber lists
+    /// used to build the Harary graph.
+    topic_router: Arc<dyn TopicRouter>,
     subscription_mgr: Arc<dyn SubscriptionManager>,
 }
 
 impl HybridDisseminator {
-    /// Create a new HybridDisseminator.
     pub fn new(
         local_id: NodeId,
         transport: Arc<dyn Transport>,
         codec: Arc<dyn Codec>,
         peer_sampler: Arc<dyn PeerSampler>,
+        topic_router: Arc<dyn TopicRouter>,
         subscription_mgr: Arc<dyn SubscriptionManager>,
         config: DisseminationConfig,
     ) -> Self {
@@ -186,6 +182,7 @@ impl HybridDisseminator {
             transport,
             codec,
             peer_sampler,
+            topic_router,
             subscription_mgr,
         }
     }
@@ -247,14 +244,15 @@ impl HybridDisseminator {
         neighbors
     }
 
-    /// (Re-)compute Harary links for a topic given the current set of
-    /// subscriber NodeIds.
-    pub async fn rebuild_neighbors(
-        &self,
-        topic: &TopicId,
-        mut subscriber_ids: Vec<NodeId>,
-    ) {
-        // Sort for deterministic cyclic ordering.
+    /// (Re-)compute Harary links for a topic from the Vicinity subscriber list.
+    ///
+    /// Called without a prior read-lock check — the write-lock acquisition is
+    /// atomic with the update, eliminating the TOCTOU race that arose from
+    /// checking `needs_init` under a read lock and writing under a separate
+    /// write lock.  Rebuilding is idempotent; the small redundant work on
+    /// concurrent first-message arrivals is cheaper than the lock split.
+    pub async fn rebuild_neighbors(&self, topic: &TopicId) {
+        let mut subscriber_ids = self.topic_router.get_topic_subscribers(topic).await;
         subscriber_ids.sort_by(|a, b| a.0.cmp(&b.0));
 
         let neighbors = Self::compute_neighbors(
@@ -265,15 +263,13 @@ impl HybridDisseminator {
 
         debug!(
             topic = %topic,
-            neighbor_count = neighbors.len(),
-            "rebuilt neighbors"
+            subscribers = subscriber_ids.len(),
+            neighbors = neighbors.len(),
+            "rebuilt Harary neighbors"
         );
 
         let mut state = self.state.write().await;
-        let entry = state
-            .topic_links
-            .entry(topic.clone())
-            .or_insert_with(TopicLinkState::default);
+        let entry = state.topic_links.entry(topic.clone()).or_default();
         entry.neighbors = neighbors;
     }
 
@@ -374,22 +370,9 @@ impl Disseminator for HybridDisseminator {
             warn!(error = %e, "failed to deliver locally");
         }
 
-        // Lazily build links if not yet initialised for this topic.
-        let needs_init = self.state.read().await.topic_links
-            .get(&msg.topic_id).map(|l| l.neighbors.is_empty() && l.random.is_empty())
-            .unwrap_or(true);
-        if needs_init {
-            let view = self.peer_sampler.view().await;
-            let subscriber_ids: Vec<NodeId> = std::iter::once(self.local_id.clone())
-                .chain(
-                    view.iter()
-                        .filter(|pd| pd.node_info.subscribed_topics.contains(&msg.topic_id))
-                        .map(|pd| pd.node_info.node_id.clone()),
-                )
-                .collect();
-            self.rebuild_neighbors(&msg.topic_id, subscriber_ids).await;
-            self.refresh_random_links(&msg.topic_id).await;
-        }
+        // Build Harary links from the Vicinity subscriber list (always fresh).
+        self.rebuild_neighbors(&msg.topic_id).await;
+        self.refresh_random_links(&msg.topic_id).await;
 
         // Forward to all overlay peers (no exclusion — we are the origin).
         self.forward(msg, None).await?;
@@ -430,22 +413,9 @@ impl Disseminator for HybridDisseminator {
             warn!(error = %e, "failed to deliver locally on receive");
         }
 
-        // Lazily build Harary + random links for this topic if none exist yet.
-        let needs_init = self.state.read().await.topic_links
-            .get(&msg.topic_id).map(|l| l.neighbors.is_empty() && l.random.is_empty())
-            .unwrap_or(true);
-        if needs_init {
-            let view = self.peer_sampler.view().await;
-            let subscriber_ids: Vec<NodeId> = std::iter::once(self.local_id.clone())
-                .chain(
-                    view.iter()
-                        .filter(|pd| pd.node_info.subscribed_topics.contains(&msg.topic_id))
-                        .map(|pd| pd.node_info.node_id.clone()),
-                )
-                .collect();
-            self.rebuild_neighbors(&msg.topic_id, subscriber_ids).await;
-            self.refresh_random_links(&msg.topic_id).await;
-        }
+        // Refresh Harary links from Vicinity subscriber list.
+        self.rebuild_neighbors(&msg.topic_id).await;
+        self.refresh_random_links(&msg.topic_id).await;
 
         // --- Forward to peers (excluding sender) ---
         self.forward(&msg, Some(from)).await?;

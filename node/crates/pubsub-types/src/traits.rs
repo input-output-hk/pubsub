@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use bytes::Bytes;
 
 use crate::error::PubSubError;
 use crate::message::{Message, MessageId, TopicId};
@@ -104,6 +105,13 @@ pub trait TopicRouter: Send + Sync + 'static {
         topic: &TopicId,
         max_results: usize,
     ) -> Vec<PeerDescriptor>;
+
+    /// Return all nodes known to subscribe to this topic.
+    ///
+    /// Used by the Harary graph builder: H(t,n) requires the complete set of
+    /// n subscribers to guarantee t-connectivity.  Vicinity's peer_topics map
+    /// is the authoritative local view of per-topic membership.
+    async fn get_topic_subscribers(&self, topic: &TopicId) -> Vec<NodeId>;
 
     /// Announce that this node subscribes to a topic
     async fn join_topic(&self, topic: &TopicId) -> Result<(), PubSubError>;
@@ -223,6 +231,20 @@ pub trait ChainState: Send + Sync + 'static {
 
     /// Get the stake associated with a node (for future use in weighted selection)
     async fn get_node_stake(&self, node: &NodeId) -> Result<u64, PubSubError>;
+
+    /// Return all KES public keys currently registered for any stake pool.
+    /// Phase 1: returns a small hardcoded set from MockChainState.
+    /// Production: queries the on-chain Pool Registry via Ogmios.
+    async fn get_pool_kes_keys(&self) -> Result<Vec<Bytes>, PubSubError>;
+
+    /// Return all signing keys registered for DRep credentials (CIP-1694).
+    /// Phase 1: returns a small hardcoded set from MockChainState.
+    async fn get_drep_keys(&self) -> Result<Vec<Bytes>, PubSubError>;
+
+    /// Return the curated list of authority public keys authorised to publish
+    /// emergency alerts.
+    /// Phase 1: returns a small hardcoded set from MockChainState.
+    async fn get_authority_keys(&self) -> Result<Vec<Bytes>, PubSubError>;
 }
 
 // =============================================================================

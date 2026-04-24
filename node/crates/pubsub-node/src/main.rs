@@ -199,6 +199,7 @@ async fn main() -> Result<()> {
         transport_app.clone(),
         codec.clone(),
         cyclon.clone(),
+        vicinity.clone(),
         subscription_mgr.clone(),
         DisseminationConfig::default(),
     ));
@@ -450,7 +451,7 @@ mod tests {
     use bytes::Bytes;
 
     use pubsub_network::store::HotCache;
-    use pubsub_types::message::{Message, PublisherId, TopicId};
+    use pubsub_types::message::{Message, PublisherCredential, PublisherId, TopicId};
     use pubsub_types::node::{NodeId, NodeInfo};
     use pubsub_types::traits::MessageStore;
 
@@ -461,7 +462,7 @@ mod tests {
             topic_id: TopicId([0xABu8; 32]),
             sequence_nr: 1,
             timestamp_ms: 0,
-            publisher_id: PublisherId(Bytes::from_static(b"pub")),
+            publisher_id: PublisherId(PublisherCredential::ed25519(Bytes::from(vec![0xABu8; 32]))),
             signature: Bytes::new(),
             payload: Bytes::from_static(b"hello"),
             metadata: BTreeMap::new(),
