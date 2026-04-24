@@ -1,0 +1,200 @@
+#!/bin/bash
+# Launch a local PubSub testnet with 5 nodes
+#
+# Usage: ./testnet/launch.sh [build]
+#   - Without args: runs the nodes (must be built first)
+#   - With "build": builds first, then runs
+#
+# Nodes bind to ports 9001-9005 on localhost.
+# All nodes subscribe to the topics defined in TOPICS.
+# Peer discovery uses testnet/nodes.json (generated automatically).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+NODE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LOG_DIR="$SCRIPT_DIR/logs"
+NODES_JSON="$SCRIPT_DIR/nodes.json"
+
+NUM_NODES=5
+BASE_PORT=9001
+TOPICS="ops/emergency/critical,gov/drep/test,dapp/test/notifications"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# ── Build ────────────────────────────────────────────────────────────────────
+
+if [[ "${1:-}" == "build" ]]; then
+    echo -e "${BLUE}Building PubSub node...${NC}"
+    cd "$NODE_DIR"
+    cargo build --release
+    echo -e "${GREEN}Build complete.${NC}"
+fi
+
+# ── Generate nodes.json ──────────────────────────────────────────────────────
+
+mkdir -p "$LOG_DIR"
+
+echo -e "${BLUE}Generating $NODES_JSON...${NC}"
+
+# Build the JSON array of topic strings from the TOPICS variable
+topics_json=$(python3 -c "
+import json, sys
+topics = sys.argv[1].split(',')
+print(json.dumps(topics))
+" "$TOPICS" 2>/dev/null || echo '["ops/emergency/critical","gov/drep/test","dapp/test/notifications"]')
+
+{
+    echo '{'
+    echo '  "nodes": ['
+    for i in $(seq 1 $NUM_NODES); do
+        port=$((BASE_PORT + i - 1))
+        comma=""
+        [[ $i -lt $NUM_NODES ]] && comma=","
+        cat <<EOF
+    {
+      "addr": "127.0.0.1:${port}",
+      "public_key": null,
+      "subscribed_topics": ${topics_json}
+    }${comma}
+EOF
+    done
+    echo '  ]'
+    echo '}'
+} > "$NODES_JSON"
+
+echo -e "${GREEN}nodes.json written (${NUM_NODES} nodes).${NC}"
+
+# ── Find binary (prefer newest of release/debug) ─────────────────────────────
+
+RELEASE_BIN="$NODE_DIR/target/release/pubsub-node"
+DEBUG_BIN="$NODE_DIR/target/debug/pubsub-node"
+BINARY=""
+
+if [ -f "$RELEASE_BIN" ] && [ -f "$DEBUG_BIN" ]; then
+    # Pick whichever was compiled more recently
+    if [ "$RELEASE_BIN" -nt "$DEBUG_BIN" ]; then
+        BINARY="$RELEASE_BIN"
+    else
+        BINARY="$DEBUG_BIN"
+    fi
+elif [ -f "$RELEASE_BIN" ]; then
+    BINARY="$RELEASE_BIN"
+elif [ -f "$DEBUG_BIN" ]; then
+    BINARY="$DEBUG_BIN"
+fi
+
+if [ -z "$BINARY" ]; then
+    echo -e "${RED}Error: pubsub-node binary not found. Run with 'build' argument first.${NC}"
+    exit 1
+fi
+
+echo -e "${BLUE}Using binary: $BINARY${NC}"
+
+# ── Cleanup on exit ──────────────────────────────────────────────────────────
+
+cleanup() {
+    echo -e "\n${YELLOW}Shutting down all nodes...${NC}"
+    for pid_file in "$LOG_DIR"/*.pid; do
+        if [ -f "$pid_file" ]; then
+            pid=$(cat "$pid_file")
+            if kill -0 "$pid" 2>/dev/null; then
+                kill "$pid"
+                echo -e "  Stopped node (PID $pid)"
+            fi
+            rm "$pid_file"
+        fi
+    done
+    echo -e "${GREEN}All nodes stopped.${NC}"
+}
+trap cleanup EXIT
+
+# ── Launch nodes ─────────────────────────────────────────────────────────────
+
+echo -e "${BLUE}Launching $NUM_NODES PubSub nodes...${NC}"
+echo ""
+
+HTTP_BASE_PORT=$((BASE_PORT + 1000))
+
+for i in $(seq 1 $NUM_NODES); do
+    port=$((BASE_PORT + i - 1))
+    http_port=$((HTTP_BASE_PORT + i - 1))
+    name="node-$i"
+    log_file="$LOG_DIR/$name.log"
+
+    echo -e "${GREEN}  Starting $name on QUIC :$port  HTTP :$http_port${NC}"
+
+    $BINARY \
+        --bind "127.0.0.1:$port" \
+        --name "$name" \
+        --topics "$TOPICS" \
+        --registry "$NODES_JSON" \
+        --http-port "$http_port" \
+        --log-level debug \
+        > "$log_file" 2>&1 &
+
+    echo $! > "$LOG_DIR/$name.pid"
+done
+
+# Build ?nodes= query param for cluster view
+nodes_param=""
+for i in $(seq 1 $NUM_NODES); do
+    http_port=$((HTTP_BASE_PORT + i - 1))
+    [[ -n "$nodes_param" ]] && nodes_param="${nodes_param},"
+    nodes_param="${nodes_param}localhost:${http_port}"
+done
+
+echo ""
+echo -e "${GREEN}All $NUM_NODES nodes launched.${NC}"
+echo -e "Registry: $NODES_JSON"
+echo -e "Logs: $LOG_DIR/"
+echo ""
+echo -e "Nodes:"
+for i in $(seq 1 $NUM_NODES); do
+    port=$((BASE_PORT + i - 1))
+    http_port=$((HTTP_BASE_PORT + i - 1))
+    echo -e "  ${BLUE}node-$i${NC} → QUIC 127.0.0.1:$port  HTTP http://localhost:$http_port"
+done
+echo ""
+echo -e "Topics: $TOPICS"
+echo ""
+echo -e "Dashboard (single node):"
+echo -e "  ${YELLOW}http://localhost:${HTTP_BASE_PORT}${NC}"
+echo ""
+echo -e "Dashboard (cluster view):"
+echo -e "  ${YELLOW}http://localhost:${HTTP_BASE_PORT}/?nodes=${nodes_param}${NC}"
+echo ""
+echo -e "To publish a test message:"
+echo -e "  ${YELLOW}pubsub-cli --node 127.0.0.1:9001 publish --topic ops/emergency/critical --message \"test alert\"${NC}"
+echo ""
+echo -e "Press Ctrl+C to stop all nodes."
+
+# Monitor nodes and report any unexpected exits
+monitor_nodes() {
+    while true; do
+        sleep 5
+        for pid_file in "$LOG_DIR"/*.pid; do
+            [ -f "$pid_file" ] || continue
+            pid=$(cat "$pid_file")
+            name=$(basename "$pid_file" .pid)
+            if ! kill -0 "$pid" 2>/dev/null; then
+                echo -e "${RED}  $name (PID $pid) exited unexpectedly — check $LOG_DIR/$name.log${NC}"
+                rm -f "$pid_file"
+            fi
+        done
+        # If all nodes gone, exit
+        shopt -s nullglob
+        pids=("$LOG_DIR"/*.pid)
+        shopt -u nullglob
+        [ ${#pids[@]} -eq 0 ] && { echo -e "${RED}All nodes have exited.${NC}"; exit 1; }
+    done
+}
+
+monitor_nodes &
+MONITOR_PID=$!
+wait || true
+kill "$MONITOR_PID" 2>/dev/null || true

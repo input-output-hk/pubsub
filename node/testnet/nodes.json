@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "addr": "127.0.0.1:9001",
+      "public_key": null,
+      "subscribed_topics": ["ops/emergency/critical", "gov/drep/test", "dapp/test/notifications"]
+    },
+    {
+      "addr": "127.0.0.1:9002",
+      "public_key": null,
+      "subscribed_topics": ["ops/emergency/critical", "gov/drep/test", "dapp/test/notifications"]
+    },
+    {
+      "addr": "127.0.0.1:9003",
+      "public_key": null,
+      "subscribed_topics": ["ops/emergency/critical", "gov/drep/test", "dapp/test/notifications"]
+    },
+    {
+      "addr": "127.0.0.1:9004",
+      "public_key": null,
+      "subscribed_topics": ["ops/emergency/critical", "gov/drep/test", "dapp/test/notifications"]
+    },
+    {
+      "addr": "127.0.0.1:9005",
+      "public_key": null,
+      "subscribed_topics": ["ops/emergency/critical", "gov/drep/test", "dapp/test/notifications"]
+    }
+  ]
+}
