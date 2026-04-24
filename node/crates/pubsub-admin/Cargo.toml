@@ -1,0 +1,33 @@
+[package]
+name = "pubsub-admin"
+description = "Admin CLI for PubSub Cardano contract deployment and management"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# CLI + interactive prompts
+clap       = { workspace = true }
+dialoguer  = "0.12"
+console    = "0.16"
+
+# Async
+tokio      = { workspace = true }
+
+# HTTP (Blockfrost)
+reqwest    = { version = "0.13", features = ["json"] }
+
+# Serialization
+serde      = { workspace = true }
+serde_json = { workspace = true }
+hex        = "0.4"
+
+# Cardano
+pallas-crypto   = { workspace = true }
+pallas-txbuilder = "0.35"
+pallas-addresses = "0.35"
+
+# Utilities
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
+tempfile  = "3"
