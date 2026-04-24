@@ -1,6 +1,5 @@
 use node_registry/test_helpers.{
-  alice_key, bob_key, empty_registry, node1_id, node2_id, node3_id,
-  registry_with_node1, sample_node_entry,
+  alice_key, bob_key, empty_registry, node1_id, node2_id, sample_node_entry,
 }
 use node_registry/types.{NodeEntry, NodeRegistryDatum}
 use node_registry/utils
