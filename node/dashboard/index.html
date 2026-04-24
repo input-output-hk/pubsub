@@ -198,11 +198,11 @@
 <header>
   <div class="status-dot disconnected" id="status-dot"></div>
   <h1>PubSub Testnet</h1>
-  <div id="header-node-id" style="font-size:12px;color:#6b7280;font-family:monospace"></div>
+  <div id="header-node-id" style="font-size:11px;color:#6b7280;font-family:monospace;letter-spacing:-0.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:460px"></div>
   <div id="node-selector">
-    <label>Node URL:</label>
-    <input type="text" id="node-url-input" placeholder="http://localhost:10001">
-    <button id="connect-btn">Connect</button>
+    <input type="text" id="node-url-input" placeholder="http://localhost:10001" style="display:none">
+    <button id="connect-btn" style="display:none">Connect</button>
+    <span id="node-url-display" style="font-size:12px;color:#6b7280;font-family:monospace;cursor:pointer" title="Click to change node">▾</span>
     <span id="multi-hint" style="color:#6b7280;font-size:11px"></span>
   </div>
 </header>
@@ -257,6 +257,7 @@ let es = null;            // EventSource
 let pollTimer = null;
 let activeTopic = null;   // null = all
 let msgCount = 0;
+let selfBech32 = '';      // bech32 id of this node, from /api/status
 
 const nodes = new Map();  // id → {id, addr, label, isSelf}
 const links = [];         // {source, target, type}
@@ -321,6 +322,8 @@ function connectSSE() {
 function setStatus(online) {
   const dot = document.getElementById('status-dot');
   dot.className = 'status-dot' + (online ? '' : ' disconnected');
+  const display = document.getElementById('node-url-display');
+  if (display) display.textContent = nodeUrl ? nodeUrl.replace(/^https?:\/\//, '') + ' ▾' : '▾';
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +340,7 @@ async function pollAll() {
     updateStats(status);
     updateTopics(status);
     updateGraph(topology, peers, status);
-    updateHeaderNodeId(status.node_id);
+    updateHeaderNodeId(status);
     setStatus(true);
   } catch {
     setStatus(false);
@@ -352,9 +355,9 @@ async function pollAll() {
   } catch {}
 }
 
-function updateHeaderNodeId(id) {
-  document.getElementById('header-node-id').textContent =
-    id ? id.substring(0, 12) + '…' : '';
+function updateHeaderNodeId(status) {
+  selfBech32 = status.node_id_bech32 || status.node_id || '';
+  document.getElementById('header-node-id').textContent = selfBech32;
 }
 
 function updateStats(s) {
@@ -424,7 +427,10 @@ function updateGraph(topology, peers, status) {
   const allPeers = topology.peers || [];
   allPeers.forEach(p => {
     if (!nodes.has(p.peer_id)) {
-      nodes.set(p.peer_id, { id: p.peer_id, addr: p.addr, label: p.addr, isSelf: false });
+      nodes.set(p.peer_id, { id: p.peer_id, bech32: p.peer_id_bech32, addr: p.addr, label: p.addr, isSelf: false });
+    } else {
+      const n = nodes.get(p.peer_id);
+      if (p.peer_id_bech32) n.bech32 = p.peer_id_bech32;
     }
   });
 
@@ -535,8 +541,10 @@ function dragend(event, d) {
 // ---------------------------------------------------------------------------
 function showNodeDetail(d) {
   const el = document.getElementById('node-detail');
+  const displayId = d.isSelf ? (selfBech32 || d.id) : (d.bech32 || d.id);
   el.innerHTML = `
-    <div><strong>ID</strong> <span style="font-family:monospace;font-size:10px">${d.id.substring(0,16)}…</span></div>
+    <div><strong>ID</strong></div>
+    <div style="font-family:monospace;font-size:10px;word-break:break-all;color:#a78bfa;margin-bottom:4px">${displayId}</div>
     <div><strong>Addr</strong> ${d.addr || '—'}</div>
     <div><strong>Role</strong> ${d.isSelf ? 'Self (this node)' : 'Remote peer'}</div>
   `;
@@ -632,7 +640,7 @@ function buildMsgItem(m, isNew) {
   div.innerHTML = `
     <div class="msg-topic" title="${m.topic}">${topicShort}</div>
     <div class="msg-payload">${escapeHtml(m.payload_preview || '')}</div>
-    <div class="msg-meta">seq ${m.seq} · from ${(m.from||'').substring(0,8)}… · ${time}</div>
+    <div class="msg-meta">seq ${m.seq} · from ${(m.from||'').substring(0,12)}… · ${time}</div>
   `;
   return div;
 }
@@ -649,11 +657,26 @@ document.getElementById('node-url-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') connect();
 });
 
+// Toggle the URL input on click of the ▾ indicator
+document.getElementById('node-url-display').addEventListener('click', () => {
+  const input = document.getElementById('node-url-input');
+  const btn = document.getElementById('connect-btn');
+  const visible = input.style.display !== 'none';
+  input.style.display = visible ? 'none' : '';
+  btn.style.display = visible ? 'none' : '';
+  if (!visible) input.focus();
+});
+
 parseUrlParam();
 
-// Auto-connect if URL param provided
+// Auto-connect:
+// - if ?nodes= param is provided, use that (multi-node testnet view)
+// - otherwise assume the dashboard is served by the node itself → connect to this origin
 const params = new URLSearchParams(window.location.search);
 if (params.get('nodes')) {
+  setTimeout(connect, 100);
+} else if (!document.getElementById('node-url-input').value) {
+  document.getElementById('node-url-input').value = window.location.origin;
   setTimeout(connect, 100);
 }
 

@@ -57,6 +57,10 @@ pub struct StoredMessage {
 pub struct ApiState {
     pub node_info: NodeInfo,
     pub started_at: Instant,
+    /// "mainnet" | "preprod" | "preview"
+    pub network: String,
+    /// bech32 HRP for node identifiers ("psnode" or "psnode_test")
+    pub bech32_hrp: String,
     /// peer_id_hex → addr
     pub connected_peers: Arc<DashMap<String, String>>,
     /// topic_hex → topic_name, seeded at startup from subscriptions
@@ -67,11 +71,17 @@ pub struct ApiState {
 }
 
 impl ApiState {
-    pub fn new(node_info: NodeInfo) -> (Arc<Self>, broadcast::Sender<NodeEvent>) {
+    pub fn new(
+        node_info: NodeInfo,
+        network: String,
+        bech32_hrp: String,
+    ) -> (Arc<Self>, broadcast::Sender<NodeEvent>) {
         let (tx, _) = broadcast::channel(1024);
         let state = Arc::new(Self {
             node_info,
             started_at: Instant::now(),
+            network,
+            bech32_hrp,
             connected_peers: Arc::new(DashMap::new()),
             topic_names: Arc::new(DashMap::new()),
             recent_messages: Arc::new(tokio::sync::RwLock::new(Vec::new())),
@@ -137,6 +147,8 @@ impl ApiState {
 #[derive(Serialize)]
 struct StatusResponse {
     node_id: String,
+    node_id_bech32: String,
+    network: String,
     addr: String,
     uptime_secs: u64,
     peer_count: usize,
@@ -147,6 +159,7 @@ struct StatusResponse {
 #[derive(Serialize)]
 struct PeerEntry {
     peer_id: String,
+    peer_id_bech32: String,
     addr: String,
 }
 
@@ -177,6 +190,7 @@ struct TopologyResponse {
 #[derive(Serialize)]
 struct TopologyPeer {
     peer_id: String,
+    peer_id_bech32: String,
     addr: String,
 }
 
@@ -190,8 +204,12 @@ async fn handle_root() -> impl IntoResponse {
 
 async fn handle_status(State(state): State<Arc<ApiState>>) -> impl IntoResponse {
     let msgs = state.recent_messages.read().await;
+    let node_id: String = state.node_info.node_id.0.iter().map(|b| format!("{b:02x}")).collect();
+    let node_id_bech32 = encode_bech32(&state.bech32_hrp, &state.node_info.node_id.0);
     Json(StatusResponse {
-        node_id: state.node_info.node_id.0.iter().map(|b| format!("{b:02x}")).collect(),
+        node_id,
+        node_id_bech32,
+        network: state.network.clone(),
         addr: state.node_info.addr.to_string(),
         uptime_secs: state.started_at.elapsed().as_secs(),
         peer_count: state.connected_peers.len(),
@@ -200,16 +218,74 @@ async fn handle_status(State(state): State<Arc<ApiState>>) -> impl IntoResponse 
     })
 }
 
+fn encode_bech32(hrp: &str, data: &[u8]) -> String {
+    const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+    const GEN: [u32; 5] = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+
+    fn polymod(v: &[u8]) -> u32 {
+        let mut c: u32 = 1;
+        for &d in v {
+            let t = c >> 25;
+            c = ((c & 0x1ffffff) << 5) ^ u32::from(d);
+            for (i, &g) in GEN.iter().enumerate() {
+                if (t >> i) & 1 != 0 { c ^= g; }
+            }
+        }
+        c
+    }
+
+    // HRP expand
+    let mut enc: Vec<u8> = hrp.bytes().map(|b| b >> 5).collect();
+    enc.push(0);
+    hrp.bytes().for_each(|b| enc.push(b & 31));
+
+    // Convert data 8→5 bits
+    let (mut acc, mut bits) = (0u32, 0u32);
+    for &b in data {
+        acc = (acc << 8) | u32::from(b);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            enc.push(((acc >> bits) & 31) as u8);
+        }
+    }
+    if bits > 0 { enc.push(((acc << (5 - bits)) & 31) as u8); }
+
+    // Checksum
+    let payload_end = enc.len();
+    for _ in 0..6 { enc.push(0); }
+    let pm = polymod(&enc) ^ 1;
+    for i in 0..6 { enc[payload_end + i] = ((pm >> (5 * (5 - i))) & 31) as u8; }
+
+    // Encode
+    let mut out = format!("{hrp}1");
+    for &v in &enc[hrp.len() + 1..] {
+        out.push(CHARSET[v as usize] as char);
+    }
+    out
+}
+
 async fn handle_peers(State(state): State<Arc<ApiState>>) -> impl IntoResponse {
     let peers: Vec<PeerEntry> = state
         .connected_peers
         .iter()
-        .map(|e| PeerEntry {
-            peer_id: e.key().clone(),
-            addr: e.value().clone(),
+        .map(|e| {
+            let peer_id = e.key().clone();
+            let peer_id_bech32 = encode_bech32(
+                &state.bech32_hrp,
+                &hex_to_bytes(&peer_id),
+            );
+            PeerEntry { peer_id, peer_id_bech32, addr: e.value().clone() }
         })
         .collect();
     Json(peers)
+}
+
+fn hex_to_bytes(hex: &str) -> Vec<u8> {
+    hex.as_bytes()
+        .chunks(2)
+        .filter_map(|c| u8::from_str_radix(std::str::from_utf8(c).unwrap_or(""), 16).ok())
+        .collect()
 }
 
 async fn handle_topics(State(state): State<Arc<ApiState>>) -> impl IntoResponse {
@@ -252,9 +328,10 @@ async fn handle_topology(State(state): State<Arc<ApiState>>) -> impl IntoRespons
     let peers: Vec<TopologyPeer> = state
         .connected_peers
         .iter()
-        .map(|e| TopologyPeer {
-            peer_id: e.key().clone(),
-            addr: e.value().clone(),
+        .map(|e| {
+            let peer_id = e.key().clone();
+            let peer_id_bech32 = encode_bech32(&state.bech32_hrp, &hex_to_bytes(&peer_id));
+            TopologyPeer { peer_id, peer_id_bech32, addr: e.value().clone() }
         })
         .collect();
     Json(TopologyResponse { self_id, peers })
