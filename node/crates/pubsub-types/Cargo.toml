@@ -1,0 +1,16 @@
+[package]
+name = "pubsub-types"
+description = "Core types, message envelope, and trait definitions for Cardano PubSub"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+ciborium = { workspace = true }
+ed25519-dalek = { workspace = true }
+blake2 = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
