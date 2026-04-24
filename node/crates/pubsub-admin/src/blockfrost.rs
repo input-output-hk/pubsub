@@ -61,9 +61,12 @@ impl ProtocolParams {
             .get("PlutusV3")
             .and_then(|v| v.as_object())
             .ok_or_else(|| anyhow!("PlutusV3 cost model not found in protocol params"))?;
-        obj.values()
+        let values: Result<Vec<i64>> = obj.values()
             .map(|v| v.as_i64().ok_or_else(|| anyhow!("cost model value is not an integer")))
-            .collect()
+            .collect();
+        let values = values?;
+        println!("  PlutusV3 cost model: {} params, first={} last={}", values.len(), values.first().unwrap_or(&0), values.last().unwrap_or(&0));
+        Ok(values)
     }
 
     pub fn exec_prices(&self) -> ExecPrices {
