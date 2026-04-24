@@ -107,7 +107,7 @@ impl SubscriptionManager for LocalSubscriptionManager {
     async fn deliver(&self, msg: Message) -> Result<(), PubSubError> {
         let payload = std::str::from_utf8(&msg.payload).unwrap_or("<binary>");
         info!(
-            topic = ?msg.topic_id,
+            topic = %msg.topic_id,
             seq = msg.sequence_nr,
             payload,
             "Delivered message to local subscriber"
@@ -136,8 +136,7 @@ async fn main() -> Result<()> {
     // the transport layer when it assigns an ID to an inbound connection.  This
     // makes the ID consistent everywhere in the stack.
     let node_id = node_id_from_addr(args.advertise_addr.unwrap_or(args.bind));
-    let node_id_hex: String = node_id.0.iter().map(|b| format!("{b:02x}")).collect();
-    info!(node_id = node_id_hex, "Node identity derived from address");
+    info!(node_id = %node_id, "Node identity derived from address");
 
     let mock_topics = default_topics(&args.topics);
     let mock_nodes = build_peer_list(&args, &node_id);

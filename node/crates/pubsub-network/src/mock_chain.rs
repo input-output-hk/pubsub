@@ -63,7 +63,7 @@ impl ChainState for MockChainState {
             .find(|tc| tc.topic_id == *topic)
             .cloned();
         debug!(
-            topic = ?topic,
+            topic = %topic,
             found = config.is_some(),
             "MockChainState: get_topic_config"
         );

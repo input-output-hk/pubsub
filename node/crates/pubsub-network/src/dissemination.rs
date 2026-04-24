@@ -264,7 +264,7 @@ impl HybridDisseminator {
         );
 
         debug!(
-            topic = ?topic,
+            topic = %topic,
             neighbor_count = neighbors.len(),
             "rebuilt neighbors"
         );
@@ -293,7 +293,7 @@ impl HybridDisseminator {
             .collect();
 
         debug!(
-            topic = ?topic,
+            topic = %topic,
             random_count = random_links.len(),
             "refreshed random links"
         );
@@ -319,7 +319,7 @@ impl HybridDisseminator {
         let links = match state.topic_links.get(&msg.topic_id) {
             Some(l) => l,
             None => {
-                debug!(topic = ?msg.topic_id, "no links for topic, skipping forward");
+                debug!(topic = %msg.topic_id, "no links for topic, skipping forward");
                 return Ok(());
             }
         };
@@ -340,7 +340,7 @@ impl HybridDisseminator {
                 continue;
             }
             if let Err(e) = self.transport.send(peer_id, &encoded).await {
-                warn!(peer = ?peer_id, error = %e, "failed to forward message");
+                warn!(peer = %peer_id, error = %e, "failed to forward message");
                 // Non-fatal: keep forwarding to other peers.
             }
         }
@@ -394,7 +394,7 @@ impl Disseminator for HybridDisseminator {
         // Forward to all overlay peers (no exclusion — we are the origin).
         self.forward(msg, None).await?;
 
-        info!(topic = ?msg.topic_id, seq = msg.sequence_nr, "message disseminated");
+        info!(topic = %msg.topic_id, seq = msg.sequence_nr, "message disseminated");
         Ok(())
     }
 
@@ -412,15 +412,15 @@ impl Disseminator for HybridDisseminator {
         {
             let mut state = self.state.write().await;
             if state.seen.contains(&msg_id) {
-                debug!(from = ?from, "on_receive: duplicate, dropping");
+                debug!(from = %from, "on_receive: duplicate, dropping");
                 return Ok(());
             }
             state.seen.insert(msg_id);
         }
 
         debug!(
-            from = ?from,
-            topic = ?msg.topic_id,
+            from = %from,
+            topic = %msg.topic_id,
             seq = msg.sequence_nr,
             "on_receive: new message"
         );

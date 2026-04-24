@@ -34,7 +34,7 @@ impl Codec for CborCodec {
     fn decode(&self, data: &[u8]) -> Result<Message, PubSubError> {
         let msg: Message = ciborium::from_reader(data)
             .map_err(|e| PubSubError::Codec(format!("CBOR decode failed: {e}")))?;
-        trace!(topic = ?msg.topic_id, seq = msg.sequence_nr, "Decoded message from CBOR");
+        trace!(topic = %msg.topic_id, seq = msg.sequence_nr, "Decoded message from CBOR");
         Ok(msg)
     }
 }

@@ -56,7 +56,7 @@ impl MessageStore for HotCache {
             }
         }
 
-        trace!(topic = ?key.0, seq = key.1, "Storing message in hot cache");
+        trace!(topic = %key.0, seq = key.1, "Storing message in hot cache");
         self.entries.insert(key, (msg, Instant::now()));
         Ok(())
     }
@@ -64,7 +64,7 @@ impl MessageStore for HotCache {
     async fn get(&self, id: &MessageId) -> Result<Option<Message>, PubSubError> {
         let key = (id.topic_id.clone(), id.sequence_nr);
         let result = self.entries.get(&key).map(|entry| entry.value().0.clone());
-        trace!(topic = ?id.topic_id, seq = id.sequence_nr, found = result.is_some(), "HotCache get");
+        trace!(topic = %id.topic_id, seq = id.sequence_nr, found = result.is_some(), "HotCache get");
         Ok(result)
     }
 
@@ -98,7 +98,7 @@ impl MessageStore for HotCache {
             .collect();
 
         debug!(
-            topic = ?topic,
+            topic = %topic,
             since = since_sequence_nr,
             returned = result.len(),
             "HotCache get_since"

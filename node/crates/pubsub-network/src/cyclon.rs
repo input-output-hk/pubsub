@@ -140,7 +140,7 @@ impl SecureCyclon {
                         match serde_json::from_slice(&request_bytes) {
                             Ok(v) => v,
                             Err(e) => {
-                                warn!(?from, "Failed to decode inbound gossip request: {e}");
+                                warn!(from = %from, "Failed to decode inbound gossip request: {e}");
                                 continue;
                             }
                         };
@@ -176,7 +176,7 @@ impl PeerSampler for SecureCyclon {
         let view = self.view.read().await;
         let mut rng = thread_rng();
         if count >= view.len() {
-            debug!(requested = count, available = view.len(), "sample: returning full view");
+            debug!(requested = count, in_view = view.len(), "sample: returning full view");
             return view.clone();
         }
         let mut indices: Vec<usize> = (0..view.len()).collect();
@@ -203,7 +203,7 @@ impl PeerSampler for SecureCyclon {
             }
             let (oldest_idx, target) = Self::pick_oldest(&view).expect("non-empty");
             debug!(
-                target_id = ?target.node_info.node_id,
+                target = %target.node_info.node_id,
                 target_age = target.age,
                 "cycle: selected oldest peer"
             );

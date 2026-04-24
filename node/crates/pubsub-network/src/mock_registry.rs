@@ -130,7 +130,7 @@ impl NodeRegistry for MockNodeRegistry {
         _commitment_epochs: u32,
     ) -> Result<(), PubSubError> {
         info!(
-            node_id = ?info.node_id,
+            node_id = %info.node_id,
             addr = %info.addr,
             "MockNodeRegistry: registered node"
         );
@@ -140,7 +140,7 @@ impl NodeRegistry for MockNodeRegistry {
 
     async fn deregister(&self, node_id: &NodeId) -> Result<(), PubSubError> {
         self.nodes.remove(node_id);
-        debug!(node_id = ?node_id, "MockNodeRegistry: deregistered node");
+        debug!(node_id = %node_id, "MockNodeRegistry: deregistered node");
         Ok(())
     }
 
@@ -153,7 +153,7 @@ impl NodeRegistry for MockNodeRegistry {
     async fn get_node(&self, node_id: &NodeId) -> Result<Option<NodeInfo>, PubSubError> {
         let node = self.nodes.get(node_id).map(|r| r.value().clone());
         debug!(
-            node_id = ?node_id,
+            node_id = %node_id,
             found = node.is_some(),
             "MockNodeRegistry: get_node"
         );

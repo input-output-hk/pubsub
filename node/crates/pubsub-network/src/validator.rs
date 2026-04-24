@@ -51,7 +51,7 @@ impl MessageValidator for SignatureValidator {
             })?;
 
         debug!(
-            topic = ?msg.topic_id,
+            topic = %msg.topic_id,
             seq = msg.sequence_nr,
             "Signature verified"
         );
@@ -69,7 +69,7 @@ impl MessageValidator for SignatureValidator {
         // 3. Check publisher is authorized for this topic
         if !topic_config.is_authorized(&msg.publisher_id) {
             warn!(
-                topic = ?msg.topic_id,
+                topic = %msg.topic_id,
                 publisher = ?msg.publisher_id,
                 "Publisher not authorized for topic"
             );
@@ -77,7 +77,7 @@ impl MessageValidator for SignatureValidator {
         }
 
         debug!(
-            topic = ?msg.topic_id,
+            topic = %msg.topic_id,
             seq = msg.sequence_nr,
             "Message validation passed"
         );

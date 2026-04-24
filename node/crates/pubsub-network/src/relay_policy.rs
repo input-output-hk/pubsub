@@ -29,9 +29,9 @@ impl Default for DefaultRelayPolicy {
 impl RelayPolicy for DefaultRelayPolicy {
     async fn should_relay(&self, msg: &Message, from: &NodeId) -> RelayDecision {
         trace!(
-            topic = ?msg.topic_id,
+            topic = %msg.topic_id,
             seq = msg.sequence_nr,
-            from = ?from,
+            from = %from,
             "DefaultRelayPolicy: forwarding message"
         );
         RelayDecision::Forward

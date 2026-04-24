@@ -220,13 +220,13 @@ impl Vicinity {
             };
             for finger in cw_fingers.iter_mut() {
                 if Self::is_better_finger(origin, finger, cand_pos, true) {
-                    debug!(ideal = finger.ideal_distance, peer = ?candidate.node_info.node_id, "CW finger improved");
+                    debug!(ideal = finger.ideal_distance, peer = %candidate.node_info.node_id, "CW finger improved");
                     finger.peer = Some(candidate.clone());
                 }
             }
             for finger in ccw_fingers.iter_mut() {
                 if Self::is_better_finger(origin, finger, cand_pos, false) {
-                    debug!(ideal = finger.ideal_distance, peer = ?candidate.node_info.node_id, "CCW finger improved");
+                    debug!(ideal = finger.ideal_distance, peer = %candidate.node_info.node_id, "CCW finger improved");
                     finger.peer = Some(candidate.clone());
                 }
             }
@@ -274,7 +274,7 @@ impl Vicinity {
                     let msg: VicinityMessage = match serde_json::from_slice(&request_bytes) {
                         Ok(m) => m,
                         Err(e) => {
-                            warn!(?from, "Failed to decode vicinity message: {e}");
+                            warn!(from = %from, "Failed to decode vicinity message: {e}");
                             continue;
                         }
                     };
@@ -414,11 +414,11 @@ impl TopicRouter for Vicinity {
             if results.len() >= max_results {
                 break;
             }
-            debug!(distance = dist, peer = ?peer.node_info.node_id, "adding proximity result");
+            debug!(distance = dist, peer = %peer.node_info.node_id, "adding proximity result");
             results.push(peer.clone());
         }
 
-        debug!(topic = ?topic, found = results.len(), "find_topic_peers complete");
+        debug!(topic = %topic, found = results.len(), "find_topic_peers complete");
         results
     }
 
@@ -426,7 +426,7 @@ impl TopicRouter for Vicinity {
         let updated_info = {
             let mut state = self.state.write().await;
             state.local_subscriptions.insert(topic.clone());
-            info!(topic = ?topic, "joined topic");
+            info!(topic = %topic, "joined topic");
             NodeInfo {
                 node_id: self.local_info.node_id.clone(),
                 addr: self.local_info.addr,
@@ -444,10 +444,10 @@ impl TopicRouter for Vicinity {
             let mut state = self.state.write().await;
             let removed = state.local_subscriptions.remove(topic);
             if !removed {
-                warn!(topic = ?topic, "leave_topic called but was not subscribed");
+                warn!(topic = %topic, "leave_topic called but was not subscribed");
                 return Ok(());
             }
-            info!(topic = ?topic, "left topic");
+            info!(topic = %topic, "left topic");
             Some(NodeInfo {
                 node_id: self.local_info.node_id.clone(),
                 addr: self.local_info.addr,
