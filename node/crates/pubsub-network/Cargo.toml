@@ -12,8 +12,7 @@ quinn = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }
 ciborium = { workspace = true }
-ed25519-dalek = { workspace = true }
-blake2 = { workspace = true }
+pallas-crypto = { workspace = true }
 rand = { workspace = true }
 tracing = { workspace = true }
 dashmap = { workspace = true }

@@ -185,14 +185,10 @@ fn derive_node_id(entry: &RegistryEntry) -> NodeId {
 }
 
 fn topic_id_from_name(name: &str) -> TopicId {
-    use blake2::digest::consts::U32;
-    use blake2::{Blake2b, Digest};
-    type Blake2b256 = Blake2b<U32>;
-    let mut h = Blake2b256::new();
-    h.update(name.as_bytes());
-    let result = h.finalize();
+    use pallas_crypto::hash::Hasher;
+    let hash = Hasher::<256>::hash(name.as_bytes());
     let mut id = [0u8; 32];
-    id.copy_from_slice(&result);
+    id.copy_from_slice(hash.as_ref());
     TopicId(id)
 }
 

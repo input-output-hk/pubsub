@@ -8,8 +8,7 @@ license.workspace = true
 [dependencies]
 serde = { workspace = true }
 ciborium = { workspace = true }
-ed25519-dalek = { workspace = true }
-blake2 = { workspace = true }
+pallas-crypto = { workspace = true }
 bytes = { workspace = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }

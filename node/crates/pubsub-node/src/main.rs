@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
-use ed25519_dalek::SigningKey;
+use pallas_crypto::key::ed25519::SecretKey;
 use rand::rngs::OsRng;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
@@ -130,8 +130,8 @@ async fn main() -> Result<()> {
 
     info!(name = %args.name, bind = %args.bind, "Starting PubSub node");
 
-    let signing_key = SigningKey::generate(&mut OsRng);
-    let public_key = signing_key.verifying_key();
+    let signing_key = SecretKey::new(&mut OsRng);
+    let public_key = signing_key.public_key();
     // NodeId is derived from the advertised address — the same function used by
     // the transport layer when it assigns an ID to an inbound connection.  This
     // makes the ID consistent everywhere in the stack.
@@ -157,7 +157,7 @@ async fn main() -> Result<()> {
     let self_info = NodeInfo {
         node_id: node_id.clone(),
         addr: args.advertise_addr.unwrap_or(args.bind),
-        public_key: public_key.as_bytes().to_vec(),
+        public_key: public_key.as_ref().to_vec(),
         subscribed_topics: args.topics.iter().map(|t| topic_id_from_name(t)).collect(),
     };
 
@@ -406,14 +406,10 @@ async fn main() -> Result<()> {
 }
 
 fn topic_id_from_name(name: &str) -> TopicId {
-    use blake2::digest::consts::U32;
-    use blake2::{Blake2b, Digest};
-    type Blake2b256 = Blake2b<U32>;
-    let mut hasher = Blake2b256::new();
-    hasher.update(name.as_bytes());
-    let result = hasher.finalize();
+    use pallas_crypto::hash::Hasher;
+    let hash = Hasher::<256>::hash(name.as_bytes());
     let mut id = [0u8; 32];
-    id.copy_from_slice(&result);
+    id.copy_from_slice(hash.as_ref());
     TopicId(id)
 }
 

@@ -23,8 +23,7 @@ serde_json = "1"
 ciborium = "0.2"          # CBOR encoding/decoding
 
 # Crypto
-ed25519-dalek = { version = "2", features = ["serde", "rand_core"] }
-blake2 = "0.10"
+pallas-crypto = "0.34"
 rand = "0.8"
 
 # Networking

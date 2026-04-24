@@ -8,14 +8,10 @@ use serde::{Deserialize, Serialize};
 /// This is the single canonical function for address-based NodeId derivation
 /// used everywhere in the testnet stack (transport, registry, main).
 pub fn node_id_from_addr(addr: SocketAddr) -> NodeId {
-    use blake2::digest::consts::U32;
-    use blake2::{Blake2b, Digest};
-    type Blake2b256 = Blake2b<U32>;
-    let mut h = Blake2b256::new();
-    h.update(addr.to_string().as_bytes());
-    let result = h.finalize();
+    use pallas_crypto::hash::Hasher;
+    let hash = Hasher::<256>::hash(addr.to_string().as_bytes());
     let mut id = [0u8; 32];
-    id.copy_from_slice(&result);
+    id.copy_from_slice(hash.as_ref());
     NodeId(id)
 }
 
