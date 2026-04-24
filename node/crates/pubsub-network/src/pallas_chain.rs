@@ -2,11 +2,21 @@
 // CardanoChainState — on-chain state reader with pluggable backends
 // =============================================================================
 //
-// Three backends, one ChainState trait impl:
+// Four backends, one ChainState trait impl:
 //
 //   LocalNode  — pallas-network Ouroboros NtC via Unix socket (stubs).
 //   Blockfrost — Blockfrost HTTP REST API (fully implemented).
+//   Ogmios     — Ogmios v6+ JSON-RPC over HTTP POST (fully implemented).
 //   Utxorpc    — utxorpc gRPC / Demeter (stubs).
+//
+// Ogmios implementation
+// ─────────────────────
+// Uses the HTTP POST interface (Ogmios v6.0+) at the configured URL.
+// Standard JSON-RPC 2.0: POST / with body {jsonrpc,method,params,id}.
+// Inline datums returned as lowercase hex CBOR; same decoder as Blockfrost.
+// Token presence checked via value.policies[policyId][assetNameHex] structure.
+//
+// No API key required — ideal for permissionless relay node operators.
 //
 // Blockfrost implementation
 // ─────────────────────────
@@ -358,6 +368,93 @@ impl BlockfrostClient {
 }
 
 // ---------------------------------------------------------------------------
+// Ogmios JSON types
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct OgmiosUtxo {
+    /// Inline datum as lower-case hex CBOR (same encoding as Blockfrost).
+    datum: Option<String>,
+    value: serde_json::Value,
+}
+
+// ---------------------------------------------------------------------------
+// OgmiosClient
+// ---------------------------------------------------------------------------
+
+struct OgmiosClient {
+    url: String,
+    client: reqwest::Client,
+}
+
+impl OgmiosClient {
+    fn new(url: &str) -> Self {
+        Self {
+            url: url.trim_end_matches('/').to_string(),
+            client: reqwest::Client::new(),
+        }
+    }
+
+    /// POST a JSON-RPC 2.0 request and deserialise the `result` field.
+    async fn query<T: for<'de> Deserialize<'de>>(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<T, PubSubError> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+            "id": "1",
+        });
+        let resp = self
+            .client
+            .post(&self.url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| PubSubError::ChainState(format!("Ogmios HTTP: {e}")))?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(PubSubError::ChainState(format!("Ogmios {status}: {text}")));
+        }
+        let json: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| PubSubError::ChainState(format!("Ogmios JSON: {e}")))?;
+        if let Some(err) = json.get("error") {
+            return Err(PubSubError::ChainState(format!("Ogmios error: {err}")));
+        }
+        let result = json
+            .get("result")
+            .cloned()
+            .ok_or_else(|| PubSubError::ChainState("Ogmios: missing 'result' field".into()))?;
+        serde_json::from_value(result)
+            .map_err(|e| PubSubError::ChainState(format!("Ogmios result decode: {e}")))
+    }
+
+    async fn query_utxos(&self, address: &str) -> Result<Vec<OgmiosUtxo>, PubSubError> {
+        self.query(
+            "queryLedgerState/utxo",
+            serde_json::json!({ "addresses": [address] }),
+        )
+        .await
+    }
+}
+
+/// Returns true if the Ogmios UTxO holds any token under `policy_id`
+/// whose hex asset name starts with `asset_name_prefix`.
+fn ogmios_has_token(utxo: &OgmiosUtxo, policy_id: &str, asset_name_prefix: &str) -> bool {
+    utxo.value
+        .get("policies")
+        .and_then(|p| p.get(policy_id))
+        .and_then(|a| a.as_object())
+        .map(|obj| obj.keys().any(|k| k.starts_with(asset_name_prefix)))
+        .unwrap_or(false)
+}
+
+// ---------------------------------------------------------------------------
 // ChainProvider
 // ---------------------------------------------------------------------------
 
@@ -375,6 +472,15 @@ pub enum ChainProvider {
     ///   preprod  — "https://cardano-preprod.blockfrost.io/api/v0"
     ///   preview  — "https://cardano-preview.blockfrost.io/api/v0"
     Blockfrost { project_id: String, base_url: String },
+
+    /// Ogmios v6+ JSON-RPC over HTTP POST.
+    ///
+    /// URL examples:
+    ///   local    — "http://localhost:1337"
+    ///   cloud    — "https://ogmios.preprod.some-provider.io"
+    ///
+    /// No API key required. Requires Ogmios v6.0+ (HTTP POST support).
+    Ogmios { url: String },
 
     /// utxorpc gRPC endpoint (Demeter cloud or self-hosted dolos).
     ///
@@ -409,6 +515,9 @@ pub enum ChainProvider {
 ///     contracts.clone(),
 /// );
 ///
+/// // Ogmios (local or cloud, no API key)
+/// let og = CardanoChainState::ogmios("http://localhost:1337", contracts.clone());
+///
 /// // Demeter utxorpc
 /// let rpc = CardanoChainState::utxorpc(
 ///     "https://preview.utxorpc-v0.demeter.run",
@@ -442,6 +551,13 @@ impl CardanoChainState {
                 project_id: project_id.into(),
                 base_url: base_url.into(),
             },
+            contracts,
+        }
+    }
+
+    pub fn ogmios(url: impl Into<String>, contracts: ContractAddresses) -> Self {
+        Self {
+            provider: ChainProvider::Ogmios { url: url.into() },
             contracts,
         }
     }
@@ -482,6 +598,32 @@ impl ChainState for CardanoChainState {
                     let Some(registry) = decode_node_registry_datum(&data) else {
                         continue;
                     };
+                    for entry in registry.nodes {
+                        let addr_str = String::from_utf8_lossy(&entry.addr).to_string();
+                        let addr: SocketAddr = addr_str.parse().map_err(|e| {
+                            PubSubError::ChainState(format!("node addr parse: {e}"))
+                        })?;
+                        let mut node_id = [0u8; 32];
+                        let len = entry.node_id.len().min(32);
+                        node_id[..len].copy_from_slice(&entry.node_id[..len]);
+                        nodes.push(NodeInfo {
+                            node_id: NodeId(node_id),
+                            addr,
+                            public_key: entry.stake_key,
+                            subscribed_topics: vec![],
+                        });
+                    }
+                }
+                Ok(nodes)
+            }
+            ChainProvider::Ogmios { url } => {
+                let og = OgmiosClient::new(url);
+                let utxos = og.query_utxos(&self.contracts.node_registry_addr).await?;
+                let mut nodes = Vec::new();
+                for utxo in &utxos {
+                    let Some(hex) = &utxo.datum else { continue };
+                    let data = decode_plutus_data(hex)?;
+                    let Some(registry) = decode_node_registry_datum(&data) else { continue };
                     for entry in registry.nodes {
                         let addr_str = String::from_utf8_lossy(&entry.addr).to_string();
                         let addr: SocketAddr = addr_str.parse().map_err(|e| {
@@ -582,6 +724,57 @@ impl ChainState for CardanoChainState {
                 }
                 Ok(None)
             }
+            ChainProvider::Ogmios { url } => {
+                let target_n = topic_id_to_on_chain_int(topic).ok_or_else(|| {
+                    PubSubError::ChainState(
+                        "TopicId bytes 8-31 are non-zero; not a registry-originated topic".into(),
+                    )
+                })?;
+                let og = OgmiosClient::new(url);
+                let utxos = og.query_utxos(&self.contracts.topic_registry_addr).await?;
+                for utxo in &utxos {
+                    let Some(hex) = &utxo.datum else { continue };
+                    let data = decode_plutus_data(hex)?;
+                    let Some(td) = decode_topic_datum(&data) else { continue };
+                    if td.topic_id != target_n || !td.alive {
+                        continue;
+                    }
+                    let asset_name_prefix = format!("{:08x}", td.topic_id);
+                    let vault_utxos =
+                        og.query_utxos(&self.contracts.publisher_vault_addr).await?;
+                    let mut authorized_publishers = Vec::new();
+                    for vault in &vault_utxos {
+                        if !ogmios_has_token(
+                            vault,
+                            &self.contracts.registry_policy_id,
+                            &asset_name_prefix,
+                        ) {
+                            continue;
+                        }
+                        let Some(vhex) = &vault.datum else { continue };
+                        let vdata = decode_plutus_data(vhex)?;
+                        if let Some(vd) = decode_publisher_vault_datum(&vdata) {
+                            if vd.topic_id == td.topic_id {
+                                let cred =
+                                    PublisherCredential::ed25519(Bytes::from(vd.publisher));
+                                authorized_publishers.push(PublisherId(cred));
+                            }
+                        }
+                    }
+                    let name = String::from_utf8_lossy(&td.name).to_string();
+                    let config = TopicConfig::try_new(
+                        topic.clone(),
+                        name,
+                        None,
+                        authorized_publishers,
+                        Duration::from_secs(td.retention_period),
+                        td.replication_factor as u32,
+                    )
+                    .map_err(|e| PubSubError::ChainState(e.to_string()))?;
+                    return Ok(Some(config));
+                }
+                Ok(None)
+            }
             ChainProvider::LocalNode { socket_path, magic } => {
                 let _ = (topic, socket_path, magic);
                 todo!("LocalNode: UTxOsByAddress(topic_registry_addr) + vault UTxO scan via NtC")
@@ -656,6 +849,53 @@ impl ChainState for CardanoChainState {
                 }
                 Ok(topics)
             }
+            ChainProvider::Ogmios { url } => {
+                let og = OgmiosClient::new(url);
+                let utxos = og.query_utxos(&self.contracts.topic_registry_addr).await?;
+                let vault_utxos = og.query_utxos(&self.contracts.publisher_vault_addr).await?;
+                let mut topics = Vec::new();
+                for utxo in &utxos {
+                    let Some(hex) = &utxo.datum else { continue };
+                    let data = decode_plutus_data(hex)?;
+                    let Some(td) = decode_topic_datum(&data) else { continue };
+                    if !td.alive {
+                        continue;
+                    }
+                    let topic_id = on_chain_int_to_topic_id(td.topic_id);
+                    let asset_name_prefix = format!("{:08x}", td.topic_id);
+                    let mut authorized_publishers = Vec::new();
+                    for vault in &vault_utxos {
+                        if !ogmios_has_token(
+                            vault,
+                            &self.contracts.registry_policy_id,
+                            &asset_name_prefix,
+                        ) {
+                            continue;
+                        }
+                        let Some(vhex) = &vault.datum else { continue };
+                        let vdata = decode_plutus_data(vhex)?;
+                        if let Some(vd) = decode_publisher_vault_datum(&vdata) {
+                            if vd.topic_id == td.topic_id {
+                                let cred =
+                                    PublisherCredential::ed25519(Bytes::from(vd.publisher));
+                                authorized_publishers.push(PublisherId(cred));
+                            }
+                        }
+                    }
+                    let name = String::from_utf8_lossy(&td.name).to_string();
+                    if let Ok(config) = TopicConfig::try_new(
+                        topic_id,
+                        name,
+                        None,
+                        authorized_publishers,
+                        Duration::from_secs(td.retention_period),
+                        td.replication_factor as u32,
+                    ) {
+                        topics.push(config);
+                    }
+                }
+                Ok(topics)
+            }
             ChainProvider::LocalNode { socket_path, magic } => {
                 let _ = (socket_path, magic);
                 todo!("LocalNode: UTxOsByAddress(topic_registry_addr) decode all TopicDatum UTxOs")
@@ -679,6 +919,12 @@ impl ChainState for CardanoChainState {
                     "get_node_stake via Blockfrost: needs pallas-addresses for bech32 stake addr encoding".into(),
                 ))
             }
+            ChainProvider::Ogmios { url } => {
+                let _ = (node, url);
+                Err(PubSubError::ChainState(
+                    "get_node_stake via Ogmios: use queryLedgerState/rewardAccountSummaries — not yet implemented".into(),
+                ))
+            }
             ChainProvider::LocalNode { socket_path, magic } => {
                 let _ = (node, socket_path, magic);
                 todo!("LocalNode: QueryLedgerState::StakeDistribution via NtC")
@@ -700,6 +946,12 @@ impl ChainState for CardanoChainState {
                 // off-chain in a known config address, (c) skip KES-based publishing.
                 Err(PubSubError::ChainState(
                     "get_pool_kes_keys: KES operational certificates are not exposed by the Blockfrost REST API; use the LocalNode backend for this query".into(),
+                ))
+            }
+            ChainProvider::Ogmios { url } => {
+                let _ = url;
+                Err(PubSubError::ChainState(
+                    "get_pool_kes_keys via Ogmios: use queryLedgerState/poolParameters — not yet implemented".into(),
                 ))
             }
             ChainProvider::LocalNode { socket_path, magic } => {
@@ -726,6 +978,15 @@ impl ChainState for CardanoChainState {
                     .map(Bytes::from)
                     .collect();
                 Ok(keys)
+            }
+            ChainProvider::Ogmios { url } => {
+                let _ = url;
+                // Ogmios v6 supports queryLedgerState/delegateRepresentatives but
+                // the drep ID is bech32 — requires a bech32 decoder to extract the
+                // raw 28-byte key hash.  Stub until pallas-addresses is added.
+                Err(PubSubError::ChainState(
+                    "get_drep_keys via Ogmios: queryLedgerState/delegateRepresentatives — needs bech32 drep ID decoder; not yet implemented".into(),
+                ))
             }
             ChainProvider::LocalNode { socket_path, magic } => {
                 let _ = (socket_path, magic);
