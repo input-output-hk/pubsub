@@ -59,7 +59,7 @@ use pubsub_network::vicinity::{Vicinity, VicinityConfig};
 #[command(name = "pubsub-node", about = "Cardano PubSub relay node")]
 struct Args {
     /// Address to bind the PubSub node to
-    #[arg(short, long, default_value = "127.0.0.1:9000")]
+    #[arg(short, long, default_value = "0.0.0.0:9000")]
     bind: SocketAddr,
 
     /// Addresses of bootstrap peers (comma-separated)
@@ -244,9 +244,15 @@ async fn main() -> Result<()> {
         Arc::new(SignatureValidator::new(chain_state.clone()));
     let relay_policy: Arc<dyn RelayPolicy> = Arc::new(DefaultRelayPolicy);
 
+    let advertise_addr = args.advertise_addr.unwrap_or(args.bind);
+    if advertise_addr.ip().is_unspecified() {
+        warn!("Bind address is 0.0.0.0 and --advertise-addr is not set; \
+               peers will not be able to dial back to this node. \
+               Pass --advertise-addr <public-ip>:9000 to be reachable.");
+    }
     let self_info = NodeInfo {
         node_id: node_id.clone(),
-        addr: args.advertise_addr.unwrap_or(args.bind),
+        addr: advertise_addr,
         public_key: public_key.as_ref().to_vec(),
         subscribed_topics: active_topics.iter().map(|t| t.topic_id.clone()).collect(),
     };
