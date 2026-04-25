@@ -6,11 +6,13 @@ use bytes::Bytes;
 use clap::{Parser, Subcommand};
 use pallas_crypto::key::ed25519::SecretKey;
 
-use pubsub_types::message::{CredentialType, Message, PublisherCredential, PublisherId, TopicId};
+use pubsub_types::message::{
+    CredentialType, Message, PublisherCredential, PublisherId, SubscribeRequest, TopicId,
+};
 
 use pubsub_network::codec::CborCodec;
 use pubsub_network::transport::QuicTransport;
-use pubsub_types::traits::{Codec, Transport};
+use pubsub_types::traits::{Codec, SubscribeTransport, Transport};
 
 #[derive(Parser)]
 #[command(name = "pubsub-cli", about = "Cardano PubSub CLI")]
@@ -45,6 +47,15 @@ enum Commands {
         /// Topic name
         #[arg(short, long)]
         topic: String,
+
+        /// Replay starts after this sequence number.  Default 0 = full TTL
+        /// window held in the node's HotCache.
+        #[arg(long, default_value_t = 0)]
+        since_seq: u64,
+
+        /// Soft cap on the replay batch.
+        #[arg(long, default_value_t = 1000)]
+        limit: u32,
     },
 
     /// Show node status
@@ -64,8 +75,8 @@ async fn main() -> Result<()> {
         Commands::Publish { topic, message, credential_type } => {
             publish(&cli.node, &topic, &message, &credential_type).await?;
         }
-        Commands::Subscribe { topic } => {
-            subscribe(&cli.node, &topic).await?;
+        Commands::Subscribe { topic, since_seq, limit } => {
+            subscribe(&cli.node, &topic, since_seq, limit).await?;
         }
         Commands::Status => {
             println!("Status check not yet implemented (needs gRPC API)");
@@ -150,11 +161,61 @@ async fn publish(node_addr: &SocketAddr, topic_name: &str, payload: &str, cred_t
     Ok(())
 }
 
-async fn subscribe(_node_addr: &SocketAddr, topic_name: &str) -> Result<()> {
-    println!("Subscribing to topic '{}'...", topic_name);
-    println!("(Full subscription requires gRPC streaming API — not yet implemented)");
-    println!("For now, run pubsub-node with --topics {} to receive messages", topic_name);
+async fn subscribe(
+    node_addr: &SocketAddr,
+    topic_name: &str,
+    since_seq: u64,
+    limit: u32,
+) -> Result<()> {
+    let topic_id = topic_id_from_name(topic_name);
+
+    // Ephemeral key (subscribers don't sign anything; the cert is only for TLS).
+    let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
+    let mut ephemeral_seed = [0u8; 32];
+    getrandom::fill(&mut ephemeral_seed).expect("OS RNG failed");
+    let transport = QuicTransport::new(bind_addr, &ephemeral_seed).await?;
+
+    // Bootstrap-connect derives the node's real NodeId from its TLS cert.
+    let node_id = transport
+        .connect_bootstrap(*node_addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to {node_addr}: {e}"))?;
+
+    // CBOR-encode the control frame.
+    let req = SubscribeRequest { topic_id: topic_id.clone(), since_seq, limit };
+    let mut control = Vec::new();
+    ciborium::ser::into_writer(&req, &mut control)?;
+
+    println!(
+        "Subscribed to '{}' on {} (since_seq={}, limit={}). Ctrl-C to exit.",
+        topic_name, node_addr, since_seq, limit
+    );
+
+    let mut rx = transport
+        .subscribe_stream(&node_id, *node_addr, control)
+        .await
+        .map_err(|e| anyhow::anyhow!("subscribe_stream failed: {e}"))?;
+
+    let codec = CborCodec;
+    while let Some(frame) = rx.recv().await {
+        match codec.decode(&frame) {
+            Ok(msg) => print_message(&msg),
+            Err(e) => eprintln!("(decode error) {e}"),
+        }
+    }
+
+    println!("(stream closed by node)");
     Ok(())
+}
+
+fn print_message(m: &Message) {
+    let payload = std::str::from_utf8(&m.payload)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|_| format!("<binary {} bytes>", m.payload.len()));
+    println!(
+        "[{}] {} seq={} ts={}: {}",
+        m.topic_id, m.publisher_id, m.sequence_nr, m.timestamp_ms, payload
+    );
 }
 
 fn topic_id_from_name(name: &str) -> TopicId {

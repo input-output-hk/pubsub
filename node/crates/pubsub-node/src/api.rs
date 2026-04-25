@@ -1,8 +1,10 @@
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use axum::extract::{Query, State};
+use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::StatusCode;
 use axum::response::sse::{Event, Sse};
 use axum::response::IntoResponse;
 use axum::routing::get;
@@ -15,8 +17,9 @@ use tokio_stream::StreamExt as _;
 use tower_http::cors::CorsLayer;
 use tracing::info;
 
-use pubsub_types::message::Message;
+use pubsub_types::message::{Message, TopicId};
 use pubsub_types::node::{NodeId, NodeInfo};
+use pubsub_types::traits::MessageStore;
 
 // ---------------------------------------------------------------------------
 // Events
@@ -76,6 +79,11 @@ pub struct ApiState {
     /// Recent messages per topic (capped at 200 total)
     pub recent_messages: Arc<tokio::sync::RwLock<Vec<StoredMessage>>>,
     pub event_tx: broadcast::Sender<NodeEvent>,
+    /// Live message broadcast — every validated, non-duplicate message lands here.
+    /// Per-topic SSE subscribers filter by `topic_id` on the receive side.
+    pub subscriber_tx: broadcast::Sender<Message>,
+    /// Hot cache used to serve replay on subscribe.
+    pub store: Arc<dyn MessageStore>,
 }
 
 impl ApiState {
@@ -83,6 +91,8 @@ impl ApiState {
         node_info: NodeInfo,
         network: String,
         bech32_hrp: String,
+        subscriber_tx: broadcast::Sender<Message>,
+        store: Arc<dyn MessageStore>,
     ) -> (Arc<Self>, broadcast::Sender<NodeEvent>) {
         let (tx, _) = broadcast::channel(1024);
         let state = Arc::new(Self {
@@ -95,6 +105,8 @@ impl ApiState {
             subscribed_topic_ids: Arc::new(DashMap::new()),
             recent_messages: Arc::new(tokio::sync::RwLock::new(Vec::new())),
             event_tx: tx.clone(),
+            subscriber_tx,
+            store,
         });
         (state, tx)
     }
@@ -366,6 +378,92 @@ async fn handle_topology(State(state): State<Arc<ApiState>>) -> impl IntoRespons
     Json(TopologyResponse { self_id, peers })
 }
 
+/// SSE-friendly view of a single message — no signature/credential bytes; only
+/// metadata + a UTF-8-lossy payload preview.
+#[derive(Serialize)]
+struct StreamMessage {
+    from: String,
+    topic: String,
+    seq: u64,
+    timestamp_ms: u64,
+    payload: String,
+}
+
+fn message_to_stream(m: &Message) -> StreamMessage {
+    StreamMessage {
+        from: m.publisher_id.to_string(),
+        topic: m.topic_id.0.iter().map(|b| format!("{b:02x}")).collect(),
+        seq: m.sequence_nr,
+        timestamp_ms: m.timestamp_ms,
+        payload: String::from_utf8_lossy(&m.payload).into_owned(),
+    }
+}
+
+fn parse_topic_id(hex: &str) -> Option<TopicId> {
+    if hex.len() != 64 {
+        return None;
+    }
+    let mut buf = [0u8; 32];
+    for i in 0..32 {
+        buf[i] = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).ok()?;
+    }
+    Some(TopicId(buf))
+}
+
+#[derive(Deserialize)]
+struct StreamQuery {
+    #[serde(default)]
+    since: u64,
+    #[serde(default = "default_stream_limit")]
+    limit: usize,
+}
+
+fn default_stream_limit() -> usize {
+    1000
+}
+
+async fn handle_topic_stream(
+    State(state): State<Arc<ApiState>>,
+    AxumPath(topic_hex): AxumPath<String>,
+    Query(q): Query<StreamQuery>,
+) -> axum::response::Response {
+    let topic_id = match parse_topic_id(&topic_hex) {
+        Some(t) => t,
+        None => return StatusCode::BAD_REQUEST.into_response(),
+    };
+
+    // Replay phase — snapshot from HotCache.
+    let replay = state
+        .store
+        .get_since(&topic_id, q.since, q.limit)
+        .await
+        .unwrap_or_default();
+
+    // Live phase — subscribe to broadcast and filter by topic on this side.
+    let live_rx = state.subscriber_tx.subscribe();
+    let topic_for_filter = topic_id.clone();
+    let live = BroadcastStream::new(live_rx).filter_map(move |res| match res {
+        Ok(m) if m.topic_id == topic_for_filter => Some(m),
+        _ => None,
+    });
+
+    let replay_iter = replay.into_iter();
+    let combined = tokio_stream::iter(replay_iter)
+        .chain(live)
+        .map(|m| {
+            let body = serde_json::to_string(&message_to_stream(&m)).unwrap_or_default();
+            Ok::<_, Infallible>(Event::default().data(body))
+        });
+
+    Sse::new(combined)
+        .keep_alive(
+            axum::response::sse::KeepAlive::new()
+                .interval(Duration::from_secs(15))
+                .text("ping"),
+        )
+        .into_response()
+}
+
 async fn handle_events(State(state): State<Arc<ApiState>>) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let rx = state.event_tx.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(|res| {
@@ -394,6 +492,7 @@ pub async fn start(state: Arc<ApiState>, addr: SocketAddr) {
         .route("/api/topics", get(handle_topics))
         .route("/api/messages", get(handle_messages))
         .route("/api/topology", get(handle_topology))
+        .route("/api/topics/:topic_hex/stream", get(handle_topic_stream))
         .route("/events", get(handle_events))
         .layer(CorsLayer::permissive())
         .with_state(state);

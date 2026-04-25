@@ -34,8 +34,8 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use pubsub_types::error::PubSubError;
-use pubsub_types::message::{Message, TopicId};
-use pubsub_types::node::{node_id_from_key, NodeInfo};
+use pubsub_types::message::{Message, SubscribeRequest, TopicId};
+use pubsub_types::node::{node_id_from_key, NodeId, NodeInfo};
 use pubsub_types::topic::TopicConfig;
 use pubsub_types::traits::*;
 
@@ -219,6 +219,75 @@ impl SubscriptionManager for LocalSubscriptionManager {
     }
 }
 
+/// Handle one inbound SUBSCRIBE bidirectional stream.
+///
+/// Decodes the `SubscribeRequest` control frame, replays cached messages from
+/// `HotCache::get_since(topic, since_seq, limit)`, then forwards every live
+/// broadcast hit matching the requested topic until the peer closes the stream.
+///
+/// A small race exists at the seam between replay and live: messages broadcast
+/// after the `get_since` snapshot but before the live loop is entered are
+/// missed.  Acceptable in Phase 1 — the CLI publish path uses sequence_nr=0
+/// throughout, so per-publisher monotonic dedup is not yet meaningful.
+async fn handle_subscribe(
+    _peer: NodeId,
+    control: Vec<u8>,
+    frame_tx: tokio::sync::mpsc::Sender<Vec<u8>>,
+    store: Arc<dyn MessageStore>,
+    mut live_rx: tokio::sync::broadcast::Receiver<Message>,
+) {
+    let req: SubscribeRequest = match ciborium::de::from_reader(&control[..]) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!(error = %e, "Bad subscribe control frame");
+            return;
+        }
+    };
+
+    let codec = pubsub_network::codec::CborCodec;
+
+    // 1. Replay phase — pull from HotCache.
+    match store
+        .get_since(&req.topic_id, req.since_seq, req.limit as usize)
+        .await
+    {
+        Ok(msgs) => {
+            for m in msgs {
+                match codec.encode(&m) {
+                    Ok(bytes) => {
+                        if frame_tx.send(bytes).await.is_err() {
+                            return; // peer closed
+                        }
+                    }
+                    Err(e) => warn!(error = %e, "Failed to encode replay message"),
+                }
+            }
+        }
+        Err(e) => warn!(error = %e, "Replay get_since failed"),
+    }
+
+    // 2. Live phase — forward broadcast hits matching this topic.
+    loop {
+        match live_rx.recv().await {
+            Ok(m) if m.topic_id == req.topic_id => {
+                match codec.encode(&m) {
+                    Ok(bytes) => {
+                        if frame_tx.send(bytes).await.is_err() {
+                            return;
+                        }
+                    }
+                    Err(e) => warn!(error = %e, "Failed to encode live message"),
+                }
+            }
+            Ok(_) => {} // different topic, ignore
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                warn!(skipped = n, "Subscriber lagged; some live messages dropped");
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -305,16 +374,25 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Keep the concrete type so we can coerce to both Transport and GossipTransport.
+    // Keep the concrete type so we can coerce to all transport role traits.
     let transport = Arc::new(QuicTransport::new(args.bind, &key_seed).await?);
     let transport_app: Arc<dyn Transport> = transport.clone();
     let transport_gossip: Arc<dyn pubsub_types::traits::GossipTransport> = transport.clone();
+    let transport_subscribe: Arc<dyn pubsub_types::traits::SubscribeTransport> = transport.clone();
 
     let codec = Arc::new(CborCodec);
     let store: Arc<dyn MessageStore> = Arc::new(HotCache::with_defaults());
     let validator: Arc<dyn MessageValidator> =
         Arc::new(SignatureValidator::new(chain_state.clone()));
     let relay_policy: Arc<dyn RelayPolicy> = Arc::new(DefaultRelayPolicy);
+
+    // Live message broadcast channel — every successfully validated, non-duplicate
+    // message lands here.  Both QUIC subscribers (CLI) and SSE subscribers (browser
+    // dashboards) receive from this single fan-out.  A lagging subscriber gets a
+    // RecvError::Lagged it can recover from; the HotCache holds 1h of history so
+    // missed live frames can be recovered via replay on reconnect.
+    let (subscriber_tx_inner, _) = tokio::sync::broadcast::channel::<Message>(1024);
+    let subscriber_tx = Arc::new(subscriber_tx_inner);
 
     let advertise_addr = args.advertise_addr.unwrap_or(args.bind);
     if advertise_addr.ip().is_unspecified() {
@@ -410,6 +488,8 @@ async fn main() -> Result<()> {
             self_info.clone(),
             args.network.as_str().to_string(),
             args.network.bech32_hrp().to_string(),
+            (*subscriber_tx).clone(),
+            Arc::clone(&store),
         );
         // Seed discovered topics so they display immediately.
         for tc in &active_topics {
@@ -564,6 +644,30 @@ async fn main() -> Result<()> {
             .collect(),
     );
 
+    // Spawn the subscribe-accept loop.  Each inbound SUBSCRIBE bidirectional
+    // stream becomes one `handle_subscribe` task that replays from HotCache and
+    // then forwards live broadcast hits matching the requested topic.
+    {
+        let transport_sub = transport_subscribe.clone();
+        let store_sub = Arc::clone(&store);
+        let subscriber_tx_sub = Arc::clone(&subscriber_tx);
+        tokio::spawn(async move {
+            loop {
+                match transport_sub.next_inbound_subscribe().await {
+                    Ok((peer_id, control, frame_tx)) => {
+                        let store = Arc::clone(&store_sub);
+                        let live_rx = subscriber_tx_sub.subscribe();
+                        tokio::spawn(handle_subscribe(peer_id, control, frame_tx, store, live_rx));
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "subscribe accept loop ended");
+                        return;
+                    }
+                }
+            }
+        });
+    }
+
     // Bound concurrent message handlers so a burst of inbound messages doesn't
     // exhaust memory.  Acquiring a permit is instant while slots are available;
     // it only blocks when all 64 are in use, providing natural backpressure.
@@ -585,6 +689,7 @@ async fn main() -> Result<()> {
                 let disseminator = Arc::clone(&disseminator);
                 let api_state    = api_state.clone();
                 let topic_name_map = Arc::clone(&topic_name_map);
+                let subscriber_tx = Arc::clone(&subscriber_tx);
 
                 tokio::spawn(async move {
                     let _permit = permit; // released when this task drops
@@ -627,6 +732,9 @@ async fn main() -> Result<()> {
                             let topic_name = topic_name_map.get(&msg.topic_id).map(String::as_str);
                             s.record_message(&from, &msg, topic_name).await;
                         }
+                        // Fan out to all live subscribers (QUIC + SSE).  Discard
+                        // SendError when there are no listeners — expected, not an error.
+                        let _ = subscriber_tx.send(msg.clone());
                     }
 
                     if let Err(e) = disseminator.on_receive(&from, msg).await {
@@ -819,10 +927,14 @@ mod tests {
     #[tokio::test]
     async fn duplicate_path_arrival_recorded_once() {
         let store = Arc::new(HotCache::with_defaults());
+        let store_dyn: Arc<dyn MessageStore> = store.clone();
+        let (subscriber_tx, _) = tokio::sync::broadcast::channel::<Message>(64);
         let (state, _tx) = api::ApiState::new(
             fixture_node(),
             "preprod".into(),
             "psnode_test".into(),
+            subscriber_tx,
+            store_dyn,
         );
 
         let msg = fixture_msg();

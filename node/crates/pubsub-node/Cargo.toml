@@ -29,3 +29,4 @@ tower-http = { workspace = true }
 tokio-stream = { workspace = true }
 bytes = { workspace = true }
 dashmap = { workspace = true }
+ciborium = { workspace = true }
