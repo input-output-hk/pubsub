@@ -178,4 +178,44 @@ mod tests {
         // seq > 1 for both publishers = 4 messages
         assert_eq!(results.len(), 4);
     }
+
+    #[tokio::test]
+    async fn get_since_orders_by_sequence() {
+        let cache = HotCache::with_defaults();
+        // Insert out of order so the test exercises sort.
+        cache.store(msg(3, 0xAA, 5)).await.unwrap();
+        cache.store(msg(3, 0xAA, 1)).await.unwrap();
+        cache.store(msg(3, 0xAA, 3)).await.unwrap();
+
+        let results = cache.get_since(&topic(3), 0, 100).await.unwrap();
+        let seqs: Vec<u64> = results.iter().map(|m| m.sequence_nr).collect();
+        assert_eq!(seqs, vec![1, 3, 5], "get_since must return ascending sequence_nr");
+    }
+
+    #[tokio::test]
+    async fn get_since_respects_limit() {
+        let cache = HotCache::with_defaults();
+        for seq in 1u64..=10 {
+            cache.store(msg(4, 0xAA, seq)).await.unwrap();
+        }
+        let results = cache.get_since(&topic(4), 0, 3).await.unwrap();
+        assert_eq!(results.len(), 3);
+        // With ascending order the first three are seqs 1, 2, 3.
+        assert_eq!(
+            results.iter().map(|m| m.sequence_nr).collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+    }
+
+    #[tokio::test]
+    async fn get_since_filters_other_topics() {
+        let cache = HotCache::with_defaults();
+        cache.store(msg(5, 0xAA, 1)).await.unwrap();
+        cache.store(msg(5, 0xAA, 2)).await.unwrap();
+        cache.store(msg(6, 0xAA, 1)).await.unwrap(); // different topic
+
+        let results = cache.get_since(&topic(5), 0, 100).await.unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|m| m.topic_id == topic(5)));
+    }
 }
