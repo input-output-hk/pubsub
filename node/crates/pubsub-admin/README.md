@@ -55,7 +55,7 @@ pubsub-admin bootstrap \
   --output-dir local
 ```
 
-On success this writes `local/.env.preprod` (or `.env.preview` / `.env.mainnet`)
+On success this writes `local/config.preprod.toml` (or `config.preview.toml` / `config.mainnet.toml`)
 containing all contract addresses, policy IDs, and the bootstrap UTxO ref.
 
 ```
@@ -64,8 +64,10 @@ Bootstrap complete — preprod
 ======================================================================
   topic-registry tx: <txhash>
 
-  Config: local/.env.preprod
-  Next steps: pubsub-admin publish-scripts --env-file local/.env.preprod
+  Config: local/config.preprod.toml
+
+Next steps:
+  pubsub-admin publish-scripts --config local/config.preprod.toml
 ======================================================================
 ```
 
@@ -83,19 +85,19 @@ UTxO with **at least 40 ADA**.
 
 ```sh
 pubsub-admin publish-scripts \
-  --env-file local/.env.preprod \
+  --config local/config.preprod.toml \
   --payment-addr local/payment.addr \
   --payment-skey local/payment.skey \
   --contracts-dir contracts \
   --funding-utxo <txhash>#<index>
 ```
 
-On success the command appends three variables to `local/.env.preprod`:
+On success the command appends three keys to `local/config.preprod.toml`:
 
-```
-PUBSUB_REGISTRY_MINT_SCRIPT_REF=<txhash>#0
-PUBSUB_TOPIC_VALIDATOR_SCRIPT_REF=<txhash>#0
-PUBSUB_PUBLISHER_VAULT_SCRIPT_REF=<txhash>#0
+```toml
+registry_mint_script_ref   = "<txhash>#0"
+topic_validator_script_ref = "<txhash>#0"
+publisher_vault_script_ref = "<txhash>#0"
 ```
 
 ### 4. Create a topic
@@ -104,7 +106,7 @@ Register the first topic on-chain. The transaction signer becomes the topic owne
 
 ```sh
 pubsub-admin create-topic \
-  --env-file local/.env.preprod \
+  --config local/config.preprod.toml \
   --payment-addr local/payment.addr \
   --payment-skey local/payment.skey \
   --funding-utxo <txhash>#<index> \
@@ -113,14 +115,21 @@ pubsub-admin create-topic \
   --retention-period 86400
 ```
 
-### 5. Copy env file to the node
+### 5. Start the node with the config file
+
+Pass the generated config file to `pubsub-node` via `--config`. The node reads all
+contract addresses, policy IDs, and chain backend credentials from the file. Per-instance
+flags (`--bind`, `--name`, `--key-file`) are still set on the CLI.
 
 ```sh
-cp local/.env.preprod node/.env
+pubsub-node \
+  --bind 0.0.0.0:9000 \
+  --name my-node \
+  --config local/config.preprod.toml
 ```
 
-The node reads this file at startup to discover contract addresses, policy IDs, and
-script reference UTxOs.
+For the preprod network the published on-chain addresses are in `node/config.preprod.toml`
+(no API key). Copy it to `local/config.preprod.toml`, add your `blockfrost_key`, and start.
 
 ---
 
@@ -137,20 +146,20 @@ The `--blockfrost-project-id` flag falls back to the `BLOCKFROST_PROJECT_ID` env
 
 ---
 
-## Env file reference
+## Config file reference
 
-`bootstrap` writes `local/.env.{network}` and subsequent commands append to it.
-All variables are read by the node at startup and by `pubsub-admin` subcommands.
+`bootstrap` writes `local/config.{network}.toml`; subsequent commands append to it.
+The same file is passed to `pubsub-node --config` so no translation step is needed.
 
-| Variable | Set by | Description |
+| Key | Set by | Description |
 |---|---|---|
-| `BLOCKFROST_BASE_URL` | `bootstrap` | Blockfrost REST API base URL for the network |
-| `BLOCKFROST_PROJECT_ID` | manual | Blockfrost project credential (not written to the env file; set in your shell or pass `--blockfrost-project-id`) |
-| `PUBSUB_TOPIC_REGISTRY_ADDR` | `bootstrap` | Address of the **registry head** validator. Holds the singleton UTxO with a counter that increments on each topic creation. The minting policy is parameterized by the bootstrap UTxO, making it unique per deployment. |
-| `PUBSUB_TOPIC_VALIDATOR_ADDR` | `bootstrap` | Address of the **topic state** validator. One UTxO per topic holds its `TopicDatum` (name, owners, admins, replication factor, retention period). Owners call this validator to update topic config or delete the topic. |
-| `PUBSUB_PUBLISHER_VAULT_ADDR` | `bootstrap` | Address of the **publisher vault** validator. One UTxO per publisher-topic pair holds a minimum-ADA deposit. Minting a publisher token locks funds here; burning it (via `RemovePublisher`) releases them. This is the economic staking layer for publish rights. |
-| `PUBSUB_REGISTRY_POLICY_ID` | `bootstrap` | Minting policy ID shared by all three token types: the registry-head NFT, per-topic NFTs, and per-publisher tokens. |
-| `PUBSUB_TOPIC_BOOTSTRAP_UTXO` | `bootstrap` | The one-shot UTxO consumed during bootstrap. Stored so scripts can be re-derived later without re-running bootstrap. |
-| `PUBSUB_REGISTRY_MINT_SCRIPT_REF` | `publish-scripts` | UTxO holding the registry minting policy script on-chain (CIP-33). Referenced instead of inlined to save ~13 ADA per topic-creation tx. |
-| `PUBSUB_TOPIC_VALIDATOR_SCRIPT_REF` | `publish-scripts` | UTxO holding the topic validator script on-chain (CIP-33). |
-| `PUBSUB_PUBLISHER_VAULT_SCRIPT_REF` | `publish-scripts` | UTxO holding the publisher vault script on-chain (CIP-33). |
+| `network` | `bootstrap` | Network name (`preprod`, `preview`, `mainnet`) |
+| `blockfrost_url` | `bootstrap` | Blockfrost REST API base URL for the network |
+| `blockfrost_key` | manual | Blockfrost project credential — not written by bootstrap; add manually or pass `--blockfrost-project-id` |
+| `topic_validator_addr` | `bootstrap` | Address of the **topic state** validator. One UTxO per topic holds its `TopicDatum` (name, owners, replication factor, retention period). |
+| `publisher_vault_addr` | `bootstrap` | Address of the **publisher vault** validator. One UTxO per publisher-topic pair holds a minimum-ADA deposit. Minting a publisher token locks funds here; burning it releases them. |
+| `node_registry_addr` | `bootstrap` | Address of the **node registry** validator (future use; reserved for replication servers). |
+| `registry_policy_id` | `bootstrap` | Minting policy ID shared by the registry-head NFT, per-topic NFTs, and per-publisher tokens. |
+| `registry_mint_script_ref` | `publish-scripts` | UTxO holding the registry minting policy script on-chain (CIP-33). Referenced instead of inlined to save ~13 ADA per topic-creation tx. |
+| `topic_validator_script_ref` | `publish-scripts` | UTxO holding the topic validator script on-chain (CIP-33). |
+| `publisher_vault_script_ref` | `publish-scripts` | UTxO holding the publisher vault script on-chain (CIP-33). |

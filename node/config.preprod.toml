@@ -1,0 +1,23 @@
+# PubSub node — Cardano preprod network config
+# Network: preprod (magic 1)
+#
+# Fill in blockfrost_key with your own Blockfrost preprod project ID:
+#   https://blockfrost.io/ → "Add new project" → select "Cardano preprod"
+#
+# All other fields reference the live on-chain deployment.
+# See node/crates/pubsub-admin/README.md for deployment details.
+
+network = "preprod"
+
+blockfrost_url = "https://cardano-preprod.blockfrost.io/api/v0"
+# blockfrost_key = "preprod..."   ← add your key here
+
+# ── Contract addresses (topic-registry deployment, preprod) ───────────────────
+topic_validator_addr = "addr_test1wppxf6v0spdrjv94e54f8vd7u3k2peya8rzdg4pvwfkdzrs2ev79t"
+publisher_vault_addr = "addr_test1wqz3anxc5jahqf6g6jjjdmsyyl5j5jq0sgkzwcyfelk7z5cv0pu9l"
+registry_policy_id   = "2ef6c260a9c1b5fa5cc0591935a0b492d4a265a3e9bc2c464b7c6c58"
+
+# ── Reference script UTxOs (publish-scripts, preprod) ─────────────────────────
+registry_mint_script_ref   = "3426814e13d25e24ca43b5af998102b99d8c51528e0acda261394847ed126928#0"
+topic_validator_script_ref = "64f8142ef2501fffef93fd471a2ff0204dd3a1530bea46fb2b4566b883660ed3#0"
+publisher_vault_script_ref = "940ec105c503efea382e7cf5a37e7747e2143ad8d80532b53f0420b5bcb0682e#0"

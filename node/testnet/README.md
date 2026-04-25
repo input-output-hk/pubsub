@@ -1,27 +1,32 @@
 # testnet
 
-Scripts and configuration for running a 5-node local PubSub testnet.
+Scripts for running a local multi-node PubSub testnet.
 
 ## Purpose
 
-Spins up 5 relay nodes on `localhost` ports 9001–9005, all subscribing to the same topics, using `nodes.json` for peer discovery instead of manual `--peers` flags.
+Spins up N relay nodes on `localhost`, all subscribing to the same topics.
+Node 1 acts as seed; all others bootstrap from it via `--peers`.
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `launch.sh` | Generates `nodes.json`, then launches 5 nodes in the background |
-| `nodes.json` | Generated automatically by `launch.sh`; lists all node addresses and their topics |
-| `logs/` | Per-node log files (`node-1.log` … `node-5.log`) and PID files |
+| `launch.sh` | Launches N nodes in the background (default: 5) |
+| `logs/` | Per-node log files (`node-1.log` … `node-N.log`) and PID files |
+| `keys/` | Persistent Ed25519 key files generated on first run |
 
 ## Quick start
 
 ```bash
-# Build and launch
-./testnet/launch.sh build
+# Build and launch 5 nodes
+./testnet/launch.sh --build
 
 # Launch only (if already built)
 ./testnet/launch.sh
+
+# Launch a different number of nodes
+./testnet/launch.sh --nodes 10
+./testnet/launch.sh -n 3
 ```
 
 Press **Ctrl-C** to stop all nodes. Logs are in `testnet/logs/`.
@@ -34,24 +39,7 @@ pubsub-cli --node 127.0.0.1:9001 publish \
   --message "hello testnet"
 ```
 
-All 5 nodes should log `Delivered message to local subscriber`.
-
-## nodes.json
-
-`launch.sh` regenerates this file on every run from the `TOPICS` and `NUM_NODES` variables at the top of the script. To change topics or node count, edit those variables — `nodes.json` is derived, not hand-maintained.
-
-**Format:**
-```json
-{
-  "nodes": [
-    {
-      "addr": "127.0.0.1:9001",
-      "public_key": null,
-      "subscribed_topics": ["ops/emergency/critical", "gov/drep/test", "dapp/test/notifications"]
-    }
-  ]
-}
-```
+All nodes should log `Delivered message to local subscriber`.
 
 ## Configuration
 
@@ -59,6 +47,10 @@ Edit the variables at the top of `launch.sh`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NUM_NODES` | `5` | Number of nodes to launch |
-| `BASE_PORT` | `9001` | First port; nodes use `BASE_PORT` … `BASE_PORT + NUM_NODES - 1` |
+| `NUM_NODES` | `5` | Default number of nodes (override with `--nodes N`) |
+| `BASE_PORT` | `9001` | First QUIC port; nodes use `BASE_PORT` … `BASE_PORT + N - 1` |
 | `TOPICS` | `ops/emergency/critical,...` | Comma-separated topic names all nodes subscribe to |
+
+HTTP dashboards: `http://localhost:10001` (node 1) through `http://localhost:1000N`.
+
+The testnet uses the mock chain state — no Blockfrost key or on-chain contracts needed.
