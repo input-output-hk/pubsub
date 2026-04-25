@@ -76,18 +76,19 @@ use pubsub_types::traits::ChainState;
 /// use pubsub_network::pallas_chain::ContractAddresses;
 ///
 /// let contracts = ContractAddresses {
-///     node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").unwrap(),
-///     topic_registry_addr: std::env::var("PUBSUB_TOPIC_REGISTRY_ADDR").unwrap(),
+///     node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").unwrap_or_default(),
+///     topic_validator_addr: std::env::var("PUBSUB_TOPIC_VALIDATOR_ADDR").unwrap(),
 ///     publisher_vault_addr: std::env::var("PUBSUB_PUBLISHER_VAULT_ADDR").unwrap(),
 ///     registry_policy_id: std::env::var("PUBSUB_REGISTRY_POLICY_ID").unwrap(),
 /// };
 /// ```
 #[derive(Clone)]
 pub struct ContractAddresses {
-    /// Bech32 address of the node registry validator.
+    /// Bech32 address of the node registry validator (Phase 2; may be empty string).
     pub node_registry_addr: String,
-    /// Bech32 address of the per-topic datum validator.
-    pub topic_registry_addr: String,
+    /// Bech32 address of the topic validator — where per-topic TopicDatum UTxOs live.
+    /// This is PUBSUB_TOPIC_VALIDATOR_ADDR, NOT the registry head address.
+    pub topic_validator_addr: String,
     /// Bech32 address of the publisher vault validator.
     pub publisher_vault_addr: String,
     /// Hex policy ID of the registry minting policy (56 hex chars = 28 bytes).
@@ -499,8 +500,8 @@ pub enum ChainProvider {
 /// use pubsub_network::pallas_chain::{CardanoChainState, ContractAddresses};
 ///
 /// let contracts = ContractAddresses {
-///     node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").unwrap(),
-///     topic_registry_addr: std::env::var("PUBSUB_TOPIC_REGISTRY_ADDR").unwrap(),
+///     node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").unwrap_or_default(),
+///     topic_validator_addr: std::env::var("PUBSUB_TOPIC_VALIDATOR_ADDR").unwrap(),
 ///     publisher_vault_addr: std::env::var("PUBSUB_PUBLISHER_VAULT_ADDR").unwrap(),
 ///     registry_policy_id: std::env::var("PUBSUB_REGISTRY_POLICY_ID").unwrap(),
 /// };
@@ -666,7 +667,7 @@ impl ChainState for CardanoChainState {
                 })?;
 
                 let bf = BlockfrostClient::new(project_id, base_url);
-                let utxos = bf.get_utxos_at(&self.contracts.topic_registry_addr).await?;
+                let utxos = bf.get_utxos_at(&self.contracts.topic_validator_addr).await?;
 
                 for utxo in &utxos {
                     let Some(hex) = &utxo.inline_datum else {
@@ -731,7 +732,7 @@ impl ChainState for CardanoChainState {
                     )
                 })?;
                 let og = OgmiosClient::new(url);
-                let utxos = og.query_utxos(&self.contracts.topic_registry_addr).await?;
+                let utxos = og.query_utxos(&self.contracts.topic_validator_addr).await?;
                 for utxo in &utxos {
                     let Some(hex) = &utxo.datum else { continue };
                     let data = decode_plutus_data(hex)?;
@@ -777,11 +778,11 @@ impl ChainState for CardanoChainState {
             }
             ChainProvider::LocalNode { socket_path, magic } => {
                 let _ = (topic, socket_path, magic);
-                todo!("LocalNode: UTxOsByAddress(topic_registry_addr) + vault UTxO scan via NtC")
+                todo!("LocalNode: UTxOsByAddress(topic_validator_addr) + vault UTxO scan via NtC")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
                 let _ = (topic, endpoint, api_key);
-                todo!("utxorpc: SearchUtxos(topic_registry_addr) + SearchUtxos(vault_addr)")
+                todo!("utxorpc: SearchUtxos(topic_validator_addr) + SearchUtxos(vault_addr)")
             }
         }
     }
@@ -790,7 +791,7 @@ impl ChainState for CardanoChainState {
         match &self.provider {
             ChainProvider::Blockfrost { project_id, base_url } => {
                 let bf = BlockfrostClient::new(project_id, base_url);
-                let utxos = bf.get_utxos_at(&self.contracts.topic_registry_addr).await?;
+                let utxos = bf.get_utxos_at(&self.contracts.topic_validator_addr).await?;
                 // Eagerly fetch all vault UTxOs once; filter per-topic below.
                 let vault_utxos = bf
                     .get_utxos_at(&self.contracts.publisher_vault_addr)
@@ -851,7 +852,7 @@ impl ChainState for CardanoChainState {
             }
             ChainProvider::Ogmios { url } => {
                 let og = OgmiosClient::new(url);
-                let utxos = og.query_utxos(&self.contracts.topic_registry_addr).await?;
+                let utxos = og.query_utxos(&self.contracts.topic_validator_addr).await?;
                 let vault_utxos = og.query_utxos(&self.contracts.publisher_vault_addr).await?;
                 let mut topics = Vec::new();
                 for utxo in &utxos {
@@ -898,11 +899,11 @@ impl ChainState for CardanoChainState {
             }
             ChainProvider::LocalNode { socket_path, magic } => {
                 let _ = (socket_path, magic);
-                todo!("LocalNode: UTxOsByAddress(topic_registry_addr) decode all TopicDatum UTxOs")
+                todo!("LocalNode: UTxOsByAddress(topic_validator_addr) decode all TopicDatum UTxOs")
             }
             ChainProvider::Utxorpc { endpoint, api_key } => {
                 let _ = (endpoint, api_key);
-                todo!("utxorpc: SearchUtxos(topic_registry_addr) stream and decode all")
+                todo!("utxorpc: SearchUtxos(topic_validator_addr) stream and decode all")
             }
         }
     }
@@ -1097,7 +1098,7 @@ mod tests {
     fn contract_env() -> Option<ContractAddresses> {
         Some(ContractAddresses {
             node_registry_addr: std::env::var("PUBSUB_NODE_REGISTRY_ADDR").ok()?,
-            topic_registry_addr: std::env::var("PUBSUB_TOPIC_REGISTRY_ADDR").ok()?,
+            topic_validator_addr: std::env::var("PUBSUB_TOPIC_VALIDATOR_ADDR").ok()?,
             publisher_vault_addr: std::env::var("PUBSUB_PUBLISHER_VAULT_ADDR").ok()?,
             registry_policy_id: std::env::var("PUBSUB_REGISTRY_POLICY_ID").ok()?,
         })
@@ -1111,7 +1112,7 @@ mod tests {
         };
         let contracts = contract_env().unwrap_or(ContractAddresses {
             node_registry_addr: String::new(),
-            topic_registry_addr: String::new(),
+            topic_validator_addr: String::new(),
             publisher_vault_addr: String::new(),
             registry_policy_id: String::new(),
         });

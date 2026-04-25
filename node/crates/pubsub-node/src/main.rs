@@ -115,7 +115,7 @@ struct Args {
     /// Ogmios JSON-RPC URL for reading on-chain topic registry.
     /// Requires Ogmios v6.0+ (HTTP POST interface). No API key needed.
     /// Example: http://localhost:1337
-    /// Also requires --topic-registry-addr, --publisher-vault-addr, --registry-policy-id.
+    /// Also requires --topic-validator-addr, --publisher-vault-addr, --registry-policy-id.
     #[arg(long)]
     ogmios_url: Option<String>,
 
@@ -130,9 +130,9 @@ struct Args {
 
     // ── Contract addresses (required when using any chain backend) ────────────
 
-    /// Bech32 address of the deployed topic registry validator.
+    /// Bech32 address of the topic validator (PUBSUB_TOPIC_VALIDATOR_ADDR) — where per-topic UTxOs live.
     #[arg(long)]
-    topic_registry_addr: Option<String>,
+    topic_validator_addr: Option<String>,
 
     /// Bech32 address of the deployed node registry validator.
     #[arg(long)]
@@ -544,7 +544,7 @@ async fn main() -> Result<()> {
 
 fn contract_addresses(args: &Args) -> Option<ContractAddresses> {
     Some(ContractAddresses {
-        topic_registry_addr: args.topic_registry_addr.clone()?,
+        topic_validator_addr: args.topic_validator_addr.clone()?,
         node_registry_addr: args.node_registry_addr.clone().unwrap_or_default(),
         publisher_vault_addr: args.publisher_vault_addr.clone()?,
         registry_policy_id: args.registry_policy_id.clone()?,
@@ -559,7 +559,7 @@ fn build_chain_state(args: &Args) -> Arc<dyn ChainState> {
                 return Arc::new(CardanoChainState::ogmios(url, c));
             }
             None => warn!(
-                "–-ogmios-url requires --topic-registry-addr, --publisher-vault-addr, \
+                "–-ogmios-url requires --topic-validator-addr, --publisher-vault-addr, \
                  and --registry-policy-id; falling back to mock chain state"
             ),
         }
@@ -570,7 +570,7 @@ fn build_chain_state(args: &Args) -> Arc<dyn ChainState> {
                 return Arc::new(CardanoChainState::blockfrost(key, &args.blockfrost_url, c));
             }
             None => warn!(
-                "--blockfrost-key requires --topic-registry-addr, --publisher-vault-addr, \
+                "--blockfrost-key requires --topic-validator-addr, --publisher-vault-addr, \
                  and --registry-policy-id; falling back to mock chain state"
             ),
         }
