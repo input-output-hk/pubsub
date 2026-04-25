@@ -445,14 +445,15 @@ async fn main() -> Result<()> {
             if let Err(e) = cyclon_clone.cycle().await {
                 warn!(error = %e, "Cyclon cycle failed");
             }
-            // Replace connected_peers with the current Cyclon view so stale/offline
-            // peers disappear from the dashboard as soon as Cyclon evicts them.
+            // Refresh timestamps for peers still in the Cyclon view, then prune
+            // entries that haven't been seen recently so the dashboard reflects
+            // actual reachability rather than historical connections.
             if let Some(ref s) = cyclon_api {
                 let view = cyclon_clone.view().await;
-                s.connected_peers.clear();
                 for pd in &view {
                     s.record_peer_connected(&pd.node_info.node_id, &pd.node_info.addr.to_string());
                 }
+                s.evict_stale_peers();
             }
         }
     });

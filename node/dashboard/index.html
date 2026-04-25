@@ -83,6 +83,7 @@
   }
   .node.self circle { fill: #a78bfa; stroke: #c4b5fd; }
   .node.peer circle { fill: #38bdf8; stroke: #7dd3fc; }
+  .node.stale circle { fill: #374151; stroke: #4b5563; }
   .node.active circle { r: 14; }
 
   .node text {
@@ -95,6 +96,7 @@
 
   .link { stroke-opacity: 0.6; }
   .link.neighbor { stroke: #a78bfa; stroke-width: 2; }
+  .link.neighbor.stale { stroke: #374151; stroke-opacity: 0.4; stroke-dasharray: 4 3; }
   .link.random    { stroke: #38bdf8; stroke-width: 1.5; stroke-dasharray: 5 3; }
 
   .pulse {
@@ -133,16 +135,18 @@
   }
 
   .stat { background: #1a1d27; border-radius: 6px; padding: 8px 10px; }
-  .stat .val { font-size: 20px; font-weight: 700; color: #a78bfa; }
-  .stat .lbl { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .stat .val { font-size: 20px; font-weight: 700; color: #a78bfa; line-height: 1; }
+  .stat .val-row { display: flex; align-items: baseline; gap: 5px; }
+  .stat .val-total { font-size: 12px; font-weight: 400; color: #4b5563; }
+  .stat .lbl { font-size: 11px; color: #6b7280; margin-top: 3px; }
 
-  #topic-filter { display: flex; gap: 6px; flex-wrap: wrap; }
   .topic-pill {
-    background: #1a1d27;
-    border: 1px solid #3d4168;
+    background: #4f46e5;
+    border: none;
     border-radius: 12px;
     padding: 3px 10px;
     font-size: 11px;
+    color: #fff;
     cursor: pointer;
     transition: background 0.1s;
     white-space: nowrap;
@@ -150,7 +154,35 @@
     text-overflow: ellipsis;
     max-width: 200px;
   }
-  .topic-pill.active { background: #4f46e5; border-color: #6366f1; color: #fff; }
+  .topic-pill:hover { background: #6366f1; }
+  .topic-pill.active { background: #7c3aed; outline: 2px solid #a78bfa; }
+
+  #topic-search {
+    width: 100%;
+    background: #1a1d27;
+    border: 1px solid #3d4168;
+    border-radius: 6px;
+    color: #e0e0e0;
+    padding: 5px 8px;
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  #topic-search:focus { outline: none; border-color: #6366f1; }
+  #topic-search::placeholder { color: #4b5563; }
+
+  .topic-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    color: #9ca3af;
+  }
+  .topic-list-item:hover { background: #1a1d27; color: #e0e0e0; }
+  .topic-list-item.active { color: #a78bfa; }
+  .topic-list-item .topic-dot { width: 6px; height: 6px; border-radius: 50%; background: #3d4168; flex-shrink: 0; }
 
   #node-detail {
     font-size: 12px;
@@ -226,7 +258,13 @@
     <h2>Stats</h2>
     <div id="stats-grid">
       <div class="stat"><div class="val" id="stat-peers">0</div><div class="lbl">Peers</div></div>
-      <div class="stat"><div class="val" id="stat-topics">0</div><div class="lbl">Topics</div></div>
+      <div class="stat">
+        <div class="val-row">
+          <div class="val" id="stat-topics">0</div>
+          <div class="val-total" id="stat-topics-total"></div>
+        </div>
+        <div class="lbl">Topics subscribed</div>
+      </div>
       <div class="stat"><div class="val" id="stat-msgs">0</div><div class="lbl">Messages</div></div>
       <div class="stat"><div class="val" id="stat-uptime">0s</div><div class="lbl">Uptime</div></div>
     </div>
@@ -234,15 +272,16 @@
 
   <div class="panel">
     <h2>Topics</h2>
-    <div id="topic-subscribed-section" style="display:none">
-      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Subscribed</div>
-      <div id="topic-subscribed-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <div id="topic-subscribed-section" style="display:none;margin-bottom:10px">
+      <div id="topic-subscribed-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+      <div style="font-size:10px;color:#4b5563;margin-top:5px">Click a topic to filter the message feed</div>
     </div>
     <div id="topic-discovered-section" style="display:none">
-      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Discovered (not subscribed)</div>
-      <div id="topic-discovered-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Available on-chain</div>
+      <input id="topic-search" type="search" placeholder="Search topics…">
+      <div id="topic-discovered-list"></div>
     </div>
-    <div id="topic-empty" style="font-size:11px;color:#6b7280">No topics found</div>
+    <div id="topic-empty" style="font-size:11px;color:#4b5563;font-style:italic">No topics found</div>
   </div>
 
   <div class="panel" style="max-height:140px;overflow-y:auto">
@@ -376,6 +415,11 @@ function updateStats(s) {
   document.getElementById('stat-uptime').textContent = formatUptime(s.uptime_secs ?? 0);
 }
 
+function updateTopicTotal(total, subscribed) {
+  const el = document.getElementById('stat-topics-total');
+  if (el) el.textContent = total > subscribed ? `/ ${total}` : '';
+}
+
 function formatUptime(secs) {
   if (secs < 60) return secs + 's';
   if (secs < 3600) return Math.floor(secs / 60) + 'm';
@@ -390,34 +434,57 @@ function updateTopics(s) {
     .catch(() => {});
 }
 
+let allTopics = [];
+
 function renderTopicPills(topics) {
+  allTopics = topics;
   const subscribed = topics.filter(t => t.subscribed !== false);
   const discovered = topics.filter(t => t.subscribed === false);
 
-  const subSection = document.getElementById('topic-subscribed-section');
-  const disSection = document.getElementById('topic-discovered-section');
-  const empty = document.getElementById('topic-empty');
+  updateTopicTotal(topics.length, subscribed.length);
 
-  subSection.style.display = subscribed.length ? '' : 'none';
-  disSection.style.display = discovered.length ? '' : 'none';
-  empty.style.display = topics.length ? 'none' : '';
+  document.getElementById('topic-subscribed-section').style.display = subscribed.length ? '' : 'none';
+  document.getElementById('topic-discovered-section').style.display = discovered.length ? '' : 'none';
+  document.getElementById('topic-empty').style.display = topics.length ? 'none' : '';
 
-  function makePills(list, containerId) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = '';
-    list.forEach(t => {
-      const label = t.name || t.topic_id.substring(0, 8) + '…';
-      const pill = document.createElement('div');
-      pill.className = 'topic-pill' + (activeTopic === t.topic_id ? ' active' : '');
-      pill.textContent = label;
-      pill.title = t.topic_id;
-      pill.onclick = () => { activeTopic = t.topic_id; renderTopicPills(topics); pollMessages(); };
-      container.appendChild(pill);
-    });
+  // Subscribed: indigo filled capsule pills
+  const pillsEl = document.getElementById('topic-subscribed-pills');
+  pillsEl.innerHTML = '';
+  subscribed.forEach(t => {
+    const label = t.name || t.topic_id.substring(0, 8) + '…';
+    const pill = document.createElement('div');
+    pill.className = 'topic-pill' + (activeTopic === t.topic_id ? ' active' : '');
+    pill.textContent = label;
+    pill.title = t.topic_id;
+    pill.onclick = () => { activeTopic = t.topic_id; renderTopicPills(allTopics); pollMessages(); };
+    pillsEl.appendChild(pill);
+  });
+
+  // Discovered: searchable list — wire up search input once
+  const searchEl = document.getElementById('topic-search');
+  if (!searchEl._wired) {
+    searchEl._wired = true;
+    searchEl.addEventListener('input', () => renderDiscoveredList(discovered, searchEl.value));
   }
+  renderDiscoveredList(discovered, searchEl.value);
+}
 
-  makePills(subscribed, 'topic-subscribed-pills');
-  makePills(discovered, 'topic-discovered-pills');
+function renderDiscoveredList(discovered, query) {
+  const q = (query || '').toLowerCase();
+  const filtered = discovered.filter(t => !q || (t.name || t.topic_id).toLowerCase().includes(q));
+  const listEl = document.getElementById('topic-discovered-list');
+  listEl.innerHTML = '';
+  filtered.forEach(t => {
+    const label = t.name || t.topic_id.substring(0, 8) + '…';
+    const row = document.createElement('div');
+    row.className = 'topic-list-item' + (activeTopic === t.topic_id ? ' active' : '');
+    row.innerHTML = `<span class="topic-dot"></span><span title="${t.topic_id}">${label}</span>`;
+    row.onclick = () => { activeTopic = t.topic_id; renderTopicPills(allTopics); pollMessages(); };
+    listEl.appendChild(row);
+  });
+  if (filtered.length === 0 && q) {
+    listEl.innerHTML = `<div style="font-size:11px;color:#4b5563;padding:4px 6px">No match</div>`;
+  }
 }
 
 async function pollMessages() {
@@ -453,20 +520,21 @@ function updateGraph(topology, peers, status) {
     if (id !== selfId && !currentPeerIds.has(id)) nodes.delete(id);
   }
 
-  // Upsert current peers
+  // Upsert current peers (carry stale flag through for coloring)
   allPeers.forEach(p => {
     if (!nodes.has(p.peer_id)) {
-      nodes.set(p.peer_id, { id: p.peer_id, bech32: p.peer_id_bech32, addr: p.addr, label: p.addr, isSelf: false });
+      nodes.set(p.peer_id, { id: p.peer_id, bech32: p.peer_id_bech32, addr: p.addr, label: p.addr, isSelf: false, stale: !!p.stale });
     } else {
       const n = nodes.get(p.peer_id);
       if (p.peer_id_bech32) n.bech32 = p.peer_id_bech32;
+      n.stale = !!p.stale;
     }
   });
 
   // Rebuild links (topology peers = neighbor links)
   links.length = 0;
   allPeers.forEach(p => {
-    links.push({ source: selfId, target: p.peer_id, type: 'neighbor' });
+    links.push({ source: selfId, target: p.peer_id, type: 'neighbor', stale: !!p.stale });
   });
 
   renderGraph(selfId);
@@ -505,14 +573,14 @@ function renderGraph(selfId) {
   linkSel = root.selectAll('.link')
     .data(links)
     .join('line')
-    .attr('class', d => `link ${d.type}`);
+    .attr('class', d => `link ${d.type}${d.stale ? ' stale' : ''}`);
 
   // Nodes
   nodeSel = root.selectAll('.node')
     .data(nodeArr, d => d.id)
     .join(enter => {
       const g = enter.append('g')
-        .attr('class', d => 'node ' + (d.isSelf ? 'self' : 'peer'))
+        .attr('class', d => 'node ' + (d.isSelf ? 'self' : d.stale ? 'stale' : 'peer'))
         .call(d3.drag()
           .on('start', dragstart)
           .on('drag', dragged)

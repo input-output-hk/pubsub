@@ -54,6 +54,11 @@ pub struct StoredMessage {
 // Shared API state
 // ---------------------------------------------------------------------------
 
+/// Peer not refreshed in this many seconds is shown as stale (gray) in the dashboard.
+const PEER_STALE_SECS: u64 = 15;
+/// Peer not refreshed in this many seconds is removed from the topology entirely.
+const PEER_REMOVE_SECS: u64 = 45;
+
 pub struct ApiState {
     pub node_info: NodeInfo,
     pub started_at: Instant,
@@ -61,8 +66,8 @@ pub struct ApiState {
     pub network: String,
     /// bech32 HRP for node identifiers ("psnode" or "psnode_test")
     pub bech32_hrp: String,
-    /// peer_id_hex → addr
-    pub connected_peers: Arc<DashMap<String, String>>,
+    /// peer_id_hex → (addr, last_seen). Peers not refreshed within PEER_REMOVE_SECS are pruned.
+    pub connected_peers: Arc<DashMap<String, (String, Instant)>>,
     /// topic_hex → topic_name (all topics discovered from chain)
     pub topic_names: Arc<DashMap<String, String>>,
     /// topic_hex of topics this node is actively subscribed to (subset of topic_names)
@@ -134,11 +139,16 @@ impl ApiState {
 
     pub fn record_peer_connected(&self, peer_id: &NodeId, addr: &str) {
         let id = peer_id.0.iter().map(|b| format!("{b:02x}")).collect::<String>();
-        self.connected_peers.insert(id.clone(), addr.to_owned());
+        self.connected_peers.insert(id.clone(), (addr.to_owned(), Instant::now()));
         self.send_event(NodeEvent::PeerConnected {
             peer_id: id,
             addr: addr.to_owned(),
         });
+    }
+
+    pub fn evict_stale_peers(&self) {
+        self.connected_peers
+            .retain(|_, (_, ts)| ts.elapsed().as_secs() < PEER_REMOVE_SECS);
     }
 
 }
@@ -197,6 +207,8 @@ struct TopologyPeer {
     peer_id: String,
     peer_id_bech32: String,
     addr: String,
+    /// True when the peer hasn't been seen in the Cyclon view for PEER_STALE_SECS.
+    stale: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +229,9 @@ async fn handle_status(State(state): State<Arc<ApiState>>) -> impl IntoResponse 
         network: state.network.clone(),
         addr: state.node_info.addr.to_string(),
         uptime_secs: state.started_at.elapsed().as_secs(),
-        peer_count: state.connected_peers.len(),
+        peer_count: state.connected_peers.iter()
+            .filter(|e| e.value().1.elapsed().as_secs() < PEER_STALE_SECS)
+            .count(),
         topic_count: state.subscribed_topic_ids.len(),
         message_count: msgs.len(),
     })
@@ -276,11 +290,8 @@ async fn handle_peers(State(state): State<Arc<ApiState>>) -> impl IntoResponse {
         .iter()
         .map(|e| {
             let peer_id = e.key().clone();
-            let peer_id_bech32 = encode_bech32(
-                &state.bech32_hrp,
-                &hex_to_bytes(&peer_id),
-            );
-            PeerEntry { peer_id, peer_id_bech32, addr: e.value().clone() }
+            let peer_id_bech32 = encode_bech32(&state.bech32_hrp, &hex_to_bytes(&peer_id));
+            PeerEntry { peer_id, peer_id_bech32, addr: e.value().0.clone() }
         })
         .collect();
     Json(peers)
@@ -336,7 +347,9 @@ async fn handle_topology(State(state): State<Arc<ApiState>>) -> impl IntoRespons
         .map(|e| {
             let peer_id = e.key().clone();
             let peer_id_bech32 = encode_bech32(&state.bech32_hrp, &hex_to_bytes(&peer_id));
-            TopologyPeer { peer_id, peer_id_bech32, addr: e.value().clone() }
+            let (addr, ts) = e.value();
+            let stale = ts.elapsed().as_secs() >= PEER_STALE_SECS;
+            TopologyPeer { peer_id, peer_id_bech32, addr: addr.clone(), stale }
         })
         .collect();
     Json(TopologyResponse { self_id, peers })
