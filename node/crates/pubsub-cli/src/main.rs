@@ -27,16 +27,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Publish a message to a topic
+    /// Publish a message to a topic.
+    ///
+    /// Specify the topic with EITHER `--topic <name>` (TopicId = Blake2b-256(name) —
+    /// works for off-chain / mock-chain topics) OR `--topic-id <u64>` (the on-chain
+    /// integer id encoded as a 32-byte TopicId — required for chain-registered
+    /// topics).  Exactly one is required.
     Publish {
-        /// Topic name (used to derive TopicId via Blake2b-256 unless `--topic-id` is set).
-        #[arg(short, long)]
-        topic: String,
+        /// Topic name. Hashed with Blake2b-256 to form TopicId.
+        #[arg(short, long, conflicts_with = "topic_id", required_unless_present = "topic_id")]
+        topic: Option<String>,
 
-        /// On-chain topic id (u64).  Overrides `--topic` hashing — required to
-        /// reach a topic registered on-chain, where TopicId is an int encoded
-        /// as a 32-byte buffer with the BE u64 in bytes 0..8 and zero padding.
-        #[arg(long)]
+        /// On-chain topic id (u64). Encoded as a 32-byte TopicId with BE u64 in bytes 0..8.
+        #[arg(long, conflicts_with = "topic")]
         topic_id: Option<u64>,
 
         /// Message payload (text)
@@ -48,14 +51,17 @@ enum Commands {
         credential_type: String,
     },
 
-    /// Subscribe to a topic and print received messages
+    /// Subscribe to a topic and print received messages.
+    ///
+    /// Specify the topic with EITHER `--topic <name>` OR `--topic-id <u64>`.
+    /// See `publish` for the difference. Exactly one is required.
     Subscribe {
-        /// Topic name (used to derive TopicId via Blake2b-256 unless `--topic-id` is set).
-        #[arg(short, long)]
-        topic: String,
+        /// Topic name. Hashed with Blake2b-256 to form TopicId.
+        #[arg(short, long, conflicts_with = "topic_id", required_unless_present = "topic_id")]
+        topic: Option<String>,
 
-        /// On-chain topic id (u64).  See `publish --topic-id`.
-        #[arg(long)]
+        /// On-chain topic id (u64).
+        #[arg(long, conflicts_with = "topic")]
         topic_id: Option<u64>,
 
         /// Replay starts after this sequence number.  Default 0 = full TTL
@@ -83,10 +89,12 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Publish { topic, topic_id, message, credential_type } => {
-            publish(&cli.node, &topic, topic_id, &message, &credential_type).await?;
+            let target = TopicTarget::from_args(topic, topic_id)?;
+            publish(&cli.node, target, &message, &credential_type).await?;
         }
         Commands::Subscribe { topic, topic_id, since_seq, limit } => {
-            subscribe(&cli.node, &topic, topic_id, since_seq, limit).await?;
+            let target = TopicTarget::from_args(topic, topic_id)?;
+            subscribe(&cli.node, target, since_seq, limit).await?;
         }
         Commands::Status => {
             println!("Status check not yet implemented (needs gRPC API)");
@@ -96,10 +104,43 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// One of (--topic <name>) or (--topic-id <u64>).  Carries the resolved
+/// TopicId plus a human-readable label for logs.
+struct TopicTarget {
+    topic_id: TopicId,
+    label: String,
+}
+
+impl TopicTarget {
+    fn from_args(name: Option<String>, id: Option<u64>) -> Result<Self> {
+        match (name, id) {
+            (Some(n), None) => Ok(Self {
+                topic_id: topic_id_from_name(&n),
+                label: format!("name='{n}'"),
+            }),
+            (None, Some(n)) => Ok(Self {
+                topic_id: topic_id_from_int(n),
+                label: format!("on-chain-id={n}"),
+            }),
+            // clap's `conflicts_with` + `required_unless_present` catches these,
+            // but keep a defensive arm in case the attributes drift.
+            (Some(_), Some(_)) => {
+                Err(anyhow::anyhow!("specify either --topic or --topic-id, not both"))
+            }
+            (None, None) => {
+                Err(anyhow::anyhow!("specify either --topic or --topic-id"))
+            }
+        }
+    }
+
+    fn hex(&self) -> String {
+        self.topic_id.0.iter().map(|b| format!("{b:02x}")).collect()
+    }
+}
+
 async fn publish(
     node_addr: &SocketAddr,
-    topic_name: &str,
-    topic_id_override: Option<u64>,
+    target: TopicTarget,
     payload: &str,
     cred_type_str: &str,
 ) -> Result<()> {
@@ -125,13 +166,8 @@ async fn publish(
         CredentialType::Ed25519 => PublisherCredential::ed25519(key_bytes),
     };
 
-    let topic_id = match topic_id_override {
-        Some(n) => topic_id_from_int(n),
-        None => topic_id_from_name(topic_name),
-    };
-
     let msg = Message {
-        topic_id,
+        topic_id: target.topic_id.clone(),
         sequence_nr: 0,
         timestamp_ms: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
@@ -169,8 +205,9 @@ async fn publish(
     transport.send(&node_id, &data).await?;
 
     println!(
-        "Published to topic '{}': {}",
-        topic_name,
+        "Published topic_id={} ({}): {}",
+        target.hex(),
+        target.label,
         payload
     );
 
@@ -179,15 +216,11 @@ async fn publish(
 
 async fn subscribe(
     node_addr: &SocketAddr,
-    topic_name: &str,
-    topic_id_override: Option<u64>,
+    target: TopicTarget,
     since_seq: u64,
     limit: u32,
 ) -> Result<()> {
-    let topic_id = match topic_id_override {
-        Some(n) => topic_id_from_int(n),
-        None => topic_id_from_name(topic_name),
-    };
+    let topic_id = target.topic_id.clone();
 
     // Ephemeral key (subscribers don't sign anything; the cert is only for TLS).
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
@@ -207,8 +240,12 @@ async fn subscribe(
     ciborium::ser::into_writer(&req, &mut control)?;
 
     println!(
-        "Subscribed to '{}' on {} (since_seq={}, limit={}). Ctrl-C to exit.",
-        topic_name, node_addr, since_seq, limit
+        "Subscribed topic_id={} ({}) on {} (since_seq={}, limit={}). Ctrl-C to exit.",
+        target.hex(),
+        target.label,
+        node_addr,
+        since_seq,
+        limit
     );
 
     let mut rx = transport
