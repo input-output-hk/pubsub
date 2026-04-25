@@ -269,6 +269,7 @@ const svg = d3.select('#graph-svg');
 const root = d3.select('#graph-root');
 let simulation = null;
 let linkSel, nodeSel;
+let lastTopologyKey = '';
 
 // ---------------------------------------------------------------------------
 // URL / multi-node support
@@ -421,6 +422,12 @@ async function pollMessages() {
 // ---------------------------------------------------------------------------
 function updateGraph(topology, peers, status) {
   const selfId = topology.self_id || status.node_id;
+  const allPeers = topology.peers || [];
+
+  // Only re-render when the peer set actually changes.
+  const key = selfId + '|' + allPeers.map(p => p.peer_id).sort().join(',');
+  if (key === lastTopologyKey) return;
+  lastTopologyKey = key;
 
   // Upsert self
   if (!nodes.has(selfId)) {
@@ -428,7 +435,6 @@ function updateGraph(topology, peers, status) {
   }
 
   // Upsert peers from topology
-  const allPeers = topology.peers || [];
   allPeers.forEach(p => {
     if (!nodes.has(p.peer_id)) {
       nodes.set(p.peer_id, { id: p.peer_id, bech32: p.peer_id_bech32, addr: p.addr, label: p.addr, isSelf: false });
