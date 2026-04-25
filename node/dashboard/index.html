@@ -447,7 +447,13 @@ function updateGraph(topology, peers, status) {
     nodes.set(selfId, { id: selfId, addr: status.addr, label: status.addr, isSelf: true });
   }
 
-  // Upsert peers from topology
+  // Remove nodes no longer in the topology (peer went offline / Cyclon evicted).
+  const currentPeerIds = new Set(allPeers.map(p => p.peer_id));
+  for (const id of nodes.keys()) {
+    if (id !== selfId && !currentPeerIds.has(id)) nodes.delete(id);
+  }
+
+  // Upsert current peers
   allPeers.forEach(p => {
     if (!nodes.has(p.peer_id)) {
       nodes.set(p.peer_id, { id: p.peer_id, bech32: p.peer_id_bech32, addr: p.addr, label: p.addr, isSelf: false });
