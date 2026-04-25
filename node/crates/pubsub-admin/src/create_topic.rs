@@ -42,7 +42,6 @@ pub async fn run(args: CreateTopicArgs) -> Result<()> {
     // --- read .env file -------------------------------------------------------
     let env = read_env(&args.env_file)?;
     let topic_bootstrap_utxo = env_var(&env, "PUBSUB_TOPIC_BOOTSTRAP_UTXO")?;
-    let node_bootstrap_utxo  = env_var(&env, "PUBSUB_NODE_BOOTSTRAP_UTXO")?;
     let registry_addr_str    = env_var(&env, "PUBSUB_TOPIC_REGISTRY_ADDR")?;
     let topic_validator_str  = env_var(&env, "PUBSUB_TOPIC_VALIDATOR_ADDR")?;
     let registry_policy_id   = env_var(&env, "PUBSUB_REGISTRY_POLICY_ID")?;
@@ -52,8 +51,6 @@ pub async fn run(args: CreateTopicArgs) -> Result<()> {
     let tmp = tempfile::tempdir().context("creating temp dir")?;
     let topic_project_dir = args.contracts_dir.join("topic-registry");
     let (topic_tx_hash, topic_tx_ix) = parse_utxo_ref(&topic_bootstrap_utxo)?;
-    let (node_tx_hash, node_tx_ix)   = parse_utxo_ref(&node_bootstrap_utxo)?;
-    let _ = (node_tx_hash, node_tx_ix); // not needed for topic creation
     let topic_cbor = cbor_output_ref(&topic_tx_hash, topic_tx_ix)?;
     let policy_cbor = cbor_policy_id(&registry_policy_id)?;
 
