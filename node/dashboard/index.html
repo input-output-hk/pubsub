@@ -151,6 +151,8 @@
     max-width: 200px;
   }
   .topic-pill.active { background: #4f46e5; border-color: #6366f1; color: #fff; }
+  .topic-pill.discovered { border-style: dashed; color: #6b7280; }
+  .topic-pill.discovered.active { background: #4f46e5; border-color: #6366f1; color: #fff; border-style: dashed; }
 
   #node-detail {
     font-size: 12px;
@@ -394,9 +396,11 @@ function renderTopicPills(topics) {
   topics.forEach(t => {
     const label = t.name || t.topic_id.substring(0, 8) + '…';
     const pill = document.createElement('div');
-    pill.className = 'topic-pill' + (activeTopic === t.topic_id ? ' active' : '');
+    const isActive = activeTopic === t.topic_id;
+    const isSubscribed = t.subscribed !== false; // backward compat: true if field absent
+    pill.className = 'topic-pill' + (isActive ? ' active' : '') + (!isSubscribed ? ' discovered' : '');
     pill.textContent = label;
-    pill.title = t.topic_id;
+    pill.title = t.topic_id + (isSubscribed ? ' (subscribed)' : ' (discovered, not subscribed)');
     pill.onclick = () => { activeTopic = t.topic_id; renderTopicPills(topics); pollMessages(); };
     container.appendChild(pill);
   });

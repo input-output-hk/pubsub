@@ -63,8 +63,10 @@ pub struct ApiState {
     pub bech32_hrp: String,
     /// peer_id_hex → addr
     pub connected_peers: Arc<DashMap<String, String>>,
-    /// topic_hex → topic_name, seeded at startup from subscriptions
+    /// topic_hex → topic_name (all topics discovered from chain)
     pub topic_names: Arc<DashMap<String, String>>,
+    /// topic_hex of topics this node is actively subscribed to (subset of topic_names)
+    pub subscribed_topic_ids: Arc<DashMap<String, ()>>,
     /// Recent messages per topic (capped at 200 total)
     pub recent_messages: Arc<tokio::sync::RwLock<Vec<StoredMessage>>>,
     pub event_tx: broadcast::Sender<NodeEvent>,
@@ -84,6 +86,7 @@ impl ApiState {
             bech32_hrp,
             connected_peers: Arc::new(DashMap::new()),
             topic_names: Arc::new(DashMap::new()),
+            subscribed_topic_ids: Arc::new(DashMap::new()),
             recent_messages: Arc::new(tokio::sync::RwLock::new(Vec::new())),
             event_tx: tx.clone(),
         });
@@ -167,6 +170,8 @@ struct PeerEntry {
 struct TopicEntry {
     topic_id: String,
     name: Option<String>,
+    /// true if this node is actively relaying this topic
+    subscribed: bool,
 }
 
 #[derive(Deserialize)]
@@ -213,7 +218,7 @@ async fn handle_status(State(state): State<Arc<ApiState>>) -> impl IntoResponse 
         addr: state.node_info.addr.to_string(),
         uptime_secs: state.started_at.elapsed().as_secs(),
         peer_count: state.connected_peers.len(),
-        topic_count: state.node_info.subscribed_topics.len(),
+        topic_count: state.subscribed_topic_ids.len(),
         message_count: msgs.len(),
     })
 }
@@ -289,16 +294,16 @@ fn hex_to_bytes(hex: &str) -> Vec<u8> {
 }
 
 async fn handle_topics(State(state): State<Arc<ApiState>>) -> impl IntoResponse {
-    let topics: Vec<TopicEntry> = state
-        .node_info
-        .subscribed_topics
+    let mut topics: Vec<TopicEntry> = state
+        .topic_names
         .iter()
-        .map(|t| {
-            let id: String = t.0.iter().map(|b| format!("{b:02x}")).collect();
-            let name = state.topic_names.get(&id).map(|v| v.clone());
-            TopicEntry { topic_id: id, name }
+        .map(|e| {
+            let id = e.key().clone();
+            let subscribed = state.subscribed_topic_ids.contains_key(&id);
+            TopicEntry { topic_id: id, name: Some(e.value().clone()), subscribed }
         })
         .collect();
+    topics.sort_by(|a, b| a.name.cmp(&b.name));
     Json(topics)
 }
 

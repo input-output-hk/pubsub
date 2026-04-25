@@ -338,10 +338,11 @@ async fn main() -> Result<()> {
             args.network.as_str().to_string(),
             args.network.bech32_hrp().to_string(),
         );
-        // Seed topic names so they display immediately, not only after a message arrives.
+        // Seed discovered topics so they display immediately.
         for tc in &active_topics {
             let hex: String = tc.topic_id.0.iter().map(|b| format!("{b:02x}")).collect();
-            state.topic_names.insert(hex, tc.name.clone());
+            state.topic_names.insert(hex.clone(), tc.name.clone());
+            state.subscribed_topic_ids.insert(hex, ());
         }
         let http_addr: SocketAddr = SocketAddr::new(args.bind.ip(), port);
         let state_clone = state.clone();
@@ -406,6 +407,12 @@ async fn main() -> Result<()> {
                     Ok(topics) => {
                         let current = refresh_subs.subscriptions().await;
                         for tc in &topics {
+                            let hex: String =
+                                tc.topic_id.0.iter().map(|b| format!("{b:02x}")).collect();
+                            // Always record in dashboard (discovery, regardless of subscription).
+                            if let Some(ref s) = refresh_api {
+                                s.topic_names.insert(hex.clone(), tc.name.clone());
+                            }
                             if !current.contains(&tc.topic_id) {
                                 if let Err(e) = refresh_vicinity.join_topic(&tc.topic_id).await {
                                     warn!(topic = %tc.name, error = %e, "join_topic failed");
@@ -417,9 +424,7 @@ async fn main() -> Result<()> {
                                 }
                                 info!(topic = %tc.name, topic_id = %tc.topic_id, "New topic discovered on chain");
                                 if let Some(ref s) = refresh_api {
-                                    let hex: String =
-                                        tc.topic_id.0.iter().map(|b| format!("{b:02x}")).collect();
-                                    s.topic_names.insert(hex, tc.name.clone());
+                                    s.subscribed_topic_ids.insert(hex, ());
                                 }
                             }
                         }
