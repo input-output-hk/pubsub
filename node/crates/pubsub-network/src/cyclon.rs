@@ -1,49 +1,51 @@
 // =============================================================================
-// Cyclon — Gossip-based peer sampling service
+// Cyclon — Gossip-based peer sampling service (with SecureCyclon extensions)
 // =============================================================================
 //
-// Implements the Cyclon protocol (Voulgaris, Gavidia & van Steen, 2005).
+// Implements the Cyclon protocol (Voulgaris, Gavidia & van Steen, 2005) with
+// the three eclipse-resistance extensions from Jesi, Montresor & Babaoglu
+// ("SecureCyclon", 2007):
+//
+//   1. Signed PeerDescriptors — each node signs its own descriptor with its
+//      Ed25519 key; recipients verify before inserting into their view.
+//      Self-certifying: NodeId = Blake2b-256(public_key); no registry needed.
+//   2. Bootstrap diversity — view is considered "warm" only after receiving
+//      descriptors from ≥ min_seed_diversity distinct seed origins.
+//   3. Rate-limited replacement — new-peer insertions are capped per
+//      merge_received call (default: ≤ 50% of view_size) to slow eclipse.
 //
 // Each gossip cycle opens a QUIC **bidirectional** stream to the oldest peer,
 // sends a shuffle buffer, reads the response from the same stream, and closes
 // it.  Gossip traffic is therefore completely separate from the unidirectional
 // application-message channel — they can never steal each other's messages.
-//
-// Eclipse-resistance (future work — needed before production):
-//   The original Jesi–Montresor–Babaoglu "SecureCyclon" extensions add:
-//   1. Signed PeerDescriptors: each node signs its own descriptor with its
-//      Ed25519 key so recipients can verify before inserting into their view.
-//      Verification is self-certifying — NodeId = hash(public_key), and the
-//      public key is already carried in PeerDescriptor.node_info.public_key —
-//      so no external registry lookup is required.  Relay nodes do not register
-//      on-chain (only replication servers do, D2 Ch.4); their identity is their
-//      key pair alone.
-//   2. Bootstrap diversity: require shuffle responses from ≥ 2 distinct seed
-//      nodes before the view is considered warm.
-//   3. Rate-limited peer replacement: cap new-peer insertions to ≤ 50% of
-//      view_size per cycle to slow eclipse attacks.
-//   All three extensions are independent of the on-chain registry and can be
-//   implemented now.  Deferred only because the testnet is a controlled
-//   environment with trusted operators.
 // =============================================================================
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use pallas_crypto::key::ed25519::SecretKey;
 use rand::prelude::SliceRandom;
 use rand::rng;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use pubsub_types::error::PubSubError;
-use pubsub_types::node::{NodeInfo, PeerDescriptor};
+use pubsub_types::node::{NodeId, NodeInfo, PeerDescriptor};
 use pubsub_types::traits::{GossipTransport, PeerSampler, Transport, GOSSIP_CYCLON};
 
 #[derive(Debug, Clone)]
 pub struct CyclonConfig {
     pub view_size: usize,
     pub shuffle_length: usize,
+    /// Reject incoming descriptors whose signature is missing or invalid.
+    pub verify_signatures: bool,
+    /// Minimum number of distinct seed origins before the view is "warm".
+    pub min_seed_diversity: usize,
+    /// Maximum new peers inserted per merge_received call (0 = unlimited).
+    /// Defaults to view_size / 2 to slow eclipse attacks.
+    pub max_new_per_merge: usize,
 }
 
 impl Default for CyclonConfig {
@@ -51,6 +53,9 @@ impl Default for CyclonConfig {
         Self {
             view_size: 20,
             shuffle_length: 10,
+            verify_signatures: true,
+            min_seed_diversity: 2,
+            max_new_per_merge: 10, // 50% of default view_size
         }
     }
 }
@@ -59,6 +64,9 @@ pub struct Cyclon {
     local_info: NodeInfo,
     view: Arc<RwLock<Vec<PeerDescriptor>>>,
     config: CyclonConfig,
+    signing_key: SecretKey,
+    /// Distinct NodeIds we have successfully bootstrapped from.
+    seed_origins: Arc<RwLock<HashSet<NodeId>>>,
     /// Used only for `bootstrap()` — establishes initial QUIC connections.
     transport: Arc<dyn Transport>,
     /// Used for gossip exchanges — bidirectional QUIC streams, never shared
@@ -69,6 +77,7 @@ pub struct Cyclon {
 impl Cyclon {
     pub fn new(
         local_info: NodeInfo,
+        key_seed: [u8; 32],
         transport: Arc<dyn Transport>,
         gossip: Arc<dyn GossipTransport>,
         config: CyclonConfig,
@@ -76,21 +85,34 @@ impl Cyclon {
         info!(
             view_size = config.view_size,
             shuffle_length = config.shuffle_length,
+            verify_signatures = config.verify_signatures,
+            min_seed_diversity = config.min_seed_diversity,
             "Cyclon initialised"
         );
         Self {
             local_info,
             view: Arc::new(RwLock::new(Vec::with_capacity(config.view_size))),
+            signing_key: SecretKey::from(key_seed),
+            seed_origins: Arc::new(RwLock::new(HashSet::new())),
             config,
             transport,
             gossip,
         }
     }
 
+    /// Returns `true` once the view has been seeded from ≥ `min_seed_diversity`
+    /// distinct bootstrap origins (SecureCyclon extension 2).
+    pub async fn is_warm(&self) -> bool {
+        self.seed_origins.read().await.len() >= self.config.min_seed_diversity
+    }
+
     fn self_descriptor(&self) -> PeerDescriptor {
+        let msg = PeerDescriptor::signing_bytes(&self.local_info);
+        let sig = self.signing_key.sign(&msg);
         PeerDescriptor {
             node_info: self.local_info.clone(),
             age: 0,
+            signature: sig.as_ref().to_vec(),
         }
     }
 
@@ -115,10 +137,34 @@ impl Cyclon {
 
     fn merge_received(&self, view: &mut Vec<PeerDescriptor>, received: Vec<PeerDescriptor>) {
         let local_id = &self.local_info.node_id;
+        let max_new = if self.config.max_new_per_merge == 0 {
+            usize::MAX
+        } else {
+            self.config.max_new_per_merge
+        };
+        let mut new_count = 0usize;
+
         for incoming in received {
             if &incoming.node_info.node_id == local_id {
                 continue;
             }
+
+            // SecureCyclon extension 1: signature verification.
+            if self.config.verify_signatures {
+                match incoming.verify_signature() {
+                    None => {
+                        warn!(peer = %incoming.node_info.node_id, "dropping unsigned descriptor");
+                        continue;
+                    }
+                    Some(false) => {
+                        warn!(peer = %incoming.node_info.node_id, "dropping descriptor with invalid signature");
+                        continue;
+                    }
+                    Some(true) => {}
+                }
+            }
+
+            // Already in view — refresh if the incoming entry is younger.
             if let Some(existing) = view
                 .iter_mut()
                 .find(|pd| pd.node_info.node_id == incoming.node_info.node_id)
@@ -128,11 +174,19 @@ impl Cyclon {
                 }
                 continue;
             }
+
+            // SecureCyclon extension 3: rate-limit new peer insertions.
+            if new_count >= max_new {
+                continue;
+            }
+
             if view.len() < self.config.view_size {
                 view.push(incoming);
+                new_count += 1;
             } else if let Some((oldest_idx, oldest)) = Self::pick_oldest(view) {
                 if incoming.age < oldest.age {
                     view[oldest_idx] = incoming;
+                    new_count += 1;
                 }
             }
         }
@@ -276,12 +330,154 @@ impl PeerSampler for Cyclon {
                 warn!(addr = %info.addr, error = %e, "bootstrap: failed to connect, skipping");
                 continue;
             }
+            // SecureCyclon extension 2: track distinct seed origins.
+            self.seed_origins.write().await.insert(info.node_id.clone());
             let mut view = self.view.write().await;
-            view.push(PeerDescriptor { node_info: info, age: 0 });
+            view.push(PeerDescriptor::unsigned(info, 0));
             connected += 1;
         }
 
-        info!(bootstrapped = connected, "bootstrap complete");
+        let origins = self.seed_origins.read().await.len();
+        let warm = origins >= self.config.min_seed_diversity;
+        info!(bootstrapped = connected, seed_origins = origins, warm, "bootstrap complete");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pallas_crypto::key::ed25519::SecretKey;
+    use pubsub_types::error::PubSubError;
+    use pubsub_types::node::{node_id_from_key, NodeInfo, PeerDescriptor};
+    use pubsub_types::traits::{GossipTransport, Transport};
+    use tokio::sync::oneshot;
+
+    // ---- minimal stubs --------------------------------------------------------
+
+    struct NoopTransport;
+    struct NoopGossip;
+
+    #[async_trait::async_trait]
+    impl Transport for NoopTransport {
+        async fn connect(&self, _: &NodeInfo) -> Result<(), PubSubError> { Ok(()) }
+        async fn send(&self, _: &NodeId, _: &[u8]) -> Result<(), PubSubError> { Ok(()) }
+        async fn recv(&self) -> Result<(NodeId, Vec<u8>), PubSubError> {
+            std::future::pending().await
+        }
+        async fn disconnect(&self, _: &NodeId) -> Result<(), PubSubError> { Ok(()) }
+        async fn connected_peers(&self) -> Vec<NodeId> { vec![] }
+    }
+
+    #[async_trait::async_trait]
+    impl GossipTransport for NoopGossip {
+        async fn gossip_exchange(
+            &self, _: &NodeId, _: std::net::SocketAddr, _: u8, _: Vec<u8>,
+        ) -> Result<Vec<u8>, PubSubError> {
+            Ok(vec![])
+        }
+        async fn next_inbound_gossip(
+            &self, _: u8,
+        ) -> Result<pubsub_types::traits::InboundGossip, PubSubError> {
+            std::future::pending().await
+        }
+    }
+
+    // ---- helpers --------------------------------------------------------------
+
+    fn make_key(seed: u8) -> SecretKey { SecretKey::from([seed; 32]) }
+
+    fn make_node_info(key: &SecretKey) -> NodeInfo {
+        let pk = key.public_key();
+        let pk_bytes = pk.as_ref().to_vec();
+        NodeInfo {
+            node_id: node_id_from_key(&pk_bytes),
+            addr: "127.0.0.1:9000".parse().unwrap(),
+            public_key: pk_bytes,
+            subscribed_topics: vec![],
+        }
+    }
+
+    fn signed_descriptor(key: &SecretKey, info: NodeInfo) -> PeerDescriptor {
+        let msg = PeerDescriptor::signing_bytes(&info);
+        let sig = key.sign(&msg);
+        PeerDescriptor { node_info: info, age: 0, signature: sig.as_ref().to_vec() }
+    }
+
+    fn make_cyclon(key_seed: u8, cfg: CyclonConfig) -> Cyclon {
+        let key = make_key(key_seed);
+        let info = make_node_info(&key);
+        Cyclon {
+            local_info: info,
+            view: Arc::new(RwLock::new(Vec::new())),
+            signing_key: make_key(key_seed),
+            seed_origins: Arc::new(RwLock::new(HashSet::new())),
+            transport: Arc::new(NoopTransport),
+            gossip: Arc::new(NoopGossip),
+            config: cfg,
+        }
+    }
+
+    // ---- tests ----------------------------------------------------------------
+
+    #[test]
+    fn self_descriptor_signature_is_valid() {
+        let cyclon = make_cyclon(0x01, CyclonConfig::default());
+        let desc = cyclon.self_descriptor();
+        assert_eq!(desc.verify_signature(), Some(true));
+    }
+
+    #[test]
+    fn merge_drops_unsigned_when_verify_enabled() {
+        let cyclon = make_cyclon(0x01, CyclonConfig { verify_signatures: true, ..CyclonConfig::default() });
+        let unsigned = PeerDescriptor::unsigned(make_node_info(&make_key(0x02)), 0);
+        let mut view = vec![];
+        cyclon.merge_received(&mut view, vec![unsigned]);
+        assert!(view.is_empty(), "unsigned descriptor should be rejected");
+    }
+
+    #[test]
+    fn merge_accepts_signed_descriptor() {
+        let cyclon = make_cyclon(0x01, CyclonConfig { verify_signatures: true, ..CyclonConfig::default() });
+        let peer_key = make_key(0x02);
+        let signed = signed_descriptor(&peer_key, make_node_info(&peer_key));
+        let mut view = vec![];
+        cyclon.merge_received(&mut view, vec![signed]);
+        assert_eq!(view.len(), 1, "valid signed descriptor should be accepted");
+    }
+
+    #[test]
+    fn merge_drops_wrong_signature() {
+        let cyclon = make_cyclon(0x01, CyclonConfig { verify_signatures: true, ..CyclonConfig::default() });
+        let peer_key = make_key(0x02);
+        let peer_info = make_node_info(&peer_key);
+        let tampered = signed_descriptor(&make_key(0x99), peer_info);
+        let mut view = vec![];
+        cyclon.merge_received(&mut view, vec![tampered]);
+        assert!(view.is_empty(), "descriptor signed by wrong key should be rejected");
+    }
+
+    #[test]
+    fn merge_rate_limits_new_insertions() {
+        let cfg = CyclonConfig { verify_signatures: false, max_new_per_merge: 2, ..CyclonConfig::default() };
+        let cyclon = make_cyclon(0x01, cfg);
+        let peers: Vec<PeerDescriptor> = (2u8..8)
+            .map(|s| PeerDescriptor::unsigned(make_node_info(&make_key(s)), 0))
+            .collect();
+        let mut view = vec![];
+        cyclon.merge_received(&mut view, peers);
+        assert_eq!(view.len(), 2, "only max_new_per_merge peers should be inserted");
+    }
+
+    #[test]
+    fn merge_accepts_unsigned_when_verify_disabled() {
+        let cfg = CyclonConfig { verify_signatures: false, ..CyclonConfig::default() };
+        let cyclon = make_cyclon(0x01, cfg);
+        let peers: Vec<PeerDescriptor> = (2u8..5)
+            .map(|s| PeerDescriptor::unsigned(make_node_info(&make_key(s)), 0))
+            .collect();
+        let mut view = vec![];
+        cyclon.merge_received(&mut view, peers);
+        assert_eq!(view.len(), 3, "unsigned peers accepted when verification disabled");
     }
 }

@@ -70,4 +70,44 @@ pub struct PeerDescriptor {
 
     /// Age counter — incremented each Cyclon cycle, used to evict stale entries
     pub age: u32,
+
+    /// Ed25519 signature of `signing_bytes()` by the originating node's private key.
+    /// Empty for descriptors created locally before signing is set up (e.g. bootstrap seeds).
+    #[serde(default)]
+    pub signature: Vec<u8>,
+}
+
+impl PeerDescriptor {
+    /// Construct an unsigned descriptor (signature empty).
+    pub fn unsigned(node_info: NodeInfo, age: u32) -> Self {
+        Self { node_info, age, signature: vec![] }
+    }
+
+    /// Stable byte representation over which the owning node signs.
+    /// Encodes `node_id || public_key` — enough to verify self-certifying identity.
+    pub fn signing_bytes(info: &NodeInfo) -> Vec<u8> {
+        let mut out = Vec::with_capacity(32 + info.public_key.len());
+        out.extend_from_slice(&info.node_id.0);
+        out.extend_from_slice(&info.public_key);
+        out
+    }
+
+    /// Verify the descriptor's signature against the public key carried in `node_info`.
+    ///
+    /// Returns `None` if the descriptor is unsigned (empty signature), `Some(true)` if
+    /// the signature is valid, `Some(false)` if it is present but invalid.
+    pub fn verify_signature(&self) -> Option<bool> {
+        use pallas_crypto::key::ed25519::{PublicKey, Signature};
+        if self.signature.is_empty() {
+            return None;
+        }
+        let Ok(pk) = PublicKey::try_from(self.node_info.public_key.as_ref()) else {
+            return Some(false);
+        };
+        let Ok(sig) = Signature::try_from(self.signature.as_slice()) else {
+            return Some(false);
+        };
+        let msg = Self::signing_bytes(&self.node_info);
+        Some(pk.verify(&msg, &sig))
+    }
 }

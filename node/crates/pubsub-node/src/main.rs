@@ -328,6 +328,7 @@ async fn main() -> Result<()> {
 
     let cyclon_concrete = Arc::new(Cyclon::new(
         self_info.clone(),
+        key_seed,
         transport_app.clone(),
         transport_gossip.clone(),
         CyclonConfig::default(),

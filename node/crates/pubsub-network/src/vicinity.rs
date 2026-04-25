@@ -250,7 +250,7 @@ impl Vicinity {
     /// matching per-topic finger tables.
     fn apply_topic_update(state: &mut VicinityState, updated: &NodeInfo) {
         let positions: HashSet<u64> = updated.subscribed_topics.iter().map(topic_position).collect();
-        let pd = PeerDescriptor { node_info: updated.clone(), age: 0 };
+        let pd = PeerDescriptor::unsigned(updated.clone(), 0);
         state.peer_topics.insert(updated.node_id.0.to_vec(), (pd.clone(), positions));
         // Update any finger slot that already holds this peer.
         for (cw, ccw) in state.topic_fingers.values_mut() {
@@ -293,10 +293,7 @@ impl Vicinity {
                                     );
                                 }
                                 Self::improve_all_topic_fingers(&mut state, &received);
-                                let mut descs = vec![PeerDescriptor {
-                                    node_info: self.local_info.clone(),
-                                    age: 0,
-                                }];
+                                let mut descs = vec![PeerDescriptor::unsigned(self.local_info.clone(), 0)];
                                 descs.extend(Self::all_finger_peers(&state));
                                 descs
                             };
@@ -488,7 +485,7 @@ impl TopicRouter for Vicinity {
 
         let our_descriptors: Vec<PeerDescriptor> = {
             let state = self.state.read().await;
-            let mut descs = vec![PeerDescriptor { node_info: self.local_info.clone(), age: 0 }];
+            let mut descs = vec![PeerDescriptor::unsigned(self.local_info.clone(), 0)];
             descs.extend(Self::all_finger_peers(&state));
             descs
         };
