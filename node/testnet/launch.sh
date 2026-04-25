@@ -1,17 +1,13 @@
 #!/bin/bash
-# Launch a local PubSub testnet with 5 nodes
+# Launch a local PubSub testnet.
 #
-# Usage: ./testnet/launch.sh [build]
-#   - Without args: runs the nodes (must be built first)
-#   - With "build": builds first, then runs
+# Usage: ./testnet/launch.sh [--nodes N] [--build]
+#   --nodes N   number of nodes to start (default: 5)
+#   --build     build the binary before launching
 #
-# Nodes bind to ports 9001-9005 on localhost.
+# Nodes bind to ports 9001-900N on localhost.
+# Node 1 acts as seed; all others bootstrap from it.
 # All nodes subscribe to the topics defined in TOPICS.
-#
-# Peer discovery uses single-seed bootstrapping (D2 Ch.3):
-#   - Node 1 starts alone and acts as the seed.
-#   - Nodes 2-5 each know only node 1 at startup.
-#   - Cyclon gossip exchanges fill the peer views over time.
 
 set -euo pipefail
 
@@ -20,8 +16,37 @@ NODE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
 
 NUM_NODES=5
+BUILD=false
 BASE_PORT=9001
 TOPICS="ops/emergency/critical,gov/drep/test,dapp/test/notifications"
+
+# ── Parse args ───────────────────────────────────────────────────────────────
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --nodes|-n)
+            NUM_NODES="$2"
+            shift 2
+            ;;
+        --build|build)
+            BUILD=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--nodes N] [--build]"
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+if ! [[ "$NUM_NODES" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: --nodes must be a positive integer, got '$NUM_NODES'" >&2
+    exit 1
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,7 +56,7 @@ NC='\033[0m'
 
 # ── Build ────────────────────────────────────────────────────────────────────
 
-if [[ "${1:-}" == "build" ]]; then
+if $BUILD; then
     echo -e "${BLUE}Building PubSub node...${NC}"
     cd "$NODE_DIR"
     cargo build --release
@@ -116,7 +141,7 @@ for i in $(seq 1 $NUM_NODES); do
         # the other nodes try to connect.
         sleep 1
     else
-        # Nodes 2-N only know the seed at startup; Cyclon fills the rest.
+        # Nodes 2..N only know the seed at startup; Cyclon fills the rest.
         echo -e "${GREEN}  Starting $name on QUIC :$port  HTTP :$http_port  (seed: $SEED_ADDR)${NC}"
         $BINARY \
             --bind "127.0.0.1:$port" \
