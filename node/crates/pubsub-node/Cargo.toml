@@ -19,6 +19,7 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 pallas-crypto = { workspace = true }
 rand = { workspace = true }
 getrandom = { workspace = true }

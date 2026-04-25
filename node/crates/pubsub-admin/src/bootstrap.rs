@@ -128,10 +128,10 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
     let txid = bf.submit_tx(&tx_cbor).await.context("submitting bootstrap tx")?;
     println!("  ✓ tx: {txid}");
 
-    // ── Write config file ───────────────────────────────────────────────────
-    let env_file = output_dir.join(format!(".env.{}", args.network.env_name()));
-    write_env_file(
-        &env_file,
+    // ── Write TOML config file ──────────────────────────────────────────────
+    let config_file = output_dir.join(format!("config.{}.toml", args.network.env_name()));
+    write_toml_config(
+        &config_file,
         args.network,
         &args.blockfrost_project_id,
         &topic_registry_addr,
@@ -147,10 +147,10 @@ pub async fn run(args: BootstrapArgs, contracts_dir: &Path, output_dir: &Path) -
     println!("{}", "=".repeat(70));
     println!("  topic-registry tx: {txid}");
     println!();
-    println!("  Config: {}", env_file.display());
+    println!("  Config: {}", config_file.display());
     println!();
     println!("Next steps:");
-    println!("  pubsub-admin publish-scripts --env-file {}", env_file.display());
+    println!("  pubsub-admin publish-scripts --config {}", config_file.display());
     println!("{}", "=".repeat(70));
 
     Ok(())
@@ -213,7 +213,7 @@ pub fn cbor_uint(n: u64) -> Vec<u8> {
     }
 }
 
-fn write_env_file(
+fn write_toml_config(
     path: &Path,
     network: Network,
     blockfrost_project_id: &str,
@@ -230,19 +230,24 @@ fn write_env_file(
          # Date:    {date}\n\
          # topic-registry bootstrap: {bootstrap_utxo}  → tx {txid}\n\
          \n\
-         BLOCKFROST_BASE_URL={base_url}\n\
-         BLOCKFROST_PROJECT_ID={blockfrost_project_id}\n\
+         network = \"{net}\"\n\
+         \n\
+         blockfrost_url = \"{base_url}\"\n\
+         blockfrost_key = \"{blockfrost_project_id}\"\n\
          \n\
          # Bech32 script addresses (enterprise, no staking credential)\n\
-         PUBSUB_TOPIC_REGISTRY_ADDR={topic_registry_addr}\n\
-         PUBSUB_TOPIC_VALIDATOR_ADDR={topic_validator_addr}\n\
-         PUBSUB_PUBLISHER_VAULT_ADDR={publisher_vault_addr}\n\
+         topic_validator_addr = \"{topic_validator_addr}\"\n\
+         publisher_vault_addr = \"{publisher_vault_addr}\"\n\
+         registry_policy_id = \"{registry_policy_id}\"\n\
          \n\
-         # Minting policy ID (56 hex chars = 28 bytes)\n\
-         PUBSUB_REGISTRY_POLICY_ID={registry_policy_id}\n\
+         # Reference script UTxOs — set by pubsub-admin publish-scripts\n\
+         # registry_mint_script_ref = \"\"\n\
+         # topic_validator_script_ref = \"\"\n\
+         # publisher_vault_script_ref = \"\"\n\
          \n\
-         # Bootstrap UTxO ref — used by publish-scripts to re-derive parameterized blueprints\n\
-         PUBSUB_TOPIC_BOOTSTRAP_UTXO={bootstrap_utxo}\n",
+         # Admin-internal — used by publish-scripts to re-derive parameterized blueprints\n\
+         # _topic_registry_addr = \"{topic_registry_addr}\"\n\
+         # _bootstrap_utxo = \"{bootstrap_utxo}\"\n",
         net = network.env_name(),
         magic = match network {
             Network::Preprod => 1,
