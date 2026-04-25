@@ -21,3 +21,7 @@ registry_policy_id   = "2ef6c260a9c1b5fa5cc0591935a0b492d4a265a3e9bc2c464b7c6c58
 registry_mint_script_ref   = "3426814e13d25e24ca43b5af998102b99d8c51528e0acda261394847ed126928#0"
 topic_validator_script_ref = "64f8142ef2501fffef93fd471a2ff0204dd3a1530bea46fb2b4566b883660ed3#0"
 publisher_vault_script_ref = "940ec105c503efea382e7cf5a37e7747e2143ad8d80532b53f0420b5bcb0682e#0"
+
+# ── Admin-internal (node ignores these) ──────────────────────────────────────
+# topic_registry_addr = "addr_test1wqh0dsnq48qmt7jucpv3jddqkjfdfgn9505mctzxfd7xckqexqxfm"
+# bootstrap_utxo      = "87c3911e27e8969d84f361096889b7257f556da9b16904bc88eac97bc2b7cc5d#1"
