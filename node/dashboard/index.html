@@ -141,21 +141,21 @@
   .stat .lbl { font-size: 11px; color: #6b7280; margin-top: 3px; }
 
   .topic-pill {
-    background: #4f46e5;
-    border: none;
+    background: transparent;
+    border: 1px solid #3d4168;
     border-radius: 12px;
-    padding: 3px 10px;
+    padding: 2px 9px;
     font-size: 11px;
-    color: #fff;
+    color: #a0a3b8;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
   }
-  .topic-pill:hover { background: #6366f1; }
-  .topic-pill.active { background: #7c3aed; outline: 2px solid #a78bfa; }
+  .topic-pill:hover { border-color: #6366f1; color: #e0e0e0; }
+  .topic-pill.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
 
   #topic-search {
     width: 100%;
