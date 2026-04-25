@@ -29,9 +29,15 @@ struct Cli {
 enum Commands {
     /// Publish a message to a topic
     Publish {
-        /// Topic name
+        /// Topic name (used to derive TopicId via Blake2b-256 unless `--topic-id` is set).
         #[arg(short, long)]
         topic: String,
+
+        /// On-chain topic id (u64).  Overrides `--topic` hashing — required to
+        /// reach a topic registered on-chain, where TopicId is an int encoded
+        /// as a 32-byte buffer with the BE u64 in bytes 0..8 and zero padding.
+        #[arg(long)]
+        topic_id: Option<u64>,
 
         /// Message payload (text)
         #[arg(short, long)]
@@ -44,9 +50,13 @@ enum Commands {
 
     /// Subscribe to a topic and print received messages
     Subscribe {
-        /// Topic name
+        /// Topic name (used to derive TopicId via Blake2b-256 unless `--topic-id` is set).
         #[arg(short, long)]
         topic: String,
+
+        /// On-chain topic id (u64).  See `publish --topic-id`.
+        #[arg(long)]
+        topic_id: Option<u64>,
 
         /// Replay starts after this sequence number.  Default 0 = full TTL
         /// window held in the node's HotCache.
@@ -72,11 +82,11 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Publish { topic, message, credential_type } => {
-            publish(&cli.node, &topic, &message, &credential_type).await?;
+        Commands::Publish { topic, topic_id, message, credential_type } => {
+            publish(&cli.node, &topic, topic_id, &message, &credential_type).await?;
         }
-        Commands::Subscribe { topic, since_seq, limit } => {
-            subscribe(&cli.node, &topic, since_seq, limit).await?;
+        Commands::Subscribe { topic, topic_id, since_seq, limit } => {
+            subscribe(&cli.node, &topic, topic_id, since_seq, limit).await?;
         }
         Commands::Status => {
             println!("Status check not yet implemented (needs gRPC API)");
@@ -86,7 +96,13 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn publish(node_addr: &SocketAddr, topic_name: &str, payload: &str, cred_type_str: &str) -> Result<()> {
+async fn publish(
+    node_addr: &SocketAddr,
+    topic_name: &str,
+    topic_id_override: Option<u64>,
+    payload: &str,
+    cred_type_str: &str,
+) -> Result<()> {
     // Generate ephemeral signing key (in production, load from keyfile)
     let signing_key = {
         let mut bytes = [0u8; 32];
@@ -109,7 +125,10 @@ async fn publish(node_addr: &SocketAddr, topic_name: &str, payload: &str, cred_t
         CredentialType::Ed25519 => PublisherCredential::ed25519(key_bytes),
     };
 
-    let topic_id = topic_id_from_name(topic_name);
+    let topic_id = match topic_id_override {
+        Some(n) => topic_id_from_int(n),
+        None => topic_id_from_name(topic_name),
+    };
 
     let msg = Message {
         topic_id,
@@ -164,10 +183,14 @@ async fn publish(node_addr: &SocketAddr, topic_name: &str, payload: &str, cred_t
 async fn subscribe(
     node_addr: &SocketAddr,
     topic_name: &str,
+    topic_id_override: Option<u64>,
     since_seq: u64,
     limit: u32,
 ) -> Result<()> {
-    let topic_id = topic_id_from_name(topic_name);
+    let topic_id = match topic_id_override {
+        Some(n) => topic_id_from_int(n),
+        None => topic_id_from_name(topic_name),
+    };
 
     // Ephemeral key (subscribers don't sign anything; the cert is only for TLS).
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
@@ -223,5 +246,13 @@ fn topic_id_from_name(name: &str) -> TopicId {
     let hash = Hasher::<256>::hash(name.as_bytes());
     let mut id = [0u8; 32];
     id.copy_from_slice(hash.as_ref());
+    TopicId(id)
+}
+
+/// Encode an on-chain integer topic id as a 32-byte TopicId.
+/// Mirrors `pallas_chain::on_chain_int_to_topic_id`: BE u64 in bytes 0..8, zeros in 8..32.
+fn topic_id_from_int(n: u64) -> TopicId {
+    let mut id = [0u8; 32];
+    id[..8].copy_from_slice(&n.to_be_bytes());
     TopicId(id)
 }
