@@ -718,15 +718,35 @@ function handleEvent(evt) {
     msgCount++;
     document.getElementById('stat-msgs').textContent = msgCount;
   } else if (evt.type === 'peer_connected') {
-    nodes.set(evt.peer_id, { id: evt.peer_id, addr: evt.addr, label: evt.addr, isSelf: false });
-    links.push({ source: getSelfId(), target: evt.peer_id, type: 'neighbor' });
-    renderGraph(getSelfId());
+    // Backend emits this only on first handshake (not Cyclon heartbeats), but
+    // also guard here in case a topology poll inserted the peer first.
+    if (nodes.has(evt.peer_id)) {
+      const n = nodes.get(evt.peer_id);
+      if (evt.peer_id_bech32) n.bech32 = evt.peer_id_bech32;
+      return;
+    }
+    nodes.set(evt.peer_id, {
+      id: evt.peer_id,
+      bech32: evt.peer_id_bech32,
+      addr: evt.addr,
+      label: evt.addr,
+      isSelf: false,
+    });
+    const selfId = getSelfId();
+    if (!links.some(l => l.source === selfId && l.target === evt.peer_id)) {
+      links.push({ source: selfId, target: evt.peer_id, type: 'neighbor' });
+    }
+    lastTopologyKey = '';  // invalidate so next poll reconciles cleanly
+    renderGraph(selfId);
   } else if (evt.type === 'peer_disconnected') {
+    if (!nodes.has(evt.peer_id)) return;
     nodes.delete(evt.peer_id);
     const idx = links.findIndex(l =>
-      (l.source === evt.peer_id || l.target === evt.peer_id)
+      (l.source === evt.peer_id || l.target === evt.peer_id ||
+       (l.source && l.source.id === evt.peer_id) || (l.target && l.target.id === evt.peer_id))
     );
     if (idx !== -1) links.splice(idx, 1);
+    lastTopologyKey = '';
     renderGraph(getSelfId());
   }
 }

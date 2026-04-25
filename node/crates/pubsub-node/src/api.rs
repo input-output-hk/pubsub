@@ -27,6 +27,7 @@ use pubsub_types::node::{NodeId, NodeInfo};
 pub enum NodeEvent {
     PeerConnected {
         peer_id: String,
+        peer_id_bech32: String,
         addr: String,
     },
     MessageReceived {
@@ -137,13 +138,23 @@ impl ApiState {
         });
     }
 
+    /// Record that a peer is reachable. Called on actual handshake AND on every
+    /// Cyclon cycle as a heartbeat — only emit a `PeerConnected` SSE event the
+    /// first time we see a peer so the dashboard does not rerender on each cycle.
     pub fn record_peer_connected(&self, peer_id: &NodeId, addr: &str) {
         let id = peer_id.0.iter().map(|b| format!("{b:02x}")).collect::<String>();
-        self.connected_peers.insert(id.clone(), (addr.to_owned(), Instant::now()));
-        self.send_event(NodeEvent::PeerConnected {
-            peer_id: id,
-            addr: addr.to_owned(),
-        });
+        let was_new = self
+            .connected_peers
+            .insert(id.clone(), (addr.to_owned(), Instant::now()))
+            .is_none();
+        if was_new {
+            let peer_id_bech32 = encode_bech32(&self.bech32_hrp, &peer_id.0);
+            self.send_event(NodeEvent::PeerConnected {
+                peer_id: id,
+                peer_id_bech32,
+                addr: addr.to_owned(),
+            });
+        }
     }
 
     pub fn evict_stale_peers(&self) {
