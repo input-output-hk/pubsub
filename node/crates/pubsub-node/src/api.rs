@@ -492,7 +492,7 @@ pub async fn start(state: Arc<ApiState>, addr: SocketAddr) {
         .route("/api/topics", get(handle_topics))
         .route("/api/messages", get(handle_messages))
         .route("/api/topology", get(handle_topology))
-        .route("/api/topics/:topic_hex/stream", get(handle_topic_stream))
+        .route("/api/topics/{topic_hex}/stream", get(handle_topic_stream))
         .route("/events", get(handle_events))
         .layer(CorsLayer::permissive())
         .with_state(state);
