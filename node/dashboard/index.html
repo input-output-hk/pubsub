@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PubSub Testnet Dashboard</title>
+<title>PubSub Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,6 +32,7 @@
   }
 
   header h1 { font-size: 16px; font-weight: 600; color: #a78bfa; }
+  header h1 .h1-net { font-weight: 400; color: #6b7280; margin-left: 8px; text-transform: capitalize; }
 
   .status-dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -127,6 +128,14 @@
     color: #6b7280;
     margin-bottom: 8px;
   }
+  .panel h2 .h2-hint {
+    font-size: 10px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #4b5563;
+    margin-left: 10px;
+  }
 
   #stats-grid {
     display: grid;
@@ -187,21 +196,32 @@
 
   #node-detail {
     font-size: 12px;
-    line-height: 1.7;
+    line-height: 1.6;
     color: #9ca3af;
   }
-  #node-detail strong { color: #e0e0e0; }
   #node-detail .no-sel { color: #4b5563; font-style: italic; }
+  #node-detail .grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 12px;
+    row-gap: 2px;
+    align-items: baseline;
+  }
+  #node-detail .grid .k { color: #e0e0e0; font-weight: 600; }
+  #node-detail .grid .v { text-align: right; word-break: break-all; }
+  #node-detail .copyable {
+    cursor: pointer;
+    user-select: none;
+    color: #cbd5e1;
+  }
+  #node-detail .copyable:hover { color: #fff; }
+  #node-detail .copyable.copied { color: #4ade80; }
   #node-detail .copy-id {
     font-family: monospace;
     font-size: 10px;
     color: #a78bfa;
-    margin-bottom: 4px;
-    cursor: pointer;
-    user-select: none;
   }
   #node-detail .copy-id:hover { color: #c4b5fd; }
-  #node-detail .copy-id.copied { color: #4ade80; }
 
   #message-feed {
     flex: 1;
@@ -240,7 +260,7 @@
 
 <header>
   <div class="status-dot disconnected" id="status-dot"></div>
-  <h1>PubSub Testnet</h1>
+  <h1>PubSub<span class="h1-net" id="header-network"></span></h1>
   <div id="header-node-id" style="font-size:11px;color:#6b7280;font-family:monospace;letter-spacing:-0.02em;word-break:break-all"></div>
   <div id="node-selector">
     <input type="text" id="node-url-input" placeholder="http://localhost:10001" style="display:none">
@@ -282,10 +302,9 @@
   </div>
 
   <div class="panel">
-    <h2>Topics</h2>
+    <h2>Topics<span class="h2-hint">Click a topic to filter the message feed</span></h2>
     <div id="topic-subscribed-section" style="display:none;margin-bottom:10px">
       <div id="topic-subscribed-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-      <div style="font-size:10px;color:#4b5563;margin-top:5px">Click a topic to filter the message feed</div>
     </div>
     <div id="topic-discovered-section" style="display:none">
       <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Available on-chain</div>
@@ -417,6 +436,12 @@ async function pollAll() {
 function updateHeaderNodeId(status) {
   selfBech32 = status.node_id_bech32 || status.node_id || '';
   document.getElementById('header-node-id').textContent = selfBech32;
+  const net = status.network || '';
+  const netEl = document.getElementById('header-network');
+  if (netEl && netEl.textContent !== net) {
+    netEl.textContent = net;
+    document.title = net ? `PubSub ${net.charAt(0).toUpperCase() + net.slice(1)} Dashboard` : 'PubSub Dashboard';
+  }
 }
 
 function updateStats(s) {
@@ -643,31 +668,42 @@ function truncateId(id) {
   return id.substring(0, 14) + '…' + id.substring(id.length - 8);
 }
 
-function showNodeDetail(d) {
-  const el = document.getElementById('node-detail');
-  const fullId = d.isSelf ? (selfBech32 || d.id) : (d.bech32 || d.id);
-  el.innerHTML = `
-    <div><strong>ID</strong></div>
-    <div class="copy-id" title="Click to copy: ${fullId}" data-id="${fullId}">${truncateId(fullId)}</div>
-    <div><strong>Addr</strong> ${d.addr || '—'}</div>
-    <div><strong>Role</strong> ${d.isSelf ? 'Self (this node)' : 'Remote peer'}</div>
-  `;
-
-  const copyEl = el.querySelector('.copy-id');
-  copyEl.onclick = async () => {
+function attachCopy(el, value) {
+  el.onclick = async () => {
     try {
-      await navigator.clipboard.writeText(fullId);
-      const orig = copyEl.textContent;
-      copyEl.textContent = 'Copied!';
-      copyEl.classList.add('copied');
+      await navigator.clipboard.writeText(value);
+      const orig = el.textContent;
+      el.textContent = 'Copied!';
+      el.classList.add('copied');
       setTimeout(() => {
-        copyEl.textContent = orig;
-        copyEl.classList.remove('copied');
+        el.textContent = orig;
+        el.classList.remove('copied');
       }, 1000);
     } catch (e) {
       console.warn('clipboard write failed', e);
     }
   };
+}
+
+function showNodeDetail(d) {
+  const el = document.getElementById('node-detail');
+  const fullId = d.isSelf ? (selfBech32 || d.id) : (d.bech32 || d.id);
+  const addr = d.addr || '';
+  el.innerHTML = `
+    <div class="grid">
+      <div class="k">ID</div>
+      <div class="v"><span class="copyable copy-id" title="Click to copy: ${fullId}">${truncateId(fullId)}</span></div>
+      <div class="k">Addr</div>
+      <div class="v">${addr ? `<span class="copyable" title="Click to copy: ${addr}">${addr}</span>` : '—'}</div>
+      <div class="k">Role</div>
+      <div class="v">${d.isSelf ? 'Self (this node)' : 'Remote peer'}</div>
+    </div>
+  `;
+
+  const idEl = el.querySelector('.copy-id');
+  if (idEl) attachCopy(idEl, fullId);
+  const addrEl = el.querySelector('.v .copyable:not(.copy-id)');
+  if (addrEl) attachCopy(addrEl, addr);
 
   // Highlight node
   root.selectAll('.node').classed('active', n => n.id === d.id);
