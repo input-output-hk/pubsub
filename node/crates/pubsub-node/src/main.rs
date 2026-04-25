@@ -12,6 +12,18 @@ const DEFAULT_VICINITY_INTERVAL: u64 = 10;
 const DEFAULT_TOPIC_REFRESH_INTERVAL: u64 = 300;
 const DEFAULT_LOG_LEVEL: &str = "info";
 const DEFAULT_BLOCKFROST_URL: &str = "https://cardano-preprod.blockfrost.io/api/v0";
+const CACHE_EVICT_INTERVAL_SECS: u64 = 60;
+const TRANSPORT_ERROR_BACKOFF_MS: u64 = 100;
+
+/// Resolve a config value: CLI flag wins, then config file, then built-in default.
+macro_rules! resolve {
+    ($cli:expr, $file:expr, $default:expr) => {
+        $cli.or($file).unwrap_or($default)
+    };
+    ($cli:expr, $file:expr) => {
+        $cli.or($file)
+    };
+}
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -225,27 +237,17 @@ async fn main() -> Result<()> {
         .unwrap_or_default();
 
     // Resolved values: CLI flag > config file > built-in default.
-    let log_level = args.log_level.clone()
-        .or(file_cfg.log_level.clone())
-        .unwrap_or_else(|| DEFAULT_LOG_LEVEL.to_string());
-    let cyclon_interval = args.cyclon_interval
-        .or(file_cfg.cyclon_interval)
-        .unwrap_or(DEFAULT_CYCLON_INTERVAL);
-    let vicinity_interval = args.vicinity_interval
-        .or(file_cfg.vicinity_interval)
-        .unwrap_or(DEFAULT_VICINITY_INTERVAL);
-    let topic_refresh_interval = args.topic_refresh_interval
-        .or(file_cfg.topic_refresh_interval)
-        .unwrap_or(DEFAULT_TOPIC_REFRESH_INTERVAL);
-    let blockfrost_url = args.blockfrost_url.clone()
-        .or(file_cfg.blockfrost_url.clone())
-        .unwrap_or_else(|| DEFAULT_BLOCKFROST_URL.to_string());
-    let blockfrost_key = args.blockfrost_key.clone().or(file_cfg.blockfrost_key.clone());
-    let ogmios_url = args.ogmios_url.clone();
-    let topic_validator_addr = args.topic_validator_addr.clone().or(file_cfg.topic_validator_addr.clone());
-    let node_registry_addr = args.node_registry_addr.clone().or(file_cfg.node_registry_addr.clone());
-    let publisher_vault_addr = args.publisher_vault_addr.clone().or(file_cfg.publisher_vault_addr.clone());
-    let registry_policy_id = args.registry_policy_id.clone().or(file_cfg.registry_policy_id.clone());
+    let log_level             = resolve!(args.log_level.clone(),            file_cfg.log_level.clone(),            DEFAULT_LOG_LEVEL.to_string());
+    let cyclon_interval       = resolve!(args.cyclon_interval,              file_cfg.cyclon_interval,              DEFAULT_CYCLON_INTERVAL);
+    let vicinity_interval     = resolve!(args.vicinity_interval,            file_cfg.vicinity_interval,            DEFAULT_VICINITY_INTERVAL);
+    let topic_refresh_interval = resolve!(args.topic_refresh_interval,      file_cfg.topic_refresh_interval,       DEFAULT_TOPIC_REFRESH_INTERVAL);
+    let blockfrost_url        = resolve!(args.blockfrost_url.clone(),       file_cfg.blockfrost_url.clone(),       DEFAULT_BLOCKFROST_URL.to_string());
+    let blockfrost_key        = resolve!(args.blockfrost_key.clone(),       file_cfg.blockfrost_key.clone());
+    let ogmios_url            = args.ogmios_url.clone();
+    let topic_validator_addr  = resolve!(args.topic_validator_addr.clone(), file_cfg.topic_validator_addr.clone());
+    let node_registry_addr    = resolve!(args.node_registry_addr.clone(),   file_cfg.node_registry_addr.clone());
+    let publisher_vault_addr  = resolve!(args.publisher_vault_addr.clone(), file_cfg.publisher_vault_addr.clone());
+    let registry_policy_id    = resolve!(args.registry_policy_id.clone(),   file_cfg.registry_policy_id.clone());
     let topics_list: Vec<String> = if !args.topics.is_empty() {
         args.topics.clone()
     } else {
@@ -542,7 +544,7 @@ async fn main() -> Result<()> {
 
     let store_clone = store.clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        let mut interval = tokio::time::interval(Duration::from_secs(CACHE_EVICT_INTERVAL_SECS));
         loop {
             interval.tick().await;
             match store_clone.evict_expired().await {
@@ -609,7 +611,7 @@ async fn main() -> Result<()> {
             }
             Err(e) => {
                 warn!(error = %e, "Transport recv error");
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                tokio::time::sleep(Duration::from_millis(TRANSPORT_ERROR_BACKOFF_MS)).await;
             }
         }
     }

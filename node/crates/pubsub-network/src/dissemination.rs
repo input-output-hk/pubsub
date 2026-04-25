@@ -302,6 +302,25 @@ impl HybridDisseminator {
         entry.random = random_links;
     }
 
+    // ---- helpers -----------------------------------------------------------
+
+    /// Marks a message as seen and returns `true` if it was new (not previously seen).
+    /// Returns `false` if already in the seen-set — caller should drop the message.
+    async fn is_new_message(&self, id: MessageId) -> bool {
+        let mut state = self.state.write().await;
+        if state.seen.contains(&id) {
+            return false;
+        }
+        state.seen.insert(id);
+        true
+    }
+
+    /// Rebuild Harary neighbors and refresh random links for a topic.
+    async fn ensure_topic_links(&self, topic: &TopicId) {
+        self.rebuild_neighbors(topic).await;
+        self.refresh_random_links(topic).await;
+    }
+
     // ---- forwarding --------------------------------------------------------
 
     /// Forward a message to all Harary neighbors and random links for its
@@ -352,29 +371,16 @@ impl Disseminator for HybridDisseminator {
     /// Called by the local publisher API.  Marks the message as seen,
     /// delivers to local subscriptions, and forwards to all peers.
     async fn disseminate(&self, msg: &Message) -> Result<(), PubSubError> {
-        let msg_id = msg.id();
-
-        // Mark as seen so we don't process our own message again if it
-        // comes back via a forwarding loop.
-        {
-            let mut state = self.state.write().await;
-            if state.seen.contains(&msg_id) {
-                debug!(msg_id = ?msg_id, "disseminate: already seen, dropping");
-                return Ok(());
-            }
-            state.seen.insert(msg_id);
+        if !self.is_new_message(msg.id()).await {
+            debug!("disseminate: already seen, dropping");
+            return Ok(());
         }
 
-        // Deliver to local consumers.
         if let Err(e) = self.subscription_mgr.deliver(msg.clone()).await {
             warn!(error = %e, "failed to deliver locally");
         }
 
-        // Build Harary links from the Vicinity subscriber list (always fresh).
-        self.rebuild_neighbors(&msg.topic_id).await;
-        self.refresh_random_links(&msg.topic_id).await;
-
-        // Forward to all overlay peers (no exclusion — we are the origin).
+        self.ensure_topic_links(&msg.topic_id).await;
         self.forward(msg, None).await?;
 
         info!(topic = %msg.topic_id, seq = msg.sequence_nr, "message disseminated");
@@ -389,16 +395,9 @@ impl Disseminator for HybridDisseminator {
         from: &NodeId,
         msg: Message,
     ) -> Result<(), PubSubError> {
-        let msg_id = msg.id();
-
-        // --- Deduplication ---
-        {
-            let mut state = self.state.write().await;
-            if state.seen.contains(&msg_id) {
-                debug!(from = %from, "on_receive: duplicate, dropping");
-                return Ok(());
-            }
-            state.seen.insert(msg_id);
+        if !self.is_new_message(msg.id()).await {
+            debug!(from = %from, "on_receive: duplicate, dropping");
+            return Ok(());
         }
 
         debug!(
@@ -408,16 +407,11 @@ impl Disseminator for HybridDisseminator {
             "on_receive: new message"
         );
 
-        // --- Local delivery ---
         if let Err(e) = self.subscription_mgr.deliver(msg.clone()).await {
             warn!(error = %e, "failed to deliver locally on receive");
         }
 
-        // Refresh Harary links from Vicinity subscriber list.
-        self.rebuild_neighbors(&msg.topic_id).await;
-        self.refresh_random_links(&msg.topic_id).await;
-
-        // --- Forward to peers (excluding sender) ---
+        self.ensure_topic_links(&msg.topic_id).await;
         self.forward(&msg, Some(from)).await?;
 
         Ok(())
