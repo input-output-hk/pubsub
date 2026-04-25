@@ -32,6 +32,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 use tracing::{debug, info, warn};
 
 use pubsub_types::error::PubSubError;
@@ -325,40 +326,49 @@ impl HybridDisseminator {
 
     /// Forward a message to all Harary neighbors and random links for its
     /// topic, excluding `exclude_peer` (the node we received it from, if any).
+    /// Sends to all peers concurrently via a JoinSet.
     async fn forward(
         &self,
         msg: &Message,
         exclude_peer: Option<&NodeId>,
     ) -> Result<(), PubSubError> {
-        let state = self.state.read().await;
-        let links = match state.topic_links.get(&msg.topic_id) {
-            Some(l) => l,
-            None => {
+        // Collect the target list under the read lock, then drop it so sends
+        // don't contend with concurrent seen-set writes.
+        let targets: Vec<NodeId> = {
+            let state = self.state.read().await;
+            let Some(links) = state.topic_links.get(&msg.topic_id) else {
                 debug!(topic = %msg.topic_id, "no links for topic, skipping forward");
                 return Ok(());
-            }
+            };
+            links
+                .neighbors
+                .iter()
+                .chain(links.random.iter())
+                .filter(|id| {
+                    exclude_peer.map_or(true, |excl| *id != excl) && *id != &self.local_id
+                })
+                .cloned()
+                .collect()
         };
 
-        // Encode once, send to many.
-        let encoded = self.codec.encode(msg)?;
-
-        let all_targets = links.neighbors.iter().chain(links.random.iter());
-        for peer_id in all_targets {
-            // Don't send back to whoever sent it to us.
-            if let Some(excl) = exclude_peer {
-                if peer_id == excl {
-                    continue;
-                }
-            }
-            // Don't send to ourselves.
-            if peer_id == &self.local_id {
-                continue;
-            }
-            if let Err(e) = self.transport.send(peer_id, &encoded).await {
-                warn!(peer = %peer_id, error = %e, "failed to forward message");
-                // Non-fatal: keep forwarding to other peers.
-            }
+        if targets.is_empty() {
+            return Ok(());
         }
+
+        // Encode once; share bytes across tasks via Arc.
+        let encoded = Arc::new(self.codec.encode(msg)?);
+
+        let mut tasks: JoinSet<()> = JoinSet::new();
+        for peer_id in targets {
+            let transport = Arc::clone(&self.transport);
+            let data = Arc::clone(&encoded);
+            tasks.spawn(async move {
+                if let Err(e) = transport.send(&peer_id, &data).await {
+                    warn!(peer = %peer_id, error = %e, "failed to forward message");
+                }
+            });
+        }
+        while tasks.join_next().await.is_some() {}
 
         Ok(())
     }
