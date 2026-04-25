@@ -156,14 +156,6 @@ for i in $(seq 1 $NUM_NODES); do
     fi
 done
 
-# Build ?nodes= query param for cluster view
-nodes_param=""
-for i in $(seq 1 $NUM_NODES); do
-    http_port=$((HTTP_BASE_PORT + i - 1))
-    [[ -n "$nodes_param" ]] && nodes_param="${nodes_param},"
-    nodes_param="${nodes_param}localhost:${http_port}"
-done
-
 echo ""
 echo -e "${GREEN}All $NUM_NODES nodes launched.${NC}"
 echo -e "Seed node: $SEED_ADDR"
@@ -178,11 +170,7 @@ done
 echo ""
 echo -e "Topics: $TOPICS"
 echo ""
-echo -e "Dashboard (single node):"
-echo -e "  ${YELLOW}http://localhost:${HTTP_BASE_PORT}${NC}"
-echo ""
-echo -e "Dashboard (cluster view):"
-echo -e "  ${YELLOW}http://localhost:${HTTP_BASE_PORT}/?nodes=${nodes_param}${NC}"
+echo -e "Dashboard: ${YELLOW}http://localhost:${HTTP_BASE_PORT}${NC}"
 echo ""
 echo -e "To publish a test message:"
 echo -e "  ${YELLOW}pubsub-cli --node 127.0.0.1:9001 publish --topic ops/emergency/critical --message \"test alert\"${NC}"
