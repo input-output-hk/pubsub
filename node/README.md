@@ -107,24 +107,6 @@ Network / chain flags (settable via CLI or `--config`; CLI wins):
 | `--publisher-vault-addr` | none | Bech32 address of the publisher vault contract |
 | `--registry-policy-id` | none | Hex minting policy ID (56 chars) |
 
-## Deploying the Seed Server
-
-The seed runs as a systemd service on Ubuntu. To update the binary:
-
-```sh
-# Build + upload + restart (requires Docker for cross-compilation)
-./scripts/deploy-seed.sh
-
-# Upload existing binary only (skip Docker build)
-./scripts/deploy-seed.sh --no-build
-
-# Restart service without uploading
-./scripts/deploy-seed.sh --restart
-```
-
-Server setup: UFW allows SSH (22), QUIC (9000/udp), HTTP dashboard (10000/tcp) only.
-SSH key: `~/.ssh/pubsub`. See `scripts/deploy-seed.sh` for full details.
-
 ## What's Implemented
 
 - [x] Core types and message envelope (CBOR)
