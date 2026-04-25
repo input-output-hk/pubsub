@@ -6,12 +6,12 @@ Rust implementation of the Cardano PubSub relay node, based on the D2 research p
 
 The node implements the three-layer dissemination protocol from D2 Ch.3:
 
-- **Cyclon** — Gossip-based peer sampling with uniform random views
+- **SecureCyclon** — Gossip-based peer sampling with eclipse resistance (signed PeerDescriptors, bootstrap diversity, rate-limited insertion)
 - **Vicinity** — Topic navigation via finger links on a circular topic ring (O(log T) routing)
 - **Hybrid Dissemination** — Harary graph (deterministic delivery) + random links (fast propagation)
 
-Relay nodes join the overlay permissionlessly via Cyclon gossip — no on-chain registration (D2 Ch.3).
-Node identity is derived from the Ed25519 public key generated at startup.
+Relay nodes join the overlay permissionlessly via gossip — no on-chain registration (D2 Ch.3).
+Identity is self-certifying: `NodeId = Blake2b-256(public_key)`; the key is carried in every `PeerDescriptor` so recipients verify signatures without any registry lookup.
 
 Every component is behind a trait interface for modularity. See `crates/pubsub-types/src/traits.rs`.
 

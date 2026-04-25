@@ -16,9 +16,9 @@ Single source of truth for all types and async trait interfaces used across the 
 | `TopicId` | 256-bit topic identifier (BLAKE2b hash of the topic name) |
 | `PublisherId` | Publisher identity (Ed25519 public key bytes) |
 | `MessageId` | Composite dedup key: `(TopicId, PublisherId, sequence_nr)` |
-| `NodeId` | 32-byte node identifier (first 32 bytes of Ed25519 public key) |
+| `NodeId` | 32-byte node identifier — `Blake2b-256(public_key)` |
 | `NodeInfo` | Full node descriptor: ID, socket address, public key, subscribed topics |
-| `PeerDescriptor` | `NodeInfo` + age counter used by Cyclon gossip |
+| `PeerDescriptor` | `NodeInfo` + age counter + Ed25519 signature; used by SecureCyclon gossip |
 | `TopicConfig` | On-chain topic metadata: name, authorized publishers, retention period, replication factor |
 | `PubSubError` | Error enum covering transport, codec, validation, and chain-state failures |
 

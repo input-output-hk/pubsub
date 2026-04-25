@@ -15,9 +15,15 @@ Manages outgoing and incoming QUIC connections using [Quinn](https://github.com/
 - Testnet: self-signed TLS certificates, server verification skipped
 - Connections stored by `NodeId`; `connect(NodeInfo)` must be called before `send`
 
-### `cyclon` — Cyclon peer sampling (`Cyclon`)
+### `cyclon` — SecureCyclon peer sampling (`Cyclon`)
 
-Gossip-based partial view maintenance. Each cycle the oldest peer is selected, a shuffle buffer is exchanged, and the view is merged.
+Gossip-based partial view maintenance with three eclipse-resistance extensions (Jesi–Montresor–Babaoglu, 2007):
+
+1. **Signed PeerDescriptors** — every node signs its own descriptor; recipients verify via the public key embedded in the descriptor (self-certifying: `NodeId = Blake2b-256(public_key)`, no registry needed).
+2. **Bootstrap diversity** — `is_warm()` returns `true` only after connecting to ≥ `min_seed_diversity` distinct seed origins.
+3. **Rate-limited insertion** — `merge_received()` caps new peer insertions at `max_new_per_merge` per call to slow eclipse attacks.
+
+Each cycle selects the oldest peer, sends a signed shuffle buffer, reads the response, and merges verified descriptors.
 
 **Config (`CyclonConfig`):**
 
@@ -25,6 +31,9 @@ Gossip-based partial view maintenance. Each cycle the oldest peer is selected, a
 |-------|---------|-------------|
 | `view_size` | 20 | Maximum peers in the local view |
 | `shuffle_length` | 10 | Entries exchanged per gossip round |
+| `verify_signatures` | `true` | Reject descriptors with missing or invalid signatures |
+| `min_seed_diversity` | 2 | Distinct seed origins required before `is_warm()` returns true |
+| `max_new_per_merge` | 10 | New peers inserted per merge call (0 = unlimited; default = 50% of view_size) |
 
 ### `vicinity` — Topic ring navigation (`Vicinity`)
 
@@ -64,7 +73,7 @@ Phase 1: unconditionally forwards all valid messages. Placeholder for future rat
 
 ### `store` — Hot cache (`HotCache`)
 
-In-memory DashMap-backed message cache with TTL eviction (default 1 hour). Keyed by `(TopicId, sequence_nr)`.
+In-memory DashMap-backed message cache with TTL eviction (default 1 hour). Keyed by `(TopicId, PublisherId, sequence_nr)` — two publishers on the same topic at the same sequence number are stored independently.
 
 **Constructors:**
 - `HotCache::new(max_entries)` — custom capacity
