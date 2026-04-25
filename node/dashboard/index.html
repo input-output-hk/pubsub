@@ -263,7 +263,7 @@
           <div class="val" id="stat-topics">0</div>
           <div class="val-total" id="stat-topics-total"></div>
         </div>
-        <div class="lbl">Topics subscribed</div>
+        <div class="lbl">Topics (subscribed / total)</div>
       </div>
       <div class="stat"><div class="val" id="stat-msgs">0</div><div class="lbl">Messages</div></div>
       <div class="stat"><div class="val" id="stat-uptime">0s</div><div class="lbl">Uptime</div></div>
@@ -417,7 +417,7 @@ function updateStats(s) {
 
 function updateTopicTotal(total, subscribed) {
   const el = document.getElementById('stat-topics-total');
-  if (el) el.textContent = total > subscribed ? `/ ${total}` : '';
+  if (el) el.textContent = `/ ${total}`;
 }
 
 function formatUptime(secs) {
