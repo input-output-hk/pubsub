@@ -139,6 +139,7 @@
   .stat .val-row { display: flex; align-items: baseline; gap: 5px; }
   .stat .val-total { font-size: 12px; font-weight: 400; color: #4b5563; }
   .stat .lbl { font-size: 11px; color: #6b7280; margin-top: 3px; }
+  .stat .lbl .lbl-sub { font-size: 9px; }
 
   .topic-pill {
     background: transparent;
@@ -191,6 +192,16 @@
   }
   #node-detail strong { color: #e0e0e0; }
   #node-detail .no-sel { color: #4b5563; font-style: italic; }
+  #node-detail .copy-id {
+    font-family: monospace;
+    font-size: 10px;
+    color: #a78bfa;
+    margin-bottom: 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #node-detail .copy-id:hover { color: #c4b5fd; }
+  #node-detail .copy-id.copied { color: #4ade80; }
 
   #message-feed {
     flex: 1;
@@ -263,7 +274,7 @@
           <div class="val" id="stat-topics">0</div>
           <div class="val-total" id="stat-topics-total"></div>
         </div>
-        <div class="lbl">Topics (subscribed / total)</div>
+        <div class="lbl">Topics<br><span class="lbl-sub">(subscribed / total)</span></div>
       </div>
       <div class="stat"><div class="val" id="stat-msgs">0</div><div class="lbl">Messages</div></div>
       <div class="stat"><div class="val" id="stat-uptime">0s</div><div class="lbl">Uptime</div></div>
@@ -627,15 +638,36 @@ function dragend(event, d) {
 // ---------------------------------------------------------------------------
 // Node detail panel
 // ---------------------------------------------------------------------------
+function truncateId(id) {
+  if (!id || id.length <= 24) return id;
+  return id.substring(0, 14) + '…' + id.substring(id.length - 8);
+}
+
 function showNodeDetail(d) {
   const el = document.getElementById('node-detail');
-  const displayId = d.isSelf ? (selfBech32 || d.id) : (d.bech32 || d.id);
+  const fullId = d.isSelf ? (selfBech32 || d.id) : (d.bech32 || d.id);
   el.innerHTML = `
     <div><strong>ID</strong></div>
-    <div style="font-family:monospace;font-size:10px;word-break:break-all;color:#a78bfa;margin-bottom:4px">${displayId}</div>
+    <div class="copy-id" title="Click to copy: ${fullId}" data-id="${fullId}">${truncateId(fullId)}</div>
     <div><strong>Addr</strong> ${d.addr || '—'}</div>
     <div><strong>Role</strong> ${d.isSelf ? 'Self (this node)' : 'Remote peer'}</div>
   `;
+
+  const copyEl = el.querySelector('.copy-id');
+  copyEl.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(fullId);
+      const orig = copyEl.textContent;
+      copyEl.textContent = 'Copied!';
+      copyEl.classList.add('copied');
+      setTimeout(() => {
+        copyEl.textContent = orig;
+        copyEl.classList.remove('copied');
+      }, 1000);
+    } catch (e) {
+      console.warn('clipboard write failed', e);
+    }
+  };
 
   // Highlight node
   root.selectAll('.node').classed('active', n => n.id === d.id);
