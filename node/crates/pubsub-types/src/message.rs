@@ -164,6 +164,24 @@ pub struct MessageId {
     pub sequence_nr: u64,
 }
 
+/// Server-side response to a PUBLISH bidirectional stream.
+///
+/// `Accepted` means the node validated the message and committed it locally
+/// (signature verified, publisher authorised, stored in HotCache, broadcast to
+/// local subscribers, dispatched to the dissemination layer).  `Rejected`
+/// means at least one of those steps failed; `reason` is the human-readable
+/// failure description so the publisher can correct and retry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PublishAck {
+    Accepted {
+        topic_id: TopicId,
+        sequence_nr: u64,
+    },
+    Rejected {
+        reason: String,
+    },
+}
+
 /// Control frame sent on a SUBSCRIBE bidirectional stream from client to node.
 ///
 /// The node responds by streaming back encoded `Message` frames: first the

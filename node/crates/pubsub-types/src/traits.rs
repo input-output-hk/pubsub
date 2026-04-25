@@ -41,6 +41,10 @@ pub const GOSSIP_VICINITY: u8 = 0x02;
 /// `SubscribeRequest`, then reads framed `Message` bytes back until the node
 /// closes the stream.
 pub const SUBSCRIBE: u8 = 0x03;
+/// One-shot publish stream: the initiator sends a single CBOR-encoded
+/// `Message`; the responder writes back a single CBOR-encoded `PublishAck`
+/// (Accepted{topic_id, sequence_nr} or Rejected{reason}) and finishes.
+pub const PUBLISH: u8 = 0x04;
 
 /// Gossip transport — bidirectional request/response exchanges over QUIC
 /// bidirectional streams, completely separate from the unidirectional
@@ -64,6 +68,28 @@ pub type InboundGossip = (NodeId, Vec<u8>, tokio::sync::oneshot::Sender<Vec<u8>>
 /// handler writes any number of response frames.  The transport pumps each
 /// frame onto the QUIC stream until the sender is dropped.
 pub type InboundSubscribe = (NodeId, Vec<u8>, tokio::sync::mpsc::Sender<Vec<u8>>);
+
+/// One-shot publish inbound: same shape as gossip — the request bytes plus a
+/// oneshot::Sender into which the handler writes the encoded PublishAck.
+pub type InboundPublish = (NodeId, Vec<u8>, tokio::sync::oneshot::Sender<Vec<u8>>);
+
+/// Publish-with-ack transport — bidirectional one-shot, distinct from gossip
+/// only in that the request payload is an application-level Message and the
+/// response is a server-decided PublishAck rather than a peer view.
+#[async_trait]
+pub trait PublishTransport: Send + Sync + 'static {
+    /// Open a bi stream to `peer`, write the publish request, await the
+    /// PublishAck response bytes.
+    async fn publish_exchange(
+        &self,
+        peer: &NodeId,
+        addr: std::net::SocketAddr,
+        request: Vec<u8>,
+    ) -> Result<Vec<u8>, PubSubError>;
+
+    /// Block until an inbound publish request arrives.
+    async fn next_inbound_publish(&self) -> Result<InboundPublish, PubSubError>;
+}
 
 /// Long-lived subscribe transport — bidirectional stream where the initiator
 /// writes a single control frame and the responder streams an open-ended
