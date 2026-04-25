@@ -164,6 +164,21 @@ pub struct MessageId {
     pub sequence_nr: u64,
 }
 
+/// Control frame sent on a SUBSCRIBE bidirectional stream from client to node.
+///
+/// The node responds by streaming back encoded `Message` frames: first the
+/// replay batch from `HotCache::get_since`, then live messages forwarded from
+/// the receive-loop broadcast.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeRequest {
+    pub topic_id: TopicId,
+    /// Replay starts from sequence numbers strictly greater than this value.
+    /// Phase 1: `0` returns the full TTL window held by the node's HotCache.
+    pub since_seq: u64,
+    /// Soft cap on the replay batch size.
+    pub limit: u32,
+}
+
 impl Message {
     /// Compute the deterministic message ID (used for deduplication and DHT indexing)
     pub fn id(&self) -> MessageId {

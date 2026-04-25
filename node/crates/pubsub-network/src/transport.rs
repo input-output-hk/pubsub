@@ -11,7 +11,10 @@ use tracing::{debug, error, info, warn};
 
 use pubsub_types::error::PubSubError;
 use pubsub_types::node::{node_id_from_addr, node_id_from_key, NodeId, NodeInfo};
-use pubsub_types::traits::{GossipTransport, InboundGossip, Transport, GOSSIP_CYCLON, GOSSIP_VICINITY};
+use pubsub_types::traits::{
+    GossipTransport, InboundGossip, InboundSubscribe, SubscribeTransport, Transport,
+    GOSSIP_CYCLON, GOSSIP_VICINITY, SUBSCRIBE,
+};
 
 /// QUIC-based transport.
 ///
@@ -42,6 +45,10 @@ pub struct QuicTransport {
     vicinity_gossip_rx: tokio::sync::Mutex<mpsc::Receiver<InboundGossip>>,
     #[allow(dead_code)]
     vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
+    /// Inbound subscribe requests (tag = SUBSCRIBE).
+    subscribe_rx: tokio::sync::Mutex<mpsc::Receiver<InboundSubscribe>>,
+    #[allow(dead_code)]
+    subscribe_tx: mpsc::Sender<InboundSubscribe>,
 }
 
 impl QuicTransport {
@@ -64,6 +71,7 @@ impl QuicTransport {
         let (incoming_tx, incoming_rx) = mpsc::channel(4096);
         let (cyclon_gossip_tx, cyclon_gossip_rx) = mpsc::channel(1024);
         let (vicinity_gossip_tx, vicinity_gossip_rx) = mpsc::channel(1024);
+        let (subscribe_tx, subscribe_rx) = mpsc::channel(256);
 
         let mut ep_clone = endpoint.clone();
         ep_clone.set_default_client_config(client_config);
@@ -78,6 +86,8 @@ impl QuicTransport {
             cyclon_gossip_tx: cyclon_gossip_tx.clone(),
             vicinity_gossip_rx: tokio::sync::Mutex::new(vicinity_gossip_rx),
             vicinity_gossip_tx: vicinity_gossip_tx.clone(),
+            subscribe_rx: tokio::sync::Mutex::new(subscribe_rx),
+            subscribe_tx: subscribe_tx.clone(),
         };
 
         let accept_endpoint = transport.endpoint.clone();
@@ -85,6 +95,7 @@ impl QuicTransport {
         let accept_app_tx = incoming_tx.clone();
         let accept_cyclon_tx = cyclon_gossip_tx.clone();
         let accept_vicinity_tx = vicinity_gossip_tx.clone();
+        let accept_subscribe_tx = subscribe_tx.clone();
 
         tokio::spawn(async move {
             Self::accept_loop(
@@ -93,6 +104,7 @@ impl QuicTransport {
                 accept_app_tx,
                 accept_cyclon_tx,
                 accept_vicinity_tx,
+                accept_subscribe_tx,
             )
             .await;
         });
@@ -223,18 +235,20 @@ impl QuicTransport {
         app_tx: mpsc::Sender<(NodeId, Vec<u8>)>,
         cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
         vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
+        subscribe_tx: mpsc::Sender<InboundSubscribe>,
     ) {
         while let Some(incoming) = endpoint.accept().await {
             let connections = connections.clone();
             let app_tx = app_tx.clone();
             let cyclon_tx = cyclon_gossip_tx.clone();
             let vicinity_tx = vicinity_gossip_tx.clone();
+            let subscribe_tx = subscribe_tx.clone();
 
             tokio::spawn(async move {
                 match incoming.await {
                     Ok(conn) => {
                         debug!(remote = %conn.remote_address(), "Accepted incoming QUIC connection");
-                        Self::handle_connection(conn, connections, app_tx, cyclon_tx, vicinity_tx).await;
+                        Self::handle_connection(conn, connections, app_tx, cyclon_tx, vicinity_tx, subscribe_tx).await;
                     }
                     Err(e) => warn!("Failed to accept incoming connection: {e}"),
                 }
@@ -259,6 +273,7 @@ impl QuicTransport {
         app_tx: mpsc::Sender<(NodeId, Vec<u8>)>,
         cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
         vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
+        subscribe_tx: mpsc::Sender<InboundSubscribe>,
     ) {
         // Try cert-based NodeId; without mutual TLS the server sees no client cert.
         let sender_id = Self::peer_cert_node_id(&conn)
@@ -287,49 +302,73 @@ impl QuicTransport {
                     }
                 }
 
-                // --- gossip request/response (bidirectional, routed by tag) ---
+                // --- bidirectional stream, routed by leading tag byte ---
+                //   GOSSIP_CYCLON / GOSSIP_VICINITY → one-shot request/response
+                //   SUBSCRIBE                       → streaming response until handler drops sender
                 bi = conn.accept_bi() => {
                     match bi {
                         Ok((mut send, mut recv)) => {
                             let cyclon_tx = cyclon_gossip_tx.clone();
                             let vicinity_tx = vicinity_gossip_tx.clone();
+                            let subscribe_tx = subscribe_tx.clone();
                             let id = sender_id.clone();
                             tokio::spawn(async move {
                                 match Self::read_framed(&mut recv).await {
                                     Ok(tagged_request) => {
                                         if tagged_request.is_empty() {
-                                            warn!(?id, "Empty gossip request");
+                                            warn!(?id, "Empty bi-stream request");
                                             return;
                                         }
                                         let tag = tagged_request[0];
                                         let payload = tagged_request[1..].to_vec();
 
-                                        let tx = match tag {
-                                            GOSSIP_CYCLON => cyclon_tx,
-                                            GOSSIP_VICINITY => vicinity_tx,
-                                            _ => {
-                                                warn!(tag, "Unknown gossip tag, dropping");
-                                                return;
-                                            }
-                                        };
-
-                                        let (resp_tx, resp_rx) =
-                                            tokio::sync::oneshot::channel::<Vec<u8>>();
-                                        if tx.send((id, payload, resp_tx)).await.is_err() {
-                                            return;
-                                        }
-                                        match resp_rx.await {
-                                            Ok(response) => {
-                                                if let Err(e) =
-                                                    Self::write_framed(&mut send, &response).await
-                                                {
-                                                    warn!("Failed to write gossip response: {e}");
+                                        match tag {
+                                            GOSSIP_CYCLON | GOSSIP_VICINITY => {
+                                                let tx = if tag == GOSSIP_CYCLON {
+                                                    cyclon_tx
+                                                } else {
+                                                    vicinity_tx
+                                                };
+                                                let (resp_tx, resp_rx) =
+                                                    tokio::sync::oneshot::channel::<Vec<u8>>();
+                                                if tx.send((id, payload, resp_tx)).await.is_err() {
+                                                    return;
+                                                }
+                                                match resp_rx.await {
+                                                    Ok(response) => {
+                                                        if let Err(e) =
+                                                            Self::write_framed(&mut send, &response).await
+                                                        {
+                                                            warn!("Failed to write gossip response: {e}");
+                                                        }
+                                                    }
+                                                    Err(_) => {} // handler dropped sender, no reply
                                                 }
                                             }
-                                            Err(_) => {} // handler dropped sender, no reply
+                                            SUBSCRIBE => {
+                                                // Streaming response: handler writes any number of frames
+                                                // until it drops the mpsc sender, then we finish() the stream.
+                                                let (frame_tx, mut frame_rx) =
+                                                    mpsc::channel::<Vec<u8>>(64);
+                                                if subscribe_tx.send((id, payload, frame_tx)).await.is_err() {
+                                                    return;
+                                                }
+                                                while let Some(frame) = frame_rx.recv().await {
+                                                    if let Err(e) =
+                                                        Self::write_framed_no_finish(&mut send, &frame).await
+                                                    {
+                                                        warn!("Failed to write subscribe frame: {e}");
+                                                        break;
+                                                    }
+                                                }
+                                                let _ = send.finish();
+                                            }
+                                            _ => {
+                                                warn!(tag, "Unknown bi-stream tag, dropping");
+                                            }
                                         }
                                     }
-                                    Err(e) => warn!("Failed to read gossip request: {e}"),
+                                    Err(e) => warn!("Failed to read bi-stream request: {e}"),
                                 }
                             });
                         }
@@ -367,6 +406,19 @@ impl QuicTransport {
         stream: &mut quinn::SendStream,
         data: &[u8],
     ) -> Result<(), PubSubError> {
+        Self::write_framed_no_finish(stream, data).await?;
+        stream
+            .finish()
+            .map_err(|e| PubSubError::Transport(format!("Failed to finish stream: {e}")))?;
+        Ok(())
+    }
+
+    /// Write a length-prefixed frame without finishing the send stream — used
+    /// when many frames are written on a single long-lived stream (subscribe).
+    async fn write_framed_no_finish(
+        stream: &mut quinn::SendStream,
+        data: &[u8],
+    ) -> Result<(), PubSubError> {
         let len = (data.len() as u32).to_be_bytes();
         stream
             .write_all(&len)
@@ -376,9 +428,6 @@ impl QuicTransport {
             .write_all(data)
             .await
             .map_err(|e| PubSubError::Transport(format!("Failed to write frame payload: {e}")))?;
-        stream
-            .finish()
-            .map_err(|e| PubSubError::Transport(format!("Failed to finish stream: {e}")))?;
         Ok(())
     }
 
@@ -547,6 +596,61 @@ impl GossipTransport for QuicTransport {
             }
             _ => Err(PubSubError::Transport(format!("Unknown gossip tag: {tag}"))),
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SubscribeTransport impl (long-lived bidirectional stream, tag = SUBSCRIBE)
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+impl SubscribeTransport for QuicTransport {
+    async fn subscribe_stream(
+        &self,
+        peer: &NodeId,
+        addr: SocketAddr,
+        control_frame: Vec<u8>,
+    ) -> Result<mpsc::Receiver<Vec<u8>>, PubSubError> {
+        let conn = self.get_or_connect(peer, addr).await?;
+
+        let (mut send, mut recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| PubSubError::Transport(format!("Failed to open subscribe bi stream: {e}")))?;
+
+        // Tag-prefix the control frame so the responder routes it to the
+        // SUBSCRIBE arm of the bi-stream dispatcher.
+        let mut tagged = Vec::with_capacity(1 + control_frame.len());
+        tagged.push(SUBSCRIBE);
+        tagged.extend_from_slice(&control_frame);
+        Self::write_framed(&mut send, &tagged).await?;
+
+        // Pump framed responses into a channel until the peer finishes the stream.
+        let (tx, rx) = mpsc::channel::<Vec<u8>>(64);
+        tokio::spawn(async move {
+            loop {
+                match Self::read_framed(&mut recv).await {
+                    Ok(frame) => {
+                        if tx.send(frame).await.is_err() {
+                            // Subscriber dropped the receiver — done.
+                            return;
+                        }
+                    }
+                    Err(e) => {
+                        debug!("Subscribe stream ended: {e}");
+                        return;
+                    }
+                }
+            }
+        });
+        Ok(rx)
+    }
+
+    async fn next_inbound_subscribe(&self) -> Result<InboundSubscribe, PubSubError> {
+        let mut rx = self.subscribe_rx.lock().await;
+        rx.recv()
+            .await
+            .ok_or_else(|| PubSubError::Transport("Subscribe channel closed".to_string()))
     }
 }
 

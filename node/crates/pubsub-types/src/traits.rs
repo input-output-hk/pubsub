@@ -37,6 +37,10 @@ pub trait Transport: Send + Sync + 'static {
 /// requests can be routed to the correct handler without a shared channel.
 pub const GOSSIP_CYCLON: u8 = 0x01;
 pub const GOSSIP_VICINITY: u8 = 0x02;
+/// Long-lived subscribe stream: the initiator sends a single CBOR-encoded
+/// `SubscribeRequest`, then reads framed `Message` bytes back until the node
+/// closes the stream.
+pub const SUBSCRIBE: u8 = 0x03;
 
 /// Gossip transport — bidirectional request/response exchanges over QUIC
 /// bidirectional streams, completely separate from the unidirectional
@@ -55,6 +59,31 @@ pub const GOSSIP_VICINITY: u8 = 0x02;
 /// handler returns its response: send the bytes through the channel and the
 /// transport writes them back to the peer on the same stream.
 pub type InboundGossip = (NodeId, Vec<u8>, tokio::sync::oneshot::Sender<Vec<u8>>);
+
+/// Streaming-bi inbound: the control frame plus an mpsc::Sender into which the
+/// handler writes any number of response frames.  The transport pumps each
+/// frame onto the QUIC stream until the sender is dropped.
+pub type InboundSubscribe = (NodeId, Vec<u8>, tokio::sync::mpsc::Sender<Vec<u8>>);
+
+/// Long-lived subscribe transport — bidirectional stream where the initiator
+/// writes a single control frame and the responder streams an open-ended
+/// sequence of frames back.  Distinct from `GossipTransport` (one-shot
+/// request/response) and `Transport` (one-way application messages).
+#[async_trait]
+pub trait SubscribeTransport: Send + Sync + 'static {
+    /// Open a subscribe stream to `peer`, write `control_frame`, return a
+    /// receiver that yields each response frame in order.
+    async fn subscribe_stream(
+        &self,
+        peer: &NodeId,
+        addr: std::net::SocketAddr,
+        control_frame: Vec<u8>,
+    ) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>, PubSubError>;
+
+    /// Block until an inbound subscribe request arrives.  The handler writes
+    /// frames into the returned mpsc::Sender; dropping it closes the stream.
+    async fn next_inbound_subscribe(&self) -> Result<InboundSubscribe, PubSubError>;
+}
 
 #[async_trait]
 pub trait GossipTransport: Send + Sync + 'static {
