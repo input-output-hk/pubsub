@@ -1,7 +1,7 @@
 mod api;
 mod config;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -14,6 +14,7 @@ const DEFAULT_LOG_LEVEL: &str = "info";
 const DEFAULT_BLOCKFROST_URL: &str = "https://cardano-preprod.blockfrost.io/api/v0";
 const CACHE_EVICT_INTERVAL_SECS: u64 = 60;
 const TRANSPORT_ERROR_BACKOFF_MS: u64 = 100;
+const MAX_CONCURRENT_HANDLERS: usize = 64;
 
 /// Resolve a config value: CLI flag wins, then config file, then built-in default.
 macro_rules! resolve {
@@ -555,59 +556,83 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Build topic-name lookup for event recording
-    let topic_name_map: std::collections::HashMap<TopicId, String> = active_topics
-        .iter()
-        .map(|tc| (tc.topic_id.clone(), tc.name.clone()))
-        .collect();
+    // Build topic-name lookup for event recording; shared across handler tasks.
+    let topic_name_map: Arc<HashMap<TopicId, String>> = Arc::new(
+        active_topics
+            .iter()
+            .map(|tc| (tc.topic_id.clone(), tc.name.clone()))
+            .collect(),
+    );
+
+    // Bound concurrent message handlers so a burst of inbound messages doesn't
+    // exhaust memory.  Acquiring a permit is instant while slots are available;
+    // it only blocks when all 64 are in use, providing natural backpressure.
+    let handler_sem = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_HANDLERS));
 
     info!("Node running. Waiting for messages...");
     loop {
         match transport_app.recv().await {
             Ok((from, data)) => {
-                let msg = match codec.decode(&data) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        warn!(error = %e, "Failed to decode message");
-                        continue;
+                let permit = Arc::clone(&handler_sem)
+                    .acquire_owned()
+                    .await
+                    .expect("semaphore never closed");
+
+                let codec        = Arc::clone(&codec);
+                let validator    = Arc::clone(&validator);
+                let relay_policy = Arc::clone(&relay_policy);
+                let store        = Arc::clone(&store);
+                let disseminator = Arc::clone(&disseminator);
+                let api_state    = api_state.clone();
+                let topic_name_map = Arc::clone(&topic_name_map);
+
+                tokio::spawn(async move {
+                    let _permit = permit; // released when this task drops
+
+                    let msg = match codec.decode(&data) {
+                        Ok(m) => m,
+                        Err(e) => {
+                            warn!(error = %e, "Failed to decode message");
+                            return;
+                        }
+                    };
+
+                    if let Err(e) = validator.validate(&msg).await {
+                        warn!(error = %e, "Message validation failed");
+                        return;
                     }
-                };
 
-                if let Err(e) = validator.validate(&msg).await {
-                    warn!(error = %e, "Message validation failed");
-                    continue;
-                }
-
-                match relay_policy.should_relay(&msg, &from).await {
-                    RelayDecision::Forward => {}
-                    RelayDecision::Drop(reason) => {
-                        warn!(reason = %reason, "Message dropped by relay policy");
-                        continue;
+                    match relay_policy.should_relay(&msg, &from).await {
+                        RelayDecision::Forward => {}
+                        RelayDecision::Drop(reason) => {
+                            warn!(reason = %reason, "Message dropped by relay policy");
+                            return;
+                        }
+                        RelayDecision::Delay(d) => {
+                            tokio::time::sleep(d).await;
+                        }
                     }
-                    RelayDecision::Delay(d) => {
-                        tokio::time::sleep(d).await;
+
+                    // Check dedup before recording to the API feed.  If the
+                    // store already holds this (topic, seq) pair, a duplicate
+                    // arrived via a second path and we should not show it twice.
+                    let already_seen = store.get(&msg.id()).await.ok().flatten().is_some();
+
+                    if let Err(e) = store.store(msg.clone()).await {
+                        warn!(error = %e, "Failed to store message");
                     }
-                }
 
-                // Check dedup before recording to the API feed.  If the
-                // store already holds this (topic, seq) pair, a duplicate
-                // arrived via a second path and we should not show it twice.
-                let already_seen = store.get(&msg.id()).await.ok().flatten().is_some();
-
-                if let Err(e) = store.store(msg.clone()).await {
-                    warn!(error = %e, "Failed to store message");
-                }
-
-                if !already_seen {
-                    if let Some(ref s) = api_state {
-                        let topic_name = topic_name_map.get(&msg.topic_id).map(String::as_str);
-                        s.record_message(&from, &msg, topic_name).await;
+                    if !already_seen {
+                        if let Some(ref s) = api_state {
+                            let topic_name = topic_name_map.get(&msg.topic_id).map(String::as_str);
+                            s.record_message(&from, &msg, topic_name).await;
+                        }
                     }
-                }
 
-                if let Err(e) = disseminator.on_receive(&from, msg).await {
-                    warn!(error = %e, "Dissemination failed");
-                }
+                    if let Err(e) = disseminator.on_receive(&from, msg).await {
+                        warn!(error = %e, "Dissemination failed");
+                    }
+                });
             }
             Err(e) => {
                 warn!(error = %e, "Transport recv error");
