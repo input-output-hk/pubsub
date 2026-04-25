@@ -15,9 +15,9 @@ Manages outgoing and incoming QUIC connections using [Quinn](https://github.com/
 - Testnet: self-signed TLS certificates, server verification skipped
 - Connections stored by `NodeId`; `connect(NodeInfo)` must be called before `send`
 
-### `cyclon` — SecureCyclon peer sampling (`Cyclon`)
+### `cyclon` — Cyclon peer sampling with eclipse-resistance extensions (`Cyclon`)
 
-Gossip-based partial view maintenance with three eclipse-resistance extensions (Jesi–Montresor–Babaoglu, 2007):
+Gossip-based partial view maintenance. Vanilla Cyclon (Voulgaris–Gavidia–van Steen, 2005) plus three eclipse-resistance extensions from the Jesi–Montresor–Babaoglu "SecureCyclon" paper (2007):
 
 1. **Signed PeerDescriptors** — every node signs its own descriptor; recipients verify via the public key embedded in the descriptor (self-certifying: `NodeId = Blake2b-256(public_key)`, no registry needed).
 2. **Bootstrap diversity** — `is_warm()` returns `true` only after connecting to ≥ `min_seed_diversity` distinct seed origins.

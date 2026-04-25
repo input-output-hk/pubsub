@@ -6,7 +6,7 @@ Rust implementation of the Cardano PubSub relay node, based on the D2 research p
 
 The node implements the three-layer dissemination protocol from D2 Ch.3:
 
-- **SecureCyclon** — Gossip-based peer sampling with eclipse resistance (signed PeerDescriptors, bootstrap diversity, rate-limited insertion)
+- **Cyclon with eclipse-resistance extensions** — Gossip-based peer sampling. Vanilla Cyclon (Voulgaris–Gavidia–van Steen, 2005) plus three extensions from the Jesi–Montresor–Babaoglu "SecureCyclon" paper (2007): signed PeerDescriptors, bootstrap diversity, rate-limited insertion
 - **Vicinity** — Topic navigation via finger links on a circular topic ring (O(log T) routing)
 - **Hybrid Dissemination** — Harary graph (deterministic delivery) + random links (fast propagation)
 
@@ -131,5 +131,4 @@ Network / chain flags (settable via CLI or `--config`; CLI wins):
 - [ ] gRPC streaming API for real-time subscriptions
 - [ ] WebTransport listener for browser clients
 - [ ] SDK packages (TypeScript, Python)
-- [ ] Node registry on-chain integration (register/deregister relay nodes)
-- [ ] Replication servers + clique-DHT (D2 Ch.4)
+- [ ] Replication servers + clique-DHT (D2 Ch.4) — durable storage tier with on-chain registration, locked stake, and slashable storage commitments. Relay nodes (Ch.3) remain permissionless.

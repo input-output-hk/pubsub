@@ -1,6 +1,8 @@
 # Node Registry — On-Chain Contract
 
-Aiken (Plutus V3) contract for the PubSub node registry. A single multi-validator manages relay node registration and deregistration using an NFT-based registry head under one minting policy.
+> **Scope note (Phase 1).** Per the D2 paper, the dissemination layer (Ch.3) is permissionless: relay nodes join the overlay via Cyclon gossip with no on-chain registration. This contract is scaffolding for the **replication-server tier** (D2 Ch.4) — the persistence layer where servers stake ADA, lock collateral, and serve durable storage with slashable commitments. The Phase-1 node binary does not call this contract; it remains here as the foundation for the deferred Ch.4 work.
+
+Aiken (Plutus V3) multi-validator that manages registration and deregistration of replication servers using an NFT-based registry head under one minting policy.
 
 ## How It Works
 
@@ -51,7 +53,7 @@ Supporting modules: [`types`](lib/node_registry/types.ak), [`utils`](lib/node_re
 
 | Field | Type | Description |
 |---|---|---|
-| `nodes` | `List<NodeEntry>` | Currently registered relay nodes |
+| `nodes` | `List<NodeEntry>` | Currently registered replication servers (Ch.4 tier) |
 | `epoch` | `Int` | Current epoch counter |
 | `min_deposit_lovelace` | `Int` | Minimum ADA a registering node must lock |
 
