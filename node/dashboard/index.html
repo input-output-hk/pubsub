@@ -151,8 +151,6 @@
     max-width: 200px;
   }
   .topic-pill.active { background: #4f46e5; border-color: #6366f1; color: #fff; }
-  .topic-pill.discovered { border-style: dashed; color: #6b7280; }
-  .topic-pill.discovered.active { background: #4f46e5; border-color: #6366f1; color: #fff; border-style: dashed; }
 
   #node-detail {
     font-size: 12px;
@@ -236,7 +234,15 @@
 
   <div class="panel">
     <h2>Topics</h2>
-    <div id="topic-filter"></div>
+    <div id="topic-subscribed-section" style="display:none">
+      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Subscribed</div>
+      <div id="topic-subscribed-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    </div>
+    <div id="topic-discovered-section" style="display:none">
+      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Discovered (not subscribed)</div>
+      <div id="topic-discovered-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div id="topic-empty" style="font-size:11px;color:#6b7280">No topics found</div>
   </div>
 
   <div class="panel" style="max-height:140px;overflow-y:auto">
@@ -385,26 +391,33 @@ function updateTopics(s) {
 }
 
 function renderTopicPills(topics) {
-  const container = document.getElementById('topic-filter');
-  container.innerHTML = '';
+  const subscribed = topics.filter(t => t.subscribed !== false);
+  const discovered = topics.filter(t => t.subscribed === false);
 
-  const allPill = document.createElement('div');
-  allPill.className = 'topic-pill' + (activeTopic === null ? ' active' : '');
-  allPill.textContent = 'All';
-  allPill.onclick = () => { activeTopic = null; renderTopicPills(topics); pollMessages(); };
-  container.appendChild(allPill);
+  const subSection = document.getElementById('topic-subscribed-section');
+  const disSection = document.getElementById('topic-discovered-section');
+  const empty = document.getElementById('topic-empty');
 
-  topics.forEach(t => {
-    const label = t.name || t.topic_id.substring(0, 8) + '…';
-    const pill = document.createElement('div');
-    const isActive = activeTopic === t.topic_id;
-    const isSubscribed = t.subscribed !== false; // backward compat: true if field absent
-    pill.className = 'topic-pill' + (isActive ? ' active' : '') + (!isSubscribed ? ' discovered' : '');
-    pill.textContent = label;
-    pill.title = t.topic_id + (isSubscribed ? ' (subscribed)' : ' (discovered, not subscribed)');
-    pill.onclick = () => { activeTopic = t.topic_id; renderTopicPills(topics); pollMessages(); };
-    container.appendChild(pill);
-  });
+  subSection.style.display = subscribed.length ? '' : 'none';
+  disSection.style.display = discovered.length ? '' : 'none';
+  empty.style.display = topics.length ? 'none' : '';
+
+  function makePills(list, containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    list.forEach(t => {
+      const label = t.name || t.topic_id.substring(0, 8) + '…';
+      const pill = document.createElement('div');
+      pill.className = 'topic-pill' + (activeTopic === t.topic_id ? ' active' : '');
+      pill.textContent = label;
+      pill.title = t.topic_id;
+      pill.onclick = () => { activeTopic = t.topic_id; renderTopicPills(topics); pollMessages(); };
+      container.appendChild(pill);
+    });
+  }
+
+  makePills(subscribed, 'topic-subscribed-pills');
+  makePills(discovered, 'topic-discovered-pills');
 }
 
 async function pollMessages() {
@@ -460,60 +473,51 @@ function renderGraph(selfId) {
 
   const nodeArr = Array.from(nodes.values());
 
-  if (!simulation) {
-    simulation = d3.forceSimulation(nodeArr)
-      .force('link', d3.forceLink(links).id(d => d.id).distance(120))
-      .force('charge', d3.forceManyBody().strength(-300))
-      .force('center', d3.forceCenter(W / 2, H / 2))
-      .force('collision', d3.forceCollide(30))
-      .on('tick', ticked);
-  } else {
-    simulation.nodes(nodeArr);
-    simulation.force('link').links(links);
-    simulation.force('center', d3.forceCenter(W / 2, H / 2));
-    simulation.alpha(0.3).restart();
+  // Stop and discard the old simulation to avoid stale link/node references.
+  // Node positions (x, y) are stored on the node objects in the `nodes` Map
+  // and are preserved across rebuilds, so nodes don't jump.
+  if (simulation) simulation.stop();
+
+  root.selectAll('.link').remove();
+  root.selectAll('.node').remove();
+
+  simulation = d3.forceSimulation(nodeArr)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+    .force('charge', d3.forceManyBody().strength(-300))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collision', d3.forceCollide(30))
+    .alphaDecay(0.05)
+    .on('tick', ticked);
+
+  // Existing nodes already have x,y from the previous simulation — give the
+  // new simulation a low alpha so they settle gently rather than jumping.
+  if (nodeArr.some(n => n.x !== undefined)) {
+    simulation.alpha(0.15);
   }
 
   // Links
   linkSel = root.selectAll('.link')
-    .data(links, d => `${d.source?.id ?? d.source}-${d.target?.id ?? d.target}-${d.type}`)
-    .join(
-      enter => enter.append('line')
-        .attr('class', d => `link ${d.type}`),
-      update => update.attr('class', d => `link ${d.type}`),
-      exit => exit.remove()
-    );
+    .data(links)
+    .join('line')
+    .attr('class', d => `link ${d.type}`);
 
   // Nodes
   nodeSel = root.selectAll('.node')
     .data(nodeArr, d => d.id)
-    .join(
-      enter => {
-        const g = enter.append('g')
-          .attr('class', d => 'node ' + (d.isSelf ? 'self' : 'peer'))
-          .call(d3.drag()
-            .on('start', dragstart)
-            .on('drag', dragged)
-            .on('end', dragend))
-          .on('click', (event, d) => showNodeDetail(d));
+    .join(enter => {
+      const g = enter.append('g')
+        .attr('class', d => 'node ' + (d.isSelf ? 'self' : 'peer'))
+        .call(d3.drag()
+          .on('start', dragstart)
+          .on('drag', dragged)
+          .on('end', dragend))
+        .on('click', (event, d) => showNodeDetail(d));
 
-        g.append('circle').attr('r', 12);
-
-        // Pulse ring for animation
-        g.append('circle')
-          .attr('class', 'pulse')
-          .attr('r', 12);
-
-        g.append('text').attr('dy', 16).text(d => shortLabel(d.label));
-        return g;
-      },
-      update => {
-        update.attr('class', d => 'node ' + (d.isSelf ? 'self' : 'peer'));
-        update.select('text').text(d => shortLabel(d.label));
-        return update;
-      },
-      exit => exit.remove()
-    );
+      g.append('circle').attr('r', 12);
+      g.append('circle').attr('class', 'pulse').attr('r', 12);
+      g.append('text').attr('dy', 16).text(d => shortLabel(d.label));
+      return g;
+    });
 }
 
 function shortLabel(addr) {
