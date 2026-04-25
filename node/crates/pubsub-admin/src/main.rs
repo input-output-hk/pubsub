@@ -3,7 +3,6 @@ mod blockfrost;
 mod bootstrap;
 mod create_topic;
 mod publish_scripts;
-mod split;
 mod tx;
 
 use std::io::{self, BufRead, Write};
@@ -16,7 +15,6 @@ use dialoguer::Select;
 use bootstrap::{BootstrapArgs, Network};
 use create_topic::CreateTopicArgs;
 use publish_scripts::PublishScriptsArgs;
-use split::SplitArgs;
 
 #[derive(Parser)]
 #[command(name = "pubsub-admin", about = "PubSub Cardano contract deployment and management")]
@@ -27,7 +25,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Bootstrap topic-registry and node-registry contracts on-chain.
+    /// Bootstrap the topic-registry contract on-chain (one-time per network).
+    /// Consumes a UTxO as a one-shot parameter to derive a unique minting policy,
+    /// then mints the registry-head NFT and writes a .env file with all addresses.
     Bootstrap {
         /// Cardano network (preprod / preview / mainnet).
         /// Prompted interactively if omitted.
@@ -46,17 +46,10 @@ enum Command {
         #[arg(long)]
         payment_addr: Option<String>,
 
-        /// UTxO to consume for topic-registry bootstrap ("txhash#index").
+        /// UTxO to consume as the one-shot bootstrap parameter ("txhash#index").
+        /// Any UTxO at your payment address works; ~5 ADA is sufficient.
         #[arg(long)]
-        topic_utxo: Option<String>,
-
-        /// UTxO to consume for node-registry bootstrap ("txhash#index").
-        #[arg(long)]
-        node_utxo: Option<String>,
-
-        /// Minimum deposit in lovelace for node registration.
-        #[arg(long, default_value = "10000000")]
-        min_deposit_lovelace: u64,
+        utxo: Option<String>,
 
         /// Directory containing compiled contract blueprints.
         #[arg(long, default_value = "../contracts")]
@@ -67,8 +60,8 @@ enum Command {
         output_dir: PathBuf,
     },
 
-    /// Publish all four Plutus scripts as on-chain reference script UTxOs (CIP-33).
-    /// Must be run after `bootstrap`. Reads bootstrap UTxO refs from the .env file
+    /// Publish the three Plutus scripts as on-chain reference script UTxOs (CIP-33).
+    /// Must be run after `bootstrap`. Reads the bootstrap UTxO ref from the .env file
     /// to re-derive parameterized blueprints, then publishes each script in its own tx.
     PublishScripts {
         /// Path to the .env file written by `bootstrap` (e.g. local/.env.preprod).
@@ -95,7 +88,7 @@ enum Command {
         #[arg(long, default_value = "../contracts")]
         contracts_dir: PathBuf,
 
-        /// UTxO to fund all four script-publication outputs (needs ~12 ADA).
+        /// UTxO to fund the three script-publication outputs (~40 ADA needed).
         #[arg(long)]
         funding_utxo: Option<String>,
     },
@@ -128,7 +121,7 @@ enum Command {
         #[arg(long, default_value = "../contracts")]
         contracts_dir: PathBuf,
 
-        /// UTxO to fund the transaction (needs ~3 ADA for fees + 2 ADA topic output).
+        /// UTxO to fund the transaction (~5 ADA sufficient).
         #[arg(long)]
         funding_utxo: Option<String>,
 
@@ -144,30 +137,6 @@ enum Command {
         #[arg(long, default_value = "86400")]
         retention_period: u64,
     },
-
-    /// Split a single UTxO into two — useful when you only have one UTxO but need
-    /// separate ones for topic-registry and node-registry bootstrap.
-    SplitUtxo {
-        /// UTxO to split ("txhash#index").
-        #[arg(long)]
-        utxo: Option<String>,
-
-        /// Cardano network.
-        #[arg(long)]
-        network: Option<String>,
-
-        /// Blockfrost project ID. Falls back to $BLOCKFROST_PROJECT_ID.
-        #[arg(long)]
-        blockfrost_project_id: Option<String>,
-
-        /// Payment address that owns the UTxO.
-        #[arg(long)]
-        payment_addr: Option<String>,
-
-        /// Path to the payment signing key JSON file.
-        #[arg(long)]
-        payment_skey: Option<PathBuf>,
-    },
 }
 
 #[tokio::main]
@@ -180,9 +149,7 @@ async fn main() -> Result<()> {
             blockfrost_project_id,
             payment_skey,
             payment_addr,
-            topic_utxo,
-            node_utxo,
-            min_deposit_lovelace,
+            utxo,
             contracts_dir,
             output_dir,
         } => {
@@ -190,20 +157,20 @@ async fn main() -> Result<()> {
             let blockfrost_project_id = resolve_blockfrost_id(blockfrost_project_id)?;
             let payment_skey_path = resolve_skey_path(payment_skey)?;
             let payment_addr = resolve_payment_addr(payment_addr)?;
-            let topic_bootstrap_utxo = resolve_utxo(topic_utxo, "topic-registry bootstrap UTxO")?;
-            let node_bootstrap_utxo = resolve_utxo(node_utxo, "node-registry bootstrap UTxO")?;
+            let bootstrap_utxo = resolve_utxo(utxo, "bootstrap UTxO")?;
 
-            let args = BootstrapArgs {
-                network,
-                blockfrost_project_id,
-                payment_skey_path,
-                payment_addr,
-                topic_bootstrap_utxo,
-                node_bootstrap_utxo,
-                min_deposit_lovelace,
-            };
-
-            bootstrap::run(args, &contracts_dir, &output_dir).await?;
+            bootstrap::run(
+                BootstrapArgs {
+                    network,
+                    blockfrost_project_id,
+                    payment_skey_path,
+                    payment_addr,
+                    bootstrap_utxo,
+                },
+                &contracts_dir,
+                &output_dir,
+            )
+            .await?;
         }
 
         Command::PublishScripts {
@@ -273,29 +240,6 @@ async fn main() -> Result<()> {
             })
             .await?;
         }
-
-        Command::SplitUtxo {
-            utxo,
-            network,
-            blockfrost_project_id,
-            payment_addr,
-            payment_skey,
-        } => {
-            let network = resolve_network(network)?;
-            let blockfrost_project_id = resolve_blockfrost_id(blockfrost_project_id)?;
-            let payment_addr = resolve_payment_addr(payment_addr)?;
-            let payment_skey_path = resolve_skey_path(payment_skey)?;
-            let utxo = resolve_utxo(utxo, "UTxO to split")?;
-
-            split::run(SplitArgs {
-                blockfrost_project_id,
-                network_base_url: network.blockfrost_base_url(),
-                payment_addr,
-                payment_skey_path,
-                utxo,
-            })
-            .await?;
-        }
     }
 
     Ok(())
@@ -334,7 +278,6 @@ fn parse_network(s: &str) -> Result<Network> {
 // Text prompts — plain readline (no raw mode, paste-safe)
 // ---------------------------------------------------------------------------
 
-/// Print a prompt and read one trimmed line from stdin.
 fn readline(prompt: &str) -> Result<String> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
@@ -345,7 +288,6 @@ fn readline(prompt: &str) -> Result<String> {
     Ok(line.trim().to_string())
 }
 
-/// Loop until `validate` returns Ok, printing the error on each bad attempt.
 fn prompt_validated(prompt: &str, validate: impl Fn(&str) -> Result<(), &'static str>) -> Result<String> {
     loop {
         let val = readline(prompt)?;
@@ -398,13 +340,11 @@ fn resolve_payment_addr(flag: Option<String>) -> Result<String> {
     load_addr(s)
 }
 
-/// Accept either a bech32 address string or a path to a file containing one.
 fn load_addr(s: String) -> Result<String> {
     let path = std::path::Path::new(&s);
     let looks_like_path = s.contains('/') || s.contains('\\') || path.extension().is_some();
 
     let addr = if looks_like_path {
-        // Treat as file — give a clear error if it doesn't exist.
         std::fs::read_to_string(path)
             .with_context(|| format!("reading address file '{}' (cwd: {})", s, std::env::current_dir().unwrap_or_default().display()))?
             .trim()
@@ -456,7 +396,6 @@ fn resolve_env_file(flag: Option<PathBuf>, network: &Network) -> Result<PathBuf>
         }
         return Ok(p);
     }
-    // Guess the default path written by bootstrap.
     let default = PathBuf::from(format!("local/.env.{}", network.env_name()));
     if default.exists() {
         println!("Using .env file: {}", default.display());

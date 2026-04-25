@@ -7,7 +7,7 @@ use pallas_txbuilder::{BuildConway, Input, Output, ScriptKind, StagingTransactio
 use crate::{
     aiken,
     blockfrost::BlockfrostClient,
-    bootstrap::{Network, split_utxo as parse_utxo_ref},
+    bootstrap::{Network, parse_utxo_ref},
     tx::load_signing_key,
 };
 
@@ -18,32 +18,25 @@ pub struct PublishScriptsArgs {
     pub payment_skey_path: PathBuf,
     pub contracts_dir: PathBuf,
     pub env_file: PathBuf,
-    /// UTxO to fund all four script-publication outputs (needs ~12 ADA).
     pub funding_utxo: String,
 }
 
 pub async fn run(args: PublishScriptsArgs) -> Result<()> {
     let bf = BlockfrostClient::new(&args.blockfrost_project_id, args.network.blockfrost_base_url());
 
-    // --- read bootstrap UTxOs from the .env file ---------------------------
+    // --- read bootstrap UTxO from the .env file ----------------------------
     let env = read_env(&args.env_file)?;
     let topic_utxo = env_var(&env, "PUBSUB_TOPIC_BOOTSTRAP_UTXO")?;
-    let node_utxo  = env_var(&env, "PUBSUB_NODE_BOOTSTRAP_UTXO")?;
 
     // --- re-derive parameterized blueprints (same as bootstrap) ------------
     println!("Re-deriving parameterized blueprints...");
     let tmp = tempfile::tempdir().context("creating temp dir")?;
 
     let topic_project_dir = args.contracts_dir.join("topic-registry");
-    let node_project_dir  = args.contracts_dir.join("node-registry");
 
     let (topic_tx_hash, topic_tx_ix) = parse_utxo_ref(&topic_utxo)?;
-    let (node_tx_hash, node_tx_ix)   = parse_utxo_ref(&node_utxo)?;
-
     let topic_cbor = cbor_output_ref(&topic_tx_hash, topic_tx_ix)?;
-    let node_cbor  = cbor_output_ref(&node_tx_hash, node_tx_ix)?;
 
-    // topic-registry: apply utxo → get policy → apply policy to topic + publisher
     let topic_bp_raw = topic_project_dir.join("plutus.json");
     let topic_bp_1 = tmp.path().join("topic-bp-1.json");
     let topic_bp_2 = tmp.path().join("topic-bp-2.json");
@@ -55,17 +48,11 @@ pub async fn run(args: PublishScriptsArgs) -> Result<()> {
     aiken::apply_param(&topic_bp_1, &topic_bp_2, "topic",     "topic",     &policy_cbor)?;
     aiken::apply_param(&topic_bp_2, &topic_bp_3, "publisher", "publisher", &policy_cbor)?;
 
-    // node-registry
-    let node_bp_raw = node_project_dir.join("plutus.json");
-    let node_bp_1 = tmp.path().join("node-bp-1.json");
-    aiken::apply_param(&node_bp_raw, &node_bp_1, "node_registry", "node_registry", &node_cbor)?;
-
     // --- collect scripts ---------------------------------------------------
     let scripts: &[(&str, &Path, &str)] = &[
         ("registry-mint",   &topic_bp_3, "registry.registry.mint"),
         ("topic-validator", &topic_bp_3, "topic.topic.spend"),
         ("publisher-vault", &topic_bp_3, "publisher.publisher.spend"),
-        ("node-registry",   &node_bp_1,  "node_registry.node_registry.mint"),
     ];
 
     let mut script_bytes: Vec<(&str, Vec<u8>)> = Vec::new();
@@ -249,7 +236,6 @@ fn append_script_refs(path: &Path, refs: &[(&str, String)]) -> Result<()> {
             "registry-mint"   => "PUBSUB_REGISTRY_MINT_SCRIPT_REF",
             "topic-validator" => "PUBSUB_TOPIC_VALIDATOR_SCRIPT_REF",
             "publisher-vault" => "PUBSUB_PUBLISHER_VAULT_SCRIPT_REF",
-            "node-registry"   => "PUBSUB_NODE_REGISTRY_SCRIPT_REF",
             other             => return Err(anyhow!("unknown script label: {other}")),
         };
         content.push_str(&format!("{key}={utxo_ref}\n"));

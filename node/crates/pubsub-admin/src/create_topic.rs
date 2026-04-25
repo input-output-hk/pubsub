@@ -8,7 +8,7 @@ use pallas_txbuilder::{BuildConway, ExUnits, Input, Output, ScriptKind, StagingT
 use crate::{
     aiken,
     blockfrost::BlockfrostClient,
-    bootstrap::{Network, split_utxo as parse_utxo_ref},
+    bootstrap::{Network, parse_utxo_ref},
     tx::{load_signing_key, parse_policy_id},
 };
 

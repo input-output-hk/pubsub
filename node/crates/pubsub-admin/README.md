@@ -41,35 +41,14 @@ cardano-cli address build \
 Fund the address from the [preprod faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/).
 You need at least **50 ADA** for the full deployment (bootstrap + publish-scripts + topic creation).
 
-### 2. Split the funding UTxO
+### 2. Bootstrap the topic-registry
 
-Bootstrap needs two separate UTxOs — one to parameterize topic-registry and one for
-node-registry. If you only have one UTxO, split it first:
-
-```sh
-pubsub-admin split-utxo \
-  --utxo <txhash>#<index> \
-  --payment-addr local/payment.addr \
-  --payment-skey local/payment.skey
-```
-
-The command prints the two resulting UTxO refs:
-```
---topic-utxo <txhash>#0
---node-utxo  <txhash>#1
-```
-
-Wait ~20 seconds for the split tx to be confirmed before proceeding.
-
-### 3. Bootstrap the on-chain registries
-
-This deploys the topic-registry and node-registry contracts. Each consumes one UTxO as
-its "one-shot" parameter, so the minting policy can only ever mint once.
+Consumes a single UTxO as a one-shot parameter to produce a unique minting policy,
+then mints the registry-head NFT. Any UTxO at your payment address works.
 
 ```sh
 pubsub-admin bootstrap \
-  --topic-utxo <txhash>#0 \
-  --node-utxo  <txhash>#1 \
+  --utxo <txhash>#<index> \
   --payment-addr local/payment.addr \
   --payment-skey local/payment.skey \
   --contracts-dir contracts \
@@ -77,32 +56,30 @@ pubsub-admin bootstrap \
 ```
 
 On success this writes `local/.env.preprod` (or `.env.preview` / `.env.mainnet`)
-containing all contract addresses, policy IDs, and the bootstrap UTxO refs.
+containing all contract addresses, policy IDs, and the bootstrap UTxO ref.
 
-The output looks like:
 ```
 ======================================================================
 Bootstrap complete — preprod
 ======================================================================
-  topic-registry tx:  8d4cf88feb8f9a6a0b11a136508b69caed5d70e5aaecff88952024c74cc2c824
-  node-registry  tx:  87c3911e27e8969d84f361096889b7257f556da9b16904bc88eac97bc2b7cc5d
+  topic-registry tx: <txhash>
 
   Config: local/.env.preprod
+  Next steps: pubsub-admin publish-scripts --env-file local/.env.preprod
 ======================================================================
 ```
 
-Wait for both transactions to be confirmed (≈20 s on preprod).
+Wait for the transaction to confirm (~20 s on preprod) before proceeding.
 
-### 4. Publish reference scripts
+### 3. Publish reference scripts
 
-Stores the four compiled Plutus scripts as UTxOs on-chain (CIP-33). This is done once;
-all subsequent node-registration and topic-creation transactions reference these UTxOs
-instead of embedding the full script bytes, saving ~1–3 ADA per transaction.
+Stores the three compiled Plutus scripts as UTxOs on-chain (CIP-33). Done once;
+all subsequent topic-creation transactions reference these UTxOs instead of
+embedding the full script bytes, saving ~1–3 ADA per transaction.
 
-You need a UTxO with at least **40 ADA**. The actual minimum per script is computed
-dynamically from `coins_per_utxo_byte × script_size` (Conway era); large scripts like
-the registry-mint validator (~2800 bytes) require ~13 ADA alone. Use any UTxO at your
-payment address.
+Min-ADA per script is computed dynamically from `coins_per_utxo_byte × script_size`
+(Conway era). The registry-mint script (~2800 bytes) alone needs ~13 ADA, so use a
+UTxO with **at least 40 ADA**.
 
 ```sh
 pubsub-admin publish-scripts \
@@ -113,16 +90,15 @@ pubsub-admin publish-scripts \
   --funding-utxo <txhash>#<index>
 ```
 
-On success the command appends four variables to `local/.env.preprod`:
+On success the command appends three variables to `local/.env.preprod`:
 
 ```
 PUBSUB_REGISTRY_MINT_SCRIPT_REF=<txhash>#0
 PUBSUB_TOPIC_VALIDATOR_SCRIPT_REF=<txhash>#0
 PUBSUB_PUBLISHER_VAULT_SCRIPT_REF=<txhash>#0
-PUBSUB_NODE_REGISTRY_SCRIPT_REF=<txhash>#0
 ```
 
-### 5. Create a topic
+### 4. Create a topic
 
 Register the first topic on-chain. The transaction signer becomes the topic owner.
 
@@ -137,7 +113,7 @@ pubsub-admin create-topic \
   --retention-period 86400
 ```
 
-### 6. Copy env file to the node
+### 5. Copy env file to the node
 
 ```sh
 cp local/.env.preprod node/.env
@@ -152,8 +128,7 @@ script reference UTxOs.
 
 | Subcommand | Purpose |
 |---|---|
-| `split-utxo` | Split one UTxO into two (when you have a single large UTxO) |
-| `bootstrap` | Deploy topic-registry + node-registry on-chain (one-time per network) |
+| `bootstrap` | Deploy topic-registry on-chain (one-time per network) |
 | `publish-scripts` | Publish reference script UTxOs (run once after bootstrap) |
 | `create-topic` | Register a new topic on-chain via the topic-registry contract |
 
