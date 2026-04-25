@@ -134,3 +134,23 @@ script reference UTxOs.
 
 All subcommands prompt interactively for any argument not supplied as a flag.
 The `--blockfrost-project-id` flag falls back to the `BLOCKFROST_PROJECT_ID` env var.
+
+---
+
+## Env file reference
+
+`bootstrap` writes `local/.env.{network}` and subsequent commands append to it.
+All variables are read by the node at startup and by `pubsub-admin` subcommands.
+
+| Variable | Set by | Description |
+|---|---|---|
+| `BLOCKFROST_BASE_URL` | `bootstrap` | Blockfrost REST API base URL for the network |
+| `BLOCKFROST_PROJECT_ID` | manual | Blockfrost project credential (not written to the env file; set in your shell or pass `--blockfrost-project-id`) |
+| `PUBSUB_TOPIC_REGISTRY_ADDR` | `bootstrap` | Address of the **registry head** validator. Holds the singleton UTxO with a counter that increments on each topic creation. The minting policy is parameterized by the bootstrap UTxO, making it unique per deployment. |
+| `PUBSUB_TOPIC_VALIDATOR_ADDR` | `bootstrap` | Address of the **topic state** validator. One UTxO per topic holds its `TopicDatum` (name, owners, admins, replication factor, retention period). Owners call this validator to update topic config or delete the topic. |
+| `PUBSUB_PUBLISHER_VAULT_ADDR` | `bootstrap` | Address of the **publisher vault** validator. One UTxO per publisher-topic pair holds a minimum-ADA deposit. Minting a publisher token locks funds here; burning it (via `RemovePublisher`) releases them. This is the economic staking layer for publish rights. |
+| `PUBSUB_REGISTRY_POLICY_ID` | `bootstrap` | Minting policy ID shared by all three token types: the registry-head NFT, per-topic NFTs, and per-publisher tokens. |
+| `PUBSUB_TOPIC_BOOTSTRAP_UTXO` | `bootstrap` | The one-shot UTxO consumed during bootstrap. Stored so scripts can be re-derived later without re-running bootstrap. |
+| `PUBSUB_REGISTRY_MINT_SCRIPT_REF` | `publish-scripts` | UTxO holding the registry minting policy script on-chain (CIP-33). Referenced instead of inlined to save ~13 ADA per topic-creation tx. |
+| `PUBSUB_TOPIC_VALIDATOR_SCRIPT_REF` | `publish-scripts` | UTxO holding the topic validator script on-chain (CIP-33). |
+| `PUBSUB_PUBLISHER_VAULT_SCRIPT_REF` | `publish-scripts` | UTxO holding the publisher vault script on-chain (CIP-33). |
