@@ -154,22 +154,19 @@ async fn publish(
     let codec = CborCodec;
     let data = codec.encode(&msg)?;
 
-    // Connect to node and send
+    // Connect to node and send.  Use connect_bootstrap to derive the real
+    // NodeId from the peer's TLS cert — Transport::send rejects placeholder
+    // NodeIds since the cert-vs-expected check went strict.
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
     let mut ephemeral_seed = [0u8; 32];
     getrandom::fill(&mut ephemeral_seed).expect("OS RNG failed");
     let transport = QuicTransport::new(bind_addr, &ephemeral_seed).await?;
 
-    let node_info = pubsub_types::node::NodeInfo {
-        node_id: pubsub_types::node::NodeId([0; 32]),
-        addr: *node_addr,
-        public_key: vec![],
-        subscribed_topics: vec![],
-    };
-    transport.connect(&node_info).await?;
-    transport
-        .send(&pubsub_types::node::NodeId([0; 32]), &data)
-        .await?;
+    let node_id = transport
+        .connect_bootstrap(*node_addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to {node_addr}: {e}"))?;
+    transport.send(&node_id, &data).await?;
 
     println!(
         "Published to topic '{}': {}",
