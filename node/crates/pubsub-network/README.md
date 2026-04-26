@@ -10,10 +10,20 @@ Implements every trait defined in `pubsub-types`. Each module is a self-containe
 
 ### `transport` — QUIC transport (`QuicTransport`)
 
-Manages outgoing and incoming QUIC connections using [Quinn](https://github.com/quinn-rs/quinn). Frames messages with a 4-byte big-endian length prefix.
+Manages outgoing and incoming QUIC connections using [Quinn](https://github.com/quinn-rs/quinn). A single endpoint accepts three stream patterns, all sharing the same `[4-byte BE length][payload]` frame format:
 
-- Testnet: self-signed TLS certificates, server verification skipped
-- Connections stored by `NodeId`; `connect(NodeInfo)` must be called before `send`
+| Pattern | Tag prefix | Lifecycle | Used by |
+|---------|-----------|-----------|---------|
+| **Uni stream** | none | open → write framed Message → finish | inter-node app-message forwarding (`Transport::send` → `accept_uni`) |
+| **Bi, one-shot** | `GOSSIP_CYCLON` / `GOSSIP_VICINITY` / `PUBLISH` | open → write tagged request → read one response → finish | gossip exchanges (Cyclon, Vicinity); CLI publish-with-ack |
+| **Bi, streaming response** | `SUBSCRIBE` | open → write tagged control frame → read many response frames until peer finishes | long-lived subscribe (replay then live) |
+
+The leading-byte tag dispatcher in `handle_connection` routes each accepted bi stream to one of three internal mpsc channels (`cyclon_gossip_rx`, `vicinity_gossip_rx`, `publish_rx`) or, for `SUBSCRIBE`, to `subscribe_rx` with an mpsc::Sender that the handler pumps until dropped. Two write helpers exist: `write_framed` finishes the QUIC stream after a single frame (used by gossip and publish responses), while `write_framed_no_finish` does not (used by subscribe so the same stream can carry many message frames).
+
+`QuicTransport` implements four traits from `pubsub-types::traits` — `Transport`, `GossipTransport`, `SubscribeTransport`, `PublishTransport`. See the wire-protocol tag table in `pubsub-types/README.md` for the canonical tag/byte assignments.
+
+- Testnet: self-signed TLS certificates; recipient verifies the cert public key matches the expected `NodeId` (cert public key is the node's signing key).
+- Connections stored by `NodeId`; outbound peers are connected lazily on first `send` / `gossip_exchange` / `publish_exchange` / `subscribe_stream`. Bootstrap connections (where the peer's `NodeId` is not yet known) use `connect_bootstrap` which derives the id from the cert.
 
 ### `cyclon` — Cyclon peer sampling with eclipse-resistance extensions (`Cyclon`)
 
