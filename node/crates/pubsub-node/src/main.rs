@@ -34,7 +34,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use pubsub_types::error::PubSubError;
-use pubsub_types::message::{Message, SubscribeRequest, TopicId};
+use pubsub_types::message::{Message, PublishAck, SubscribeRequest, TopicId};
 use pubsub_types::node::{node_id_from_key, NodeId, NodeInfo};
 use pubsub_types::topic::TopicConfig;
 use pubsub_types::traits::*;
@@ -219,6 +219,65 @@ impl SubscriptionManager for LocalSubscriptionManager {
     }
 }
 
+/// Handle one inbound PUBLISH bi stream — validate the message, commit it
+/// locally, hand it off to the dissemination layer, and return a PublishAck
+/// so the CLI knows whether the node took the message.
+#[allow(clippy::too_many_arguments)]
+async fn handle_publish(
+    peer_id: NodeId,
+    request: Vec<u8>,
+    ack_tx: tokio::sync::oneshot::Sender<Vec<u8>>,
+    codec: Arc<dyn Codec>,
+    validator: Arc<dyn MessageValidator>,
+    store: Arc<dyn MessageStore>,
+    disseminator: Arc<dyn Disseminator>,
+    subscriber_tx: Arc<tokio::sync::broadcast::Sender<Message>>,
+    api_state: Option<Arc<api::ApiState>>,
+    topic_name_map: Arc<HashMap<TopicId, String>>,
+) {
+    let send_ack = |ack: PublishAck| {
+        let mut buf = Vec::new();
+        if ciborium::ser::into_writer(&ack, &mut buf).is_ok() {
+            let _ = ack_tx.send(buf);
+        }
+    };
+
+    let msg = match codec.decode(&request) {
+        Ok(m) => m,
+        Err(e) => {
+            warn!(error = %e, "Publish: failed to decode message");
+            send_ack(PublishAck::Rejected { reason: format!("decode: {e}") });
+            return;
+        }
+    };
+
+    if let Err(e) = validator.validate(&msg).await {
+        warn!(error = %e, topic = %msg.topic_id, "Publish: validation failed");
+        send_ack(PublishAck::Rejected { reason: e.to_string() });
+        return;
+    }
+
+    if let Err(e) = store.store(msg.clone()).await {
+        warn!(error = %e, "Publish: store failed");
+        send_ack(PublishAck::Rejected { reason: format!("store: {e}") });
+        return;
+    }
+
+    if let Some(ref s) = api_state {
+        let topic_name = topic_name_map.get(&msg.topic_id).map(String::as_str);
+        s.record_message(&peer_id, &msg, topic_name).await;
+    }
+    let _ = subscriber_tx.send(msg.clone());
+
+    let topic_id = msg.topic_id.clone();
+    let sequence_nr = msg.sequence_nr;
+    if let Err(e) = disseminator.disseminate(&msg).await {
+        warn!(error = %e, "Publish: dissemination failed (still acking accept)");
+    }
+
+    send_ack(PublishAck::Accepted { topic_id, sequence_nr });
+}
+
 /// Handle one inbound SUBSCRIBE bidirectional stream.
 ///
 /// Decodes the `SubscribeRequest` control frame, replays cached messages from
@@ -379,6 +438,7 @@ async fn main() -> Result<()> {
     let transport_app: Arc<dyn Transport> = transport.clone();
     let transport_gossip: Arc<dyn pubsub_types::traits::GossipTransport> = transport.clone();
     let transport_subscribe: Arc<dyn pubsub_types::traits::SubscribeTransport> = transport.clone();
+    let transport_publish: Arc<dyn pubsub_types::traits::PublishTransport> = transport.clone();
 
     let codec = Arc::new(CborCodec);
     let store: Arc<dyn MessageStore> = Arc::new(HotCache::with_defaults());
@@ -643,6 +703,44 @@ async fn main() -> Result<()> {
             .map(|tc| (tc.topic_id.clone(), tc.name.clone()))
             .collect(),
     );
+
+    // Spawn the publish-accept loop.  CLI publishes arrive on a dedicated bi
+    // stream (tag PUBLISH); each one runs through validation + storage +
+    // dissemination and returns a PublishAck so the publisher knows whether
+    // the node took the message.
+    {
+        let transport_pub = transport_publish.clone();
+        let codec_pub = Arc::clone(&codec);
+        let validator_pub = Arc::clone(&validator);
+        let store_pub = Arc::clone(&store);
+        let disseminator_pub = Arc::clone(&disseminator);
+        let subscriber_tx_pub = Arc::clone(&subscriber_tx);
+        let api_state_pub = api_state.clone();
+        let topic_name_map_pub = Arc::clone(&topic_name_map);
+        tokio::spawn(async move {
+            loop {
+                match transport_pub.next_inbound_publish().await {
+                    Ok((peer_id, request, ack_tx)) => {
+                        let codec = Arc::clone(&codec_pub);
+                        let validator = Arc::clone(&validator_pub);
+                        let store = Arc::clone(&store_pub);
+                        let disseminator = Arc::clone(&disseminator_pub);
+                        let subscriber_tx = Arc::clone(&subscriber_tx_pub);
+                        let api_state = api_state_pub.clone();
+                        let topic_name_map = Arc::clone(&topic_name_map_pub);
+                        tokio::spawn(handle_publish(
+                            peer_id, request, ack_tx, codec, validator, store,
+                            disseminator, subscriber_tx, api_state, topic_name_map,
+                        ));
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "publish accept loop ended");
+                        return;
+                    }
+                }
+            }
+        });
+    }
 
     // Spawn the subscribe-accept loop.  Each inbound SUBSCRIBE bidirectional
     // stream becomes one `handle_subscribe` task that replays from HotCache and

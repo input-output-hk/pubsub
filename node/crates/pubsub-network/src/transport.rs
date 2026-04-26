@@ -12,8 +12,8 @@ use tracing::{debug, error, info, warn};
 use pubsub_types::error::PubSubError;
 use pubsub_types::node::{node_id_from_addr, node_id_from_key, NodeId, NodeInfo};
 use pubsub_types::traits::{
-    GossipTransport, InboundGossip, InboundSubscribe, SubscribeTransport, Transport,
-    GOSSIP_CYCLON, GOSSIP_VICINITY, SUBSCRIBE,
+    GossipTransport, InboundGossip, InboundPublish, InboundSubscribe, PublishTransport,
+    SubscribeTransport, Transport, GOSSIP_CYCLON, GOSSIP_VICINITY, PUBLISH, SUBSCRIBE,
 };
 
 /// QUIC-based transport.
@@ -49,6 +49,10 @@ pub struct QuicTransport {
     subscribe_rx: tokio::sync::Mutex<mpsc::Receiver<InboundSubscribe>>,
     #[allow(dead_code)]
     subscribe_tx: mpsc::Sender<InboundSubscribe>,
+    /// Inbound publish requests (tag = PUBLISH).
+    publish_rx: tokio::sync::Mutex<mpsc::Receiver<InboundPublish>>,
+    #[allow(dead_code)]
+    publish_tx: mpsc::Sender<InboundPublish>,
 }
 
 impl QuicTransport {
@@ -72,6 +76,7 @@ impl QuicTransport {
         let (cyclon_gossip_tx, cyclon_gossip_rx) = mpsc::channel(1024);
         let (vicinity_gossip_tx, vicinity_gossip_rx) = mpsc::channel(1024);
         let (subscribe_tx, subscribe_rx) = mpsc::channel(256);
+        let (publish_tx, publish_rx) = mpsc::channel(1024);
 
         let mut ep_clone = endpoint.clone();
         ep_clone.set_default_client_config(client_config);
@@ -88,6 +93,8 @@ impl QuicTransport {
             vicinity_gossip_tx: vicinity_gossip_tx.clone(),
             subscribe_rx: tokio::sync::Mutex::new(subscribe_rx),
             subscribe_tx: subscribe_tx.clone(),
+            publish_rx: tokio::sync::Mutex::new(publish_rx),
+            publish_tx: publish_tx.clone(),
         };
 
         let accept_endpoint = transport.endpoint.clone();
@@ -96,6 +103,7 @@ impl QuicTransport {
         let accept_cyclon_tx = cyclon_gossip_tx.clone();
         let accept_vicinity_tx = vicinity_gossip_tx.clone();
         let accept_subscribe_tx = subscribe_tx.clone();
+        let accept_publish_tx = publish_tx.clone();
 
         tokio::spawn(async move {
             Self::accept_loop(
@@ -105,6 +113,7 @@ impl QuicTransport {
                 accept_cyclon_tx,
                 accept_vicinity_tx,
                 accept_subscribe_tx,
+                accept_publish_tx,
             )
             .await;
         });
@@ -236,6 +245,7 @@ impl QuicTransport {
         cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
         vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
         subscribe_tx: mpsc::Sender<InboundSubscribe>,
+        publish_tx: mpsc::Sender<InboundPublish>,
     ) {
         while let Some(incoming) = endpoint.accept().await {
             let connections = connections.clone();
@@ -243,12 +253,13 @@ impl QuicTransport {
             let cyclon_tx = cyclon_gossip_tx.clone();
             let vicinity_tx = vicinity_gossip_tx.clone();
             let subscribe_tx = subscribe_tx.clone();
+            let publish_tx = publish_tx.clone();
 
             tokio::spawn(async move {
                 match incoming.await {
                     Ok(conn) => {
                         debug!(remote = %conn.remote_address(), "Accepted incoming QUIC connection");
-                        Self::handle_connection(conn, connections, app_tx, cyclon_tx, vicinity_tx, subscribe_tx).await;
+                        Self::handle_connection(conn, connections, app_tx, cyclon_tx, vicinity_tx, subscribe_tx, publish_tx).await;
                     }
                     Err(e) => warn!("Failed to accept incoming connection: {e}"),
                 }
@@ -274,6 +285,7 @@ impl QuicTransport {
         cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
         vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
         subscribe_tx: mpsc::Sender<InboundSubscribe>,
+        publish_tx: mpsc::Sender<InboundPublish>,
     ) {
         // Try cert-based NodeId; without mutual TLS the server sees no client cert.
         let sender_id = Self::peer_cert_node_id(&conn)
@@ -312,6 +324,7 @@ impl QuicTransport {
                             let vicinity_tx = vicinity_gossip_tx.clone();
                             let subscribe_tx = subscribe_tx.clone();
                             let id = sender_id.clone();
+                            let publish_tx = publish_tx.clone();
                             tokio::spawn(async move {
                                 match Self::read_framed(&mut recv).await {
                                     Ok(tagged_request) => {
@@ -343,6 +356,23 @@ impl QuicTransport {
                                                         }
                                                     }
                                                     Err(_) => {} // handler dropped sender, no reply
+                                                }
+                                            }
+                                            PUBLISH => {
+                                                let (resp_tx, resp_rx) =
+                                                    tokio::sync::oneshot::channel::<Vec<u8>>();
+                                                if publish_tx.send((id, payload, resp_tx)).await.is_err() {
+                                                    return;
+                                                }
+                                                match resp_rx.await {
+                                                    Ok(response) => {
+                                                        if let Err(e) =
+                                                            Self::write_framed(&mut send, &response).await
+                                                        {
+                                                            warn!("Failed to write publish ack: {e}");
+                                                        }
+                                                    }
+                                                    Err(_) => {} // handler dropped sender, no ack
                                                 }
                                             }
                                             SUBSCRIBE => {
@@ -651,6 +681,41 @@ impl SubscribeTransport for QuicTransport {
         rx.recv()
             .await
             .ok_or_else(|| PubSubError::Transport("Subscribe channel closed".to_string()))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PublishTransport impl (one-shot bi stream, tag = PUBLISH)
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+impl PublishTransport for QuicTransport {
+    async fn publish_exchange(
+        &self,
+        peer: &NodeId,
+        addr: SocketAddr,
+        request: Vec<u8>,
+    ) -> Result<Vec<u8>, PubSubError> {
+        let conn = self.get_or_connect(peer, addr).await?;
+
+        let (mut send, mut recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| PubSubError::Transport(format!("Failed to open publish bi stream: {e}")))?;
+
+        let mut tagged = Vec::with_capacity(1 + request.len());
+        tagged.push(PUBLISH);
+        tagged.extend_from_slice(&request);
+        Self::write_framed(&mut send, &tagged).await?;
+
+        Self::read_framed(&mut recv).await
+    }
+
+    async fn next_inbound_publish(&self) -> Result<InboundPublish, PubSubError> {
+        let mut rx = self.publish_rx.lock().await;
+        rx.recv()
+            .await
+            .ok_or_else(|| PubSubError::Transport("Publish channel closed".to_string()))
     }
 }
 

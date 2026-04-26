@@ -7,12 +7,13 @@ use clap::{Parser, Subcommand};
 use pallas_crypto::key::ed25519::SecretKey;
 
 use pubsub_types::message::{
-    CredentialType, Message, PublisherCredential, PublisherId, SubscribeRequest, TopicId,
+    CredentialType, Message, PublishAck, PublisherCredential, PublisherId, SubscribeRequest,
+    TopicId,
 };
 
 use pubsub_network::codec::CborCodec;
 use pubsub_network::transport::QuicTransport;
-use pubsub_types::traits::{Codec, SubscribeTransport, Transport};
+use pubsub_types::traits::{Codec, PublishTransport, SubscribeTransport};
 
 #[derive(Parser)]
 #[command(name = "pubsub-cli", about = "Cardano PubSub CLI")]
@@ -190,9 +191,7 @@ async fn publish(
     let codec = CborCodec;
     let data = codec.encode(&msg)?;
 
-    // Connect to node and send.  Use connect_bootstrap to derive the real
-    // NodeId from the peer's TLS cert — Transport::send rejects placeholder
-    // NodeIds since the cert-vs-expected check went strict.
+    // Connect, then run a PUBLISH bi exchange so the node returns an ack.
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
     let mut ephemeral_seed = [0u8; 32];
     getrandom::fill(&mut ephemeral_seed).expect("OS RNG failed");
@@ -202,16 +201,27 @@ async fn publish(
         .connect_bootstrap(*node_addr)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to connect to {node_addr}: {e}"))?;
-    transport.send(&node_id, &data).await?;
 
-    println!(
-        "Published topic_id={} ({}): {}",
-        target.hex(),
-        target.label,
-        payload
-    );
+    let ack_bytes = transport
+        .publish_exchange(&node_id, *node_addr, data)
+        .await
+        .map_err(|e| anyhow::anyhow!("publish_exchange failed: {e}"))?;
+    let ack: PublishAck = ciborium::de::from_reader(&ack_bytes[..])
+        .map_err(|e| anyhow::anyhow!("malformed PublishAck from node: {e}"))?;
 
-    Ok(())
+    match ack {
+        PublishAck::Accepted { topic_id, sequence_nr } => {
+            let hex: String = topic_id.0.iter().map(|b| format!("{b:02x}")).collect();
+            println!(
+                "Accepted topic_id={} seq={} ({}): {}",
+                hex, sequence_nr, target.label, payload
+            );
+            Ok(())
+        }
+        PublishAck::Rejected { reason } => {
+            Err(anyhow::anyhow!("Rejected by node ({}): {}", target.label, reason))
+        }
+    }
 }
 
 async fn subscribe(
