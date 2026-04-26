@@ -90,3 +90,56 @@ pubsub-node \
   --key-file ~/.pubsub/node.sk \
   --config local/config.preprod.toml
 ```
+
+## HTTP API
+
+The node exposes a small HTTP surface for the dashboard, browser/curl clients, and ops tooling. Default port is `bind_port + 1000` (override with `--http-port`, set `0` to disable). All routes return JSON unless noted; SSE routes use `text/event-stream`. See `src/api.rs` for the canonical handlers.
+
+| Method | Path | Response | Notes |
+|--------|------|----------|-------|
+| GET | `/api/status` | `StatusResponse` | Node id (hex + bech32), network, uptime, peer/topic/message counts |
+| GET | `/api/peers` | `[PeerEntry]` | Connected peers with hex + bech32 ids and addresses |
+| GET | `/api/topics` | `[TopicEntry]` | Topics known to this node (hex id, name, subscribed flag) |
+| GET | `/api/messages?topic=<prefix>&limit=<N>` | `[StoredMessage]` | Last N entries from the dashboard ringbuffer; optional topic-hex prefix filter; default `limit=20` |
+| GET | `/api/topology` | `TopologyResponse` | Self id + peers with `stale` flag (15s threshold) |
+| GET | `/api/topics/{topic_hex}/stream?since=<n>&limit=<m>` | SSE `StreamMessage` | Per-topic replay-from-HotCache then live broadcast hits |
+| GET | `/events` | SSE `NodeEvent` | Global event firehose (`peer_connected`, `message_received`) |
+
+Examples:
+
+```sh
+# Snapshot node state
+curl -s http://127.0.0.1:10001/api/status
+
+# Tail a single topic, full TTL replay then live (Ctrl-C to exit)
+TOPIC=0000000000000000000000000000000000000000000000000000000000000000
+curl -N "http://127.0.0.1:10001/api/topics/$TOPIC/stream?since=0"
+
+# Dashboard event firehose
+curl -N http://127.0.0.1:10001/events
+```
+
+Response struct shapes are defined in `crates/pubsub-node/src/api.rs` (`StatusResponse`, `PeerEntry`, `TopicEntry`, `StoredMessage`, `TopologyResponse`, `StreamMessage`, `NodeEvent`).
+
+## Subscribe wires
+
+Three transports today, all reading from the same `subscriber_tx: broadcast::Sender<Message>` fan-out point in `main.rs` (set right after store + dedup in the receive-loop handler task):
+
+| Wire | Consumer | Replay? | Per-topic? | Carries |
+|------|----------|---------|-----------|---------|
+| QUIC `SUBSCRIBE` (tag `0x03`) | `pubsub-cli`, native clients | yes (HotCache `get_since`) | yes | full `Message` (CBOR — incl. signature) |
+| HTTP `/api/topics/{hex}/stream` | browsers, curl | yes (HotCache `get_since`) | yes | `StreamMessage` JSON (no signature) |
+| HTTP `/events` | dashboard | no | no — global | `NodeEvent` JSON metadata |
+
+Replay-then-live: the QUIC and per-topic SSE paths first drain `HotCache::get_since(topic, since_seq, limit)` and then attach to the broadcast for live frames. The seam between replay and live is best-effort — messages broadcast during the cache snapshot can be missed and are not de-duplicated against the replay batch.
+
+## Message retention
+
+Two caches sit side by side and have different eviction rules. Don't conflate them.
+
+| Store | Location | Eviction | Used for |
+|-------|----------|----------|----------|
+| `HotCache` | `crates/pubsub-network/src/store.rs` (`DEFAULT_TTL = 3600s`, 100k entry cap) | Time-based: 1h TTL with periodic eviction every 60s. Capacity-based: oldest entry dropped when at cap. | Replay (`get_since`) for both QUIC and SSE subscribers |
+| Dashboard `recent_messages` | `crates/pubsub-node/src/api.rs` (200-entry FIFO) | Capacity-only: oldest dropped when 201st arrives. **No time eviction.** | `/api/messages` JSON polling and dashboard preview |
+
+The `recent_messages` ringbuffer is why a quiet node will display yesterday's messages on the dashboard even though `HotCache` evicted them an hour after arrival. Treat it as a debug preview, not an authoritative recent feed.
