@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use crate::{
     aiken,
     blockfrost::BlockfrostClient,
+    cbor::{cbor_output_ref, cbor_policy_id},
     tx::{build_bootstrap_tx, load_signing_key},
 };
 
@@ -173,44 +174,6 @@ pub fn parse_utxo_ref(utxo: &str) -> Result<(String, u64)> {
         .parse()
         .map_err(|_| anyhow!("UTxO index is not a number: {utxo}"))?;
     Ok((hash, index))
-}
-
-/// CBOR-encode an OutputReference (Constr 0 [ByteArray(txhash), Int(index)]).
-pub fn cbor_output_ref(tx_hash: &str, index: u64) -> Result<String> {
-    let hash_bytes = hex::decode(tx_hash).context("decoding UTxO tx hash")?;
-    if hash_bytes.len() != 32 {
-        return Err(anyhow!("tx hash must be 32 bytes"));
-    }
-    let mut out = vec![0xd8, 0x79, 0x82, 0x58, 0x20];
-    out.extend_from_slice(&hash_bytes);
-    out.extend_from_slice(&cbor_uint(index));
-    Ok(hex::encode(out))
-}
-
-/// CBOR-encode a PolicyId (28-byte raw bytestring).
-pub fn cbor_policy_id(policy_id_hex: &str) -> Result<String> {
-    let bytes = hex::decode(policy_id_hex).context("decoding policy ID hex")?;
-    if bytes.len() != 28 {
-        return Err(anyhow!("policy ID must be 28 bytes"));
-    }
-    let mut out = vec![0x58, 0x1c];
-    out.extend_from_slice(&bytes);
-    Ok(hex::encode(out))
-}
-
-pub fn cbor_uint(n: u64) -> Vec<u8> {
-    if n <= 23 { vec![n as u8] }
-    else if n <= 0xff { vec![0x18, n as u8] }
-    else if n <= 0xffff { vec![0x19, (n >> 8) as u8, n as u8] }
-    else if n <= 0xffff_ffff {
-        vec![0x1a, (n >> 24) as u8, (n >> 16) as u8, (n >> 8) as u8, n as u8]
-    } else {
-        vec![
-            0x1b,
-            (n >> 56) as u8, (n >> 48) as u8, (n >> 40) as u8, (n >> 32) as u8,
-            (n >> 24) as u8, (n >> 16) as u8, (n >> 8) as u8, n as u8,
-        ]
-    }
 }
 
 fn write_toml_config(

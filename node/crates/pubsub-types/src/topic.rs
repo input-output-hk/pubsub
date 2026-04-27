@@ -5,6 +5,17 @@ use serde::{Deserialize, Serialize};
 use crate::error::PubSubError;
 use crate::message::{PublisherId, TopicId};
 
+/// BLAKE2b-256 of the topic name — the canonical TopicId for off-chain /
+/// mock-chain topics. Must agree across the CLI, node, and mock registry so a
+/// topic name resolves to the same id everywhere.
+pub fn topic_id_from_name(name: &str) -> TopicId {
+    use pallas_crypto::hash::Hasher;
+    let hash = Hasher::<256>::hash(name.as_bytes());
+    let mut id = [0u8; 32];
+    id.copy_from_slice(hash.as_ref());
+    TopicId(id)
+}
+
 /// Topic configuration as stored in the on-chain Topic Registry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopicConfig {

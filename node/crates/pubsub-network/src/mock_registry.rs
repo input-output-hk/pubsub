@@ -8,8 +8,8 @@ use serde::Deserialize;
 use tracing::{debug, info};
 
 use pubsub_types::error::PubSubError;
-use pubsub_types::message::TopicId;
 use pubsub_types::node::{node_id_from_addr, NodeId, NodeInfo};
+use pubsub_types::topic::topic_id_from_name;
 use pubsub_types::traits::NodeRegistry;
 
 // ---------------------------------------------------------------------------
@@ -182,14 +182,6 @@ fn derive_node_id(entry: &RegistryEntry) -> NodeId {
         }
     }
     node_id_from_addr(entry.addr)
-}
-
-fn topic_id_from_name(name: &str) -> TopicId {
-    use pallas_crypto::hash::Hasher;
-    let hash = Hasher::<256>::hash(name.as_bytes());
-    let mut id = [0u8; 32];
-    id.copy_from_slice(hash.as_ref());
-    TopicId(id)
 }
 
 fn hex_decode_or_empty(s: &str) -> Vec<u8> {

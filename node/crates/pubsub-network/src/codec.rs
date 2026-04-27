@@ -8,19 +8,8 @@ use pubsub_types::traits::Codec;
 ///
 /// Provides simple, deterministic serialization of `Message` values
 /// suitable for wire transport and storage.
+#[derive(Default)]
 pub struct CborCodec;
-
-impl CborCodec {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for CborCodec {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl Codec for CborCodec {
     fn encode(&self, msg: &Message) -> Result<Vec<u8>, PubSubError> {

@@ -351,7 +351,6 @@ mod tests {
     use pubsub_types::error::PubSubError;
     use pubsub_types::node::{node_id_from_key, NodeInfo, PeerDescriptor};
     use pubsub_types::traits::{GossipTransport, Transport};
-    use tokio::sync::oneshot;
 
     // ---- minimal stubs --------------------------------------------------------
 

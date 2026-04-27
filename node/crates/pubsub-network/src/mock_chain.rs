@@ -50,16 +50,6 @@ impl MockChainState {
         Self::new(Vec::new(), Vec::new())
     }
 
-    /// Add a node to the mock registry.
-    pub fn add_node(&mut self, node: NodeInfo) {
-        self.nodes.push(node);
-    }
-
-    /// Add a topic configuration to the mock registry.
-    pub fn add_topic(&mut self, topic: TopicConfig) {
-        self.topics.push(topic);
-    }
-
     /// Register a key as a valid pool KES key.
     pub fn with_pool_kes_key(mut self, key: impl Into<Bytes>) -> Self {
         self.pool_kes_keys.push(key.into());

@@ -36,7 +36,7 @@ use tracing::{info, warn};
 use pubsub_types::error::PubSubError;
 use pubsub_types::message::{Message, PublishAck, SubscribeRequest, TopicId};
 use pubsub_types::node::{node_id_from_key, NodeId, NodeInfo};
-use pubsub_types::topic::TopicConfig;
+use pubsub_types::topic::{topic_id_from_name, TopicConfig};
 use pubsub_types::traits::*;
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -944,14 +944,6 @@ fn load_or_generate_key(path: Option<&Path>) -> Result<[u8; 32]> {
         getrandom::fill(&mut seed).expect("OS RNG failed");
         Ok(seed)
     }
-}
-
-fn topic_id_from_name(name: &str) -> TopicId {
-    use pallas_crypto::hash::Hasher;
-    let hash = Hasher::<256>::hash(name.as_bytes());
-    let mut id = [0u8; 32];
-    id.copy_from_slice(hash.as_ref());
-    TopicId(id)
 }
 
 fn default_topics(names: &[String]) -> Vec<TopicConfig> {

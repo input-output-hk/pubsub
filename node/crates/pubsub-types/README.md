@@ -13,7 +13,6 @@ Single source of truth for all types and async trait interfaces used across the 
 | Type | Description |
 |------|-------------|
 | `Message` | Wire envelope: topic, sequence number, timestamp, publisher ID, signature, payload, metadata |
-| `EncodingFormat` | Forward-compatible tag on the message envelope (Phase 1: only `Cbor`) |
 | `TopicId` | 256-bit topic identifier — see [TopicId conventions](#topicid-conventions) |
 | `CredentialType` | Tag selecting which on-chain registry validates the publisher key (`Ed25519`, `PoolKes`, `DRepCredential`, `AuthorityKey`) |
 | `PublisherCredential` | Typed credential carried in every message (key bytes + type tag + optional auxiliary proof) |

@@ -4,15 +4,6 @@ use std::fmt;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-/// Format tag for the message envelope.
-/// Allows future encoding formats without breaking the wire protocol.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(u8)]
-pub enum EncodingFormat {
-    Cbor = 0,
-    // Future: Protobuf = 1, FlatBuffers = 2, etc.
-}
-
 /// Discriminant committed to in `signable_bytes()` so signatures are
 /// credential-type-specific and cannot be replayed across types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

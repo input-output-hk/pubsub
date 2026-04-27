@@ -123,7 +123,7 @@ mod tests {
 
     use bytes::Bytes;
 
-    use pubsub_types::message::{Message, MessageId, PublisherCredential, PublisherId, TopicId};
+    use pubsub_types::message::{Message, PublisherCredential, PublisherId, TopicId};
     use pubsub_types::traits::MessageStore;
 
     use super::HotCache;

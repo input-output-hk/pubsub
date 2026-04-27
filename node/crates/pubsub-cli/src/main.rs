@@ -10,6 +10,7 @@ use pubsub_types::message::{
     CredentialType, Message, PublishAck, PublisherCredential, PublisherId, SubscribeRequest,
     TopicId,
 };
+use pubsub_types::topic::topic_id_from_name;
 
 use pubsub_network::codec::CborCodec;
 use pubsub_network::transport::QuicTransport;
@@ -74,9 +75,6 @@ enum Commands {
         #[arg(long, default_value_t = 1000)]
         limit: u32,
     },
-
-    /// Show node status
-    Status,
 }
 
 #[tokio::main]
@@ -96,9 +94,6 @@ async fn main() -> Result<()> {
         Commands::Subscribe { topic, topic_id, since_seq, limit } => {
             let target = TopicTarget::from_args(topic, topic_id)?;
             subscribe(&cli.node, target, since_seq, limit).await?;
-        }
-        Commands::Status => {
-            println!("Status check not yet implemented (needs gRPC API)");
         }
     }
 
@@ -283,14 +278,6 @@ fn print_message(m: &Message) {
         "[{}] {} seq={} ts={}: {}",
         m.topic_id, m.publisher_id, m.sequence_nr, m.timestamp_ms, payload
     );
-}
-
-fn topic_id_from_name(name: &str) -> TopicId {
-    use pallas_crypto::hash::Hasher;
-    let hash = Hasher::<256>::hash(name.as_bytes());
-    let mut id = [0u8; 32];
-    id.copy_from_slice(hash.as_ref());
-    TopicId(id)
 }
 
 /// Encode an on-chain integer topic id as a 32-byte TopicId.

@@ -11,19 +11,8 @@ use pubsub_types::traits::{RelayDecision, RelayPolicy};
 /// - BFT consistency checks
 /// - Per-publisher rate limiting
 /// - Reputation-weighted relay decisions
+#[derive(Default)]
 pub struct DefaultRelayPolicy;
-
-impl DefaultRelayPolicy {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for DefaultRelayPolicy {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[async_trait]
 impl RelayPolicy for DefaultRelayPolicy {
