@@ -22,7 +22,7 @@ Single source of truth for all types and async trait interfaces used across the 
 | `PublishAck` | CBOR response on a `PUBLISH` stream: `Accepted{topic_id, sequence_nr}` or `Rejected{reason}` |
 | `NodeId` | 32-byte node identifier — `Blake2b-256(public_key)` |
 | `NodeInfo` | Full node descriptor: ID, socket address, public key, subscribed topics |
-| `PeerDescriptor` | `NodeInfo` + age counter + Ed25519 signature; used by Cyclon gossip |
+| `PeerDescriptor` | `NodeInfo` + age counter + Ed25519 signature; used by Cyclon (SecureCyclon variant) gossip |
 | `TopicConfig` | On-chain topic metadata: name, authorized publishers, retention period, replication factor |
 | `PubSubError` | Error enum covering transport, codec, validation, and chain-state failures |
 
@@ -34,7 +34,7 @@ Single source of truth for all types and async trait interfaces used across the 
 | `GossipTransport` | `QuicTransport` (bi one-shot — Cyclon, Vicinity) |
 | `SubscribeTransport` | `QuicTransport` (bi streaming response — client subscribe) |
 | `PublishTransport` | `QuicTransport` (bi one-shot — client publish with ack) |
-| `PeerSampler` | `Cyclon` |
+| `PeerSampler` | `Cyclon` (with SecureCyclon extensions: signed descriptors, bootstrap diversity, rate-limited insertion) |
 | `TopicRouter` | `Vicinity` |
 | `Disseminator` | `HybridDisseminator` |
 | `Codec` | `CborCodec` |
@@ -51,7 +51,7 @@ A single byte tag prefixes every bidirectional QUIC stream so the responder can 
 
 | Tag | Const | Stream pattern | Direction | Purpose |
 |-----|-------|---------------|-----------|---------|
-| `0x01` | `GOSSIP_CYCLON` | bi, one-shot | node ↔ node | Cyclon shuffle exchange |
+| `0x01` | `GOSSIP_CYCLON` | bi, one-shot | node ↔ node | Cyclon shuffle exchange (SecureCyclon — signed `PeerDescriptor`s) |
 | `0x02` | `GOSSIP_VICINITY` | bi, one-shot | node ↔ node | Vicinity T-Man |
 | `0x03` | `SUBSCRIBE` | bi, streaming response | client → node | Subscribe (replay then live) |
 | `0x04` | `PUBLISH` | bi, one-shot | client → node | Publish with `PublishAck` |
