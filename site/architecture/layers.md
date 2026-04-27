@@ -8,7 +8,7 @@ The Cardano PubSub Node is composed of five distinct layers. Each layer is desig
 
 ### Strategic Direction
 
-The networking layer is based on the [IOG Research Foundation](research-foundation.md) — a three-layer dissemination protocol designed specifically for Cardano. The stack prioritizes compatibility with the **Ouroboros Network** (Cardano's native stack), ensuring that SPOs can run Cardano PubSub side-by-side with their block producers using familiar connection managers and multiplexing protocols.
+The networking layer is based on the D2 research paper (AUEB/IOG, 2024) — a three-layer dissemination protocol designed specifically for Cardano. The stack prioritizes compatibility with the **Ouroboros Network** (Cardano's native stack), ensuring that SPOs can run Cardano PubSub side-by-side with their block producers using familiar connection managers and multiplexing protocols.
 
 ### Three-Layer Dissemination Protocol
 

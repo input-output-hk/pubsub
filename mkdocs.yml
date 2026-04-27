@@ -81,7 +81,6 @@ nav:
     - Agent Coordination: use-cases/agent-coordination.md
   - Architecture:
     - Overview: architecture/index.md
-    - Research Foundation: architecture/research-foundation.md
     - Philosophy: architecture/philosophy.md
     - System Layers: architecture/layers.md
     - Identity & DIDs: architecture/identity.md

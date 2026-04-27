@@ -100,7 +100,7 @@ Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_r
 | `published_at_epoch` | `Int` | Epoch when the topic was created |
 
 > [!NOTE]
-> **`replication_factor` and `retention_period` vs the two-tier incentive model.** The current contract requires both fields to be > 0, carried over from the Quint formal spec and the AUEB design which assumed persistence for all topics. Under the proposed two-tier incentive model, Tier 1 topics (cooperative dissemination, no persistence) don't need these fields — they only become economically meaningful at Tier 2 when the persistence layer and escrow mechanism are active. This constraint may need revisiting to allow zero values for Tier 1 topics.
+> **`replication_factor` and `retention_period`.** The current contract requires both fields to be > 0, carried over from the Quint formal spec and the AUEB design which assumed persistence for all topics. For topics that only need ephemeral dissemination (no persistence), these fields may not be meaningful. This constraint may need revisiting to allow zero values.
 
 ### PublisherVaultDatum
 
