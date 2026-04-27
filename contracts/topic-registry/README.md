@@ -1,65 +1,42 @@
 # Topic Registry — On-Chain Contracts
 
-Aiken (Plutus V3) contracts for the PubSub topic registry. Three validators manage topic lifecycle, role assignment, and publisher authorization using NFT-based state tokens under a single minting policy.
+## Overview
 
-## How It Works
+Aiken (Plutus V3) contracts that manage the lifecycle of PubSub topics on Cardano. Three validators — registry, topic, publisher — coordinate via NFT-based state tokens minted under a single policy. The registry assigns globally unique topic IDs, tracks each topic's owners and admins, and authorises publishers per topic.
 
-A one-time **bootstrap** transaction consumes a designated UTxO and mints a `registry_head` NFT. This NFT sits at the registry script address and carries a counter that increments with each new topic. The counter ensures globally unique topic IDs.
+It does **not** store messages, register relay nodes, or handle payments. Those concerns live elsewhere in the system (or are out of scope for the current branch).
 
-**Creating a topic** spends the registry head UTxO (incrementing the counter) and mints a topic NFT (`t` + 4-byte ID). The topic NFT is sent to the topic validator address with a `TopicDatum` containing the topic's configuration and initial owner. The transaction signer becomes the first owner.
+## Motivation
 
-**Managing a topic** (adding owners/admins, changing config, deleting) spends the topic NFT UTxO at the topic validator. Authorization is checked against the datum's owner/admin lists via transaction signatories. The topic NFT is returned to the same address with an updated datum.
+### Why on-chain?
 
-**Adding a publisher** mints a publisher role token (`p` + 4-byte topic ID + 28-byte pubkey hash) and sends it to the publisher vault address with a `PublisherVaultDatum`. The topic NFT is referenced (not spent) to check authorization. Requires owner or admin signature.
+Topics need to be globally discoverable and tamper-proof. Putting the registry on Cardano means any relay node, light client, or auditor can read the source of truth without trusting a server. Topic creation, ownership changes, and publisher authorisation are public, ordered, and signed.
 
-**Removing a publisher** spends the publisher vault UTxO and burns the role token. Also requires owner or admin signature, checked against the topic's reference input.
+### Why a registry-head NFT with a counter?
 
-> [!NOTE]
-> **Why separate publisher tokens instead of a list in the topic datum?** A topic may have hundreds or thousands of authorized publishers. Storing them all in the `TopicDatum` would hit Plutus execution budget and transaction size limits — every publisher change would require deserializing and re-serializing the entire list. By giving each publisher its own minted token and vault UTxO, adding or removing a publisher is a constant-cost operation regardless of how many publishers a topic has. The topic UTxO is only needed as a reference input for authorization checks, never modified during publisher management.
+To assign monotonically increasing topic IDs with no coordination. The bootstrap transaction mints a single `registry_head` NFT carrying a counter; spending that UTxO is what serialises topic creation, and the counter guarantees no two creators ever collide on an ID.
 
-## Transaction Flow
+### Why per-publisher NFTs instead of an in-datum list?
 
-```mermaid
-flowchart TD
-    subgraph Bootstrap["1 · Bootstrap (one-time)"]
-        B_IN["Bootstrap UTxO"] -->|consume| B_TX(("BootstrapRegistry"))
-        B_TX -->|mint registry_head NFT| B_OUT["Registry Head UTxO\n─────────\ncounter: 0\nepoch: 0"]
-    end
+A topic may have hundreds or thousands of authorised publishers. Storing them all in `TopicDatum` would hit Plutus execution-budget and transaction-size limits, and every publisher change would deserialise and re-serialise the full list — O(N) per change. Per-publisher mint/burn is O(1) regardless of N. The topic UTxO is **referenced** (not spent) during publisher management, so adding/removing a publisher never contends with topic-config edits.
 
-    subgraph CreateTopic["2 · Create Topic"]
-        CT_HEAD["Registry Head UTxO\ncounter: N"] -->|spend| CT_TX(("CreateTopic"))
-        CT_TX -->|mint topic NFT| CT_TOPIC["Topic UTxO\n─────────\ntopic_id: N\nowners: [signer]\nalive: true"]
-        CT_TX -->|update| CT_HEAD_OUT["Registry Head UTxO\ncounter: N+1"]
-    end
+## Lifecycle at a glance
 
-    subgraph ManageTopic["3 · Manage Topic"]
-        MT_TOPIC["Topic UTxO\ntopic_id: N"] -->|spend| MT_TX(("TopicAction\n(AddOwner, SetConfig,\nDeleteTopic, ...)"))
-        MT_TX -->|return with updated datum| MT_OUT["Topic UTxO\n(updated)"]
-        MT_SIG["Owner / Admin\nsignature"] -.->|authorize| MT_TX
-    end
+Five operations, in the order an operator typically meets them.
 
-    subgraph AddPub["4 · Add Publisher"]
-        AP_TOPIC["Topic UTxO"] -.->|reference input| AP_TX(("MintPublisher"))
-        AP_SIG["Owner / Admin\nsignature"] -.->|authorize| AP_TX
-        AP_TX -->|mint publisher token| AP_VAULT["Publisher Vault UTxO\n─────────\ntopic_id: N\npublisher: pkh"]
-    end
+**1. Bootstrap (one-time per network).** A designated UTxO is consumed and a `registry_head` NFT is minted. The NFT lives at the registry script address and starts with `counter = 0`. This step happens once; the bootstrap UTxO becomes the policy's parameter and cannot be replayed.
 
-    subgraph RemovePub["5 · Remove Publisher"]
-        RP_VAULT["Publisher Vault UTxO"] -->|spend| RP_TX(("RemovePublisher"))
-        RP_TOPIC["Topic UTxO"] -.->|reference input| RP_TX
-        RP_SIG["Owner / Admin\nsignature"] -.->|authorize| RP_TX
-        RP_TX -->|burn publisher token| RP_OUT["Token burned"]
-    end
+**2. Create topic.** Spends the registry head UTxO (incrementing the counter) and mints a topic NFT (`t` + 4-byte ID). The topic NFT lands at the topic validator address with a `TopicDatum` carrying its config and an initial owner — the transaction signer. The new registry head UTxO returns with `counter + 1`.
 
-    Bootstrap --> CreateTopic
-    CreateTopic --> ManageTopic
-    CreateTopic --> AddPub
-    AddPub --> RemovePub
-```
+**3. Manage topic.** Owner / admin actions — add/remove owner, add/remove admin, set replication factor, set retention period, delete — all spend the topic NFT and return it with an updated datum. Authorisation is checked against the datum's owner/admin lists via transaction signatories. Deletion tombstones the topic (`alive = false`); the NFT is not burned.
 
-Solid lines are spent/produced UTxOs. Dashed lines are reference inputs and signatures.
+**4. Add publisher.** Mints a publisher role token (`p` + 4-byte topic ID + 28-byte pubkey hash) and parks it in a publisher vault UTxO with a `PublisherVaultDatum`. The topic UTxO is a reference input — read for the owner/admin check, not spent. Requires owner or admin signature.
 
-## Validators
+**5. Remove publisher.** Spends the publisher vault UTxO and burns the role token. Same authorisation: owner or admin signature, checked against the topic's reference input.
+
+## Technical reference
+
+### Validators
 
 | Validator | Purpose |
 |---|---|
@@ -69,7 +46,7 @@ Solid lines are spent/produced UTxOs. Dashed lines are reference inputs and sign
 
 Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_registry/auth.ak), [`validation`](lib/topic_registry/validation.ak), [`utils`](lib/topic_registry/utils.ak).
 
-## Token Encoding
+### Token encoding
 
 | Token | Format | Example |
 |---|---|---|
@@ -77,16 +54,16 @@ Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_r
 | Topic | `0x74` + 4-byte big-endian topic ID | `t\x00\x00\x00\x05` for topic 5 |
 | Publisher | `0x70` + 4-byte topic ID + 28-byte pubkey hash | `p\x00\x00\x00\x05<pkh>` |
 
-## Datum Types
+### Datums
 
-### RegistryHeadDatum
+#### RegistryHeadDatum
 
 | Field | Type | Description |
 |---|---|---|
 | `counter` | `Int` | Next topic ID to assign (monotonically increasing) |
 | `epoch` | `Int` | Current epoch, advanced via `TickEpoch` |
 
-### TopicDatum
+#### TopicDatum
 
 | Field | Type | Description |
 |---|---|---|
@@ -102,16 +79,16 @@ Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_r
 > [!NOTE]
 > **`replication_factor` and `retention_period`.** The current contract requires both fields to be > 0, carried over from the Quint formal spec and the AUEB design which assumed persistence for all topics. For topics that only need ephemeral dissemination (no persistence), these fields may not be meaningful. This constraint may need revisiting to allow zero values.
 
-### PublisherVaultDatum
+#### PublisherVaultDatum
 
 | Field | Type | Description |
 |---|---|---|
 | `topic_id` | `Int` | Which topic this publisher is authorized for |
 | `publisher` | `ByteArray` | Publisher's pubkey hash |
 
-## Redeemer Actions
+### Redeemer actions
 
-### RegistryMintAction (minting policy)
+#### RegistryMintAction (minting policy)
 
 | Action | What It Does | Authorization |
 |---|---|---|
@@ -120,14 +97,14 @@ Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_r
 | `MintPublisher { topic_id, publisher }` | Mint a publisher role token. Topic must be alive. | Owner or admin signature (checked via topic reference input) |
 | `BurnPublisher { topic_id, publisher }` | Burn a publisher role token. | Unconditional (token holder can always burn) |
 
-### RegistryHeadAction (registry head spend)
+#### RegistryHeadAction (registry head spend)
 
 | Action | What It Does | Authorization |
 |---|---|---|
 | `CreateTopic { name, replication_factor, retention_period }` | Increment counter, mint topic NFT, create topic UTxO with initial datum. Signer becomes first owner. | Transaction signer (becomes owner) |
 | `TickEpoch` | Advance the epoch counter by 1. Counter stays the same. | None specified |
 
-### TopicAction (topic UTxO spend)
+#### TopicAction (topic UTxO spend)
 
 | Action | What It Does | Authorization |
 |---|---|---|
@@ -139,13 +116,13 @@ Supporting modules: [`types`](lib/topic_registry/types.ak), [`auth`](lib/topic_r
 | `SetReplicationFactor { r }` | Update replication factor (must be > 0). | Owner or admin |
 | `SetRetentionPeriod { t }` | Update retention period (must be > 0). | Owner or admin |
 
-### PublisherVaultAction (publisher vault spend)
+#### PublisherVaultAction (publisher vault spend)
 
 | Action | What It Does | Authorization |
 |---|---|---|
 | `RemovePublisher` | Spend the vault UTxO and burn the publisher token. Topic must be alive. | Owner or admin (checked via topic reference input) |
 
-## Building and Testing
+## Building and testing
 
 ```sh
 aiken build
