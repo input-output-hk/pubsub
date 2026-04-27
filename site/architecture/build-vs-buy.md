@@ -6,7 +6,7 @@ Strategic technology adoption decisions for the Cardano PubSub architecture.
 
 | Component | Decision | Rationale |
 |-----------|----------|-----------|
-| **Networking** | ADOPT + BUILD | Adopt [IOG Research protocols](research-foundation.md) (SecureCyclon, Vicinity, Hybrid Dissemination), BUILD Ouroboros compatibility adapters |
+| **Networking** | ADOPT + BUILD | Adopt IOG Research protocols (SecureCyclon, Vicinity, Hybrid Dissemination), BUILD Ouroboros compatibility adapters |
 | **Identity** | ADOPT (DID Standards) | Implement modular DID Resolver Mesh supporting multiple methods (Identus, did:pkh, did:peer) rather than building custom identity solution |
 | **Encryption** | BUY (Adopt) | Implement IETF standard MLS (RFC 9420) rather than rolling custom crypto |
 | **Database** | BUY | Embedded RocksDB or Sled for local node storage |

@@ -33,7 +33,7 @@ It must leverage existing Cardano networking primitives and identity standards (
 
 ### 3. Hybrid Dissemination
 
-To satisfy both **high reliability** (Governance) and **low latency** (DeFi), the network utilizes a [hybrid dissemination protocol](research-foundation.md):
+To satisfy both **high reliability** (Governance) and **low latency** (DeFi), the network utilizes a hybrid dissemination protocol:
 
 | Component | Purpose | Use Case |
 |-----------|---------|----------|

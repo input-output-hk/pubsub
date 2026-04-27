@@ -16,7 +16,6 @@ This architecture adheres to two key strategic directives:
 
 | Section | Description |
 |---------|-------------|
-| [Research Foundation](research-foundation.md) | IOG Research paper analysis — foundational protocol design |
 | [Philosophy](philosophy.md) | Core principles and design rationale |
 | [System Layers](layers.md) | The five layers of the PubSub Node |
 | [Identity & DIDs](identity.md) | Chain-agnostic DID integration strategy |
@@ -56,7 +55,7 @@ This architecture adheres to two key strategic directives:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **Networking** | [IOG Research Protocol](research-foundation.md) | Cardano-native, SPO-compatible, proven algorithms |
+| **Networking** | IOG Research Protocol (D2) | Cardano-native, SPO-compatible, proven algorithms |
 | **Identity** | Modular DID (Identus, did:pkh, did:peer) | Chain-agnostic, no lock-in, portable reputation |
 | **Encryption** | MLS (RFC 9420) | IETF standard, efficient group crypto |
 | **Storage** | Tiered (RAM + DHT) | Different TTLs for different use cases |
