@@ -34,6 +34,12 @@ pub fn generate_tls_config(
     let mut tc = TransportConfig::default();
     tc.keep_alive_interval(Some(Duration::from_secs(15)));
     tc.max_idle_timeout(None);
+    // Bound per-connection stream fan-out so a single peer (or impostor) cannot
+    // amplify CPU by opening unlimited concurrent streams. Limits apply
+    // symmetrically to inbound and outbound peers and are well above legitimate
+    // protocol use; see constants in `super`.
+    tc.max_concurrent_bidi_streams(super::MAX_CONCURRENT_BIDI_PER_CONN.into());
+    tc.max_concurrent_uni_streams(super::MAX_CONCURRENT_UNI_PER_CONN.into());
     let tc = Arc::new(tc);
 
     let mut server_config = ServerConfig::with_single_cert(

@@ -14,7 +14,7 @@ mod frame;
 mod inbound;
 mod tls;
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -32,6 +32,33 @@ use pubsub_types::traits::{
 
 use frame::{read_framed, write_framed};
 use tls::{generate_tls_config, peer_cert_node_id};
+
+// ---------------------------------------------------------------------------
+// Admission-control limits
+// ---------------------------------------------------------------------------
+//
+// Two layered caps bound the work an unauthenticated peer can force on us.
+// Both apply equally to inbound peer-to-peer relay traffic and inbound client
+// (publisher / subscriber) traffic — the QUIC layer cannot tell them apart
+// before the cert handshake completes.
+//
+// Tune downwards if dashboards show a quiet network; tune upwards only with
+// evidence that a legitimate peer is being shed.
+
+/// Maximum concurrent QUIC connections accepted from any single remote IP.
+/// One is the legitimate steady state; 4 leaves headroom for retries and
+/// short-lived overlap during reconnect.
+pub(super) const MAX_CONN_PER_IP: usize = 4;
+
+/// Maximum concurrent **bidirectional** streams a peer may have open against
+/// us per connection. The protocol uses at most 4 in flight simultaneously
+/// (Cyclon, Vicinity, Publish, Subscribe); 8 is generous slack.
+pub(super) const MAX_CONCURRENT_BIDI_PER_CONN: u32 = 8;
+
+/// Maximum concurrent **unidirectional** streams a peer may have open against
+/// us per connection. Each carries one inter-node application message; we
+/// allow more headroom than bidi because gossip-driven fan-in can be bursty.
+pub(super) const MAX_CONCURRENT_UNI_PER_CONN: u32 = 64;
 
 /// Owns the QUIC endpoint, the connection map, and the receiving side of every
 /// inbound channel. Sending sides are owned by the spawned [`inbound::accept_loop`]
@@ -76,6 +103,8 @@ impl QuicTransport {
         let mut ep_clone = endpoint.clone();
         ep_clone.set_default_client_config(client_config);
 
+        let ip_counts: Arc<DashMap<IpAddr, usize>> = Arc::new(DashMap::new());
+
         let transport = Self {
             endpoint: ep_clone,
             connections: connections.clone(),
@@ -88,17 +117,15 @@ impl QuicTransport {
         };
 
         let accept_endpoint = transport.endpoint.clone();
+        let channels = inbound::InboundChannels {
+            app_tx: incoming_tx,
+            cyclon_gossip_tx,
+            vicinity_gossip_tx,
+            subscribe_tx,
+            publish_tx,
+        };
         tokio::spawn(async move {
-            inbound::accept_loop(
-                accept_endpoint,
-                connections,
-                incoming_tx,
-                cyclon_gossip_tx,
-                vicinity_gossip_tx,
-                subscribe_tx,
-                publish_tx,
-            )
-            .await;
+            inbound::accept_loop(accept_endpoint, connections, ip_counts, channels).await;
         });
 
         Ok(transport)

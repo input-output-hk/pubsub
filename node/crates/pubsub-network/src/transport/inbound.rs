@@ -10,6 +10,7 @@
 //!   * `SUBSCRIBE`                        → streaming response until the handler
 //!     drops the channel sender.
 
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -25,38 +26,90 @@ use pubsub_types::traits::{
 
 use super::frame::{read_framed, write_framed, write_framed_no_finish};
 use super::tls::peer_cert_node_id;
+use super::MAX_CONN_PER_IP;
+
+/// Decrements the per-IP connection counter when the connection task exits.
+/// Held by the spawned per-connection task so the count is released exactly
+/// once on disconnect, error, or panic.
+struct IpGuard {
+    ip: IpAddr,
+    counts: Arc<DashMap<IpAddr, usize>>,
+}
+
+impl Drop for IpGuard {
+    fn drop(&mut self) {
+        let hit_zero = match self.counts.get_mut(&self.ip) {
+            Some(mut entry) => {
+                *entry = entry.saturating_sub(1);
+                *entry == 0
+            }
+            None => return,
+        };
+        if hit_zero {
+            // Race: another connection from this IP may have arrived between
+            // the count read and this remove; remove_if checks atomically.
+            self.counts.remove_if(&self.ip, |_, v| *v == 0);
+        }
+    }
+}
+
+/// Bundles the four mpsc senders the accept loop hands off to per-connection
+/// and per-stream tasks. Cloned cheaply (each field is an `mpsc::Sender`).
+#[derive(Clone)]
+pub(super) struct InboundChannels {
+    pub app_tx: mpsc::Sender<(NodeId, Vec<u8>)>,
+    pub cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
+    pub vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
+    pub subscribe_tx: mpsc::Sender<InboundSubscribe>,
+    pub publish_tx: mpsc::Sender<InboundPublish>,
+}
 
 pub(super) async fn accept_loop(
     endpoint: Endpoint,
     connections: Arc<DashMap<NodeId, Connection>>,
-    app_tx: mpsc::Sender<(NodeId, Vec<u8>)>,
-    cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
-    vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
-    subscribe_tx: mpsc::Sender<InboundSubscribe>,
-    publish_tx: mpsc::Sender<InboundPublish>,
+    ip_counts: Arc<DashMap<IpAddr, usize>>,
+    channels: InboundChannels,
 ) {
     while let Some(incoming) = endpoint.accept().await {
+        let remote_ip = incoming.remote_address().ip();
+
+        // Per-IP admission control: refuse before completing the handshake when
+        // this source is at the cap. Legitimate peers use one connection;
+        // anything well above the slack of MAX_CONN_PER_IP is abuse or a bug.
+        let admitted = {
+            let mut entry = ip_counts.entry(remote_ip).or_insert(0);
+            if *entry >= MAX_CONN_PER_IP {
+                false
+            } else {
+                *entry += 1;
+                true
+            }
+        };
+        if !admitted {
+            warn!(
+                %remote_ip,
+                cap = MAX_CONN_PER_IP,
+                "Refusing inbound connection: per-IP cap reached"
+            );
+            incoming.refuse();
+            continue;
+        }
+
+        let guard = IpGuard {
+            ip: remote_ip,
+            counts: ip_counts.clone(),
+        };
         let connections = connections.clone();
-        let app_tx = app_tx.clone();
-        let cyclon_tx = cyclon_gossip_tx.clone();
-        let vicinity_tx = vicinity_gossip_tx.clone();
-        let subscribe_tx = subscribe_tx.clone();
-        let publish_tx = publish_tx.clone();
+        let channels = channels.clone();
 
         tokio::spawn(async move {
+            // Hold the guard for the lifetime of the connection task — its drop
+            // releases the per-IP slot regardless of how the task exits.
+            let _guard = guard;
             match incoming.await {
                 Ok(conn) => {
                     debug!(remote = %conn.remote_address(), "Accepted incoming QUIC connection");
-                    handle_connection(
-                        conn,
-                        connections,
-                        app_tx,
-                        cyclon_tx,
-                        vicinity_tx,
-                        subscribe_tx,
-                        publish_tx,
-                    )
-                    .await;
+                    handle_connection(conn, connections, channels).await;
                 }
                 Err(e) => warn!("Failed to accept incoming connection: {e}"),
             }
@@ -68,11 +121,7 @@ pub(super) async fn accept_loop(
 async fn handle_connection(
     conn: Connection,
     _connections: Arc<DashMap<NodeId, Connection>>,
-    app_tx: mpsc::Sender<(NodeId, Vec<u8>)>,
-    cyclon_gossip_tx: mpsc::Sender<InboundGossip>,
-    vicinity_gossip_tx: mpsc::Sender<InboundGossip>,
-    subscribe_tx: mpsc::Sender<InboundSubscribe>,
-    publish_tx: mpsc::Sender<InboundPublish>,
+    channels: InboundChannels,
 ) {
     // Try cert-based NodeId; without mutual TLS the server sees no client cert.
     let sender_id =
@@ -83,7 +132,7 @@ async fn handle_connection(
             uni = conn.accept_uni() => {
                 match uni {
                     Ok(mut recv) => {
-                        let tx = app_tx.clone();
+                        let tx = channels.app_tx.clone();
                         let id = sender_id.clone();
                         tokio::spawn(async move {
                             match read_framed(&mut recv).await {
@@ -103,10 +152,10 @@ async fn handle_connection(
             bi = conn.accept_bi() => {
                 match bi {
                     Ok((mut send, mut recv)) => {
-                        let cyclon_tx = cyclon_gossip_tx.clone();
-                        let vicinity_tx = vicinity_gossip_tx.clone();
-                        let subscribe_tx = subscribe_tx.clone();
-                        let publish_tx = publish_tx.clone();
+                        let cyclon_tx = channels.cyclon_gossip_tx.clone();
+                        let vicinity_tx = channels.vicinity_gossip_tx.clone();
+                        let subscribe_tx = channels.subscribe_tx.clone();
+                        let publish_tx = channels.publish_tx.clone();
                         let id = sender_id.clone();
                         tokio::spawn(async move {
                             let tagged_request = match read_framed(&mut recv).await {
