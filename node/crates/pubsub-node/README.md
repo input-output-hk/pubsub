@@ -91,6 +91,38 @@ pubsub-node \
   --config local/config.preprod.toml
 ```
 
+## Reachability and NAT
+
+`--advertise-addr` is the address every other peer will dial to reach you. It's gossiped via Cyclon as part of your `NodeInfo`; downstream peers `endpoint.connect()` it directly. Defaults to `--bind`.
+
+For a public host with a routable IP, set `--advertise-addr <public-ip>:9000` and bind to `0.0.0.0:9000`. For a node behind a home router:
+
+1. Forward **UDP** (not TCP) on the router: `WAN udp/<port> → LAN <node-host-ip>:<port>`. Same number on both sides keeps it simple.
+2. Bind locally to `0.0.0.0:<port>`.
+3. Set `--advertise-addr <your-WAN-ip>:<port>` (find via `curl ifconfig.me` or the router's admin page).
+
+Do **not** forward the HTTP API port (`--http-port`, default `bind+1000`). It's the dashboard/control plane and has no auth.
+
+QUIC's keep-alive (`15s`, `transport/tls.rs`) holds the outbound NAT pinhole open so the seed can push gossip back to you on the original connection. Other peers opening *new* connections to you still need the forward to exist.
+
+Behind carrier-grade NAT or a corp firewall with no port-forwarding, you can still publish and subscribe (outbound-only), but you cannot operate as a relay — peers cannot dial you back.
+
+Common footgun: advertising a private IP (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`, `169.254.x.x`, loopback). Silently fails outside your LAN. The startup warning at `main.rs:458` only catches `0.0.0.0` advertise-addr; private-IP detection is on the to-do list.
+
+## Troubleshooting
+
+**My node connects to the seed but I don't show up in the seed's topology.** Almost always wrong `--advertise-addr`. Your `NodeInfo` reached the seed; the seed gossiped it on; a third peer tried to dial you and failed. Check the dashboard at the seed's `:10000` — if your NodeId appears with the stale flag, advertise-addr is unreachable. Logs on your node should show *inbound* connection traces; if only outbound ever appears, port forwarding isn't set up.
+
+**Zero peers, ever.** Bootstrap handshake failing. Check `--peers` reachable on UDP. TLS / NodeId-mismatch lines mean the seed's cert pubkey doesn't match what gossip claimed for it.
+
+**Connections drop after ~30s of idle.** NAT pinhole expired despite the 15s keep-alive — some carrier-grade NATs drop UDP keep-alives. No workaround in-protocol today.
+
+**`subscribe` returns history then goes silent.** HotCache replay worked but the live broadcast subscription dropped. Check the client log for `subscribe stream ended`; look at the node log for the matching disconnect.
+
+**Publish returns `Rejected: TopicId bytes 8-31 are non-zero; not a registry-originated topic`.** You used `--topic <name>` (hash-form id) against a node configured for an on-chain topic registry. Use `--topic-id <int>` instead — query `/api/topics` to discover registered ids — or register the topic via `pubsub-admin create-topic`.
+
+**Local 5-node testnet works but joining preprod doesn't.** Localhost has no NAT. Once you bind on a routable interface, advertise-addr + port-forwarding are live concerns.
+
 ## HTTP API
 
 The node exposes a small HTTP surface for the dashboard, browser/curl clients, and ops tooling. Default port is `bind_port + 1000` (override with `--http-port`, set `0` to disable). All routes return JSON unless noted; SSE routes use `text/event-stream`. See `src/api.rs` for the canonical handlers.
