@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Golden-tier eclipse calculator</title>
+<style>
+  body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+         max-width: 860px; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { font-size: 1.25em; margin-bottom: 0.2em; }
+  p.small, .small { font-size: 0.85em; color: #555; }
+  .row { display: flex; align-items: baseline; gap: 0.6em; margin: 0.35em 0; }
+  label { display: inline-block; min-width: 22em; }
+  input[type=number] { width: 10em; font-family: inherit; padding: 2px 4px; }
+  input[type=radio]  { margin-right: 0.25em; }
+  .mode-row label { min-width: 0; margin-right: 1.2em; }
+  .out { background: #f6f6f6; padding: 0.9em 1em; margin-top: 1em;
+         border-left: 3px solid #888; }
+  .out > div { margin: 0.25em 0; }
+  hr { border: 0; border-top: 1px dashed #bbb; margin: 0.6em 0; }
+  .warn { color: #b30000; }
+  .ok   { color: #006020; }
+  .infeasible { color: #b30000; font-weight: bold; }
+  .formula { background: #eef; padding: 0.5em 0.8em; font-size: 0.9em;
+             border-left: 3px solid #88a; margin: 0.6em 0; }
+  code { background: #eee; padding: 0 3px; }
+</style>
+</head>
+<body>
+
+<h1>Golden-tier eclipse calculator</h1>
+<p class="small">
+Eclipse-probability calculator for two models: <b>RandCast / golden</b> (push:
+every honest node forwards to F random targets) and <b>M2</b> (RingCast pull
+mitigation: regular honest nodes <i>request</i> RF forwarders; golden nodes
+push to F_g random targets; d-links ignored).
+</p>
+
+<div class="formula" id="formulaBox"></div>
+
+<div class="row mode-row">
+  <label style="min-width:22em;">Model:</label>
+  <label><input type="radio" name="model" value="randcast" checked> RandCast / golden (push only)</label>
+  <label><input type="radio" name="model" value="m2"> M2 (regular pull + golden push)</label>
+</div>
+
+<div class="row mode-row">
+  <label style="min-width:22em;">ε applies to:</label>
+  <label><input type="radio" name="mode" value="per_target" checked> per-target node</label>
+  <label><input type="radio" name="mode" value="whole_network"> whole network (≥ 1 node eclipsed)</label>
+</div>
+
+<div class="row"><label>N — total nodes</label>
+  <input id="N"   type="number" value="20000" min="2" step="1"></div>
+<div class="row"><label>G — golden nodes</label>
+  <input id="G"   type="number" value="50"    min="0" step="1"></div>
+<div class="row"><label>F_g — golden fanout (push)</label>
+  <input id="Fg"  type="number" value="200"   min="0" step="1"></div>
+<div class="row"><label id="fLabel">F — regular honest fanout</label>
+  <input id="F"   type="number" value="20"    min="1" step="1"></div>
+<div class="row"><label id="epsLabel">ε — per-target eclipse probability</label>
+  <input id="eps" type="number" value="1e-6"  min="0" step="any"></div>
+
+<div class="out" id="output"></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // ---- RandCast ----------------------------------------------------------
+  function pEclipseExactRC(N, G, Fg, k, F) {
+    const H = N - G - k;
+    return Math.pow(1 - Fg/(N-1), G) * Math.pow(1 - F/(N-1), H-1);
+  }
+  function lambdaJ(N, G, Fg, k, F) {
+    return (G*Fg + (N - G - k)*F) / N;
+  }
+
+  // ---- M2 (pull regulars + push golden) ----------------------------------
+  function pEclipseExactM2(N, G, Fg, k, RF) {
+    if (k < RF) return 0;
+    let pull = 1;
+    for (let i = 0; i < RF; i++) pull *= (k - i) / (N - 1 - i);
+    return Math.pow(1 - Fg/(N-1), G) * pull;
+  }
+
+  // Bisection helpers (P is monotone in k for both models in the relevant range)
+  function bisectMaxK(score, eps, kHi) {
+    if (score(0) > eps) return -1;
+    let lo = 0, hi = kHi;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi + 1) / 2);
+      if (score(mid) <= eps) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  }
+
+  function fmt(x, d=4)  { return Number.isFinite(x) ? x.toFixed(d) : String(x); }
+  function fmtE(x, d=3) { return Number.isFinite(x) ? x.toExponential(d) : String(x); }
+
+  function getModel() { return document.querySelector('input[name="model"]:checked').value; }
+  function getMode()  { return document.querySelector('input[name="mode" ]:checked').value; }
+
+  function refreshFormulaAndLabels() {
+    const isM2  = getModel() === 'm2';
+    const isNet = getMode()  === 'whole_network';
+
+    if (isM2) {
+      $('formulaBox').innerHTML = isNet
+        ? `λ_push = G·F_g/N
+           &nbsp; · &nbsp; P(any eclipsed) ≤ N · e<sup>−λ_push</sup> · (k/N)<sup>RF</sup>
+           &nbsp; · &nbsp; k_max(ε_net) ≈ N · (ε_net/N)<sup>1/RF</sup> · exp(λ_push/RF)`
+        : `λ_push = G·F_g/N
+           &nbsp; · &nbsp; P(eclipse) ≈ e<sup>−λ_push</sup> · (k/N)<sup>RF</sup>
+           &nbsp; · &nbsp; k_max(ε) ≈ N · ε<sup>1/RF</sup> · exp(λ_push/RF)`;
+      $('fLabel').textContent = 'RF — pull request count per regular node';
+    } else {
+      $('formulaBox').innerHTML = isNet
+        ? `λ_j = (G·F_g + (N−G−k)·F) / N
+           &nbsp; · &nbsp; P(any eclipsed) ≤ H · e<sup>−λ_j</sup>
+           &nbsp; · &nbsp; k_max(ε_net) ≈ N(1 − ln(N/ε_net)/F) + G(F_g−F)/F`
+        : `λ_j = (G·F_g + (N−G−k)·F) / N
+           &nbsp; · &nbsp; P(eclipse) ≈ e<sup>−λ_j</sup>
+           &nbsp; · &nbsp; k_max(ε) = N(1 − ln(1/ε)/F) + G(F_g−F)/F`;
+      $('fLabel').textContent = 'F — regular honest fanout';
+    }
+
+    $('epsLabel').textContent = isNet
+      ? 'ε_net — whole-network eclipse probability'
+      : 'ε — per-target eclipse probability';
+  }
+
+  function update() {
+    refreshFormulaAndLabels();
+
+    const N   = +$('N').value,   G = +$('G').value, Fg = +$('Fg').value;
+    const F   = +$('F').value, eps = +$('eps').value;
+    const out = $('output');
+    const isM2  = getModel() === 'm2';
+    const isNet = getMode()  === 'whole_network';
+
+    // Input validation
+    const errs = [];
+    if (!(Number.isInteger(N)  && N  >= 2))             errs.push('N must be integer ≥ 2');
+    if (!(Number.isInteger(G)  && G  >= 0 && G <= N-1)) errs.push('G must be integer in [0, N−1]');
+    if (!(Number.isInteger(Fg) && Fg >= 0 && Fg <= N-1)) errs.push('F_g must be integer in [0, N−1]');
+    if (!(Number.isInteger(F)  && F  >= 1 && F  <= N-1)) errs.push((isM2?'RF':'F') + ' must be integer in [1, N−1]');
+    if (!(eps > 0 && eps < 1))                          errs.push('ε must be in (0, 1)');
+    if (errs.length) {
+      out.innerHTML = errs.map(e => `<div class="warn">⚠ ${e}</div>`).join('');
+      return;
+    }
+
+    let html = '';
+    const epsLabelShort = isNet ? 'ε_net' : 'ε';
+    const lambdaPush = G * Fg / N;
+
+    if (isM2) {
+      // ---- M2 mode -------------------------------------------------------
+      // analytical
+      const epsTarget   = isNet ? eps / N : eps;     // per-target ε required to meet whole-network
+      const kMaxAnalyt  = N * Math.pow(epsTarget, 1/F) * Math.exp(lambdaPush / F);
+
+      // exact bisection
+      const score = isNet
+        ? (k) => N * pEclipseExactM2(N, G, Fg, k, F)        // union-bound, H ≈ N
+        : (k) => pEclipseExactM2(N, G, Fg, k, F);
+      const kMaxExactVal = bisectMaxK(score, eps, N - G - 1);
+
+      // M2 has no feasibility floor: at k=0 the pull factor is 0, so any ε > 0
+      // is achievable (provided ε > 0). The relevant bound is on k_max upper end.
+      const pct = Math.max(0, kMaxAnalyt) / N * 100;
+      if (kMaxExactVal < 0) {
+        // Should not happen for ε > 0 in M2 unless inputs are degenerate.
+        html += `<div class="infeasible">No k satisfies the constraint (degenerate inputs).</div>`;
+      } else {
+        html += `<div><b>k_max (analytical):</b> ${kMaxAnalyt.toFixed(1)} ` +
+                `&nbsp;→&nbsp; ${pct.toFixed(2)}% of N</div>`;
+        const exactLabel = isNet ? 'union bound N·P_exact ≤ ε_net' : 'P_exact ≤ ε';
+        html += `<div><b>k_max (exact bisection, ${exactLabel}):</b> ${kMaxExactVal}</div>`;
+        const epsArg = isNet ? '(ε_net/N)' : 'ε';
+        html += `<div class="small">N · ${epsArg}<sup>1/RF</sup> = ${(N*Math.pow(epsTarget, 1/F)).toFixed(1)}; ` +
+                `golden multiplier exp(λ_push/RF) = ${Math.exp(lambdaPush/F).toFixed(4)}</div>`;
+      }
+
+      html += `<hr>`;
+      html += `<div><b>λ_push = G·F_g/N:</b> ${fmt(lambdaPush,4)} ` +
+              `&nbsp;·&nbsp; <b>no feasibility floor</b> (P → 0 as k → 0)</div>`;
+
+      // Approximation diagnostics
+      const goldenA   = G * Fg * Fg / (2 * (N-1) * (N-1));     // push (Approx A)
+      const pullB_kmax = (kMaxExactVal > 0) ? F*(F-1) / (2 * kMaxExactVal) : Infinity;
+
+      html += `<hr>`;
+      html += `<div><b>Approximation regime diagnostics</b></div>`;
+      html += `<div>push: G·F_g² / (2(N−1)²) ≈ ${(goldenA*100).toFixed(4)}% rel. err. ` +
+              (goldenA < 0.05 ? `<span class="ok">✓</span>` : `<span class="warn">⚠</span>`) +
+              `</div>`;
+      html += `<div>pull: RF(RF−1) / (2·k_max) ≈ ${Number.isFinite(pullB_kmax) ? (pullB_kmax*100).toFixed(3)+'%' : '∞'} rel. err. ` +
+              (pullB_kmax < 0.05 ? `<span class="ok">✓</span>` : `<span class="warn">⚠ small k_max — RF² not ≪ k</span>`) +
+              `</div>`;
+
+      // Whole-network: union bound vs inclusion-exclusion correction
+      if (isNet) {
+        const Hp = eps;  // by construction, ε is the union-bound value
+        html += `<div>union-bound vs. inclusion-exclusion: relative error ≲ ε_net/2 ≈ ${fmtE(Hp/2,3)}</div>`;
+      }
+
+      // Warnings
+      const warnings = [];
+      if (Fg === 0)         warnings.push('F_g = 0: golden tier provides no push help — pure pull regime.');
+      if (G === 0)          warnings.push('G = 0: no golden tier — k_max = N · ε^(1/RF), often very small at tight ε.');
+      if (F === 1)          warnings.push('RF = 1: pull factor is k/N, so k_max = N·ε·exp(λ_push) — extremely tight at security-grade ε.');
+      if (kMaxExactVal > 0 && F*F > kMaxExactVal) warnings.push('RF² > k_max: pull approximation degrading (regime B). Trust the exact bisection number.');
+      if (warnings.length) {
+        html += `<hr>`;
+        warnings.forEach(w => html += `<div class="warn">⚠ ${w}</div>`);
+      }
+
+    } else {
+      // ---- RandCast mode -------------------------------------------------
+      const lnFactor    = isNet ? Math.log(N / eps) : Math.log(1 / eps);
+      const lambda0     = lambdaJ(N, G, Fg, 0, F);
+      const pTargetMin  = Math.exp(-lambda0);
+      const epsFloor    = isNet ? N * pTargetMin : pTargetMin;
+
+      const bulk        = N * (1 - lnFactor / F);
+      const goldenBonus = G * (Fg - F) / F;
+      const kMaxAnalyt  = bulk + goldenBonus;
+
+      const score = isNet
+        ? (k) => (N - G - k) * pEclipseExactRC(N, G, Fg, k, F)
+        : (k) => pEclipseExactRC(N, G, Fg, k, F);
+      const kMaxExactVal = bisectMaxK(score, eps, N - G - 1);
+
+      const F2overN       = F*F / N;
+      const GFg2overN2lam = (G * Fg * Fg) / (N*N * lambda0);
+      const delta         = (G*Fg*Fg + (N - G - 1) * F*F) / (2 * (N-1) * (N-1));
+      const floorLabel    = isNet ? 'ε_net,min = N · e^(−λ_j(0))' : 'ε_min = e^(−λ_j(0))';
+
+      if (eps < epsFloor) {
+        html += `<div class="infeasible">INFEASIBLE: ${epsLabelShort} = ${fmtE(eps,2)} is below floor ${fmtE(epsFloor,3)}</div>`;
+        html += `<div class="small">Even at k = 0, the probability cannot be reduced below this floor. ` +
+                `To strengthen: raise F (highest leverage), then F_g or G.</div>`;
+      } else {
+        const pct = (kMaxAnalyt / N * 100).toFixed(2);
+        html += `<div><b>k_max (analytical):</b> ${kMaxAnalyt.toFixed(1)} ` +
+                `&nbsp;→&nbsp; ${pct}% of N</div>`;
+        const exactLabel = isNet ? 'union-bound H·P_exact ≤ ε_net' : 'P_exact ≤ ε';
+        html += `<div><b>k_max (exact bisection, ${exactLabel}):</b> ${kMaxExactVal}</div>`;
+        const lnLabel = isNet ? 'ln(N/ε_net)' : 'ln(1/ε)';
+        html += `<div class="small">bulk term N(1 − ${lnLabel}/F) = ${bulk.toFixed(1)}; ` +
+                `golden bonus G(F_g − F)/F = ${goldenBonus.toFixed(1)}</div>`;
+      }
+
+      html += `<hr>`;
+      html += `<div><b>λ_j(k=0):</b> ${fmt(lambda0,4)} ` +
+              `&nbsp;·&nbsp; <b>${floorLabel}:</b> ${fmtE(epsFloor,3)}</div>`;
+
+      html += `<hr>`;
+      html += `<div><b>Approximation regime diagnostics</b></div>`;
+      html += `<div>F²/N = ${fmtE(F2overN,3)} ` +
+              (F2overN < 0.05
+                ? `<span class="ok">✓ ≪ 1, Approx. A is sharp</span>`
+                : `<span class="warn">⚠ not ≪ 1, Approx. A starts to degrade</span>`) +
+              `</div>`;
+      html += `<div>G·F_g² / (N²·λ_j(0)) = ${fmtE(GFg2overN2lam,3)} ` +
+              (GFg2overN2lam < 0.1
+                ? `<span class="ok">✓ small, golden term contribution to δ is benign</span>`
+                : `<span class="warn">⚠ golden tier is dense relative to N — δ inflated</span>`) +
+              `</div>`;
+      html += `<div>δ (predicted relative error of P_approx vs. P_exact) ≈ ${(delta*100).toFixed(3)}% ` +
+              (delta < 0.05
+                ? `<span class="ok">✓</span>`
+                : `<span class="warn">⚠ &gt; 5%, prefer the exact formula</span>`) +
+              `</div>`;
+      if (isNet) {
+        const Hp = N * pTargetMin;
+        html += `<div>union-bound vs. inclusion-exclusion: relative error ≲ H·p/2 ≈ ${fmtE(Hp/2,3)}</div>`;
+      }
+
+      const warnings = [];
+      if (N < 1000)            warnings.push('Small N: O(1/N) corrections may matter — prefer the exact formula.');
+      if (F < lnFactor)        warnings.push(`F < ${isNet ? 'ln(N/ε_net)' : 'ln(1/ε)'}: bulk term is negative — feasibility relies entirely on the golden bonus.`);
+      if (Fg < F)              warnings.push('F_g < F: golden bonus is negative — the golden tier weakens coverage.');
+      if (G + 1 >= N)          warnings.push('G ≥ N − 1: leaves no room for regular honest nodes or adversaries.');
+      if (warnings.length) {
+        html += `<hr>`;
+        warnings.forEach(w => html += `<div class="warn">⚠ ${w}</div>`);
+      }
+    }
+
+    out.innerHTML = html;
+  }
+
+  ['N','G','Fg','F','eps'].forEach(id => $(id).addEventListener('input', update));
+  document.querySelectorAll('input[name="model"], input[name="mode"]')
+    .forEach(el => el.addEventListener('change', update));
+  update();
+</script>
+
+</body>
+</html>
