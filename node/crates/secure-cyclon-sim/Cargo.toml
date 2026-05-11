@@ -1,0 +1,18 @@
+[package]
+name = "secure-cyclon-sim"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Deterministic in-memory simulator for SecureCyclon"
+
+[dependencies]
+async-trait = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+secure-cyclon = { path = "../secure-cyclon" }
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
