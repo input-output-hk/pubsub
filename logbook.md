@@ -76,6 +76,18 @@ Denis to weigh Fix A vs Fix B given the hub-attack-detection cost of Fix B, and 
 
 ---
 
+## 2026-05-08 — bucketing proposal to limit flood attacks
+
+**bucketing proposal analysis report.**
+- Proposed Sybil cost via on-chain deposit D; for a budget β, an attacker can create up to K ≤ β/D identities.
+- New protocol parameter B (number of buckets): we added a per-(round, topic) hash bucketing approach to gate pulls — cuts attacker concentration at any victim from K to K/B per round.
+- Deposit floor, D, binds on `min(eclipse k_max, flood K_max)`; we can compute optimal based on curves intersection.
+- Some slashing surfaces identified: bucket mismatch, duplicate (id, round), overcapacity reports.
+- Small-topic regime degrades gracefully; falls back on relay-tier and local-relays extensions.
+- Write-up in `docs/bucketed-pull-gist.md`.
+
+---
+
 ## 2026-05-07 — Spyros brainstorm: extensions reviewed
 
 **Pull-based dissemination approved.** Spyros endorsed flipping in/out degree — each node requests forwarders once per epoch. Asymptotic O(N) security improvement, dissemination metrics preserved. He explicitly liked receiver-selects-provider as the right primitive.
