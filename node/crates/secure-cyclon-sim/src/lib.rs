@@ -1,10 +1,16 @@
 //! Deterministic in-memory simulator for the vanilla Cyclon protocol.
 //!
+//! Also exposes a [`stats`] module computing view-distribution statistics
+//! across snapshots — useful for measuring properties like cross-view
+//! covariance.
+//!
 //! N Cyclon nodes share an [`Arc<Network>`]. A [`MockTransport`] looks up
 //! the destination node via the network and calls its
 //! [`Cyclon::handle_inbound`](secure_cyclon::Cyclon::handle_inbound) directly,
 //! so an integration test runs in one process with a single [`ManualClock`]
 //! and a seeded RNG — no real time, no real sockets.
+
+pub mod stats;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -259,6 +265,17 @@ impl Simulator {
 
     pub async fn view_ids(&self, i: usize) -> Vec<NodeId> {
         self.nodes[i].lock().await.view().node_ids()
+    }
+
+    /// Snapshot every node's view as a `HashSet<NodeId>` for O(1) membership
+    /// checks. Returned `Vec` is indexed by `node_ids` insertion order.
+    pub async fn snapshot_views(&self) -> Vec<HashSet<NodeId>> {
+        let mut out = Vec::with_capacity(self.nodes.len());
+        for node in &self.nodes {
+            let g = node.lock().await;
+            out.push(g.view().node_ids().into_iter().collect());
+        }
+        out
     }
 
     /// In-degree per node: how many *other* views contain that node id.
