@@ -4,6 +4,78 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-05-12 — PubSub working session: Cyclone Property 3, SPO onboarding
+
+### Cyclone protocol analysis
+
+**Why these properties.** The dissemination security analysis (Ringcast eclipsing bounds and similar) routinely substitutes *"sample uniformly from a node's view"* for *"sample uniformly from the network"*. That substitution is load-bearing — if Cyclone doesn't actually produce uniform-looking views, the bounds derived on top of it are unsound. Rather than assume what Cyclone delivers, Denis worked through it from first principles: start with the weakest statement that *should* hold if Cyclone is doing its job, then progressively strengthen it and probe each level by simulation, since the protocol is too mechanical for clean analytical proof. The aim was to find the strongest property Cyclone actually satisfies, and check that it's strong enough for the downstream analysis.
+
+**The three properties Denis tested.** Three statements of increasing strength.
+
+*Property 1 — descriptor marginal uniformity.* For all distinct nodes $u, v \in V$:
+
+$$\Pr_{\text{Cyclon}}\left[u \in \text{view}_v\right] = \frac{c}{N - 1}$$
+
+The weakest of the three: each node has the same marginal probability of appearing in any other node's view. It says nothing about correlations *within* a view — two entries of $\text{view}_v$ may still be jointly biased. Simulation: holds with very high confidence.
+
+*Property 2 — view distribution uniformity.* For every $v \in V$:
+
+$$\text{view}_v \;\sim\; \text{Uniform}\bigl(\,\{\, S \subset V \setminus \{v\} \;:\; |S| = c \,\}\,\bigr)$$
+
+Strictly stronger than Property 1: each individual view is a uniformly random size-$c$ subset of the other nodes. This closes the within-view correlation gap. It still leaves open correlations *across* views — the joint distribution of $(\text{view}_u, \text{view}_v)$ can deviate from independence. Simulation: also holds with very high confidence.
+
+*Property 3 — graph distribution uniformity.* Let $G_{N,c}$ be the set of all $c$-out digraphs on $V$. Then:
+
+$$\text{Cyclon} \;\sim\; \text{Uniform}(G_{N,c})$$
+
+The strongest: the whole graph Cyclone produces is statistically indistinguishable from a uniformly random $c$-out digraph. This is the property that licences the substitution *"sample from view ≡ sample from network"* used in the dissemination security analysis.
+
+Implications: $\;3 \Rightarrow 2 \Rightarrow 1\;$ (strongest to weakest).
+
+**Property 3 fails — distribution gap grows with $N$.** Simulation indicates Properties 1 and 2 hold, but Property 3 does not. The gap between Cyclone's graph distribution and $\text{Uniform}(G_{N,c})$ grows asymptotically with $N$. Downstream consequence: the view-as-proxy-for-network substitution is incorrect, and the inaccuracy worsens at the scales we care about.
+
+**Root cause: oldest-descriptor selection.** Spyros traced the source: picking the oldest-aged descriptor to gossip with and then expending it produces a narrow lifetime distribution per descriptor, which narrows in-degree variance below the random-graph baseline.
+
+**Fix A — random descriptor selection (partial).** Spyros proposed selecting a descriptor at random instead of the oldest. Denis's follow-up simulation: this halves the variance gap between Cyclone and uniform, but does **not** fully restore Property 3 — the asymptotic gap persists, just smaller.
+
+**Fix B — Poisson-distributed exchanges per cycle (full).** Denis also tested replacing the hard-coded "one exchange per cycle" with a Poisson-distributed number (mean 1, but variable). Simulation shows this fully restores Property 3 — and once Fix B is in place, Fix A (the descriptor-selection rule change) becomes unnecessary. Cost: Cyclone's main defence against hub attacks is detecting *frequency violations* — peers initiating exchanges more often than they should. Allowing a Poisson-varying number of exchanges per cycle erodes the signal that detector relies on. So Fix B trades a structural-uniformity gain for a degraded hub-attack defence.
+
+**Dissemination layer needs both randomness and determinism.** Spyros: Ringcast requires randomness (robustness, exponential spread) plus determinism (the Harari structure that guarantees full coverage). Property 3 is the random-link half — if it can be recovered, the rest of the Ringcast guarantees follow. Denis's next analytical step is eclipsing-attack bounds redone without the uniform-view assumption, folding in Cyclone's real bias.
+
+**Per-topic views lose the property.** Ezequiel flagged that with dissemination organised per topic via the navigation layer, per-topic views don't inherit Cyclone's uniformity even if the core property holds. Spyros agreed; the mitigation, if needed, is to run a separate Cyclone instance per topic — costly but available.
+
+**Byzantine descriptor-drop bounded.** Ezequiel raised the case of a malicious peer absorbing a descriptor and not forwarding it — eclipsing the originator by one descriptor. Spyros confirmed this is real but bounded: $K$ outgoing links makes a fully-malicious neighbourhood unlikely, and the originator re-shares next round.
+
+*(Spyros departed at this point; discussion shifted to product.)*
+
+### SPO onboarding and product strategy
+
+**Minimise friction for SPOs.** Dana presented the product doc and argued for auto-enrolling SPOs into the emergency-alert channel — friction kills the foundational use case. Team converged: ship a minimal cost-free SPO alert path first, demonstrate utility, then layer cost structure on for the broader publisher set (DReps, SPOs, dApps) once value is established. Will's suggestion to ship the SPO path as a lightweight feature inside the existing Haskell node — rather than a separate process — was accepted. Ezequiel's counter: for emergency alerts specifically, the alert channel must remain separable from the main network, otherwise a network-failure alert can't reach you when the network is failing.
+
+**Cost-per-identity still required for non-SPO publishers.** Ezequiel reiterated that a per-identity token deposit remains a security/slashing primitive for the publisher set generally — the minimal-friction SPO path doesn't remove that requirement for DReps and dApps.
+
+**SPO tooling integration.** Dana noted SPOs primarily run Prometheus, DataDog, and G Live View; she'll investigate how alerts can surface in those dashboards, plus Twitter/Discord bot relays for smaller SPOs. Subscription mechanics for wallet and dApp providers also on her plate.
+
+### Identity and key management
+
+**Reuse the SPO on-chain deposit.** Will proposed leveraging the existing SPO on-chain registration (~500 ADA deposit) as the legitimacy signal — no additional transaction needed.
+
+**Hash the pubkey for node ID.** For the pubsub node ID itself, hashing a public key (e.g., ED25519) gives a uniform fixed-size ID that's independent of which key material is reused (SPO, DRep, dApp operator). Jesus flagged the cost: this requires real key-management logic to support rotation.
+
+**Don't reuse sensitive operational keys directly.** Ezequiel pushed back on reusing SPO/DRep operational credentials as pubsub hot keys — a delegation step from cold key to pubsub key is likely needed. Jesus to scope anonymous/pseudonymous credentials in parallel.
+
+### Algorithm documentation
+
+**Draft exists, with known gaps.** Jesus has a draft of the secure Cyclone algorithm covering peer sampling, navigation, and dissemination layers — each with select / send / receive / run interfaces. Known errors and simplifications remain.
+
+**Moves to GitHub for collaborative editing.** Jesus uploads the LaTeX sources to the repo and grants attendee access; Will sets up a CI workflow for LaTeX → PDF auto-conversion; Will and Ezequiel review and report unclear or incorrect content.
+
+### Next
+
+Denis to weigh Fix A vs Fix B given the hub-attack-detection cost of Fix B, and report back. Spyros to share the Cyclone paper covering the analysis and the proposed fixes. Dana to research SPO dashboard integration (Prometheus, DataDog, G Live View) and subscription mechanics for wallets and dApps. Jesus to upload LaTeX sources, fix known errors in the algorithm doc, and scope pseudonymous credentials. Will to set up the LaTeX → PDF workflow. Will + Ezequiel to review the algorithm doc.
+
+---
+
 ## 2026-05-07 — Spyros brainstorm: extensions reviewed
 
 **Pull-based dissemination approved.** Spyros endorsed flipping in/out degree — each node requests forwarders once per epoch. Asymptotic O(N) security improvement, dissemination metrics preserved. He explicitly liked receiver-selects-provider as the right primitive.
