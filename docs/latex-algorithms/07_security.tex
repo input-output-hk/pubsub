@@ -1,0 +1,11 @@
+\section{Informal Assumptions and Security Properties}
+\label{sec:informal-assumption-security}
+
+Next, we give a (possibly incomplete) list of informal security notions that each layer is expected to achieve, as well as the assumptions that each layer relies on.
+
+\paragraph{Security of Peer Sampling.} The peer sampling layer is expected to contribute connections to random peers in the network. As such, the expectation is that, after some amount of time, all peers in the network have appeared in the view of a peer running $\psrun$, perhaps with some lower bound in the probability of not doing so.
+\emph{We assume that there is a (set of) bootstrapping nodes that are always accessible.}
+
+\paragraph{Security of Navigation.} The navigation layer is expected to allow any given peer to quickly find topics of its interest. Consequently, \emph{provided that a peer has a good view of the peer-to-peer network} (provided by the peer sampling layer), there should be a time bound for the time it takes for any given peer to connect to some per of any chosen topic.
+
+\paragraph{Security of Dissemination.} The dissemination layer is expected to help distribute messages on any given topic, to all nodes subscribed to that topic. Therefore, \emph{provided that a publishing node is already in contact with node of the same topic}, there should be a time bound for the time it takes for a message to be posted in some topic, and for this message to reach all (but a bounded number of) nodes subscribed to this topic.

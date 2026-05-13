@@ -1,0 +1,133 @@
+\section{Dissemination Layer}
+\label{sec:dissemination}
+
+For each topic a node subscribes to, the dissemination layer connects it with peers subscribed to the same topic. This has the end goal of ensuring that any message that is published in any given topic is reliably delivered to all subscribers of the topic. For simplicity, the following algorithms are described \emph{per topic}. Hence, we assume here that for each topic a node subscribes to, it needs to spawn a fresh dissemination layer for that topic -- however, this choice is arbitrary, and the algorithms could be extended to handle multiple topics. 
+
+\begin{algorithm}[H]
+\caption{\dissetup}
+\label{alg:dissetup}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $1^\kappa$ The security parameter.
+    \item $\aux$ Any additional auxiliary data.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\state$ Updated node state.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\topicId,\randomlinks,\limblinks) \gets \aux$
+    \State $\state.\dissemination \gets (\topicId,\randomlinks,\limblinks,\emptyset)$
+    \State \return $\state$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\disselect. Dissemination selection algorithm, approximating the caller's outgoing links in the target structure.}
+\label{alg:disselect}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\D$ The reference node's descriptor.
+    \item $\Dset_{in}$ A set of node descriptors.
+    \item $k$ The number of closest node descriptors to select.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\Dset_{out}$ The set of selected descriptors, at most of size $k$.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\topicId,\randomlinks,\cdot,\view) \gets \state.\dissemination$
+    \State $\Dset_{out} \gets \emptyset$
+    \State $\Dset_{out} \getscup~FindClosestFreshestLowPeersInTopic(\Dset_{in},\state.\peersampling.\D,k/2)$
+    \State $\Dset_{out} \getscup~FindClosestFreshestHighPeersInTopic(\Dset_{in},\state.\peersampling.\D,k/2)$
+    \State $\Dset_{out} \getscup~FindRandomPeersPerTopic(\state.\navigation.\view,\topicId,\randomlinks)$
+    %
+    \State \Return $\Dset_{out}$ \codecomment{Size is $(k+\randomlinks)$}
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\dissend}
+\label{alg:dissend}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\D$ the target descriptor.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\top$ if ok, $\bot$ otherwise.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\topicId,\cdot,\limblinks,\view) \gets \state.\dissemination$
+    \State $\Dset \gets \disselect(\D,\view \cup \set{\state.\navigation.\view[\topicId]},\limblinks)$
+    \State $\network.\send(\D.\netaddr,\Dset)$
+    \State \Return $\top$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\disrecv}
+\label{alg:disrecv}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\D$ the descriptor of the calling party.
+    \item $\Dset_{in}$ the received set of descriptors (sent by some other party).
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\top$ if ok, $\bot$ otherwise.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\cdot,\cdot,\limblinks,\view) \gets \state.\dissemination$
+    \State $\Dset_{out} \gets \disselect(\D,\view\cup\Dset_{in},\limblinks)$
+    \State $\state.\dissemination.\view \gets \Dset_{out}$
+    \State \Return $\top$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\disrun}
+\label{alg:disrun}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\topicId$, the topic identifier that this Dissemination instance will manage.
+    \item $\randomlinks$, the number of random links to connect to.
+    \item $\limblinks$, the number of nodes per limb.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item Nothing. The program runs until stopped.
+\end{itemize}
+\begin{algorithmic}
+\State $\state \gets \dissetup(\topicId,\randomlinks,\limblinks)$
+\While{\textbf{true}}
+\State \codecomment{Receive and send can run concurrently (but view must be mutexed?)}
+\State $($
+\State ~$((\D,\Dset) \gets \network.\receive(\ast);$ $\disrecv(\D, \Dset))$
+\State ~$|$
+%
+\State ~$(\D_{snd} \getsr \state.\navigation.\view;$ $\dissend(\D_{snd}))$
+\State $)$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
