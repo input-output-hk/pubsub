@@ -1,0 +1,12 @@
+\section{Cardano PubSub}
+\label{sec:cardano-pubsub}
+
+The architecture for the proposed Cardano PubSub system stacks the peer-to-peer systems in the previous sections, as follows:
+
+\begin{itemize}
+    \item Layer 0: Peer-sampling layer \Cref{sec:peersampling}, aimed at providing the running node with a good view of all the peers in the network.
+    \item Layer 1: Navigation layer \Cref{sec:navigation}, aimed at facilitating nodes to connect to other nodes with "similar" interests.
+    \item Layer 2: Dissemination layer \Cref{sec:dissemination}, aimed at letting nodes reliably publish/receive messages into/from topics they belong/subscribe to.
+\end{itemize}
+
+Thus, informally, when a node starts, it has to run the three layers concurrently. 

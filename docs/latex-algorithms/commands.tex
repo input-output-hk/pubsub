@@ -1,0 +1,121 @@
+\newcommand{\jesus}[1]{\textcolor{yellow!40!black}{[{\scriptsize {\bf Jesus:} { {#1}}}]}}
+
+\newcommand{\todo}[1]{{\colorbox{red}{\bf TODO:}\textcolor{red}{#1}}}
+\newcommand{\codecomment}[1]{{\textcolor{black!60!white}{//\!\!~\!~#1}}}
+\newcommand{\needcite}[1][]{[\colorbox{red}{?} \textcolor{red}{#1}]}
+\newcommand{\disclaimer}[1]{{\colorbox{orange}{\bf Disclaimer:}\textcolor{orange}{#1}}}
+
+% Math stuff
+\mathchardef\mhyphen="2D
+\newcommand{\getsr}{\mathrel{\xleftarrow{\$}}}
+\newcommand{\FF}{\ensuremath{\mathbb{F}}\xspace}
+\newcommand{\GG}{\ensuremath{\mathbb{G}}\xspace}
+\newcommand{\floor}[1]{\ensuremath{\left\lfloor #1 \right\rfloor\xspace}}
+\newcommand{\getscup}{\ensuremath{\stackrel{\cup}{\gets}\xspace}}
+\newcommand{\set}[1]{\ensuremath{\lbrace #1 \rbrace}}
+
+%  Formatting
+\newcommand{\algoname}[1]{\mathsf{#1}}
+\newcommand{\algovariable}[1]{\text{#1}}
+
+% General (cryptographic) tokens
+\newcommand{\aux}{\ensuremath{\algovariable{aux}\xspace}}
+\newcommand{\param}{\ensuremath{\algovariable{param}\xspace}}
+\newcommand{\msg}{\ensuremath{\algovariable{m}\xspace}}
+\newcommand{\sk}{\ensuremath{\algovariable{sk}\xspace}}
+\newcommand{\vk}{\ensuremath{\algovariable{vk}\xspace}}
+\newcommand{\timestamp}{\ensuremath{\algovariable{t}\xspace}}
+\newcommand{\state}{\ensuremath{\algovariable{st}\xspace}}
+\newcommand{\D}{\ensuremath{\mathcal{D}\xspace}}
+\newcommand{\fullD}{\ensuremath{\mathcal{\hat{D}}\xspace}}
+\newcommand{\Dset}{\ensuremath{\boldsymbol{\mathcal{D}}\xspace}}
+\newcommand{\nodeid}{\ensuremath{id\xspace}}
+\newcommand{\view}{\ensuremath{\boldsymbol{V}\xspace}}
+
+% Network
+\newcommand{\network}{\ensuremath{\algoname{net}\xspace}}
+
+% Hashing
+\newcommand{\hash}{\ensuremath{\algoname{Hash}}\xspace}
+
+% Signatures
+\newcommand{\signature}{\ensuremath{\algoname{Sig}}\xspace}
+\newcommand{\setup}{\ensuremath{\algoname{Setup}}\xspace}
+\newcommand{\keygen}{\ensuremath{\algoname{Keygen}}\xspace}
+\newcommand{\sign}{\ensuremath{\algoname{Sign}}\xspace}
+\newcommand{\verify}{\ensuremath{\algoname{Verify}}\xspace}
+\newcommand{\sigsetup}{\ensuremath{\signature.\setup}\xspace}
+\newcommand{\sigkeygen}{\ensuremath{\signature.\keygen}\xspace}
+\newcommand{\sigsign}{\ensuremath{\sign}\xspace}
+\newcommand{\sigverify}{\ensuremath{\signature.\verify}\xspace}
+
+% Topic Registry
+\newcommand{\topicReg}{\ensuremath{\algoname{TopicReg}}\xspace}
+\newcommand{\topicId}{\ensuremath{\algoname{tid}}\xspace}
+\newcommand{\topicIds}{\ensuremath{\algoname{tids}}\xspace}
+\newcommand{\topicname}{\ensuremath{\algoname{tname}}\xspace}
+\newcommand{\owners}{\ensuremath{\algoname{owns}}\xspace}
+\newcommand{\publishers}{\ensuremath{\algoname{pubs}}\xspace}
+\newcommand{\retentionPeriod}{\ensuremath{\algoname{P}}\xspace}
+\newcommand{\replicationFactor}{\ensuremath{\algoname{F}}\xspace}
+
+% Peer Sampling
+\newcommand{\appname}{\ensuremath{\algoname{name}}\xspace}
+\newcommand{\netaddr}{\ensuremath{\algoname{netaddr}}\xspace}
+\newcommand{\select}{\ensuremath{\algoname{Select}}\xspace}
+\newcommand{\send}{\ensuremath{\algoname{Send}}\xspace}
+\newcommand{\receive}{\ensuremath{\algoname{Recv}}\xspace}
+\newcommand{\run}{\ensuremath{\algoname{Run}}\xspace}
+\newcommand{\peersampling}{\ensuremath{\algoname{PS}}\xspace}
+\newcommand{\pssetup}{\ensuremath{\peersampling.\setup}\xspace}
+\newcommand{\psselect}{\ensuremath{\peersampling.\select}\xspace}
+\newcommand{\pssend}{\ensuremath{\peersampling.\send}\xspace}
+\newcommand{\psrecv}{\ensuremath{\peersampling.\receive}\xspace}
+\newcommand{\psrun}{\ensuremath{\peersampling.\run}\xspace}
+\newcommand{\viewlength}{\ensuremath{l\xspace}}
+\newcommand{\gossipperiod}{\ensuremath{\Delta\xspace}}
+
+% Navigation
+\newcommand{\navigation}{\ensuremath{\algoname{Nav}}\xspace}
+\newcommand{\navsetup}{\ensuremath{\navigation.\setup}\xspace}
+\newcommand{\navselect}{\ensuremath{\navigation.\select}\xspace}
+\newcommand{\navsend}{\ensuremath{\navigation.\send}\xspace}
+\newcommand{\navrecv}{\ensuremath{\navigation.\receive}\xspace}
+\newcommand{\navrun}{\ensuremath{\navigation.\run}\xspace}
+\newcommand{\routingbase}{\ensuremath{b\xspace}}
+\newcommand{\nodesperfinger}{\ensuremath{c\xspace}}
+
+% Dissemination
+\newcommand{\dissemination}{\ensuremath{\algoname{Dis}}\xspace}
+\newcommand{\dissetup}{\ensuremath{\dissemination.\setup}\xspace}
+\newcommand{\disselect}{\ensuremath{\dissemination.\select}\xspace}
+\newcommand{\dissend}{\ensuremath{\dissemination.\send}\xspace}
+\newcommand{\disrecv}{\ensuremath{\dissemination.\receive}\xspace}
+\newcommand{\disrun}{\ensuremath{\dissemination.\run}\xspace}
+\newcommand{\randomlinks}{\ensuremath{rlinks}\xspace}
+\newcommand{\ringprev}{\ensuremath{rprv}\xspace}
+\newcommand{\ringnext}{\ensuremath{rnext}\xspace}
+\newcommand{\limblinks}{\ensuremath{k}\xspace}
+
+
+% Secure Cyclon
+\newcommand{\scyclon}{\ensuremath{\algoname{Scy}}\xspace}
+\newcommand{\scysetup}{\ensuremath{\scyclon.\setup}\xspace}
+\newcommand{\scyselect}{\ensuremath{\scyclon.\select}\xspace}
+\newcommand{\scysend}{\ensuremath{\scyclon.\send}\xspace}
+\newcommand{\scyrecv}{\ensuremath{\scyclon.\receive}\xspace}
+\newcommand{\Base}{\ensuremath{\algoname{Base}}\xspace}
+\newcommand{\OwnChain}{\ensuremath{\algoname{Chain}}\xspace}
+
+% Vicinty
+\newcommand{\vicinity}{\ensuremath{\algoname{Vic}}\xspace}
+\newcommand{\vicsetup}{\ensuremath{\vicinity.\setup}\xspace}
+\newcommand{\vicselect}{\ensuremath{\vicinity.\select}\xspace}
+\newcommand{\vicsend}{\ensuremath{\vicinity.\send}\xspace}
+\newcommand{\vicrecv}{\ensuremath{\vicinity.\receive}\xspace}
+
+% Misc functions
+\newcommand{\gettime}{\ensuremath{\algoname{GetTime}}\xspace}
+\newcommand{\return}{\textbf{return}\xspace}
+\newcommand{\encode}{\ensuremath{\algoname{Encode}}\xspace}
+\newcommand{\decode}{\ensuremath{\algoname{Decode}}\xspace}

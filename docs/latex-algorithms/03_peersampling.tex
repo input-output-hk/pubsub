@@ -1,0 +1,179 @@
+\section{Peer Sampling Layer}
+\label{sec:peersampling}
+
+The peer sampling layer is aimed at providing a node with a "base" set of peers. This set of peers will be fed into the navigation and dissemination layers. As specified in \cite{akv24}, we consider SecureCyclon as the peer-to-peer system for peer sampling. We define SecureCyclon's $\setup$, $\select$, $\send$, and $\receive$ algorithms next, following \cite{as23} for reference.
+
+In SecureCyclon, node descriptors have two main "parts", which we call here "base descriptor", and "chain of ownership", and use "full descriptor" to denote the combination. That is, a full descriptor is a tuple $(\D,[(\vk_1,\sigma_1),\dots,(\vk_n,\sigma_n)])$, where $\D$ is the base descriptor, and $[(\vk_1,\sigma_1),\dots,(\vk_n,\sigma_n)]$ is the chain of ownership. Note that the chain of ownership is iteratively formed, and each new signature $\sigma$ covers the base descriptor as well as the previous pairs in the list. Given a full descriptor $\fullD$, we use $\D \gets \Base(\fullD)$ to denote a helper function that returns the base descriptor, and $[(\vk_1,\sigma_1),\dots,(\vk_n,\sigma_n)] \gets \OwnChain(\fullD)$, for $n \ge 1$ to denote a helper function that returns the chain of ownership.
+
+\begin{algorithm}[H]
+\caption{\pssetup}
+\label{alg:pssetup}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $1^\kappa$ The security parameter.
+    \item $\aux$ Any additional auxiliary data.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\state$ Updated node state, with structure $(\D,\sk,\viewlength,\view)$.
+    \item $\D$ The produced node descriptor.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\appname,\netaddr,\gossipperiod,\viewlength) \gets \aux$
+    \State $(\vk,\sk) \gets \sigsetup(1^\kappa)$
+    \State $\nodeid \gets \encode(\hash(\appname,\netaddr,\vk))$ \codecomment{Note: This choice is arbitrary}
+    \State $\timestamp \gets \gettime()$
+    \State $\D \gets (\nodeid,\netaddr,\vk,\timestamp)$
+    \State $\state.\peersampling \gets (\D,\sk,\gossipperiod,\viewlength,\emptyset)$ \codecomment{Last $\emptyset$ is the view}
+    \State \return $\state$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\psselect}
+\label{alg:psselect}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\D$ The reference node's descriptor (may not be the caller.)
+    \item $\Dset_{in}$ A set of node descriptors.
+    \item $k$ The number of node descriptors to select and transfer ownership of.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\Dset_{out}$ The set of selected descriptors, at most of size $k$.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\D_{self},\sk,\cdot,\cdot,\cdot) \gets \state.\peersampling$
+    \State $\D_{out} \gets \emptyset$
+    \State \codecomment{Prepare a fresh descriptor of self} \codecomment{\todo{Should this only be done when sending (not when receiving)?}}
+    \State $t \gets \gettime()$
+    \State $\tilde{\D}_{self} \gets (\D_{self}.\nodeid,\D_{self}.\netaddr,\D_{self}.\vk,t)$
+    \State $\sigma_\D \gets \sigsign(\sk,(\tilde{\D}_{self},\D.\vk))$
+    \State $\D_{out} \getscup \set{(\D_{self},[(\D.\vk,\sigma_\D)])}$
+    \State \codecomment{Fetch and prepare transfer of $k-1$ random descriptors from local view}
+    \For{$i \in [k-1]$}
+    \State $\fullD_i \getsr \D_{in}$, $\D_i \gets \Base(\fullD_i)$, $chain_i \gets \OwnChain(\fullD_i)$
+    \State $\sigma_{\D_i} \gets \sigsign(\sk,(\fullD_i,\D.\vk))$ \codecomment{Note: $\sigma_{\D_i}$ also covers prior signatures in $\fullD_i$}
+    \State $\D_{out} \getscup \set{(\D_i,[chain_i,(\D.vk,\sigma_{\D_i})]}$ 
+    \EndFor
+    \State \Return $\D_{out}$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\pssend}
+\label{alg:pssend}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\D$ the target descriptor.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\top$ if all went well, $\bot$ otherwise.
+\end{itemize}
+\begin{algorithmic}
+    \State $(\cdot,\cdot,\cdot,\viewlength,\view) \gets \state.\peersampling$
+    \If{$\Base(\D) \notin \view$} \codecomment{Sender must own a descriptor created by receiver}
+    \State \Return $\bot$
+    \EndIf
+    \State $\Dset \gets \psselect(\D,\view,\viewlength)$
+    \State $\network.\send(\D.\netaddr,\Dset)$
+    \State $\state.\peersampling.\view \gets \state.\peersampling.\view \setminus \Dset$ \codecomment{Register ownership transfer \jesus{this abuses notation, as $\D$ contains extended chains ($\setminus$ only "looks at" base descriptors)}}
+    \State \codecomment{\todo{$\D$ must also be removed from the view!}}
+    \State \Return $\top$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\psrecv}
+\label{alg:psrecv}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\D$ the descriptor of the calling party.
+    \item $\Dset_{in}$ the received set of descriptors (sent by some other party).\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $\top$ if ok, $\bot$ otherwise.
+\end{itemize}
+\begin{algorithmic}
+\State $(\D_{self},\sk,\gossipperiod,\viewlength,\view) \gets \state.\peersampling$
+\State \codecomment{Sender must own a descriptor created by receiver}
+\If{$\Base(\D_{self}) \notin \Dset_{in}$} 
+\State \Return $\bot$
+\EndIf\State \codecomment{Frequency check}
+\For{$\nodeid \in GetNodesIDs(\D_{in})$}
+\State $\Dset_{\nodeid} \gets GetDescriptorsFromNodeID(\nodeid,\D_{in})$
+\If{$\exists \D,\D' \in \Dset_{\nodeid}~st~|\D.t - \D'.t| < \gossipperiod$}
+\State \Return $\bot$
+\EndIf
+\EndFor
+\State \codecomment{Ownership check}
+\For{$\D' \in \Dset_{in}$}
+\If{$\Base(\D') \in \Base(\state.\peersampling.\view)$} \codecomment{\jesus{$\Base(\state.\peersampling.\view)$ overloads notation}}
+\State Let $\D''$ be the full descriptor matching $\Base(\D')$ in $\state.\peersampling.\view$
+\If{$\OwnChain(\D') \not\subseteq \OwnChain(\D'') \land \OwnChain(\D'') \not\subseteq \OwnChain(\D')$}
+\State \Return $\bot$
+\EndIf
+\EndIf
+\If{$VerifyChain(\OwnChain(\D')) = \textbf{false}$}
+\State \return $\bot$
+\EndIf
+\EndFor
+\State $\Dset_{out} \gets \psselect(\D,\view,\viewlength)$ \codecomment{Pick new descriptors for the calling node}
+\State $\network.\send(\D.\netaddr,\Dset_{out})$
+\State $\state.\peersampling.\view \gets (\state.\peersampling.\view \setminus \Dset_{out}) \cup \D_{in}$ \codecomment{Update view}
+\State \Return $\top$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\psrun}
+\label{alg:psrun}
+\textbf{Input:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item $1^\kappa$, security parameter
+    \item \appname, a chosen application name
+    \item \netaddr, the public IP address and port number for the node to run
+    \item \viewlength, target view length (nodes in view)
+    \item \gossipperiod, period to wait for gossiping
+    \item $\D_{btp}$, a bootstrapping node (may be extended to a set)
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\vspace{-.8em}
+\itemsep0em 
+    \item Nothing. The program runs until stopped.
+\end{itemize}
+\begin{algorithmic}
+\State $\state \gets \pssetup(1^\kappa,(\appname,\netaddr,\gossipperiod,\viewlength)$
+\State \codecomment{Bootstrapping, trusted nodes are configured to respond peers not owning their descriptors}
+\State $\pssend(\D_{btp})$ \codecomment{Signals existence}
+\While{\textbf{true}}
+\State \codecomment{Receive and send can run concurrently (but view must be mutexed?)}
+\State $($
+\State ~$((\D,\Dset) \gets \network.\receive(\ast);$ $\psrecv(\D, \Dset))$
+\State ~$|$
+%
+\State ~$(\D_{snd} \getsr \state.\peersampling.\view;$ $\pssend(\D_{snd}))$ \codecomment{\todo{$\D_{snd}$ is not picked at random - it must be the oldest peer.}}
+\State $)$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}

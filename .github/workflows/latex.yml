@@ -1,0 +1,66 @@
+name: Build LaTeX PDF
+
+on:
+  pull_request:
+    paths:
+      - 'docs/latex-algorithms/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/latex-algorithms/**'
+
+jobs:
+  build-latex:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: docs/latex-algorithms
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            texlive-full \
+            latexmk
+
+      - name: Build PDF
+        run: |
+          make
+
+      - name: Verify PDF exists
+        run: |
+          test -f main.pdf
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: latex-pdf
+          path: docs/latex-algorithms/main.pdf
+
+      #
+      # Only update committed PDF on pushes to main
+      #
+      - name: Commit updated PDF
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          cd ../..
+
+          git add docs/latex-algorithms/main.pdf
+
+          if git diff --cached --quiet; then
+            echo "No PDF changes."
+          else
+            git commit -m "Update generated LaTeX PDF"
+            git push
+          fi

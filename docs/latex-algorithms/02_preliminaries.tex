@@ -1,0 +1,36 @@
+\section{Preliminaries}
+\label{sec:preliminaries}
+
+\subsection{Cryptographic Building Blocks}
+\label{ssec:cryptobb}
+
+The systems we describe in the sequel rely on digital signatures. A digital signature scheme \signature is a tuple $(\setup,\keygen,\sign,\verify)$ defined as follows:
+
+\begin{description}
+\item[$\param \gets \sigsetup(1^\kappa)$.] Given a security parameter $1^\kappa$, produces system parameters $\param$.
+\item[$(\vk,\sk) \gets \sigkeygen(\param)$.] Given system parameters $\param$, generates a signing key $\sk$ and matching verification key $\vk$.
+\item[$\sigma \gets \sigsign(\sk,\msg)$.] Given a message $\msg$ and a signing key $\sk$, produces a signature $\sigma$.
+\item[$\top/\bot \gets \sigverify(\vk,\sigma,\msg$).] Given a verification key $\vk$, signature $\sigma$, and message $\msg$, returns $\top$ if $\sigma$ is a valid signature for $\vk$ and $\msg$, or $\bot$ otherwise.
+\end{description}
+
+\subsection{Peer-to-Peer Systems}
+\label{ssec:p2psys}
+
+In \Cref{sec:peersampling}, \Cref{sec:navigation} and \Cref{sec:dissemination} we abstract different layers of a peer-to-peer PubSub scheme as a system in which all nodes implement the following interface for each layer\footnote{Note that these are not pure functions, as they depend (read and write) on internal state. This approach is followed here as the three layers interact with each other, and facilitates the pseudocode. It may not be the best option for implementation, though.}:
+
+\begin{description}
+\item[$\state \gets \setup(1^\kappa,\aux)$.] Given a security parameter $1^\kappa$, and some application specific data \aux, returns an updated node state \state. We assume that the node state $\state$ is accessible by all other functions.
+\item[$\Dset_{out} \gets \select(\D,\Dset_{in},k)$.] Given a node descriptor $\D$, an input set of node descriptors $\Dset_{in}$ and a target size $k$, returns a set $\Dset_{out}$ of at most $k$ descriptors chosen among $\Dset_{in}$.
+\item[$\top/\bot \gets \send(\D)$] Picks the set of descriptors $\Dset$ to send to party identified by $\D$, and shares them.
+\item[$\top/\bot \gets \receive(\D,\Dset_{in})$.] Processes the set of descriptors $\Dset_{in}$ received from party identified by $\D$.
+\item[$\top/\bot \gets \run(\aux)$.] Given some application specific data \aux, it sets up the node and enters an infinite loop for gossiping with peers.
+\end{description}
+
+When describing the behavior of peers in a peer-to-peer system, we assume a generic interface for sending and receiving messages via some chosen network (based, e.g., on the TCP/IP stack). We use $\network.\send(\netaddr,msg)$ to denote sending $msg$ to the address specified by $\netaddr$, and $msg \gets \network.\receive(pattern)$ to denote the $msg$ received from listening at the network address defined by $pattern$. 
+%
+In the following, we use node and peer as synonyms.
+
+\subsection{Topic Registry}
+\label{ssec:topicreg}
+
+In the context of Cardano PubSub, we follow \cite{akv24} in assuming the existence of a smart contract that maintains a registry of exiting topics, \topicReg. In the following, we assume that the topic registry is a map indexed by \topicId (a unique 256 bit string). For each \topicId entry, the registry stores the topic name (\topicname), topic owners (\owners), nodes that can publish on the topic (\publishers), retention period (\retentionPeriod), and replication factor (\replicationFactor). $|\topicReg|$ denotes the number of entries in the topic registry.
