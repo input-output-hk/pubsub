@@ -20,3 +20,6 @@ _build/
 _apalache-out/
 *.tla
 *.cfg
+
+# Claude Code (user-specific permissions, not for version control)
+.claude/settings.local.json
