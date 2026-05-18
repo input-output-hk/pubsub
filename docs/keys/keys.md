@@ -10,14 +10,14 @@ analyze them next.
 
 Briefly, the purpose of the peer sampling layer is to help each node gain a 
 sufficient (uniformly) random view of the peer to peer network, robust against 
-byzantine behavior. To reduce the impact of byzantine behavior, SecureCylon --
+byzantine behavior. To reduce the impact of byzantine behavior, SecureCyclon --
 the chosen instantiation for the peer sampling layer -- heavily relies on
 digital signatures. The intuition being that having each node digitally sign
 the information they gossip later facilitates detecting misbehavior. Once some
 misbehavior by a given node is detected, this node can be blacklisted.
 For instance, one concrete misbehavior is a node sharing more peer descriptors
 than allowed per period. In order to non-repudiably detect this, each time a
-descriptors is shared, it is signed by the sender -- including any previous 
+descriptor is shared, it is signed by the sender -- including any previous 
 signature by previous owners up to the creator of the descriptor.
 
 One explicit assumption in the SecureCyclon paper is that identities are hard
@@ -51,15 +51,36 @@ node is compromised, the attacker could easily isolate it by creating signatures
 allegedly belonging to a past period in which the compromised node already 
 gossiped -- hence exceeding the gossip rate. Thus, it seems appropriate to
 require that **the digital signature scheme used for gossip authentication has 
-to be forward-secure**.
+to be forward-secure**. 
 
-A priori, Cardano's KES signatures using Ed25519 as a base scheme meet both
-requirements. The Rust [input-outout-hk/kes](https://github.com/input-output-hk/kes/tree/master)
+Note though that, even with a forward-secure signature scheme, if an adversary
+corrupts an honest node, the adversary can just start impersonating the honest
+node _for present and future_ signatures -- achieving the same end result as 
+without a forward-secure scheme, albeit with more delayed effect. Thus, it is
+logical to consider whether it makes sense to require a forward-secure scheme.
+In addition, proactive security can be targetted, but that would require 
+integrating into Cardano's stack a scheme that is not directly supported. A more
+manual  alternative would be to require that each peer registers (and 
+authenticate via some long-term key) fresh SUF or KES key, periodically. 
+Something similar is done now in Mithril. Either case, and assuming the
+efficiency provided by each option is acceptable, which option fits best the 
+target threat needs to be discussed.
+
+#### Candidate schemes
+
+Ed25519, as implemented in Cardano, provides Strong Unforgeability (it has
+canonical encodings, avoiding malleability.)
+
+Cardano's KES signatures using Ed25519 as a base scheme is both SUF, and 
+forward-secure. The Rust [input-outout-hk/kes](https://github.com/input-output-hk/kes/tree/master)
 crate supports KES instantiations of up to `2^7=128` periods. In this case,
 the size of a secret key is `32+7*32+2*7*32=704` bytes, and the size of a
 signature is `64+8*32=320` bytes. Validation via prototyping seems necessary
 in order to assess whether these sizes -- and the costs of the associated
 process -- are acceptable.
+
+For proactive security, further exploration would be needed. ([ia.cr/2004/052](https://eprint.iacr.org/2004/052.pdf))
+may be a good starting point.
 
 
 ### Sybil Resistance
