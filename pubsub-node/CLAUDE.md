@@ -1,6 +1,14 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Active feature: **001-minimal-node-scaffold**.
+
+For technical context, project structure, dependencies, and the rationale
+behind plan-level decisions, read:
+
+- Plan:      `specs/001-minimal-node-scaffold/plan.md`
+- Research:  `specs/001-minimal-node-scaffold/research.md`
+- Data:      `specs/001-minimal-node-scaffold/data-model.md`
+- Contracts: `specs/001-minimal-node-scaffold/contracts/`
+- Quickstart:`specs/001-minimal-node-scaffold/quickstart.md`
 <!-- SPECKIT END -->
 
 # pubsub-node — agent guidance
