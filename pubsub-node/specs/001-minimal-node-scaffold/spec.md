@@ -8,6 +8,16 @@
 
 **Input**: User description: "I would like to implement the most basic pubsub node draft we can imagine. In the context of this project, we are still researching the best peer discovery and message dissemination protocols. So, for the very first iteration, I want to build a node that reads the peers descriptors it will connect to from a config file. We assume that the list of descriptors is provided by the user, and that these nodes won't be down. At this stage, nodes trust each other, and will accept connection requests as they arrive without checks. The nodes will be able to send a basic message (like a Ping(<number>)) to test connectivity. No cryptography, nor special algorithms. Just basic scaffolding pieces. Network layer should also be simplified to allow for simple \"In Memory\" connections (e.g. the network object is initialized with another message box object, and each peer is initialised by sharing this common network object to keep them connected, the network is in the background just a hashmap of peers to messages)."
 
+## Clarifications
+
+### Session 2026-05-17
+
+- Q: What format should a peer descriptor take in v1 of the scaffold? → A: Abstract/opaque descriptor type exposing an `id()` accessor that returns a UTF-8 string. In v1 the descriptor carries no other fields; future iterations may add fields (e.g., network address, public key) and the identity basis itself may be replaced (e.g., a key-derived id) without breaking callers that only need to address a peer via `id()`.
+- Q: What file format should the peer-set config use in v1? → A: TOML.
+- Q: What concurrency model should the v1 InMemory network use? → A: Async/await. The Node and Network APIs expose async send/receive entry points from v1 so the interface already matches future networked transports, and to let the test harness establish patterns for async integration testing. Runtime choice (e.g., tokio) is a planning-stage decision.
+- Q: Which of FR-006's three alternatives should be the normative way a receiver exposes delivered messages in v1? → A: Per-node queryable record (e.g., `received_messages()` returning the list of deliveries with sender id and payload). Acceptance scenarios assert against this record. Implementations MAY additionally emit structured logs but the record is the normative observability mechanism.
+- Q: When a send targets an identifier that isn't registered on the InMemory network, what should the v1 contract be? → A: MUST log + drop. The network silently drops the message (preserving fire-and-forget per FR-004) AND MUST emit a warn-level structured log entry naming the unknown id. The send caller does not observe a synchronous error.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Two-Node Ping Exchange via InMemory Network (Priority: P1) 🎯 MVP
@@ -68,24 +78,25 @@ A developer authors a node's peer set in an external, human-readable configurati
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST allow a node to load its peer set from a human-readable configuration file, where each entry is a peer descriptor sufficient for routing messages over the network in use.
+- **FR-001**: The system MUST allow a node to load its peer set from a TOML configuration file, where each entry is a peer descriptor sufficient for routing messages over the network in use. The exact TOML schema is a planning-stage decision and is recorded in the plan/quickstart artifacts.
 - **FR-002**: The system MUST provide an InMemory network abstraction that allows multiple in-process node instances to register themselves and exchange messages by addressing each other through their registered identifier.
 - **FR-003**: A node MUST accept incoming connection requests and incoming messages from any sender on the same network without performing any authentication, authorization, or admission check (trust-on-arrival under the PoC trust assumption). In the InMemory variant this rule applies trivially; the requirement is documented now so future networked variants inherit it explicitly.
 - **FR-004**: The system MUST support a Ping message that carries an opaque numeric value `N` and MUST allow `N` to be inspected by the receiver. Ping is **one-way (fire-and-forget)**: the sender's send operation completes without waiting for acknowledgment, the receiver MUST NOT emit any response message, and successful receipt is verified by inspecting the receiver's observable state per FR-006.
 - **FR-005**: A node MUST be able to originate a Ping(N) message addressed to a specific peer identified by its descriptor (one-to-one send). Broadcast or multi-cast semantics are out of scope at this stage.
-- **FR-006**: A receiving node MUST make every received message observable to the operator or test (for example via a queryable record of received messages, structured log output, or a callback) so delivery can be verified externally without inspecting internal state directly.
+- **FR-006**: A receiving node MUST expose a queryable record of every received message (carrying at least the sender's id and the message payload), accessible to the operator or test without inspecting internal state directly. This record is the normative observability surface against which acceptance scenarios assert. Implementations MAY additionally emit structured log output.
 - **FR-007**: The system MUST NOT perform any cryptographic operations in this iteration (no signatures, no hashing for authentication, no key material, no encryption).
 - **FR-008**: The system MUST treat the configured peer set as static for the lifetime of each node: no peer discovery, no health checks, no failure handling, no reconnection logic, no peer-set mutation after startup.
-- **FR-009**: Peer descriptors MUST uniquely identify a peer within a single network instance; duplicate identifiers on the same network are not supported and need not be detected at this stage.
-- **FR-010**: The InMemory network MUST route a message addressed to a registered identifier to the corresponding peer; messages addressed to an unregistered identifier MAY be dropped silently with an operator-visible log entry.
+- **FR-009**: Peer descriptors MUST expose an `id()` accessor that uniquely identifies a peer within a single network instance; duplicate ids on the same network are not supported and need not be detected at this stage. The descriptor type is intentionally abstract so future iterations can add fields (e.g., network address, public key) — or replace the identity basis — without breaking callers that only need to address a peer.
+- **FR-010**: The InMemory network MUST route a message addressed to a registered identifier to the corresponding peer. Messages addressed to an unregistered identifier MUST be dropped (consistent with fire-and-forget send per FR-004) AND MUST result in a warn-level structured log entry that names the unknown identifier; the send caller does NOT observe a synchronous error in this case.
+- **FR-011**: The Node and Network public APIs for sending and receiving messages MUST be asynchronous (Future-returning / `async fn` in the chosen implementation language), so the abstraction is shape-compatible with future networked transports and the test harness exercises async integration patterns from v1. The specific async runtime is a planning-stage decision.
 
 ### Key Entities
 
 - **Node**: A participant in the network. Owns its local peer set (loaded from config) and a reference to a network handle. Originates and receives messages.
-- **Peer Descriptor**: The record that identifies another node and carries whatever information the network in use needs to route a message to that peer. In the InMemory variant a descriptor is effectively a unique identifier; future variants would carry network-level addressing details.
-- **Network (InMemory variant)**: A shared abstraction that routes messages between attached nodes. Conceptually a routing primitive mapping peer identifiers to delivery destinations; the concrete data layout is an implementation concern.
+- **Peer Descriptor**: An abstract/opaque type identifying another node, exposing at least an `id()` accessor that returns a UTF-8 string used for routing and uniqueness (FR-009). In v1 the descriptor carries no other fields; future iterations will extend it with network-level information (e.g., addresses) and cryptographic material (e.g., public keys), and the identity basis itself may shift (e.g., a key-derived id) without changing the accessor contract.
+- **Network (InMemory variant)**: A shared abstraction that routes messages between attached nodes. Conceptually a routing primitive mapping peer identifiers to delivery destinations; the concrete data layout is an implementation concern. Send and receive operations are asynchronous (FR-011) so the abstraction stays shape-compatible with future networked variants.
 - **Message**: A discrete unit of communication. The only message kind defined at this stage is `Ping(N)`, where `N` is an opaque numeric value.
-- **Config**: A file authored by the user that lists the local node's peer descriptors.
+- **Config**: A TOML file authored by the user that lists the local node's peer descriptors.
 
 ## Success Criteria *(mandatory)*
 
