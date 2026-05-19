@@ -13,7 +13,7 @@ This contract is the stable surface that integration tests and the binary depend
 ```rust
 pub use peer::{PeerId, PeerDescriptor, BasicPeerDescriptor};
 pub use message::Message;
-pub use network::{Network, InMemoryNetwork, NetworkError};
+pub use network::{Network, NetworkHandle, InMemoryNetwork, NetworkError};
 pub use received::ReceivedDelivery;
 pub use config::{PeerEntry, PeerListConfig, ConfigError, load_peer_list};
 pub use node::{Node, NodeError};
@@ -62,20 +62,35 @@ Adding a new variant is a non-breaking change for consumers that `match` non-exh
 ```rust
 pub trait Network: Send + Sync + 'static {
     async fn register(&self, id: PeerId) -> Result<NetworkHandle, NetworkError>;
-    async fn send(&self, from: &PeerId, to: &PeerId, message: Message) -> Result<(), NetworkError>;
 }
 ```
 
 `register` contract:
-- On success: returns a `NetworkHandle { id, receiver }` whose `receiver` is the single-consumer end of an unbounded `mpsc` for incoming envelopes addressed to `id`.
+- On success: returns a `NetworkHandle` carrying `id` plus the receiver-side of an unbounded `mpsc` for incoming envelopes. The handle is how the registered peer both *sends* (via `handle.send(to, msg)`) and *receives* (the Node's recv task drains the handle's receiver — see `NetworkHandle` below).
 - On `NetworkError::DuplicateRegistration(id)`: no mutation; the caller MAY retry with a different id.
 - `register` MUST be safe to call concurrently from multiple async tasks.
+
+The trait deliberately exposes no `send` method — sends are issued through the per-peer handle, whose sender identity is implicit. This matches future networked transports (per-connection handle; sender id derived from the registered peer, not asserted by callers) and avoids the v1 footgun of asking every send-site to pass its own id.
+
+## `NetworkHandle`
+
+```rust
+pub struct NetworkHandle { /* private */ }
+
+impl NetworkHandle {
+    pub fn id(&self) -> &PeerId;
+    pub async fn send(&self, to: &PeerId, message: Message) -> Result<(), NetworkError>;
+    // crate-internal: receiver-side hook used by Node's recv task
+}
+```
+
+Design pattern: `NetworkHandle` is an actor-handle in the style of [Alice Ryhl's "Actors with Tokio"](https://ryhl.io/blog/actors-with-tokio/), as productionised in [Lighthouse's `NetworkSenders`](https://github.com/sigp/lighthouse/blob/stable/beacon_node/network/src/service.rs) and [Substrate's `sc_network::NetworkService`](https://paritytech.github.io/polkadot-sdk/master/sc_network/index.html). Internally it bundles a cloneable send-half into the network's dispatch fabric and a single-consumer receiver for the per-peer mailbox; externally only `id()` and `send()` are exposed. The receive path surfaces to clients exclusively via `Node::received_messages()` (FR-006, snapshot semantics). The handle itself is **not** `Clone` — single-consumer recv discipline. Full rationale and alternatives considered: `research.md` §12 (ADR slot 0007).
 
 `send` contract (the FR-013 contract):
 - Resolves once the network has accepted the message for delivery (enqueued onto the recipient's mailbox in the InMemory impl).
 - Returns `Ok(())` even when `to` is unregistered — the message is dropped and a `WARN` `tracing` event is emitted with the unknown id as a structured field (FR-010).
 - Does NOT block on the recipient consuming the message. Tests asserting observability MUST use `await_delivery` (see test-harness contract below).
-- The `from` argument is for sender-attribution on the recipient side (FR-006 "carrying at least the sender's id"). The Network does NOT validate that `from` corresponds to a registered peer — the sender's Node passes its own id, and that is trusted under FR-003.
+- Sender attribution: the recipient's record will show `from = self.id()` — the handle supplies this value automatically (FR-006 "logical peer identity supplied by the network at delivery time"). Callers neither pass `from` nor can override it. This matches future networked transports where the per-connection handle holds the sender identity, not the caller.
 
 ## `InMemoryNetwork`
 
@@ -113,7 +128,7 @@ Construction:
 - A `Drop` impl aborts the receive task. Tests that need explicit shutdown should drop the `Node` and `.await` an explicit channel-close confirmation if needed (a small helper may live in `tests/common/`).
 
 `send` semantics:
-- Forwards to `network.send(&self.id(), to, message)`.
+- Forwards to `self.handle.send(to, message).await` — `handle` (returned by `Network::register`) carries the sender id implicitly. The Node never asserts its own id at send time.
 - A Node with an empty `peers` slice can still call `send` — the spec's empty-peer-set Edge Case is enforced by the *caller* having no peer to address to. The Node itself does not gate sends by peer-set membership; the network does the routing.
 
 `received_messages()`:
@@ -175,5 +190,5 @@ pub enum AwaitError { Timeout(Duration) }
 The library is pre-1.0; breaking changes are expected as the project moves past the scaffold. Specifically:
 - Adding `Message` variants is non-breaking (`#[non_exhaustive]`).
 - Replacing `PeerListConfig`'s TOML schema is a structural change → ADR + version bump.
-- Replacing the `Network::send(from, to, message)` shape is structural → ADR + version bump.
+- Replacing the `NetworkHandle::send(to, message)` shape — or moving sends back onto the `Network` trait — is structural → ADR + version bump.
 - Adding new methods to `Node` or `Network` is non-breaking when defaulted; trait method additions without defaults are breaking.

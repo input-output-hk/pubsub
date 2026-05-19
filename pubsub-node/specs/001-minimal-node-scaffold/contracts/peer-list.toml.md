@@ -100,3 +100,5 @@ id = ""
 ## Forward-compatibility note
 
 Because each peer is its own table (`[[peers]]`), v2 can add per-peer fields (`addr`, `pubkey`, etc.) without changing the v1 reader's parse path. Unknown fields will be **rejected** by `serde` unless the v1 reader is amended to add `#[serde(deny_unknown_fields)] -> #[serde(default)]` semantics on the relevant struct. The v1 default is strict (`deny_unknown_fields` on `PeerEntry`) so that operators see a clear error if they configure something the running binary does not understand.
+
+> **Spec trace: deliberately none.** Both strict and lenient TOML parsing would satisfy FR-001 and US3 AS-2. The strict-parsing choice is a contract-level best-practice decision documented here rather than promoted to an FR — the spec stays silent on parser-policy details because the decision is reversible without breaking any user-observable behaviour the spec commits to. Future iterations may revisit this when descriptor schemas grow optional fields; if so, the change is recorded as an ADR per Constitution Principle III.

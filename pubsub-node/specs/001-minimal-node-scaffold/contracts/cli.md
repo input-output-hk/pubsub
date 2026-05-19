@@ -20,14 +20,14 @@ pubsub-node --self-id <ID> --config <PATH> [--log-level <LEVEL>]
 
 ## Exit codes
 
-| Code | Meaning | When |
-|------|---------|------|
-| 0    | clean exit (currently only reachable via signal in this scaffold; the binary stays running until interrupted) | n/a in v1 |
-| 1    | runtime failure | the receive task or signal handler errored |
-| 2    | configuration error | `ConfigError::Io`, `ConfigError::Parse`, `ConfigError::InvalidPeer` (US3 AS-2) |
-| 64   | usage error | `clap` rejected the arguments (e.g., missing required flag) |
+| Code | Meaning | Spec trace | When |
+|------|---------|-----------|------|
+| 0    | Clean exit on signal | None (graceful-shutdown behaviour; not a spec scenario in v1) | Ctrl-C / SIGINT handler fires; recv task aborted; Node dropped |
+| 1    | Runtime failure | None (catch-all for non-config failures) | The recv task or signal handler errored; non-config registration failure (e.g., `NetworkError::DuplicateRegistration` per FR-009) |
+| 2    | Configuration / identifier error | US3 AS-2 (malformed config); FR-012 (`--self-id` validation failure, symmetry added in CHK023) | `ConfigError::Io / Parse / InvalidPeer` from the loader; OR `PeerIdError` from parsing `--self-id` at CLI entry |
+| 64   | Usage error | None (CLI parsing convention from `<sysexits.h>`) | `clap` rejected the arguments (e.g., missing required flag, invalid value type) |
 
-Exit codes 2 and 64 follow `<sysexits.h>` conventions (`EX_DATAERR` / `EX_USAGE`). Operator scripts can distinguish "operator-error" (2, 64) from "node-runtime error" (1).
+Exit codes 2 and 64 follow `<sysexits.h>` conventions (`EX_DATAERR` / `EX_USAGE`). Operator scripts can distinguish "operator-error" (2, 64) from "node-runtime error" (1). The "Spec trace" column annotates which codes correspond to spec-level scenarios vs which are POSIX-convention best-practice exits.
 
 ## Error reporting
 

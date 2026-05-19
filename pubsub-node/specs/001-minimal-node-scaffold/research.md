@@ -86,7 +86,7 @@ Each entry: **Decision** / **Rationale** / **Alternatives considered**.
 
 ## 6. Receive-side processing model (FR-013 driver)
 
-**Decision**: Each `Node` spawns a background `tokio::task` during `Node::new(...)`. The task listens on a `tokio::sync::mpsc::UnboundedReceiver<Envelope>` returned from the network at registration; on each message it appends an entry to the node's `ReceivedRecord`. `Node::new(...)` does not return until registration + spawn are complete, so the node is fully observable by the time the constructor's future resolves.
+**Decision**: Each `Node` spawns a background `tokio::task` during `Node::new(...)`. `Node::new` calls `handle.take_receiver()` to move `rx` out of the `NetworkHandle` (see §12) and into the spawned task; the task drains `rx` and appends each delivered envelope to the node's `ReceivedRecord`. The Node retains the rest of the handle (`self_id` + cloneable `tx`) for outbound sends. `Node::new(...)` does not return until registration + spawn are complete, so the node is fully observable by the time the constructor's future resolves.
 
 **Rationale**:
 - FR-013 requires `send().await` resolution to be decoupled from the recipient updating its record — a separate receive task is the simplest mechanism that delivers this and keeps acceptance scenarios honest (something must drive the recipient).
@@ -189,6 +189,32 @@ Polls `node.received_messages()` on a short interval (default 1 ms) until a matc
 
 ---
 
+## 12. NetworkHandle as an actor-handle (channels over callbacks)
+
+**Decision**: The per-peer `NetworkHandle` returned by `Network::register` is structured as an actor-handle (the "Ryhl pattern"): it bundles a cloneable send-half (`tx`, a wrapper around the network's dispatch fabric) and a single-consumer receive-half (`rx`, the per-peer mailbox drain). `Node::new` calls `handle.take_receiver()` once during construction to move `rx` into the spawned recv task; the remaining handle (carrying `self_id` and `tx`) stays with the Node and is used for outbound sends via `&self`. The receive surface to clients is not the receiver — it is `Node::received_messages()` (FR-006, snapshot semantics post-CHK019). Planned ADR: `docs/decisions/0007-network-handle-actor-pattern.md`.
+
+**Rationale**:
+- **This is the dominant idiom in production Rust async networking.** [Lighthouse's `NetworkSenders`](https://github.com/sigp/lighthouse/blob/stable/beacon_node/network/src/service.rs) and [Substrate's `sc_network::NetworkService`](https://paritytech.github.io/polkadot-sdk/master/sc_network/index.html) both expose their network surfaces as cloneable handles wrapping `mpsc` endpoints behind a service task that owns the actual IO. Choosing the same shape now means the in-memory v1 substrate and any future TCP/`Framed`/libp2p variant share the same external API; only the contents of `tx` and the source of `rx` change at swap time.
+- **Callback-based receive is awkward in Rust.** A handler-style API (`Node::on_message(impl Fn(Envelope) -> impl Future)`) requires `Arc<dyn Fn(...) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync + 'static>` to be stored — six type words to do what a lambda does for free in JS, Erlang, or Go. Async closures are second-class until further trait stabilisation; the workaround crates (`async-trait`, manual boxing) impose runtime cost. Channels sidestep all of this: the handler body just lives inside an ordinary `async fn` (the Node's recv loop), where it has natural access to the Node's internal state without capture games.
+- **Lifecycle, backpressure, and cancellation are explicit.** Closing the channel produces `None` from `recv` — unambiguous shutdown signal. A bounded channel parks the sender under backpressure; an unbounded one (v1) grows visibly in memory. A registered callback has no clean answer for any of these questions: when is it unregistered? what happens to in-flight invocations on drop? what if it panics?
+- **The handler body still exists — it just lives inside the user's loop.** The Node's recv task is literally `while let Some(env) = rx.recv().await { received.lock().push(...); tracing::debug!(...); }`. Callers who'd otherwise have registered a closure write the same logic inline; Rust convention prefers this because it composes with `tokio::select!`, supervisor patterns, and graceful-shutdown idioms that a stored callback breaks.
+- **Test and client ergonomics are unaffected.** Tests never see `rx` at all — they construct nodes, call `node.send(...)`, and assert via `await_delivery(&node, …)` / `node.received_messages()`. The receiver lives entirely inside the Node.
+
+**Alternatives considered**:
+- *Callback-based handler* (`Node::on_message(Fn(Envelope))`): rejected per the async-closure point above. Also forecloses FR-006's queryable record without duplicating receive logic inside both the callback and Node-internal state.
+- *Stream-typed `recv`* (`impl Stream<Item = Envelope>` on the handle): viable, adds `StreamExt` to the consumer's import surface, and would discourage Node from internally owning the recv loop. Could layer on top of the channel-based core later without breaking changes.
+- *Caller-driven `Network::next_for(peer_id).await -> Envelope`*: forces a global lookup per recv, doesn't match the per-connection model future transports will have.
+- *Single shared inbox on the Node (no Network-issued receiver)*: requires the Node to poll something that knows the network's routing table, re-coupling Node ↔ Network in ways `register`'s return value cleanly severs.
+
+**Sources**:
+- Alice Ryhl, "Actors with Tokio" — https://ryhl.io/blog/actors-with-tokio/ (the canonical write-up; this design is a direct application of the pattern)
+- Lighthouse network service — https://github.com/sigp/lighthouse/blob/stable/beacon_node/network/src/service.rs
+- Substrate `sc_network` — https://paritytech.github.io/polkadot-sdk/master/sc_network/index.html
+- tokio `TcpStream::into_split` — https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html (the lower-level read/write split pattern that lives *behind* this handle when wire transports arrive)
+- tokio-util `Framed` — https://docs.rs/tokio-util/latest/tokio_util/codec/struct.Framed.html (the framing layer that future networked variants will use behind `tx`)
+
+---
+
 ## ADR slot summary (Principle III deliverables)
 
 | ADR # | Title (planned) | Triggering decision |
@@ -199,8 +225,9 @@ Polls `node.received_messages()` on a short interval (default 1 ms) until a matc
 | 0004 | CLI via clap derive | Research §4 |
 | 0005 | Typed errors via thiserror (no anyhow in library) | Research §5 |
 | 0006 | Receive-task model & registration timing | Research §6 + §8 (single ADR; the two decisions are conjoined) |
+| 0007 | NetworkHandle as actor-handle (tx/rx split; channels over callbacks) | Research §12 |
 
-`/speckit-tasks` will materialise the six ADR-authoring tasks as logical-increment commits per Development Workflow.
+`/speckit-tasks` will materialise the seven ADR-authoring tasks as logical-increment commits per Development Workflow.
 
 ---
 
@@ -208,7 +235,12 @@ Polls `node.received_messages()` on a short interval (default 1 ms) until a matc
 
 These are *not* NEEDS CLARIFICATION — they are deliberate v2+ items, recorded so they don't get rediscovered later:
 
-- Bounded mailbox with backpressure policy (Research §7) — re-opens when v2 introduces a real transport.
-- Cryptographic identity (key-derived `PeerId`) — re-opens when the project's identity story converges (cross-ref the parent project's [[project-pubsub-design-synthesis]] notes).
-- Duplicate-id detection on register (FR-009 says not required in v1) — natural to add once cryptographic identity is in.
-- Logging volume tuning and shipping (Engineering Standards note) — deployment concern; out of scope for the scaffold.
+- **Bounded mailbox with backpressure policy** (Research §7) — re-opens when v2 introduces a real transport.
+- **Cryptographic identity** (key-derived `PeerId`) — re-opens when the project's identity story converges (cross-ref the parent project's [[project-pubsub-design-synthesis]] notes). Spec trace: FR-007.
+- **Duplicate-id detection on register** (FR-009 says not required in v1; spec Edge Case "Two distinct nodes attempt to register under the same identifier … out of scope at this stage") — natural to add once cryptographic identity is in.
+- **Logging volume tuning and shipping** (Engineering Standards note) — deployment concern; out of scope for the scaffold.
+- **Topic / sequence / chain semantics on `Message`** — beyond connectivity-probe `Ping`. Spec trace: Assumptions "No protocol semantics beyond connectivity". The `#[non_exhaustive]` marker on `Message` is the forward-compatibility hook so adding variants is non-breaking.
+- **Peer discovery and dissemination protocols** — under research in the parent workstream. Spec trace: Assumptions "Research context". The v1 stub (user-authored peer sets, no dissemination algorithm) is intentional; the scaffold's substrate is what dissemination work will eventually layer on top of.
+- **Broadcast / multi-cast send semantics** — FR-005 explicitly excludes; will arrive together with the dissemination-protocol decision above. The current `NetworkHandle::send(to, message)` is one-to-one by signature, leaving room to add `broadcast(message)` or `send_to_many(&[PeerId], message)` later without renaming the existing surface.
+- **Peer-set dynamics** — peer discovery, health checks, failure handling, reconnection, peer-set mutation after startup. Spec trace: FR-008 explicitly excludes all of these. Each is a separately-decidable v2+ feature; the v1 `Node::peers()` is a read-only snapshot of the static set.
+- **Delivery semantics under failure** — at-most-once / at-least-once / exactly-once, retry, ack. Spec trace: FR-013's disclaimer added during CHK024 resolution. v1's exactly-once-under-trust-and-liveness guarantee is explicitly NOT expected to survive into networked iterations; the eventual semantics choice will require its own ADR and spec amendment.

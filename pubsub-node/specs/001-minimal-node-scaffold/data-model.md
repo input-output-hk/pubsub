@@ -140,35 +140,64 @@ Notes on the schema design:
 
 ```rust
 // src/network.rs
-#[async_trait::async_trait] // OR native trait async fn if MSRV is 1.75+
 pub trait Network: Send + Sync + 'static {
     async fn register(
         &self,
         id: PeerId,
     ) -> Result<NetworkHandle, NetworkError>;
-    async fn send(&self, from: &PeerId, to: &PeerId, message: Message)
-        -> Result<(), NetworkError>;
 }
 ```
 
 | Property | Value |
 |---|---|
 | Module | `pubsub_node::network` |
-| FR trace | FR-002 (network abstraction; nodes register + exchange messages via registered id); FR-005 (one-to-one `send`); FR-010 (unknown-id drop + log); FR-011 (async API); FR-013 (`send().await` resolves on enqueue, not on observable delivery) |
+| FR trace | FR-002 (network abstraction; nodes register and exchange messages via registered id) |
 
-`NetworkHandle` is the per-node attach token returned by `register`:
+The `Network` trait exposes only `register` — sends are issued through the returned `NetworkHandle`, whose sender identity is implicit. This matches the shape future networked transports will have (per-connection handle; sender id derived from the registered/authenticated peer, not asserted by every caller) and removes the v1 footgun of asking the caller to pass its own id on every send.
+
+### `NetworkHandle`
+
+`NetworkHandle` is the per-node attach token returned by `register`. The Node owns it for its lifetime.
 
 ```rust
 pub struct NetworkHandle {
-    pub id: PeerId,
-    pub(crate) receiver: tokio::sync::mpsc::UnboundedReceiver<Envelope>,
+    self_id: PeerId,
+    // Outbound: cloneable sender into the network's dispatch fabric.
+    // Routes Envelopes addressed to other peers into their mailboxes.
+    // Internally wraps an Arc into the InMemoryNetwork registry (§4.2).
+    tx: NetworkSender,
+    // Inbound: single-consumer mailbox drain. Moved into the recv task
+    // during Node::new via take_receiver(); subsequent NetworkHandle
+    // methods do not touch rx.
+    rx: tokio::sync::mpsc::UnboundedReceiver<Envelope>,
 }
+
+impl NetworkHandle {
+    pub fn id(&self) -> &PeerId;
+    pub async fn send(&self, to: &PeerId, message: Message)
+        -> Result<(), NetworkError>;
+    pub(crate) fn take_receiver(&mut self)
+        -> tokio::sync::mpsc::UnboundedReceiver<Envelope>;
+}
+
+// Cloneable send-half. Held by NetworkHandle and by anything else
+// that dispatches into the network. Crate-internal — NOT re-exported
+// from lib.rs (the public surface is `NetworkHandle::send`).
+#[derive(Clone)]
+pub(crate) struct NetworkSender { /* Arc into the InMemoryNetwork registry */ }
 ```
 
-`NetworkHandle` is *not* `Clone` — the receiver side of an `mpsc::unbounded_channel` is single-consumer. The `Node` owns it for its lifetime.
+The handle is structured as an actor-handle (Ryhl pattern; full rationale, alternatives, and source citations in `research.md` §12, ADR slot 0007). `Node::new` calls `handle.take_receiver()` once during construction to move `rx` into the spawned recv task; subsequent `&self` uses of the handle (all `send` calls) touch only `tx` and `self_id`.
 
-`send` contract (FR-005, FR-010, FR-013):
-- If `to` is currently registered: enqueue an `Envelope { from: from.clone(), message }` onto the recipient's mailbox, emit a `tracing::debug!` for `send.accepted`, and return `Ok(())`.
+| Property | Value |
+|---|---|
+| Module | `pubsub_node::network` |
+| Sender identity | Implicit — the handle was issued by `register(self_id)` and carries that `PeerId` for its lifetime. Callers do NOT pass `from`. |
+| Ownership | `NetworkHandle` is NOT `Clone` (the receiver-end of `mpsc::unbounded_channel` is single-consumer). The Node owns the handle and drives recv via a spawned task; `Node::send` forwards through it. |
+| FR trace | FR-005 (one-to-one `send`); FR-006 (the handle supplies the logical peer identity into the recorded delivery's `from` field at enqueue time); FR-010 (unknown-id drop + log); FR-011 (async API); FR-013 (`send().await` resolves on enqueue, not on observable delivery) |
+
+`NetworkHandle::send` contract (FR-005, FR-006, FR-010, FR-013):
+- If `to` is currently registered: enqueue an `Envelope { from: self.id().clone(), message }` onto the recipient's mailbox, emit a `tracing::debug!` for `send.accepted`, and return `Ok(())`. The `from` field is supplied by the handle from its own `self_id`, satisfying FR-006's "logical peer identity supplied by the network at delivery time".
 - If `to` is not currently registered: drop the message, emit `tracing::warn!(target = "pubsub_node::network", peer_id = %to, "send dropped: unknown peer")`, and return `Ok(())` (the sender does **not** observe a synchronous error per FR-010).
 - The future returned by `send` MUST resolve once the in-network operation above completes; it MUST NOT wait for the recipient to drain the mailbox (FR-013).
 
@@ -201,9 +230,10 @@ impl Network for InMemoryNetwork { … }
 ```rust
 // src/node.rs
 pub struct Node {
-    self_id: PeerId,
+    // Owned post-take_receiver: carries self_id and the cloneable send-side.
+    // rx has already been moved into recv_task at construction time.
+    handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,
-    network: Arc<dyn Network>,
     received: Arc<Mutex<Vec<ReceivedDelivery>>>,
     recv_task: tokio::task::JoinHandle<()>,
 }
@@ -235,7 +265,7 @@ impl Drop for Node {
 | Module | `pubsub_node::node` |
 | Construction | `Node::new` registers on the network, spawns the receive task, and returns the fully-attached Node (Research §6 + §8) |
 | Peer set semantics | Static for lifetime (FR-008); no mutation API exposed |
-| Send routing | `Node::send` forwards to `self.network.send(&self.self_id, to, message)`. The Node does **not** check whether `to` is in its peer set — that is the operator's responsibility per Configuration trust (spec Assumptions) and trust-on-arrival (FR-003). Empty-peer-set semantics (Edge Cases bullet 1, US1 AS-3) are: the *caller* simply has no peer to address to. |
+| Send routing | `Node::send` forwards to `self.handle.send(to, message).await`. The sender id is implicit in the handle (FR-006). The Node does **not** check whether `to` is in its peer set — that is the operator's responsibility per Configuration trust (spec Assumptions) and trust-on-arrival (FR-003). Empty-peer-set semantics (Edge Cases bullet 1, US1 AS-3) are: the *caller* simply has no peer to address to. |
 | `received_messages()` | Returns a snapshot clone of the record (acquire mutex, clone vector, release). FR-006: normative observability surface. |
 | FR trace | FR-002, FR-003, FR-004, FR-005, FR-006, FR-008, FR-011, FR-012, FR-013 |
 
@@ -248,7 +278,9 @@ impl Drop for Node {
                    │ await
                    ▼
         ┌──────────────────────┐
-        │ Network::send(...)   │
+        │ handle.send(to, msg) │
+        │ (from = self_id      │
+        │  supplied by handle) │
         └──┬───────────────┬───┘
            │               │
    to registered?         to not registered?
@@ -264,11 +296,14 @@ impl Drop for Node {
         ┌─────────────────────────┐
         │ recv_task spawn'd in    │
         │ Node::new (Research §6) │
+        │ owning rx, taken out of │
+        │ NetworkHandle via       │
+        │ take_receiver()         │
         └────────────┬────────────┘
                      │ loop
                      ▼
         ┌─────────────────────────┐
-        │ receiver.recv().await   │
+        │ rx.recv().await         │
         └────────────┬────────────┘
                      │ Some(Envelope)
                      ▼
@@ -347,11 +382,13 @@ peer.rs ─────────► PeerId, PeerDescriptor, BasicPeerDescript
    ▲
    │ used by
    ├──── message.rs ──► Message
-   ├──── network.rs ──► Envelope (private), Network trait, InMemoryNetwork, NetworkHandle, NetworkError
+   ├──── network.rs ──► Envelope (private), Network trait, InMemoryNetwork,
+   │                    NetworkHandle, NetworkSender (crate-private)
    ├──── received.rs ─► ReceivedDelivery
-   ├──── config.rs ──► PeerEntry, PeerListConfig, load_peer_list, ConfigError
-   └──── node.rs ───► Node, NodeError
-                       ▲
+   ├──── config.rs ──► PeerEntry, PeerListConfig, load_peer_list
+   ├──── error.rs ───► ConfigError, NetworkError, NodeError
+   └──── node.rs ───► Node
+                       ▲ (Node also uses received.rs, config.rs, network.rs, error.rs)
                        │ used by
                        └── main.rs (binary): parses CLI, loads config, constructs Node, runs
 
@@ -363,7 +400,7 @@ lib.rs re-exports the public surface for consumers.
 ```rust
 pub use peer::{PeerId, PeerDescriptor, BasicPeerDescriptor};
 pub use message::Message;
-pub use network::{Network, InMemoryNetwork, NetworkError};
+pub use network::{Network, NetworkHandle, InMemoryNetwork, NetworkError};
 pub use received::ReceivedDelivery;
 pub use config::{PeerEntry, PeerListConfig, ConfigError, load_peer_list};
 pub use node::{Node, NodeError};
@@ -379,15 +416,15 @@ pub use node::{Node, NodeError};
 | FR-002 | `Network` trait + `InMemoryNetwork` (§4) |
 | FR-003 | No admission check on receive path; recv task simply records every envelope (§5 receive-side diagram) |
 | FR-004 | `Message::Ping(u64)`; `Node::send` is fire-and-forget; recv task records every Ping (§2, §6) |
-| FR-005 | `Network::send(from, to, message)` is one-to-one by signature (§4) |
-| FR-006 | `Node::received_messages()` returns `Vec<ReceivedDelivery>` with from + payload (§5, §6) |
+| FR-005 | `NetworkHandle::send(to, message)` is one-to-one by signature; sender id is implicit in the handle (§4) |
+| FR-006 | `Node::received_messages()` returns a snapshot `Vec<ReceivedDelivery>` whose `from` is the logical peer identity, supplied by the handle's `self_id` at enqueue (§4, §5, §6) |
 | FR-007 | No crypto modules; no `signing` / `hashing` deps in `Cargo.toml` |
 | FR-008 | `Node` exposes no peer-set mutation API; `peers` field is `Vec<…>` set once at construction (§5) |
 | FR-009 | `PeerDescriptor::id() -> &PeerId`; `InMemoryNetwork` enforces uniqueness via the registry hashmap (§1, §4) |
-| FR-010 | `InMemoryNetwork::send` drop-and-warn branch (§4 `send` contract) |
-| FR-011 | `Network::send`, `Node::new`, `Node::send` all `async fn` (§4, §5) |
+| FR-010 | `NetworkHandle::send` drop-and-warn branch (§4 `send` contract) |
+| FR-011 | `NetworkHandle::send`, `Node::new`, `Node::send` all `async fn` (§4, §5) |
 | FR-012 | `Node::new(self_id, peer_list, network)` takes parsed `PeerListConfig`, not a path; CLI does parsing (§3, §5) |
-| FR-013 | `Network::send` returns after enqueue; `recv_task` updates `received` later; tests use `await_delivery` helper (§5, §10 below) |
+| FR-013 | `NetworkHandle::send` returns after enqueue; `recv_task` updates `received` later; tests use `await_delivery` helper (§5, §10 below) |
 
 ---
 
