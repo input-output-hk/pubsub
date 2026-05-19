@@ -90,7 +90,7 @@ Design pattern: `NetworkHandle` is an actor-handle in the style of [Alice Ryhl's
 - Resolves once the network has accepted the message for delivery (enqueued onto the recipient's mailbox in the InMemory impl).
 - Returns `Ok(())` even when `to` is unregistered — the message is dropped and a `WARN` `tracing` event is emitted with the unknown id as a structured field (FR-010).
 - Does NOT block on the recipient consuming the message. Tests asserting observability MUST use `await_delivery` (see test-harness contract below).
-- Sender attribution: the recipient's record will show `from = self.id()` — the handle supplies this value automatically (FR-006 "logical peer identity supplied by the network at delivery time"). Callers neither pass `from` nor can override it. This matches future networked transports where the per-connection handle holds the sender identity, not the caller.
+- Sender attribution: the recipient's record will show `from = self.id()` — the handle supplies this value automatically. This is FR-006's logical-peer-identity requirement (the recorded `from` is the value `PeerDescriptor::id()` returns for the originating peer) realised at delivery time in v1. Callers neither pass `from` nor can override it. This matches future networked transports where the per-connection handle holds the sender identity, not the caller.
 
 ## `InMemoryNetwork`
 

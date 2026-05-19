@@ -197,7 +197,7 @@ The handle is structured as an actor-handle (Ryhl pattern; full rationale, alter
 | FR trace | FR-005 (one-to-one `send`); FR-006 (the handle supplies the logical peer identity into the recorded delivery's `from` field at enqueue time); FR-010 (unknown-id drop + log); FR-011 (async API); FR-013 (`send().await` resolves on enqueue, not on observable delivery) |
 
 `NetworkHandle::send` contract (FR-005, FR-006, FR-010, FR-013):
-- If `to` is currently registered: enqueue an `Envelope { from: self.id().clone(), message }` onto the recipient's mailbox, emit a `tracing::debug!` for `send.accepted`, and return `Ok(())`. The `from` field is supplied by the handle from its own `self_id`, satisfying FR-006's "logical peer identity supplied by the network at delivery time".
+- If `to` is currently registered: enqueue an `Envelope { from: self.id().clone(), message }` onto the recipient's mailbox, emit a `tracing::debug!` for `send.accepted`, and return `Ok(())`. The `from` field is supplied by the handle from its own `self_id`, satisfying FR-006's logical-peer-identity requirement (the recorded value is what `PeerDescriptor::id()` returns for the originating peer).
 - If `to` is not currently registered: drop the message, emit `tracing::warn!(target = "pubsub_node::network", peer_id = %to, "send dropped: unknown peer")`, and return `Ok(())` (the sender does **not** observe a synchronous error per FR-010).
 - The future returned by `send` MUST resolve once the in-network operation above completes; it MUST NOT wait for the recipient to drain the mailbox (FR-013).
 
@@ -220,7 +220,7 @@ impl Network for InMemoryNetwork { … }
 |---|---|
 | Shape | Hashmap of `PeerId -> UnboundedSender<Envelope>`, behind an async `RwLock` |
 | Sharing | `Arc<InMemoryNetwork>` is the idiomatic way for multiple nodes to share one network; the trait bounds enable this |
-| Failure modes | Only `NetworkError::DuplicateRegistration` from `register` (registration succeeds at most once per id within a single network instance). `send` never returns `Err` in the InMemory variant (drops are silent + logged, per FR-010). |
+| Failure modes | Only `NetworkError::DuplicateRegistration` from `register` (registration succeeds at most once per id within a single network instance). `NetworkHandle::send` — whose dispatch is backed by this InMemoryNetwork's registry — never returns `Err` for handles issued by this impl; unknown-peer addressing drops + logs per FR-010, never produces a synchronous error. |
 | Spec note | The "hashmap of peers to message boxes" wording in the spec's input description is realised verbatim here |
 
 ---

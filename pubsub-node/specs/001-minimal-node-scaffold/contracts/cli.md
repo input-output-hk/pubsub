@@ -14,7 +14,7 @@ pubsub-node --self-id <ID> --config <PATH> [--log-level <LEVEL>]
 |------|----------|------|-------------|
 | `--self-id <ID>` | yes | string (PeerId) | This node's own identifier. Non-empty UTF-8, no internal NULs. Maps to `Node::new(self_id, …)`. |
 | `--config <PATH>` | yes | path | Filesystem path to a TOML file matching `contracts/peer-list.toml.md`. Read at startup; never re-read while the process runs (FR-008). |
-| `--log-level <LEVEL>` | no | enum | `trace` \| `debug` \| `info` (default) \| `warn` \| `error`. Sets the `tracing-subscriber` env filter. |
+| `--log-level <LEVEL>` | no | enum | `trace` \| `debug` \| `info` (default) \| `warn` \| `error`. Sets the `tracing-subscriber` env filter as a **lower-bound threshold**: events at the selected level *or higher severity* are emitted. So `info` (default) surfaces `info` + `warn` + `error` events — which satisfies FR-012's constraint that the default level make FR-010 warn-drop events visible without explicit configuration. Explicit operator overrides are authoritative: setting `--log-level error` suppresses warn-level events including FR-010 drop logs, and this is the operator's deliberate choice per FR-012 (consistent with the spec's Trust assumption). |
 
 `--help` and `--version` are provided automatically by `clap`. SC-004 contributor flow expects `pubsub-node --help` to print enough to reproduce the demo.
 

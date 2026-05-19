@@ -110,3 +110,59 @@ Numbering continues from the 16 items above (last legacy item is the implicit CH
 - Failure resolution: items failing review are addressed by editing the relevant artifact (spec, plan, research, data-model, contracts), or by opening an ADR / issue if the question is genuinely structural per Constitution Principle III.
 - Out of scope here: implementation correctness (that's `/speckit-implement`'s output and the integration tests' job).
 
+---
+
+# Second Readiness Pass (2026-05-19)
+
+**Purpose**: re-sweep all areas after the CHK017–CHK048 walkthrough to surface quality issues *newly introduced* by that iteration's 14 substantive edits. Focus: cross-artifact wording drift produced by amendments, implicit knowledge from the new architectural surface (NetworkHandle / logical-peer-identity / exactly-once-conditional), and measurability of just-added constraints.
+
+**Audience**: reviewer / co-maintainer.
+
+**Created**: 2026-05-19
+
+**Scope**: 13 items spanning post-walkthrough artifact consistency, newly-introduced definitions, operator-choice gaps, cross-reference integrity, measurability of new constraints, new architectural surface discoverability, and forward maintenance of artifacts named in the spec.
+
+Numbering continues globally from CHK048.
+
+## Post-Walkthrough Consistency
+
+- [x] CHK049 - Does data-model.md §4's `InMemoryNetwork` subsection (after the CHK022 NetworkHandle refactor) still reference any pre-refactor surface such as `Network::send` or `InMemoryNetwork::send`, or has every mention been swept to the post-refactor shape? [Consistency, data-model.md §4] — _fixed 2026-05-19: the Failure modes row in §4.2 attributed `send` to InMemoryNetwork directly; updated to `NetworkHandle::send` with explicit "whose dispatch is backed by this InMemoryNetwork's registry" framing. Other rows (Shape, Sharing, Spec note, code block) were already clean._
+- [x] CHK050 - Does library-api.md's quoted phrase *"FR-006 'logical peer identity supplied by the network at delivery time'"* exactly match wording present in FR-006, or is it a paraphrase presented as a verbatim quote? [Consistency, contracts/library-api.md vs Spec §FR-006] — _fixed 2026-05-19: the phrase was a paraphrase masquerading as a verbatim quote (FR-006 mentions "logical peer identity" and "supplies it at delivery time" as separate statements, not strung together). Both library-api.md NetworkHandle send contract and data-model.md §4 NetworkHandle send contract now reference FR-006's "logical-peer-identity requirement" with a parenthetical paraphrase (no quote marks), removing the misleading grep-target._
+
+## Newly Introduced Definitions
+
+- [x] CHK051 - Is the term "logical peer identity" (introduced in FR-006 during CHK022) defined once authoritatively, or is it used across spec / data-model.md / contracts without a single anchor a reader can cite? [Clarity, Spec §FR-006] — _verified 2026-05-19: term is anchored exactly once (spec.md FR-006 with inline definition); every downstream use (data-model.md §4 + §9, contracts/library-api.md, research.md §12) cites FR-006 explicitly. No near-synonyms or redefinitions appear. Single-term-with-one-anchor pattern doesn't justify a glossary at v1._
+- [x] CHK052 - Is the log-level ordering relationship (e.g. `info` ≤ `warn` ≤ `error`, with each lower level surfacing higher-severity events) documented anywhere so FR-012's "default level MUST surface FR-010 warn events" is verifiable from the artifacts alone? [Clarity, Spec §FR-012 vs contracts/cli.md] — _fixed 2026-05-19: contracts/cli.md's `--log-level` description now states the lower-bound-threshold rule explicitly and ties it inline to FR-012's constraint, so a reviewer can close the spec ↔ contract trace from artifacts alone._
+
+## New Operator-Choice Gaps
+
+- [x] CHK053 - What is the contract when an operator passes `--log-level error` (suppressing FR-010's warn-level drop events) — is this operator override permitted, or does FR-010 require visibility regardless of the flag? Currently the spec adds a default-level constraint (FR-012) without saying what an explicit override is allowed to do. [Gap, Spec §FR-010 vs §FR-012 vs contracts/cli.md] — _fixed 2026-05-19: FR-012 now states explicit operator overrides are honoured (a more restrictive level MAY suppress warn-drop events); the rationale that FR-010 governs **emission level** ("warn" because the event is neither informational nor erroneous) rather than human-delivery is made explicit. contracts/cli.md mirrors the wording. Consistent with the Trust assumption — no reinvention of log levels/filtering._
+
+## Cross-Reference Integrity
+
+- [x] CHK054 - Does FR-013's "see spec §Assumptions" reference cite a stable anchor — i.e., are the named assumptions (Trust, Liveness) called out by name, so wording shifts in §Assumptions don't silently break the cross-reference? [Traceability, Spec §FR-013 vs §Assumptions] — _verified 2026-05-19: dual-structure cite (named labels "Trust and Liveness assumptions" + paraphrased content "no peer failures, all peers up, no adversarial behaviour") is robust against reordering and partial renaming of the Assumptions section, and the paraphrase preserves meaning even if the cross-reference dangles._
+- [x] CHK055 - Are the public URLs in research.md §12 (libp2p, Lighthouse, Substrate, tokio docs) stable canonical references that won't rot, or should they be pinned to a specific commit / tag / version so the ADR-0007 source material survives upstream restructurings? [Stability, research.md §12] — _flagged 2026-05-19: added a "Note on URL stability" annotation explaining the floating-reference choice is deliberate (URLs survey a pattern, not a specific algorithm), and instructing ADR 0007's author to re-walk + pin at authoring time. Pre-emptive pinning rejected because pinned links can themselves go stale (renamed types in older commits) while the pattern claim remains valid._
+
+## Measurability of New Constraints
+
+- [x] CHK056 - Does SC-005's "randomly generated from a recorded seed" specify *where* the seed should be recorded (in-test constant, fixture file, CI log) so a failure can be reproduced by a future reader without context-switching? [Clarity, Spec §SC-005] — _fixed 2026-05-19: SC-005 now requires the seed to appear in the test source (as a `const` or in a doc-comment), so reproduction is possible without external context. Keeps Engineering Standards' generic phrasing intact at the constitution level._
+- [x] CHK057 - Does FR-013's "exactly-once delivery under Trust + Liveness" wording specify how a test could falsify the guarantee — i.e., what observable behaviour would demonstrate a violation (duplicate `ReceivedDelivery` entries with the same `(from, message)`? a missing `(from, message)` after N sends?) — so the property is objectively testable? [Measurability, Spec §FR-013] — _fixed 2026-05-19: FR-013 now names both violation modes (duplication: ≥2 `ReceivedDelivery` entries with matching `(from, message)` for a single send; loss: missing `(from, message)` after `await_delivery` resolved). Ties the falsifiability rule to existing artifacts (`received_messages()`, `await_delivery`, `ReceivedDelivery`) and acknowledges SC-005 as the at-scale check._
+
+## New Architectural Surface
+
+- [x] CHK058 - Is the `take_receiver()` crate-internal method described in any agent-discoverable place beyond data-model.md §4 (e.g., research.md §6 or §12, or library-api.md as the canonical `Node::new` consumption pattern)? Without redundancy, an implementer reading library-api alone could miss the take-once pattern. [Clarity, data-model.md §4] — _verified 2026-05-19: `take_receiver()` appears in data-model.md §4 (twice — impl block + prose), research.md §6 (Receive-side processing model), and research.md §12 (actor-handle decision). Deliberately absent from contracts/library-api.md because it's `pub(crate)` — keeping the public-API contract clean of crate-internal methods is the correct boundary._
+- [x] CHK059 - Does library-api.md call out the actor-handle pattern's structural consequence — `NetworkHandle` is NOT `Clone` — as an explicit design trade-off, or is the non-Clone constraint only implicit (visible from the type's lack of `#[derive(Clone)]`)? Single-consumer recv discipline is the central reason; saying so up front avoids future "why can't I clone this?" friction. [Completeness, contracts/library-api.md] — _verified 2026-05-19: library-api.md's NetworkHandle Design-pattern paragraph states "The handle itself is **not** `Clone` — single-consumer recv discipline" with a one-step pointer to research.md §12 for the deeper rationale. Answer to "why can't I clone this?" is in the first document a public-API consumer reads._
+
+## Forward Discoverability
+
+- [x] CHK060 - Does each new entry in research.md's expanded Open Follow-ups (post-CHK030) carry a v2+ trigger condition (so it can be re-opened deterministically when the conditions arrive), or is at least one entry open-ended in a way that risks permanent deferral? [Completeness, research.md §"Open follow-ups"] — _fixed 2026-05-19: four entries (Logging, Topic/sequence/chain on Message, Peer discovery + dissemination, Peer-set dynamics) lacked concrete triggers. Each now carries an explicit "Trigger: …" phrase naming a detectable event (deployment artifact, non-Ping variant proposed, parent-project ADR landed, programmatic add/remove use case). All nine entries now have triggers — none can be permanently deferred without notice._
+- [x] CHK061 - Does the spec acknowledge that `quickstart.md` (named as the canonical contributor entry point in SC-004 post-CHK025) must be kept in sync with future spec changes — i.e., is there a maintenance commitment between the two artifacts, or could spec amendments silently invalidate the quickstart over time? [Gap, Spec §SC-004 vs quickstart.md] — _fixed 2026-05-19: SC-004 now requires spec amendments affecting contributor-facing behaviour to land alongside corresponding `quickstart.md` updates in the same commit, with a SHOULD-reject directive for reviewers. Makes the maintenance link a process commitment with a concrete review gate._
+
+## Notes for this pass
+
+- Numbering: CHK049–CHK061 (13 new items), continuing globally from CHK048.
+- Marker conventions: same as previous passes.
+- Focus selection rationale: every item targets something the CHK017–CHK048 walkthrough either *introduced* (e.g., the logical-peer-identity term in CHK022, the exactly-once disclaimer in CHK024, the SC-004 quickstart anchor in CHK025) or *touched* (e.g., the InMemoryNetwork subsection that the CHK022 refactor flowed through). Items that were already verified or deferred in the prior passes are deliberately not re-asked.
+- Failure resolution: same buckets as previous passes — Bucket 1 (real gap → edit), Bucket 2 (verify → tick), Bucket 3 (defer-with-rationale → tick).
+- Out of scope: implementation correctness (the `/speckit-implement` step's domain).
+
