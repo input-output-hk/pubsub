@@ -26,7 +26,7 @@ Technical approach (per the spec's Clarifications session 2026-05-17):
 - `clap` (CLI flag parsing — research.md §4)
 - `thiserror` (error enums — research.md §5)
 
-Each of these is structural per Constitution Principle III and is covered by a planned ADR (`docs/decisions/0001-async-runtime-tokio.md`, `0002-toml-via-serde.md`, `0003-logging-via-tracing.md`, `0004-cli-via-clap.md`).
+Each of these is structural per Constitution Principle III and is covered by a planned ADR; see `research.md` §"ADR slot summary" for the authoritative list (currently 7 slots, 0001–0007).
 
 **Storage**: N/A — single-process, in-memory only. No persistence in this iteration.
 
@@ -43,7 +43,7 @@ Each of these is structural per Constitution Principle III and is covered by a p
 - No cryptographic operations (FR-007).
 - Peer set static for node lifetime (FR-008).
 - Async API for send/receive (FR-011); receive-side observability decoupled from send-completion (FR-013).
-- Logging crate must support structured fields (FR-006, FR-010 — names of unknown peers in drop logs) and is required at warn level for unknown-peer drops.
+- Logging crate must support structured fields with named values. FR-006 and FR-010 both consume the same structured-log facility — there is only one logging style in the system. FR-010 specifically requires warn-level entries for unknown-peer drops (mandatory); FR-006 permits additional structured output as supplementary observability (optional).
 
 **Scale/Scope**: 2 ≤ N ≤ 10 nodes per demonstration (US2). 100 sequential sends per SC-002 / SC-005. Single-process, single async runtime.
 
@@ -119,7 +119,7 @@ pubsub-node/
 │   ├── n_node_graph.rs        # US2 acceptance scenarios
 │   ├── config_loading.rs      # US3 acceptance scenarios (incl. malformed-config error path)
 │   └── common/
-│       └── mod.rs             # await_for_delivery helper + fixture builders
+│       └── mod.rs             # await_delivery helper + fixture builders
 ├── docs/
 │   └── decisions/             # ADRs (0001-async-runtime-tokio.md, etc.)
 └── specs/                     # this directory (existing)
