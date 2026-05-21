@@ -34,12 +34,13 @@ cargo test --test two_node_ping
 Expected output (lines abbreviated):
 
 ```text
-running 3 tests
+running 4 tests
 test ping_delivered_when_a_lists_b ... ok
 test ping_delivered_trust_on_arrival ... ok
 test empty_peer_set_cannot_originate ... ok
+test ping_n_intact_across_100_sends ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored
+test result: ok. 4 passed; 0 failed; 0 ignored
 ```
 
 Each test:
@@ -109,6 +110,7 @@ This builds the 4-node star (A connected to B, C, D) described in US2 AS-1 and v
 - Each addressed peer receives exactly its Ping.
 - No non-addressed peer receives anything.
 - A's outbound peer set is irrelevant to whether A *receives* inbound Pings from peers that list A (US2 AS-2).
+- And across 100 sequential round-robin sends, no peer's record contains a Ping outside its 1-in-3 slice (SC-002 conjunction, test `four_node_star_100_send_isolation`).
 
 ## 6 — Where things live (mental map)
 
@@ -146,7 +148,7 @@ Design context: `research.md` (the why behind each plan-level decision). Data sh
 | Test fails with `AwaitError::Timeout` after a `send().await` succeeded | Receive task not spawned during `Node::new` (regression on Research §6). Check `Node::new`'s body. |
 | `cargo test` deadlocks | The await-on-delivery helper's polling interval can be set too coarse; default 1 ms is the recommended floor. |
 | CLI exits 0 immediately | `tokio::signal::ctrl_c` hookup missing in `main.rs`. The binary should park on the signal future. |
-| `tracing::warn!` on unknown-peer drop not visible | Default `--log-level info` — re-run with `--log-level warn` (or with the `RUST_LOG` env var). |
+| `tracing::warn!` on unregistered-peer drop not visible (at default `--log-level info`) | One of: (a) test framework swallowed stderr — re-run with `cargo test -- --nocapture`; (b) binary's `main` didn't initialise `tracing-subscriber` (the `tracing_subscriber::fmt().with_env_filter(...).init();` call is missing or runs after the first emission); (c) operator explicitly set `--log-level error`, which suppresses warn — per FR-012 (post-CHK053) operator choice, not a bug. (Note: at default `info`, warn events ARE visible — `info` is a lower-bound threshold per cli.md.) |
 | `ConfigError::Parse` lacks line/column in output | `toml` crate too old; `Cargo.toml` requires `toml = "0.8"` or newer. |
 
 ## 8 — Budget check (SC-004)

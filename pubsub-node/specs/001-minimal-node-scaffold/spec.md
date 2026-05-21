@@ -34,7 +34,7 @@ A developer instantiates two node objects inside a single process, each configur
 
 1. **Given** two nodes A and B attached to a shared InMemory network with A's peer set containing B, **When** A sends Ping(42) addressed to B, **Then** B's record of received messages contains exactly one Ping(42) attributed to A.
 2. **Given** two nodes A and B attached to a shared InMemory network with A's peer set containing B but B's peer set NOT containing A, **When** A sends Ping(7) addressed to B, **Then** B still receives Ping(7) from A (trust-on-arrival: reception does not require reciprocal listing).
-3. **Given** a node A whose peer set is empty, **When** A attempts to send a Ping to any peer id (e.g., one not registered on the network), **Then** no message is delivered (the send is dropped per FR-010) and the node does not enter an undefined state.
+3. **Given** a node A whose peer set is empty, **When** A attempts to send a Ping to some peer id (e.g., one not registered on the network), **Then** no message is delivered (the send is dropped per FR-010) and the node does not enter an undefined state.
 
 ---
 

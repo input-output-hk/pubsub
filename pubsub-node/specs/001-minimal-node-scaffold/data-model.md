@@ -29,7 +29,7 @@ pub struct PeerId(String);
 
 Notes:
 - Uniqueness is enforced *per InMemoryNetwork instance* by the network's registration table (§4). The `PeerId` type itself is not globally unique.
-- `Display` is what gets emitted into structured `tracing` fields when FR-010 demands the unknown id be logged.
+- `Display` is what gets emitted into structured `tracing` fields when FR-010 demands the unregistered id be logged.
 
 ### `PeerDescriptor` (trait) and `BasicPeerDescriptor` (v1 impl)
 
@@ -194,11 +194,11 @@ The handle is structured as an actor-handle (Ryhl pattern; full rationale, alter
 | Module | `pubsub_node::network` |
 | Sender identity | Implicit — the handle was issued by `register(self_id)` and carries that `PeerId` for its lifetime. Callers do NOT pass `from`. |
 | Ownership | `NetworkHandle` is NOT `Clone` (the receiver-end of `mpsc::unbounded_channel` is single-consumer). The Node owns the handle and drives recv via a spawned task; `Node::send` forwards through it. |
-| FR trace | FR-005 (one-to-one `send`); FR-006 (the handle supplies the logical peer identity into the recorded delivery's `from` field at enqueue time); FR-010 (unknown-id drop + log); FR-011 (async API); FR-013 (`send().await` resolves on enqueue, not on observable delivery) |
+| FR trace | FR-005 (one-to-one `send`); FR-006 (the handle supplies the logical peer identity into the recorded delivery's `from` field at enqueue time); FR-010 (unregistered-id drop + log); FR-011 (async API); FR-013 (`send().await` resolves on enqueue, not on observable delivery) |
 
 `NetworkHandle::send` contract (FR-005, FR-006, FR-010, FR-013):
 - If `to` is currently registered: enqueue an `Envelope { from: self.id().clone(), message }` onto the recipient's mailbox, emit a `tracing::debug!` for `send.accepted`, and return `Ok(())`. The `from` field is supplied by the handle from its own `self_id`, satisfying FR-006's logical-peer-identity requirement (the recorded value is what `PeerDescriptor::id()` returns for the originating peer).
-- If `to` is not currently registered: drop the message, emit `tracing::warn!(target = "pubsub_node::network", peer_id = %to, "send dropped: unknown peer")`, and return `Ok(())` (the sender does **not** observe a synchronous error per FR-010).
+- If `to` is not currently registered: drop the message, emit `tracing::warn!(target = "pubsub_node::network", peer_id = %to, "send dropped: unregistered peer id")`, and return `Ok(())` (the sender does **not** observe a synchronous error per FR-010).
 - The future returned by `send` MUST resolve once the in-network operation above completes; it MUST NOT wait for the recipient to drain the mailbox (FR-013).
 
 ### `InMemoryNetwork` (v1 concrete impl)
@@ -220,7 +220,7 @@ impl Network for InMemoryNetwork { … }
 |---|---|
 | Shape | Hashmap of `PeerId -> UnboundedSender<Envelope>`, behind an async `RwLock` |
 | Sharing | `Arc<InMemoryNetwork>` is the idiomatic way for multiple nodes to share one network; the trait bounds enable this |
-| Failure modes | Only `NetworkError::DuplicateRegistration` from `register` (registration succeeds at most once per id within a single network instance). `NetworkHandle::send` — whose dispatch is backed by this InMemoryNetwork's registry — never returns `Err` for handles issued by this impl; unknown-peer addressing drops + logs per FR-010, never produces a synchronous error. |
+| Failure modes | Only `NetworkError::DuplicateRegistration` from `register` (registration succeeds at most once per id within a single network instance). `NetworkHandle::send` — whose dispatch is backed by this InMemoryNetwork's registry — never returns `Err` for handles issued by this impl; unregistered-id addressing drops + logs per FR-010, never produces a synchronous error. |
 | Spec note | The "hashmap of peers to message boxes" wording in the spec's input description is realised verbatim here |
 
 ---
@@ -398,13 +398,16 @@ lib.rs re-exports the public surface for consumers.
 `lib.rs` re-exports:
 
 ```rust
-pub use peer::{PeerId, PeerDescriptor, BasicPeerDescriptor};
+pub use peer::{PeerId, PeerIdError, PeerDescriptor, BasicPeerDescriptor};
 pub use message::Message;
-pub use network::{Network, NetworkHandle, InMemoryNetwork, NetworkError};
+pub use network::{Network, NetworkHandle, InMemoryNetwork};
 pub use received::ReceivedDelivery;
-pub use config::{PeerEntry, PeerListConfig, ConfigError, load_peer_list};
-pub use node::{Node, NodeError};
+pub use config::{PeerEntry, PeerListConfig, load_peer_list};
+pub use node::Node;
+pub use error::{ConfigError, NetworkError, NodeError};
 ```
+
+Error-location policy: `src/error.rs` centralises cross-module errors (`ConfigError`, `NetworkError`, `NodeError`); `src/peer.rs` co-locates `PeerIdError` with `PeerId` itself (parse error next to the parsed type, matching `std::num::ParseIntError` next to integer types). Callers always reach errors via the flat top-level namespace (`pubsub_node::ConfigError`, etc.) — same shape as every other re-exported type.
 
 ---
 

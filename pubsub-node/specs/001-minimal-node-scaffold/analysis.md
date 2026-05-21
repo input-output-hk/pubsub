@@ -116,3 +116,76 @@ All 9 findings resolved. Final state:
 **Constitution alignment**: still 0 violations after the walk. The added T014a is consistent with Principle II (tests reuse the substrate; no protocol-claim TDD trigger) and Principle III (no new structural decision — types were already defined in `data-model.md` §3).
 
 **Recommended next step**: commit the post-walk state (tasks.md + plan.md + spec.md + analysis.md, plus the pre-walk untracked `tasks.md`) and proceed to `/speckit-implement`.
+
+---
+
+## Session 2026-05-20 — Second pass
+
+**Trigger**: re-run of `/speckit-analyze` after the pass-1 walk closure (commit `844bf66`). Purpose: catch drift that the pass-1 walk's own edits may have introduced, and double-check artifacts that weren't touched (data-model.md, library-api.md, quickstart.md) for cascade inconsistencies.
+
+**Result summary**: 6 findings — 1 HIGH (a real compile-time risk introduced by pass-1's U1 edit cascading without updating data-model.md / library-api.md), 2 MEDIUM (quickstart.md drift from pass-1 edits — directly violating SC-004's sync rule), 3 LOW (polish). The drift pattern is consistent: pass-1 edits to spec.md / tasks.md were not propagated to downstream artifacts (data-model.md, library-api.md, quickstart.md).
+
+### Findings
+
+#### Inconsistencies (I)
+
+- [x] I4 [HIGH] — Both `data-model.md` §8 and `contracts/library-api.md` top-of-file re-export `ConfigError` from `config::`, `NetworkError` from `network::`, and `NodeError` from `node::` — but `tasks.md` T011 puts ALL errors in `src/error.rs` (per `plan.md` project structure tree), and T017 exposes them via `pub mod error;`. Implementation following §8 verbatim would not compile (errors don't live in those modules). Also: `PeerIdError` (made public in pass-1 U1) is missing from §8 and library-api.md. **Location**: data-model.md §8 + library-api.md re-exports vs tasks.md T011 + T017. **Recommendation**: update data-model.md §8 and the top of contracts/library-api.md to re-export errors from `error::` (or via `pub mod error;`, matching T017) and to include `PeerIdError`. Pick one form and apply identically to both files. _Fixed 2026-05-20: applied form (a) — explicit top-level re-exports — to all three files (data-model.md §8, contracts/library-api.md, tasks.md T017). Errors re-exported via `pub use error::{ConfigError, NetworkError, NodeError};` (centralised location); `PeerIdError` re-exported from `peer::` (parse error co-located with parsed type, std::num pattern). Added an Error-location policy paragraph to data-model.md §8 to make the split explicit so future passes don't re-litigate. Callers reach all errors via the flat top-level namespace (`pubsub_node::ConfigError`, etc.)._
+
+#### Quickstart drift (Q)
+
+- [x] Q1 [MEDIUM] — `quickstart.md` §2 expected output (lines 36–43) shows *"running 3 tests / 3 passed"*. T020 added `ping_n_intact_across_100_sends` to the same `tests/two_node_ping.rs` file, so `cargo test --test two_node_ping` (the command in §2) actually runs **4** tests. SC-004 (post-CHK061) explicitly requires quickstart.md updates alongside test-name changes; this drift was introduced when T020 was added without a corresponding quickstart edit. **Location**: quickstart.md §2 vs tasks.md T019 + T020. **Recommendation**: update §2's "running 3 tests" → "running 4 tests"; add the 4th line `test ping_n_intact_across_100_sends ... ok`; bump "3 passed" → "4 passed". _Fixed 2026-05-20: §2 now shows 4 tests with `ping_n_intact_across_100_sends` in the list and "4 passed" in the summary. Quickstart back in sync with `tests/two_node_ping.rs`._
+- [x] Q2 [MEDIUM] — `quickstart.md` §7 "Common pitfalls" row (line 149) reads *"`tracing::warn!` on unknown-peer drop not visible \| Default `--log-level info` — re-run with `--log-level warn`"*. After pass-1 A2 / CHK052, cli.md states that the filter is a **lower-bound threshold** — `info` surfaces `info + warn + error`, so warn events ARE visible at default. Re-running with `--log-level warn` would show *fewer* events (warn + error only), not more. The advice has the log-level semantics backwards. **Location**: quickstart.md §7 vs contracts/cli.md. **Recommendation**: replace with the actual likely causes: (a) test framework swallowed stderr (use `cargo test -- --nocapture`); (b) subscriber wasn't initialised on the binary's main; (c) operator explicitly set `--log-level error` (suppressing warn — per FR-012 post-CHK053 this is operator choice, not a bug). _Fixed 2026-05-20: §7 row replaced with the three actual causes, and the row's symptom label now uses "unregistered-peer drop" instead of "unknown-peer drop". Scope expanded to fix the "unknown" → "unregistered" terminology drift across four files: tasks.md T015 log message text, data-model.md §1 + §4 (×3 occurrences), contracts/library-api.md NetworkHandle send contract, and quickstart.md §7. Operators searching their logs for "unregistered" now match what the implementation actually emits. Spec-level FR-010 was already precise ("unregistered identifier"); the implementation/contract layers now match._
+- [x] Q3 [LOW] — `quickstart.md` §5 describes 3 cross-cutting properties of `tests/n_node_graph.rs` but doesn't mention the third test `four_node_star_100_send_isolation` (added in pass-1 G1 walk to cover SC-002's 100-send isolation). The §5 prose still reads as if only AS-1 + AS-2 are tested. **Location**: quickstart.md §5 vs tasks.md T021 (post G1 walk). **Recommendation**: add a fourth bullet to §5 describing the 100-send round-robin isolation property (SC-002 conjunction), or restructure §5 to enumerate the three test names. _Fixed 2026-05-20: §5 grew a fourth bullet naming the SC-002 conjunction property and the test (`four_node_star_100_send_isolation`) for grep-ability. Prose-driven style preserved._
+
+#### Ambiguities (A)
+
+- [x] A3 [LOW] — spec.md US1 AS-3 (post pass-1 A1 edit) reads *"When A attempts to send a Ping to **any peer id** (e.g., one not registered on the network)"*. "any peer id" is technically ambiguous between "every" (a quantifier sweep) and "any one" (an arbitrary single id). The example clarifies the intent but the literal phrase isn't quite right. **Location**: spec.md US1 AS-3 wording. **Recommendation**: tighten to *"any one peer id"* or *"some peer id"*. Pure wording polish; the spec is testable as-is. _Fixed 2026-05-20: "any peer id" → "some peer id" (unambiguous existential)._
+
+#### Underspecifications (U)
+
+- [x] U4 [LOW] — `tasks.md` Dependencies section after pass-1 I1 says *"T015 (network.rs) depends on T011–T014. T016 (node.rs) depends on T011–T015."* — doesn't explicitly clarify whether T015 depends on T014a (the new types-only `src/config.rs`). It doesn't (network.rs has no reason to reference PeerListConfig), but a reader scanning the task list in order (T011 → T012 → T013 → T014 → T014a → T015) might wonder. **Location**: tasks.md Dependencies section. **Recommendation**: add one parenthetical to the T015 dependency line: *"T015 (network.rs) depends on T011–T014 (not T014a — network.rs does not reference PeerListConfig)."* _Fixed 2026-05-20: Dependencies section now explicit at every Phase 2 line — T015 NOT on T014a (with reason), T016 on T014a (with reason), T017 includes T014a in the transitive set._
+
+### Coverage Summary (unchanged)
+
+Coverage remains **18/18 = 100%**. Pass-1's G1 resolution closed the SC-002 gap and no pass-2 findings introduce new gaps.
+
+### Metrics (this pass)
+
+- **Total Tasks**: 29 (T014a from pass-1 I1)
+- **Findings this pass**: 6 — 1 HIGH (I4), 2 MEDIUM (Q1, Q2), 3 LOW (Q3, A3, U4)
+- **Constitution conflicts**: 0
+- **Duplications**: 0
+- **Critical Issues**: 0
+
+### Notes for this pass
+
+- Drift pattern: most findings are **cascade drifts** — pass-1 edits to spec.md / tasks.md didn't reach data-model.md, library-api.md, or quickstart.md. Worth a habit going forward: when an FR or task changes, sweep the downstream artifacts that reference it.
+- I4 is the only HIGH because it would cause `cargo build` to fail if an implementer followed data-model.md §8 verbatim — that's a correctness-level risk distinct from documentation hygiene.
+- Q1 and Q2 are SC-004 violations (quickstart staleness) — recoverable, but worth fixing before `/speckit-implement` so the next contributor doesn't hit them.
+- Walking order: HIGH (I4) → MEDIUM (Q1, Q2) → LOW (Q3, A3, U4).
+
+### Walk closure — Second pass (2026-05-20)
+
+All 6 findings resolved. Final state:
+
+| Finding | Severity | Resolution |
+|---------|----------|------------|
+| I4 | HIGH | Aligned re-exports across data-model.md §8, contracts/library-api.md top, and tasks.md T017 to form (a) — explicit top-level re-exports. Errors live in `src/error.rs` (`pub use error::{ConfigError, NetworkError, NodeError};`); `PeerIdError` stays in `peer.rs` (std::num pattern, co-located with PeerId's FromStr). Added an Error-location policy paragraph to data-model.md §8. |
+| Q1 | MEDIUM | quickstart.md §2 expected output now shows 4 tests / "4 passed" with `ping_n_intact_across_100_sends` listed. |
+| Q2 | MEDIUM | quickstart.md §7 row replaced with the three actual causes (test-framework stderr swallowing, missing subscriber init, deliberate `--log-level error` operator choice). Scope expanded to sweep the broader "unknown" → "unregistered" terminology drift across **four files**: tasks.md T015 log message, data-model.md §1+§4 (×3), contracts/library-api.md NetworkHandle send contract, quickstart.md §7. Operators searching logs for "unregistered" now match what the implementation emits. |
+| Q3 | LOW | quickstart.md §5 grew a fourth bullet naming the SC-002 100-send round-robin isolation test (`four_node_star_100_send_isolation`). |
+| A3 | LOW | spec.md US1 AS-3 "any peer id" → "some peer id" (unambiguous existential). |
+| U4 | LOW | tasks.md Dependencies section made explicit at every Phase 2 dependency line (T015 NOT on T014a, T016 IS on T014a, T017 transitively includes it). |
+
+**Files touched during the walk**: `spec.md` (1 edit), `tasks.md` (4 edits — T015 log message, T017 re-exports, Dependencies section, plus prior I4 alignment), `data-model.md` (5 edits — §8 re-exports + policy paragraph, §1 wording, §4 ×3), `contracts/library-api.md` (2 edits — re-exports + send-contract terminology), `quickstart.md` (3 edits — §2 expected output, §5 fourth bullet, §7 row), `analysis.md` (6 resolution annotations + this closure).
+
+**Total edits across the second pass**: 21.
+
+**Net impact**:
+- Re-export shape is now consistent across all three artifacts that document it (data-model.md, library-api.md, tasks.md).
+- Terminology "unregistered" is now used uniformly from spec → tasks → log emission. Search-string-stable for operators.
+- quickstart.md no longer has any pass-1 stale wording.
+- No task count change. No coverage change (still 18/18 = 100%).
+- No constitution violations.
+
+**Recommended next step**: commit the post-walk state (six files) and proceed to `/speckit-implement`. The drift pattern observed in this pass (pass-1 edits to spec/tasks didn't reach data-model/library-api/quickstart) suggests that whenever a future agent edits one of the "load-bearing" artifacts (spec.md, tasks.md), the downstream artifacts that quote or restate the same wording should be swept in the same commit — SC-004 already mandates this for `quickstart.md`; the implicit rule should extend to data-model.md and contracts/library-api.md as well.

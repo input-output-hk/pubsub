@@ -11,12 +11,13 @@ This contract is the stable surface that integration tests and the binary depend
 ## Re-exports from `pubsub_node`
 
 ```rust
-pub use peer::{PeerId, PeerDescriptor, BasicPeerDescriptor};
+pub use peer::{PeerId, PeerIdError, PeerDescriptor, BasicPeerDescriptor};
 pub use message::Message;
-pub use network::{Network, NetworkHandle, InMemoryNetwork, NetworkError};
+pub use network::{Network, NetworkHandle, InMemoryNetwork};
 pub use received::ReceivedDelivery;
-pub use config::{PeerEntry, PeerListConfig, ConfigError, load_peer_list};
-pub use node::{Node, NodeError};
+pub use config::{PeerEntry, PeerListConfig, load_peer_list};
+pub use node::Node;
+pub use error::{ConfigError, NetworkError, NodeError};
 ```
 
 ---
@@ -88,7 +89,7 @@ Design pattern: `NetworkHandle` is an actor-handle in the style of [Alice Ryhl's
 
 `send` contract (the FR-013 contract):
 - Resolves once the network has accepted the message for delivery (enqueued onto the recipient's mailbox in the InMemory impl).
-- Returns `Ok(())` even when `to` is unregistered — the message is dropped and a `WARN` `tracing` event is emitted with the unknown id as a structured field (FR-010).
+- Returns `Ok(())` even when `to` is unregistered — the message is dropped and a `WARN` `tracing` event is emitted with the unregistered id as a structured field (FR-010).
 - Does NOT block on the recipient consuming the message. Tests asserting observability MUST use `await_delivery` (see test-harness contract below).
 - Sender attribution: the recipient's record will show `from = self.id()` — the handle supplies this value automatically. This is FR-006's logical-peer-identity requirement (the recorded `from` is the value `PeerDescriptor::id()` returns for the originating peer) realised at delivery time in v1. Callers neither pass `from` nor can override it. This matches future networked transports where the per-connection handle holds the sender identity, not the caller.
 
