@@ -1,3 +1,8 @@
+// Shared test-harness module. Each integration test binary in `tests/` is
+// compiled separately and may use only a subset of these helpers, so silence
+// per-binary `dead_code` warnings here at the module level.
+#![allow(dead_code)]
+
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,10 +12,6 @@ use pubsub_node::{
 };
 
 pub struct TwoNodeFixture {
-    #[allow(
-        dead_code,
-        reason = "shared network handle is part of the harness contract"
-    )]
     pub network: Arc<InMemoryNetwork>,
     pub a: Node,
     pub b: Node,
