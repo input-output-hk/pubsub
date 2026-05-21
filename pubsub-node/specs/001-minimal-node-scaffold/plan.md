@@ -17,7 +17,7 @@ Technical approach (per the spec's Clarifications session 2026-05-17):
 
 ## Technical Context
 
-**Language/Version**: Rust 1.75+ stable (edition 2021). Native `async fn` in traits (stabilised in 1.75) lets us declare the `Network` trait directly without `async-trait` macro overhead, while staying compatible with whatever minor versions the team uses.
+**Language/Version**: Rust 1.75+ stable (edition 2021). Native `async fn` in traits (stabilised in 1.75) lets us declare the `Network` trait directly without `async-trait` macro overhead. To keep that natural shape we make `Node::new` generic over `N: Network` rather than taking `Arc<dyn Network>` — `async fn` in trait is not `dyn`-compatible on stable, and a v1 PoC with a single implementor pays no price for monomorphisation. The trait's lint `async_fn_in_trait` (about uninferrable `Send` bounds) is allowed for now because `InMemoryNetwork`'s body is `Send` by inference; this is flagged for revisit when a second `Network` impl arrives (see `research.md` "Open follow-ups").
 
 **Primary Dependencies**:
 - `tokio` (runtime + sync primitives — chosen in research.md §1)

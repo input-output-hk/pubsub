@@ -140,6 +140,7 @@ Notes on the schema design:
 
 ```rust
 // src/network.rs
+#[allow(async_fn_in_trait)]
 pub trait Network: Send + Sync + 'static {
     async fn register(
         &self,
@@ -154,6 +155,8 @@ pub trait Network: Send + Sync + 'static {
 | FR trace | FR-002 (network abstraction; nodes register and exchange messages via registered id) |
 
 The `Network` trait exposes only `register` — sends are issued through the returned `NetworkHandle`, whose sender identity is implicit. This matches the shape future networked transports will have (per-connection handle; sender id derived from the registered/authenticated peer, not asserted by every caller) and removes the v1 footgun of asking the caller to pass its own id on every send.
+
+The `#[allow(async_fn_in_trait)]` attribute opts out of the compiler lint that warns about uninferrable `Send` bounds on the returned future. `async fn` in trait does not bound the future's auto-traits, so a non-`Send` implementor would only error at a downstream `tokio::spawn` rather than at the impl site. For v1 there is exactly one implementor (`InMemoryNetwork`) whose body is `Send` by inference; consumers (`Node::new`, `tests/common`) drive the trait without spawning the future on a different thread. The revisit trigger — a second implementor or a body holding a non-`Send` local across `.await` — is recorded under `research.md` "Open follow-ups".
 
 ### `NetworkHandle`
 
@@ -239,10 +242,10 @@ pub struct Node {
 }
 
 impl Node {
-    pub async fn new(
+    pub async fn new<N: Network>(
         self_id: PeerId,
         peer_list: PeerListConfig,
-        network: Arc<dyn Network>,
+        network: Arc<N>,
     ) -> Result<Self, NodeError> { … }
 
     pub async fn send(&self, to: &PeerId, message: Message)

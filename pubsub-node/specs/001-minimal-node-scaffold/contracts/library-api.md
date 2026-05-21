@@ -61,10 +61,13 @@ Adding a new variant is a non-breaking change for consumers that `match` non-exh
 ## `Network` trait
 
 ```rust
+#[allow(async_fn_in_trait)]
 pub trait Network: Send + Sync + 'static {
     async fn register(&self, id: PeerId) -> Result<NetworkHandle, NetworkError>;
 }
 ```
+
+The trait uses native `async fn` syntax; `#[allow(async_fn_in_trait)]` is set for v1 because the lone implementor (`InMemoryNetwork`) returns a `Send`-by-inference future and consumers never spawn it on a different thread (see `research.md` "Open follow-ups" for the revisit trigger).
 
 `register` contract:
 - On success: returns a `NetworkHandle` carrying `id` plus the receiver-side of an unbounded `mpsc` for incoming envelopes. The handle is how the registered peer both *sends* (via `handle.send(to, msg)`) and *receives* (the Node's recv task drains the handle's receiver — see `NetworkHandle` below).
@@ -111,10 +114,10 @@ Sharing pattern: `let net = Arc::new(InMemoryNetwork::new()); Node::new(id, cfg,
 pub struct Node { /* private */ }
 
 impl Node {
-    pub async fn new(
+    pub async fn new<N: Network>(
         self_id: PeerId,
         peer_list: PeerListConfig,
-        network: Arc<dyn Network>,
+        network: Arc<N>,
     ) -> Result<Node, NodeError>;
 
     pub async fn send(&self, to: &PeerId, message: Message) -> Result<(), NodeError>;
