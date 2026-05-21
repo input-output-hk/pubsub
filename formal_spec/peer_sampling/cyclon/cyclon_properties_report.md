@@ -16,9 +16,9 @@ Per cycle, an initiating node:
 3. $Q$ replies with $\ell$ random entries from its own view.
 4. Both sides filter received entries against their full current view, fill any empty slots, then displace sent entries with the rest (the *keep-until-displaced* reading of the original paper).
 
-State at cycle $t$: $\mathrm{view}_v(t) \subseteq V \setminus \{v\}$ with
-$|\mathrm{view}_v(t)| = c$. Overlay graph $G(t)$ is the $c$-out digraph
-$(V, \{(v, u) : u \in \mathrm{view}_v(t)\}) \in \mathcal{G}_{N,c}$.
+State at cycle $t$: $view_v(t) \subseteq V \setminus \{v\}$ with
+$view_v(t) = c$. Overlay graph $G(t)$ is the $c$-out digraph
+$(V, \{(v, u) : u \in view_v(t)\}) \in G_{N,c}$.
 The dynamics induce a Markov chain $\{G(t)\}$ with stationary distribution
 $\pi_{\mathrm{graph}}$.
 
@@ -28,7 +28,7 @@ $\pi_{\mathrm{graph}}$.
 $\Pr_{\pi_{\mathrm{graph}}}[u \in \mathrm{view}_v] = c/(N{-}1)$ for every pair $u \neq v$.
 
 - **(D1.2) Per-view uniformity.**
-$\mathrm{view}_v \sim \mathrm{Uniform}\binom{V \setminus \{v\}}{c}$ under
+  $view_v \sim \mathrm{Uniform}\binom{V \setminus \{v\}}{c}$ under
 $\pi_{\mathrm{graph}}$ for every $v$.
 
 - **(D1.3) Overlay-graph uniformity.**
