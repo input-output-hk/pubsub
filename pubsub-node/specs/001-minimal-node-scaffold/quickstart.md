@@ -79,6 +79,8 @@ In another:
 cargo run -- --self-id node-b --config /tmp/pubsub-quickstart/node-b.peers.toml
 ```
 
+The CLI exposes three flags per FR-012: `--self-id <ID>` (required — the node's own identifier), `--config <PATH>` (required — path to the peer-list TOML), and `--log-level <LEVEL>` (optional, defaults to `info`). The demo above uses the two required flags; `--log-level` covers `trace` / `debug` / `info` / `warn` / `error` and is documented in `contracts/cli.md`.
+
 Each binary registers on a *separate* in-memory network (Single-process scope assumption — the two CLI processes do NOT exchange messages with each other; the InMemory network is process-local). The CLI exists at this stage to exercise the configuration-loading path (FR-001, US3 AS-1) and to validate the malformed-config error path (US3 AS-2) — *not* to provide a cross-process pubsub layer (that arrives with the first networked transport).
 
 To verify error reporting (US3 AS-2):
@@ -148,7 +150,7 @@ Design context: `research.md` (the why behind each plan-level decision). Data sh
 | Test fails with `AwaitError::Timeout` after a `send().await` succeeded | Receive task not spawned during `Node::new` (regression on Research §6). Check `Node::new`'s body. |
 | `cargo test` deadlocks | The await-on-delivery helper's polling interval can be set too coarse; default 1 ms is the recommended floor. |
 | CLI exits 0 immediately | `tokio::signal::ctrl_c` hookup missing in `main.rs`. The binary should park on the signal future. |
-| `tracing::warn!` on unregistered-peer drop not visible (at default `--log-level info`) | One of: (a) test framework swallowed stderr — re-run with `cargo test -- --nocapture`; (b) binary's `main` didn't initialise `tracing-subscriber` (the `tracing_subscriber::fmt().with_env_filter(...).init();` call is missing or runs after the first emission); (c) operator explicitly set `--log-level error`, which suppresses warn — per FR-012 (post-CHK053) operator choice, not a bug. (Note: at default `info`, warn events ARE visible — `info` is a lower-bound threshold per cli.md.) |
+| `tracing::warn!` on unregistered-peer drop not visible (at default `--log-level info`) | One of: (a) test framework swallowed stderr — re-run with `cargo test -- --nocapture`; (b) binary's `main` didn't initialise `tracing-subscriber` (the `tracing_subscriber::fmt().with_env_filter(...).init();` call is missing or runs after the first emission); (c) operator explicitly set `--log-level error`, which suppresses warn — per FR-012 this is operator choice, not a bug. (Note: at default `info`, warn events ARE visible — `info` is a lower-bound threshold per cli.md.) |
 | `ConfigError::Parse` lacks line/column in output | `toml` crate too old; `Cargo.toml` requires `toml = "0.8"` or newer. |
 
 ## 8 — Budget check (SC-004)

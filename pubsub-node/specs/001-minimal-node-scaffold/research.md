@@ -45,9 +45,9 @@ Each entry: **Decision** / **Rationale** / **Alternatives considered**.
 **Decision**: `tracing` (emit) + `tracing-subscriber` (collection). Default subscriber writes JSON to stderr; level filter via `RUST_LOG`. Planned ADR: `docs/decisions/0003-logging-via-tracing.md`.
 
 **Rationale**:
-- FR-010 mandates a *warn-level structured log entry that names the unknown identifier* — structured fields are required, which rules out `log` / `env_logger`.
+- FR-010 mandates a *warn-level structured log entry that names the unregistered identifier* — structured fields are required, which rules out `log` / `env_logger`.
 - FR-006 permits (but does not mandate) structured logs alongside the queryable record; `tracing` makes this trivial.
-- Engineering Standards "Observable state transitions" is satisfied by emitting events for register / send-accepted / recv-applied / unknown-peer-drop.
+- Engineering Standards "Observable state transitions" is satisfied by emitting events for register / send-accepted / recv-applied / unregistered-peer-drop.
 
 **Alternatives**:
 - `log` + `env_logger`: no structured fields without an adapter; rejected.

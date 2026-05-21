@@ -189,3 +189,83 @@ All 6 findings resolved. Final state:
 - No constitution violations.
 
 **Recommended next step**: commit the post-walk state (six files) and proceed to `/speckit-implement`. The drift pattern observed in this pass (pass-1 edits to spec/tasks didn't reach data-model/library-api/quickstart) suggests that whenever a future agent edits one of the "load-bearing" artifacts (spec.md, tasks.md), the downstream artifacts that quote or restate the same wording should be swept in the same commit — SC-004 already mandates this for `quickstart.md`; the implicit rule should extend to data-model.md and contracts/library-api.md as well.
+
+---
+
+## Session 2026-05-20 — Third pass
+
+**Trigger**: re-run of `/speckit-analyze` after the pass-2 walk closure (commit `e009a01`). Purpose: catch any drift the pass-2 walk's own edits may have introduced, plus surface anything the previous two passes missed.
+
+**Result summary**: 5 findings — 0 HIGH, 2 MEDIUM (T1: incomplete terminology sweep including an FR-010 internal contradiction; E1: quickstart §3 doesn't enumerate the three FR-012 flags), 3 LOW (D1, F1, G1 — polish on pass-2 edits). Severity is trending down across the three passes; the remaining items are cascade drifts and polish, not new design issues.
+
+### Findings
+
+#### Inconsistencies (T, D, F)
+
+- [x] T1 [MEDIUM] — Pass-2's "unknown" → "unregistered" sweep was incomplete. **8 residual occurrences** across plan.md, spec.md, research.md, tasks.md still use "unknown". Most consequential: **FR-010 itself contains both terms in one sentence** (*"Messages addressed to an **unregistered** identifier ... a warn-level structured log entry that names the **unknown** identifier"*) — an internal contradiction in a load-bearing FR. Other instances: spec.md L19 (Clarifications-session record), spec.md L74 (Edge Cases bullet), plan.md L46 + L65, research.md L48 + L50, tasks.md L90 (T019). **Note**: `#[serde(deny_unknown_fields)]` and "Unknown fields will be rejected" in peer-list.toml.md L102 are correct as-is — they're about TOML field validation, a distinct concept. **Location**: spec.md, plan.md, research.md, tasks.md (8 sites). **Recommendation**: sweep across the 8 sites; leave the serde-related "Unknown" alone. _Fixed 2026-05-20: all 8 sites swept to "unregistered". FR-010's internal contradiction resolved. Verified by grep: only the two intentional serde-related "Unknown" occurrences in tasks.md (T022) and peer-list.toml.md remain._
+
+- [x] D1 [LOW] — data-model.md §8's module dependency graph reads `peer.rs ──► PeerId, PeerDescriptor, BasicPeerDescriptor` but T012 + the new pass-2 Error-location policy paragraph put `PeerIdError` in `peer.rs` too. Illustrative diagram, not load-bearing, but inconsistent with the surrounding text. **Location**: data-model.md §8 graph vs §8 policy paragraph vs tasks.md T012. **Recommendation**: update the graph line to `peer.rs ──► PeerId, PeerIdError, PeerDescriptor, BasicPeerDescriptor`. _Fixed 2026-05-20: graph now lists `PeerIdError` alongside `PeerId`, `PeerDescriptor`, `BasicPeerDescriptor` under `peer.rs`. Consistent with the policy paragraph and T012._
+
+- [x] F1 [LOW] — quickstart.md §7 cites "FR-012 (post-CHK053)". CHK items live in `checklists/requirements.md` and are internal to the readiness walks — not in SC-004's allowed contributor-facing artifact set. A contributor wondering "what's CHK053?" must leave the quickstart, the kind of discoverability burden SC-004 was added to prevent. **Location**: quickstart.md §7 pitfall row. **Recommendation**: drop the `(post-CHK053)` parenthetical, or replace with a date if version-pinning is needed. FR-012 alone is enough citation for a contributor. _Fixed 2026-05-20: dropped the `(post-CHK053)` parenthetical; the row now cites FR-012 alone. Contributor-facing surface no longer leaks internal-walk artifact IDs._
+
+#### Coverage gaps (E)
+
+- [x] E1 [MEDIUM] — FR-012 (post-CHK040) mandates **three** CLI flags (`--self-id`, `--config`, `--log-level`). quickstart.md §3 demo only invokes `--self-id` + `--config`. SC-004 (post-CHK061) explicitly requires quickstart updates alongside FRs governing the CLI surface — §3 hasn't been updated since FR-012 grew to three flags in CHK040. **Location**: quickstart.md §3 vs spec.md FR-012. **Recommendation**: either (a) update §3's demo command to show `--log-level info` explicitly so a contributor sees all three flags in use; or (b) add a one-paragraph note after the demo enumerating the three flags and stating `--log-level` defaults to `info`. (b) keeps the demo minimal while documenting the surface. _Fixed 2026-05-20: applied option (b) — added a one-paragraph note after the demo commands enumerating all three flags, marking required vs optional, naming the default (`info`), and pointing at contracts/cli.md for level details. Demo command unchanged (minimal-invocation purpose preserved)._
+
+#### Underspecifications (G)
+
+- [x] G1 [LOW] — tasks.md T011 puts cross-module errors in `src/error.rs`; T012 puts PeerIdError in `src/peer.rs`. An implementer reading tasks.md alone sees the split but not the rationale, and might wonder whether to "consolidate" PeerIdError into error.rs for consistency. The pass-2 Error-location policy paragraph in data-model.md §8 documents the split (centralised cross-module errors + peer-local parse error following `std::num::ParseIntError`) but tasks.md doesn't cite it. **Location**: tasks.md T012 vs data-model.md §8 policy paragraph. **Recommendation**: add a one-sentence note to T012 referencing the policy paragraph so an implementer doesn't deduce the wrong "consolidate" answer. _Fixed 2026-05-20: T012 now carries an "Error-location note" explaining `PeerIdError` lives in `src/peer.rs` by deliberate choice (std::num::ParseIntError pattern), referencing data-model.md §8 for the broader policy, and explicitly telling an implementer NOT to consolidate it._
+
+### Coverage Summary (unchanged)
+
+Coverage remains **18/18 = 100%**. No new gaps.
+
+### Metrics (this pass)
+
+- **Total Tasks**: 29
+- **Findings this pass**: 5 — 0 HIGH, 2 MEDIUM (T1, E1), 3 LOW (D1, F1, G1)
+- **Constitution conflicts**: 0
+- **Duplications**: 0
+- **Critical Issues**: 0
+
+### Notes for this pass
+
+- All findings are cascade drifts from prior passes' edits or pre-existing items the previous passes missed; no new design issues surfaced.
+- Severity trend across the three passes: 9 (2H/2M/5L) → 6 (1H/2M/3L) → 5 (0H/2M/3L). Approaching convergence.
+- Walking order: MEDIUM (T1, E1) → LOW (D1, F1, G1).
+
+### Walk closure — Third pass (2026-05-20)
+
+All 5 findings resolved. Final state:
+
+| Finding | Severity | Resolution |
+|---------|----------|------------|
+| T1 | MEDIUM | All 8 residual "unknown" → "unregistered" replacements applied across spec.md (×3 incl. FR-010's internal contradiction), plan.md (×2), research.md (×2), tasks.md (×1). FR-010 now uses "unregistered" uniformly. Two `deny_unknown_fields` / TOML-related occurrences left in place (correctly). Verified by grep: no peer-related "unknown" remains in spec/plan/research/tasks/contracts. |
+| E1 | MEDIUM | quickstart.md §3 now carries a one-paragraph note enumerating all three FR-012 flags (`--self-id`, `--config`, `--log-level`), naming defaults and pointing at `contracts/cli.md`. Demo command unchanged (minimal-invocation purpose preserved). SC-004 sync rule honoured. |
+| D1 | LOW | data-model.md §8 dependency graph now lists `PeerIdError` under `peer.rs` alongside the other three peer types. Graph consistent with policy paragraph + T012. |
+| F1 | LOW | quickstart.md §7 dropped the `(post-CHK053)` parenthetical. Contributor-facing surface no longer leaks internal-walk artifact IDs. |
+| G1 | LOW | tasks.md T012 gained an "Error-location note" citing the data-model.md §8 policy and explicitly telling implementers NOT to consolidate `PeerIdError` into `error.rs`. Implementer rationale visible at the point of decision. |
+
+**Files touched during the walk**: spec.md (3 edits), plan.md (2), research.md (2), tasks.md (2 — T019 wording, T012 note), data-model.md (1 — graph), quickstart.md (3 — §3 flag note, §5 unchanged this pass, §7 CHK drop), analysis.md (5 resolution annotations + this closure).
+
+**Total edits across the third pass**: 18.
+
+**Net impact**:
+- FR-010 is now internally consistent (was using both "unregistered" and "unknown" before).
+- quickstart.md §3 documents the full CLI surface (was missing `--log-level`).
+- "unregistered" is now the uniform spec-level term for the FR-010 drop path; "unknown" is reserved for the serde/TOML-attribute meaning.
+- Error-location policy is discoverable from tasks.md (was only in data-model.md §8 before).
+- No task count change. No coverage change (still 18/18 = 100%). No constitution violations.
+
+### Cumulative state after three `/speckit-analyze` passes
+
+| Pass | Findings | HIGH | MEDIUM | LOW | Outcome |
+|------|----------|------|--------|-----|---------|
+| 1 | 9 | 2 | 2 | 5 | Resolved (commit `844bf66`) |
+| 2 | 6 | 1 | 2 | 3 | Resolved (commit `e009a01`) |
+| 3 | 5 | 0 | 2 | 3 | Resolved (this commit) |
+| **Total** | **20** | **3** | **6** | **11** | All resolved |
+
+The artifact set has converged. Severity has dropped each pass (HIGH count: 2 → 1 → 0). Pass-3 surfaced only cascade drifts from prior walks plus pre-existing items the earlier passes missed — no new design issues. After three passes, the marginal value of a fourth round is negligible; the next round would mostly find pass-3 cascade drifts.
+
+**Recommended next step**: commit the post-walk state (6 files modified — spec.md, plan.md, research.md, tasks.md, data-model.md, quickstart.md, analysis.md) and proceed to `/speckit-implement`.

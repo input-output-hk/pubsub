@@ -43,7 +43,7 @@ Each of these is structural per Constitution Principle III and is covered by a p
 - No cryptographic operations (FR-007).
 - Peer set static for node lifetime (FR-008).
 - Async API for send/receive (FR-011); receive-side observability decoupled from send-completion (FR-013).
-- Logging crate must support structured fields with named values. FR-006 and FR-010 both consume the same structured-log facility — there is only one logging style in the system. FR-010 specifically requires warn-level entries for unknown-peer drops (mandatory); FR-006 permits additional structured output as supplementary observability (optional).
+- Logging crate must support structured fields with named values. FR-006 and FR-010 both consume the same structured-log facility — there is only one logging style in the system. FR-010 specifically requires warn-level entries for unregistered-peer drops (mandatory); FR-006 permits additional structured output as supplementary observability (optional).
 
 **Scale/Scope**: 2 ≤ N ≤ 10 nodes per demonstration (US2). 100 sequential sends per SC-002 / SC-005. Single-process, single async runtime.
 
@@ -62,7 +62,7 @@ Evaluated against `.specify/memory/constitution.md` v1.0.0.
 - **V. Specifications Are Read-Only** — ✅ **pass**. This plan does not propose edits to `../formal_spec/`, `../docs/`, or `../docs/extensions/`. The only spec touched is the feature spec under `specs/001-minimal-node-scaffold/spec.md`, which is agent-editable per the file's own informational note.
 
 Engineering Standards specifically engaged:
-- *Observable state transitions* — Node/Network emit `tracing` events for: peer registration, send-accepted, recipient-record-updated, unknown-peer-drop (FR-010 warn-level requirement).
+- *Observable state transitions* — Node/Network emit `tracing` events for: peer registration, send-accepted, recipient-record-updated, unregistered-peer-drop (FR-010 warn-level requirement).
 - *Justified dependencies* — covered by ADRs above. The Rust toolchain (`std`, `core`) and `cargo test` are exempt; everything else is in an ADR.
 - *Reproducible tests* — no wall-clock dependencies. The await-on-delivery helper uses `tokio::time::timeout` with an injectable budget so tests do not race against scheduler jitter.
 

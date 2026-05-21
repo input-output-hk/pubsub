@@ -378,7 +378,7 @@ pub enum NodeError {
 ## 8. Type / module dependency graph
 
 ```text
-peer.rs ─────────► PeerId, PeerDescriptor, BasicPeerDescriptor
+peer.rs ─────────► PeerId, PeerIdError, PeerDescriptor, BasicPeerDescriptor
    ▲
    │ used by
    ├──── message.rs ──► Message
