@@ -4,7 +4,7 @@
 
 The workstream has been evaluating the inherited three-layer pubsub design: SecureCyclon for peer sampling, Vicinity for topic navigation, a hybrid dissemination layer on top. Formal analysis has falsified the uniformity assumption that the upper layers depend on, and surfaced further bias and attack surface in the upper layers themselves. As a result, the three-layer stack is no longer being pursued as the prototype direction.
 
-The team has aligned on a **list-based architecture** as the first-step replacement. Peer sampling and navigation collapse into an on-chain subscription list (one entry per subscribed node, each carrying the node's topic-interest set), the dissemination layer is kept unchanged, and the module interfaces are held fixed so the implementation can later be swapped for a *multi-peer-sampling protocol* delivered by research (§6).
+The team has aligned on a **list-based architecture** as the first-step replacement. Peer sampling and navigation collapse into an on-chain subscription list (one entry per subscribed node, each carrying the node's topic-interest set), the dissemination layer is kept unchanged, and the module interfaces are held fixed so the implementation can later be swapped for a *multi-peer-sampling protocol* delivered by research.
 
 ---
 
@@ -24,7 +24,7 @@ Every higher-layer security argument in this design substitutes *"sample uniform
 
 ### 3.1 The base layer does not produce uniform overlay graphs
 
-The formal-methods workstream framed Cyclon's claimed uniformity as three properties of increasing strength and tested each empirically. The properties, their statements, and the mechanism by which the bias arises are documented in [cyclon_properties_report.md](../formal_spec/peer_sampling/cyclon/cyclon_properties_report.md). See in particular [§3 (D1.3 falsification)](../formal_spec/peer_sampling/cyclon/cyclon_properties_report.md#3-d13--overlay-graph-uniformity-falsified-under-deterministic-initiation-restored-under-poisson-initiation). Summary:
+The formal-methods workstream framed Cyclon's claimed uniformity as three properties of increasing strength and tested each empirically. The properties, their statements, and the mechanism by which the bias arises are documented in [cyclon_properties_report.md](../formal_spec/peer_sampling/cyclon/cyclon_properties_report.md). See in particular [D1.3 falsification](../formal_spec/peer_sampling/cyclon/cyclon_properties_report.md#3-d13--overlay-graph-uniformity-falsified-under-deterministic-initiation-restored-under-poisson-initiation). Summary:
 
 | Property | Statement | Status |
 |---|---|---|
@@ -69,9 +69,9 @@ The upper layers cite the uniform-sampling assumption that the base layer was su
 
 Three directions were on the table.
 
-**A. Repair and extend the three-layer stack.** Resolve the Cyclon hub-defence ↔ uniformity trade-off, close Vicinity's grinding surface, detect or bound the silent vectors from §3.3, and re-derive eclipse and partition bounds without the uniform-view assumption. None of these has a finished specification.
+**A. Repair and extend the three-layer stack.** Resolve the Cyclon hub-defence ↔ uniformity trade-off, close Vicinity's grinding surface, detect or bound descriptor-drop and biased-view attacks, and re-derive eclipse and partition bounds without the uniform-view assumption. None of these has a finished specification.
 
-**B. Multiple parallel SecureCyclon instances, one per topic.** Recovers per-topic uniformity if SecureCyclon's underlying issues are repaired, but scales poorly with the number of topics a node subscribes to and inherits the silent vectors from §3.3 unchanged.
+**B. Multiple parallel SecureCyclon instances, one per topic.** Recovers per-topic uniformity if SecureCyclon's underlying issues are repaired, but scales poorly with the number of topics a node subscribes to and inherits descriptor-drop and biased-view attacks unchanged.
 
 **C. Collapse peer sampling and navigation behind an on-chain subscription list.** Each entry carries the node's topic-interest set; per-topic queries are filters over the list. Sampling becomes a local computation. The dissemination layer is unchanged.
 
@@ -84,10 +84,10 @@ The team has aligned on **option C, the list-based architecture**.
 Rationale, in order of weight:
 
 1. **Removes the falsified load-bearing assumption.** Peer sampling becomes a local computation over an on-chain list; the upper layers no longer cite a uniformity property the base layer does not deliver.
-2. **Closes the sampling-layer form of two silent attacks.** Descriptor drop and biased view response (§3.3) disappear when sampling is a local computation over the list. A weaker form persists at the contact-information layer, but target existence is guaranteed by the list, so endpoint resolution can be retried against any other reachable peer.
+2. **Closes the sampling-layer form of two silent attacks.** Descriptor drop and biased view response disappear when sampling is a local computation over the list. A weaker form persists at the contact-information layer, but target existence is guaranteed by the list, so endpoint resolution can be retried against any other reachable peer.
 3. **Shippable on the existing timeline.** The on-chain topic registry already exists in Quint with an Aiken implementation in flight, and the subscription list reuses the same contract patterns.
 4. **Pragmatic Byzantine posture.** A small bootstrap set is treated as trusted infrastructure. The assumption is explicit, narrow, and revisable.
-5. **Not a one-way door.** The module interfaces are held fixed, so a future swap to the multi-peer-sampling protocol (§6) is a module-level change.
+5. **Not a one-way door.** The module interfaces are held fixed, so a future swap to the multi-peer-sampling protocol is a module-level change.
 
 Acknowledged costs: on-chain cost at the expected subscriber volumes, list-view manipulation by a single chain follower, the local-cheating surface that full visibility creates, and the privacy implications of on-chain subscription.
 
