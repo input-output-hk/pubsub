@@ -7,4 +7,5 @@ message authentication when publishing a message in some topic. We separately
 analyze them next.
 
 [Digital Signatures for Gossiping](gossiping.md)
+
 [Digital Signatures for Publishing](publishing.md)

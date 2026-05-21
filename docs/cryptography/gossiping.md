@@ -103,8 +103,7 @@ the target use case has some pre-existing trust structure; whereas the
 horizontal approach is typically easier when there is no such structure, or when
 creating it would be too cumbersome.
 
-In the [use cases]
-(https://docs.google.com/document/d/1wVUpgeAKWCC8Iy6DWStJRlTVX8ods3Upcpo1A-P08cI/edit?pli=1&tab=t.0) 
+In the [use cases](https://docs.google.com/document/d/1wVUpgeAKWCC8Iy6DWStJRlTVX8ods3Upcpo1A-P08cI/edit?pli=1&tab=t.0) 
 targetted initially for the Cardano PubSub system, we have:
 
 | Use case | Publishers | Direct subscriber nodes | End-user reach | Message profile |
