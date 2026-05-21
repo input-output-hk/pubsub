@@ -4,6 +4,26 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-05-20 — PubSub working session: list-based architecture adopted
+
+**Decision.** Team aligned on collapsing peer sampling and navigation into an on-chain subscription list, one entry per node carrying its topic-interest set. Dissemination layer unchanged. Sandro reviewed the framing and supported list-based as the initial step. Findings and rationale captured in [docs/technical-report-1.md](docs/technical-report-1.md). Two alternatives weighed but not taken: continued research on three-layer extensions, and parallel SecureCyclon instances per topic.
+
+**First step, not endpoint.** Denis emphasised the list-based shape is a starting point. The research handoff is the *multi-peer-sampling problem*: given a network where each node carries a topic-interest set, design a protocol that lets a node sample uniformly from the subscribers of any topic without holding the full list. Future substitution then becomes a module swap rather than a re-architecture.
+
+**Local cheating.** Full per-topic visibility makes uniform sampling trivial but allows operator-side deviation from the prescribed sampling that no peer can detect. Acknowledged cost; removing it is what the multi-peer-sampling protocol buys.
+
+**Off-chain endpoints, trusted bootstrap.** Endpoints stay off-chain. New nodes ask bootstrap nodes for endpoints matching their topic interests, cache locally, and propagate updates over dissemination links. Bootstrap nodes are treated as trusted infrastructure for the initial deployment: explicit, narrow, revisable. ID-grinding still needs an anti-grinding mechanism (per-epoch Cardano nonce a candidate).
+
+**Open: identity anchoring.** Jesus flagged on-chain lookup cost for sub-keys signed by SPO/DRep certificates, especially under parallel SecureCyclon. The system already depends on chain data; what is needed is efficient indexing.
+
+**Prototype scope.** Ezequiel focusing on a static peer list with basic communication contracts and a testing harness; discovery, dissemination, and navigation deferred. PR for the architecture specifications going out today.
+
+**Research framing.** Jesus suggested defining the ideal functionality via universal composability. Group preference: hand research specific requirements anchored on the multi-peer-sampling primitive rather than free rein, so the future protocol composes with current progress.
+
+**Next.** Denis to finish quantifying the silent-attack analysis (descriptor drop, biased view) by Thursday. Ezequiel to develop a Python script on network size against security, particularly the constant-nodes ("golden nodes") regime. Will to document joining and peer-discovery flows and sketch Thursday's brainstorm topics. Dana confirmed DataDog, Prometheus, and GL Live View integrations look tractable on the product side.
+
+---
+
 ## 2026-05-12 — PubSub working session: Cyclone Property 3, SPO onboarding
 
 ### Cyclone protocol analysis
