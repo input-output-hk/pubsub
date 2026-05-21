@@ -4,7 +4,7 @@ Technical decisions and progress. Most recent first.
 
 ---
 
-## 2026-05-20 — PubSub working session: list-based architecture adopted
+## 2026-05-19 — PubSub working session: list-based architecture adopted
 
 **Decision.** Team aligned on collapsing peer sampling and navigation into an on-chain subscription list, one entry per node carrying its topic-interest set. Dissemination layer unchanged. Sandro reviewed the framing and supported list-based as the initial step. Findings and rationale captured in [docs/technical-report-1.md](docs/technical-report-1.md). Two alternatives weighed but not taken: continued research on three-layer extensions, and parallel SecureCyclon instances per topic.
 
