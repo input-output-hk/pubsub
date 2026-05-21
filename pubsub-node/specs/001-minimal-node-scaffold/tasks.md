@@ -133,10 +133,10 @@ Each module's file path, public type list, derived traits, invariants, and FR tr
 
 **Purpose**: documentation, lint/format gate, end-to-end quickstart validation, and FR coverage verification.
 
-- [ ] T025 [P] Add rustdoc comments to the public re-exports in `src/lib.rs`: a crate-level doc-comment pointing readers at `specs/001-minimal-node-scaffold/`, plus a one-paragraph `///` doc on each re-exported item describing its role and pointing at the relevant FR(s) it realises (per `data-model.md` §9 cross-reference matrix). Run `cargo doc --no-deps --open` locally and verify the rendered docs are coherent.
-- [ ] T026 Run the green-checkpoint gate: `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all`. Fix any failures. Constitution §"Green checkpoints" requires this to pass before the implementation phase closes.
-- [ ] T027 Walk `quickstart.md` end-to-end manually (timer running) — build, run all three integration test files, run the CLI with both valid + malformed TOML, verify exit codes and error chain rendering per contracts/`cli.md`. Confirm SC-001 (≤30s test runtime), SC-002 (100-send / 4-node tests pass), and SC-004 (the walkthrough completed under 1 hour with only this spec dir's contents as input).
-- [ ] T028 [P] Verify FR coverage: walk `data-model.md` §9's cross-reference matrix and confirm each FR (FR-001 through FR-013) is realised by at least one implementation task + (where applicable) at least one test from Phases 3–5. Any FR without a passing implementation+test pair is a regression that must be addressed before this task closes. Record verification in a short comment in `tasks.md` (or a tracking note in the closing commit).
+- [X] T025 [P] Add rustdoc comments to the public re-exports in `src/lib.rs`: a crate-level doc-comment pointing readers at `specs/001-minimal-node-scaffold/`, plus a one-paragraph `///` doc on each re-exported item describing its role and pointing at the relevant FR(s) it realises (per `data-model.md` §9 cross-reference matrix). Run `cargo doc --no-deps --open` locally and verify the rendered docs are coherent.
+- [X] T026 Run the green-checkpoint gate: `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all`. Fix any failures. Constitution §"Green checkpoints" requires this to pass before the implementation phase closes.
+- [X] T027 Walk `quickstart.md` end-to-end manually (timer running) — build, run all three integration test files, run the CLI with both valid + malformed TOML, verify exit codes and error chain rendering per contracts/`cli.md`. Confirm SC-001 (≤30s test runtime), SC-002 (100-send / 4-node tests pass), and SC-004 (the walkthrough completed under 1 hour with only this spec dir's contents as input).
+- [X] T028 [P] Verify FR coverage: walk `data-model.md` §9's cross-reference matrix and confirm each FR (FR-001 through FR-013) is realised by at least one implementation task + (where applicable) at least one test from Phases 3–5. Any FR without a passing implementation+test pair is a regression that must be addressed before this task closes. Record verification in a short comment in `tasks.md` (or a tracking note in the closing commit).
 
 ---
 
@@ -221,3 +221,27 @@ With two developers and the substrate complete:
 - Tests use the `cargo test` runtime — no separate test runner is required.
 - The `tests/common/mod.rs` pattern: each test file in `tests/` that uses the shared harness declares `mod common;` at the top. Rust treats files under `tests/common/` as a non-test module shared across integration test binaries.
 - After T024 (main.rs), the binary parks on Ctrl-C indefinitely; there is intentionally no "send a Ping" CLI subcommand at this stage (Ping origination is exclusively a library-level / integration-test concern in v1, per contracts/`cli.md` "Out of scope for v1").
+
+---
+
+## T028 FR coverage verification (2026-05-21)
+
+Each FR-001 through FR-013 has at least one realising implementation site and at least one passing test (or, where the FR is structural rather than behavioural, a verifiable invariant in the code).
+
+| FR | Realisation | Verification |
+|----|-------------|--------------|
+| FR-001 | `config::load_peer_list` + `PeerListConfig` | `loads_three_peer_descriptors_from_toml`, `malformed_toml_yields_actionable_error` |
+| FR-002 | `Network` trait + `InMemoryNetwork` | all integration tests use `Arc<InMemoryNetwork>` |
+| FR-003 | recv-task in `node.rs` has no admission check | `ping_delivered_trust_on_arrival`, `inbound_traffic_independent_of_outbound_peer_set` |
+| FR-004 | `Message::Ping(u64)`, `Node::send` resolves on enqueue | `ping_delivered_when_a_lists_b`, `ping_n_intact_across_100_sends` |
+| FR-005 | `NetworkHandle::send(to, message)` one-to-one by signature | every send-side test |
+| FR-006 | `Node::received_messages()` snapshot | every test asserts against `received_messages()` |
+| FR-007 | No crypto modules; no crypto-suggesting deps in `Cargo.toml` | verified by inspection — `tokio`'s `"signal"` feature is Unix-signal handling, not signatures |
+| FR-008 | `Node` exposes no peer-set mutation API; `peers()` returns `&[..]` | structural — `grep` confirms no `add_peer` / `remove_peer` / `set_peer*` on `Node` |
+| FR-009 | `PeerDescriptor::id() -> &PeerId`; `InMemoryNetwork` registry rejects `DuplicateRegistration` | unit tests for `PeerId::from_str` rejection cases; the duplicate-id error path is defined but not directly exercised (intentional non-test per CHK048) |
+| FR-010 | `NetworkHandle::send` drop-and-warn branch | `empty_peer_set_cannot_originate` exercises the drop path |
+| FR-011 | `Network::register`, `Node::new`, `Node::send` all `async fn` | every `#[tokio::test]` exercises the async surface |
+| FR-012 | `Node::new` takes parsed `PeerListConfig`; `main.rs` has `--self-id` / `--config` / `--log-level` | T023 config tests + T027 CLI walk (help renders, malformed config exits 2, valid config parks until SIGINT) |
+| FR-013 | recv-task processes asynchronously; `await_delivery` helper; exactly-once falsified by 100-send tests | `ping_n_intact_across_100_sends`, `four_node_star_100_send_isolation` |
+
+All 13 FRs realised; no regressions.

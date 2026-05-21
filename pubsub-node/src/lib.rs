@@ -1,8 +1,24 @@
 #![forbid(unsafe_code)]
 //! `pubsub_node` — minimal scaffold for a decentralized pub/sub node.
 //!
-//! See `specs/001-minimal-node-scaffold/` for the feature spec, plan,
-//! contracts, and ADRs.
+//! The crate exposes:
+//!
+//! - [`Node`] — a network participant that originates and observes messages.
+//! - [`Network`], [`InMemoryNetwork`], [`NetworkHandle`] — the routing layer
+//!   that connects nodes within a single process.
+//! - [`PeerId`], [`PeerDescriptor`], [`BasicPeerDescriptor`] — identity types
+//!   for addressing peers.
+//! - [`Message`] — the message kinds nodes exchange (currently only
+//!   [`Message::Ping`]).
+//! - [`ReceivedDelivery`] — one observed delivery returned by
+//!   [`Node::received_messages`].
+//! - [`PeerListConfig`], [`PeerEntry`], [`load_peer_list`] — TOML-driven
+//!   configuration.
+//! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`] —
+//!   typed failure modes.
+//!
+//! For the current iteration's specification, contracts, and design notes,
+//! see `specs/001-minimal-node-scaffold/`.
 
 mod config;
 mod error;

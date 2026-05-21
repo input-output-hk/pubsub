@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+/// Failure modes returned when parsing a [`PeerId`] from a string.
 #[derive(Debug, thiserror::Error)]
 pub enum PeerIdError {
     #[error("peer id must not be empty")]
@@ -9,10 +10,25 @@ pub enum PeerIdError {
     ContainsNul,
 }
 
+/// Logical identifier of a network participant.
+///
+/// Non-empty UTF-8, no internal NUL bytes. Construct via [`FromStr`]:
+///
+/// ```
+/// use std::str::FromStr;
+/// use pubsub_node::PeerId;
+/// let id = PeerId::from_str("node-a").unwrap();
+/// assert_eq!(id.as_str(), "node-a");
+/// ```
+///
+/// Uniqueness is enforced per [`Network`](crate::Network) instance — two nodes
+/// cannot register the same id on the same network — not globally across all
+/// networks.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, serde::Serialize)]
 pub struct PeerId(String);
 
 impl PeerId {
+    /// Return the underlying string slice.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -49,12 +65,21 @@ impl<'de> serde::Deserialize<'de> for PeerId {
     }
 }
 
+/// Abstract handle for addressing a peer.
+///
+/// Exposes an [`id`](PeerDescriptor::id) accessor; future iterations may add
+/// network-level information (addresses, public keys) on richer implementors
+/// without breaking callers that only need to address a peer by its id.
 pub trait PeerDescriptor: Clone + Send + Sync + 'static {
+    /// Return the peer's logical identifier.
     fn id(&self) -> &PeerId;
 }
 
+/// The v1 concrete [`PeerDescriptor`] implementation — a thin wrapper around
+/// a [`PeerId`] with no other fields.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BasicPeerDescriptor {
+    /// The peer's identifier.
     pub id: PeerId,
 }
 

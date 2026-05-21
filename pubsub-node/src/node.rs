@@ -9,6 +9,18 @@ use crate::network::{Network, NetworkHandle};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
 
+/// A network participant.
+///
+/// Constructed via [`Node::new`], which registers the node on a
+/// [`Network`], spawns a background receive task, and returns once the node
+/// is ready to send and observe messages. The receive task is aborted when
+/// the [`Node`] is dropped.
+///
+/// A node carries:
+/// - its own [`PeerId`],
+/// - a static peer set (no peer-set mutation API at this stage),
+/// - a queryable record of received messages accessible via
+///   [`received_messages`](Node::received_messages).
 pub struct Node {
     handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,
@@ -17,6 +29,11 @@ pub struct Node {
 }
 
 impl Node {
+    /// Construct a node, registering on `network` under `self_id` and
+    /// spawning its background receive task.
+    ///
+    /// Returns [`NodeError`] if registration fails (e.g. the id is already
+    /// taken on this network instance).
     pub async fn new<N: Network>(
         self_id: PeerId,
         peer_list: PeerListConfig,
@@ -60,20 +77,38 @@ impl Node {
         })
     }
 
+    /// Dispatch `message` to the peer registered under `to`.
+    ///
+    /// Resolves once the network has accepted the message for delivery; the
+    /// recipient may surface it via [`received_messages`](Self::received_messages)
+    /// subsequently. Sending to an unregistered id is silently dropped (with
+    /// a warn-level log entry); senders never observe a synchronous error
+    /// for that case.
     pub async fn send(&self, to: &PeerId, message: Message) -> Result<(), NodeError> {
         self.handle.send(to, message).await.map_err(NodeError::from)
     }
 
+    /// Return this node's identifier.
     #[must_use]
     pub fn id(&self) -> &PeerId {
         self.handle.id()
     }
 
+    /// Return the node's configured peer set in declaration order.
+    ///
+    /// The set is static for the node's lifetime; there is no peer-set
+    /// mutation API at this stage.
     #[must_use]
     pub fn peers(&self) -> &[BasicPeerDescriptor] {
         &self.peers
     }
 
+    /// Return a snapshot of every delivery observed by this node so far,
+    /// in receive order.
+    ///
+    /// The returned `Vec` is a clone of the node's internal record — it is
+    /// stable for the caller and unaffected by subsequent receptions. This
+    /// is the observability surface acceptance tests assert against.
     #[must_use]
     pub fn received_messages(&self) -> Vec<ReceivedDelivery> {
         let guard = self
