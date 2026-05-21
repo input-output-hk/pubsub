@@ -12,7 +12,7 @@ mod node;
 mod peer;
 mod received;
 
-pub use config::{PeerEntry, PeerListConfig};
+pub use config::{load_peer_list, PeerEntry, PeerListConfig};
 pub use error::{ConfigError, NetworkError, NodeError};
 pub use message::Message;
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
