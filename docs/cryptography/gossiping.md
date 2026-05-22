@@ -198,3 +198,73 @@ simple key management, and would be directly compatible with existing wallet
 libraries. However, note that CIP 1852 restricts to Ed25519 keys, and it is
 not clear at this point if Ed25519 is enough for PubSub gossiping -- although,
 if we use Ed25519-based KES, this may still be an option.
+
+
+## Summary and Next Steps
+
+The analysis above identifies three a priori orthogonal dimensions that jointly
+determine the cryptographic design of the gossiping layer:
+
+1. **Signature scheme:** whether SUF alone, forward security (KES), or proactive
+   security is required.
+2. **Trust anchoring:** whether to adopt a vertical approach (rooting identities
+   in existing chain credentials), a horizontal approach (consuming scarce
+   resources), or a combination.
+3. **Key derivation:** how gossiping keys are generated, managed, and rotated.
+
+While orthogonal at first glance, these dimensions interact in the following
+ways:
+
+- **1 → 3:** The signature scheme directly constrains key derivation. KES keys
+  are composite structures that cannot be used as CIP-1852 leaf keys directly.
+  If KES is chosen, suitability of CIP-1852 for deriving base keys would need
+  to be analyzed.
+
+- **1 → 2 (vertical):** If periodic key refresh is adopted (manual proactive
+  security), each refresh must be authorized by the trust anchor -- e.g., the
+  SPO cold key must certify each new KES or SUF key. This parallels the existing
+  opcert mechanism but needs explicit design for the PubSub context, and
+  imposes a recurring operational burden on the root key holder.
+
+- **2 (vertical) → 3:** Grinding resistance under the vertical approach may
+  require structured key derivation (e.g., sequential HD derivation). In that
+  case the trust anchor choice and the key derivation scheme are not independent:
+  the derivation scheme is part of the grinding resistance mechanism, so 2 and 3
+  must be co-designed.
+
+- **2 (vertical) → operational dependency:** Validating any PubSub identity
+  against a vertically anchored root of trust requires querying a Cardano full
+  node. This introduces a latency and availability dependency that is independent
+  of the cryptographic choices, and must be assessed against the liveness
+  requirements of the peer sampling layer. Also, depending on the root of trust,
+  there may not be one single solution (SPO cold keys, dRep certs, etc.),
+  complicating the solution further.
+
+- **2 (horizontal) → quantitative analysis:** Choosing between horizontal
+  approaches (PoW-style descriptor grinding cost, or collateral) requires
+  understanding their concrete effectiveness. Specifically: how much does
+  restricting an adversary to a small number of identities (e.g., 3 instead of
+  300) degrade their ability to carry out an eclipse attack? The answer depends
+  on network size and SecureCyclon protocol parameters, and should be evaluated
+  before committing to a specific mechanism.
+
+**Suggested next steps:**
+
+- [ ] **On 1:** Evaluate the practical impact of forward security and proactive
+  security on recovery time after a node compromise, and assess whether the
+  overhead of KES or some more advance proactively secure scheme (key and 
+  signature sizes, update cost) is acceptable for the target deployment scale.
+  See [gossiping-threat-model.md](gossiping-threat-model.md) for an extended
+  analysis of how the scheme choice affects recoverability.
+- [ ] **On 2 (horizontal):** Quantify the effectiveness of identity-limiting
+  mechanisms in the SecureCyclon setting as a function of network size and
+  protocol parameters, to establish whether the horizontal approach provides
+  sufficient Sybil and grinding resistance in practice.
+- [ ] **On 2 (vertical):** Assess the operational feasibility of on-chain trust
+  anchor lookups, including the latency and availability requirements imposed on
+  the Cardano node dependency.
+- [ ] **On 3:** Defer key derivation design until the signature scheme (1) is
+  decided. If KES (or a proactively secure scheme) is chosen, explore whether 
+  CIP-1852 can serve as a seed source, and whether the resulting scheme is 
+  compatible with the grinding resistance requirements of the chosen trust 
+  anchoring approach (2).
