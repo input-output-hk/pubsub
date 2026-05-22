@@ -89,7 +89,12 @@ Rationale, in order of weight:
 4. **Pragmatic Byzantine posture.** A small bootstrap set is treated as trusted infrastructure. The assumption is explicit, narrow, and revisable.
 5. **Not a one-way door.** The module interfaces are held fixed, so a future swap to the multi-peer-sampling protocol is a module-level change.
 
-Acknowledged costs: on-chain cost at the expected subscriber volumes, list-view manipulation by a single chain follower, the local-cheating surface that full visibility creates, and the privacy implications of on-chain subscription.
+Acknowledged costs:
+
+- **On-chain fees and footprint.** Subscribe, unsubscribe, and topic-interest updates are Cardano transactions; volume scales with churn, contract state with active subscribers.
+- **List-view manipulation.** A node trusting a single chain follower can be lied to about list state. Mitigation: multi-source verification, light-client sync, or a local follower.
+- **Local cheating.** Operators with full per-topic visibility can deviate from prescribed sampling undetectably. The multi-peer-sampling research handoff is what removes this.
+- **Privacy.** Subscriber keys and topic interests are durable on-chain and publicly aggregable. Fine for operator-class participants, material for private subscribers.
 
 ---
 
