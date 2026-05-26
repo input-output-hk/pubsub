@@ -37,3 +37,12 @@ sequenceDiagram
         Note over Node: stop delivering/forwarding for that topic
     end
 ```
+
+## Peer awareness
+
+Other peers learn about a subscription change two ways:
+
+- **Gossip (honest fast path).** Honest nodes notify their current dissemination peers when they change their topic-interest set — similar in spirit to the descriptor push during joining and endpoint change. Peers that overlap on the affected topic update their working-set view immediately: pruning a removed-topic peer or considering a newly-relevant peer in the next discovery round.
+- **Chain re-read (authoritative fallback).** On its next periodic chain re-read (see [IP discovery](./ip-discovery.md) step 9), each node sees the updated subscription-list entry and reconciles its candidate sets. This catches changes that gossip missed — including the adversarial case where a leaving node intentionally fails to notify peers.
+
+The chain re-read is the source of truth; gossip is a latency optimisation. Both paths converge to the same view.

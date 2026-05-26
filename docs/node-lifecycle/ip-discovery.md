@@ -12,7 +12,7 @@ A node resolves endpoints for the peers it intends to disseminate with and opens
 6. Cache verified endpoints.
 7. Handle gaps: for any sampled pubkey with no valid descriptor, draw a replacement from the candidate set and repeat until `d` live targets are secured or the candidate set is exhausted.
 8. Open dissemination-layer links to the `d` sampled peers per topic.
-9. Maintain fanout: on disconnect or descriptor-verification failure, resample from the candidate set to restore `d`. Re-read the list periodically to track churn.
+9. Maintain fanout: on disconnect or descriptor-verification failure, resample from the candidate set to restore `d`. Re-read the subscription list periodically (cadence is a [configurable parameter](./README.md#configuration-parameters)) to track churn — joiners, leavers, topic-subscription changes, and endpoint updates all surface here. The node's chain follower is already running for relayer verification (see [README](./README.md#chain-access)), so this is not extra infrastructure.
 10. Drop bootstrap connections unless bootstrap is itself a subscriber; future descriptors arrive via gossip on dissemination links, bootstrap remains a fallback.
 
 ## Diagram
