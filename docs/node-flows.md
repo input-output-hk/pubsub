@@ -75,18 +75,23 @@ sequenceDiagram
 
 ## 3. Publishing and relaying messages
 
+No dedicated relay set. Publishers inject messages via the same IP-discovery mechanism subscribers use (§2). Publisher authorisation is assumed to be a per-topic authorised publisher key (anchoring TBD — see note below).
+
 **Publishing.**
 
-1. The publisher signs the message with the topic's authorised publisher key (as listed in the topic registry). The signature covers `topicId`, `parentHash`, `sequence`, `timestamp`, and `payload`.
-2. The publisher pushes the signed message to every relay listed for the topic in the topic registry.
+1. Construct the message `(topicId, parentHash, sequence, timestamp, payload)` and sign it with the topic's authorised publisher key.
+2. Discover injection targets: read the subscription list, filter by topic → candidate set; sample `k` pubkeys uniformly (`k` is the publication fanout, independent of the dissemination fanout `d`); resolve endpoints via the local cache or by querying bootstrap nodes. Same flow as §2 steps 1–7.
+3. Send the signed message to the `k` resolved peers. Gossip handles propagation from there. The publisher does not need to maintain dissemination-layer links unless it publishes frequently and wants to amortise discovery cost.
 
 **Relaying.**
 
 1. Receive a message on a dissemination-layer link.
-2. Verify the signature against the topic's publisher set; drop if invalid.
+2. Verify the signature against the topic's authorised publisher key. Drop if invalid.
 3. Check the recently-seen cache by message hash; drop if duplicate.
 4. Deliver to local consumers if the topic is in the node's interest set.
 5. Forward on outgoing dissemination links for that topic, except the link the message arrived on.
+
+**Open point — publisher authorisation anchoring.** The authorised publisher key per topic has to live somewhere all relayers can read and verify against. Options: a per-topic on-chain entry (alongside the subscription list, distinct row type); a signed manifest hosted off-chain by the topic owner; or a hybrid where the key is posted on-chain once at topic creation and treated as immutable thereafter. Choice deferred; does not affect the publish/relay flow above.
 
 ## 4. Leaving and unregistering
 
