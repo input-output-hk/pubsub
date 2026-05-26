@@ -7,7 +7,8 @@ This directory documents the procedures a node executes during its lifecycle in 
 - **Topic registry** — per-topic entry containing the topic identifier and the authorised publisher key(s) for that topic. Read by relayers to verify message signatures. Full formal specification (operations, role-based access control, invariants) lives under [`formal_spec/topic_registry/`](../../formal_spec/topic_registry/). See [topic-creation.md](./topic-creation.md) for the cross-reference.
 - **Subscription list** — per-subscriber entry containing the operator's public key, the subscribed topic-interest set, and the locked deposit. Read to determine who participates in dissemination for each topic.
 
-Network endpoints (IPs/hostnames) are not on-chain. They are exchanged peer-to-peer as signed descriptors and served by bootstrap nodes during [IP discovery](./ip-discovery.md).
+> [!IMPORTANT]
+> Network endpoints (IPs/hostnames) are not on-chain. They are exchanged peer-to-peer as signed descriptors and served by bootstrap nodes during [IP discovery](./ip-discovery.md).
 
 ## Chain access
 
