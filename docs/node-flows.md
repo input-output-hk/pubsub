@@ -117,7 +117,7 @@ sequenceDiagram
     Publisher->>Peer: send signed message (×k)
 
     Note over Peer: look up publisher key in topic registry
-    Note over Peer: verify signature; drop if invalid
+    Note over Peer: verify signature, drop if invalid
     Note over Peer: dedupe by message hash
     Note over Peer: deliver to local consumers if subscribed
     Peer->>OtherPeer: forward on outgoing links (except inbound)
