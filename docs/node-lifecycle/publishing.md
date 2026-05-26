@@ -56,4 +56,6 @@ sequenceDiagram
 
 Together, `parentHash` and `sequence` make the per-publisher stream tamper-evident *and* gap-detectable. They support a future replay/catch-up layer, which is anticipated as a follow-on feature.
 
-**Chain enforcement (open point).** In the current iteration, relayers verify only the signature and dedupe by message hash; they do not check `sequence` monotonicity or `parentHash` linkage. Chain enforcement is the consumer's responsibility for now. Whether to move enforcement into relayers (more storage per publisher at every relayer, but earlier rejection of malicious replays) is deferred until the replay/catch-up layer is designed.
+## Open questions
+
+- **Chain enforcement.** Relayers verify only the signature and dedupe by message hash; they do not check `sequence` monotonicity or `parentHash` linkage. Chain integrity is the consumer's responsibility for now. Whether to move enforcement into relayers (more storage per publisher at every relayer, but earlier rejection of malicious replays) is deferred until the replay/catch-up layer is designed.

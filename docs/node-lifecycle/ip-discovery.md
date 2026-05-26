@@ -47,3 +47,7 @@ sequenceDiagram
         Node->>Chain: periodic list re-read
     end
 ```
+
+## Open questions
+
+- **Candidate set exhaustion.** If the topic-filtered candidate set is too small to secure `d` live targets (small topic, heavy churn, or adversarial unavailability), the degraded behaviour is unspecified. Options: reduce fanout, back off and retry, or surface the failure to the operator. See step 7.

@@ -19,6 +19,7 @@ A useful consequence: chain-event subscription is already available — flows th
 ## Shared types
 
 - **`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. Authenticated endpoint binding for a registered node. The signature is produced with the operator's private key and covers `(pubkey, endpoint, timestamp)`. Used in [joining](./joining.md), [ip-discovery](./ip-discovery.md), [endpoint-change](./endpoint-change.md), and [leaving](./leaving.md).
+  - *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*
 
 ## Overview
 
@@ -46,8 +47,3 @@ The following knobs are configurable at the node level. Defaults are not yet pin
 | `endpoint_cache_ttl` | Drop cached endpoints after this time. | TBD |
 | `bootstrap_endpoints` | Trusted bootstrap node endpoints (out-of-band). | site-specific |
 
-## Open questions
-
-- **Candidate set exhaustion.** If the topic-filtered candidate set is too small to secure `d` live targets (small topic, heavy churn, or adversarial unavailability), what is the degraded behaviour? Reduce fanout, back off and retry, or surface the failure? Currently unspecified — see [IP discovery step 7](./ip-discovery.md).
-- **Multi-endpoint support.** `SignedDescriptor` currently has a single endpoint field. Nodes behind dual-stack (IPv4 + IPv6) or with multiple interfaces would need multiple descriptors or a list-valued endpoint. Not addressed.
-- **Message-chain enforcement.** Relayers do not currently verify `sequence` monotonicity or `parentHash` linkage — chain integrity is checked by consumers and the (future) replay layer. Whether to move enforcement into relayers is deferred until the replay layer is designed (see [publishing.md](./publishing.md) Types section).
