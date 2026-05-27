@@ -1,0 +1,249 @@
+# Phase 0 — Research
+
+**Feature**: 001-minimal-node-scaffold
+**Date**: 2026-05-18
+
+Resolves plan-level questions left open by `spec.md`'s Clarifications session 2026-05-17 and records the dependency choices Constitution Principle III will require ADRs for.
+
+Each entry: **Decision** / **Rationale** / **Alternatives considered**.
+
+---
+
+## 1. Async runtime
+
+**Decision**: `tokio` (multi-thread runtime by default; `#[tokio::test]` for integration tests with default flavour). Planned ADR: `docs/decisions/0001-async-runtime-tokio.md`.
+
+**Rationale**:
+- De facto standard for Rust async; minimal ecosystem risk.
+- First-class integration with `tracing`, `mpsc`, `oneshot`, `time::timeout`, all of which this scaffold uses.
+- Every realistic future networked transport for pubsub-node (TCP, QUIC, libp2p) is tokio-native; choosing a different runtime now would force a churn later.
+
+**Alternatives**:
+- `async-std`: viable but smaller ecosystem; would lock us out of tokio-only crates later.
+- `smol`: lightweight but the saved binary size is irrelevant for a node binary.
+- No runtime / hand-rolled poll loop: contradicts FR-011's intent (use the async ecosystem to surface integration-test patterns).
+
+---
+
+## 2. TOML parsing
+
+**Decision**: `serde` (derive) + `toml` (v0.8+). `PeerListConfig` derives `Deserialize`; the loader returns `Result<PeerListConfig, ConfigError>`. Planned ADR: `docs/decisions/0002-toml-via-serde.md`.
+
+**Rationale**:
+- Idiomatic Rust; trivially derived from the data model.
+- `toml` crate produces line/column-aware parse errors, which we map to the actionable startup error required by US3 AS-2.
+- `serde` is the universal Rust de/serialization framework — no risk of swapping it out.
+
+**Alternatives**:
+- `toml_edit`: supports round-tripping comments / formatting, which we do not need for a read-only loader.
+- Hand-rolled parser: rejected; reinvents an audited dependency for no gain.
+
+---
+
+## 3. Structured logging
+
+**Decision**: `tracing` (emit) + `tracing-subscriber` (collection). Default subscriber writes JSON to stderr; level filter via `RUST_LOG`. Planned ADR: `docs/decisions/0003-logging-via-tracing.md`.
+
+**Rationale**:
+- FR-010 mandates a *warn-level structured log entry that names the unregistered identifier* — structured fields are required, which rules out `log` / `env_logger`.
+- FR-006 permits (but does not mandate) structured logs alongside the queryable record; `tracing` makes this trivial.
+- Engineering Standards "Observable state transitions" is satisfied by emitting events for register / send-accepted / recv-applied / unregistered-peer-drop.
+
+**Alternatives**:
+- `log` + `env_logger`: no structured fields without an adapter; rejected.
+- `slog`: structurally fine but its momentum has shifted to `tracing` since ~2022.
+
+---
+
+## 4. CLI parser
+
+**Decision**: `clap` v4 with the `derive` feature. Two flags exposed: `--self-id <ID>` (required) and `--config <PATH>` (required). Planned ADR: `docs/decisions/0004-cli-via-clap.md`.
+
+**Rationale**:
+- Derive macro keeps the CLI definition co-located with the struct describing parsed args.
+- Built-in `--help` / version generation satisfies SC-004 (a contributor needs to figure out invocation from the binary itself).
+- Type-validated path argument (`PathBuf`) catches obvious operator errors before the loader runs.
+
+**Alternatives**:
+- `argh`: lighter but the ergonomics gap on a 2-flag CLI is invisible.
+- `pico-args` / hand-rolled: saves a dep at the cost of every future flag costing ~10 lines.
+
+---
+
+## 5. Error model
+
+**Decision**: `thiserror` for typed error enums in library code (`ConfigError`, `NetworkError`, `NodeError`). The `main.rs` binary uses `Result<(), Box<dyn std::error::Error>>` and prints the chain on failure. No `anyhow` in the library. Planned ADR: `docs/decisions/0005-typed-errors.md`.
+
+**Rationale**:
+- Library callers (tests, future binaries) need to match on error variants — typed enums are the only honest API.
+- The binary boundary is the only place a generic error wrapper is acceptable; `Box<dyn Error>` is sufficient and avoids a second dependency.
+
+**Alternatives**:
+- `anyhow` in the library: collapses error variants into opaque strings; rejected.
+- Hand-rolled error enums with manual `Display` / `Error` impls: works but `thiserror` is the lowest-overhead expression of the same shape.
+
+---
+
+## 6. Receive-side processing model (FR-013 driver)
+
+**Decision**: Each `Node` spawns a background `tokio::task` during `Node::new(...)`. `Node::new` calls `handle.take_receiver()` to move `rx` out of the `NetworkHandle` (see §12) and into the spawned task; the task drains `rx` and appends each delivered envelope to the node's `ReceivedRecord`. The Node retains the rest of the handle (`self_id` + cloneable `tx`) for outbound sends. `Node::new(...)` does not return until registration + spawn are complete, so the node is fully observable by the time the constructor's future resolves.
+
+**Rationale**:
+- FR-013 requires `send().await` resolution to be decoupled from the recipient updating its record — a separate receive task is the simplest mechanism that delivers this and keeps acceptance scenarios honest (something must drive the recipient).
+- Putting the task spawn inside `Node::new` means callers (tests, the CLI) never forget to start it. The lifecycle bookend (a `JoinHandle` retained by the Node and aborted on `Drop`) is small.
+
+**Alternatives**:
+- Caller-driven `node.poll()` loop: shifts complexity to every test; rejected.
+- Synchronous delivery inside `Network::send()` (mutating the receiver's record directly): contradicts FR-013 and removes the test-harness exercise we explicitly asked for in the Clarifications session.
+- Lazy spawn on first send/recv: opaque lifecycle; would race with the await-on-delivery helper.
+
+---
+
+## 7. Mailbox bounding
+
+**Decision**: `tokio::sync::mpsc::unbounded_channel` per registered node in v1. A `// FUTURE:` note in `network.rs` records that v2 will swap to bounded `mpsc::channel` when a real transport introduces backpressure.
+
+**Rationale**:
+- Trust + Liveness assumptions in the spec eliminate the failure modes that would justify a bounded channel (slow consumer, hostile sender).
+- 100 sequential sends (SC-002 / SC-005) sit comfortably in any reasonable memory budget.
+- Unbounded queues let `network.send(...)` always succeed-then-resolve in O(1), which is the simplest match for FR-013's "accepted for delivery" contract.
+
+**Alternatives**:
+- Bounded mpsc (e.g. capacity 1024): forces a backpressure policy decision (drop? block? error?) that none of the FRs require; rejected.
+- `flume` / `crossbeam`: zero ergonomic gain at this scale.
+- `tokio::sync::broadcast`: wrong shape — pubsub-style fan-out is explicitly out of scope (FR-005, one-to-one only).
+
+---
+
+## 8. Network registration timing
+
+**Decision**: `Network::register(&self, id, sender) -> Result<Receiver, NetworkError>` is invoked by `Node::new` during construction. The Node is fully registered, fully task-spawned, and ready to send & receive by the time its constructor's future resolves.
+
+**Rationale**:
+- Aligns with FR-002 ("multiple in-process node instances [that] register themselves").
+- Eliminates the `node.start()` footgun: tests cannot accidentally send before the recv loop is alive.
+- If registration fails (duplicate id — FR-009 says detection is *not required* but we may still surface it later), the failure surfaces as a constructor error rather than a silent dropped message.
+
+**Alternatives**:
+- Two-step `Node::new(...)` + `node.attach(network).await`: extra ceremony for every test; rejected.
+- Implicit attach on first `send` / `recv`: race-prone with the await-on-delivery helper; rejected.
+
+---
+
+## 9. Ordering across multiple sends
+
+**Decision**: From sender S to receiver R, deliveries appear in R's `received_messages()` in the order S awaited `send`. Across distinct senders, interleaving is unspecified.
+
+**Rationale**:
+- `tokio::sync::mpsc` is a per-channel FIFO; preserving sender-local order falls out of the implementation at zero cost.
+- SC-005 ("every delivered Ping with the original N value intact, verified across at least 100 sends") becomes a one-line assertion when per-sender order holds.
+- No FR requires a global total order; insisting on one would force expensive synchronisation we have no use for.
+
+**Alternatives**:
+- Unordered (multiset semantics): test friction with no engineering payoff.
+- Strict total order across all senders: needs global serialization or per-network sequence numbers; over-engineered for a scaffold.
+
+---
+
+## 10. Await-on-delivery primitive (test helper shape)
+
+**Decision**: A `tests/common::await_delivery` helper:
+
+```rust
+pub async fn await_delivery(
+    node: &Node,
+    expected_sender: &PeerId,
+    expected_message: &Message,
+    timeout: Duration,
+) -> Result<(), AwaitError>;
+```
+
+Polls `node.received_messages()` on a short interval (default 1 ms) until a matching entry appears, returning `Ok(())` on hit or `Err(AwaitError::Timeout)` on exhaustion. The `timeout` parameter is **mandatory and injectable** — no wall-clock defaults inside the helper.
+
+**Rationale**:
+- Matches FR-013's contract: tests cannot assume immediate observability after `send().await`.
+- Honours Engineering Standards "Reproducible tests" — no wall-clock dependency the test doesn't itself supply.
+- Polling-based implementation keeps the helper independent of `Node` internals (no shared `Notify` handle); when v2 introduces a real network, the helper can stay verbatim or be upgraded to subscribe to a `Notify` if desired.
+
+**Alternatives**:
+- Internal `tokio::sync::Notify` exposed from `Node`: tighter, but couples the helper to Node internals; rejected for v1.
+- Test fixture wraps `node` and intercepts the recv loop: more code for the same outcome.
+
+---
+
+## 11. Peer identifier and descriptor types
+
+**Decision**:
+- `pub struct PeerId(String);` — UTF-8 newtype with `Display`, `Debug`, `Eq`, `Hash`, `Clone`. Implements `FromStr` so `clap` and `serde` derive it cheaply.
+- `pub trait PeerDescriptor: Clone + Send + Sync + 'static { fn id(&self) -> &PeerId; }`.
+- V1 concrete impl: `pub struct BasicPeerDescriptor { id: PeerId }` implementing `PeerDescriptor`; this is what the TOML loader produces.
+
+**Rationale**:
+- Matches FR-009 (abstract type, `id()` accessor).
+- Newtype around `String` prevents accidental id/payload confusion in function signatures (`fn send(to: &PeerId, …)` is unambiguous; a bare `&str` is not).
+- Trait-based abstraction means future iterations can introduce `struct NetworkedPeerDescriptor { id: PeerId, addr: SocketAddr, key: PublicKey, … }` without changing any consumer code that only needs `descriptor.id()`.
+
+**Alternatives**:
+- Expose `PeerId` everywhere, no trait: loses the FR-009 abstraction; the next iteration would have to rename callers.
+- Make `PeerDescriptor` a struct with optional fields (e.g., `Option<SocketAddr>`): bakes future-shape into v1 and contradicts the spec's "carries no other fields in v1" wording.
+
+---
+
+## 12. NetworkHandle as an actor-handle (channels over callbacks)
+
+**Decision**: The per-peer `NetworkHandle` returned by `Network::register` is structured as an actor-handle (the "Ryhl pattern"): it bundles a cloneable send-half (`tx`, a wrapper around the network's dispatch fabric) and a single-consumer receive-half (`rx`, the per-peer mailbox drain). `Node::new` calls `handle.take_receiver()` once during construction to move `rx` into the spawned recv task; the remaining handle (carrying `self_id` and `tx`) stays with the Node and is used for outbound sends via `&self`. The receive surface to clients is not the receiver — it is `Node::received_messages()` (FR-006, snapshot semantics post-CHK019). Planned ADR: `docs/decisions/0007-network-handle-actor-pattern.md`.
+
+**Rationale**:
+- **This is the dominant idiom in production Rust async networking.** [Lighthouse's `NetworkSenders`](https://github.com/sigp/lighthouse/blob/stable/beacon_node/network/src/service.rs) and [Substrate's `sc_network::NetworkService`](https://paritytech.github.io/polkadot-sdk/master/sc_network/index.html) both expose their network surfaces as cloneable handles wrapping `mpsc` endpoints behind a service task that owns the actual IO. Choosing the same shape now means the in-memory v1 substrate and any future TCP/`Framed`/libp2p variant share the same external API; only the contents of `tx` and the source of `rx` change at swap time.
+- **Callback-based receive is awkward in Rust.** A handler-style API (`Node::on_message(impl Fn(Envelope) -> impl Future)`) requires `Arc<dyn Fn(...) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync + 'static>` to be stored — six type words to do what a lambda does for free in JS, Erlang, or Go. Async closures are second-class until further trait stabilisation; the workaround crates (`async-trait`, manual boxing) impose runtime cost. Channels sidestep all of this: the handler body just lives inside an ordinary `async fn` (the Node's recv loop), where it has natural access to the Node's internal state without capture games.
+- **Lifecycle, backpressure, and cancellation are explicit.** Closing the channel produces `None` from `recv` — unambiguous shutdown signal. A bounded channel parks the sender under backpressure; an unbounded one (v1) grows visibly in memory. A registered callback has no clean answer for any of these questions: when is it unregistered? what happens to in-flight invocations on drop? what if it panics?
+- **The handler body still exists — it just lives inside the user's loop.** The Node's recv task is literally `while let Some(env) = rx.recv().await { received.lock().push(...); tracing::debug!(...); }`. Callers who'd otherwise have registered a closure write the same logic inline; Rust convention prefers this because it composes with `tokio::select!`, supervisor patterns, and graceful-shutdown idioms that a stored callback breaks.
+- **Test and client ergonomics are unaffected.** Tests never see `rx` at all — they construct nodes, call `node.send(...)`, and assert via `await_delivery(&node, …)` / `node.received_messages()`. The receiver lives entirely inside the Node.
+
+**Alternatives considered**:
+- *Callback-based handler* (`Node::on_message(Fn(Envelope))`): rejected per the async-closure point above. Also forecloses FR-006's queryable record without duplicating receive logic inside both the callback and Node-internal state.
+- *Stream-typed `recv`* (`impl Stream<Item = Envelope>` on the handle): viable, adds `StreamExt` to the consumer's import surface, and would discourage Node from internally owning the recv loop. Could layer on top of the channel-based core later without breaking changes.
+- *Caller-driven `Network::next_for(peer_id).await -> Envelope`*: forces a global lookup per recv, doesn't match the per-connection model future transports will have.
+- *Single shared inbox on the Node (no Network-issued receiver)*: requires the Node to poll something that knows the network's routing table, re-coupling Node ↔ Network in ways `register`'s return value cleanly severs.
+
+**Sources**:
+- Alice Ryhl, "Actors with Tokio" — https://ryhl.io/blog/actors-with-tokio/ (the canonical write-up; this design is a direct application of the pattern)
+- Lighthouse network service — https://github.com/sigp/lighthouse/blob/stable/beacon_node/network/src/service.rs
+- Substrate `sc_network` — https://paritytech.github.io/polkadot-sdk/master/sc_network/index.html
+- tokio `TcpStream::into_split` — https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html (the lower-level read/write split pattern that lives *behind* this handle when wire transports arrive)
+- tokio-util `Framed` — https://docs.rs/tokio-util/latest/tokio_util/codec/struct.Framed.html (the framing layer that future networked variants will use behind `tx`)
+
+> **Note on URL stability**: these URLs are floating (`stable` / `latest` / `master` rather than commit-pinned), and they survey a *pattern* rather than cite specific algorithms or invariants. ADR 0007's author should re-walk the patterns at authoring time and pin to commits / tags / versions then. If a link rots before that, the pattern claim still stands — search the repository or rustdoc index for the corresponding type at that time and re-anchor.
+
+---
+
+## ADR slot summary (Principle III deliverables)
+
+| ADR # | Title (planned) | Triggering decision |
+|-------|-----------------|---------------------|
+| 0001 | Async runtime: tokio | Research §1, plan dependency |
+| 0002 | Config via serde + toml | Research §2 |
+| 0003 | Structured logging via tracing | Research §3 |
+| 0004 | CLI via clap derive | Research §4 |
+| 0005 | Typed errors via thiserror (no anyhow in library) | Research §5 |
+| 0006 | Receive-task model & registration timing | Research §6 + §8 (single ADR; the two decisions are conjoined) |
+| 0007 | NetworkHandle as actor-handle (tx/rx split; channels over callbacks) | Research §12 |
+
+`/speckit-tasks` will materialise the seven ADR-authoring tasks as logical-increment commits per Development Workflow.
+
+---
+
+## Open follow-ups (deferred past v1 plan)
+
+These are *not* NEEDS CLARIFICATION — they are deliberate v2+ items, recorded so they don't get rediscovered later:
+
+- **Bounded mailbox with backpressure policy** (Research §7) — re-opens when v2 introduces a real transport.
+- **Cryptographic identity** (key-derived `PeerId`) — re-opens when the project's identity story converges (cross-ref the parent project's [[project-pubsub-design-synthesis]] notes). Spec trace: FR-007.
+- **Duplicate-id detection on register** (FR-009 says not required in v1; spec Edge Case "Two distinct nodes attempt to register under the same identifier … out of scope at this stage") — natural to add once cryptographic identity is in.
+- **Logging volume tuning and shipping** (Engineering Standards note) — deployment concern; out of scope for the scaffold. Trigger: re-opens when the project introduces a deployment artifact (CI release build, container image, helm chart) that needs operational log configuration. Until then, defaults to stderr at `info` level.
+- **Topic / sequence / chain semantics on `Message`** — beyond connectivity-probe `Ping`. Spec trace: Assumptions "No protocol semantics beyond connectivity". The `#[non_exhaustive]` marker on `Message` is the forward-compatibility hook so adding variants is non-breaking. Trigger: re-opens when the first non-Ping message variant is proposed (e.g., a `Publish(topic, payload)` or `Vote(epoch, hash)` design note).
+- **Peer discovery and dissemination protocols** — under research in the parent workstream. Spec trace: Assumptions "Research context". The v1 stub (user-authored peer sets, no dissemination algorithm) is intentional; the scaffold's substrate is what dissemination work will eventually layer on top of. Trigger: re-opens when a peer-discovery or dissemination ADR lands in the parent project (cf. [[project-pubsub-design-synthesis]]).
+- **Broadcast / multi-cast send semantics** — FR-005 explicitly excludes; will arrive together with the dissemination-protocol decision above. The current `NetworkHandle::send(to, message)` is one-to-one by signature, leaving room to add `broadcast(message)` or `send_to_many(&[PeerId], message)` later without renaming the existing surface.
+- **Peer-set dynamics** — peer discovery, health checks, failure handling, reconnection, peer-set mutation after startup. Spec trace: FR-008 explicitly excludes all of these. Each is a separately-decidable v2+ feature; the v1 `Node::peers()` is a read-only snapshot of the static set. Trigger: each sub-feature has its own — peer discovery + dissemination together with the entry above; health checks + failure handling + reconnection together with the "Delivery semantics under failure" entry below (networked transports arrival); peer-set mutation when a programmatic add/remove use case appears.
+- **Delivery semantics under failure** — at-most-once / at-least-once / exactly-once, retry, ack. Spec trace: FR-013's disclaimer added during CHK024 resolution. v1's exactly-once-under-trust-and-liveness guarantee is explicitly NOT expected to survive into networked iterations; the eventual semantics choice will require its own ADR and spec amendment.
+- **Network trait `async fn` Send bound** — the v1 `Network` trait carries `#[allow(async_fn_in_trait)]` because `async fn` in trait does not bound the returned future's auto-traits, and the lone v1 implementor (`InMemoryNetwork`) returns a `Send`-by-inference future. When a second `Network` impl arrives — particularly a real transport (TCP, QUIC, libp2p) whose body may hold non-`Send` locals across `.await`, or any code path that needs to `tokio::spawn` the `register` future on a different thread — switch to a `Send`-bounded trait shape (e.g. `-> impl Future<Output = ...> + Send` via RPITIT, or the `async-trait` / `trait_variant` crates). Tracked inline in `src/network.rs` via a `FUTURE:` comment. Trigger: a PR introducing a second `Network` implementor, or a compile error at a `tokio::spawn` site.

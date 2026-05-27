@@ -20,3 +20,9 @@ _build/
 _apalache-out/
 *.tla
 *.cfg
+
+# Rust build artifacts
+target/
+
+# Claude Code (user-specific permissions, not for version control)
+.claude/settings.local.json
