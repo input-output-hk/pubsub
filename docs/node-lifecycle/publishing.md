@@ -1,14 +1,14 @@
 # Publishing and relaying
 
-A publisher injects a signed message into a topic, and the overlay propagates it to subscribers. No dedicated relay set: publishers use the same [IP-discovery procedure](./ip-discovery.md) that subscribers use to find injection targets. Publisher authorisation comes from the on-chain topic registry, which binds an authorised publisher key (or set of keys) to each topic.
+A publisher injects a signed message into a topic, and the overlay propagates it to subscribers. **In this iteration, a publisher must operate a subscribed node on every topic it publishes to** — its own dissemination-layer links serve as the injection points, so no separate publication-side discovery or sampling is needed. Publisher authorisation comes from the on-chain topic registry, which binds an authorised publisher key (or set of keys) to each topic. Because the operator already pays the subscription deposit, the freeloading concern of accepting third-party publishes is avoided by construction.
 
 ## Steps
 
 **Publishing.**
 
-1. Construct a [`Message`](#types) and sign it with the publisher key authorised for the topic in the topic registry.
-2. Discover injection targets: read the subscription list, filter by topic → candidate set; sample `k` pubkeys uniformly (`k` is the publication fanout, independent of the dissemination fanout `d`); resolve endpoints via the local cache or by querying bootstrap nodes. Same flow as steps 1–7 of [IP discovery](./ip-discovery.md).
-3. Send the signed message to the `k` resolved peers. Gossip handles propagation from there. The publisher does not need to maintain dissemination-layer links unless it publishes frequently and wants to amortise discovery cost.
+1. Construct a [`Message`](#types) and sign it with the publisher key authorised for the topic in the topic registry. The publisher key is held by the operator; it may or may not be the same key as the operator pubkey on the subscription list.
+2. Send the signed message to the node's existing dissemination-layer peers for that topic — the `d` outgoing links established during [IP discovery](./ip-discovery.md). No separate injection sampling.
+3. Gossip propagates from there via the relaying rules below.
 
 **Relaying.**
 
@@ -24,19 +24,14 @@ A publisher injects a signed message into a topic, and the overlay propagates it
 sequenceDiagram
     participant Publisher
     participant Chain
-    participant Bootstrap
     participant Peer
     participant OtherPeer
 
     Note over Publisher: sign message with authorised publisher key
-    Publisher->>Chain: read subscription list
-    Chain-->>Publisher: list snapshot
-    Note over Publisher: filter by topic, sample k pubkeys
-    Publisher->>Bootstrap: request descriptors (cache misses)
-    Bootstrap-->>Publisher: signed descriptors
-    Publisher->>Peer: send signed message (×k)
+    Publisher->>Peer: forward on dissemination link (×d)
 
-    Note over Peer: look up publisher key in topic registry
+    Peer->>Chain: look up authorised publisher key (cached)
+    Chain-->>Peer: authorised key(s)
     Note over Peer: verify signature, drop if invalid
     Note over Peer: dedupe by message hash
     Note over Peer: deliver to local consumers if subscribed
@@ -59,3 +54,4 @@ Together, `parentHash` and `sequence` make the per-publisher stream tamper-evide
 ## Open questions
 
 - **Chain enforcement.** Relayers verify only the signature and dedupe by message hash; they do not check `sequence` monotonicity or `parentHash` linkage. Chain integrity is the consumer's responsibility for now. Whether to move enforcement into relayers (more storage per publisher at every relayer, but earlier rejection of malicious replays) is deferred until the replay/catch-up layer is designed.
+- **Lightweight-client and API-gateway publishing.** Requiring publishers to run subscribed nodes excludes lightweight clients (CLI tools, scripts, services that only emit). An API-gateway pattern — a lightweight client signs locally and sends to any node's ingress API for injection — would unlock those use cases but raises a freeloading question (the gateway node does verification + relaying work for free, possibly without even subscribing to the topic). A fee or incentive mechanism would close that gap. Deferred until the incentive design lands.

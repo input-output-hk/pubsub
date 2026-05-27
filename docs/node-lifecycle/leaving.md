@@ -30,3 +30,7 @@ sequenceDiagram
 ## Types
 
 **Leaving descriptor** — a [`SignedDescriptor`](./README.md#shared-types) with the endpoint field set to a sentinel "leaving" value (or with an explicit `leaving` flag once the schema is finalised). Sent so receiving peers evict cache entries immediately rather than waiting for a list re-read.
+
+## Open questions
+
+- **Silent abandonment vs. explicit leave.** The on-chain subscription list is not pruned by liveness — a node that goes offline silently and never submits an unsubscribe transaction stays in the list indefinitely. Sampling and the [authentication handshake](./ip-discovery.md) naturally route around such stale entries, but they continue to count toward `n` and thin out the rejection-sampling yield. Whether the deposit should be sized so that explicit unsubscribe is economically rational — making a non-trivial forfeit the price of lazy abandonment — is a deposit-economics question tied to the broader incentive design. Not addressed in this procedure.

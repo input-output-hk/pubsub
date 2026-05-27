@@ -40,8 +40,7 @@ The following knobs are configurable at the node level. Defaults are not yet pin
 
 | Parameter | Description | Suggested default |
 |-----------|-------------|-------------------|
-| `dissemination_fanout` (`d`) | Random-link peers per topic. | ≈ `ln(n)` plus margin |
-| `publication_fanout` (`k`) | Injection peers per published message. | small constant (e.g. 3–5) |
+| `dissemination_fanout` (`d`) | Random-link peers per topic. Derived dynamically from the current network size `n` (subscription-list cardinality) at each refresh; operating point is `d ≈ ln(n)` plus a safety margin. Publishers use the same outgoing links to inject messages — no separate publication fanout. | dynamic |
 | `subscription_list_poll_interval` | How often to re-read the subscription list for churn. | TBD (seconds–minutes range) |
 | `descriptor_staleness_window` | Reject `SignedDescriptor`s older than this. | TBD |
 | `endpoint_cache_ttl` | Drop cached endpoints after this time. | TBD |

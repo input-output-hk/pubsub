@@ -1,32 +1,51 @@
 # Joining and registering
 
-An operator joins the network for the first time: generates a keypair, locks the deposit on-chain, and becomes discoverable via the bootstrap nodes. Hands off to [IP discovery](./ip-discovery.md) to establish dissemination links.
+The first-time-join is two phases: **operator-driven pre-conditions** (key provisioning, registration transaction, config) and **node-driven startup** (the daemon loads its config, verifies it has an on-chain entry, then discovers and connects). Hands off to [IP discovery](./ip-discovery.md) once startup completes.
 
-## Steps
+## Operator pre-conditions
 
-1. Operator generates keypair and picks topic-interest set.
-2. Submit subscription transaction: locks the deposit and writes the public key and topic-interest set to the on-chain subscription list.
-3. Connect to one or more trusted bootstrap nodes (endpoints known out-of-band).
-4. Push a [`SignedDescriptor`](./README.md#shared-types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
-5. After confirmation, read the subscription list from chain and filter by the node's own topic interests — yields the candidate pubkey set per topic.
-6. Continue with the [IP-discovery procedure](./ip-discovery.md) to resolve endpoints and open dissemination links.
+These steps happen before the node daemon is started. They are performed by the operator (manually or via tooling).
+
+1. Generate or provision the operator keypair.
+2. Submit the subscription transaction — deposit, pubkey, topic-interest set go on-chain. Signed by the operator's wallet, not by the node daemon.
+3. Prepare the node config: bootstrap endpoints, a reference to the operator pubkey (or to the local key-material file), and any node-local settings.
+
+## Node startup
+
+1. Load config.
+2. Read the on-chain subscription list and verify there is an entry for the configured pubkey.
+3. If no entry exists: log a clear error ("operator must register before starting the node — pubkey X not found in subscription list") and exit. The node does **not** initiate a registration transaction; that is the operator's job.
+4. Connect to one or more trusted bootstrap nodes from the config.
+5. Push a [`SignedDescriptor`](./README.md#shared-types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
+6. Filter the subscription list by the node's own topic interests — yields the candidate pubkey set per topic.
+7. Continue with the [IP-discovery procedure](./ip-discovery.md) to resolve endpoints and open dissemination links.
 
 ## Diagram
 
 ```mermaid
 sequenceDiagram
     participant Operator
-    participant Node
     participant Chain
+    participant Config
+    participant Node
     participant Bootstrap
 
-    Operator->>Node: generate keypair, pick topics
-    Node->>Chain: submit subscription tx (deposit, pubkey, topics)
-    Chain-->>Node: tx confirmed
-    Node->>Bootstrap: open connection
-    Node->>Bootstrap: push signed descriptor (pubkey, endpoint, ts)
-    Node->>Chain: read subscription list
+    Note over Operator: generate / provision keypair
+    Operator->>Chain: submit subscription tx (deposit, pubkey, topics)
+    Chain-->>Operator: tx confirmed
+    Note over Operator: write config (bootstrap endpoints, pubkey ref)
+    Operator->>Config: deploy config
+
+    Note over Node: startup
+    Config-->>Node: load config (bootstrap, pubkey ref)
+    Node->>Chain: read subscription list, verify pubkey present
     Chain-->>Node: list snapshot
-    Note over Node: filter by own topic interests → candidate set
-    Note over Node: continue with IP-discovery procedure
+    alt pubkey not registered
+        Note over Node: log error, exit
+    else pubkey registered
+        Node->>Bootstrap: open connection
+        Node->>Bootstrap: push signed descriptor (pubkey, endpoint, ts)
+        Note over Node: filter list by own topic interests → candidate set
+        Note over Node: continue with IP-discovery procedure
+    end
 ```
