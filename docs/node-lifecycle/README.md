@@ -18,7 +18,7 @@ A useful consequence: chain-event subscription is already available — flows th
 
 ## Shared types
 
-- **`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. Authenticated endpoint binding for a registered node. The signature is produced with the operator's private key and covers `(pubkey, endpoint, timestamp)`. Used in [joining](./joining.md), [ip-discovery](./ip-discovery.md), [endpoint-change](./endpoint-change.md), and [leaving](./leaving.md).
+- **`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. Authenticated endpoint binding for a registered node. `pubkey` is the node identity pubkey on the subscription list; the signature is produced with the corresponding node identity private key and covers `(pubkey, endpoint, timestamp)`. The operator's wallet (which paid the deposit) is **not** involved at runtime — only the node identity key is. Used in [joining](./joining.md), [ip-discovery](./ip-discovery.md), [endpoint-change](./endpoint-change.md), and [leaving](./leaving.md).
   - *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*
 
 ## Overview

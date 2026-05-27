@@ -6,15 +6,15 @@ The first-time-join is two phases: **operator-driven pre-conditions** (key provi
 
 These steps happen before the node daemon is started. They are performed by the operator (manually or via tooling).
 
-1. Generate or provision the operator keypair.
-2. Submit the subscription transaction — deposit, pubkey, topic-interest set go on-chain. Signed by the operator's wallet, not by the node daemon.
-3. Prepare the node config: bootstrap endpoints, a reference to the operator pubkey (or to the local key-material file), and any node-local settings.
+1. Generate or provision the **node identity keypair** — the pubkey that will identify this node in the subscription list and that the daemon uses at runtime to sign `SignedDescriptor`s and answer handshakes. Distinct from the operator's wallet.
+2. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon.
+3. Prepare the node config: bootstrap endpoints, a reference to the node identity pubkey (or to the local key-material file), and any node-local settings.
 
 ## Node startup
 
 1. Load config.
-2. Read the on-chain subscription list and verify there is an entry for the configured pubkey.
-3. If no entry exists: log a clear error ("operator must register before starting the node — pubkey X not found in subscription list") and exit. The node does **not** initiate a registration transaction; that is the operator's job.
+2. Read the on-chain subscription list and verify there is an entry for the configured node identity pubkey.
+3. If no entry exists: log a clear error ("operator must register before starting the node — node pubkey X not found in subscription list") and exit. The node does **not** initiate a registration transaction; that is the operator's job using the operator wallet.
 4. Connect to one or more trusted bootstrap nodes from the config.
 5. Push a [`SignedDescriptor`](./README.md#shared-types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
 6. Filter the subscription list by the node's own topic interests — yields the candidate pubkey set per topic.
@@ -30,15 +30,15 @@ sequenceDiagram
     participant Node
     participant Bootstrap
 
-    Note over Operator: generate / provision keypair
-    Operator->>Chain: submit subscription tx (deposit, pubkey, topics)
+    Note over Operator: generate / provision node identity keypair
+    Operator->>Chain: submit subscription tx via wallet (deposit, node pubkey, topics)
     Chain-->>Operator: tx confirmed
-    Note over Operator: write config (bootstrap endpoints, pubkey ref)
+    Note over Operator: write config (bootstrap endpoints, node pubkey ref)
     Operator->>Config: deploy config
 
     Note over Node: startup
-    Config-->>Node: load config (bootstrap, pubkey ref)
-    Node->>Chain: read subscription list, verify pubkey present
+    Config-->>Node: load config (bootstrap, node pubkey ref)
+    Node->>Chain: read subscription list, verify node pubkey present
     Chain-->>Node: list snapshot
     alt pubkey not registered
         Note over Node: log error, exit

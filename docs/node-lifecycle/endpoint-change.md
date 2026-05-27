@@ -4,7 +4,7 @@ A node's network endpoint can change for routine operational reasons — network
 
 ## Steps
 
-1. Sign a fresh [`SignedDescriptor`](./README.md#shared-types) containing the new endpoint with the operator's private key.
+1. Sign a fresh [`SignedDescriptor`](./README.md#shared-types) containing the new endpoint with the node identity private key.
 2. Push the new descriptor to current random-link peers on the dissemination layer (one push per topic the node participates in).
 3. Receiving peers verify the signature, update their endpoint cache for that pubkey, and re-broadcast the descriptor on their own dissemination links. Standard message deduplication (by descriptor hash) suppresses cycles.
 4. Within one or two propagation rounds, peers across the topics the node subscribes to have the new endpoint in cache.
