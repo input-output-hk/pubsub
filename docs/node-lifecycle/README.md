@@ -14,11 +14,6 @@ Every node runs a chain follower (light client at minimum) — a trustless, Byza
 > [!IMPORTANT]
 > Network endpoints (IPs/hostnames) are not on-chain. They are exchanged peer-to-peer as signed descriptors and served by bootstrap nodes during [IP discovery](./ip-discovery.md).
 
-## Shared types
-
-- **`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. Authenticated endpoint binding for a registered node. `pubkey` is the node identity from the subscription list; the signature is produced with the corresponding private key (held only by the daemon — the operator wallet is not used at runtime). Used in [joining](./joining.md), [ip-discovery](./ip-discovery.md), [endpoint-change](./endpoint-change.md), and [leaving](./leaving.md).
-  - *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*
-
 ## Procedure index
 
 Per-procedure docs, in roughly the order a node encounters them. Each row links to the dedicated doc; status indicates the state of the spec.

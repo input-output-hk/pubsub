@@ -7,7 +7,7 @@ A node resolves endpoints for the peers it intends to disseminate with and opens
 1. Re-read the subscription list (or use the most recent synced snapshot); filter by topic interest → candidate pubkey set per topic.
 2. Sample `d` pubkeys uniformly at random from the candidate set per topic. No ring computation.
 3. Check the local endpoint cache; collect cache-miss pubkeys.
-4. Request [`SignedDescriptor`](./README.md#shared-types) entries for cache-miss pubkeys from connected bootstrap node(s) (or any connected peer).
+4. Request [`SignedDescriptor`](./joining.md#types) entries for cache-miss pubkeys from connected bootstrap node(s) (or any connected peer).
 5. Verify each descriptor's signature against the on-chain pubkey; reject stale or mismatched timestamps.
 6. Cache verified endpoints.
 7. **Rejection sampling.** For any sampled pubkey with no valid descriptor, draw a replacement from the candidate set and repeat until `d` live targets are secured or the candidate set is exhausted. This is rejection sampling over the on-chain candidate set — offline or unresolvable peers are filtered out without altering the underlying uniform distribution. If the candidate set is exhausted with fewer than `d` live peers, proceed with whatever `d_actual` was obtained; the graceful-degradation rules in step 10 take over from there.

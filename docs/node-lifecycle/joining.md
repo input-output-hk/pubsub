@@ -6,7 +6,7 @@ The first-time-join is two phases: **operator-driven pre-conditions** (key provi
 
 These steps happen before the node daemon is started. They are performed by the operator (manually or via tooling).
 
-1. Generate or provision the **node identity keypair** (distinct from the operator wallet; see [`SignedDescriptor`](./README.md#shared-types) for runtime use).
+1. Generate or provision the **node identity keypair** — distinct from the operator wallet, and the basis of the [`SignedDescriptor`](#types) the daemon uses at runtime.
 2. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon.
 3. Prepare the node config: bootstrap endpoints, a reference to the node identity pubkey (or to the local key-material file), and any node-local settings.
 
@@ -16,7 +16,7 @@ These steps happen before the node daemon is started. They are performed by the 
 2. Read the on-chain subscription list and verify there is an entry for the configured node identity pubkey.
 3. If no entry exists: log a clear error ("operator must register before starting the node — node pubkey X not found in subscription list") and exit. The node does **not** initiate a registration transaction; that is the operator's job using the operator wallet.
 4. Connect to one or more trusted bootstrap nodes from the config.
-5. Push a [`SignedDescriptor`](./README.md#shared-types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
+5. Push a [`SignedDescriptor`](#types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
 6. Filter the subscription list by the node's own topic interests — yields the candidate pubkey set per topic.
 7. Continue with the [IP-discovery procedure](./ip-discovery.md) to resolve endpoints and open dissemination links.
 
@@ -49,3 +49,15 @@ sequenceDiagram
         Note over Node: continue with IP-discovery procedure
     end
 ```
+
+## Types
+
+**`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. The descriptor is what other nodes need in order to find this node on the network. It is derived from the node identity keypair generated in step 1 of [Operator pre-conditions](#operator-pre-conditions): the public half is the `pubkey` field; the private half produces the `signature` over `(pubkey, endpoint, timestamp)`. The operator wallet is not involved at runtime — only the node identity key signs descriptors.
+
+Used here in [node-startup step 5](#node-startup) and reused by:
+
+- [IP discovery](./ip-discovery.md) — resolves other peers' endpoints by fetching their descriptors.
+- [Endpoint change](./endpoint-change.md) — broadcasts a fresh descriptor after a network move.
+- [Leaving](./leaving.md) — variant with a sentinel "leaving" value to evict peer caches immediately.
+
+> *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*

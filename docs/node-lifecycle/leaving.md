@@ -32,7 +32,7 @@ sequenceDiagram
 
 ## Types
 
-**Leaving descriptor** — a [`SignedDescriptor`](./README.md#shared-types) with the endpoint field set to a sentinel "leaving" value (or with an explicit `leaving` flag once the schema is finalised). Sent so receiving peers evict cache entries immediately rather than waiting for a list re-read.
+**Leaving descriptor** — a [`SignedDescriptor`](./joining.md#types) with the endpoint field set to a sentinel "leaving" value (or with an explicit `leaving` flag once the schema is finalised). Sent so receiving peers evict cache entries immediately rather than waiting for a list re-read.
 
 ## Open questions
 
