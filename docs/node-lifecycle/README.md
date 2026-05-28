@@ -2,38 +2,6 @@
 
 Procedures a node executes during its lifecycle in the list-based pubsub network.
 
-## Architecture overview
-
-```mermaid
-flowchart TB
-    Operator([Operator wallet])
-
-    subgraph Cardano["Cardano (on-chain)"]
-        direction LR
-        TR[("Topic registry<br/><i>authorised publisher keys per topic</i>")]
-        SL[("Subscription list<br/><i>node pubkey + topics + deposit per node</i>")]
-    end
-
-    subgraph Overlay["Off-chain overlay"]
-        direction TB
-        N["Node daemon"]
-        SD[/"SignedDescriptor<br/>(pubkey, endpoint, ts, sig)"/]
-        BS["Bootstrap node<br/><i>trusted, out-of-band</i>"]
-        Peer["Other nodes"]
-    end
-
-    Operator -->|registration tx| SL
-    Operator -.->|register publisher key| TR
-    N -->|read: verify msg signatures| TR
-    N -->|read: candidate set per topic| SL
-    N -->|sign + push| SD
-    SD --> BS
-    BS -.->|serve on lookup| N
-    N <-->|dissemination links<br/>signed messages| Peer
-```
-
-The on-chain layer holds the two contracts the overlay depends on; the off-chain layer holds the daemons that read them, the bootstrap nodes that broker endpoint discovery, and the `SignedDescriptor` data artifact that carries endpoints peer-to-peer. The procedure docs detail each interaction; see the [overview](#overview) below for the full list.
-
 ## On-chain artifacts
 
 Every node runs a chain follower (light client at minimum): relayers read the topic registry to verify message signatures, and subscribers read the subscription list to compute their candidate sets. A trustless, Byzantine-resistant deployment cannot delegate this. Chain-event subscription is therefore already available — flows that need real-time reactions to chain state can hook into the existing follower.
