@@ -16,7 +16,7 @@ A node resolves endpoints for the peers it intends to disseminate with and opens
 10. **Maintain fanout with graceful degradation.**
     - **Resample triggers.** Disconnect, handshake failure, or descriptor-verification failure → return to step 7 to refill the slot.
     - **Periodic re-read.** Re-read the subscription list at the configured cadence (see [README](./README.md#configuration-parameters)) to track churn — joiners, leavers, topic-subscription changes, and endpoint updates all surface here. The chain follower is already running (see [README](./README.md#on-chain-artifacts)), so this is not extra infrastructure.
-    - **Graceful degradation.** If `d_target` cannot be filled, operate with whatever `d_actual ≤ d_target` is available — better one live peer than zero. Log a warning when `d_actual < d_min_warn`, an error when `d_actual < d_min_error`. Refill attempts run on exponential backoff capped at the re-read interval; transient gaps recover automatically.
+    - **Graceful degradation.** If `d_target` cannot be filled, operate with whatever `d_actual ≤ d_target` is available — better one live peer than zero. Log a warning when `d_actual < ⌈d_target / 2⌉`, an error when `d_actual < 2` (Fenner–Frieze connectivity floor). These thresholds are protocol constants, not configurable. Refill attempts run on exponential backoff capped at the re-read interval; transient gaps recover automatically.
 11. Drop bootstrap connections unless bootstrap is itself a subscriber; future descriptors arrive via gossip on dissemination links, bootstrap remains a fallback.
 
 ## Diagram
