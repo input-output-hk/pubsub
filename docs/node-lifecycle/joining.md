@@ -7,11 +7,12 @@ The first-time-join is two phases: **operator-driven pre-conditions** (key provi
 These steps happen before the node daemon (`pubsub-node`) is started. They are performed by the operator (manually or via tooling).
 
 > [!NOTE]
-> **Proposed tooling:** a `pubsub-cli` binary complementary to `pubsub-node`, mirroring the `cardano-cli` / `cardano-node` split. It would package the operator-side steps below behind a single CLI. Illustrative commands are noted on each step.
+> **Proposed tooling:** a `pubsub-cli` binary complementary to `pubsub-node`, packaging the operator-side steps below behind a single CLI. Commands that read or mutate on-chain state require access to a Cardano node or compatible indexer/API. Illustrative commands are noted on each step.
 
 1. Generate or provision the **node identity keypair** — distinct from the operator wallet, and the basis of the [`SignedDescriptor`](#types) the daemon uses at runtime. *(e.g., `pubsub-cli key gen`.)*
-2. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon. *(e.g., `pubsub-cli register --topics t1,t2 --deposit 1000`.)*
-3. Prepare the node config: bootstrap endpoints, a reference to the node identity pubkey (or to the local key-material file), and any node-local settings. *(e.g., `pubsub-cli config init`.)*
+2. Discover the topics currently registered on chain and pick which ones to subscribe to. *(e.g., `pubsub-cli topics list`.)*
+3. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon. *(e.g., `pubsub-cli register --topics t1,t2 --deposit 1000`.)*
+4. Prepare the node config by copying the per-network template and filling in the topic-interest set, the path to the node identity key, and the bootstrap endpoints. Per-network templates ship the network-specific parameters (contract addresses, network magic, era settings) so the operator only fills in deployment-local fields. *(e.g., `pubsub-cli config init --network mainnet --topics t1,t2 --node-key /path/to/key.skey`.)*
 
 ## Node startup
 
@@ -34,9 +35,11 @@ sequenceDiagram
     participant Bootstrap
 
     Note over Operator: generate / provision node identity keypair
+    Operator->>Chain: list registered topics
+    Chain-->>Operator: topic registry snapshot
     Operator->>Chain: submit subscription tx via wallet (deposit, node pubkey, topics)
     Chain-->>Operator: tx confirmed
-    Note over Operator: write config (bootstrap endpoints, node pubkey ref)
+    Note over Operator: copy per-network config template, fill in topics + node key path + bootstrap endpoints
     Operator->>Config: deploy config
 
     Note over Node: startup
