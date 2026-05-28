@@ -64,14 +64,12 @@ Storage cost is bounded by the topic-registry size, not by message volume — ro
 
 **2. Proof-of-equivocation gossip.** The proof is small and self-verifying: any node receiving `(msg_A, msg_B)` re-checks both signatures and confirms `seq_A == seq_B ∧ hash_A != hash_B`. Validating peers drop all subsequent messages from the equivocating publisher key and re-broadcast the proof on their dissemination links. Branches that stayed disjoint up to that point get squashed network-wide once the proof emerges anywhere in the overlay.
 
-**3. On-chain slashing via Plutus redeemer.** The proof is portable and cryptographically self-contained, which makes it a natural redeemer for a slashing transaction that **consumes two script outputs in a single tx**:
+**3. On-chain slashing via Plutus redeemer.** The proof is portable and self-contained, making it a natural redeemer for a slashing transaction that **consumes two script outputs in a single tx**:
 
-- The **topic-registry entry** for the equivocating publisher key — the spend revokes the key, so subsequent messages signed by it fail the existing relayer verification step. No per-message collateral check is needed on the hot path; revocation flows through the topic registry the relayers already read.
+- The **topic-registry entry** for the equivocating publisher key — the spend revokes the key, so subsequent messages signed by it fail the existing relayer verification step. No per-message collateral check on the hot path.
 - The **node-registry entry** holding the operator's subscription deposit — the spend slashes the bond, paying a bounty to the proof submitter and burning (or redirecting to a topic-owner fund) the remainder.
 
-The redeemer is the proof itself: `(msg_A, msg_B)`. Both scripts re-verify the signatures against the authorised publisher key, confirm the equivocation predicate (`seq_A == seq_B ∧ hash_A != hash_B`), and are satisfied. Publishers must run a subscribed node, so the operator deposit is the natural slashable bond — no separate collateral.
-
-The bounty makes detection economically rational: any watcher, subscriber, or relayer that holds both branches has positive expected value for submitting the proof. Same cryptographic-fault-attribution pattern as Tendermint validator slashing, Ethereum 2 double-sign slashing, and Casper FFG.
+Both scripts re-verify the signatures and the equivocation predicate (`seq_A == seq_B ∧ hash_A != hash_B`) using the proof `(msg_A, msg_B)` as redeemer. The operator deposit is the natural slashable bond since publishers must run a subscribed node; the bounty gives any watcher holding both branches positive expected value for submitting. (Same fault-attribution pattern as Tendermint, Ethereum 2 double-sign, and Casper FFG slashing.)
 
 ### Post-fork semantics
 

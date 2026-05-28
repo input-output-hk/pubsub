@@ -6,7 +6,7 @@ The first-time-join is two phases: **operator-driven pre-conditions** (key provi
 
 These steps happen before the node daemon is started. They are performed by the operator (manually or via tooling).
 
-1. Generate or provision the **node identity keypair** — the pubkey that will identify this node in the subscription list and that the daemon uses at runtime to sign `SignedDescriptor`s and answer handshakes. Distinct from the operator's wallet.
+1. Generate or provision the **node identity keypair** (distinct from the operator wallet; see [`SignedDescriptor`](./README.md#shared-types) for runtime use).
 2. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon.
 3. Prepare the node config: bootstrap endpoints, a reference to the node identity pubkey (or to the local key-material file), and any node-local settings.
 

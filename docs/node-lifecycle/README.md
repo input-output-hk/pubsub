@@ -1,24 +1,20 @@
 # Node lifecycle procedures
 
-This directory documents the procedures a node executes during its lifecycle in the list-based pubsub network: joining, finding peers, publishing/relaying, changing its topic subscriptions, endpoint updates, and leaving. Each procedure is a self-contained doc with a short intro, steps, a mermaid sequence diagram, and (when relevant) type definitions for the on-the-wire structures it uses.
+Procedures a node executes during its lifecycle in the list-based pubsub network. See the [overview](#overview) for the full list; each doc has a short intro, steps, a mermaid sequence diagram, and (when relevant) type definitions.
 
 ## On-chain artifacts
 
-- **Topic registry** — per-topic entry containing the topic identifier and the authorised publisher key(s) for that topic. Read by relayers to verify message signatures. Full formal specification (operations, role-based access control, invariants) lives under [`formal_spec/topic_registry/`](../../formal_spec/topic_registry/). See [topic-creation.md](./topic-creation.md) for the cross-reference.
-- **Subscription list** — per-subscriber entry containing the operator's public key, the subscribed topic-interest set, and the locked deposit. Read to determine who participates in dissemination for each topic.
+Every node runs a chain follower (light client at minimum): relayers read the topic registry to verify message signatures, and subscribers read the subscription list to compute their candidate sets. A trustless, Byzantine-resistant deployment cannot delegate this. Chain-event subscription is therefore already available — flows that need real-time reactions to chain state can hook into the existing follower.
+
+- **Topic registry** — per-topic entry with the topic identifier and the authorised publisher key(s). Full formal spec under [`formal_spec/topic_registry/`](../../formal_spec/topic_registry/); see [topic-creation.md](./topic-creation.md).
+- **Subscription list** — per-subscriber entry with the operator's node identity pubkey, the subscribed topic-interest set, and the locked deposit.
 
 > [!IMPORTANT]
 > Network endpoints (IPs/hostnames) are not on-chain. They are exchanged peer-to-peer as signed descriptors and served by bootstrap nodes during [IP discovery](./ip-discovery.md).
 
-## Chain access
-
-Every node runs a chain follower (light client at minimum). This is not optional: relayers must read the topic registry to verify message signatures against the authorised publisher key (see [publishing.md](./publishing.md)), and subscribers must read the subscription list to compute their candidate sets. A trustless, Byzantine-resistant deployment cannot delegate this to a third party.
-
-A useful consequence: chain-event subscription is already available — flows that benefit from real-time chain reactions (e.g., reacting to subscription-list updates without polling) can hook into the existing follower rather than adding new infrastructure.
-
 ## Shared types
 
-- **`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. Authenticated endpoint binding for a registered node. `pubkey` is the node identity pubkey on the subscription list; the signature is produced with the corresponding node identity private key and covers `(pubkey, endpoint, timestamp)`. The operator's wallet (which paid the deposit) is **not** involved at runtime — only the node identity key is. Used in [joining](./joining.md), [ip-discovery](./ip-discovery.md), [endpoint-change](./endpoint-change.md), and [leaving](./leaving.md).
+- **`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. Authenticated endpoint binding for a registered node. `pubkey` is the node identity from the subscription list; the signature is produced with the corresponding private key (held only by the daemon — the operator wallet is not used at runtime). Used in [joining](./joining.md), [ip-discovery](./ip-discovery.md), [endpoint-change](./endpoint-change.md), and [leaving](./leaving.md).
   - *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*
 
 ## Overview
