@@ -84,12 +84,6 @@ After slashing:
 - **Both forked branches.** Orphaned. Subscribers that already delivered messages from either branch may need to roll back consumer-side state (application concern, not protocol).
 - **A successor publisher.** Registers a fresh key with a new deposit. Starts a brand-new chain at `sequence = 0` with the genesis sentinel as `parentHash`. No inheritance of the equivocator's history.
 
-### Replay protection
-
-Falls out of standard Cardano UTxO semantics: the slashing transaction consumes the two script outputs above; any subsequent submission of the same proof fails because the inputs no longer exist. First valid slashing tx into a block wins the bounty. Watchers racing each other to submit waste effort on the loser side but cannot double-slash.
-
-Late proofs remain effective during the withdrawal-delay window after a publisher voluntarily unsubscribes — see [Leaving and unregistering](./leaving.md). The delay doubles as the grace period for late equivocation proofs.
-
 ### Residual open points
 
 - **Cache window size.** Minimum state (last `seq + hash` per `(publisher, topic)`) catches immediate equivocation. A sliding window of the last N hashes catches retroactive forks (publisher equivocates at seq 5 after seq 10 was already broadcast). Window size is configurable; default TBD.
