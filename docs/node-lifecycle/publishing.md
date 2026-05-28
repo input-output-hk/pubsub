@@ -64,14 +64,36 @@ Storage cost is bounded by the topic-registry size, not by message volume — ro
 
 **2. Proof-of-equivocation gossip.** The proof is small and self-verifying: any node receiving `(msg_A, msg_B)` re-checks both signatures and confirms `seq_A == seq_B ∧ hash_A != hash_B`. Validating peers drop all subsequent messages from the equivocating publisher key and re-broadcast the proof on their dissemination links. Branches that stayed disjoint up to that point get squashed network-wide once the proof emerges anywhere in the overlay.
 
-**3. On-chain slashing via Plutus redeemer.** The proof is portable and cryptographically self-contained, which makes it a natural redeemer for a Plutus script that:
+**3. On-chain slashing via Plutus redeemer.** The proof is portable and cryptographically self-contained, which makes it a natural redeemer for a slashing transaction that **consumes two script outputs in a single tx**:
 
-- Re-verifies both signatures using the on-chain authorised publisher key from the topic registry.
-- Confirms the equivocation predicate (`seq_A == seq_B ∧ hash_A != hash_B`).
-- Slashes the equivocating publisher's collateral — the subscription deposit of the node operator bound to the publisher key. Publishers must run a subscribed node, so the operator's deposit is the natural slashable bond; no separate collateral is needed.
-- Pays a bounty to the submitter from the slashed amount; remainder is burned (deterrent) or redirected to a topic-owner fund.
+- The **topic-registry entry** for the equivocating publisher key — the spend revokes the key, so subsequent messages signed by it fail the existing relayer verification step. No per-message collateral check is needed on the hot path; revocation flows through the topic registry the relayers already read.
+- The **node-registry entry** holding the operator's subscription deposit — the spend slashes the bond, paying a bounty to the proof submitter and burning (or redirecting to a topic-owner fund) the remainder.
+
+The redeemer is the proof itself: `(msg_A, msg_B)`. Both scripts re-verify the signatures against the authorised publisher key, confirm the equivocation predicate (`seq_A == seq_B ∧ hash_A != hash_B`), and are satisfied. Publishers must run a subscribed node, so the operator deposit is the natural slashable bond — no separate collateral.
 
 The bounty makes detection economically rational: any watcher, subscriber, or relayer that holds both branches has positive expected value for submitting the proof. Same cryptographic-fault-attribution pattern as Tendermint validator slashing, Ethereum 2 double-sign slashing, and Casper FFG.
+
+### Post-fork semantics
+
+The hash chain is per-`(publisher, topic)`, not per-topic — each publisher maintains its own `parentHash`/`sequence` stream. A fork affects only the equivocating publisher's chain, not the topic as a whole.
+
+> [!IMPORTANT]
+> Chains are per-publisher. Equivocation by one publisher does not corrupt or block other publishers' streams on the same topic; their chains continue uninterrupted.
+
+After slashing:
+
+- **Equivocating publisher.** Key revoked in the topic registry. All messages signed by that key — past and future — fail signature verification at relayers. The publisher's entire chain is orphaned.
+- **Both forked branches.** Orphaned. Subscribers that already delivered messages from either branch may need to roll back consumer-side state (application concern, not protocol).
+- **A successor publisher.** Registers a fresh key with a new deposit. Starts a brand-new chain at `sequence = 0` with the genesis sentinel as `parentHash`. No inheritance of the equivocator's history.
+
+> [!IMPORTANT]
+> No "longest-chain" semantics. The design does not need to choose between branch A and branch B — both are orphaned by atomic key revocation, and per-publisher chain isolation means the topic itself is never blocked or quarantined. The topic outlives any individual publisher.
+
+### Replay protection
+
+Falls out of standard Cardano UTxO semantics: the slashing transaction consumes the two script outputs above; any subsequent submission of the same proof fails because the inputs no longer exist. First valid slashing tx into a block wins the bounty. Watchers racing each other to submit waste effort on the loser side but cannot double-slash.
+
+Late proofs remain effective during the withdrawal-delay window after a publisher voluntarily unsubscribes — see [Leaving and unregistering](./leaving.md). The delay doubles as the grace period for late equivocation proofs.
 
 ### Residual open points
 

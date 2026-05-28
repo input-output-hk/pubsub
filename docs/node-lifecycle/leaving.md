@@ -9,6 +9,9 @@ A node removes its entire entry from the subscription list and exits the network
 3. Close open dissemination-layer connections.
 4. After the delay window, claim the deposit.
 
+> [!IMPORTANT]
+> The withdrawal-delay window is the only opportunity to slash the operator's deposit for past misbehaviour. During this window, late equivocation proofs against the publisher key remain effective — see [Equivocation defence](./publishing.md#equivocation-defence-planned). Once the delay elapses and the deposit is claimed, the bond is gone and cannot be slashed.
+
 ## Diagram
 
 ```mermaid
