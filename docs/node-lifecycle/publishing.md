@@ -69,7 +69,7 @@ Storage cost is bounded by the topic-registry size, not by message volume — ro
 - The **topic-registry entry** for the equivocating publisher key — the spend revokes the key, so subsequent messages signed by it fail the existing relayer verification step. No per-message collateral check on the hot path.
 - The **node-registry entry** holding the operator's subscription deposit — the spend slashes the bond, paying a bounty to the proof submitter and burning (or redirecting to a topic-owner fund) the remainder.
 
-Both scripts re-verify the signatures and the equivocation predicate (`seq_A == seq_B ∧ hash_A != hash_B`) using the proof `(msg_A, msg_B)` as redeemer. The operator deposit is the natural slashable bond since publishers must run a subscribed node; the bounty gives any watcher holding both branches positive expected value for submitting. (Same fault-attribution pattern as Tendermint, Ethereum 2 double-sign, and Casper FFG slashing.)
+Both scripts re-verify the signatures and the equivocation predicate (`seq_A == seq_B ∧ hash_A != hash_B`) using the proof `(msg_A, msg_B)` as redeemer. The operator deposit is the natural slashable bond since publishers must run a subscribed node; the bounty must exceed the submitter's transaction cost so that any watcher who has observed both conflicting branches is paid to submit the proof rather than ignore it.
 
 ### Post-fork semantics
 
@@ -83,9 +83,6 @@ After slashing:
 - **Equivocating publisher.** Key revoked in the topic registry. All messages signed by that key — past and future — fail signature verification at relayers. The publisher's entire chain is orphaned.
 - **Both forked branches.** Orphaned. Subscribers that already delivered messages from either branch may need to roll back consumer-side state (application concern, not protocol).
 - **A successor publisher.** Registers a fresh key with a new deposit. Starts a brand-new chain at `sequence = 0` with the genesis sentinel as `parentHash`. No inheritance of the equivocator's history.
-
-> [!IMPORTANT]
-> No "longest-chain" semantics. The design does not need to choose between branch A and branch B — both are orphaned by atomic key revocation, and per-publisher chain isolation means the topic itself is never blocked or quarantined. The topic outlives any individual publisher.
 
 ### Replay protection
 
