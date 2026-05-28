@@ -17,8 +17,8 @@ These steps happen before the node daemon (`pubsub-node`) is started. They are p
 ## Node startup
 
 1. Load config.
-2. Read the on-chain subscription list and verify there is an entry for the configured node identity pubkey.
-3. If no entry exists: log a clear error ("operator must register before starting the node — node pubkey X not found in subscription list") and exit. The node does **not** initiate a registration transaction; that is the operator's job using the operator wallet.
+2. Read the on-chain subscription list and look up the configured node identity pubkey.
+3. If no entry is found, retry the lookup with exponential backoff — the registration tx may not yet be confirmed, or the chain follower may be lagging behind the tip. Log a warning on the first few misses and escalate to an error after a threshold so a misconfigured pubkey or missing registration becomes visible. The node does **not** initiate a registration transaction; that is the operator's job. Resume as soon as the entry appears.
 4. Connect to one or more trusted bootstrap nodes from the config.
 5. Push a [`SignedDescriptor`](#types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
 6. Filter the subscription list by the node's own topic interests — yields the candidate pubkey set per topic.
@@ -44,16 +44,17 @@ sequenceDiagram
 
     Note over Node: startup
     Config-->>Node: load config (bootstrap, node pubkey ref)
-    Node->>Chain: read subscription list, verify node pubkey present
-    Chain-->>Node: list snapshot
-    alt pubkey not registered
-        Note over Node: log error, exit
-    else pubkey registered
-        Node->>Bootstrap: open connection
-        Node->>Bootstrap: push signed descriptor (pubkey, endpoint, ts)
-        Note over Node: filter list by own topic interests → candidate set
-        Note over Node: continue with IP-discovery procedure
+    loop until node pubkey appears in subscription list
+        Node->>Chain: read subscription list
+        Chain-->>Node: list snapshot
+        alt pubkey not found
+            Note over Node: log warning (escalate to error after threshold), back off + retry
+        end
     end
+    Node->>Bootstrap: open connection
+    Node->>Bootstrap: push signed descriptor (pubkey, endpoint, ts)
+    Note over Node: filter list by own topic interests → candidate set
+    Note over Node: continue with IP-discovery procedure
 ```
 
 ## Types
