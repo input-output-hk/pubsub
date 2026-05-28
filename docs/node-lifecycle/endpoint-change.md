@@ -1,10 +1,10 @@
 # Endpoint change
 
-A node's network endpoint can change for routine operational reasons — network move, container restart with a new address, NAT shuffle. Because endpoints are off-chain, no chain transaction is required: the node signs a fresh descriptor and propagates it on its existing dissemination links.
+A node's network endpoints can change for routine operational reasons — network move, container restart with a new address, NAT shuffle, adding or dropping a transport (v4/v6 swap). Because endpoints are off-chain, no chain transaction is required: the node signs a fresh descriptor and propagates it on its existing dissemination links. The descriptor's `endpoints` list is replaced atomically — partial updates (e.g. only v6 changed) still re-sign the full list with a new timestamp.
 
 ## Steps
 
-1. Sign a fresh [`SignedDescriptor`](./joining.md#types) containing the new endpoint with the node identity private key.
+1. Sign a fresh [`SignedDescriptor`](./joining.md#types) containing the new `endpoints` list with the node identity private key.
 2. Push the new descriptor to current random-link peers on the dissemination layer (one push per topic the node participates in).
 3. Receiving peers verify the signature, update their endpoint cache for that pubkey, and re-broadcast the descriptor on their own dissemination links. Standard message deduplication (by descriptor hash) suppresses cycles.
 4. Within one or two propagation rounds, peers across the topics the node subscribes to have the new endpoint in cache.
@@ -19,7 +19,7 @@ sequenceDiagram
     participant Peer
     participant OtherPeer
 
-    Note over Node: sign new descriptor (pubkey, new endpoint, ts)
+    Note over Node: sign new descriptor (pubkey, new endpoints list, ts)
     Node->>Peer: push signed descriptor
     Note over Peer: verify sig, update endpoint cache
     Peer->>OtherPeer: re-broadcast descriptor (gossip)

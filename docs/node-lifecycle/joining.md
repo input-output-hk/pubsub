@@ -20,7 +20,7 @@ These steps happen before the node daemon (`pubsub-node`) is started. They are p
 2. Read the on-chain subscription list and look up the configured node identity pubkey.
 3. If no entry is found, retry the lookup with exponential backoff — the registration tx may not yet be confirmed, or the chain follower may be lagging behind the tip. Log a warning on the first few misses and escalate to an error after a threshold so a misconfigured pubkey or missing registration becomes visible. The node does **not** initiate a registration transaction; that is the operator's job. Resume as soon as the entry appears.
 4. Connect to one or more trusted bootstrap nodes from the config.
-5. Push a [`SignedDescriptor`](#types) `(pubkey, current endpoint, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers.
+5. Push a [`SignedDescriptor`](#types) `(pubkey, endpoints, timestamp, signature)` to the bootstrap nodes so they can serve it to other subscribers. `endpoints` is an ordered list — preferred address first — so dual-stack (IPv4 + IPv6) and multi-homed nodes are covered without a schema change.
 6. Filter the subscription list by the node's own topic interests — yields the candidate pubkey set per topic.
 7. Continue with the [IP-discovery procedure](./ip-discovery.md) to resolve endpoints and open dissemination links.
 
@@ -52,14 +52,16 @@ sequenceDiagram
         end
     end
     Node->>Bootstrap: open connection
-    Node->>Bootstrap: push signed descriptor (pubkey, endpoint, ts)
+    Node->>Bootstrap: push signed descriptor (pubkey, endpoints, ts)
     Note over Node: filter list by own topic interests → candidate set
     Note over Node: continue with IP-discovery procedure
 ```
 
 ## Types
 
-**`SignedDescriptor`** — `(pubkey, endpoint, timestamp, signature)`. The descriptor is what other nodes need in order to find this node on the network. It is derived from the node identity keypair generated in step 1 of [Operator pre-conditions](#operator-pre-conditions): the public half is the `pubkey` field; the private half produces the `signature` over `(pubkey, endpoint, timestamp)`. The operator wallet is not involved at runtime — only the node identity key signs descriptors.
+**`SignedDescriptor`** — `(pubkey, endpoints, timestamp, signature)`. The descriptor is what other nodes need in order to find this node on the network. It is derived from the node identity keypair generated in step 1 of [Operator pre-conditions](#operator-pre-conditions): the public half is the `pubkey` field; the private half produces the `signature` over `(pubkey, endpoints, timestamp)`. The operator wallet is not involved at runtime — only the node identity key signs descriptors.
+
+`endpoints` is an **ordered list** of network addresses for the same node — preferred first. One signature covers the whole list, so rollover is atomic (a network move replaces all addresses in a single descriptor, not one per transport). This handles the common cases — dual-stack v4 + v6, multi-homed hosts — without a second schema migration. Dialers should walk the list with a happy-eyeballs strategy ([RFC 8305](https://datatracker.ietf.org/doc/html/rfc8305)): try the preferred entry, fall back on connection failure or timeout. Encoding entries as [multiaddrs](https://github.com/multiformats/multiaddr) (`/ip4/.../tcp/...`, `/ip6/.../quic-v1/...`) keeps the format transport-agnostic if QUIC, WebSocket, or DNS-named endpoints are added later.
 
 Used here in [node-startup step 5](#node-startup) and reused by:
 
@@ -67,4 +69,3 @@ Used here in [node-startup step 5](#node-startup) and reused by:
 - [Endpoint change](./endpoint-change.md) — broadcasts a fresh descriptor after a network move.
 - [Leaving](./leaving.md) — variant with a sentinel "leaving" value to evict peer caches immediately.
 
-> *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*

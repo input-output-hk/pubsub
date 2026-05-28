@@ -36,7 +36,7 @@ sequenceDiagram
 
     loop for each cache-miss pubkey
         Node->>Bootstrap: request signed descriptor
-        Bootstrap-->>Node: descriptor (pubkey, endpoint, ts, sig)
+        Bootstrap-->>Node: descriptor (pubkey, endpoints, ts, sig)
         Note over Node: verify sig vs on-chain pubkey
     end
 
