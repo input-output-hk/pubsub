@@ -4,10 +4,12 @@ Procedures a node executes during its lifecycle in the list-based pubsub network
 
 ## On-chain artifacts
 
-Every node runs a chain follower (light client at minimum): relayers read the topic registry to verify message signatures, and subscribers read the subscription list to compute their candidate sets. A trustless, Byzantine-resistant deployment cannot delegate this. Chain-event subscription is therefore already available — flows that need real-time reactions to chain state can hook into the existing follower.
+Every node runs a chain follower (light client at minimum) — a trustless, Byzantine-resistant deployment cannot delegate this. Chain-event subscription is therefore already available: flows that need real-time reactions to chain state can hook into the existing follower.
 
-- **Topic registry** — per-topic entry with the topic identifier and the authorised publisher key(s). Full formal spec under [`formal_spec/topic_registry/`](../../formal_spec/topic_registry/); see [topic-creation.md](./topic-creation.md).
-- **Subscription list** — per-subscriber entry with the operator's node identity pubkey, the subscribed topic-interest set, and the locked deposit.
+| Artifact | Per-entry contents | Read for | Reference |
+|----------|-------------------|----------|-----------|
+| **Topic registry** | topic identifier, authorised publisher key(s) | relayers verify message signatures | [`formal_spec/topic_registry/`](../../formal_spec/topic_registry/), [topic-creation.md](./topic-creation.md) |
+| **Subscription list** | node identity pubkey, topic-interest set, locked deposit | subscribers compute candidate sets | — |
 
 > [!IMPORTANT]
 > Network endpoints (IPs/hostnames) are not on-chain. They are exchanged peer-to-peer as signed descriptors and served by bootstrap nodes during [IP discovery](./ip-discovery.md).
