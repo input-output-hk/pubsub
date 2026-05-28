@@ -1,6 +1,38 @@
 # Node lifecycle procedures
 
-Procedures a node executes during its lifecycle in the list-based pubsub network. See the [overview](#overview) for the full list; each doc has a short intro, steps, a mermaid sequence diagram, and (when relevant) type definitions.
+Procedures a node executes during its lifecycle in the list-based pubsub network.
+
+## Architecture overview
+
+```mermaid
+flowchart TB
+    Operator([Operator wallet])
+
+    subgraph Cardano["Cardano (on-chain)"]
+        direction LR
+        TR[("Topic registry<br/><i>authorised publisher keys per topic</i>")]
+        SL[("Subscription list<br/><i>node pubkey + topics + deposit per node</i>")]
+    end
+
+    subgraph Overlay["Off-chain overlay"]
+        direction TB
+        N["Node daemon"]
+        SD[/"SignedDescriptor<br/>(pubkey, endpoint, ts, sig)"/]
+        BS["Bootstrap node<br/><i>trusted, out-of-band</i>"]
+        Peer["Other nodes"]
+    end
+
+    Operator -->|registration tx| SL
+    Operator -.->|register publisher key| TR
+    N -->|read: verify msg signatures| TR
+    N -->|read: candidate set per topic| SL
+    N -->|sign + push| SD
+    SD --> BS
+    BS -.->|serve on lookup| N
+    N <-->|dissemination links<br/>signed messages| Peer
+```
+
+The on-chain layer holds the two contracts the overlay depends on; the off-chain layer holds the daemons that read them, the bootstrap nodes that broker endpoint discovery, and the `SignedDescriptor` data artifact that carries endpoints peer-to-peer. The procedure docs detail each interaction; see the [overview](#overview) below for the full list.
 
 ## On-chain artifacts
 
@@ -18,6 +50,8 @@ Every node runs a chain follower (light client at minimum): relayers read the to
   - *Open: single `endpoint` field today; dual-stack (IPv4 + IPv6) or multi-homed nodes would need multiple descriptors or a list-valued field.*
 
 ## Overview
+
+Per-procedure docs, in roughly the order a node encounters them. Each row links to the dedicated doc; status indicates the state of the spec.
 
 | # | Procedure | Status |
 |---|-----------|--------|
