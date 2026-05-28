@@ -4,11 +4,14 @@ The first-time-join is two phases: **operator-driven pre-conditions** (key provi
 
 ## Operator pre-conditions
 
-These steps happen before the node daemon is started. They are performed by the operator (manually or via tooling).
+These steps happen before the node daemon (`pubsub-node`) is started. They are performed by the operator (manually or via tooling).
 
-1. Generate or provision the **node identity keypair** — distinct from the operator wallet, and the basis of the [`SignedDescriptor`](#types) the daemon uses at runtime.
-2. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon.
-3. Prepare the node config: bootstrap endpoints, a reference to the node identity pubkey (or to the local key-material file), and any node-local settings.
+> [!NOTE]
+> **Proposed tooling:** a `pubsub-cli` binary complementary to `pubsub-node`, mirroring the `cardano-cli` / `cardano-node` split. It would package the operator-side steps below behind a single CLI. Illustrative commands are noted on each step.
+
+1. Generate or provision the **node identity keypair** — distinct from the operator wallet, and the basis of the [`SignedDescriptor`](#types) the daemon uses at runtime. *(e.g., `pubsub-cli key gen`.)*
+2. Submit the subscription transaction — deposit, node identity pubkey, topic-interest set go on-chain. Signed by the **operator's wallet** (which pays the deposit); the wallet key is not held by the node daemon. *(e.g., `pubsub-cli register --topics t1,t2 --deposit 1000`.)*
+3. Prepare the node config: bootstrap endpoints, a reference to the node identity pubkey (or to the local key-material file), and any node-local settings. *(e.g., `pubsub-cli config init`.)*
 
 ## Node startup
 
