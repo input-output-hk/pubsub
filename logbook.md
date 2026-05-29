@@ -4,6 +4,62 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-05-28 — Brainstorm with Spyros: SecureCyclon verdict and the path forward
+
+**Modular split praised.** Spyros endorsed the orthogonality between the sampling and dissemination layers in the technical report. The structure lets the team defer or drop individual components without disturbing the overall engineering plan — a pragmatic foundation he found worth keeping.
+
+**ID-grinding and dynamic ring positions.** Spyros pressed on adversary placement in the vicinity ring: an attacker who can pick their own descriptor can park near a target. Will noted the paper already assumes a secure node-descriptor procedure rather than free ID selection. Spyros's proposal: derive each node's ring position by hashing its public key together with global epoch randomness (e.g. Cardano epoch nonce), so the topology rotates each epoch. A delay of at least one epoch between descriptor commit and use prevents immediate exploitation. Open trade-offs: per-epoch recomputation cost, and the need for a barrier to entry (proof-of-work or similar) to keep descriptor churn bounded.
+
+**Fan-out: 2 is the floor, 4–5 is the practical setting.** Denis raised that small fan-out makes interval capture easier even with frequent restructuring. Group consensus: the architecture document's fan-out of 2 is a minimum; production should run 4 or 5 to improve robustness without blowing up network overhead. Targeted eclipsing was discussed — if the ring is continuously rotating, an attacker cannot reliably choose *when* and *who* to mute.
+
+**List-based does not preclude dynamic ring formation.** Spyros pushed back on framing list-based as the static alternative to peer sampling: even with global subscriber knowledge, the ring can still be formed dynamically each epoch by hashing IDs with the epoch seed. Same anti-positioning properties, simpler bootstrap.
+
+**IP discovery stays off-chain.** Denis and Will confirmed the design intent: no IP addresses on-chain. Spyros sketched the hybrid model and Will confirmed alignment — on-chain topic registry and subscription list validate public keys; SecureCyclon/vicinity-style mechanisms (or their replacement) handle IP exchange at the network layer.
+
+**Incentive layer is not as fragile as feared.** Spyros challenged the claim that navigation-layer incentive misalignment is a critical threat. His argument: even if one topic-group boycotts another, most nodes are indifferent to other topics and the system stays functional. Denis countered that security analysis must cover pessimistic edge cases. Both agreed that naive encryption does not solve principal-based incentive problems.
+
+**Biased views vs link dropping.** Spyros sketched a bias mitigation: combine node IDs with a hash-derived random seed to force fair peer selection, optionally retain view history for verification. Denis flagged the computational cost and scaling concerns. The group identified **link dropping** by malicious nodes as the more impactful silent attack than biased view presentation — biased views can be detected and bounded; dropped links degrade delivery directly.
+
+**Adversary amplification numbers reaffirmed.** Denis and Spyros walked the prior result: 15% malicious nodes drives the network to an equilibrium with ~8.9× amplification of adversarial influence — the phase shift past which the graph is dominated by the adversary view.
+
+**Property D1.3 — uniformity is for analysis, not a hard requirement.** Denis clarified that indistinguishability from a uniform graph (D1.3) exists to make analytical modelling tractable. Spyros pushed on whether uniform randomness is the right goal at all, suggesting perfect-matching or other structures might perform better in practice and could be validated by large-scale simulations even where closed-form proofs are out of reach. Denis's bottom line: the protocol's output distribution must be *well-defined*, not necessarily uniform — without a known distribution, security bounds for the dissemination layer cannot be derived.
+
+**Verdict on SecureCyclon (post-meeting, Denis).** After Spyros left, Denis stated the conclusion plainly: SecureCyclon is not viable for high-adversary environments like blockchain. The threat models published with these protocols are unrealistic for settings with financial incentives and reputational stake. Cyclon-family protocols may work for campus or research deployments but break down under adversarial fan-out. Two forward paths identified: (1) keep iterating on peer sampling — either fix SecureCyclon or search for a stronger protocol; (2) refocus on the dissemination layer and analyse its churn properties directly.
+
+**Decisions.** *Aligned:* collaborate with Spyros on a more secure peer-sampling layer as a joint research publication. *Open:* whether view commitments are feasible and worth their cost as a mitigation for silent attacks and the link-drop problem.
+
+**Project workstream clarification.** Will distinguished the two threads currently in play: improving the stack from the paper Spyros previously discussed, and a list-based implementation approach for surfacing concrete issues in the current system. The PR being shared is the latter and is unrelated to peer sampling.
+
+**Next.** Will to add Spyros (GitHub handle provided) as reviewer on the architecture PR. Spyros to review the technical report and PR offline, simulate the bias-view behaviour against the reported malicious-node percentages, and examine the subscription-list prototype after his teaching class concludes. Spyros to share the older mathematical-analysis paper on the standard Cyclon protocol (Denis confirmed it has been located). The group to develop a testable formula sufficient to establish dissemination-layer security.
+
+---
+
+## 2026-05-26 — PubSub working session: node-flow spec, June scope, scaffolding
+
+**Technical report circulated.** Will shared the draft technical report on Slack ahead of the meeting. It captures Denis's three-property analysis of Cyclon (two hold, the third is falsified) and the SecureCyclon defence inventory along with the attack vectors those defences fail to cover. Feedback requested on whether the report is complete or needs further development.
+
+**Cyclon direction split — decision deferred.** Denis reported diverging views from co-authors: Jesus remains optimistic about salvaging the current protocol; Sandro is pushing for a literature sweep or a clean-sheet design. The patch-vs-rebuild call is deferred pending Will's Thursday consult with Spyros.
+
+**Node-flow specification adopted as joint workstream.** Will identified five PubSub procedures worth formalising: joining, leaving, publishing, creating a topic, and changing topic subscriptions. He walked the joining flow — operator key-pair generation, on-chain registration check, bootstrap connect. Ezequiel flagged this overlaps the scaffolding effort already in progress; rather than parallel tracks, the two will co-specify these flows using the Spec Kit framework so research specs and implementation stay coherent.
+
+**Scaffolding PR update.** Ezequiel's in-progress PR ships an in-memory network keyed off a hashmap, config-file reading, and basic message send/receive. Topic management, message structure, cryptography, and connection logic are the next iteration. Plan: merge the scaffolding PR, then publish a meta-spec describing the follow-on work so feature expansion has an explicit target.
+
+**Product focus shifts to incentives.** Dana reported limited Stake Pool Operator appetite for new modules from the parallel Mithril PubSub conversations. Will argued the product team should pivot from feature checklists to fees and incentive design — give operators a concrete reason to run a node and a real cost for misbehaviour. Dana to prepare an incentive-model update for next week.
+
+**IP discovery edge cases.** Will raised two open questions: how nodes should handle peers that are registered but offline, and the minimum connection count required to maintain delivery guarantees. Ezequiel's preferred handling: cycle through candidate peers and use a bidirectional handshake to qualify connection quality, rather than altering the core protocol structure. Will to write up the IP-discovery process for the technical report.
+
+**Registration-list semantics.** Discussion on whether offline nodes should remain on the on-chain registration list. Denis: for the current prototype, fan-out is dynamic in network size and rejection sampling adequately handles the distribution of online nodes — no need to evict offline entries from the list at this stage.
+
+**Publishers run a subscribed node.** Will's working position for the publishing spec: a publisher runs a node subscribed to the relevant topics so signing and routing inherit the dissemination layer's guarantees. Ezequiel agreed this is the logical shape for the dissemination layer. Will to draft the spec and circulate.
+
+**June scope: prototype plus technical report, not a CIP.** Team agreed an end-of-June CIP is not achievable; the deliverable is a working prototype plus a technical report capturing the research findings. Funding for the work stream is unsettled — Will may need to present to leadership on Thursday to justify continuation. Ezequiel flagged the broader governance backdrop: of roughly 20–30B in distributed voting power, only ~4–5B is actively voting, and weight is currently a function of financial contribution rather than expertise.
+
+**Decisions.** *Aligned:* node-flow specs to be co-developed via Spec Kit; June deliverable is prototype + technical report, not a full CIP. *Open:* whether to patch or abandon SecureCyclon, pending Spyros's input.
+
+**Next.** Will + Ezequiel to define sequence diagrams for joining, leaving, and publishing, aligned with the scaffolding. Ezequiel to merge the scaffolding PR, publish the meta-spec, and implement topics, message structure, cryptography, and connection logic. Dana to research incentive models. Denis to analyse SecureCyclon mitigation strategies ahead of the Spyros session. Will to document IP discovery in the technical report, share project specs on Slack, consult David on whether a full CIP is expected, distribute the internal stream report, and notify the team after Thursday on funding and direction. Ezequiel to review existing project documentation and connect current coding work to the established requirements.
+
+---
+
 ## 2026-05-19 — PubSub working session: list-based architecture adopted
 
 **Decision.** Team aligned on collapsing peer sampling and navigation into an on-chain subscription list, one entry per node carrying its topic-interest set. Dissemination layer unchanged. Sandro reviewed the framing and supported list-based as the initial step. Findings and rationale captured in [docs/technical-report-1.md](docs/technical-report-1.md). Two alternatives weighed but not taken: continued research on three-layer extensions, and parallel SecureCyclon instances per topic.
