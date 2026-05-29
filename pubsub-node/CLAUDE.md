@@ -1,8 +1,10 @@
 <!-- SPECKIT START -->
-Active feature: **001-minimal-node-scaffold**.
+**Feature roadmap (read first if planning the next feature)**: `specs/ROADMAP.md` — feature list 002–012 in dependency order, architectural anchors (edge-vs-golden config split, connection-direction inversion), and per-feature open questions.
+
+**Most recently completed feature**: **001-minimal-node-scaffold** (the substrate).
 
 For technical context, project structure, dependencies, and the rationale
-behind plan-level decisions, read:
+behind 001's plan-level decisions:
 
 - Plan:      `specs/001-minimal-node-scaffold/plan.md`
 - Research:  `specs/001-minimal-node-scaffold/research.md`
