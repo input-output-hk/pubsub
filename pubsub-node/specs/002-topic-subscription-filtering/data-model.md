@@ -176,16 +176,16 @@ pub enum UnsubscribeOutcome {
 
 **FR traces**: FR-006, FR-014.
 
-## 5. `PeerListConfig` extension — new field
+## 5. `NodeConfig` extension — new field
 
-**Source**: `src/config.rs` (extended).
+**Source**: `src/config.rs` (extended; type renamed in 002 from 001's `PeerListConfig` per CHK017 resolution to reflect the broader scope now that it carries both peers and subscribed topics).
 
 **Updated definition**:
 
 ```rust
 #[derive(Debug, Clone, serde::Deserialize, Default)]
 #[serde(deny_unknown_fields)]
-pub struct PeerListConfig {
+pub struct NodeConfig {
     #[serde(default)]
     pub peers: Vec<PeerEntry>,
 
@@ -204,21 +204,28 @@ pub struct PeerListConfig {
 - `#[serde(default)]` ensures absent fields yield empty Vec, matching 001's pattern for `peers`.
 - `#[serde(deny_unknown_fields)]` continues to apply at the top level. The new field does not relax that contract.
 
-**Loader behavior** (mirrors 001's `load_peer_list`):
+**Loader behavior** (mirrors the pipeline 001's `load_peer_list` established; renamed in 002 to `load_node_config` alongside the type rename):
 
 ```text
-load_peer_list(path):
+load_node_config(path):
   1. Read file at path → ConfigError::Io on failure.
-  2. Parse TOML via the shadow type RawPeerListConfig (string fields, no
+  2. Parse TOML via the shadow type RawNodeConfig (string fields, no
      TopicId::FromStr applied yet) → ConfigError::Parse on syntactic failure.
   3. For each `peers` entry: PeerId::from_str → ConfigError::InvalidPeer on
      rule violation.
   4. For each `subscribed_topics` entry: TopicId::from_str →
-     ConfigError::InvalidTopic on rule violation.
-  5. Return PeerListConfig with both fields populated.
+     ConfigError::InvalidTopic on rule violation. After validation, scan the
+     validated TopicIds for duplicates; for each duplicated TopicId, emit a
+     warn-level tracing event (`event=topic_config_duplicate`, fields
+     `topic`, `config_path`) per FR-010. Duplicates are NOT a startup
+     failure; they are silently absorbed when the downstream Node
+     construction converts the Vec<TopicId> into HashSet<TopicId>.
+  5. Return NodeConfig with both fields populated (subscribed_topics
+     retains the original Vec shape, including any duplicates the operator
+     wrote; deduplication is the consumer's concern at the HashSet boundary).
 ```
 
-Order of validation in step 3 vs step 4 is implementation-internal; per 001 precedent, the iterator collects on first `Err` (fail-fast). Either field's first invalid entry surfaces immediately; subsequent entries are not validated in the same call. This matches the user's mental model from 001 and avoids confusing multi-error reporting at this iteration.
+Order of validation in step 3 vs step 4 is implementation-internal; per 001 precedent, the iterator collects on first `Err` (fail-fast). Either field's first invalid entry surfaces immediately; subsequent entries are not validated in the same call. This matches the user's mental model from 001 and avoids confusing multi-error reporting at this iteration. The duplicate-scan sub-step in step 4 runs **after** all `TopicId::from_str` calls succeed, so it never fires alongside an `InvalidTopic` error (failed loads emit no duplicate warnings).
 
 **FR traces**: FR-010, FR-012.
 
@@ -264,12 +271,43 @@ pub enum ConfigError {
 | FR-007 | §2 Message envelope construction; existing `Node::send` | call sites update from `Message::Ping(N)` to `Message { topic, payload: MessagePayload::Ping(N) }` |
 | FR-008 | §3 subscription state vs §2 emission | no coupling in code; the test for US3 demonstrates emission on unsubscribed topic |
 | FR-009 | §3 recv-path read; `src/node.rs` recv_task body | only network-delivered messages enter the snapshot |
-| FR-010 | §5 PeerListConfig + §6 ConfigError::InvalidTopic | top-level subscribed_topics + loader path |
+| FR-010 | §5 NodeConfig + §6 ConfigError::InvalidTopic | top-level subscribed_topics + loader path; duplicate-warn event sub-step |
 | FR-011 | `src/node.rs` recv_task body | info log on drop; field shape per `research.md` §7 |
 | FR-012 | `src/main.rs`, `src/config.rs`, `src/node.rs` | parsing in CLI/loader; Node constructor takes parsed HashSet<TopicId> |
 | FR-013 | §3 Subscription Set read API; `src/node.rs` | snapshot Vec<TopicId> via clone-under-lock |
 | FR-014 | `src/node.rs` mutators | tracing events; field shape per `research.md` §7 |
 | FR-015 | §3 Subscription Set lock-serialized access; `src/node.rs` | linearizability contract; primitive choice in `research.md` §2 |
+
+## 7.5. Cross-reference matrix (FR → user story / acceptance scenario)
+
+Complement to §7's FR → entity / file matrix. This table maps each FR to the user-story scenarios and success criteria that exercise it, so reviewers can confirm coverage at the behavioral level. "Not test-anchored" rows are deliberate: logs and other operator observability are documented in `quickstart.md` (the operator's reference) but not asserted in automated tests — test discipline anchors on `received_messages()`, `subscriptions()`, and `Outcome` enum returns, never on log content.
+
+| FR | Test-anchored coverage (US / AS / SC) | Operator-observable coverage (quickstart §) | Notes |
+|----|---------------------------------------|---------------------------------------------|-------|
+| FR-001 (Message has topic) | US1 AS-1/2/3; US2 AS-1/2/3; US3 AS-1–7; US4 AS-1 | quickstart §§2–6 (every example constructs `Message { topic, payload }`) | Pervasive — every scenario constructs Messages |
+| FR-002 (TopicId validation) | US4 AS-4 (invalid topic entry fails startup) | quickstart §5 (operator sees `InvalidTopic` error + exit code 2) | |
+| FR-003 (Node tracks subscription set) | US1 AS-1/2 (subscribed vs not); US2 AS-1 (per-node subsets); US3 AS-1/3/5 (set transitions) | quickstart §§2–4 | |
+| FR-004 (receive-path filter) | US1 AS-1/2 (retain on-topic / drop off-topic); US2 AS-1/3 (per-node filter); US3 AS-1/3/5 (transitions take effect) | quickstart §§2–3 | |
+| FR-005 (Network unchanged) | All US — coverage by absence (no scenario asserts new network behavior; the file diff for `src/network.rs` is empty post-002 per plan.md project structure) | quickstart §8 (mental map shows `network.rs # 001 — unchanged`) | Enforced by absence; no positive AS needed |
+| FR-006 (subscribe/unsubscribe API + Outcome enums) | US3 AS-2/4/6/7 (Added/Removed/AlreadyPresent/NotSubscribed); SC-005 (idempotency) | quickstart §4 (test list) | |
+| FR-007 (send API unchanged) | All US (every send call uses 001's `Node::send(to, message).await` signature) | quickstart §2 | Inherited from 001 |
+| FR-008 (subscribe/emit decoupled) | US3 Independent Test (Node A emits on T1 while subscribed to T2 only) | quickstart §4 | The Independent Test exercises this; no separate AS pins it |
+| FR-009 (no self-receipt of own emission) | US1 AS-3 (Node emits, does NOT see own message in its snapshot) | quickstart §2 (test `own_emission_not_in_local_snapshot`) | Self-addressing edge case via loopback is operator-observable, not AS-pinned |
+| FR-010 (TOML `subscribed_topics` + duplicate-warn) | US4 AS-1/2/3/4/5/6 (present/absent/empty/invalid/unknown-field/duplicate) | quickstart §§5–6 (operator sees warn on duplicate, error on invalid, success on absent) | AS-6 added 2026-05-30 covers the deduplicated-state behavior; the warn log itself is operator UX |
+| FR-011 (drop log) | SC-006 (info-level entry visible at default log level) | quickstart §§2, 7 (operator sees `event=topic_drop` lines) | Visibility is asserted via SC-006; log *content* is operator UX, not AS-pinned |
+| FR-012 (parse at the edge) | US4 AS-1–6 (operator uses TOML+CLI flow); construction-from-parsed-values is exercised by every test fixture in `tests/common/mod.rs` | quickstart §§5–6 | |
+| FR-013 (`subscriptions()` snapshot getter) | US3 AS-1/2/3/4/5/6/7 (every AS reads "A's subscription set is `{…}`" — satisfied by `subscriptions()`); US4 AS-1/3/6 (snapshot equals TOML-loaded set) | quickstart §4 | |
+| FR-014 (subscribe/unsubscribe logs) | **Not test-anchored** — log emission is operator UX, not an AS-level assertion. The mutation behavior is anchored via `Outcome` returns (US3 AS-2/4/6/7) and idempotency via SC-005. | quickstart §7 (operator sees `topic_subscribed` / `topic_unsubscribed` / `topic_subscribe_noop` / `topic_unsubscribe_noop` events) | Intentional — logs are observability, tests assert on the API return values |
+| FR-015 (linearizable concurrency) | **Not test-anchored at v1** — no AS exercises concurrent mutations from multiple tasks. The single-process Trust assumption keeps this out of v1 scope; recorded as outstanding (see CHK028). | n/a | Forward-flexibility contract that the natural `Arc<Mutex<HashSet>>` impl satisfies trivially |
+| SC-001 (US1 in <30s wall-clock) | quickstart §2 (timer-measured by `cargo test`'s "finished in X.XXs" line) | quickstart §2 | |
+| SC-002 (4-node × 3 topics × ≥100 emissions cross-cut) | n_node_graph.rs `four_node_star_100_send_topic_isolation` (added in 002) | quickstart §3 | |
+| SC-003 (subscription change requires no code) | Operator-facing — observable via either restarting with edited TOML (quickstart §5) or runtime `subscribe`/`unsubscribe` API (US3) | quickstart §§4–5 | |
+| SC-004 (contributor reproduces in <1h) | quickstart.md as a whole | n/a | Self-test on the SC contributor budget |
+| SC-005 (subscribe/unsubscribe idempotency) | US3 AS-6/7 + dedicated unit tests in topic_runtime.rs | quickstart §4 | |
+| SC-006 (drop log visible at default log level) | quickstart §2 (`--nocapture` shows the `event=topic_drop` line) | quickstart §2 | The visibility (default `info` surfaces it) is the assertion; log content is operator UX |
+| SC-007 (runtime transitions observable through receive path) | US3 AS-3/5 | quickstart §4 | |
+
+**Gaps surfaced and resolved by this matrix**: FR-010's duplicate-warn case had no AS coverage before 2026-05-30; US4 AS-6 was added to anchor the testable behavior (deduplicated state) — the warn log itself remains operator UX, not test-asserted. FR-014's mutation logs and FR-015's concurrent linearization are documented here as deliberately not test-anchored at v1 (logs are observability; concurrent linearization is forward-flexibility).
 
 ## 8. State-transition diagram (subscription set, single Node)
 

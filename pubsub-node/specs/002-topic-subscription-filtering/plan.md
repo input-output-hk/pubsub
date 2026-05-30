@@ -6,7 +6,7 @@
 
 ## Summary
 
-Layer a topic dimension onto 001's substrate: every `Message` gains a `topic` field (`TopicId`, opaque newtype parallel to `PeerId`); every `Node` tracks a mutable in-memory `HashSet<TopicId>` of subscribed topics; the receive task filters by membership and silently drops off-topic deliveries with an info-level structured log; the existing `InMemoryNetwork` is untouched (still a dumb pipe routing by `peer_id`). Adds runtime mutators `subscribe` / `unsubscribe` (sync, idempotent, return outcome enums), a `subscriptions()` snapshot getter, info/debug structured logs on mutation events, and a `subscribed_topics` top-level field in the peer-list TOML.
+Layer a topic dimension onto 001's substrate: every `Message` gains a `topic` field (`TopicId`, opaque newtype parallel to `PeerId`); every `Node` tracks a mutable in-memory `HashSet<TopicId>` of subscribed topics; the receive task filters by membership and silently drops off-topic deliveries with an info-level structured log; the existing `InMemoryNetwork` is untouched (still a dumb pipe routing by `peer_id`). Adds runtime mutators `subscribe` / `unsubscribe` (sync, idempotent, return outcome enums), a `subscriptions()` snapshot getter, info/debug structured logs on mutation events, and a `subscribed_topics` top-level field in the config TOML (renamed from 001's "peer-list TOML" — the Rust type `PeerListConfig` becomes `NodeConfig` and the loader `load_peer_list` becomes `load_node_config` to reflect the broader scope).
 
 Technical approach (per the spec's Clarifications session 2026-05-29):
 
@@ -16,7 +16,7 @@ Technical approach (per the spec's Clarifications session 2026-05-29):
 - **Receive-side filter in the Node**: the recv_task body inspects topic-set membership against the subscription set guarded by the lock, then either pushes to `received` or skips + emits the FR-011 info log. The InMemoryNetwork is untouched per FR-005.
 - **Sync mutators on async Node**: `subscribe(&self, topic) -> SubscribeOutcome` and `unsubscribe(&self, topic) -> UnsubscribeOutcome` are synchronous `fn` (not `async fn`) — the body acquires the mutex briefly and returns. They share the same lock as the receive task's filter check, satisfying FR-015 without an additional synchronization primitive. The async Node's other methods (send/receive) are unchanged in shape per FR-007.
 - **Snapshot getter mirrors `received_messages()`**: `subscriptions(&self) -> Vec<TopicId>` clones the HashSet's contents under the lock. Entry order in the returned `Vec` is unspecified (set semantics); tests assert against it as a set.
-- **Parse at the edge**: the TOML loader gains a `subscribed_topics` field (top-level, optional, string array, deny-unknown applies). `load_peer_list` parses into a new `PeerListConfig.subscribed_topics: Vec<TopicId>` field via `TopicId::FromStr`. The Node constructor takes the parsed `HashSet<TopicId>` as an in-memory argument; the binary's CLI does the file I/O (matches 001 FR-012).
+- **Parse at the edge**: the TOML loader gains a `subscribed_topics` field (top-level, optional, string array, deny-unknown applies). `load_node_config` (renamed in 002 from `load_peer_list`) parses into a new `NodeConfig.subscribed_topics: Vec<TopicId>` field via `TopicId::FromStr`. The Node constructor takes the parsed `HashSet<TopicId>` as an in-memory argument; the binary's CLI does the file I/O (matches 001 FR-012).
 - **One new ADR**: structural decision around subscription mutator shape (sync `&self` mutators with interior mutability, linearizable per FR-015) gets ADR 0008. The other deltas are tactical extensions of 001's existing structure and don't warrant new ADRs.
 
 ## Technical Context
@@ -72,13 +72,13 @@ Development Workflow specifically engaged:
 
 ### Post-Phase-1 gate (re-evaluated 2026-05-30)
 
-All Phase 1 artifacts now exist (`research.md`, `data-model.md`, `contracts/library-api.md`, `contracts/peer-list.toml.md`, `quickstart.md`). Re-running the gate against concrete content:
+All Phase 1 artifacts now exist (`research.md`, `data-model.md`, `contracts/library-api.md`, `contracts/node-config.toml.md`, `quickstart.md`). Re-running the gate against concrete content:
 
-- **I. Correctness Over Optimization** — ✅ **pass**. Every entity in `data-model.md` and every contract clause in `contracts/library-api.md` + `contracts/peer-list.toml.md` traces back to a numbered FR. `data-model.md §7` is the explicit cross-reference matrix (FR → entity → file). No optimization-led decisions appear in the artifacts — the `Arc<Mutex<HashSet>>` choice is documented in `research.md §2` as "the natural and only reasonable answer at this scale", not a performance optimization.
+- **I. Correctness Over Optimization** — ✅ **pass**. Every entity in `data-model.md` and every contract clause in `contracts/library-api.md` + `contracts/node-config.toml.md` traces back to a numbered FR. `data-model.md §7` is the explicit cross-reference matrix (FR → entity → file). No optimization-led decisions appear in the artifacts — the `Arc<Mutex<HashSet>>` choice is documented in `research.md §2` as "the natural and only reasonable answer at this scale", not a performance optimization.
 - **II. Test-Driven for Correctness Claims** — ✅ **pass (note unchanged)**. 002 is not protocol-critical (no crypto, no chain semantics, no registry interaction — those start at 003). `quickstart.md` §§2–6 enumerates one integration-test file per user story (`topic_filter.rs` / `n_node_graph.rs` extension / `topic_runtime.rs` / `config_loading.rs` extension); `/speckit-tasks` will schedule those test tasks alongside (not strictly before) implementation tasks. Strict red-green-refactor TDD remains reserved for the protocol-critical features starting at 003.
 - **III. Document Structural Decisions as ADRs** — ✅ **pass**. `research.md §8` records one new ADR slot for 002: ADR 0008 (`docs/decisions/0008-subscription-mutator-shape.md`) covering the sync `&self` mutator + interior mutability + linearizability decision. The other 002 deltas (TopicId mirroring PeerId, `Arc<Mutex<HashSet<…>>>` mirroring 001's existing `Arc<Mutex<Vec<…>>>`, Message envelope shape, TOML field extension, tracing field names) are tactical extensions of 001's established patterns and are recorded in `research.md` / `data-model.md` / `contracts/` rather than fresh ADRs. `/speckit-tasks` will materialize ADR 0008 as an ADR-authoring task with its own logical-increment commit.
 - **IV. Specifications as Ambiguity Detectors** — ✅ **pass**. Every plan-level item that emerged during planning is recorded in `research.md` with Decision / Rationale / Alternatives — Message envelope shape (§1), concurrency primitive (§2), mutator signature (§3), `subscriptions()` return type (§4), Outcome enum design (§5), TOML field shape (§6), tracing field names (§7). The "Open follow-ups" section at the end (§9) records v2+ items so they cannot be silently rediscovered later.
-- **V. Specifications Are Read-Only** — ✅ **pass**. Files touched by this plan run: `specs/002-topic-subscription-filtering/{plan.md, research.md, data-model.md, contracts/library-api.md, contracts/peer-list.toml.md, quickstart.md}` (all agent-editable Spec-Kit artifacts), and `CLAUDE.md` (agent context, not a protocol specification — the SPECKIT block was updated to reference 002's artifacts). No edits to `../formal_spec/`, `../docs/`, or `../docs/extensions/`.
+- **V. Specifications Are Read-Only** — ✅ **pass**. Files touched by this plan run: `specs/002-topic-subscription-filtering/{plan.md, research.md, data-model.md, contracts/library-api.md, contracts/node-config.toml.md, quickstart.md}` (all agent-editable Spec-Kit artifacts), and `CLAUDE.md` (agent context, not a protocol specification — the SPECKIT block was updated to reference 002's artifacts). No edits to `../formal_spec/`, `../docs/`, or `../docs/extensions/`.
 
 **Gate verdict**: all five principles ✅ pass, no entries in Complexity Tracking. Plan is cleared for `/speckit-tasks`.
 
@@ -94,7 +94,7 @@ specs/002-topic-subscription-filtering/
 ├── quickstart.md        # Phase 1 output
 ├── contracts/           # Phase 1 output
 │   ├── library-api.md   # 002 deltas to the Rust public surface
-│   └── peer-list.toml.md # 002 deltas to the TOML schema
+│   └── node-config.toml.md # 002 deltas to the TOML schema
 ├── checklists/
 │   └── requirements.md  # Auto-generated by /speckit-specify
 ├── spec.md              # Feature spec (input)

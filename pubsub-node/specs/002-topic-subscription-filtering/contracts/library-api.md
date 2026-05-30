@@ -19,7 +19,9 @@ pub use node::{SubscribeOutcome, UnsubscribeOutcome};
 // existing re-exports unchanged in surface; `Message` retains the name
 // but its shape is now a struct (see "Message envelope" below).
 pub use message::Message;
-pub use config::{PeerEntry, PeerListConfig, load_peer_list};
+// Renamed in 002 (CHK017): `PeerListConfig` → `NodeConfig`,
+// `load_peer_list` → `load_node_config`. `PeerEntry` keeps its name.
+pub use config::{PeerEntry, NodeConfig, load_node_config};
 pub use error::ConfigError;
 ```
 
@@ -104,20 +106,22 @@ pub enum UnsubscribeOutcome {
 
 ### New constructor parameter
 
-The 001 constructor `Node::new<N: Network>(self_id: PeerId, peer_list: PeerListConfig, network: Arc<N>) -> Result<Self, NodeError>` is extended with a fourth parameter: the initial subscription set, taken as an already-parsed in-memory value (FR-012).
+The 001 constructor `Node::new<N: Network>(self_id: PeerId, peer_list: PeerListConfig, network: Arc<N>) -> Result<Self, NodeError>` is extended with a fourth parameter and the type parameter is renamed per CHK017:
 
 ```rust
 pub async fn new<N: Network>(
     self_id: PeerId,
-    peer_list: PeerListConfig,
+    config: NodeConfig,
     initial_subscriptions: HashSet<TopicId>,
     network: Arc<N>,
 ) -> Result<Self, NodeError>;
 ```
 
-**Rationale for parameter order**: the subscription set is the new "what does this Node consume?" input, parallel to `peer_list` (the "what does this Node know about?" input). Both are parsed-at-edge inputs; placing them adjacent makes the layering visible. `network` stays last as in 001 (the shared substrate, dependency-injected).
+**Rename note (002 CHK017)**: 001's `peer_list: PeerListConfig` parameter is renamed to `config: NodeConfig` to reflect that the config now carries both peers and topics. The parameter rename is mechanical at all call sites.
 
-Alternative considered: derive `initial_subscriptions` from `peer_list.subscribed_topics` inside the constructor — rejected because it couples the Node's API to the TOML schema. The Node API takes a `HashSet<TopicId>` (the in-memory shape); the CLI/loader is what turns the TOML's `Vec<TopicId>` into a `HashSet`. Matches the FR-012 "parse at the edge" layering.
+**Rationale for parameter order**: the subscription set is the new "what does this Node consume?" input, parallel to `config` (the "what does this Node know about?" input). Both are parsed-at-edge inputs; placing them adjacent makes the layering visible. `network` stays last as in 001 (the shared substrate, dependency-injected).
+
+Alternative considered: derive `initial_subscriptions` from `config.subscribed_topics` inside the constructor — rejected because it couples the Node's API to the TOML schema. The Node API takes a `HashSet<TopicId>` (the in-memory shape); the CLI/loader is what turns the TOML's `Vec<TopicId>` into a `HashSet`. Matches the FR-012 "parse at the edge" layering.
 
 ### New methods on `Node`
 
@@ -135,12 +139,14 @@ Alternative considered: derive `initial_subscriptions` from `peer_list.subscribe
 
 The recv_task (spawned by `Node::new`, internal) acquires the subscription-set lock for each inbound delivery, checks `subscriptions.contains(&envelope.message.topic)`, and either pushes the delivery to `received` (if the topic is subscribed) or emits an `info`-level `event = "topic_drop"` structured `tracing` event and discards the delivery (FR-004 + FR-011). The drop has NO observable side effect through any public Node API other than the `tracing` event itself — tests assert on `received_messages()`, never on log content.
 
-## `PeerListConfig` — new field
+## `NodeConfig` — renamed from `PeerListConfig`, new field
+
+Renamed in 002 (CHK017) from 001's `PeerListConfig` to reflect the broader scope: the config now carries both peers and subscribed topics. The struct contents are the 001 layout plus the new `subscribed_topics` field.
 
 ```rust
 #[derive(Debug, Clone, serde::Deserialize, Default)]
 #[serde(deny_unknown_fields)]
-pub struct PeerListConfig {
+pub struct NodeConfig {
     #[serde(default)]
     pub peers: Vec<PeerEntry>,
 
@@ -154,18 +160,18 @@ pub struct PeerListConfig {
 | `subscribed_topics: Vec<TopicId>` | Public, owned. Defaults to empty when the TOML field is absent. Each entry has already passed `TopicId::from_str` (the loader applies it during deserialization or in a post-parse pass — see §7 below). |
 | `#[serde(deny_unknown_fields)]` | Continues to apply at the top level; adding `subscribed_topics` does NOT relax this contract for any other field. |
 
-## `load_peer_list` — extended behavior
+## `load_node_config` — renamed from `load_peer_list`, extended behavior
 
 ```rust
-pub fn load_peer_list(path: &Path) -> Result<PeerListConfig, ConfigError>;
+pub fn load_node_config(path: &Path) -> Result<NodeConfig, ConfigError>;
 ```
 
-The signature is unchanged; the behavior is extended.
+Renamed in 002 (CHK017) alongside the `NodeConfig` type rename. The signature shape (one `&Path` argument; `Result<NodeConfig, ConfigError>` return) is unchanged from 001's `load_peer_list`; only the names change. Behavior is extended per the pipeline below.
 
 Loader contract (additive to 001):
 
 1. Read the file at `path`. I/O failure → `ConfigError::Io { path, source }` (unchanged).
-2. Parse contents as TOML via a shadow `RawPeerListConfig { peers: …, subscribed_topics: Vec<String> }`. Structural failure → `ConfigError::Parse { path, source }` (unchanged).
+2. Parse contents as TOML via a shadow `RawNodeConfig { peers: …, subscribed_topics: Vec<String> }`. Structural failure → `ConfigError::Parse { path, source }` (unchanged).
 3. Validate each `peers` entry's id via `PeerId::from_str` → `ConfigError::InvalidPeer(message)` (unchanged).
 4. **NEW**: validate each `subscribed_topics` entry via `TopicId::from_str` → `ConfigError::InvalidTopic(message)`. The message has the same shape as `InvalidPeer`: `"{path}: {topic_id_error}"`.
 
@@ -193,25 +199,27 @@ Format string mirrors `InvalidPeer`. The variant is the **only** new error intro
 
 All events use the existing 001 logging facility (`tracing` crate). Target string `pubsub_node::node` matches 001 (`src/node.rs:51`). Field shape is documented here as the operator-facing contract:
 
-| Event marker | Level | Trigger | Fields |
-|--------------|-------|---------|--------|
-| `topic_drop` | info | Receive task observes a delivery whose topic is not in the subscription set (FR-004 + FR-011) | `event`, `self_id`, `from`, `topic` |
-| `topic_subscribed` | info | `subscribe(T)` returns `SubscribeOutcome::Added` (FR-014) | `event`, `self_id`, `topic` |
-| `topic_unsubscribed` | info | `unsubscribe(T)` returns `UnsubscribeOutcome::Removed` (FR-014) | `event`, `self_id`, `topic` |
-| `topic_subscribe_noop` | debug | `subscribe(T)` returns `SubscribeOutcome::AlreadyPresent` (FR-014) | `event`, `self_id`, `topic`, `reason="already_present"` |
-| `topic_unsubscribe_noop` | debug | `unsubscribe(T)` returns `UnsubscribeOutcome::NotSubscribed` (FR-014) | `event`, `self_id`, `topic`, `reason="not_subscribed"` |
+| Event marker | Level | Trigger | Target | Fields |
+|--------------|-------|---------|--------|--------|
+| `topic_drop` | info | Receive task observes a delivery whose topic is not in the subscription set (FR-004 + FR-011) | `pubsub_node::node` | `event`, `self_id`, `from`, `topic` |
+| `topic_subscribed` | info | `subscribe(T)` returns `SubscribeOutcome::Added` (FR-014) | `pubsub_node::node` | `event`, `self_id`, `topic` |
+| `topic_unsubscribed` | info | `unsubscribe(T)` returns `UnsubscribeOutcome::Removed` (FR-014) | `pubsub_node::node` | `event`, `self_id`, `topic` |
+| `topic_subscribe_noop` | debug | `subscribe(T)` returns `SubscribeOutcome::AlreadyPresent` (FR-014) | `pubsub_node::node` | `event`, `self_id`, `topic`, `reason="already_present"` |
+| `topic_unsubscribe_noop` | debug | `unsubscribe(T)` returns `UnsubscribeOutcome::NotSubscribed` (FR-014) | `pubsub_node::node` | `event`, `self_id`, `topic`, `reason="not_subscribed"` |
+| `topic_config_duplicate` | warn | TOML loader detected a duplicate entry in `subscribed_topics` (FR-010, one event per duplicated topic per load call) | `pubsub_node::config` | `event`, `topic`, `config_path` (no `self_id` — emitted before Node exists; CLI invocation supplies the operator's context) |
 
 Field formats:
 
 - `event`: a literal string, the event marker from the table above. Operators grep on this.
-- `self_id`: the emitting Node's own `PeerId` via `Display` (`%self_id` in the macro).
+- `self_id`: the emitting Node's own `PeerId` via `Display` (`%self_id` in the macro). Absent on `topic_config_duplicate` (emitted by the loader before any Node exists).
 - `from`: the sender's `PeerId` (drop event only) via `Display`.
-- `topic`: the message's `TopicId` (drop event) or the operated topic (mutation events) via `Display`.
+- `topic`: the message's `TopicId` (drop event), the operated topic (mutation events), or the duplicated topic (config-duplicate event) via `Display`.
 - `reason`: a literal short string distinguishing the no-op cause (no-op events only).
+- `config_path`: the loader's config file path via `Path::display()` (config-duplicate event only). Disambiguates per-process when an operator runs multiple binaries.
 
 No payload (`MessagePayload::Ping(n)`'s `n` value, etc.) is included in any of the events. Operator-facing strings carry no FR identifiers.
 
-At 001's default `--log-level info`, the three info events (`topic_drop`, `topic_subscribed`, `topic_unsubscribed`) are operator-visible without explicit configuration; the two debug events (`topic_subscribe_noop`, `topic_unsubscribe_noop`) are invisible at the default and require `--log-level debug`.
+At 001's default `--log-level info`, the info events (`topic_drop`, `topic_subscribed`, `topic_unsubscribed`) and the warn event (`topic_config_duplicate`) are operator-visible without explicit configuration; the two debug events (`topic_subscribe_noop`, `topic_unsubscribe_noop`) are invisible at the default and require `--log-level debug`.
 
 ## What 002 does NOT add to the API
 

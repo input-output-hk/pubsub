@@ -98,7 +98,7 @@ Both `#[non_exhaustive]` would be tempting for future-extension headroom but is 
 
 **Decision**: top-level plain string array, `subscribed_topics = ["T1", "T2"]`. Optional (absent or `[]` both valid; both yield an empty subscription set). Each entry parsed via `TopicId::from_str`. Strict-unknown-fields policy (`#[serde(deny_unknown_fields)]`) from 001 continues to apply.
 
-The loader (`load_peer_list`) gains the same two-stage validation pipeline 001 already uses for peers: first parse the raw TOML into `RawPeerListConfig { peers: …, subscribed_topics: Vec<String> }`, then run `TopicId::from_str` on each string to surface validation failures with the offending entry and the file path. Validation failure becomes `ConfigError::InvalidTopic { entry, path, source }`, the structural mirror of `ConfigError::InvalidPeer`.
+The loader (renamed in 002 from `load_peer_list` to `load_node_config` — see CHK017 resolution) gains the same two-stage validation pipeline 001 already uses for peers: first parse the raw TOML into `RawNodeConfig { peers: …, subscribed_topics: Vec<String> }`, then run `TopicId::from_str` on each string to surface validation failures with the offending entry and the file path. Validation failure becomes `ConfigError::InvalidTopic { entry, path, source }`, the structural mirror of `ConfigError::InvalidPeer`.
 
 **Rationale**: covered exhaustively in the spec's pre-spec chat and Clarifications session 2026-05-29 (Q1 of round 1 affirms PeerId-rules-only). Plain string array matches the data shape (just IDs). Plain array vs table-array (`[[subscribed_topics]] id = "…"`) is the simpler shape at zero loss of expressiveness for 002. If 003+ ever needs per-topic config (priority, retention, etc.), the field can grow to a table-array as a deliberate breaking change with an ADR — the same migration path 001 left open for peers.
 
@@ -151,7 +151,18 @@ tracing::debug!(
     topic = %topic,
     reason = "not_subscribed",
 );
+
+# FR-010 (extended) — TOML loader detected duplicate `subscribed_topics` entry
+# (warn level, one event per duplicated topic per load call):
+tracing::warn!(
+    target: "pubsub_node::config",
+    event = "topic_config_duplicate",
+    topic = %duplicate_topic,
+    config_path = %path.display(),
+);
 ```
+
+The duplicate-warn event uses target `pubsub_node::config` (not `pubsub_node::node`) because it is emitted from the loader (`config::load_node_config`) before any Node exists. Consequently the event does NOT carry `self_id` — the operator's process invocation (`--self-id <id>` on the CLI, plus the `config_path`) is sufficient context. This is asymmetric with the other 002 events (all of which carry `self_id`); the asymmetry is intentional and recorded here for the audit trail.
 
 **Rationale**:
 
@@ -176,7 +187,7 @@ tracing::debug!(
 
 **ADR 0008 scope**: documents the choice of (a) `fn` not `async fn`, (b) `&self` not `&mut self`, (c) interior mutability via `Arc<Mutex<HashSet<TopicId>>>` matching 001's `Arc<Mutex<Vec<ReceivedDelivery>>>` pattern, (d) linearizability as the normative contract per FR-015. Lists alternatives (async mutators, &mut self, RwLock, sharded locks) and the reasons they were rejected. Notes the forward-extension path: when failure modes appear (registry validation, persistence I/O), the return type becomes `Result<Outcome, Error>` — that's a follow-on ADR, not a revision of 0008.
 
-The other 002 deltas are tactical extensions of 001's existing structure and don't merit their own ADRs:
+The other 002 deltas are tactical extensions of 001's existing structure and don't merit their own ADRs. Per Constitution Principle III ("a decision is **structural** if reversing it would require touching unrelated code, external interfaces, or another protocol layer; a decision is **tactical** if reversing it is a local rewrite"), each of the below qualifies as tactical — reversing any of them is a local rewrite within `pubsub-node/`, with no ripple across protocol layers, external interfaces, or unrelated subsystems:
 
 - TopicId mirroring PeerId: parallel application of an established pattern.
 - Subscription set as `Arc<Mutex<HashSet<…>>>`: direct application of 001's existing pattern for mutable Node state.

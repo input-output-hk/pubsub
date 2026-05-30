@@ -1,14 +1,14 @@
-# Peer-list TOML schema — 002 Deltas
+# Node-config TOML schema — 002 Deltas
 
 **Feature**: 002-topic-subscription-filtering
-**Source of truth**: `src/config.rs` (`PeerListConfig`)
-**Spec trace**: FR-010 (subscribed_topics field), FR-012 (parse at the edge), FR-002 (TopicId rules)
+**Source of truth**: `src/config.rs` (`NodeConfig`, renamed in 002 from 001's `PeerListConfig` per CHK017)
+**Spec trace**: FR-010 (subscribed_topics field + duplicate-warn), FR-012 (parse at the edge), FR-002 (TopicId rules)
 
-This contract documents **only what 002 adds** to the TOML schema. The 001 contract at `../001-minimal-node-scaffold/contracts/peer-list.toml.md` remains the canonical reference for the `peers` field and the loader's invariants for everything except `subscribed_topics`.
+This contract documents **only what 002 adds** to the TOML schema, including the file/type rename. The 001 contract at `../001-minimal-node-scaffold/contracts/peer-list.toml.md` remains the canonical reference for the `peers` field and the loader's invariants for everything except `subscribed_topics`. The legacy "peer-list" name in the 001 contract path is preserved as a historical artifact; 002+ artifacts refer to the file as the "node-config TOML" and to the Rust type as `NodeConfig`.
 
 ---
 
-## Schema additions (v2 of the peer-list TOML)
+## Schema additions (002)
 
 ```toml
 # 001 fields (unchanged):
@@ -27,7 +27,7 @@ subscribed_topics = ["governance/announcements", "defi/intents"]
 
 | Path | Type | Required | Notes |
 |------|------|----------|-------|
-| `subscribed_topics` | array of strings | optional | When omitted, an explicit empty array, or any other absence-of-content, the node starts with an empty subscription set. Each entry is parsed via `TopicId::from_str`; a rule violation surfaces as `ConfigError::InvalidTopic`. Duplicate entries are tolerated (the resulting in-memory `HashSet` deduplicates); the loader does NOT warn on duplicates in v2. |
+| `subscribed_topics` | array of strings | optional | When omitted, an explicit empty array, or any other absence-of-content, the node starts with an empty subscription set. Each entry is parsed via `TopicId::from_str`; a rule violation surfaces as `ConfigError::InvalidTopic`. Duplicate entries are tolerated (the resulting in-memory `HashSet` deduplicates); per FR-010, the loader emits a warn-level structured tracing event (`event=topic_config_duplicate`, fields `topic` and `config_path`) for each duplicated entry detected during load — operator-facing misconfig signal, no startup failure. |
 | `subscribed_topics[i]` (individual entry) | string | — | Non-empty UTF-8, no internal NUL byte (FR-002 — same rules as `peers[].id`). No additional character-class restrictions (no whitespace rule, no length cap). |
 
 ### Field placement
@@ -38,18 +38,18 @@ subscribed_topics = ["governance/announcements", "defi/intents"]
 
 - **No per-topic config block** (`[[subscribed_topics]] id = "…"`, with future fields like priority or retention). The shape is a plain string array. If future iterations need per-topic config, the field migrates to a table-array as a deliberate breaking change with an ADR — same forward-compatibility note 001 made for peers.
 - **No "subscribe to all" wildcard**. `subscribed_topics = ["*"]` is parsed as a TopicId literal `"*"`, not as a wildcard. Wildcard semantics are deferred per the spec.
-- **No CLI flag for topics**. The field rides inside the existing peer-list TOML; the binary's existing `--config` flag is sufficient. No new CLI surface (FR-012; matches `contracts/cli.md` from 001 — no edit).
+- **No CLI flag for topics**. The field rides inside the existing node-config TOML (renamed from 001's "peer-list TOML" per CHK017); the binary's existing `--config` flag is sufficient. No new CLI surface (FR-012; matches `contracts/cli.md` from 001 — no edit).
 - **No version field on the schema**. Schema versioning remains deferred per 001's convention.
 
-## Validation pipeline (loader: `config::load_peer_list`) — extended
+## Validation pipeline (loader: `config::load_node_config`) — extended
 
 The loader gains step 4 below; steps 1–3 are inherited unchanged from 001.
 
 1. Read file at `path` → `String`. On failure: `ConfigError::Io { path, source }`. (001)
-2. `toml::from_str::<RawPeerListConfig>(&content)` where `RawPeerListConfig` is a shadow struct with `subscribed_topics: Vec<String>` (raw strings, no `TopicId` validation yet). On failure: `ConfigError::Parse { path, source }`. (001 pattern, extended).
+2. `toml::from_str::<RawNodeConfig>(&content)` where `RawNodeConfig` is a shadow struct with `subscribed_topics: Vec<String>` (raw strings, no `TopicId` validation yet). On failure: `ConfigError::Parse { path, source }`. (001 pattern, extended).
 3. For each `PeerEntry`, re-validate `id` through `PeerId::from_str`. On failure: `ConfigError::InvalidPeer(reason)`. (001)
 4. **NEW**: for each `subscribed_topics` string, run `TopicId::from_str`. On failure: `ConfigError::InvalidTopic("{path}: {error}")`. Loader is fail-fast; the first invalid topic short-circuits subsequent topic validation in this load call.
-5. Return `PeerListConfig` with `peers: Vec<PeerEntry>` and `subscribed_topics: Vec<TopicId>` (validated).
+5. Return `NodeConfig` with `peers: Vec<PeerEntry>` and `subscribed_topics: Vec<TopicId>` (validated).
 
 Steps 3 and 4 are independent; their relative order is implementation-internal. The loader does NOT collect multiple errors across both fields (matches 001 precedent — first error wins).
 
@@ -92,7 +92,7 @@ id = "node-a"
 subscribed_topics = []
 ```
 
-Equivalent to the absent-field case above. The two TOML shapes are indistinguishable to the loader; both yield `subscribed_topics: Vec::new()` in the parsed `PeerListConfig`.
+Equivalent to the absent-field case above. The two TOML shapes are indistinguishable to the loader; both yield `subscribed_topics: Vec::new()` in the parsed `NodeConfig`.
 
 ### Mixed peers + topics (002 US4 AS-1)
 
@@ -123,6 +123,24 @@ subscribed_topics = ["t1", "bad\0topic"]
 
 In both cases, the error message includes the file path and the underlying `TopicIdError` (`"topic id must not be empty"` / `"topic id must not contain a NUL byte"`). Startup fails; the node does not start with a partial subscription set.
 
+### Duplicate topic entry (warn-on-load behavior)
+
+```toml
+[[peers]]
+id = "node-a"
+
+# Loader warns once per duplicated topic; node starts successfully.
+subscribed_topics = ["t1", "t2", "t1"]
+```
+
+On load, the loader emits one warn-level tracing event per duplicate, e.g.:
+
+```text
+WARN pubsub_node::config: event=topic_config_duplicate topic=t1 config_path=/tmp/.../node.peers.toml
+```
+
+The resulting in-memory subscription set is `{t1, t2}` — duplicates are absorbed by `HashSet` semantics. Startup succeeds; this is NOT a startup failure (contrast with the invalid-topic case above).
+
 ### Unknown top-level field (002 US4 AS-5)
 
 ```toml
@@ -139,6 +157,6 @@ Startup fails with `ConfigError::Parse` (the underlying `toml::de::Error` names 
 
 ## Forward-compatibility note (002 additions)
 
-The plain string array shape of `subscribed_topics` matches the data model — topics are just IDs at this stage. If a future feature needs per-topic config (priority, retention, fan-out policy), the migration path is the same one 001 left open for peers: change the field to a table-array (`[[subscribed_topics]] id = "…" priority = 5`), document the breaking change in an ADR, and update the loader. The v2 reader is strict (`deny_unknown_fields`) so any premature per-entry fields are surfaced as a parse error, not silently ignored.
+The plain string array shape of `subscribed_topics` matches the data model — topics are just IDs at this stage. If a future feature needs per-topic config (priority, retention, fan-out policy), the migration path is the same one 001 left open for peers: change the field to a table-array (`[[subscribed_topics]] id = "…" priority = 5`), document the breaking change in an ADR, and update the loader. The 002 reader is strict (`deny_unknown_fields`) so any premature per-entry fields are surfaced as a parse error, not silently ignored.
 
 > **Spec trace: FR-010.** The field name (`subscribed_topics`) and the plain-string-array shape are normative per FR-010; the `deny_unknown_fields` discipline is a contract-level best practice inherited from 001's precedent, not a new FR.

@@ -85,7 +85,7 @@ The CLI surface from 001 is unchanged. The TOML extension is the only delta.
 
 ```sh
 mkdir -p /tmp/pubsub-quickstart-002
-cat > /tmp/pubsub-quickstart-002/node-a.peers.toml <<'EOF'
+cat > /tmp/pubsub-quickstart-002/node-a.toml <<'EOF'
 [[peers]]
 id = "node-b"
 
@@ -99,13 +99,13 @@ EOF
 Run:
 
 ```sh
-cargo run -- --self-id node-a --config /tmp/pubsub-quickstart-002/node-a.peers.toml
+cargo run -- --self-id node-a --config /tmp/pubsub-quickstart-002/node-a.toml
 ```
 
 At default `--log-level info`, you should immediately see the node's startup banner (from 001) but no additional 002 events because no messages are flowing yet. To see what the startup parsing did, request debug output:
 
 ```sh
-cargo run -- --self-id node-a --config /tmp/pubsub-quickstart-002/node-a.peers.toml --log-level debug
+cargo run -- --self-id node-a --config /tmp/pubsub-quickstart-002/node-a.toml --log-level debug
 ```
 
 To verify error reporting for the new `ConfigError::InvalidTopic` path (002 US4 AS-4):
@@ -140,25 +140,40 @@ echo "exit code: $?"   # expect 2
 
 Expected: a `pubsub-node: failed to parse TOML config …` message on stderr (the `toml::de::Error` names `unexpected_field`); exit code 2.
 
+To observe the duplicate-topic warn (per FR-010, one event per duplicated entry; node starts successfully):
+
+```sh
+cat > /tmp/pubsub-quickstart-002/dup-topics.toml <<'EOF'
+[[peers]]
+id = "node-b"
+
+subscribed_topics = ["t1", "t2", "t1"]
+EOF
+cargo run -- --self-id node-x --config /tmp/pubsub-quickstart-002/dup-topics.toml
+```
+
+Expected: a `WARN pubsub_node::config: event=topic_config_duplicate topic=t1 config_path=/tmp/pubsub-quickstart-002/dup-topics.toml` entry on stderr at startup. The node continues running with its in-memory subscription set `{t1, t2}`; duplicates are NOT a startup failure (contrast with the invalid-topic case above).
+
 ## 6 — Run config_loading.rs
 
 ```sh
 cargo test --test config_loading
 ```
 
-This existing 001 file gains four 002-specific cases (002 US4 acceptance scenarios):
+This existing 001 file gains six 002-specific cases (002 US4 acceptance scenarios; coverage matches data-model.md §7.5):
 
-- `subscribed_topics_present_yields_initial_set`
-- `subscribed_topics_absent_yields_empty_set`
-- `subscribed_topics_empty_array_yields_empty_set`
-- `invalid_topic_entry_yields_invalid_topic_error`
-- `unknown_top_level_field_yields_parse_error`
+- `subscribed_topics_present_yields_initial_set` (AS-1)
+- `subscribed_topics_absent_yields_empty_set` (AS-2)
+- `subscribed_topics_empty_array_yields_empty_set` (AS-3)
+- `invalid_topic_entry_yields_invalid_topic_error` (AS-4)
+- `unknown_top_level_field_yields_parse_error` (AS-5)
+- `duplicate_subscribed_topic_yields_dedup_set` (AS-6 — asserts on the deduplicated `subscriptions()` snapshot, not on the warn log; the log is operator UX exercised in `§5` above)
 
 The existing 001 tests in this file continue to pass with the new envelope shape (their TOML inputs don't include `subscribed_topics`, so the field defaults to empty).
 
-## 7 — Observability: the four new structured events
+## 7 — Observability: the six new structured events
 
-At default `--log-level info`, three info events become visible (the fourth and fifth are debug-only). You can exercise them all by piping the runtime test through a non-capturing run:
+At default `--log-level info`, four events are visible (three info + one warn); the remaining two are debug-only. You can exercise the runtime ones by piping the runtime test through a non-capturing run:
 
 ```sh
 cargo test --test topic_runtime -- --nocapture | grep "pubsub_node::node"
@@ -171,10 +186,11 @@ Expected event markers and when they fire:
 | `topic_subscribed` | info | `subscribe(T)` returned `Added` (T was newly inserted) |
 | `topic_unsubscribed` | info | `unsubscribe(T)` returned `Removed` (T was present and removed) |
 | `topic_drop` | info | Receive task observed an inbound delivery with topic ∉ subscription set |
+| `topic_config_duplicate` | warn | TOML loader detected a duplicate entry in `subscribed_topics` (one event per duplicated topic per load call) |
 | `topic_subscribe_noop` | debug | `subscribe(T)` returned `AlreadyPresent` (idempotent re-subscribe) |
 | `topic_unsubscribe_noop` | debug | `unsubscribe(T)` returned `NotSubscribed` (idempotent re-unsubscribe) |
 
-For the operator triage workflow, the natural grep is `event=topic_drop` to find off-topic deliveries by sender and target topic.
+For the operator triage workflow, the natural grep is `event=topic_drop` to find off-topic deliveries by sender and target topic, or `event=topic_config_duplicate` to find redundant TOML entries.
 
 ## 8 — Where things live (delta vs 001)
 
@@ -189,7 +205,8 @@ pubsub-node/
 │   ├── node.rs       # CHANGED: subscriptions field, subscribe/unsubscribe,
 │   │                 # subscriptions() getter, receive-path filter
 │   ├── received.rs   # 001 — unchanged
-│   ├── config.rs     # CHANGED: PeerListConfig grows subscribed_topics
+│   ├── config.rs     # CHANGED: PeerListConfig → NodeConfig (rename per CHK017),
+│   │                 # NodeConfig grows subscribed_topics, load_peer_list → load_node_config
 │   ├── error.rs      # CHANGED: ConfigError grows InvalidTopic
 │   ├── lib.rs        # CHANGED: re-exports TopicId, TopicIdError,
 │   │                 # SubscribeOutcome, UnsubscribeOutcome, MessagePayload
@@ -208,7 +225,7 @@ pubsub-node/
 Detailed contracts:
 
 - `contracts/library-api.md` — 002 deltas to the Rust public surface.
-- `contracts/peer-list.toml.md` — 002 deltas to the TOML schema.
+- `contracts/node-config.toml.md` — 002 deltas to the TOML schema (file renamed from `peer-list.toml.md` per CHK017).
 - 001's `contracts/cli.md` is inherited unchanged — no new CLI surface in 002.
 
 Design context: `research.md` (the why behind each plan-level decision, including the envelope shape, concurrency primitive choice, and tracing field names). Data shapes: `data-model.md`.
