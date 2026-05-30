@@ -1,16 +1,21 @@
 <!-- SPECKIT START -->
 **Feature roadmap (read first if planning the next feature)**: `specs/ROADMAP.md` — feature list 002–012 in dependency order, architectural anchors (edge-vs-golden config split, connection-direction inversion), and per-feature open questions.
 
-**Most recently completed feature**: **001-minimal-node-scaffold** (the substrate).
+**Active feature**: **002-topic-subscription-filtering** (planning phase complete; tasks pending).
 
 For technical context, project structure, dependencies, and the rationale
-behind 001's plan-level decisions:
+behind 002's plan-level decisions:
 
-- Plan:      `specs/001-minimal-node-scaffold/plan.md`
-- Research:  `specs/001-minimal-node-scaffold/research.md`
-- Data:      `specs/001-minimal-node-scaffold/data-model.md`
-- Contracts: `specs/001-minimal-node-scaffold/contracts/`
-- Quickstart:`specs/001-minimal-node-scaffold/quickstart.md`
+- Plan:      `specs/002-topic-subscription-filtering/plan.md`
+- Research:  `specs/002-topic-subscription-filtering/research.md`
+- Data:      `specs/002-topic-subscription-filtering/data-model.md`
+- Contracts: `specs/002-topic-subscription-filtering/contracts/`
+- Quickstart:`specs/002-topic-subscription-filtering/quickstart.md`
+
+**Most recently completed feature**: **001-minimal-node-scaffold** (the substrate). Its artifacts under `specs/001-minimal-node-scaffold/` remain the canonical reference for everything 002 inherits unchanged (network substrate, async send/receive shape, `PeerId` / `PeerDescriptor`, TOML loader pipeline, `--self-id` / `--config` / `--log-level` CLI flags). 002's contracts cross-reference back to 001 where they extend rather than replace.
+
+**Workstream-level docs (sibling to feature dirs)**:
+- `specs/IMPLEMENTATION_NOTES.md` — deferred implementation questions to revisit (currently N-001 for local-emission/local-receipt under a future REST API; N-002 for self-addressing under connection-based transports in feature 004+).
 <!-- SPECKIT END -->
 
 # pubsub-node — agent guidance
