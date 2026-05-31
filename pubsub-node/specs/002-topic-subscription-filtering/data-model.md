@@ -284,14 +284,14 @@ Complement to §7's FR → entity / file matrix. This table maps each FR to the 
 
 | FR | Test-anchored coverage (US / AS / SC) | Operator-observable coverage (quickstart §) | Notes |
 |----|---------------------------------------|---------------------------------------------|-------|
-| FR-001 (Message has topic) | US1 AS-1/2/3; US2 AS-1/2/3; US3 AS-1–7; US4 AS-1 | quickstart §§2–6 (every example constructs `Message { topic, payload }`) | Pervasive — every scenario constructs Messages |
+| FR-001 (Message has topic) | US1 AS-1/2/3; US2 AS-1/2/3; US3 AS-1–8; US4 AS-1 | quickstart §§2–6 (example fixtures show `Message { topic, payload }` construction) | Pervasive — every scenario's inbound / outbound messages carry a topic, since the field is mandatory on every Message instance |
 | FR-002 (TopicId validation) | US4 AS-4 (invalid topic entry fails startup) | quickstart §5 (operator sees `InvalidTopic` error + exit code 2) | |
 | FR-003 (Node tracks subscription set) | US1 AS-1/2 (subscribed vs not); US2 AS-1 (per-node subsets); US3 AS-1/3/5 (set transitions) | quickstart §§2–4 | |
 | FR-004 (receive-path filter) | US1 AS-1/2 (retain on-topic / drop off-topic); US2 AS-1/3 (per-node filter); US3 AS-1/3/5 (transitions take effect) | quickstart §§2–3 | |
 | FR-005 (Network unchanged) | All US — coverage by absence (no scenario asserts new network behavior; the file diff for `src/network.rs` is empty post-002 per plan.md project structure) | quickstart §8 (mental map shows `network.rs # 001 — unchanged`) | Enforced by absence; no positive AS needed |
 | FR-006 (subscribe/unsubscribe API + Outcome enums) | US3 AS-2/4/6/7 (Added/Removed/AlreadyPresent/NotSubscribed); SC-005 (idempotency) | quickstart §4 (test list) | |
 | FR-007 (send API unchanged) | All US (every send call uses 001's `Node::send(to, message).await` signature) | quickstart §2 | Inherited from 001 |
-| FR-008 (subscribe/emit decoupled) | US3 Independent Test (Node A emits on T1 while subscribed to T2 only) | quickstart §4 | The Independent Test exercises this; no separate AS pins it |
+| FR-008 (subscribe/emit decoupled) | US3 AS-8 (explicit decoupling assertion: A subscribed to `{T2}` emits `Ping(K, T1)` to B; emission succeeds, B's subscription determines acceptance); implicit at every emit-site in US1 AS-2 / US2 AS-1 where the emitter's subscription set is unspecified | quickstart §4 | AS-8 added 2026-05-30 per CHK054 walk; removes the prior "implicit only" smell and gives FR-008 a test-anchored assertion |
 | FR-009 (no self-receipt of own emission) | US1 AS-3 (Node emits, does NOT see own message in its snapshot) | quickstart §2 (test `own_emission_not_in_local_snapshot`) | Self-addressing edge case via loopback is operator-observable, not AS-pinned |
 | FR-010 (TOML `subscribed_topics` + duplicate-warn) | US4 AS-1/2/3/4/5/6 (present/absent/empty/invalid/unknown-field/duplicate) | quickstart §§5–6 (operator sees warn on duplicate, error on invalid, success on absent) | AS-6 added 2026-05-30 covers the deduplicated-state behavior; the warn log itself is operator UX |
 | FR-011 (drop log) | SC-006 (info-level entry visible at default log level) | quickstart §§2, 7 (operator sees `event=topic_drop` lines) | Visibility is asserted via SC-006; log *content* is operator UX, not AS-pinned |
@@ -343,7 +343,7 @@ Each transition is atomic under FR-015's linearizability. The receive-path read 
 
 `tests/common/mod.rs` (fixture builders):
 
-- The current `two_node_fixture` / similar helpers construct Nodes with a peer set only. Add an additional argument (or builder method) for the initial subscription set. Default: empty HashSet, so 001's existing tests that don't set subscriptions keep compiling.
+- The current `two_node_fixture` / similar helpers construct Nodes via `Node::new(self_id, peer_list, network)`. After CHK017's rename, the parameter `peer_list: PeerListConfig` becomes `config: NodeConfig`. Add an additional argument (or builder method) for the initial subscription set. Default: empty HashSet, so 001's existing tests that don't set subscriptions keep compiling (the `NodeConfig` rename + the new `initial_subscriptions` parameter are both mechanical updates to every fixture call site).
 - A new helper `assert_subscriptions(node, &[…])` MAY be added to encapsulate the "snapshot, sort, assert" idiom for tests that compare subscription sets — non-normative, ergonomic only.
 
 `tests/two_node_ping.rs` (001 US1):

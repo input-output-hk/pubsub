@@ -173,9 +173,11 @@ Loader contract (additive to 001):
 1. Read the file at `path`. I/O failure → `ConfigError::Io { path, source }` (unchanged).
 2. Parse contents as TOML via a shadow `RawNodeConfig { peers: …, subscribed_topics: Vec<String> }`. Structural failure → `ConfigError::Parse { path, source }` (unchanged).
 3. Validate each `peers` entry's id via `PeerId::from_str` → `ConfigError::InvalidPeer(message)` (unchanged).
-4. **NEW**: validate each `subscribed_topics` entry via `TopicId::from_str` → `ConfigError::InvalidTopic(message)`. The message has the same shape as `InvalidPeer`: `"{path}: {topic_id_error}"`.
+4. **NEW**: validate each `subscribed_topics` entry via `TopicId::from_str` → `ConfigError::InvalidTopic(message)`. The message has the same shape as `InvalidPeer`: `"{path}: {topic_id_error}"`. After validation succeeds, scan the validated `TopicId`s for duplicates; for each duplicated topic, emit a warn-level structured tracing event `topic_config_duplicate` per FR-010 (target `pubsub_node::config`; fields `event`, `topic`, `config_path`). Duplicates are NOT a startup failure.
 
-Steps 3 and 4 are fail-fast: the loader returns the first `Err` encountered when iterating either field. Multi-error reporting is out of scope for v1 (matches 001 precedent).
+Steps 3 and 4 are fail-fast: the loader returns the first `Err` encountered when iterating either field. Multi-error reporting is out of scope for v1 (matches 001 precedent). The duplicate-scan sub-step in step 4 runs only when all `TopicId::from_str` calls succeed, so a load that fails with `InvalidTopic` emits no duplicate-warn events.
+
+**Return-shape contract on duplicates**: when `load_node_config` succeeds and the TOML contained duplicate `subscribed_topics` entries, the returned `NodeConfig.subscribed_topics: Vec<TopicId>` **retains the original Vec shape including duplicates**. Deduplication is the consumer's concern at the `HashSet<TopicId>` boundary (the Node constructor's `initial_subscriptions` parameter is `HashSet<TopicId>`, which absorbs duplicates by set semantics). Callers wanting an already-deduped view can call `.into_iter().collect::<HashSet<_>>()` on the returned Vec. This shape is documented in data-model.md §5 step 5.
 
 ## `ConfigError` — new variant
 

@@ -116,7 +116,9 @@ pubsub-node/
 │   ├── node.rs               # extended: subscription field, mutators, getter, recv-path filter
 │   ├── message.rs            # extended: topic field on Message (shape per research.md §1)
 │   ├── received.rs           # unchanged (ReceivedDelivery wraps the new Message shape)
-│   ├── config.rs             # extended: subscribed_topics field + InvalidTopic ConfigError variant
+│   ├── config.rs             # renamed (per CHK017): PeerListConfig → NodeConfig, load_peer_list → load_node_config,
+│   │                         # RawPeerListConfig → RawNodeConfig. Extended: subscribed_topics field + InvalidTopic
+│   │                         # ConfigError variant + duplicate-warn loader sub-step (FR-010 per CHK025)
 │   ├── error.rs              # extended: + ConfigError::InvalidTopic
 │   └── main.rs               # extended: pass parsed HashSet<TopicId> to Node::new
 ├── tests/
