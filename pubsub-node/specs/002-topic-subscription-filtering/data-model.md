@@ -80,7 +80,7 @@ pub enum MessagePayload {
 - `topic: TopicId` — the first-class topic dimension required by FR-001.
 - `payload: MessagePayload` — the existing variant enum, renamed (was `Message` in 001; `Message::Ping(N)` becomes `MessagePayload::Ping(N)`).
 
-**Construction**: callers explicitly build `Message { topic: topic_id, payload: MessagePayload::Ping(n) }`. A convenience constructor (`Message::ping(topic, n)`) MAY be added in `src/message.rs` as a small ergonomic affordance — non-normative.
+**Construction**: callers build `Message { topic: topic_id, payload: MessagePayload::Ping(n) }` directly, or use the convenience constructor `Message::ping(topic, n) -> Message` defined in `src/message.rs`. The convenience constructor is **required** at the same task that introduces the envelope (tasks.md T005) because `MessagePayload` is not re-exported from `src/lib.rs` until tasks.md T009 — between T005 and T009, migrated test sites construct Pings via `Message::ping(topic, n)` without needing direct access to `MessagePayload`.
 
 **Migration note**: every existing 001 call site that constructs `Message::Ping(N)` is updated mechanically. Test files (`tests/two_node_ping.rs`, `tests/n_node_graph.rs`) and the common test helpers (`tests/common/mod.rs`) are the only call sites in 001. The rename is a single early task in `/speckit-tasks`, completed before any 002-specific test is added so the green-checkpoint invariant holds.
 
@@ -343,8 +343,8 @@ Each transition is atomic under FR-015's linearizability. The receive-path read 
 
 `tests/common/mod.rs` (fixture builders):
 
-- The current `two_node_fixture` / similar helpers construct Nodes via `Node::new(self_id, peer_list, network)`. After CHK017's rename, the parameter `peer_list: PeerListConfig` becomes `config: NodeConfig`. Add an additional argument (or builder method) for the initial subscription set. Default: empty HashSet, so 001's existing tests that don't set subscriptions keep compiling (the `NodeConfig` rename + the new `initial_subscriptions` parameter are both mechanical updates to every fixture call site).
-- A new helper `assert_subscriptions(node, &[…])` MAY be added to encapsulate the "snapshot, sort, assert" idiom for tests that compare subscription sets — non-normative, ergonomic only.
+- The current `two_node_fixture` / similar helpers construct Nodes via `Node::new(self_id, peer_list, network)`. After CHK017's rename, the parameter `peer_list: PeerListConfig` becomes `config: NodeConfig`. Add an additional argument (or builder method) for the initial subscription set. Default: a `HashSet` containing the sentinel `TopicId` literal from T005's Message-construction migration (e.g., `HashSet::from([TopicId::from_str("test").unwrap()])`) — chosen so existing 001 tests' Pings, which carry the same sentinel topic via `Message::ping(sentinel, n)`, pass through the new receive-path filter. (Empty `HashSet` would silently drop all 001 Pings under the filter — the sentinel-default fixture is set up at T008's commit per pass-1 I1; T010 then makes it configurable from outside.)
+- A new helper `assert_subscriptions(node, &[…])` is added in tasks.md T010 to encapsulate the "snapshot, sort, assert" idiom for tests that compare subscription sets — ergonomic at the data-model level; tasks-mandated at T010.
 
 `tests/two_node_ping.rs` (001 US1):
 

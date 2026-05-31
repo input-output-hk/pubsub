@@ -67,7 +67,7 @@ The name `Message` is preserved; the **shape** changes from the 001 enum to this
 | `payload: MessagePayload` | The previous Message-enum, renamed. See below. |
 | `impl Clone + PartialEq + Eq + Debug` | Required by tests asserting on `ReceivedDelivery` contents (delivery contains a `Message`). |
 
-A convenience constructor `Message::ping(topic, n) -> Message` MAY be provided for ergonomics — non-normative; tests are free to use it or build the literal explicitly.
+A convenience constructor `Message::ping(topic, n) -> Message` is **required** in `src/message.rs` (per tasks.md T005's mandatory ergonomic constructor). Rationale: `MessagePayload` is not re-exported until tasks.md T009; the convenience constructor lets migrated test sites construct Pings via `Message::ping(topic, n)` without needing `MessagePayload` in scope. Tests using the helper avoid the green-checkpoint hole between T005 and T009.
 
 ## `MessagePayload`
 

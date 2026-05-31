@@ -165,8 +165,8 @@ The ADR transcribes `research.md §3` (mutator shape) + `research.md §8` (ADR s
   - T006 (CHK017 rename in `src/config.rs`) is independent of T005 (different file scope) — could in principle run parallel, but in practice both touch `tests/common/mod.rs` so sequential is safer.
   - T007 (NodeConfig extension + loader) depends on T003, T004, T006.
   - T008 (Node extension) depends on T003, T005, T006, T007.
-  - T009 (lib.rs re-exports) depends on T003, T005, T006, T008.
-  - T010 (fixture extension) depends on T009.
+  - T009 (lib.rs new-re-export additions for the 002 types — the CHK017 rename of the existing config re-export line is owned by T006) depends on T003, T005, T006, T008.
+  - T010 (fixture public-API extension + `assert_subscriptions` helper — the fixture's internal `Node::new` invocation was already adapted in T008's commit to keep `cargo test` green) depends on T009.
 - **User Stories (Phase 3+)**: All depend on Foundational (Phase 2) completion. Within Phase 2's completion the four user stories are independently testable and can be implemented in parallel by different developers.
   - US1 (T011) is the MVP. Stop-and-validate point: ship-ready after T011.
   - US2 (T012), US3 (T013), and US4 (T014+T015) can be authored in parallel post-T010 since they touch different test files (and US4 additionally touches `src/main.rs`).
@@ -182,7 +182,7 @@ The ADR transcribes `research.md §3` (mutator shape) + `research.md §8` (ADR s
 ### Within Each Foundational Task
 
 - Tests for `TopicId::from_str` rejection cases land **in** T003 (same task, same file) so the unit tests cover the validation rules from inception. Matches 001's T012 pattern for `PeerIdError`.
-- The Message envelope rewrite (T005) and the CHK017 rename (T006) are explicitly single-commit breaking changes that update every call site simultaneously — they MUST leave the crate at `cargo build` + `cargo test` green at task completion.
+- Three Foundational tasks are explicit single-commit breaking changes that update every call site simultaneously — they MUST leave the crate at `cargo build` + `cargo test` green at task completion: the Message envelope rewrite (T005 — updates every Ping construction site to use `Message::ping(topic, n)`); the CHK017 rename (T006 — updates every caller of the renamed types + the `src/lib.rs` re-export line in the same commit); and the Node extension (T008 — also updates `tests/common/mod.rs` fixture builders' internal `Node::new` invocation in the same commit per pass-1 I1 resolution, so the new 4-arg signature doesn't leave the test build red).
 
 ### Parallel Opportunities
 
