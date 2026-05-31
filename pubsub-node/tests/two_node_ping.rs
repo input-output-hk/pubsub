@@ -1,29 +1,29 @@
 mod common;
 
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, two_node_fixture};
-use pubsub_node::{InMemoryNetwork, Message, Node, PeerEntry, PeerId, PeerListConfig};
+use common::{await_delivery, test_topic, two_node_fixture};
+use pubsub_node::{InMemoryNetwork, Message, Node, NodeConfig, PeerEntry, PeerId};
 
 // US1 AS-1: A's peer set contains B; A sends Ping(42); B's record contains it.
 #[tokio::test]
 async fn ping_delivered_when_a_lists_b() {
     let fx = two_node_fixture().await;
+    let msg = Message::ping(test_topic(), 42);
 
-    fx.a.send(fx.b.id(), Message::Ping(42))
-        .await
-        .expect("send Ok");
+    fx.a.send(fx.b.id(), msg.clone()).await.expect("send Ok");
 
-    await_delivery(&fx.b, fx.a.id(), &Message::Ping(42), Duration::from_secs(1))
+    await_delivery(&fx.b, fx.a.id(), &msg, Duration::from_secs(1))
         .await
         .expect("delivery within 1s");
 
     let record = fx.b.received_messages();
     assert_eq!(record.len(), 1);
     assert_eq!(record[0].from, *fx.a.id());
-    assert_eq!(record[0].message, Message::Ping(42));
+    assert_eq!(record[0].message, msg);
 }
 
 // US1 AS-2: B's peer set does NOT contain A; A still sends and B still receives
@@ -36,29 +36,40 @@ async fn ping_delivered_trust_on_arrival() {
 
     let a = Node::new(
         a_id.clone(),
-        PeerListConfig {
+        NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
+            subscribed_topics: vec![],
         },
+        HashSet::from([test_topic()]),
         network.clone(),
     )
     .await
     .expect("A");
 
     // B's peer set is EMPTY — does not list A.
-    let b = Node::new(b_id, PeerListConfig { peers: vec![] }, network.clone())
-        .await
-        .expect("B");
+    let b = Node::new(
+        b_id,
+        NodeConfig {
+            peers: vec![],
+            subscribed_topics: vec![],
+        },
+        HashSet::from([test_topic()]),
+        network.clone(),
+    )
+    .await
+    .expect("B");
 
-    a.send(b.id(), Message::Ping(7)).await.expect("send Ok");
+    let msg = Message::ping(test_topic(), 7);
+    a.send(b.id(), msg.clone()).await.expect("send Ok");
 
-    await_delivery(&b, a.id(), &Message::Ping(7), Duration::from_secs(1))
+    await_delivery(&b, a.id(), &msg, Duration::from_secs(1))
         .await
         .expect("B still receives (trust-on-arrival)");
 
     let record = b.received_messages();
     assert_eq!(record.len(), 1);
     assert_eq!(record[0].from, *a.id());
-    assert_eq!(record[0].message, Message::Ping(7));
+    assert_eq!(record[0].message, msg);
 }
 
 // US1 AS-3 + spec Edge Cases bullet 1: Node A with empty peer list sending to
@@ -69,12 +80,20 @@ async fn empty_peer_set_cannot_originate() {
     let network = Arc::new(InMemoryNetwork::new());
     let a_id = PeerId::from_str("node-a").unwrap();
 
-    let a = Node::new(a_id, PeerListConfig { peers: vec![] }, network.clone())
-        .await
-        .expect("A");
+    let a = Node::new(
+        a_id,
+        NodeConfig {
+            peers: vec![],
+            subscribed_topics: vec![],
+        },
+        HashSet::from([test_topic()]),
+        network.clone(),
+    )
+    .await
+    .expect("A");
 
     let ghost = PeerId::from_str("ghost").unwrap();
-    let outcome = a.send(&ghost, Message::Ping(0)).await;
+    let outcome = a.send(&ghost, Message::ping(test_topic(), 0)).await;
     assert!(outcome.is_ok(), "send to unregistered id is Ok per FR-010");
 
     // Briefly yield so any spurious recv processing would settle.
@@ -98,12 +117,12 @@ async fn ping_n_intact_across_100_sends() {
     const TOTAL: u64 = 100;
 
     let fx = two_node_fixture().await;
+    let topic = test_topic();
 
     for i in 0..TOTAL {
-        fx.a.send(fx.b.id(), Message::Ping(i))
-            .await
-            .expect("send Ok");
-        await_delivery(&fx.b, fx.a.id(), &Message::Ping(i), Duration::from_secs(1))
+        let msg = Message::ping(topic.clone(), i);
+        fx.a.send(fx.b.id(), msg.clone()).await.expect("send Ok");
+        await_delivery(&fx.b, fx.a.id(), &msg, Duration::from_secs(1))
             .await
             .expect("delivery within 1s");
     }
@@ -119,15 +138,15 @@ async fn ping_n_intact_across_100_sends() {
     );
 
     // (b) no loss: every i in 0..TOTAL appears exactly once, all from A.
-    let mut seen: Vec<bool> = vec![false; usize::try_from(TOTAL).unwrap()];
-    for delivery in &record {
-        assert_eq!(delivery.from, *fx.a.id(), "sender attribution");
-        let Message::Ping(n) = delivery.message else {
-            panic!("unexpected message variant: {:?}", delivery.message);
-        };
-        let idx = usize::try_from(n).expect("n fits usize");
-        assert!(!seen[idx], "duplicate Ping({n}) observed");
-        seen[idx] = true;
+    for i in 0..TOTAL {
+        let expected = Message::ping(topic.clone(), i);
+        let count = record
+            .iter()
+            .filter(|d| d.from == *fx.a.id() && d.message == expected)
+            .count();
+        assert_eq!(
+            count, 1,
+            "expected exactly one Ping({i}) from A, got {count}"
+        );
     }
-    assert!(seen.iter().all(|s| *s), "missing N value(s) in 0..{TOTAL}");
 }

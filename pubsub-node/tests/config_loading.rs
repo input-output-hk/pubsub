@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use pubsub_node::{load_peer_list, ConfigError, PeerId};
+use pubsub_node::{load_node_config, ConfigError, PeerId};
 use tempfile::tempdir;
 
 // US3 AS-1: a TOML file with three [[peers]] entries loads as a
@@ -26,7 +26,7 @@ id = "node-d"
     )
     .expect("write toml");
 
-    let cfg = load_peer_list(&path).expect("load Ok");
+    let cfg = load_node_config(&path).expect("load Ok");
 
     assert_eq!(cfg.peers.len(), 3, "three peer entries");
     assert_eq!(cfg.peers[0].id, PeerId::from_str("node-b").unwrap());
@@ -51,7 +51,7 @@ id = "node-b"
         )
         .expect("write toml");
 
-        let err = load_peer_list(&path).expect_err("expected Parse error");
+        let err = load_node_config(&path).expect_err("expected Parse error");
         match &err {
             ConfigError::Parse { path: p, .. } => {
                 assert_eq!(p, &path, "Parse error carries the offending path");
@@ -86,7 +86,7 @@ id = ""
         )
         .expect("write toml");
 
-        let err = load_peer_list(&path).expect_err("expected InvalidPeer error");
+        let err = load_node_config(&path).expect_err("expected InvalidPeer error");
         match &err {
             ConfigError::InvalidPeer(msg) => {
                 assert!(
@@ -107,7 +107,7 @@ id = ""
         let dir = tempdir().expect("tempdir");
         let path: PathBuf = dir.path().join("does-not-exist.toml");
 
-        let err = load_peer_list(&path).expect_err("expected Io error");
+        let err = load_node_config(&path).expect_err("expected Io error");
         match &err {
             ConfigError::Io { path: p, .. } => {
                 assert_eq!(p, &path, "Io error carries the offending path");

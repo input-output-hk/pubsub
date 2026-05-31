@@ -24,6 +24,11 @@ pub enum ConfigError {
     /// [`PeerId`](crate::PeerId) validation rules.
     #[error("invalid peer entry: {0}")]
     InvalidPeer(String),
+
+    /// A `subscribed_topics` entry parsed successfully but its value failed
+    /// the [`TopicId`](crate::TopicId) validation rules.
+    #[error("config invalid topic entry: {0}")]
+    InvalidTopic(String),
 }
 
 /// Failure modes returned by [`Network`](crate::Network) implementations.

@@ -125,7 +125,7 @@ impl NetworkHandle {
 ///
 /// ```ignore
 /// let network = std::sync::Arc::new(InMemoryNetwork::new());
-/// let node = Node::new(self_id, peer_list, network.clone()).await?;
+/// let node = Node::new(self_id, config, network.clone()).await?;
 /// ```
 pub struct InMemoryNetwork {
     registry: Registry,

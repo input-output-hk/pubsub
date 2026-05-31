@@ -1,11 +1,12 @@
 mod common;
 
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::await_delivery;
-use pubsub_node::{InMemoryNetwork, Message, Node, PeerEntry, PeerId, PeerListConfig};
+use common::{await_delivery, test_topic};
+use pubsub_node::{InMemoryNetwork, Message, Node, NodeConfig, PeerEntry, PeerId};
 
 struct FourNodeStar {
     a: Node,
@@ -23,26 +24,52 @@ async fn four_node_star_fixture() -> FourNodeStar {
 
     let a = Node::new(
         a_id,
-        PeerListConfig {
+        NodeConfig {
             peers: vec![
                 PeerEntry { id: b_id.clone() },
                 PeerEntry { id: c_id.clone() },
                 PeerEntry { id: d_id.clone() },
             ],
+            subscribed_topics: vec![],
         },
+        HashSet::from([test_topic()]),
         network.clone(),
     )
     .await
     .expect("construct A");
-    let b = Node::new(b_id, PeerListConfig { peers: vec![] }, network.clone())
-        .await
-        .expect("construct B");
-    let c = Node::new(c_id, PeerListConfig { peers: vec![] }, network.clone())
-        .await
-        .expect("construct C");
-    let d = Node::new(d_id, PeerListConfig { peers: vec![] }, network)
-        .await
-        .expect("construct D");
+    let b = Node::new(
+        b_id,
+        NodeConfig {
+            peers: vec![],
+            subscribed_topics: vec![],
+        },
+        HashSet::from([test_topic()]),
+        network.clone(),
+    )
+    .await
+    .expect("construct B");
+    let c = Node::new(
+        c_id,
+        NodeConfig {
+            peers: vec![],
+            subscribed_topics: vec![],
+        },
+        HashSet::from([test_topic()]),
+        network.clone(),
+    )
+    .await
+    .expect("construct C");
+    let d = Node::new(
+        d_id,
+        NodeConfig {
+            peers: vec![],
+            subscribed_topics: vec![],
+        },
+        HashSet::from([test_topic()]),
+        network,
+    )
+    .await
+    .expect("construct D");
 
     FourNodeStar { a, b, c, d }
 }
@@ -54,24 +81,23 @@ async fn four_node_star_fixture() -> FourNodeStar {
 #[tokio::test]
 async fn four_node_star_isolates_addressed_pings() {
     let fx = four_node_star_fixture().await;
+    let topic = test_topic();
 
-    fx.a.send(fx.b.id(), Message::Ping(1))
-        .await
-        .expect("send to B");
-    fx.a.send(fx.c.id(), Message::Ping(2))
-        .await
-        .expect("send to C");
-    fx.a.send(fx.d.id(), Message::Ping(3))
-        .await
-        .expect("send to D");
+    let m1 = Message::ping(topic.clone(), 1);
+    let m2 = Message::ping(topic.clone(), 2);
+    let m3 = Message::ping(topic.clone(), 3);
 
-    await_delivery(&fx.b, fx.a.id(), &Message::Ping(1), Duration::from_secs(1))
+    fx.a.send(fx.b.id(), m1.clone()).await.expect("send to B");
+    fx.a.send(fx.c.id(), m2.clone()).await.expect("send to C");
+    fx.a.send(fx.d.id(), m3.clone()).await.expect("send to D");
+
+    await_delivery(&fx.b, fx.a.id(), &m1, Duration::from_secs(1))
         .await
         .expect("B delivery");
-    await_delivery(&fx.c, fx.a.id(), &Message::Ping(2), Duration::from_secs(1))
+    await_delivery(&fx.c, fx.a.id(), &m2, Duration::from_secs(1))
         .await
         .expect("C delivery");
-    await_delivery(&fx.d, fx.a.id(), &Message::Ping(3), Duration::from_secs(1))
+    await_delivery(&fx.d, fx.a.id(), &m3, Duration::from_secs(1))
         .await
         .expect("D delivery");
 
@@ -84,11 +110,11 @@ async fn four_node_star_isolates_addressed_pings() {
     assert_eq!(d_rec.len(), 1, "D receives exactly one ping");
 
     assert_eq!(b_rec[0].from, *fx.a.id());
-    assert_eq!(b_rec[0].message, Message::Ping(1));
+    assert_eq!(b_rec[0].message, m1);
     assert_eq!(c_rec[0].from, *fx.a.id());
-    assert_eq!(c_rec[0].message, Message::Ping(2));
+    assert_eq!(c_rec[0].message, m2);
     assert_eq!(d_rec[0].from, *fx.a.id());
-    assert_eq!(d_rec[0].message, Message::Ping(3));
+    assert_eq!(d_rec[0].message, m3);
 
     // A is not a recipient of anything in this scenario.
     assert!(
@@ -104,18 +130,23 @@ async fn four_node_star_isolates_addressed_pings() {
 #[tokio::test]
 async fn inbound_traffic_independent_of_outbound_peer_set() {
     let fx = four_node_star_fixture().await;
+    let topic = test_topic();
 
-    fx.b.send(fx.a.id(), Message::Ping(10)).await.expect("B→A");
-    fx.c.send(fx.a.id(), Message::Ping(20)).await.expect("C→A");
-    fx.d.send(fx.a.id(), Message::Ping(30)).await.expect("D→A");
+    let m_b = Message::ping(topic.clone(), 10);
+    let m_c = Message::ping(topic.clone(), 20);
+    let m_d = Message::ping(topic.clone(), 30);
 
-    await_delivery(&fx.a, fx.b.id(), &Message::Ping(10), Duration::from_secs(1))
+    fx.b.send(fx.a.id(), m_b.clone()).await.expect("B→A");
+    fx.c.send(fx.a.id(), m_c.clone()).await.expect("C→A");
+    fx.d.send(fx.a.id(), m_d.clone()).await.expect("D→A");
+
+    await_delivery(&fx.a, fx.b.id(), &m_b, Duration::from_secs(1))
         .await
         .expect("A receives from B");
-    await_delivery(&fx.a, fx.c.id(), &Message::Ping(20), Duration::from_secs(1))
+    await_delivery(&fx.a, fx.c.id(), &m_c, Duration::from_secs(1))
         .await
         .expect("A receives from C");
-    await_delivery(&fx.a, fx.d.id(), &Message::Ping(30), Duration::from_secs(1))
+    await_delivery(&fx.a, fx.d.id(), &m_d, Duration::from_secs(1))
         .await
         .expect("A receives from D");
 
@@ -124,15 +155,15 @@ async fn inbound_traffic_independent_of_outbound_peer_set() {
 
     let from_b = a_rec
         .iter()
-        .filter(|d| d.from == *fx.b.id() && d.message == Message::Ping(10))
+        .filter(|d| d.from == *fx.b.id() && d.message == m_b)
         .count();
     let from_c = a_rec
         .iter()
-        .filter(|d| d.from == *fx.c.id() && d.message == Message::Ping(20))
+        .filter(|d| d.from == *fx.c.id() && d.message == m_c)
         .count();
     let from_d = a_rec
         .iter()
-        .filter(|d| d.from == *fx.d.id() && d.message == Message::Ping(30))
+        .filter(|d| d.from == *fx.d.id() && d.message == m_d)
         .count();
 
     assert_eq!(from_b, 1, "exactly one Ping(10) from B");
@@ -152,6 +183,7 @@ async fn four_node_star_100_send_isolation() {
     const TOTAL: u64 = 100;
 
     let fx = four_node_star_fixture().await;
+    let topic = test_topic();
 
     for i in 0..TOTAL {
         let target = match i % 3 {
@@ -159,10 +191,9 @@ async fn four_node_star_100_send_isolation() {
             1 => &fx.c,
             _ => &fx.d,
         };
-        fx.a.send(target.id(), Message::Ping(i))
-            .await
-            .expect("send");
-        await_delivery(target, fx.a.id(), &Message::Ping(i), Duration::from_secs(1))
+        let msg = Message::ping(topic.clone(), i);
+        fx.a.send(target.id(), msg.clone()).await.expect("send");
+        await_delivery(target, fx.a.id(), &msg, Duration::from_secs(1))
             .await
             .expect("delivery");
     }
@@ -189,22 +220,17 @@ async fn four_node_star_100_send_isolation() {
         ("C", &c_rec, &c_expected),
         ("D", &d_rec, &d_expected),
     ] {
-        let mut seen = vec![false; expected.len()];
-        for delivery in record {
-            assert_eq!(delivery.from, *fx.a.id(), "{name}: sender attribution");
-            let Message::Ping(n) = delivery.message else {
-                panic!("{name}: unexpected message variant: {:?}", delivery.message);
-            };
-            let idx = expected
+        assert_eq!(record.len(), expected.len(), "{name}: record size");
+        for &expected_n in expected {
+            let expected_msg = Message::ping(topic.clone(), expected_n);
+            let count = record
                 .iter()
-                .position(|&e| e == n)
-                .unwrap_or_else(|| panic!("{name}: Ping({n}) is outside this peer's slice"));
-            assert!(!seen[idx], "{name}: duplicate Ping({n})");
-            seen[idx] = true;
+                .filter(|d| d.from == *fx.a.id() && d.message == expected_msg)
+                .count();
+            assert_eq!(
+                count, 1,
+                "{name}: expected exactly one Ping({expected_n}) from A, got {count}",
+            );
         }
-        assert!(
-            seen.iter().all(|s| *s),
-            "{name}: missing N value(s) in expected slice",
-        );
     }
 }
