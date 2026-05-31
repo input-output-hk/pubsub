@@ -252,6 +252,6 @@ With multiple developers:
 - Each user story should be independently completable and testable.
 - Tests assert on `received_messages()`, `subscriptions()`, and `Outcome` return values — never on log content (per the FR-010 / FR-014 test discipline locked in CHK027 resolution).
 - Commit after each task or logical group; the green-checkpoint invariant from Constitution §"Development Workflow" (every commit compiles and passes all non-ignored tests) applies throughout.
-- The breaking-rename tasks (T005, T006) update many files simultaneously — these are the highest-risk green-checkpoint moments; bundle the call-site updates in the same commit as the type/function rename.
+- The breaking-change tasks (T005, T006, T008) update many files simultaneously — these are the highest-risk green-checkpoint moments; bundle the call-site updates in the same commit as the type/function/signature change. (T005: Message envelope rewrite; T006: CHK017 rename; T008: Node extension + fixture-internal `Node::new` invocation update per pass-1 I1.)
 - Stop at any Phase checkpoint (Phase 2 / Phase 3 / Phase 4 / Phase 5 / Phase 6) to validate independently; ship-ready after Phase 3 (MVP).
 - Avoid: vague tasks, same-file conflicts on parallel runs, cross-story dependencies that break independence, assertions on log content (anti-pattern per CHK027).
