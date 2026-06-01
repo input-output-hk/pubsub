@@ -8,17 +8,19 @@
 //!   that connects nodes within a single process.
 //! - [`PeerId`], [`PeerDescriptor`], [`BasicPeerDescriptor`] — identity types
 //!   for addressing peers.
-//! - [`Message`] — the message kinds nodes exchange (currently only
-//!   [`Message::Ping`]).
+//! - [`TopicId`] — the topic carried on every [`Message`]; opaque newtype
+//!   parallel to [`PeerId`].
+//! - [`Message`], [`MessagePayload`] — message envelope and body kinds. The
+//!   envelope carries a [`TopicId`] and a payload; currently only
+//!   [`MessagePayload::Ping`] is defined.
 //! - [`ReceivedDelivery`] — one observed delivery returned by
 //!   [`Node::received_messages`].
-//! - [`PeerListConfig`], [`PeerEntry`], [`load_peer_list`] — TOML-driven
+//! - [`SubscribeOutcome`], [`UnsubscribeOutcome`] — return values for the
+//!   runtime subscription mutators on [`Node`].
+//! - [`NodeConfig`], [`PeerEntry`], [`load_node_config`] — TOML-driven
 //!   configuration.
-//! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`] —
-//!   typed failure modes.
-//!
-//! For the current iteration's specification, contracts, and design notes,
-//! see `specs/001-minimal-node-scaffold/`.
+//! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`],
+//!   [`TopicIdError`] — typed failure modes.
 
 mod config;
 mod error;
@@ -27,11 +29,13 @@ mod network;
 mod node;
 mod peer;
 mod received;
+mod topic;
 
-pub use config::{load_peer_list, PeerEntry, PeerListConfig};
+pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use error::{ConfigError, NetworkError, NodeError};
-pub use message::Message;
+pub use message::{Message, MessagePayload};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
-pub use node::Node;
+pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::ReceivedDelivery;
+pub use topic::{TopicId, TopicIdError};

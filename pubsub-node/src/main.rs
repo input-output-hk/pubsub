@@ -1,8 +1,9 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
-use pubsub_node::{load_peer_list, InMemoryNetwork, Node, PeerId};
+use pubsub_node::{load_node_config, InMemoryNetwork, Node, PeerId};
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
 /// in-memory network, loads its peer set from TOML, and waits for Ctrl-C.
@@ -13,7 +14,7 @@ struct Args {
     #[arg(long)]
     self_id: PeerId,
 
-    /// Path to the TOML peer-list configuration file.
+    /// Path to the TOML node-config file.
     #[arg(long)]
     config: PathBuf,
 
@@ -31,13 +32,15 @@ async fn main() {
         .with_writer(std::io::stderr)
         .init();
 
-    let cfg = load_peer_list(&args.config).unwrap_or_else(|e| {
+    let cfg = load_node_config(&args.config).unwrap_or_else(|e| {
         eprintln!("pubsub-node: {e}");
         std::process::exit(2);
     });
 
+    let initial_subscriptions: HashSet<_> = cfg.subscribed_topics.iter().cloned().collect();
+
     let network = Arc::new(InMemoryNetwork::new());
-    let node = Node::new(args.self_id, cfg, network)
+    let node = Node::new(args.self_id, cfg, initial_subscriptions, network)
         .await
         .unwrap_or_else(|e| {
             eprintln!("pubsub-node: {e}");
