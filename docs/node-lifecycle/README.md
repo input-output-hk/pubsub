@@ -27,7 +27,8 @@ Per-procedure docs, in roughly the order a node encounters them. Each row links 
 | 5 | [Endpoint change](./endpoint-change.md) | Specified |
 | 6 | [Leaving and unregistering](./leaving.md) | Specified |
 | 7 | [Topic creation and registry management](./topic-creation.md) | Formally specified ([Quint](../../formal_spec/topic_registry/)) |
-| 8 | [Catch-up / replay](./catch-up.md) | Specified |
+| 8 | [Gap recovery](./gap-recovery.md) | Specified |
+| 9 | [Catch-up / replay](./catch-up.md) | **TBD** — deferred to replication layer |
 
 ## Configuration parameters
 

@@ -49,7 +49,7 @@ sequenceDiagram
 - `payload` — opaque application data.
 - `signature` — produced by the authorised publisher key, covering all other fields.
 
-Together, `parentHash` and `sequence` make the per-publisher stream tamper-evident *and* gap-detectable. They are the substrate for the [catch-up procedure](./catch-up.md), which backfills missed messages per `(topic, publisher)` after a gap.
+Together, `parentHash` and `sequence` make the per-publisher stream tamper-evident *and* gap-detectable. They are the substrate for [gap recovery](./gap-recovery.md), which fills small per-`(topic, publisher)` `sequence` gaps from peers' recently-seen caches. Long-range historical replay is deferred to a future [catch-up / replay](./catch-up.md) procedure backed by a replication layer.
 
 ## Ordering model
 
