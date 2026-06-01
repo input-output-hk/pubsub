@@ -103,6 +103,7 @@ After slashing:
 - **Cache window size.** Minimum state (last `seq + hash` per `(publisher, topic)`) catches immediate equivocation. A sliding window of the last N hashes catches retroactive forks (publisher equivocates at seq 5 after seq 10 was already broadcast). Window size is configurable; default TBD.
 - **Bounty calibration.** How the slashed amount splits between submitter bounty, burn, and any topic-owner fund. Ties into the broader incentive design.
 - **Publisher-key rotation.** If a publisher rotates keys, equivocation by the old key after rotation needs unambiguous attribution. Solvable via key-version tracking in the topic registry.
+- **Timestamp skew window.** `timestamp` is signed but currently unchecked at relayers — a publisher can claim any value. A bounded acceptance window (reject if `timestamp` lies outside `[now - past_skew, now + future_skew]`) at relayer verification would preempt abuse and stabilise any future staleness-based logic. Past skew naturally caps at the gap-recovery cache window; future skew should be NTP-reasonable (order of seconds to minutes). Default and enforcement deferred until the need is concrete.
 
 ## Open questions
 
