@@ -107,7 +107,7 @@ The ADR transcribes `research.md §3` (mutator shape) + `research.md §8` (ADR s
 
 ### Implementation for User Story 3
 
-- [ ] T013 [P] [US3] Implement integration tests in `tests/topic_runtime.rs` covering the eight US3 acceptance scenarios. Required tests (each `#[tokio::test]`, all using `mod common;`):
+- [X] T013 [P] [US3] Implement integration tests in `tests/topic_runtime.rs` covering the eight US3 acceptance scenarios. Required tests (each `#[tokio::test]`, all using `mod common;`):
   - `initial_set_filters_inbound` — US3 AS-1: A initialized with `subscriptions = {T2}`; B emits `Ping(1, T1)` then `Ping(2, T2)`; assert `a.received_messages()` contains exactly `Ping(2, T2)`.
   - `subscribe_returns_added_and_updates_set` — US3 AS-2: continuing from AS-1 state; call `a.subscribe(T1.clone())`; assert returned `SubscribeOutcome::Added`; assert `a.subscriptions()` (sorted or as `HashSet`) equals `{T1, T2}`; assert `a.received_messages()` is unchanged by the mutator call itself.
   - `subscribe_makes_subsequent_message_visible` — US3 AS-3: continuing from AS-2 state (subscriptions = `{T1, T2}`); B emits `Ping(3, T1)`; await delivery; assert `a.received_messages()` now contains `Ping(2, T2)` and `Ping(3, T1)` (the previously-retained AS-1 entry plus the new T1 entry).
