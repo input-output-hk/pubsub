@@ -9,6 +9,8 @@ This quickstart layers on top of 001's substrate. If you have not yet reproduced
 
 Same as 001: Rust stable ≥ 1.75, a POSIX shell, this repo checked out, working directory `pubsub-node/`. No new external dependencies.
 
+> **Shell note for fish users.** Several examples below use POSIX heredoc syntax (`cat > file <<'EOF' … EOF`) which fish does not parse. If your default shell is fish, drop into bash for the duration of this walkthrough: run `bash`, paste the examples verbatim, then `exit` when you're done.
+
 ## 1 — Build
 
 ```sh
@@ -83,16 +85,18 @@ Tests demonstrating the runtime subscribe / unsubscribe API:
 
 The CLI surface from 001 is unchanged. The TOML extension is the only delta.
 
+> **TOML field-ordering note** (applies to every example in this section). Top-level bare keys like `subscribed_topics` must appear **before** any array-of-tables header (`[[peers]]`). Bare keys after such a header bind to that table's last entry; the parser would then see `subscribed_topics` as an unknown field inside `peers[N]` and the load would fail with `ConfigError::Parse`. The examples below put `subscribed_topics` first; the contract spells out the rule in `contracts/node-config.toml.md` under "Field placement".
+
 ```sh
 mkdir -p /tmp/pubsub-quickstart-002
 cat > /tmp/pubsub-quickstart-002/node-a.toml <<'EOF'
+subscribed_topics = ["governance/announcements", "defi/intents"]
+
 [[peers]]
 id = "node-b"
 
 [[peers]]
 id = "node-c"
-
-subscribed_topics = ["governance/announcements", "defi/intents"]
 EOF
 ```
 
@@ -102,20 +106,18 @@ Run:
 cargo run -- --self-id node-a --config /tmp/pubsub-quickstart-002/node-a.toml
 ```
 
-At default `--log-level info`, you should immediately see the node's startup banner (from 001) but no additional 002 events because no messages are flowing yet. To see what the startup parsing did, request debug output:
+The node parses its config, registers on the in-memory network, and waits for Ctrl-C. No output is expected at startup — the binary emits no banner, and 002's structured events (`topic_drop`, `topic_subscribed`, `topic_unsubscribed`, `topic_subscribe_noop`, `topic_unsubscribe_noop`) only fire when the recv task observes a message or a mutator is called. Send Ctrl-C to exit.
 
-```sh
-cargo run -- --self-id node-a --config /tmp/pubsub-quickstart-002/node-a.toml --log-level debug
-```
+The subsections below trigger the two operator-facing events that *do* fire at startup-time: the `InvalidTopic` error path and the `topic_config_duplicate` warn. To see the runtime events (subscribe/unsubscribe/drop), run the integration suite under `--nocapture` (§7).
 
 To verify error reporting for the new `ConfigError::InvalidTopic` path (002 US4 AS-4):
 
 ```sh
 cat > /tmp/pubsub-quickstart-002/broken.toml <<'EOF'
+subscribed_topics = ["valid", ""]
+
 [[peers]]
 id = "node-b"
-
-subscribed_topics = ["valid", ""]
 EOF
 cargo run -- --self-id node-x --config /tmp/pubsub-quickstart-002/broken.toml
 echo "exit code: $?"   # expect 2 (same as 001 US3 AS-2)
@@ -127,12 +129,11 @@ To verify 002 US4 AS-5 (unknown top-level field continues to fail under `deny_un
 
 ```sh
 cat > /tmp/pubsub-quickstart-002/extra-field.toml <<'EOF'
+subscribed_topics = ["t1"]
+unexpected_field = "value"
+
 [[peers]]
 id = "node-b"
-
-subscribed_topics = ["t1"]
-
-unexpected_field = "value"
 EOF
 cargo run -- --self-id node-x --config /tmp/pubsub-quickstart-002/extra-field.toml
 echo "exit code: $?"   # expect 2
@@ -144,10 +145,10 @@ To observe the duplicate-topic warn (per FR-010, one event per duplicated entry;
 
 ```sh
 cat > /tmp/pubsub-quickstart-002/dup-topics.toml <<'EOF'
+subscribed_topics = ["t1", "t2", "t1"]
+
 [[peers]]
 id = "node-b"
-
-subscribed_topics = ["t1", "t2", "t1"]
 EOF
 cargo run -- --self-id node-x --config /tmp/pubsub-quickstart-002/dup-topics.toml
 ```

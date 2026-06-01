@@ -11,17 +11,19 @@ This contract documents **only what 002 adds** to the TOML schema, including the
 ## Schema additions (002)
 
 ```toml
+# 002 addition: topics this node subscribes to at startup. Optional;
+# absent or empty arrays are valid and yield an empty subscription set.
+subscribed_topics = ["governance/announcements", "defi/intents"]
+
 # 001 fields (unchanged):
 [[peers]]
 id = "node-b"
 
 [[peers]]
 id = "node-c"
-
-# 002 addition: topics this node subscribes to at startup. Optional;
-# absent or empty arrays are valid and yield an empty subscription set.
-subscribed_topics = ["governance/announcements", "defi/intents"]
 ```
+
+> **Field-ordering note.** Per TOML's table-scoping rules, top-level bare keys (like `subscribed_topics`) must appear **before** any array-of-tables header (`[[peers]]`) or table header. Bare keys after such a header bind to that table's last entry — the parser would then see `subscribed_topics` as an unknown field inside the trailing `[[peers]]` entry and the load would fail with `ConfigError::Parse`. Every example below follows the "top-level keys first" ordering.
 
 ### Fields (additions only)
 
@@ -58,14 +60,14 @@ Steps 3 and 4 are independent; their relative order is implementation-internal. 
 ### Multi-topic subscriber (US1 / US2 setup)
 
 ```toml
-# config/node-a.peers.toml
+# config/node-a.toml
+subscribed_topics = ["t1", "t2"]
+
 [[peers]]
 id = "node-b"
 
 [[peers]]
 id = "node-c"
-
-subscribed_topics = ["t1", "t2"]
 ```
 
 A node started with this config has its peer set `{node-b, node-c}` and its initial subscription set `{t1, t2}`. Messages with topic `t1` or `t2` from either peer are retained; messages with any other topic are silently dropped (FR-004 + FR-011 info log).
@@ -73,11 +75,11 @@ A node started with this config has its peer set `{node-b, node-c}` and its init
 ### Absent field (Edge Cases bullet — empty subscription set)
 
 ```toml
-# config/observer.peers.toml
+# config/observer.toml
+# no subscribed_topics line at all
+
 [[peers]]
 id = "node-a"
-
-# no subscribed_topics line at all
 ```
 
 Valid. Node starts with empty subscription set; every inbound message is dropped (each with an info-level log). The node may still emit (FR-008).
@@ -85,11 +87,11 @@ Valid. Node starts with empty subscription set; every inbound message is dropped
 ### Explicit empty array (equivalent to absent field)
 
 ```toml
-# config/publisher-only.peers.toml
+# config/publisher-only.toml
+subscribed_topics = []
+
 [[peers]]
 id = "node-a"
-
-subscribed_topics = []
 ```
 
 Equivalent to the absent-field case above. The two TOML shapes are indistinguishable to the loader; both yield `subscribed_topics: Vec::new()` in the parsed `NodeConfig`.
@@ -97,14 +99,14 @@ Equivalent to the absent-field case above. The two TOML shapes are indistinguish
 ### Mixed peers + topics (002 US4 AS-1)
 
 ```toml
-# config/node-w.peers.toml
+# config/node-w.toml
+subscribed_topics = ["governance/announcements", "defi/intents"]
+
 [[peers]]
 id = "node-a"
 
 [[peers]]
 id = "node-b"
-
-subscribed_topics = ["governance/announcements", "defi/intents"]
 ```
 
 Standard configuration for an operator running a multi-topic subscriber.
@@ -126,17 +128,17 @@ In both cases, the error message includes the file path and the underlying `Topi
 ### Duplicate topic entry (warn-on-load behavior)
 
 ```toml
-[[peers]]
-id = "node-a"
-
 # Loader warns once per duplicated topic; node starts successfully.
 subscribed_topics = ["t1", "t2", "t1"]
+
+[[peers]]
+id = "node-a"
 ```
 
 On load, the loader emits one warn-level tracing event per duplicate, e.g.:
 
 ```text
-WARN pubsub_node::config: event=topic_config_duplicate topic=t1 config_path=/tmp/.../node.peers.toml
+WARN pubsub_node::config: event=topic_config_duplicate topic=t1 config_path=/tmp/.../node.toml
 ```
 
 The resulting in-memory subscription set is `{t1, t2}` — duplicates are absorbed by `HashSet` semantics. Startup succeeds; this is NOT a startup failure (contrast with the invalid-topic case above).
@@ -144,13 +146,12 @@ The resulting in-memory subscription set is `{t1, t2}` — duplicates are absorb
 ### Unknown top-level field (002 US4 AS-5)
 
 ```toml
-[[peers]]
-id = "node-a"
-
 subscribed_topics = ["t1"]
-
 # Unknown field — rejected by deny_unknown_fields
 some_future_field = "value"
+
+[[peers]]
+id = "node-a"
 ```
 
 Startup fails with `ConfigError::Parse` (the underlying `toml::de::Error` names the unknown field). The strict-parsing contract from 001 (`#[serde(deny_unknown_fields)]` at the top level) continues to hold; adding `subscribed_topics` does not loosen it.
