@@ -49,7 +49,21 @@ sequenceDiagram
 - `payload` — opaque application data.
 - `signature` — produced by the authorised publisher key, covering all other fields.
 
-Together, `parentHash` and `sequence` make the per-publisher stream tamper-evident *and* gap-detectable. They support a future replay/catch-up layer, which is anticipated as a follow-on feature.
+Together, `parentHash` and `sequence` make the per-publisher stream tamper-evident *and* gap-detectable. They are the substrate for the [catch-up procedure](./catch-up.md), which backfills missed messages per `(topic, publisher)` after a gap.
+
+## Ordering model
+
+Ordering is **per-`(topic, publisher)`**, not per-topic. Each publisher's `parentHash` + `sequence` stream is tamper-evident and gap-detectable in isolation; the protocol does not define a canonical cross-publisher order on a topic. Two subscribers on the same topic may therefore observe messages from different publishers in different relative orders.
+
+This matches the semantics of gossipsub, NATS, and MQTT — pubsub layers are delivery-focused. Kafka's per-partition order maps onto per-publisher here. Applications that require a total order across publishers compose one on top: Lamport timestamps, vector clocks, or application-level merge logic are all viable, and none of them require changes to this layer.
+
+Alternatives considered but **not adopted** in this iteration, recorded for future reference:
+
+- A deterministic `(timestamp, pubkey, seq)` merge rule that any subscriber computes identically. Cheap, but `timestamp` is publisher wall-clock — manipulable and drift-prone.
+- A per-topic causal DAG with multi-parent `parentHash`. Strong ordering guarantees, but heavier relayer state and a redesigned equivocation defence.
+- Periodic on-chain Merkle anchors of recent topic state. Useful as a replay bound; defers to a future on-chain-anchor design.
+
+Each remains a possible follow-on if an application surface needs cross-publisher order.
 
 ## Equivocation defence (planned)
 
