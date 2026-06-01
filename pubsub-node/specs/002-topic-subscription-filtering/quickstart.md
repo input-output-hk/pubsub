@@ -65,8 +65,9 @@ cargo test --test n_node_graph
 
 This file is shared with 001 (the existing 001 US2 tests continue to pass under the new envelope shape). The 002-added tests cover:
 
-- **`four_node_star_three_topics_filtering`** — 4-node graph with `A={T1}`, `B={T1,T2}`, `C={T2,T3}`, `D={T3}`. Emit one Ping per topic addressed to each node; assert per-node snapshots match the topic intersection with each subscription set.
-- **`four_node_star_100_send_topic_isolation`** — 4-node graph with the same subscriptions; 100 emissions distributed across 3 topics (deterministic seeded sequence per Engineering Standards "Reproducible tests"). Assert that every node's `received_messages()` is exactly `intended_deliveries ∩ subscriptions(node)` — zero false-positives, zero false-negatives, across the 100-send cross-cut. This is the test that lands SC-002.
+- **`four_node_star_three_topics_filtering`** (AS-1) — 4-node graph with `A={T1}`, `B={T1,T2}`, `C={T2,T3}`, `D={T3}` plus a dedicated `emitter` node. Emit one Ping per topic addressed to each of A/B/C/D; assert per-node snapshots match the topic intersection with each subscription set.
+- **`four_node_star_topic_interleave_ordering`** (AS-2) — same fixture; interleave emissions on T2 and T3 across two rounds; assert per-sender FIFO ordering survives the topic filter (each recipient's snapshot lists on-topic messages in send order).
+- **`four_node_star_100_send_topic_isolation`** (AS-3 / SC-002) — same fixture; 100 emissions distributed across 3 topics (deterministic `i%3` partitioning per Engineering Standards "Reproducible tests"). Each emission addressed to all four recipients (400 deliveries). Every recipient's `received_messages()` is exactly `intended_deliveries ∩ subscriptions(recipient)` — zero false-positives, zero false-negatives. This is the test that lands SC-002.
 
 ## 4 — Run the dynamic-transition test (002 US3)
 
@@ -74,12 +75,16 @@ This file is shared with 001 (the existing 001 US2 tests continue to pass under 
 cargo test --test topic_runtime
 ```
 
-Tests demonstrating the runtime subscribe / unsubscribe API:
+Eight tests demonstrating the runtime subscribe / unsubscribe API (AS-1..AS-8):
 
-- **`subscribe_makes_subsequent_message_visible`** — Node A starts with subscriptions `{T2}`; receives `Ping(_, T2)` but drops `Ping(_, T1)`. Calls `a.subscribe("t1".into())` (expects `SubscribeOutcome::Added`); next `Ping(_, T1)` arrival is retained.
-- **`unsubscribe_makes_subsequent_message_dropped`** — symmetric: after subscribing, then `a.unsubscribe("t1".into())` (expects `UnsubscribeOutcome::Removed`); next `Ping(_, T1)` arrival is dropped.
-- **`unsubscribe_does_not_remove_previously_retained`** — after the sequence above, the previously-retained `Ping` from the subscribed window remains in `a.received_messages()` (snapshot grows monotonically).
-- **`idempotent_outcomes`** — re-subscribing returns `AlreadyPresent` without state change; re-unsubscribing returns `NotSubscribed` without state change. Verifies SC-005.
+- **`initial_set_filters_inbound`** (AS-1) — A starts with subscriptions `{T2}`; B sends `Ping(1, T1)` (off-topic, dropped) then `Ping(2, T2)` (on-topic, retained). A's snapshot is exactly `[Ping(2, T2)]`.
+- **`subscribe_returns_added_and_updates_set`** (AS-2) — `a.subscribe(T1)` returns `Added`; `a.subscriptions()` becomes `{T1, T2}`; the received snapshot is unchanged by the mutator call.
+- **`subscribe_makes_subsequent_message_visible`** (AS-3) — after the AS-2 subscribe, B sends `Ping(3, T1)`; A's snapshot now contains the previously-retained T2 entry plus the new T1 entry.
+- **`unsubscribe_returns_removed_and_updates_set`** (AS-4) — `a.unsubscribe(T1)` returns `Removed`; subscription set drops back to `{T2}`; the previously-retained T1 entry remains in the snapshot (monotonic per FR-013 / SC-007).
+- **`unsubscribe_makes_subsequent_message_dropped`** (AS-5) — after the AS-4 unsubscribe, B sends `Ping(4, T1)` (dropped) and `Ping(5, T2)` (retained); the AS-3 T1 entry persists.
+- **`subscribe_idempotent_returns_already_present`** (AS-6 / SC-005) — re-subscribing a present topic returns `AlreadyPresent` without state change.
+- **`unsubscribe_idempotent_returns_not_subscribed`** (AS-7 / SC-005) — unsubscribing an absent topic returns `NotSubscribed` without state change.
+- **`decoupled_emission_succeeds_on_unsubscribed_topic`** (AS-8 / FR-008) — A (subs=`{T2}`) sends `Ping(99, T1)` to B (subs=`{T1}`); the send returns `Ok`; B's snapshot contains the delivery. Decoupling: A's emission succeeds even though A is not subscribed to T1.
 
 ## 5 — Run the CLI binary with a multi-topic config (002 US4)
 

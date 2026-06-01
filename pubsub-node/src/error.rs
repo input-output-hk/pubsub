@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::peer::PeerId;
 
-/// Failure modes returned by [`load_peer_list`](crate::load_peer_list).
+/// Failure modes returned by [`load_node_config`](crate::load_node_config).
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     /// The configuration file could not be read from disk.
@@ -12,8 +12,9 @@ pub enum ConfigError {
         source: std::io::Error,
     },
 
-    /// The file's contents could not be parsed as TOML matching the peer-list
-    /// schema. The error's `Display` chain includes line and column.
+    /// The file's contents could not be parsed as TOML matching the
+    /// node-config schema. The error's `Display` chain includes line and
+    /// column.
     #[error("failed to parse TOML config {path:?}: {source}")]
     Parse {
         path: PathBuf,
@@ -21,7 +22,7 @@ pub enum ConfigError {
     },
 
     /// A peer entry parsed successfully but its `id` failed the
-    /// [`PeerId`](crate::PeerId) validation rules.
+    /// [`PeerId`] validation rules.
     #[error("invalid peer entry: {0}")]
     InvalidPeer(String),
 
