@@ -31,3 +31,67 @@ Workstream-level (not feature-scoped). Sibling to `ROADMAP.md`. Migrated into a 
 **Why deferred**: in connection-based transports (TCP in feature 009; the connection-oriented model in feature 004), "a connection to self" is operationally a different beast. Some transports refuse the self-connect; others permit it but it loops through OS networking; some applications model it as a no-op. Whichever model emerges, the self-addressing semantics defined here for the in-memory pipe may not survive unchanged.
 
 **Trigger to revisit**: when feature 004 (connection-oriented network model) lands. The connection-lifecycle ADR for that feature should explicitly address self-connections; the receive-path filter behavior may need to be re-examined alongside it.
+
+---
+
+## N-003 — Arrival-time chain validation under registry availability
+
+**Surfaced during**: 003 (message envelope + mock crypto) pre-spec discussion.
+
+**Question**: at message arrival, which validations beyond signature checking should be performed before the message is appended to the arrival log?
+
+**Working answer (003 scope)**: **Signature-only at arrival.** Any signature-valid message is appended to the arrival log. Chain-relatedness facts — inconsistencies between message pairs (e.g., consecutive by hash but not by sequence, or vice versa), gaps in sequence numbers, and equivocation proofs (two valid-signature messages with the same `(publisher, parent_hash)` and different content) — are computed on demand via stateless queries in a `chain` module over the log. Arrival-time validation does **not** consult prior messages and does **not** drop messages based on chain inconsistency at this iteration.
+
+**Why deferred**: until the topic registry (feature 008) is incorporated, the Node cannot validate that a `publisher_id` is authorized to publish to the claimed topic. Arrival-time enforcement of publisher legitimacy, topic-authorization checks, and policy-based responses to inconsistent or equivocating publishers all depend on registry-driven trust data and on protocol definitions (catch-up, misbehavior punishment) that don't exist yet. Per the staged-design-synthesis's "be permissive in early stages" framing, the system records what arrives with valid signatures and lets observational queries surface chain-integrity facts for future consumers to interpret. Baking arrival-time policy in 003 risks shipping logic that has to be ripped out once protocols mature.
+
+**Trigger to revisit**: when feature 008 (mock registry abstraction) lands, and again when 012 (real on-chain registry feed) lands. At each point, re-examine:
+
+1. Whether arrival-time validation should additionally drop messages whose `publisher_id` is not authorized for the claimed topic per the registry.
+2. Whether detected inconsistencies between signed message pairs from the same publisher should produce a misbehavior report / proof, what surface delivers it (callback, channel, query), and what action the Node takes (continue accepting, blacklist publisher, propagate proof to peers).
+3. Whether equivocation proofs warrant a distinct surface from generic "inconsistency" reports, given that a publisher signing two contradictory messages is unambiguously misbehavior with no benign explanation.
+4. Whether catch-up / replication protocols want gap reports delivered push-style (stream, channel) rather than pulled via on-demand query.
+
+The 003 feature spec should record an explicit note pointing back to this entry so the revisit trigger isn't lost across sessions.
+
+---
+
+## N-004 — Canonical encoding for envelope bytes (signing + hashing)
+
+**Surfaced during**: 003 (message envelope + mock crypto) pre-spec discussion.
+
+**Question**: which byte encoding does the signature cover, and which encoding feeds the hash function that produces `MessageHash` (consumed by the next message's `parent_hash`)?
+
+**Working answer (003 scope)**: **Hand-rolled length-prefixed concatenation**, exposed as a single helper `Message::signed_bytes(&self) -> Vec<u8>`. Approximate shape:
+
+```text
+version_tag (1 byte)
+|| len_u32(topic)        || topic_bytes
+|| len_u32(publisher_id) || publisher_id_bytes
+|| parent_hash_bytes (32 bytes, all-zeros sentinel when absent)
+|| sequence.to_be_bytes()  (u64, big-endian)
+|| timestamp.to_be_bytes() (u64, big-endian)
+|| len_u32(payload)      || payload_bytes
+```
+
+`MessageHash` is a fixed 32-byte newtype (`MessageHash([u8; 32])`) over SHA-256 of those bytes. The same SHA-256 input feeds both the signing operation and the hash that becomes the next message's `parent_hash`.
+
+The `parent_hash` field on `Message` is typed `Option<MessageHash>` at the Rust API surface (idiomatic absence for the publisher's first message), but is encoded into `signed_bytes` as a fixed-width 32-byte field — using `MessageHash::ZERO` (`[0u8; 32]`) as the sentinel for `None`. The two layers are independent: the encoder does `parent_hash.unwrap_or(MessageHash::ZERO).as_bytes()` at the boundary. Rationale: Rust pattern-matching catches the first-message case at compile time; fixed-width encoding removes a branch in the byte producer, makes `signed_bytes` length deterministic given the other field lengths, and matches the standard shape used by Bitcoin / Cardano / Ethereum hash chains for genesis/coinbase parents. SHA-256 collision into all-zeros is 2^-256, i.e., not a practical concern.
+
+**Coding guidance for an easy future swap**: the canonical encoding lives in **exactly one place** — the `signed_bytes` helper. The `Signer` / `Verifier` trait impls and parent-hash computation both call through this single function. Concretely:
+
+- `signed_bytes(&self) -> Vec<u8>` is the single seam. Swapping the body from hand-rolled to CBOR-canonical is the entire migration.
+- Callers never construct the canonical bytes themselves. They always go through `signed_bytes`.
+- `MessageHash` stays a fixed-width 32-byte newtype regardless of encoding choice — only the bytes fed *into* SHA-256 change at the swap, not the hash output type.
+- A leading `version_tag` byte distinguishes encoding versions so the swap can be flagged on the wire later (under the deferred-validation model the verifier currently just rejects unknown versions, which is acceptable for a single-version system).
+- The `Signer` / `Verifier` traits take `&[u8]` for the message argument (per ADR 0009), so the trait shape stays the same — only the byte producer changes.
+- The `Message::signed_bytes` rustdoc MUST document the byte layout in full (field order, widths, endianness, the `MessageHash::ZERO` sentinel for absent `parent_hash`, the meaning of the leading `version_tag`). The docstring is the canonical reference for what the signature covers — anyone implementing a new `Signer` / `Verifier` (real Ed25519 in 011, a different transport encoding in 009) reads it to confirm the bytes they hash match the bytes the verifier expects. Treat the rustdoc as part of the protocol surface; changes to the encoding require a rustdoc update in the same commit.
+
+**Why deferred**: hand-rolled is the cheapest path for a prototype with no cross-process or cross-language consumers yet. A real network transport (TCP in 009) plus any cross-language publisher integration is when ecosystem-standard determinism (CBOR canonical per RFC 8949 §4.2.2) earns its dep weight: well-specified canonicalisation, human-readable diagnostic notation for on-the-wire debugging, and interop with Haskell / TypeScript / etc. signers if those become part of the system.
+
+**Trigger to revisit**: when feature 009 (TCP transport) lands, OR when cross-language publishers / verifiers become part of the system, whichever comes first. At that point:
+
+1. Swap the `signed_bytes` body to CBOR canonical (likely `ciborium`, with `serde_cbor` as a fallback if `ciborium`'s canonical-mode coverage is incomplete for our envelope shape).
+2. Consider whether the on-the-wire encoding and the signing-input encoding should be the same (probable yes — one encoding to vet, one set of test vectors).
+3. Bump the `version_tag` byte so the encoding switch is observable on stored / persisted messages. Signed messages from earlier versions will not verify under the new encoding; at prototype-stage with no persisted-history requirement this is acceptable, but document the discontinuity.
+
+The 003 feature spec should record an explicit note pointing back to this entry so the revisit trigger isn't lost across sessions.

@@ -26,3 +26,6 @@ target/
 
 # Claude Code (user-specific permissions, not for version control)
 .claude/settings.local.json
+
+# Local-only design notes (per-session scratch, not for version control)
+pubsub-node/notes/
