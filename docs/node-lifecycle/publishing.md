@@ -65,6 +65,22 @@ Alternatives considered but **not adopted** in this iteration, recorded for futu
 
 Each remains a possible follow-on if an application surface needs cross-publisher order.
 
+## Omission and availability (open limitation)
+
+The per-`(topic, publisher)` hash chain makes the stream **tamper-evident and gap-detectable**, but it provides **integrity and ordering, not availability or completeness**. A receiver can verify that the messages it holds form a valid prefix-extension of the chain; it *cannot* verify that it holds every message the publisher produced.
+
+This leaves one adversarial case unaddressed in this iteration: a **malicious authorised publisher selectively withholding messages**. Suppose a publisher signs `sequence` 1–4 but withholds 3 from a subscriber (or its whole neighbourhood) while delivering 4, whose `parentHash` references 3. The subscriber sees `seq 4`, detects the missing parent, and runs [gap recovery](./gap-recovery.md). If the message was withheld widely enough that no queried peer's cache holds it, recovery fails — and the result is **byte-identical to honest network loss**.
+
+> [!IMPORTANT]
+> From a single receiver's local view, "never published" and "maliciously withheld" are indistinguishable. Submission validation — checking that an incoming message extends the chain from `last_seen` — cannot close this gap: it can only validate against a parent the receiver already holds, and it cannot prove that a missing message ever existed or what it contained. This is the data-availability / omission problem; it is orthogonal to the integrity the hash chain provides, and it is **not solved in this iteration**. It is distinct from [equivocation](#equivocation-defence-planned) (two messages at the same `sequence`), which *is* detectable because both signed messages exist.
+
+Closing it requires an external commitment point this layer deliberately does not yet have:
+
+- **On-chain anchors.** A publisher periodically commits `(latest sequence, hash)` — or a Merkle root over a `sequence` range — on-chain. Below an anchor a missing `sequence` is *provably* real, turning omission into a detectable (and potentially slashable) fault. The recent tail between anchors stays ambiguous; anchor cadence bounds that window. A ratchet/accumulator alone does not suffice — the commitment must be externally visible.
+- **Cross-subscriber attestation.** Subscribers gossip the highest `sequence` they hold per publisher. If peers hold a `sequence` a node is missing, the cause is loss (recoverable via gap recovery); if no honest peer holds it, the message was likely withheld or never published. A heuristic, not a proof, but it separates the two failure modes.
+
+Both belong to the future [catch-up / replication layer](./catch-up.md), where retention and anchoring are designed together. Until then, applications that cannot tolerate silent per-publisher omission must layer their own end-to-end acknowledgement.
+
 ## Equivocation defence (planned)
 
 A malicious authorised publisher can sign two different messages with the same `(topicId, sequence)` and gossip them along disjoint paths — a Byzantine equivocation that corrupts any consumer that depends on causal ordering. Without relayer-level enforcement the attack is essentially free in this iteration. The planned defence has three layers, each useful even without the next.

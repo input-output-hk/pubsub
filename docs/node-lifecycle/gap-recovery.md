@@ -11,7 +11,7 @@ This is the standard **NACK-based loss recovery** pattern from reliable multicas
 3. **Peer serves from recently-seen cache.** Peers already retain recently-forwarded messages for dedup and equivocation detection. Cache hits return the messages; cache misses indicate the gap is outside this iteration's recovery window.
 4. **Verify each returned message.** Signature against the currently-authorised publisher key for the topic; `parentHash` chains correctly forward from `last_seen`; reject any branch known to be equivocating (cached proof or on-chain slashing). Short-range recovery sits inside the registry's stability window — key rotation/revocation across the gap is a replication-layer concern.
 5. **Deliver per-publisher, in `sequence` order.** Inter-publisher merge order is unspecified — applications layer it themselves.
-6. **Cache-miss handling.** If no queried peer's cache extends far enough back, surface the unrecoverable range to the application and continue with newer messages. Recovery beyond the cache window is deferred to the replication layer.
+6. **Cache-miss handling.** If no queried peer's cache extends far enough back, surface the unrecoverable range to the application and continue with newer messages. Recovery beyond the cache window is deferred to the replication layer. A cache miss does **not** distinguish honest loss from a publisher that withheld the message — see [publishing.md → Omission and availability](./publishing.md#omission-and-availability-open-limitation).
 
 ## Diagram
 
