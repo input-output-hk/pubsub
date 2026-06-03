@@ -63,3 +63,13 @@ without coupling the protocol to on-chain validation. This depends on the use
 case. For instance, use cases in which publishers (or subscribers) are SPOs or
 dReps, they may use their SPO or dRep certificate as a root of trust for their
 pubsub keys. Other cases may not have such a clear mapping.
+
+### Key Management
+
+Since SUF signatures seem enough in for publishing, and we expect many (or, at
+least, relevant) entities in the Cardano ecosystem to be eventually interested
+in PubSub, it is attractive to leverage the already existing Ed25519 signature
+scheme, and extend [CIP 1852](https://cips.cardano.org/cip/CIP-1852) with a new
+`PubSub` value for `role` to enable simple key management. Whether these keys
+can be used for gossiping as well, it is still an open question and depends on
+the chosen gossip layer (see [Digital Signatures for Gossiping](gossiping.md)).

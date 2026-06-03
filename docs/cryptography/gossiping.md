@@ -1,9 +1,14 @@
 # Digital Signatures for Gossiping
 
+**Note**: This document assume SecureCyclon as solution for the peer sampling
+layer. However, this is no longer the case. This is left here for archival
+purposes, as part of the reasoning here may apply to whatever replacement is
+chosen.
+
 Briefly, the purpose of the peer sampling layer is to help each node gain a 
 sufficient (uniformly) random view of the peer to peer network, robust against 
 byzantine behavior. To reduce the impact of byzantine behavior, SecureCyclon --
-the chosen instantiation for the peer sampling layer -- heavily relies on
+the chosen instantiation for the peer sampling layer -- heavily relies, on
 digital signatures. The intuition is that having each node digitally sign
 the information they gossip later facilitates detecting misbehavior. Once some
 misbehavior by a given node is detected, this node can be blacklisted.
@@ -80,7 +85,7 @@ may be a good starting point.
 A Sybil attack is one in which an adversary creates arbitrary identities as 
 needed, to support further attacks. For instance, in the context of peer to
 peer systems where nodes set connections to random other peers, a typical attack
-consists in an adversary copying all connections of some target peer `T`, thus
+consists in an adversary coping all connections of some target peer `T`, thus
 isolating `T` from the rest of the network (this is an _eclipse attack_.)
 
 There are two traditional ways to avoid this:
@@ -163,9 +168,14 @@ a deterministic way from information publicly accessible by anyone (in addition
 to the known root of trust, known only to the node). Some notion of 
 sequentiality is known to be useful in similar situations -- see, e.g. [Group
 Signatures with User-Controlled and Sequential Linkability](https://eprint.iacr.org/2021/181).
-This would require more work to be fully defined and analyzed. In the context
+This would require more work to be fully defined and analyzed. An even simpler
+approach, possibly enough for this use case, is to mandate a fixed derivation
+"path" for descriptors. For instance, `desc = Hash(pubsubcert,pk_spo,epoch,nonce),
+where `pubsubcert` is a certificate (signature) of the chosen pubsub key signed
+with the root of trust, the root of trust (in this example, the SPO's public key)
+`pk_spo`, and the given epoch and block nonce. Moreover, in the context
 of Cardano, we may leverage the existing HD wallet structure to facilitate key
-management and sequential ordering.
+management (and possibly, some sort of sequential ordering).
 
 
 ### Trust Anchors in the Horizontal Approach
