@@ -177,7 +177,6 @@ with the root of trust, the root of trust (in this example, the SPO's public key
 of Cardano, we may leverage the existing HD wallet structure to facilitate key
 management (and possibly, some sort of sequential ordering).
 
-
 ### Trust Anchors in the Horizontal Approach
 
 If we don't rely on some known key/identity to prevent Sybil and grinding 
