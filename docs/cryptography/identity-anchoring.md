@@ -306,8 +306,7 @@ provides a natural trust anchor; self-signed binding from pubsub key to cold key
 suffices.
 - Identity need (gossiping): SPOs are the canonical candidate for vertical trust
 anchoring. Cold key certifies the gossip key (opcert-like), providing Sybil 
-resistance. Grinding resistance requires techniques like structured key 
-derivation (see [gossiping.md](gossiping.md#grinding-resistance)).
+resistance.
 
 ### 4.3 DReps (Delegated Representatives)
 
@@ -353,7 +352,7 @@ layer for handling identity here (with DID-based approaches as stated i
 | Use case | Entity | Role | Candidate trust anchor | Binding mechanism | Open issues |
 |---|---|---|---|---|---|
 | IOG → SPOs | IOG | Publisher | Topic registry (off-chain curation) | Self-registration; no on-chain witness | No on-chain IOG credential (Gap S-13) |
-| IOG → SPOs | SPOs | Subscriber / gossip node | Pool registration cert (`pool_keyhash = blake2b_224(cold_vk)`) | Op-cert-like: cold-key Ed25519 sig over `(vk_gossip, n, c0)`; counter prevents rollback | Grinding resistance |
+| IOG → SPOs | SPOs | Subscriber / gossip node | Pool registration cert (`pool_keyhash = blake2b_224(cold_vk)`) | Op-cert-like: cold-key Ed25519 sig over `(vk_gossip, n, c0)`; counter prevents rollback | - |
 | DReps → delegators | DReps | Publisher | `reg_drep_cert` (`drep_credential = blake2b_224(drep_vk)`) | Self-signed binding: `drep_vk` sig over pubsub key; verifier checks `blake2b_224(drep_vk)` against on-chain credential | — |
 | DReps → delegators | Wallet backends | Relay / subscriber | Topic registry (direct root-of-trust listing) | Owner-attested listing | No on-chain credential |
 | SPOs → delegators | SPOs | Publisher | Pool registration cert (`pool_keyhash = blake2b_224(cold_vk)`) | Self-signed binding: cold-key Ed25519 sig over pubsub key | — |
@@ -401,7 +400,7 @@ each case, since it decouples verifiable identity from Cardano governance roles.
   address or off-chain presence) is the natural candidate, as noted in the
   Synthesis proposal.
 
-**Key derivation (open).**
+**Key derivation.**
 
 - Key derivation for gossip and publication keys: CIP-1852-compatible only if
   Ed25519 suffices for all roles; blocked on the KES decision for gossip keys.
