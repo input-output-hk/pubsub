@@ -295,3 +295,57 @@ Pass-4 broadly grep'd for any other test that might validate log properties — 
 Now that the convention is sharpened explicitly in FR-014, pass-5 should land at zero substantive findings (the typical confirmation closure pattern). If a pass-5 is run.
 
 The one remaining deferred LOW item (F-L3 — ROADMAP.md §2 003 entry staleness) stays deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
+
+---
+
+## Pass-5 Findings (2026-06-04) — cascade-drift cleanup from pass-4 F-L6
+
+Pass-5 triggered by user request to verify pass-4's four fixes propagated everywhere. Three of the four pass-4 fixes verified clean across the artifact set (F-M3 T022 sub-test removal, F-L5 quickstart §4, F-L7 FR-014 sharpening). The fourth (F-L6 SC-007 + T020 accommodation cleanup) had partially propagated — pass-4's grep scoped only SC-007 + T020 and missed a third cascade site at tasks.md T028, which had carried the same "test fixtures comparing against the new event name... are acceptable per SC-007" accommodation.
+
+### Pass-5 Findings Table
+
+| ID | Category | Severity | Location | Summary | Resolution |
+|----|----------|----------|----------|---------|-----------|
+| F-L8 | Inconsistency (cascade drift from pass-4 F-L6) | LOW | `tasks.md` T028 (SC-007 grep verification) | Still carried *"test fixtures comparing against the new event name's `cause = "topic_not_subscribed"` field are acceptable per SC-007"* — the same permissive accommodation pass-4's F-L6 removed from SC-007 itself + T020. Under the clarified convention this clause should not exist anywhere as a forward-looking allowance. | **FIX-APPLIED in pass-5 closure commit**: dropped the accommodation parenthetical from T028; restated verification scope as production-code grep + "the legacy literal event name MUST NOT appear in any emitter call site or in any test in code (per FR-014's tightened tests-don't-check-logs convention)". |
+
+### Pass-4 fix verifications
+
+- **F-M3 verification**: zero matches for `no_legacy_topic_drop_event_in_source` / `build-time test` / `process::Command` / `read_to_string.*\.rs` across all 003 artifacts. T022 sub-test removed cleanly. ✓
+- **F-L5 verification**: `quickstart.md` §4 shows the 4-tests output block; the fifth-test descriptive paragraph is replaced with the operator-UX verification note pointing to T028 + manual log inspection. ✓
+- **F-L7 verification**: `spec.md` FR-014 line 160 carries the sharpened wording "automated tests MUST NOT validate properties of log messages, including via indirect routes such as source-code grep ...". ✓
+- **F-L6 partial**: SC-007 + T020 reworded cleanly; **T028 cascade site missed** — addressed in this pass-5 closure as F-L8. ✓ (post-fix)
+
+### Other "test fixtures" / log-assertion accommodation surveys (NO-OP)
+
+- `quickstart.md` line 47: "The tests themselves do NOT assert on log content (FR-014's convention)" — correctly framed. ✓
+- `data-model.md` line 593: "Test-anchored contract: NONE. Tests do not assert on log content." — correctly framed. ✓
+- All `US4 AS-5` references (data-model.md §§6, 14; contracts/library-api.md PublicKey + PUBLIC_SUFFIX; tasks.md T023) refer to a different acceptance scenario (TestVerifier rejecting keys without `_public` suffix); unrelated to the removed US3 AS-5 source-grep test. ✓
+- `spec.md` line 33 Clarifications convention reminder: session-historical Q4 record. FR-014's pass-4 sharpening came after this Q4 outcome was recorded; the historical record stays as-is. ✓
+
+### Pass-5 Metrics
+
+- Pass-4 fix verifications: 3 / 4 clean + 1 partial (F-L6 → T028 cascade)
+- Pass-5 substantive findings: **1 LOW (F-L8)** — fix-applied in this closure
+- Critical / High / Medium issues: 0
+- Convergence trajectory: pass-5 caught the third F-L6 cascade site pass-4's grep missed
+
+### Pass-5 Verdict
+
+**One LOW finding, fix-applied in this commit.** The T028 cascade is the last residue of pass-4's F-L6 cleanup; the artifact set now uniformly disallows log-asserting test fixtures across spec.md (FR-014 + SC-007), tasks.md (T020 + T022 + T028), and quickstart.md (§4).
+
+### Pass-6 expectation
+
+Pass-6 should land at zero substantive findings — F-L8 was the last F-L6 cascade site, and the convention is now explicit everywhere it lives (FR-014 normative text + SC-007 verification + T020 migration + T022 task description + T028 grep verification + quickstart.md §4 operator-UX note).
+
+### Convergence trajectory (analyze + checklist combined, final-form)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist passes 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure at pass-4 (`7d628a6`) |
+| Analyze pass-1 | Cross-artifact (post-compaction) | 0 (provisional) | Premature closure |
+| Analyze pass-2 | Cross-artifact (deep) | 1 MEDIUM + 2 LOW | F-M1 / F-L1 / F-L2 (commit `e031d5c`) |
+| Analyze pass-3 | Cross-artifact (cascade polish) | 1 LOW | F-L4 (commit `bdf4456`) |
+| Analyze pass-4 | Cross-artifact (convention sharpening) | 1 MEDIUM + 3 LOW | F-M3 / F-L5 / F-L6 / F-L7 (commit `ade0e90`) |
+| **Analyze pass-5** | **Cross-artifact (F-L6 cascade)** | **1 LOW** | **F-L8 — fix-applied in this commit** |
+
+The one remaining deferred LOW item (F-L3 — ROADMAP.md §2 003 entry staleness) stays deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
