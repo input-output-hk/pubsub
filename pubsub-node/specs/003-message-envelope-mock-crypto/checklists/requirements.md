@@ -238,3 +238,39 @@ Triggered by the user's "do another pass in case you missed something again" req
 **Pass-4 needed?** Likely no. Pass-3's substantive edit (CHK078) is a two-site cascade of an already-known fix shape (dep-count update). The convergence rule's 001 precedent (severity 9 → 6 → 5 → 0 across 4 passes) suggests pass-4 would confirm zero findings. But the user has chosen multi-pass walks in 003 so far; if they want a confirmation pass-4, it's cheap.
 
 **Verdict**: 003 artifact set is consistent post-pass-3. `/speckit-tasks` is unblocked. CHK081 (ROADMAP §2 003 entry staleness) is recorded as a deferred polish item if the project decides to keep ROADMAP entries synchronised with landed feature artifacts.
+
+---
+
+## Pass-4 walk closure (2026-06-04) — zero-finding convergence
+
+Triggered by the user's "do another pass in case you missed something again" — the fourth pass of the ROADMAP §4 convergence rule (which observed in 001's lifecycle that pass-4 typically confirms zero findings after pass-1 / pass-2 / pass-3 progressively narrow the residue). Pass-4 generated 6 items (CHK083–CHK088), all PASS verifications. **Zero substantive findings.**
+
+### Final-sweep verifications
+
+- [x] CHK083 - Did pass-3's CHK078 fix (proptest acknowledgment at plan.md Summary bullet + Constitution-Check Justified-dependencies bullet) close cleanly with no remaining "Three new dependencies" / "Three new direct dependencies" residues in plan.md? [Consistency, pass-3 verification] _verified: grep on plan.md finds no remaining "Three new" / "All three live" residues; both pass-3 fix sites stuck. The two remaining "three new direct dependencies" mentions in quickstart.md (lines 10 + 20) are contextually accurate per CHK080 — they describe the cargo-build dep tree which legitimately excludes the proptest [dev-dependency]._
+- [x] CHK084 - Is the only remaining `Message::signed_bytes` mention in spec.md the Input field (preserved verbatim as historical record per CHK071)? [Consistency, Convergence] _verified: greps across pubsub-node/specs/, pubsub-node/docs/decisions/, pubsub-node/CLAUDE.md find zero matches outside the spec.md Input field and the checklist's own resolution notes. All active prose uses `PlainMessage::signed_bytes`._
+- [x] CHK085 - Is the only remaining `002 FR-006` cite in 003 artifacts the correctly-used one (subscription-set mutator API in spec.md FR-019's "linearized order of subscription-set mutations" clause)? [Consistency, Convergence] _verified: spec.md FR-019 is the sole remaining cite, and it's contextually correct — 002 FR-006 IS the subscribe/unsubscribe mutator API. No other site cites it for snapshot-append (which is correctly 001 FR-006 — extended by 002 FR-004)._
+- [x] CHK086 - Are the only remaining `Signature::placeholder` references the absence-documenting ones in research.md §4 ("the placeholder-signature dance is gone") and ADR 0010 Consequences ("no placeholder-signature workflow")? [Consistency, Convergence] _verified: those two remaining mentions are NEGATIVE references explicitly documenting the post-ADR-0010 absence of the constructor. No active API definition or workflow step references it._
+- [x] CHK087 - Are all remaining mentions of "001-era `Envelope`" in 003 artifacts contextualized as "renamed to `RoutingFrame`" or in historical-migration prose? [Consistency, Convergence] _verified: greps find no orphaned "001-era Envelope" or `pub struct Envelope` references outside rename-context. All sites correctly describe the rename or carry historical migration framing._
+- [x] CHK088 - Are all remaining `MessageHash::of(...)` references invoked with `&PlainMessage` (or `&signed.plain`, `&prev.plain`, `&self.plain`) — i.e., never with `&Message` or `&SignedMessage`? [Consistency, Convergence] _verified: every call site uses the content-anchored input shape per ADR 0010 + FR-011 + N-005. SignedMessage's anticipated future `message_hash(&self)` helper delegates to `MessageHash::of(&self.plain)` — also content-anchored._
+
+### Pass-4 verdict — zero-finding closure
+
+**Six items, all PASS, no FIX-APPLIED, no DEFER.** Pass-4 surfaces no residual cascade drift; the post-ADR-0010 restructure is fully consistent across spec.md, plan.md, research.md, data-model.md, contracts/library-api.md, quickstart.md, ADRs 0009 / 0010, IMPLEMENTATION_NOTES.md N-003 / N-004 / N-005, and CLAUDE.md.
+
+### Convergence trajectory
+
+The 003 walk matches the 001 precedent recorded in ROADMAP §4 (severity trajectory 9 → 6 → 5 → 0 over four passes; pass-4 is the confirmation closure):
+
+| Pass | Substantive findings | Notes |
+|---|---|---|
+| Pass 1 | 9 | CHK023/043 cascade (10 sites), CHK022/046, CHK024/044, CHK025, CHK027, CHK047, CHK048, CHK054 (3 sites), CHK046 |
+| Pass 2 | 3 + 1 minor | CHK067 (N-004 cascade), CHK068 (FR-019 cite typo), CHK069 (plan.md proptest in Technical Context), CHK075 (CLAUDE.md N-005) |
+| Pass 3 | 1 | CHK078 (plan.md Summary + Constitution-Check Justified-dependencies bullets for proptest cascade) + CHK081 deferred observation (ROADMAP entry staleness) |
+| Pass 4 | **0** | Zero-finding closure — pass-3's CHK078 fix appears to be the last drift site |
+
+### Final verdict for `/speckit-tasks`
+
+**003 artifact set is consistent and `/speckit-tasks`-ready as of pass-4.** The walk procedure has reached the convergence-rule's expected terminal state.
+
+The one deferred observation (CHK081, ROADMAP §2 003 entry staleness) remains open as future polish; the ROADMAP's own §4 notes treat it as a "working document, not authoritative" so retroactive sync is optional. Not blocking.
