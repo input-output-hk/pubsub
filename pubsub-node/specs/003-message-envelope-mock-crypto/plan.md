@@ -130,6 +130,8 @@ pubsub-node/
 │   ├── network.rs            # renamed 001-era Envelope { from, message } to RoutingFrame { from, message } per ADR 0010;
 │   │                         # behavior unchanged (FR-005 of 002 still holds; signature verification is receive-side,
 │   │                         # not network-side). The rename is one struct + ~one grep-and-replace pass across callers.
+│   │                         # T017 additionally converts the InMemoryNetwork ignore'd doc-test to no_run (a
+│   │                         # behavior-preserving doc-correctness fix), so network.rs is touched in two commits.
 │   ├── node.rs               # extended: + verifier: Arc<dyn Verifier> field; recv_task pattern-matches on the incoming
 │   │                         # Message variant — Message::Signed(signed) arm runs the topic filter BEFORE signature
 │   │                         # verification (FR-013, per Q6); topic_drop emitter renamed to event = "message_dropped"

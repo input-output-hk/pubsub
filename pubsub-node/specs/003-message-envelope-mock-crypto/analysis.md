@@ -433,3 +433,69 @@ Per CHK081 + ROADMAP §4's "working document, not retroactively-updated" stance:
 ### Next Actions
 
 **003 artifact set is `/speckit-implement`-ready.** Per ROADMAP §4's session-boundary guidance (commit `7e758a0`), run `/speckit-implement` in a fresh Claude Code session for clean code-generation context.
+
+---
+
+## Pass-7 Findings (2026-06-04) — post-closure scope-expansion cascade
+
+Pass-7 triggered by user request for another analysis round. Unlike pass-6 (which closed at zero), pass-7 ran against an artifact set that had been edited **after** the pass-6 zero-finding closure: commit `7edb776` expanded `tasks.md` T017 to also convert the `InMemoryNetwork` rustdoc `ignore`'d doc-test (`src/network.rs:122`) to a `no_run` compile-checked fence, threading the new `verifier` parameter through the `Node::new` example. That commit's own message asserted "the pass-6 zero-finding closure stands; this … is not a /speckit-analyze pass-7 finding." Pass-7 finds otherwise: the one-line T017 expansion was not cascaded to its dependent artifacts — the same Q6-cascade failure mode pass-2 caught (a change made in one site, not propagated to the sites that describe it). The implementation guidance is sound; the cross-artifact descriptions of "how many times 003 edits `network.rs`" went stale.
+
+Verified the root fact directly against source: `src/network.rs:122` carries a ` ```ignore ` doc-test whose body is `Node::new(self_id, config, network.clone())` — a **3-argument** call, already two generations stale (002 added `initial_subscriptions` → 4 args; the `ignore` fence hid the rot from `cargo test`). T017's conversion to `no_run` is a genuine correctness improvement (Constitution Principle I — accurate docs are correctness), but it makes `network.rs` a **two-edit** file in 003 (T012 rename + T017 doc-test), contradicting three artifacts that still call the rename the sole `network.rs` change.
+
+### Pass-7 Findings Table
+
+| ID | Category | Severity | Location(s) | Summary | Resolution |
+|----|----------|----------|-------------|---------|-----------|
+| F-L9 | Inconsistency (cascade drift from `7edb776`'s T017 expansion) | LOW | `contracts/library-api.md` L350; `data-model.md` §16d L519; `plan.md` source-tree comment L132 | Three sites assert the `Envelope`→`RoutingFrame` rename is the **only** / a **single** `network.rs` edit in 003 ("The rename is the only `network.rs` edit in 003" / "a single struct rename … Mechanical, single-commit" / "The rename is one struct + ~one grep-and-replace pass"). T017 (commit `7edb776`) now adds a second, distinct `network.rs` edit (the `ignore`→`no_run` doc-test fence), landing in a different commit/phase (T017 in Phase 3) than the rename (T012 in Phase 2). The claims are stale, not wrong-in-spirit — both edits are behavior-preserving. | **FIX-APPLIED in this closure**: `contracts/library-api.md` L350 reworded to "`network.rs` receives two behavior-preserving edits in 003: the `RoutingFrame` rename (T012), and T017's … `no_run` conversion." `data-model.md` §16d L519 reworded to attribute the rename to T012's commit and call out T017's doc-test edit as a distinct later-commit `network.rs` touch. `plan.md` source-tree comment extended with the T017 doc-test note. |
+| F-L10 | Underspecification (task-instruction precision) | LOW | `tasks.md` T017 "Also" clause | T017 says to wrap the example in `# async fn run() { … # Ok(()) }` and update the body to the 5-arg `Node::new(self_id, config, initial_subscriptions, network.clone(), verifier)` call. But `no_run` **compiles** the example (that is the whole point — "signature mismatches break the build"), and the example body defines only `network`; `self_id`, `config`, `initial_subscriptions`, and `verifier` are undefined. Followed literally, the conversion would fail to compile and break T024's green-checkpoint — the opposite of the intent. | **FIX-APPLIED in this closure**: T017 extended to require hidden `#`-prefixed setup lines bringing the four undefined bindings into scope (`todo!()`-style is fine under `no_run`), so the example type-checks without executing. |
+
+### Other sites surveyed (NO-OP)
+
+- **`plan.md` L182** (Structure Decision): "`src/network.rs` gains a one-struct rename … but otherwise keeps 002's FR-005 ('network unchanged') **behavior**." The claim is scoped to *behavior*, which a doc-test fence change does not alter — still true. NO-OP (does not assert "only edit").
+- **ADR 0010 L122**: "The 001 `RoutingFrame` rename is a single-file edit in `src/network.rs` plus a small grep-and-replace across tests." Scoped to the *rename decision* the ADR records, not to a full inventory of 003's `network.rs` edits; ADRs are structural-decision records, not task ledgers. NO-OP (leave the immutable decision record intact).
+- **`quickstart.md` §2/§4 test-count blocks** (`4 passed; 0 failed; 0 ignored` etc.): the `no_run` doc-test surfaces under cargo's separate `Doc-tests pubsub_node` section, not in the per-integration-test counts quickstart documents (and `peer.rs` / `topic.rs` already contribute runnable doc-tests, so a doc-tests section already exists). No quickstart drift. NO-OP.
+- **`tasks.md` T012** (rename task): unaffected — the `ignore`'d example does not name `Envelope`, so T012's rename sweep correctly leaves it for T017. Sequencing (T012 Phase 2 → T017 Phase 3) is coherent. NO-OP.
+
+### Six-detection-pass re-sweep
+
+| Category | Result |
+|---|---|
+| **A. Duplication** | Zero new duplicates (unchanged from pass-6). |
+| **B. Ambiguity** | Zero vague adjectives / placeholders in normative text (unchanged from pass-6). |
+| **C. Underspecification** | One finding — F-L10 (T017's `no_run` conversion under-specified the in-scope bindings). Fixed. |
+| **D. Constitution Alignment** | All five principles still pass. T017's doc-test cleanup is itself a Principle-I (Correctness) action; F-L10 fix ensures it doesn't violate the green-checkpoint rule. |
+| **E. Coverage Gaps** | None — FR/SC/US/task coverage unchanged from pass-6 (the T017 expansion added doc-correctness scope, not new requirements). |
+| **F. Inconsistency / Terminology drift** | One finding — F-L9 (network.rs edit-count cascade). Fixed across the three stale sites. |
+
+### Pass-7 Metrics
+
+- Total Requirements: 28 (20 FR + 8 SC) — unchanged.
+- Total Tasks: 28 — unchanged.
+- Coverage %: 100%.
+- Critical / High / Medium issues: 0 / 0 / 0.
+- **Low issues: 2** (F-L9 cascade drift, F-L10 task-precision) — both FIX-APPLIED in this closure.
+
+**Green-checkpoint sweep**: edits are doc-only on Spec-Kit artifacts (`contracts/library-api.md`, `data-model.md`, `plan.md`, `tasks.md`); no `src/` change, so the code state is unchanged from the last green checkpoint and `cargo fmt/clippy/build/test` are unaffected. The actual `network.rs` doc-test conversion happens during `/speckit-implement` T017, where T024's green-checkpoint will exercise it.
+
+### Pass-7 Verdict
+
+**Two LOW findings, both fix-applied.** Pass-7 demonstrates that a zero-finding closure is only stable while the artifacts are; the post-closure T017 scope expansion reopened a small cascade exactly analogous to pass-2's Q6 miss. The artifact set is consistent again: `network.rs`'s two-edit reality is now described uniformly across `contracts/library-api.md`, `data-model.md`, and `plan.md`, and T017 is now compile-correct as written.
+
+### Convergence trajectory (final form, updated)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure at pass-4 (`7d628a6`) |
+| Analyze 1 | Cross-artifact (post-compaction) | 0 (provisional) | Premature closure |
+| Analyze 2 | Cross-artifact (deep) | 1 MEDIUM + 2 LOW | F-M1 / F-L1 / F-L2 (commit `e031d5c`) |
+| Analyze 3 | Cross-artifact (cascade polish) | 1 LOW | F-L4 (commit `bdf4456`) |
+| Analyze 4 | Cross-artifact (convention sharpening) | 1 MEDIUM + 3 LOW | F-M3 / F-L5 / F-L6 / F-L7 (commit `ade0e90`) |
+| Analyze 5 | Cross-artifact (F-L6 cascade) | 1 LOW | F-L8 (commit `4b4a7ea`) |
+| Analyze 6 | Cross-artifact (zero-finding confirmation) | 0 | Zero-finding closure (commit `334eaf2`) |
+| **Analyze 7** | **Cross-artifact (post-closure T017 scope-expansion cascade)** | **2 LOW** | **F-L9 / F-L10 — both fix-applied in this commit** |
+
+The one previously-deferred LOW item (F-L3 — `ROADMAP.md` §2 003 entry staleness) remains deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
+
+### Next Actions
+
+**003 artifact set is `/speckit-implement`-ready** (re-confirmed). The pass-7 fixes are doc-only; no re-run of earlier phases is needed. Per ROADMAP §4's session-boundary guidance, run `/speckit-implement` in a fresh Claude Code session.

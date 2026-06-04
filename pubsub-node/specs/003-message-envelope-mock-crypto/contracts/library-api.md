@@ -347,7 +347,7 @@ The 002 `event = "topic_drop"` emitter is REMOVED in this feature's implementati
 For completeness, the following surface elements are explicitly unchanged by 003 (per `data-model.md` and FR-005 of 002 / FR-017 of 003):
 
 - `PeerId`, `TopicId`, `PeerDescriptor`, `BasicPeerDescriptor`, `Network` trait, `NetworkHandle`, `InMemoryNetwork`, `MessagePayload` enum shape — all unchanged in behavior.
-- The 001-era `Envelope { from, message }` routing-wrapper struct is **renamed to `RoutingFrame`** (per ADR 0010). Its fields, behavior, and routing role are unchanged; only the type name changes. The rename is the only `network.rs` edit in 003.
+- The 001-era `Envelope { from, message }` routing-wrapper struct is **renamed to `RoutingFrame`** (per ADR 0010). Its fields, behavior, and routing role are unchanged; only the type name changes. `network.rs` receives two behavior-preserving edits in 003: the `RoutingFrame` rename (T012), and T017's conversion of the `InMemoryNetwork` rustdoc doc-test from a ` ```ignore ` fence to ` ```no_run ` while threading the new `verifier` parameter through the `Node::new` example (see `tasks.md` T017). Neither changes runtime behavior.
 - `ReceivedDelivery` shape — unchanged. The `message` field's type is now the extended `Message` (per FR-001), but the wrapper struct itself is not edited.
 - `NodeConfig`, `NodeConfig`'s TOML schema, `load_node_config`, `PeerEntry` — all unchanged (FR-017).
 - `SubscribeOutcome` / `UnsubscribeOutcome`, `Node::subscribe` / `unsubscribe`, `Node::subscriptions`, `Node::peers`, `Node::received_messages` — all unchanged in shape; `received_messages` returns the extended `Message` shape transitively.

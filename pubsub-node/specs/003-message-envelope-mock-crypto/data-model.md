@@ -516,7 +516,7 @@ pub struct RoutingFrame {
 
 **Rename rationale (ADR 0010)**: freeing the name "envelope" for prose-level use matching the staged-design-synthesis §2.3 (where "envelope" = the whole signed message). The `RoutingFrame` name more precisely describes the type's job (routing a Message between Nodes).
 
-**Migration**: a single struct rename in `src/network.rs` plus a search-and-replace pass across any test that pattern-matches on the type name. Mechanical, single-commit.
+**Migration**: a struct rename in `src/network.rs` plus a search-and-replace pass across any test that pattern-matches on the type name — mechanical, landed in the same commit as the rest of the type-hierarchy reshape (T012). (Separately, T017 converts the `InMemoryNetwork` rustdoc `ignore`'d doc-test to `no_run` while threading the new `verifier` parameter through the `Node::new` example; that is a distinct, behavior-preserving `network.rs` edit in a later commit. So 003 touches `network.rs` in two commits — the rename in T012 and the doc-test fence cleanup in T017 — neither altering runtime behavior.)
 
 **FR trace**: FR-001 (rename context) + ADR 0010.
 
