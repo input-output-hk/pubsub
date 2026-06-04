@@ -26,13 +26,14 @@ Technical approach (informed by ADR 0009, ADR 0010, and the clarifications recor
 
 **Language/Version**: Rust 1.75+ stable (edition 2021) — unchanged from 001 / 002. No new toolchain requirement.
 
-**Primary Dependencies**: 002's set (`tokio`, `serde` + `toml`, `tracing` + `tracing-subscriber`, `clap`, `thiserror`) carries through unchanged. Three additions in 003:
+**Primary Dependencies**: 002's set (`tokio`, `serde` + `toml`, `tracing` + `tracing-subscriber`, `clap`, `thiserror`) carries through unchanged. Three runtime additions plus one test-only addition in 003:
 
-- `rand = "0.8"` — the standard idiomatic randomness facade (used as `rand_chacha`'s entry point and for `OsRng` in `MockCryptoScheme::from_entropy`).
-- `rand_chacha = "0.3"` — provides `ChaCha20Rng`, the seeded PRNG underlying `MockCryptoScheme::with_seed(seed)`.
-- `sha2 = "0.10"` — RustCrypto family SHA-256; consumed by `MessageHash::of` and by `TestSigner` / `TestVerifier`.
+- `rand = "0.8"` (`[dependencies]`) — the standard idiomatic randomness facade (used as `rand_chacha`'s entry point and for `OsRng` in `MockCryptoScheme::from_entropy`).
+- `rand_chacha = "0.3"` (`[dependencies]`) — provides `ChaCha20Rng`, the seeded PRNG underlying `MockCryptoScheme::with_seed(seed)`.
+- `sha2 = "0.10"` (`[dependencies]`) — RustCrypto family SHA-256; consumed by `MessageHash::of` and by `TestSigner` / `TestVerifier`.
+- `proptest = "1"` (`[dev-dependencies]`) — property-based testing framework used to assert the signature-binding invariant per the Constitution's Engineering Standards rule (research.md §8). Test-only; not reachable from production code.
 
-All three are widely-used, vetted, transitively-pulled-in-anyway crates. The dep additions are justified by FR-007 / FR-011 normatively. No version-pin ADR is needed — these are tactical version choices consistent with current ecosystem default versions; reviewable via `cargo tree`.
+All four are widely-used, vetted crates. The runtime-dep additions are justified by FR-007 / FR-011 normatively; the proptest dev-dep is justified by the property-level claim that the Engineering Standards specifically call out. No version-pin ADR is needed — these are tactical version choices consistent with current ecosystem default versions; reviewable via `cargo tree`.
 
 **Storage**: N/A — single-process, in-memory only. The arrival log lives in memory for the Node's lifetime (per 002's contract); 003 does not change persistence semantics. Key material (`PrivateKey`) is held in process memory by `TestSigner` for the test's duration; the binary's `main.rs` does not load or persist key material in 003.
 
@@ -72,7 +73,7 @@ Evaluated against `.specify/memory/constitution.md` v1.0.0.
 
 Engineering Standards specifically engaged:
 
-- *Property-based testing for critical properties.* 003 carries property-level claims: **signature binding** (a signature produced by `TestSigner(K_priv)` over `m` is accepted by `TestVerifier::verify(K_pub, m, sig)` for the matching `K_pub` and rejected for any other key, any other message, or any modified signature). `/speckit-tasks` will schedule at least one property-based test (e.g. `proptest` or hand-rolled quickcheck-style) covering the signature-binding invariant — see research.md §10. Specific cases (US1 acceptance scenarios 1–4) remain as example-driven tests for regression pins and acceptance-scenario traceability.
+- *Property-based testing for critical properties.* 003 carries property-level claims: **signature binding** (a signature produced by `TestSigner(K_priv)` over `m` is accepted by `TestVerifier::verify(K_pub, m, sig)` for the matching `K_pub` and rejected for any other key, any other message, or any modified signature). `/speckit-tasks` will schedule at least one property-based test using `proptest = "1"` (per research.md §8's framework decision) covering the signature-binding invariant. Specific cases (US1 acceptance scenarios 1–4) remain as example-driven tests for regression pins and acceptance-scenario traceability.
 - *Observable state transitions.* The receive task emits one structured tracing event per drop (FR-014) and zero events per acceptance (silent success — matches 001 / 002 convention). The event carries the receiver's self_id, the forwarding peer's from, the envelope's topic, and (for invalid_signature) the envelope's publisher_id — sufficient to reconstruct "which message, which peer, which decision, which outcome" per Engineering Standards.
 - *Justified dependencies.* Three new direct dependencies (`rand`, `rand_chacha`, `sha2`). FR-007 and FR-011 normatively require their functionality. ADR 0009 covers the structural choice (concrete byte-newtype types + asymmetric-shaped mock). Per the Constitution's exemption clause ("standard language toolchain components and the project's chosen test framework are exempt"), `rand` family + `sha2` qualify — they're the de-facto standard Rust crates for randomness and SHA-256, ubiquitously transitively-pulled-in by the existing test stack and by `tokio` itself. No additional ADR slot required.
 - *Reproducible tests and simulations.* 003 introduces a seeded PRNG (`MockCryptoScheme::with_seed([u8; 32])`) — every test that asserts against key bytes pins a seed (US4 acceptance scenarios 1–5 cover this explicitly). No wall-clock dependencies are introduced. `Timestamp::now()` exists for production use, but acceptance scenarios all use `Timestamp::from_millis(known_value)` so test runs are deterministic.

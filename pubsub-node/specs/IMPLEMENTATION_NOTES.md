@@ -61,7 +61,7 @@ The 003 feature spec should record an explicit note pointing back to this entry 
 
 **Question**: which byte encoding does the signature cover, and which encoding feeds the hash function that produces `MessageHash` (consumed by the next message's `parent_hash`)?
 
-**Working answer (003 scope)**: **Hand-rolled length-prefixed concatenation**, exposed as a single helper `Message::signed_bytes(&self) -> Vec<u8>`. Approximate shape:
+**Working answer (003 scope)**: **Hand-rolled length-prefixed concatenation**, exposed as a single helper `PlainMessage::signed_bytes(&self) -> Vec<u8>` (the method lives on `PlainMessage`, not `Message`, per ADR 0010). Approximate shape:
 
 ```text
 len_u32(topic)        || topic_bytes
@@ -84,7 +84,7 @@ The `parent_hash` field on `Message` is typed `Option<MessageHash>` at the Rust 
 - Callers never construct the canonical bytes themselves. They always go through `signed_bytes`.
 - `MessageHash` stays a fixed-width 32-byte newtype regardless of encoding choice — only the bytes fed *into* SHA-256 change at the swap, not the hash output type.
 - The `Signer` / `Verifier` traits take `&[u8]` for the message argument (per ADR 0009), so the trait shape stays the same — only the byte producer changes.
-- The `Message::signed_bytes` rustdoc MUST document the byte layout in full (field order, widths, endianness, the `MessageHash::ZERO` sentinel for absent `parent_hash`). The docstring is the canonical reference for what the signature covers — anyone implementing a new `Signer` / `Verifier` (real Ed25519 in 011, a different transport encoding in 009) reads it to confirm the bytes they hash match the bytes the verifier expects. Treat the rustdoc as part of the protocol surface; changes to the encoding require a rustdoc update in the same commit.
+- The `PlainMessage::signed_bytes` rustdoc MUST document the byte layout in full (field order, widths, endianness, the `MessageHash::ZERO` sentinel for absent `parent_hash`). The docstring is the canonical reference for what the signature covers — anyone implementing a new `Signer` / `Verifier` (real Ed25519 in 011, a different transport encoding in 009) reads it to confirm the bytes they hash match the bytes the verifier expects. Treat the rustdoc as part of the protocol surface; changes to the encoding require a rustdoc update in the same commit.
 
 **Why deferred**: hand-rolled is the cheapest path for a prototype with no cross-process or cross-language consumers yet. A real network transport (TCP in 009) plus any cross-language publisher integration is when ecosystem-standard determinism (CBOR canonical per RFC 8949 §4.2.2) earns its dep weight: well-specified canonicalisation, human-readable diagnostic notation for on-the-wire debugging, and interop with Haskell / TypeScript / etc. signers if those become part of the system.
 
