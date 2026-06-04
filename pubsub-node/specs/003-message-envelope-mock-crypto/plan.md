@@ -119,7 +119,7 @@ specs/003-message-envelope-mock-crypto/
 
 ```text
 pubsub-node/
-├── Cargo.toml                # extended: + rand, rand_chacha, sha2 (all in [dependencies])
+├── Cargo.toml                # extended: + rand, rand_chacha, sha2 in [dependencies]; + proptest in [dev-dependencies]
 ├── src/
 │   ├── lib.rs                # re-exports extended: + crypto::{PublicKey, PrivateKey, Signature, MessageHash, Timestamp, VerifyError, Signer, Verifier},
 │   │                         #                       + crypto::mock::{MockCryptoScheme, KeyPair, TestSigner, TestVerifier, derive_public},
