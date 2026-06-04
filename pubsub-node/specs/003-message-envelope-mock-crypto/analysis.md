@@ -202,3 +202,44 @@ Mirrors 001's precedent recorded in ROADMAP §4 ("severity trends 9 → 6 → 5 
 | **Analyze pass-2** | **Cross-artifact (deep)** | **1 MEDIUM + 2 LOW** | **F-M1 (FR-019 ordering), F-L1 (T020 phrasing), F-L2 (plan.md inline comment) — all FIX-APPLIED in this commit** |
 
 The deep cross-artifact sweep caught what the spec-internal checklist passes (CHK068 in particular) could not see by their narrower scope: the Q6 cascade had updated FR-013 + US3 but missed FR-019's surrounding ordering framing.
+
+---
+
+## Pass-3 Findings (2026-06-04) — cascade-drift polish from pass-2
+
+Pass-3 triggered by user request to verify nothing was missed. The /speckit-analyze convergence rule (ROADMAP §4) observes that pass-3 typically polishes a cascade from pass-2's substantive edits — that pattern held exactly. Pass-3 verified the three pass-2 fixes stuck cleanly across all 003 artifacts and surveyed all "concurrent" / "parallel" mentions for the same misread risk that F-M1 addressed.
+
+### Pass-3 Findings Table
+
+| ID | Category | Severity | Location | Summary | Recommendation |
+|----|----------|----------|----------|---------|----------------|
+| F-L4 | Inconsistency (cascade drift from pass-2 F-M1) | LOW | `plan.md` line 54 (Constraints bullet) | Plan carried the **verbatim** wording pass-2 removed from spec.md FR-019: *"The verifier is stateless; concurrent inbound messages can be verified in parallel without contention."* Pass-2's grep scoped only FR-019's spec.md location and missed plan.md's Constraints-section summary that duplicated the phrasing. Substance was correct (stateless verifier + linearizability claim still holds); only the framing was stale. | **FIX-APPLIED in pass-3 closure commit**: replaced with "The receive task processes inbound messages serially (FR-020 single-task model); the verifier MUST be stateless so future verifier impls (real Ed25519 in 011) can offload CPU-heavy verification per FR-020 without changing the trait surface." Aligns with the FR-019 rewrite. |
+
+### Other "concurrent" / "parallel" mentions surveyed (NO-OP, deliberately)
+
+- **`data-model.md` §13 TestVerifier**: "Concurrent verification across multiple inbound messages is trivially safe" — framed as a TYPE PROPERTY of `TestVerifier` (Send + Sync, no instance state), not an active claim that 003 verifies concurrently. Forward-looking, correct.
+- **`contracts/library-api.md` `TestVerifier` row**: "concurrent use is trivially safe" — same type-property framing.
+- **`spec.md` Edge Cases**: "the receive path verifies one message at a time" (explicit serial) + "multi-peer concurrent traffic" (multiple peers sending in parallel, well-defined per 001/002).
+- **`tasks.md` "parallel" mentions**: all task-graph parallelism (`[P]` markers, parallel team strategies).
+- **ADR 0010 "parallel" mentions**: non-concurrency uses ("a parallel non-Message type", "Ping ... parallel to Message::Signed" meaning sibling-variant).
+
+### Pass-2 fix verifications
+
+- **F-M1 verification**: grep across all 003 artifacts for "post-verification", "follows verification", "signature verification began", "filter+snapshot path" → zero matches. ✓
+- **F-L1 verification**: T020 now reads "MUST land in the same commit as T018, per FR-015's MUST-same-commit atomicity requirement" + no-op expectation note under FR-014's tests-don't-check-logs convention. Aligned with FR-015's MUST language. ✓
+- **F-L2 verification**: plan.md line 122 inline `Cargo.toml` comment now reads "+ rand, rand_chacha, sha2 in [dependencies]; + proptest in [dev-dependencies]". ✓
+
+### Pass-3 Metrics
+
+- Pass-2 fixes verified: 3 / 3 clean (F-M1, F-L1, F-L2)
+- Pass-3 substantive findings: **1 LOW** (F-L4, fix-applied in this closure)
+- Critical / High / Medium issues: 0
+- Convergence trajectory: matches 001's precedent (pass-1 structural → pass-2 cascade → pass-3 polish → pass-4 confirmation)
+
+### Pass-3 Verdict
+
+**One LOW finding, fix-applied in this commit.** Pass-3 served its expected polish role per the convergence rule. The plan.md Constraints bullet now aligns with the new FR-019 wording across both the receive-task-serial framing AND the forward-looking-011-offload note.
+
+**Pass-4 expectation**: zero substantive findings. Pass-4 typically confirms convergence after pass-3's polish edits propagate; if no further cascade surfaces, the analyze walk closes the same way the four-pass checklist walk closed (`7d628a6`).
+
+The one remaining deferred LOW item (F-L3 — ROADMAP.md §2 003 entry staleness) stays deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
