@@ -95,3 +95,28 @@ The `parent_hash` field on `Message` is typed `Option<MessageHash>` at the Rust 
 3. Identify the encoding version on the wire / in storage via the CBOR scheme's own conventions (e.g., a top-level CBOR tag, a schema-version field inside the CBOR map, or framing-level metadata when 009 lands). Signed messages produced under the hand-rolled encoding will not verify under the new encoding; at prototype-stage with no persisted-history requirement this is acceptable, but document the discontinuity.
 
 The 003 feature spec should record an explicit note pointing back to this entry so the revisit trigger isn't lost across sessions.
+
+---
+
+## N-005 — `MessageHash` input: `PlainMessage` content vs `SignedMessage` full form
+
+**Surfaced during**: 003 (message envelope + mock crypto) post-`/speckit-plan` design discussion on the protocol-message type hierarchy (ADR 0010 drafting round).
+
+**Question**: should `MessageHash::of` consume `&PlainMessage` (hashing the signed-over content only) or `&SignedMessage` (hashing content plus signature)?
+
+**Working answer (003 scope)**: **`MessageHash::of(plain: &PlainMessage)`** — hash the content only; the signature is excluded from the hash input. The `parent_hash` chain is content-anchored. Reasoning (full version in ADR 0010's Consequences section):
+
+- **Signature-malleability immunity.** Chain stays valid across signing-scheme changes (feature 011's Ed25519 swap; any later scheme migration) and across non-deterministic signing schemes. The canonical Bitcoin pre-SegWit lesson: ECDSA signature malleability broke transaction addressing because `TXID = hash(body || signature)`. Hashing the body (only) avoids the failure mode.
+- **Cardano ecosystem alignment.** Cardano's `tx_hash = blake2b(tx_body)` hashes body and witnesses separately. The pubsub-node lives in the Cardano workstream and aligning the convention has zero cost.
+- **Content addressing.** `MessageHash` represents "the identity of what this publisher committed to" — content-level, not witness-level.
+- **Cross-scheme stability.** Future signing-scheme transitions don't break existing chains' validity.
+
+**Why deferred**: 003 itself does not operationally consume `MessageHash` — no chain validation (deferred per N-003), no replay detection, no wire-level dedup. The function exists for downstream features (replication / catch-up; chain-integrity validation once it lifts post-008 / 012; any future dedup or caching layer). The decision shapes how those future features interpret the hash, but does not affect 003's runtime behavior.
+
+**Trigger to revisit**: when a feature first **operationally consumes** `MessageHash`. Specifically:
+
+1. **Chain-integrity validation** (feature 008 / 012, once N-003 lifts): the validator compares an incoming message's `parent_hash` against `MessageHash::of(&previous.plain)`. Confirm the option-(a) shape works for malleability-resistance and content-stable chain extension. Also confirm the equivocation-detection logic (two valid-signature messages with the same `(publisher_id, parent_hash)` but different `plain` content) is testable under content-hashing semantics.
+2. **Replay / dedup logic** (any future caching, retransmission, or dedup feature on the network or application layer): determine whether the content hash is sufficient or a separate wire-level hash over `SignedMessage` is needed. If signature-different / content-identical messages need to be distinguished by hash (e.g., to track who-re-signed-what), introduce a sibling `WireHash` type alongside `MessageHash`. The two coexist; neither replaces the other.
+3. **Future signing-scheme changes** (post-feature 011 Ed25519 swap, if a future scheme is introduced — e.g., a BLS variant for signature aggregation, or post-quantum schemes much later): verify that chains produced under the previous scheme are still valid under the new scheme. Option (a) guarantees this; option (b) would force a chain-format migration.
+
+At each trigger, weigh whether option (a) still serves, or whether a parallel "wire hash" / "full-form hash" is needed alongside it. The 003 feature spec's FR-011 and ADR 0010 capture the current rationale; this entry tracks the revisit obligation.
