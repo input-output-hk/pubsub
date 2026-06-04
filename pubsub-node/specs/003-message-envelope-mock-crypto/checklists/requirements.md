@@ -207,3 +207,34 @@ _minor — CHK075_: CLAUDE.md SPECKIT block doesn't list N-005 alongside N-001/N
 **Pass-3 needed?** Likely no. The pass-2 fixes are all consistency cleanups in low-traffic spots (one citation, one dep-list re-shape, two N-004 sentences, one CLAUDE.md bullet). None introduces new cross-references or restructures any section. But the round-5 audit of spec.md showed that fresh sweeps can still surface residue, so a quick pass-3 verification grep is cheap insurance before `/speckit-tasks`.
 
 **Verdict**: 003 artifact set is consistent post-pass-2. A small pass-3 confirmation sweep is recommended before invoking `/speckit-tasks`; if it surfaces nothing, the spec / plan / supporting docs are tasks-ready.
+
+---
+
+## Pass-3 walk closure (2026-06-04)
+
+Triggered by the user's "do another pass in case you missed something again" request — the third pass of the ROADMAP §4 convergence rule (which observes that pass-3 typically polishes; pass-4 confirms zero findings; per 001's 9 → 6 → 5 → 0 severity trajectory). Pass-3 generated 7 items (CHK076–CHK082) verifying pass-2's fixes stuck and probing for any further residual cascade drift.
+
+### Pass-2 fix verification
+
+- [x] CHK076 - Did pass-2's CHK067 fix (IMPLEMENTATION_NOTES.md N-004's `Message::signed_bytes` → `PlainMessage::signed_bytes` cascade at lines 64 + 87) close cleanly with no further residues in N-004? [Consistency, pass-2 verification] _verified: grep on N-004 finds only `PlainMessage::signed_bytes` now; both fix sites stuck._
+- [x] CHK077 - Did pass-2's CHK068 fix (spec.md FR-019 `002 FR-006` → `001 FR-006` for snapshot-append) close cleanly, leaving only the correctly-used `002 FR-006` cite for subscription-set mutations? [Consistency, pass-2 verification] _verified: FR-019 now reads "post-filter snapshot append (001 FR-006 — extended by 002 FR-004…)" and "linearized order of subscription-set mutations (002 FR-006)" — both cites accurate._
+- [x] CHK078 - Did pass-2's CHK069 fix (plan.md acknowledging proptest as a 4th dep) propagate to **all** sites in plan.md that enumerate the deps, not just the Technical Context section? [Consistency, Coverage, pass-2 follow-up] _resolved: pass-2 patched only the Technical Context. Two more sites still said "Three new dependencies": plan.md line 22 (Summary section's "Three new dependencies" bullet) and line 78 (Constitution Check "Justified dependencies" bullet). Both updated in this pass-3 to acknowledge proptest as a 4th dep in `[dev-dependencies]`. Pass-2's grep scoped only the Technical Context heading; the cascade extended further._
+- [x] CHK079 - Did pass-2's CHK075 fix (CLAUDE.md SPECKIT block adding N-005 to the IMPLEMENTATION_NOTES inventory) close cleanly? [Traceability, pass-2 verification] _verified: CLAUDE.md SPECKIT block now lists all five N-entries (N-001 through N-005) with brief descriptions of each._
+
+### New-angle convergence checks
+
+- [x] CHK080 - Is quickstart.md's "Three new direct dependencies (`rand`, `rand_chacha`, `sha2`) are added automatically the first time `cargo build` runs" line contextually accurate (proptest is `[dev-dependencies]` and only pulled by `cargo test`, not `cargo build`), or does it need updating to acknowledge proptest? [Consistency, Contextual Accuracy] _verified: the quickstart wording is contextually accurate — `cargo build` does not pull proptest (it's pulled by `cargo test`). The bullet describes the build-time dep tree only. No fix needed; the wording stays as-is._
+- [x] CHK081 - Does the ROADMAP.md §2 entry for 003 still describe pre-spec open questions and a "TDD trigger: YES, chain integrity" claim that has been superseded by spec.md FR-016 (signature-only validation, chain integrity deferred per N-003)? [Stale Documentation, Traceability] _observation, not resolved: ROADMAP.md §2 entry for 003 still carries the pre-spec preview wording (3 open questions, "TDD trigger YES for chain integrity"). Per ROADMAP.md's own §4 process notes ("This roadmap is a meta-spec, not a contract. Features may be re-shuffled, dropped, or restructured as architectural understanding evolves"), the ROADMAP is a working preview, not retroactively-updated authoritative documentation. spec.md, ADR 0009, ADR 0010, and IMPLEMENTATION_NOTES.md N-003 / N-004 / N-005 collectively supersede the ROADMAP's 003 preview. Updating the ROADMAP entry is OPTIONAL and not blocking for `/speckit-tasks`; deferred as future polish if the project wants ROADMAP entries to stay in sync with landed feature artifacts._
+- [x] CHK082 - Final residual-drift sweep across the workstream: any other artifacts still using pre-ADR-0010 wording, stale dep counts, incorrect 002-FR cites, or pre-restructure type-construction syntax? [Convergence, Final Sweep] _verified: after CHK078 fix, broad greps across pubsub-node/specs/003-message-envelope-mock-crypto/, pubsub-node/specs/IMPLEMENTATION_NOTES.md, pubsub-node/docs/decisions/0009*, pubsub-node/docs/decisions/0010*, and pubsub-node/CLAUDE.md show no residual drift sites. The only remaining `Message::signed_bytes` mention is in spec.md's Input field (preserved verbatim as user-prompt history per CHK071's deliberate decision)._
+
+### Pass-3 substantive edits landed
+
+- **CHK078 → plan.md Summary bullet + Constitution-Check Justified-dependencies bullet**: two cascade-drift sites pass-2 missed (focused on Technical Context only). Both now acknowledge proptest as a 4th dep in `[dev-dependencies]`, with the Constitution exemption rationale ("project's chosen test framework") and the Engineering-Standards-rule justification (signature binding qualifies as a property-level claim warranting proptest).
+
+### Pass-3 verdict
+
+7 items closed: 6 PASS + 1 FIX-APPLIED (CHK078) + 1 OBSERVATION-ONLY (CHK081, ROADMAP entry staleness — deferred per the ROADMAP's "working document" stance). Pass-3 caught one further cascade drift pass-2 missed, confirming the 003 artifact set's convergence trajectory matches the 001 precedent (each pass narrows the residue; pass-4 typically confirms zero findings).
+
+**Pass-4 needed?** Likely no. Pass-3's substantive edit (CHK078) is a two-site cascade of an already-known fix shape (dep-count update). The convergence rule's 001 precedent (severity 9 → 6 → 5 → 0 across 4 passes) suggests pass-4 would confirm zero findings. But the user has chosen multi-pass walks in 003 so far; if they want a confirmation pass-4, it's cheap.
+
+**Verdict**: 003 artifact set is consistent post-pass-3. `/speckit-tasks` is unblocked. CHK081 (ROADMAP §2 003 entry staleness) is recorded as a deferred polish item if the project decides to keep ROADMAP entries synchronised with landed feature artifacts.
