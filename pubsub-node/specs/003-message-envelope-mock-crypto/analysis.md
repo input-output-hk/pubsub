@@ -349,3 +349,87 @@ Pass-6 should land at zero substantive findings — F-L8 was the last F-L6 casca
 | **Analyze pass-5** | **Cross-artifact (F-L6 cascade)** | **1 LOW** | **F-L8 — fix-applied in this commit** |
 
 The one remaining deferred LOW item (F-L3 — ROADMAP.md §2 003 entry staleness) stays deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
+
+---
+
+## Pass-6 Findings (2026-06-04) — zero-finding convergence closure
+
+Pass-6 triggered by user request to confirm consistency, ambiguity, gaps, underspecification, and the other standard detection dimensions covered in previous features. Pass-6 verified all prior fixes (passes 2 – 5) propagated cleanly and ran the six standard detection passes (Duplication / Ambiguity / Underspecification / Constitution Alignment / Coverage Gaps / Inconsistency) across the full artifact set.
+
+### Prior fix verifications (passes 2 – 5)
+
+| Fix | Verification | Status |
+|---|---|---|
+| F-M1 (FR-019 ordering — pass-2) | 0 matches for pre-Q6 wording (`post-verification`, `follows verification`, `signature verification began`, `filter+snapshot path`) across all 6 production artifacts | ✓ |
+| F-L1 (T020 MUST same-commit — pass-2) | 0 matches for "ideally, OR as a follow-up commit" | ✓ |
+| F-L2 (plan.md proptest inline — pass-2) | line 122 echoes `+ rand, rand_chacha, sha2 in [dependencies]; + proptest in [dev-dependencies]` | ✓ |
+| F-L4 (plan.md line 54 serial-receive-task — pass-3) | 0 matches for "concurrent inbound messages can be verified in parallel" | ✓ |
+| F-M3 (T022 sub-test 5 removed — pass-4) | 0 matches for `no_legacy_topic_drop_event_in_source` in production artifacts (2 in analysis.md = ledger references, expected) | ✓ |
+| F-L5 (quickstart 4 tests — pass-4) | §2 (US1) + §4 (US3) output blocks both show "running 4 tests" | ✓ |
+| F-L6 + F-L8 (test fixtures accommodation — pass-4 + pass-5) | 0 matches for "test fixtures comparing against" / "SC-007's allowance" in production artifacts | ✓ |
+| F-L7 (FR-014 sharpened — pass-4) | spec.md line 160 carries the sharpened wording forbidding source-grep tests | ✓ |
+
+### Coverage census
+
+| Dimension | Count | Notes |
+|---|---|---|
+| Functional Requirements | 20 (FR-001 … FR-020) | All have task coverage |
+| Success Criteria | 8 (SC-001 … SC-008) | 7 buildable + 1 operator-UX (SC-008) |
+| User Stories | 4 (US1 P1 / US2 P2 / US3 P3 / US4 P4) | All have test tasks |
+| Tasks | 28 (T001 … T028) | All map to FR / US / quality gate |
+| FR matrix rows in `data-model.md` §19 | 20 | Full mapping |
+| `[USx]` labels in `tasks.md` | 5 US1 + 1 US2 + 1 US3 + 1 US4 | T016–T020 US1; T021 US2; T022 US3; T023 US4 |
+
+### Six-detection-pass sweep
+
+| Category | Result |
+|---|---|
+| **A. Duplication** | Zero substantive duplicates. FR-014 / FR-015 share the `message_dropped` marker by deliberate cross-feature convention; FR-013 (ordering) vs FR-020 (task confinement) are distinct concerns; SC-001 / SC-002 cover accept vs reject of US1 — distinct demonstrations. |
+| **B. Ambiguity** | Zero vague adjectives (fast / scalable / robust / intuitive / seamless / simple / efficient / optimal / adequate / reasonable) in normative FR / SC text. Zero unresolved placeholders (TODO / TKTK / TBD / ??? / `[NEEDS CLARIFICATION]` / `<placeholder>` / XXX / FIXME) anywhere in the artifact set. |
+| **C. Underspecification** | Every FR has verb + object + measurable outcome OR explicit deferral. Negative requirements (FR-016, FR-017, FR-018) enumerate deferred items with revisit triggers. Every US has 3–5 acceptance scenarios; every acceptance scenario maps to a task or to operator-UX. |
+| **D. Constitution Alignment** | All 5 principles ✓ pass per `plan.md` Constitution Check (both gates). Principle II TDD-trigger explicitly encoded in T016 (red-green-first); chain-integrity scoped out via FR-016 + N-003. Engineering Standards realized via T023 proptest + observable structured events (FR-014) + reproducible seeded PRNG. Two ADRs (0009 + 0010) cover the structural decisions. |
+| **E. Coverage Gaps** | 100% — every FR has a task; every US has a test task; every buildable SC has a task or quality-gate task; SC-008 is intentionally operator-UX-only per FR-014. No orphaned tasks. |
+| **F. Inconsistency / Terminology drift** | Cross-artifact terminology consistent: `Message::Signed(SignedMessage)` appears in all 6 core artifacts (spec / plan / data-model / contracts / tasks / quickstart); `MessageHash::of(&PlainMessage)` appears in all 8 documents (including ADR 0010 + IMPLEMENTATION_NOTES.md N-005). The only `Message::signed_bytes` mention (without `Plain` prefix) is in `spec.md` line 11 — the Input field preserved as historical record per CHK071. All ADR cross-references resolve (ADR 0009 + ADR 0010 both exist on disk). |
+
+### Pass-6 Findings Table
+
+*(empty — zero substantive findings)*
+
+### Pass-6 Metrics
+
+- Total Requirements: 28 (20 FR + 8 SC)
+- Total Tasks: 28
+- Coverage %: 100% (all FRs + all buildable SCs)
+- Ambiguity count: 0
+- Duplication count: 0
+- **Critical / High / Medium / Low issues: 0 / 0 / 0 / 0**
+- Constitution Alignment Issues: none
+- Unmapped Tasks: none
+
+### Pass-6 Verdict — Zero-Finding Closure
+
+**The 003 artifact set has reached convergence.** All ten substantive fixes applied across passes 2 – 5 (F-M1, F-L1, F-L2, F-L4, F-M3, F-L5, F-L6, F-L7, F-L8 — plus the FR-019 closing-sentence tightening from the pass-2 clarifying-question exchange) are verified clean. The six standard detection passes surface zero substantive findings. The convention sharpening (FR-014 forbidding source-grep tests + operator-UX-only path for log-message verification) is consistently applied across `spec.md` (FR-014 + SC-007), `plan.md` (Constraints + Source Code + Technical Context), `tasks.md` (T020 + T022 + T028), `quickstart.md` (§2 + §4), `data-model.md` (§17 + §19 matrix), `contracts/library-api.md`, ADRs 0009 + 0010, and IMPLEMENTATION_NOTES.md (N-003 / N-004 / N-005).
+
+### Convergence trajectory (final form)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure at pass-4 (`7d628a6`) |
+| Analyze 1 | Cross-artifact (post-compaction) | 0 (provisional) | Premature closure |
+| Analyze 2 | Cross-artifact (deep) | 1 MEDIUM + 2 LOW | F-M1 / F-L1 / F-L2 (commit `e031d5c`) |
+| Analyze 3 | Cross-artifact (cascade polish) | 1 LOW | F-L4 (commit `bdf4456`) |
+| Analyze 4 | Cross-artifact (convention sharpening) | 1 MEDIUM + 3 LOW | F-M3 / F-L5 / F-L6 / F-L7 (commit `ade0e90`) |
+| Analyze 5 | Cross-artifact (F-L6 cascade) | 1 LOW | F-L8 (commit `4b4a7ea`) |
+| **Analyze 6** | **Cross-artifact (zero-finding confirmation)** | **0** | **Zero-finding closure (this commit)** |
+
+### One deferred item remaining (not blocking)
+
+**F-L3** (LOW, CHK081-equivalent): `ROADMAP.md` §2 003 entry staleness. Staleness sites:
+- Line 85 ("TDD trigger: YES" for chain integrity) — superseded by FR-016 + N-003 (signature authenticity only in 003; chain integrity deferred).
+- Lines 86–89 (three pre-spec open questions) — Q1 + Q2 deferred to N-003 (no chain-head tracking or equivocation detection in 003); Q3 resolved by ADR 0009 + FR-006 + SC-006 (mock-crypto contract documented with the "MOCK — not unforgeable" warning at 4 rustdoc sites).
+
+Per CHK081 + ROADMAP §4's "working document, not retroactively-updated" stance: retroactively syncing ROADMAP entries with landed-feature artifacts is optional polish, not a hard requirement. The canonical post-feature state lives in `spec.md` + ADRs + IMPLEMENTATION_NOTES.md, not in the ROADMAP preview. Not blocking `/speckit-implement`.
+
+### Next Actions
+
+**003 artifact set is `/speckit-implement`-ready.** Per ROADMAP §4's session-boundary guidance (commit `7e758a0`), run `/speckit-implement` in a fresh Claude Code session for clean code-generation context.
