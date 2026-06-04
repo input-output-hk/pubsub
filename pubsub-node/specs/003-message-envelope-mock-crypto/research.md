@@ -173,7 +173,7 @@ Migration order (encoded in `/speckit-tasks`):
 
 ## §7. `MessagePayload` variant-tag stability mechanism
 
-**Decision**: explicit `match` in `Message::signed_bytes` that hand-writes each variant's tag:
+**Decision**: explicit `match` in `PlainMessage::signed_bytes` that hand-writes each variant's tag:
 
 ```rust
 match &self.payload {

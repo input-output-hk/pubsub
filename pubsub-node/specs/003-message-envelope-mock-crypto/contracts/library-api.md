@@ -70,8 +70,7 @@ The `crypto::` and `crypto::mock::` paths are also navigable directly (`pubsub_n
 
 | Item | Contract |
 |------|----------|
-| `pub fn new(bytes: Vec<u8>) -> Self` | Direct constructor; accepts any byte sequence. |
-| `pub fn placeholder() -> Self` | Returns `Signature::new(Vec::new())`. Used by `tests/common/mod.rs::build_signed_message` as the placeholder during the construct-then-sign workflow (FR-010 last sentence). Value is arbitrary — `signed_bytes` excludes the signature field, so any placeholder works. |
+| `pub fn new(bytes: Vec<u8>) -> Self` | Direct constructor; accepts any byte sequence. No `placeholder()` constructor — post-ADR-0010 the signing workflow assembles `SignedMessage { plain, signature }` in one step from a real signature (`signer.sign(&plain.signed_bytes())`), so no placeholder is needed. Tests that need a deliberately-wrong signature (e.g., US1 AS-3's 32-zero-bytes case) construct one directly via `Signature::new(vec![0u8; 32])`. |
 | `pub fn as_bytes(&self) -> &[u8]` | Borrows the underlying bytes for byte-for-byte comparison during verification. |
 | `impl Display for Signature` | Full lowercase hex (FR-003 Display bullet). |
 | `derive(Clone, Debug, Eq, PartialEq)` | Per FR-003. **No `Hash` derive** (per clarify Q3 — signatures are not natural map keys). |
@@ -80,7 +79,7 @@ The `crypto::` and `crypto::mock::` paths are also navigable directly (`pubsub_n
 
 | Item | Contract |
 |------|----------|
-| `pub const ZERO: MessageHash` | All-zero 32-byte hash sentinel. Used by `Message::signed_bytes` as the encoding for absent `parent_hash` (FR-010 + clarify Q1). |
+| `pub const ZERO: MessageHash` | All-zero 32-byte hash sentinel. Used by `PlainMessage::signed_bytes` as the encoding for absent `parent_hash` (FR-010 + clarify Q1). |
 | `pub fn new(bytes: [u8; 32]) -> Self` | Direct constructor for tests that fabricate hashes with specific bytes. |
 | `pub fn of(plain: &PlainMessage) -> MessageHash` | Computes `MessageHash(sha256(plain.signed_bytes()).into())`. The hash is taken over the signed-over content only — signature is **not** in the hash input (per ADR 0010's content-anchored decision + FR-011 + IMPLEMENTATION_NOTES.md N-005). This is the function downstream callers use to derive the hash that becomes the next message's `parent_hash`. Callers holding a `SignedMessage` reach it via `MessageHash::of(&signed.plain)`. |
 | `pub fn as_bytes(&self) -> &[u8; 32]` | Borrows the 32-byte array for `signed_bytes` encoding and comparison. |
@@ -118,7 +117,7 @@ pub trait Signer: Send + Sync {
 |------|----------|
 | `Send + Sync` super-traits | Per FR-004. Implementors must be thread-shareable. |
 | `fn public_key(&self) -> PublicKey` | Returns the public key matching this signer's secret. For `TestSigner`, this is `derive_public(&self.private)`. For future `Ed25519Signer`, this is the cryptographic public-key derivation. |
-| `fn sign(&self, msg: &[u8]) -> Signature` | Infallible. Takes raw bytes (decoupled from `Message`); the caller passes `&message.signed_bytes()`. |
+| `fn sign(&self, msg: &[u8]) -> Signature` | Infallible. Takes raw bytes (decoupled from any domain type); the caller passes `&plain.signed_bytes()` where `plain: PlainMessage`. |
 | No type parameters, no associated types | Per FR-004 + ADR 0009. The trait is dyn-compatible (object-safe). |
 
 ### `Verifier` trait
@@ -304,7 +303,7 @@ pub async fn new<N: Network>(
 pub async fn send(&self, to: &PeerId, message: Message) -> Result<(), NetworkError>
 ```
 
-The 002 signature compiles unchanged after the `Message`-shape migration. The `Message` argument is now the 7-field envelope rather than a 2-field one. Callers construct the envelope (typically via the test-support helper for tests; via a future publisher-CLI workflow for production). Per FR-012.
+The 002 signature compiles unchanged after the `Message`-shape migration. The `Message` argument is now the post-ADR-0010 enum (sole 003 variant `Message::Signed(SignedMessage)` with the §2.3 fields living on the inner `PlainMessage`) rather than the 002-era two-field struct. Callers construct the message (typically via the test-support helper for tests; via a future publisher-CLI workflow for production). Per FR-012.
 
 ## Receive-task pipeline shape — operator-visible delta
 
@@ -328,7 +327,9 @@ inbound RoutingFrame { from, message }    // 001's `Envelope` renamed to `Routin
           ↓ Ok
           ↓
           snapshot append: received_messages() grows by one entry, wrapping the full
-                           Message::Signed(signed) value per 002 FR-006.
+                           Message::Signed(signed) value per the 001 FR-006
+                           snapshot-append contract — extended by 002 FR-004 with
+                           the topic-filter precondition.
       }
       // Future variants (Message::ConnectionHello, Message::PeerSample, etc.) gain
       // their own arms in subsequent features per ADR 0010's #[non_exhaustive] design.

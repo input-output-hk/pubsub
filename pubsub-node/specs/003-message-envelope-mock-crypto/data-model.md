@@ -6,7 +6,7 @@
 
 **Purpose**: enumerate the entities introduced or extended by 003, with fields, derives, validation rules, state-transition semantics, relationships, and an FR cross-reference. Entities unchanged by 003 (`PeerId`, `TopicId`, `MessagePayload` enum shape, `PeerDescriptor`, `BasicPeerDescriptor`, `Network`, `NetworkHandle`, `InMemoryNetwork`, `Envelope` routing wrapper, `NodeError`, `NetworkError`, `ConfigError`, `SubscribeOutcome`, `UnsubscribeOutcome`, `ReceivedDelivery`'s containing-Vec semantics, `NodeConfig` shape) are not duplicated here — the canonical references are `../001-minimal-node-scaffold/data-model.md` and `../002-topic-subscription-filtering/data-model.md`.
 
-A reminder on terminology that the spec's Assumptions section formalises: throughout this file, "envelope" / "message envelope" refers to the §2.3 shape carried on `pubsub_node::Message` (extended in §11 below). The 001-era `Envelope { from: PeerId, message: Message }` Rust type is the network-layer routing wrapper and is **not** what this feature is about.
+A reminder on terminology post-ADR 0010 (and as formalised in the spec's Assumptions section): throughout this file, prose-level "envelope" matches the staged-design-synthesis §2.3 meaning — the whole signed message, signature included. In Rust types, that corresponds to `SignedMessage` (one variant of the `Message` enum). The signed-over content type is `PlainMessage`; the 002-era `MessagePayload` enum lives inside it. The 001-era `pubsub_node::network::Envelope { from: PeerId, message: Message }` routing-wrapper struct is renamed to `RoutingFrame` in the same commit as the rest of the 003 restructure (ADR 0010); it remains the network-layer "from→to" frame and is **not** what the §2.3 envelope refers to.
 
 ---
 
@@ -86,8 +86,7 @@ pub struct Signature(Vec<u8>);
 
 **Construction surface**:
 
-- `pub fn new(bytes: Vec<u8>) -> Self` — direct constructor.
-- `pub fn placeholder() -> Self` — returns an empty `Signature(Vec::new())` used by the test-support helper `build_signed_message` during the construct-then-sign workflow (per FR-010's last sentence: "construct the message with a placeholder signature, compute signed_bytes, sign those bytes, replace the placeholder with the produced signature"). The placeholder value is arbitrary — `signed_bytes` excludes the signature field, so any value works; `Vec::new()` is the cheapest.
+- `pub fn new(bytes: Vec<u8>) -> Self` — direct constructor. (No `placeholder()` constructor: post-ADR-0010 the signing workflow does not need one — `PlainMessage::signed_bytes` is computed without a signature field in scope, so the `SignedMessage { plain, signature }` is assembled with the real signature in a single step. Tests that need an explicit zero-or-other-bogus signature value — e.g., US1 AS-3 — construct one directly via `Signature::new(vec![0u8; 32])`.)
 
 **Accessors**:
 
@@ -111,8 +110,8 @@ pub struct MessageHash([u8; 32]);
 
 **Construction surface**:
 
-- `pub const ZERO: MessageHash = MessageHash([0u8; 32])` — the absent-`parent_hash` sentinel used by `Message::signed_bytes` encoding (FR-003 + FR-010 + clarification Q1).
-- `pub fn of(message: &Message) -> MessageHash` — computes `MessageHash(sha256(message.signed_bytes()).into())`. The canonical hash function — applied to the canonical signing bytes — produces this hash. Used by test fixtures building a chain of messages and (in deferred-future features) by replication / catch-up logic.
+- `pub const ZERO: MessageHash = MessageHash([0u8; 32])` — the absent-`parent_hash` sentinel used by `PlainMessage::signed_bytes` encoding (FR-003 + FR-010 + clarification Q1).
+- `pub fn of(plain: &PlainMessage) -> MessageHash` — computes `MessageHash(sha256(plain.signed_bytes()).into())`. The canonical hash function — applied to the canonical signing bytes — produces this hash. Used by test fixtures building a chain of messages and (in deferred-future features) by replication / catch-up logic. Note: per ADR 0010 + IMPLEMENTATION_NOTES.md N-005 this is content-anchored (signature excluded); callers holding a `SignedMessage` reach the hash via `MessageHash::of(&signed.plain)`.
 - `pub fn new(bytes: [u8; 32]) -> Self` — direct constructor for tests that fabricate hashes with specific bytes.
 
 **Accessors**:
@@ -168,7 +167,7 @@ pub struct PublisherId(PublicKey);
 
 **Accessors**:
 
-- `pub fn as_public_key(&self) -> &PublicKey` — borrows the inner `PublicKey` for verifier dispatching (the receive task calls `self.verifier.verify(msg.publisher_id.as_public_key(), …)`).
+- `pub fn as_public_key(&self) -> &PublicKey` — borrows the inner `PublicKey` for verifier dispatching (the receive task calls `self.verifier.verify(signed.plain.publisher_id.as_public_key(), …)` where `signed: SignedMessage`).
 - `impl Display for PublisherId` — delegates to the inner `PublicKey`'s `Display` (FR-003 + Q4).
 
 **Role distinction** (FR-002): `PublisherId` identifies the entity whose private key produced the envelope's signature (the message originator). `PeerId` identifies the network neighbor that forwarded the message. Even when both happen to wrap the same `PublicKey` byte representation under a future iteration, the compiler distinguishes them; accidental cross-role use is a compile error.
@@ -554,7 +553,8 @@ recv RoutingFrame { from, message }
                                        &signed.plain.signed_bytes(),
                                        &signed.signature)
                        ├─ [Ok]  snapshot append (the full Message::Signed(signed) value;
-                       │         002 FR-006 contract preserved transitively)
+                       │         001 FR-006 snapshot-append contract — extended by 002 FR-004
+                       │         with the topic-filter precondition — preserved transitively)
                        └─ [Err] drop + emit message_dropped/invalid_signature (FR-014)
        // Future variants of Message get their own match arms when those features land.
      }
