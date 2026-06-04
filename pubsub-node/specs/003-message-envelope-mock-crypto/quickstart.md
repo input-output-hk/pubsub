@@ -74,17 +74,16 @@ cargo test --test filter_composition
 Expected:
 
 ```text
-running 5 tests
+running 4 tests
 test valid_on_topic_message_appears_in_snapshot ... ok
 test valid_off_topic_message_dropped_with_cause_topic_not_subscribed ... ok
 test invalid_on_topic_message_dropped_with_cause_invalid_signature ... ok
 test invalid_off_topic_message_dropped_with_cause_topic_not_subscribed ... ok
-test no_legacy_topic_drop_event_in_source ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored
+test result: ok. 4 passed; 0 failed; 0 ignored
 ```
 
-The fifth test is a small build-time / source-grep test that asserts no production code emits the legacy 002 `event = "topic_drop"` value — SC-007's "complete and atomic rename" criterion is enforced here. If a future feature re-introduces a `topic_drop` emission, this test catches it immediately.
+US3 AS-5 (no legacy `event = "topic_drop"` in the log stream after the rename) is operator-UX-only per FR-014's tightened tests-don't-check-logs convention — there is no Rust test for it. Verify SC-007's rename atomicity manually by running `grep -r "topic_drop" src/` (should return zero matches in production code) or by running the demonstration and confirming the log stream emits only `event = "message_dropped"` entries. T028's polish-phase agent-run grep covers the same verification at the end of `/speckit-implement`.
 
 The fourth test (`invalid_off_topic_message_dropped_with_cause_topic_not_subscribed`) verifies FR-013's topic-filter-first ordering: even though the message has both an invalid signature AND a topic not in the subscription set, the receive task drops it with `cause = "topic_not_subscribed"` because the topic filter rejects before the verifier runs. The invalid signature is never observed for this message.
 

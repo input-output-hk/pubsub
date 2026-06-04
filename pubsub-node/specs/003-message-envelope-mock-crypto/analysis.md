@@ -243,3 +243,55 @@ Pass-3 triggered by user request to verify nothing was missed. The /speckit-anal
 **Pass-4 expectation**: zero substantive findings. Pass-4 typically confirms convergence after pass-3's polish edits propagate; if no further cascade surfaces, the analyze walk closes the same way the four-pass checklist walk closed (`7d628a6`).
 
 The one remaining deferred LOW item (F-L3 — ROADMAP.md §2 003 entry staleness) stays deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
+
+---
+
+## Pass-4 Findings (2026-06-04) — convention-sharpening exposed a violation prior passes missed
+
+Pass-4 triggered by user request to verify nothing was missed, with an explicit clarification of the tests-don't-check-logs convention: **no automated tests in code may validate log-message properties, including via indirect routes such as source-code grep.** Operator-UX inspection (quickstart) and one-shot agent-run grep (T028) are the only acceptable verification paths.
+
+This clarification sharpened FR-014's text (which originally said "tests MUST NOT assert on log content" — borderline ambiguous as to whether source-grep tests count). The sharpening exposed a violation that all prior passes had missed because the ambiguous wording let the source-grep test pattern slip through.
+
+### Pass-4 Findings Table
+
+| ID | Category | Severity | Location | Summary | Resolution |
+|----|----------|----------|----------|---------|-----------|
+| F-M3 | Convention Violation | MEDIUM | `tasks.md` T022 sub-test 5 (`no_legacy_topic_drop_event_in_source`) | T022 scheduled a Rust test that uses `std::process::Command` / file-walk over `src/` to grep for the legacy event-name string `"topic_drop"`. Indirectly validates log emission via source-grep — violates the user's clarified convention. T028's polish-phase agent-run grep already covers the same verification. | **FIX-APPLIED**: removed T022 sub-test 5; rewrote T022 framing to cover AS-1 through AS-4 only; explicitly notes US3 AS-5 is operator-UX-only, verified via T028 + manual inspection (4 sub-tests total). |
+| F-L5 | Inconsistency (cascade from F-M3) | LOW | `quickstart.md` §4 (output block + paragraph) | Documented the fifth test in the expected `cargo test --test filter_composition` output (5 tests passing) + paragraph describing it as a "build-time / source-grep test". | **FIX-APPLIED**: updated output block (5 → 4 tests); replaced the descriptive paragraph with a note explaining US3 AS-5 is operator-UX-only and pointing readers to T028 + manual log inspection. |
+| F-L6 | Convention Accommodation Cleanup | LOW | `spec.md` SC-007 + `tasks.md` T020 cross-reference | SC-007 said "test fixtures comparing against the new event name are acceptable" + "Verified by repository grep and by re-running 002's integration tests with the new event-name assertion". T020 cross-referenced "test fixtures... acceptable per SC-007's allowance". These permissive accommodations don't schedule any new test, but under the clarified convention they should not exist as forward-looking allowances. | **FIX-APPLIED**: SC-007 reworded to "no automated test validates the rename per FR-014's tightened tests-don't-check-logs convention" with verification via T028's grep + manual inspection. T020 reworded to drop the SC-007 accommodation cross-reference and restate the no-log-assertions-in-code convention. |
+| F-L7 | Convention Sharpening | LOW | `spec.md` FR-014 (closing sentence) | FR-014 originally read "tests MUST NOT assert on log content" — ambiguous as to whether source-grep tests counted. The ambiguity is exactly what let T022 sub-test 5 slip through prior passes. | **FIX-APPLIED**: FR-014 sharpened to "automated tests MUST NOT validate properties of log messages, including via indirect routes such as source-code grep (the only acceptable verification paths for log-emission properties are operator-UX inspection per `quickstart.md` and one-shot agent-run grep per T028's polish-phase verification)". |
+
+### Pass-3 fix verification
+
+- **F-L4 verification**: plan.md line 54 (Constraints bullet) now reads "The receive task processes inbound messages serially (FR-020 single-task model); the verifier MUST be stateless so future verifier impls (real Ed25519 in 011) can offload CPU-heavy verification per FR-020 without changing the trait surface." Aligned with the FR-019 rewrite. ✓
+
+### Other "test asserts on log emission" candidates surveyed (NO-OP)
+
+Pass-4 broadly grep'd for any other test that might validate log properties — none surfaced beyond T022 sub-test 5. T016 (US1), T021 (US2), T023 (US4) all assert on `received_messages()` snapshot only. T018 implements log emission but adds no test for it. T020's migration text + SC-007's accommodation text were the only other touch-points — both reworded under F-L6.
+
+### Pass-4 Metrics
+
+- Pass-3 fix verified clean: F-L4 ✓
+- Pass-4 substantive findings: **1 MEDIUM (F-M3) + 3 LOW (F-L5, F-L6, F-L7)** — all FIX-APPLIED in this closure
+- Critical / High issues: 0
+- Convergence trajectory: **broke the expected zero-finding closure pattern** — pass-4 typically confirms convergence, but the user's mid-walk convention sharpening surfaced a real violation. This is healthy: the convergence rule assumes the convention is stable; when the convention itself sharpens, prior passes' clean closures don't carry forward.
+
+### Pass-4 Verdict
+
+**Four FIX-APPLIED edits across four files** (`spec.md` FR-014 + SC-007, `tasks.md` T020 + T022, `quickstart.md` §4 output block + paragraph). The 003 artifact set now upholds the user's clarified tests-don't-check-logs convention consistently: no automated test validates any log-message property; only operator-UX (quickstart) and agent-run grep (T028) verify SC-007's rename atomicity.
+
+### Convergence trajectory (analyze + checklist combined, updated)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist passes 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure at pass-4 (`7d628a6`) |
+| Analyze pass-1 | Cross-artifact (post-compaction) | 0 (provisional, superseded) | Premature closure |
+| Analyze pass-2 | Cross-artifact (deep) | 1 MEDIUM + 2 LOW | F-M1 / F-L1 / F-L2 (commit `e031d5c`) |
+| Analyze pass-3 | Cross-artifact (cascade polish) | 1 LOW | F-L4 (commit `bdf4456`) |
+| **Analyze pass-4** | **Cross-artifact (convention sharpening)** | **1 MEDIUM + 3 LOW** | **F-M3 / F-L5 / F-L6 / F-L7 — all FIX-APPLIED in this commit** |
+
+### Pass-5 expectation
+
+Now that the convention is sharpened explicitly in FR-014, pass-5 should land at zero substantive findings (the typical confirmation closure pattern). If a pass-5 is run.
+
+The one remaining deferred LOW item (F-L3 — ROADMAP.md §2 003 entry staleness) stays deferred per CHK081 + ROADMAP §4's working-document stance; not blocking `/speckit-implement`.
