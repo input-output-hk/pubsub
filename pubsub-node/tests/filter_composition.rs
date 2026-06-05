@@ -61,7 +61,7 @@ async fn valid_on_topic_message_appears_in_snapshot() {
 
 // US3 AS-2: valid + off-topic (T2) → dropped (cause topic_not_subscribed).
 #[tokio::test]
-async fn valid_off_topic_message_dropped() {
+async fn valid_off_topic_message_dropped_with_cause_topic_not_subscribed() {
     let fx = fixture_a_t1().await;
     let mut scheme = MockCryptoScheme::with_seed([0u8; 32]);
     let signer = TestSigner::new(scheme.generate_keypair().private);
@@ -78,7 +78,7 @@ async fn valid_off_topic_message_dropped() {
 
 // US3 AS-3: invalid + on-topic (T1) → dropped (cause invalid_signature).
 #[tokio::test]
-async fn invalid_on_topic_message_dropped() {
+async fn invalid_on_topic_message_dropped_with_cause_invalid_signature() {
     let fx = fixture_a_t1().await;
     let msg = bogus_signature_message(topic("t1"), 3);
 
@@ -94,7 +94,7 @@ async fn invalid_on_topic_message_dropped() {
 // US3 AS-4 (Q6 ordering): off-topic AND invalid → dropped. The topic filter
 // rejects first, so the bad signature is never reached; we assert absence only.
 #[tokio::test]
-async fn invalid_off_topic_message_dropped() {
+async fn invalid_off_topic_message_dropped_with_cause_topic_not_subscribed() {
     let fx = fixture_a_t1().await;
     let msg = bogus_signature_message(topic("t2"), 4);
 

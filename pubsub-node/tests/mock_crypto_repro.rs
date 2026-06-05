@@ -74,7 +74,7 @@ proptest! {
     // Signature binding: a matching (signer, public) pair verifies for any
     // message; changing the key, message, or signature causes rejection.
     #[test]
-    fn signature_binding(seed in any::<[u8; 32]>(), msg in any::<Vec<u8>>()) {
+    fn signature_binding_proptest(seed in any::<[u8; 32]>(), msg in any::<Vec<u8>>()) {
         let mut scheme = MockCryptoScheme::with_seed(seed);
         let kp = scheme.generate_keypair();
         // A second, distinct keypair from the same advanced RNG.

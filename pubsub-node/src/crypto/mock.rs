@@ -20,7 +20,7 @@ use super::{PrivateKey, PublicKey, Signature, Signer, Verifier, VerifyError};
 /// byte-symmetric by construction.
 pub(crate) const PUBLIC_SUFFIX: &[u8] = b"_public";
 
-/// Derive a [`PublicKey`] from a [`PrivateKey`] by appending [`PUBLIC_SUFFIX`].
+/// Derive a [`PublicKey`] from a [`PrivateKey`] by appending `PUBLIC_SUFFIX`.
 ///
 /// Deterministic and total. Exposed so tests can assert the
 /// `derive_public(&kp.private) == kp.public` invariant directly.
@@ -136,7 +136,7 @@ impl Signer for TestSigner {
 /// **MOCK — not unforgeable.** A stateless verifier for [`TestSigner`]
 /// signatures.
 ///
-/// `verify` strips [`PUBLIC_SUFFIX`] from the public key to recover the private
+/// `verify` strips `PUBLIC_SUFFIX` from the public key to recover the private
 /// bytes, recomputes `sha256(private || msg)`, and compares byte-for-byte. See
 /// the module-level documentation for the security caveat.
 pub struct TestVerifier;
