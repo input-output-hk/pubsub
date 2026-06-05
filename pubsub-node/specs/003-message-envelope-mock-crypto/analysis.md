@@ -499,3 +499,73 @@ The one previously-deferred LOW item (F-L3 — `ROADMAP.md` §2 003 entry stalen
 ### Next Actions
 
 **003 artifact set is `/speckit-implement`-ready** (re-confirmed). The pass-7 fixes are doc-only; no re-run of earlier phases is needed. Per ROADMAP §4's session-boundary guidance, run `/speckit-implement` in a fresh Claude Code session.
+
+---
+
+## Pass-8 Findings (2026-06-04) — full no-focus standard-checks sweep
+
+Pass-8 triggered by user request for "another round of analysis doing the standard checks without a specific topic of focus … a deep analysis of the consistencies, gaps, etc." Unlike passes 2–7 (each chasing a specific cascade or convention), pass-8 ran the six standard detection passes broadly, loading the artifacts not fully re-read in recent passes — `.specify/memory/constitution.md` (verified Principle II's "envelope handling, message verification" carve-out at lines 64–67; Engineering Standards property-based-testing + justified-dependencies exemptions at 117–129; green-checkpoint rule at 136–139), `IMPLEMENTATION_NOTES.md` N-001…N-005, ADR 0009 (concrete-types / no-associated-types / `PublisherId(PublicKey)` / no-Signer-on-Node, all aligned), and the 4-pass requirements checklist — and re-confirming pass-7's three edits landed clean.
+
+The broad read surfaced **one pre-existing inconsistency that every prior focused pass missed**: the focused rename-checks (CHK022 / CHK046 / CHK087) keyed on the string "001-era Envelope" and never inspected `data-model.md`'s opening "entities unchanged by 003" inventory, where a bare `` `Envelope` routing wrapper `` token had sat since the file was authored. This is the dividend of a no-focus pass — it reads the inventory prose the targeted greps skip.
+
+### Pass-8 Findings Table
+
+| ID | Category | Severity | Location(s) | Summary | Resolution |
+|----|----------|----------|-------------|---------|-----------|
+| F-L11 | Inconsistency (internal contradiction) | LOW | `data-model.md` §0 opening prose (L7) | The "Entities **unchanged** by 003 … are **not duplicated here**" inventory list included `` `Envelope` routing wrapper ``. But `Envelope` is **renamed** to `RoutingFrame` by 003 (FR-001 + ADR 0010) — so it is *changed*, not unchanged — and it **is** redescribed here, in §16d ("`RoutingFrame` — renamed entity"). The token violated both clauses of the sentence. The §0 terminology reminder (L9) and §16d both already describe the rename correctly; only this summary parenthetical was stale. Pre-existing since the file was authored; prior passes' "001-era Envelope" greps didn't match the bare list token. | **FIX-APPLIED in this closure**: removed `` `Envelope` routing wrapper `` from the unchanged-entities list. The renamed wrapper is now governed solely by §16d (its canonical home) and the L9 terminology note; the remaining entries in the list (`PeerId`, `TopicId`, `InMemoryNetwork`, `NodeError`, …) are all genuinely unchanged and un-redescribed. |
+
+### Pass-7 fix verifications
+
+| Fix | Verification | Status |
+|---|---|---|
+| F-L9 (network.rs two-edit reality — pass-7) | `contracts/library-api.md` L350 ("two behavior-preserving edits … rename (T012) … T017's … `no_run` conversion"), `data-model.md` §16d L519 ("two commits — the rename in T012 and the doc-test fence cleanup in T017"), `plan.md` source-tree comment ("network.rs is touched in two commits") — all present and mutually consistent | ✓ |
+| F-L10 (T017 `no_run` compile-readiness — pass-7) | T017 now requires hidden `#`-prefixed setup lines for `self_id` / `config` / `initial_subscriptions` / `verifier` so the `no_run` example type-checks | ✓ |
+
+### `InMemoryNetwork` in the same unchanged-list — surveyed, NO-OP
+
+`data-model.md` L7 also lists `InMemoryNetwork`, whose **rustdoc** T017 edits (the doc-test fence). Left in place deliberately: L7's "unchanged" claim is about the entity's *shape and behavior*, both genuinely unchanged; the doc-test fence is a doc-correctness fix, not an entity change, and `InMemoryNetwork` is **not** redescribed in any data-model § (so the "not duplicated here" clause holds). This is the same distinction drawn for `plan.md` L182 in pass-7. Only `Envelope` violated *both* clauses (renamed **and** redescribed in §16d), so only `Envelope` was removed.
+
+### Six-detection-pass sweep (full, no-focus)
+
+| Category | Result |
+|---|---|
+| **A. Duplication** | Zero. FR-013 (ordering) / FR-020 (task confinement), FR-014 / FR-015 (shared `message_dropped` marker by deliberate convention), SC-001 / SC-002 (accept vs reject of US1) all distinct. |
+| **B. Ambiguity** | Zero vague adjectives or unresolved placeholders (TODO / TKTK / ??? / `[NEEDS CLARIFICATION]`) in normative FR/SC text. |
+| **C. Underspecification** | Zero open. Negative requirements (FR-016 / FR-017 / FR-018) enumerate deferred items with revisit triggers traced to N-003 / inherited 002 / forward-looking architecture. (FR-016 and FR-017 are correctly absent from `contracts/library-api.md`'s spec-trace header — neither has a public-API surface; `data-model.md` §19 covers both as a negative claim and an inherited-from-002 row respectively.) |
+| **D. Constitution Alignment** | All 5 principles ✓ pass, re-verified against the actual constitution text (now reloaded). Principle II TDD trigger (the "message verification" carve-out, constitution L64–67) correctly drives T016's red-green-first ordering; chain-integrity scoped out via FR-016 + N-003. Engineering Standards (property-based testing L117–121 → T023 proptest; justified-dependencies exemption L126–129 → `rand`/`rand_chacha`/`sha2`/`proptest` covered by ADR 0009 + the test-framework exemption; reproducible-tests L130–132 → seeded `MockCryptoScheme` + `Timestamp::from_millis`). Two ADRs (0009 + 0010) satisfy Principle III. |
+| **E. Coverage Gaps** | 100% — FR 20/20 have tasks; SC 7 buildable + 1 operator-UX (SC-008); US1–US4 each have a test task; 28/28 tasks map to FR/US/quality-gate. No orphaned tasks. |
+| **F. Inconsistency / Terminology drift** | One finding — F-L11 (data-model L7 stale `Envelope`-in-unchanged-list). Fixed. All other terminology (`Message::Signed(SignedMessage)`, `MessageHash::of(&PlainMessage)`, `PlainMessage::signed_bytes`, drop-event shape, `RoutingFrame`, dep surface) cross-checked consistent across the eight artifacts + two ADRs + IMPLEMENTATION_NOTES. |
+
+### Pass-8 Metrics
+
+- Total Requirements: 28 (20 FR + 8 SC) — confirmed by count (`grep -c` on FR-/SC- markers).
+- Total Tasks: 28 (T001…T028) — confirmed by count.
+- Coverage %: 100%.
+- Critical / High / Medium issues: 0 / 0 / 0.
+- **Low issues: 1** (F-L11) — fix-applied in this closure.
+
+**Green-checkpoint sweep**: edits are doc-only on a Spec-Kit artifact (`data-model.md`); no `src/` change, so the code state is unchanged from the last green checkpoint and `cargo fmt/clippy/build/test` are unaffected.
+
+### Pass-8 Verdict
+
+**One LOW finding, fix-applied.** A full no-focus sweep — explicitly broader than the targeted cascade-chasing of passes 2–7 — caught a pre-existing inventory inconsistency in `data-model.md`'s opening prose that the string-targeted rename checks never inspected. With it fixed, the eight standard detection dimensions surface zero remaining substantive issues; the 003 artifact set is internally consistent across spec / plan / tasks / data-model / contracts / research / quickstart / ADR 0009 / ADR 0010 / IMPLEMENTATION_NOTES / constitution.
+
+### Convergence trajectory (final form, updated)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure at pass-4 (`7d628a6`) |
+| Analyze 1 | Cross-artifact (post-compaction) | 0 (provisional) | Premature closure |
+| Analyze 2 | Cross-artifact (deep) | 1 MEDIUM + 2 LOW | F-M1 / F-L1 / F-L2 (`e031d5c`) |
+| Analyze 3 | Cross-artifact (cascade polish) | 1 LOW | F-L4 (`bdf4456`) |
+| Analyze 4 | Cross-artifact (convention sharpening) | 1 MEDIUM + 3 LOW | F-M3 / F-L5 / F-L6 / F-L7 (`ade0e90`) |
+| Analyze 5 | Cross-artifact (F-L6 cascade) | 1 LOW | F-L8 (`4b4a7ea`) |
+| Analyze 6 | Cross-artifact (zero-finding confirmation) | 0 | Zero-finding closure (`334eaf2`) |
+| Analyze 7 | Cross-artifact (post-closure T017 scope-expansion cascade) | 2 LOW | F-L9 / F-L10 (`9bb89c8`) |
+| **Analyze 8** | **Cross-artifact (full no-focus standard-checks sweep)** | **1 LOW** | **F-L11 — fix-applied in this commit** |
+
+The one previously-deferred LOW item (F-L3 — `ROADMAP.md` §2 003 entry staleness) remains deferred per CHK081 + ROADMAP §4's working-document stance; not blocking.
+
+### Next Actions
+
+**003 artifact set is `/speckit-implement`-ready** (re-confirmed). The pass-8 fix is doc-only; no earlier-phase re-run needed. Per ROADMAP §4's session-boundary guidance, run `/speckit-implement` in a fresh Claude Code session.
