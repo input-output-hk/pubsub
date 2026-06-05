@@ -38,7 +38,7 @@ pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
 };
 pub use error::{ConfigError, NetworkError, NodeError};
-pub use message::{Message, MessagePayload};
+pub use message::{Message, MessagePayload, PublisherId};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};

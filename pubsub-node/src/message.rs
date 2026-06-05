@@ -1,4 +1,43 @@
+use std::fmt;
+
+use crate::crypto::PublicKey;
 use crate::topic::TopicId;
+
+/// Identifies the entity whose private key signed a message.
+///
+/// A thin newtype over [`PublicKey`], distinct at the type level from
+/// [`PeerId`](crate::PeerId): a `PublisherId` names the originator of a
+/// message, whereas a `PeerId` names the network neighbour that forwarded it.
+/// The compiler keeps the two roles from being used interchangeably even when
+/// they wrap the same bytes.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct PublisherId(PublicKey);
+
+impl PublisherId {
+    /// Construct a publisher id from a public key.
+    #[must_use]
+    pub fn new(public: PublicKey) -> Self {
+        Self(public)
+    }
+
+    /// Borrow the inner public key, e.g. to dispatch signature verification.
+    #[must_use]
+    pub fn as_public_key(&self) -> &PublicKey {
+        &self.0
+    }
+}
+
+impl From<PublicKey> for PublisherId {
+    fn from(public: PublicKey) -> Self {
+        Self(public)
+    }
+}
+
+impl fmt::Display for PublisherId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 /// The body of a [`Message`].
 ///
