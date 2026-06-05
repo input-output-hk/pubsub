@@ -84,10 +84,10 @@ impl Node {
         let subscriptions_for_task = Arc::clone(&subscriptions);
 
         let recv_task = tokio::spawn(async move {
-            while let Some(env) = rx.recv().await {
+            while let Some(frame) = rx.recv().await {
                 tracing::debug!(
                     target: "pubsub_node::node",
-                    from = %env.from,
+                    from = %frame.from,
                     "recv",
                 );
 
@@ -95,13 +95,13 @@ impl Node {
                     let guard = subscriptions_for_task
                         .lock()
                         .expect("recv task: subscriptions mutex poisoned");
-                    guard.contains(&env.message.topic)
+                    guard.contains(&frame.message.topic)
                 };
 
                 if is_subscribed {
                     let delivery = ReceivedDelivery {
-                        from: env.from,
-                        message: env.message,
+                        from: frame.from,
+                        message: frame.message,
                     };
                     let mut guard = received_for_task
                         .lock()
@@ -112,8 +112,8 @@ impl Node {
                         target: "pubsub_node::node",
                         event = "topic_drop",
                         self_id = %self_id_for_task,
-                        from = %env.from,
-                        topic = %env.message.topic,
+                        from = %frame.from,
+                        topic = %frame.message.topic,
                     );
                 }
             }

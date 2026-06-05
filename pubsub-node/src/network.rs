@@ -8,7 +8,13 @@ use crate::error::NetworkError;
 use crate::message::Message;
 use crate::peer::PeerId;
 
-pub(crate) struct Envelope {
+/// Network-layer routing wrapper: carries a [`Message`] from a sender's
+/// [`PeerId`] to a receiver's mailbox.
+///
+/// Renamed from the 001-era `Envelope` per ADR 0010, freeing the term
+/// "envelope" for the whole signed message at the protocol layer. This type's
+/// fields, behaviour, and routing role are unchanged from `Envelope`.
+pub(crate) struct RoutingFrame {
     pub from: PeerId,
     pub message: Message,
 }
@@ -39,7 +45,7 @@ pub trait Network: Send + Sync + 'static {
     async fn register(&self, id: PeerId) -> Result<NetworkHandle, NetworkError>;
 }
 
-type Registry = Arc<RwLock<HashMap<PeerId, UnboundedSender<Envelope>>>>;
+type Registry = Arc<RwLock<HashMap<PeerId, UnboundedSender<RoutingFrame>>>>;
 
 #[derive(Clone)]
 pub(crate) struct NetworkSender {
@@ -50,11 +56,11 @@ impl NetworkSender {
     async fn send(&self, from: &PeerId, to: &PeerId, message: Message) -> Result<(), NetworkError> {
         let guard = self.registry.read().await;
         if let Some(tx) = guard.get(to) {
-            let env = Envelope {
+            let frame = RoutingFrame {
                 from: from.clone(),
                 message,
             };
-            if tx.send(env).is_ok() {
+            if tx.send(frame).is_ok() {
                 tracing::debug!(
                     target: "pubsub_node::network",
                     from = %from,
@@ -86,7 +92,7 @@ impl NetworkSender {
 pub struct NetworkHandle {
     self_id: PeerId,
     tx: NetworkSender,
-    rx: Option<UnboundedReceiver<Envelope>>,
+    rx: Option<UnboundedReceiver<RoutingFrame>>,
 }
 
 impl NetworkHandle {
@@ -107,7 +113,7 @@ impl NetworkHandle {
         self.tx.send(&self.self_id, to, message).await
     }
 
-    pub(crate) fn take_receiver(&mut self) -> UnboundedReceiver<Envelope> {
+    pub(crate) fn take_receiver(&mut self) -> UnboundedReceiver<RoutingFrame> {
         self.rx
             .take()
             .expect("NetworkHandle::take_receiver called more than once")
@@ -149,7 +155,7 @@ impl Default for InMemoryNetwork {
 
 impl Network for InMemoryNetwork {
     async fn register(&self, id: PeerId) -> Result<NetworkHandle, NetworkError> {
-        let (tx, rx) = unbounded_channel::<Envelope>();
+        let (tx, rx) = unbounded_channel::<RoutingFrame>();
         let mut guard = self.registry.write().await;
         if guard.contains_key(&id) {
             return Err(NetworkError::DuplicateRegistration(id));
