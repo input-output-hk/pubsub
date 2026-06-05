@@ -4,6 +4,30 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-06-04 — Brainstorm: key rotation, sequence integrity, SecureCyclon presentation framing
+
+**SecureCyclon and key rotation.** Jesus walked through the SecureCyclon misbehaviour-eviction path: nodes are banned via cryptographic signatures, so a compromised key lets an attacker fabricate evidence of past misbehaviour. Mitigations discussed: key-evolving signature schemes or epoch-based key rotation. Jesus flagged that rotation costs more in space and signing time than vanilla ED25519, but the trade-off prevents an attacker from signing messages for past epochs.
+
+**Publisher sequence numbers and message integrity.** Will raised an issue where a malicious publisher could skip sequence numbers (publishing message 5 after message 3) to manipulate history. Will and Jesus debated whether a hash chain proves a message was intentionally omitted rather than dropped by the network. Ezequiel observed that distinguishing the two cases is difficult without sacrificing liveness. Open shape.
+
+**Threat model and forward security.** Group revisited what forward security buys. Jesus clarified: forward security protects against *past* compromises by rotating and removing old keys, but it does not prevent *future* compromises — that requires proactively secure digital-signature schemes where a cold key derives epoch-specific keys. Necessary if the design wants to prevent attackers from forging valid forks after a key compromise.
+
+**Necessity of linear ordering.** Denis questioned whether linear message ordering is strictly required or whether wall-clock timestamps could substitute. Jesus and Ezequiel concluded the hash chain remains cheap and useful for detecting gaps in message sequences, even though it does not prevent every attack. The discussion noted a shift in the threat model: participants are moving toward verifying individual peer responses rather than relying solely on statistical network analysis.
+
+**Standardising key derivation — deferred.** Jesus and Ezequiel agreed standardising key-derivation methods is not an immediate priority and does not block current development. Decision: defer until the gossiping protocols are more clearly defined, then pick the most constrained scheme that fits.
+
+**Implementation update and signature malleability.** Ezequiel reported the implementation work to restructure messages with mock crypto is taking longer than expected. Brief touch on ED25519 signature malleability: Jesus confirmed the Cardano implementation uses canonical points to avoid it. Agreed to continue narrow technical discussion on GitHub.
+
+**Monday SecureCyclon presentation.** Denis planning a presentation on SecureCyclon for next Monday. Suggested use cases to illustrate practical applications: notifications, security alerts, governance signals. Denis and Ezequiel agreed to frame the narrative around the project's evolution — identifying issues in the original architecture, applying fixes to the dissemination layer, analysing SecureCyclon's residual limitations and excluded attack classes. Ezequiel emphasised the methodology itself is the core value: pen-and-paper analysis, model checking, and simulations used to validate the protocol and its improved dissemination layer.
+
+**Protocol analysis findings to highlight.** The discovery: the original protocol was not well-studied with respect to its composition. Through formal model checking, simulations, and manual analysis, the team identified critical issues and proposed adjusting edge priorities as a defence. These findings were derived systematically from the models rather than being random observations; the original paper's model lacked sufficient strictness. Denis and Ezequiel agreed to revise slides so the value comes across — the contribution went beyond identifying a broken protocol: they successfully formalised the lower layers and implemented fixes. Ezequiel stressed conveying the risk of rushing implementation without proper modelling.
+
+**Decisions.** *Aligned:* defer standardising key derivation; continue ED25519-malleability discussion on GitHub; Monday presentation framed around methodology and evolution narrative. *Open:* whether to adopt key-evolving / forward-secure signatures, and how to prove intentional vs accidental sequence-number gaps.
+
+**Next.** Denis to refine the SecureCyclon presentation slides — simplified problem statement, methodology-first framing — and share next day. Ezequiel available for feedback around 11:00 local after a medical appointment. Both to stay in sync on the final shape ahead of Monday.
+
+---
+
 ## 2026-06-02 — PubSub working session: state-machine refactor, gap validation deferred
 
 **Technical report over CIP for July.** Team prioritised a technical report rather than a formal CIP for the July deliverable. David framed the CPS plus a secondary technical report as the value demonstration — it shows the team has identified concrete research use cases and is working toward real-world Cardano applications. Will confirmed a report focused on ideas and solutions (not a formal CIP) is feasible by end of July, reusing the existing CPS structure and current prototype outcomes to validate the use cases.
