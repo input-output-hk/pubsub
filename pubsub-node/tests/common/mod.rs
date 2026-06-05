@@ -9,7 +9,9 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    InMemoryNetwork, Message, Node, NodeConfig, PeerEntry, PeerId, ReceivedDelivery, TopicId,
+    InMemoryNetwork, Message, MessageHash, MessagePayload, Node, NodeConfig, PeerEntry, PeerId,
+    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, TestSigner,
+    TestVerifier, Timestamp, TopicId, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -36,6 +38,73 @@ fn init_test_tracing() {
 /// observing the deliveries they constructed.
 pub fn test_topic() -> TopicId {
     TopicId::from_str("test").expect("valid topic id")
+}
+
+/// A fixed-key signer shared across fixture-built messages.
+///
+/// `TestSigner` is deterministic in its private key, so messages built from the
+/// same inputs via [`build_signed_message_simple`] (and [`ping`]) compare equal
+/// — the property the 001/002 tests' equality assertions rely on.
+pub fn test_signer() -> TestSigner {
+    TestSigner::new(PrivateKey::new(b"pubsub-node-test-fixture-signer".to_vec()))
+}
+
+/// The verifier shared by test fixtures: accepts any signature produced by a
+/// [`TestSigner`] under the matching derived public key.
+pub fn shared_test_verifier() -> Arc<dyn Verifier> {
+    Arc::new(TestVerifier)
+}
+
+/// Build a signed [`Message`] from explicit envelope inputs.
+///
+/// Constructs the [`PlainMessage`] (deriving `publisher_id` from the signer's
+/// public key), signs its canonical bytes, and wraps the result in
+/// `Message::Signed`.
+pub fn build_signed_message(
+    signer: &impl Signer,
+    topic: TopicId,
+    payload: MessagePayload,
+    sequence: u64,
+    parent_hash: Option<MessageHash>,
+    timestamp: Timestamp,
+) -> Message {
+    let plain = PlainMessage {
+        topic,
+        publisher_id: PublisherId::from(signer.public_key()),
+        parent_hash,
+        sequence,
+        timestamp,
+        payload,
+    };
+    let signature = signer.sign(&plain.signed_bytes());
+    Message::Signed(SignedMessage { plain, signature })
+}
+
+/// Build a signed [`Message`] with default chain fields (`sequence = 0`,
+/// `parent_hash = None`, `timestamp = 0`).
+pub fn build_signed_message_simple(
+    signer: &impl Signer,
+    topic: TopicId,
+    payload: MessagePayload,
+) -> Message {
+    build_signed_message(signer, topic, payload, 0, None, Timestamp::from_millis(0))
+}
+
+/// Build a signed `Ping(n)` on `topic` using the shared [`test_signer`].
+///
+/// The 003-era replacement for the 002 `Message::ping(topic, n)` constructor at
+/// migrated call sites.
+pub fn ping(topic: TopicId, n: u64) -> Message {
+    build_signed_message_simple(&test_signer(), topic, MessagePayload::Ping(n))
+}
+
+/// Borrow the topic of a [`Message`] regardless of variant.
+pub fn message_topic(message: &Message) -> &TopicId {
+    match message {
+        Message::Signed(signed) => &signed.plain.topic,
+        // `Message` is #[non_exhaustive]; 003 defines only the Signed variant.
+        _ => unreachable!("Message has only the Signed variant in 003"),
+    }
 }
 
 pub struct TwoNodeFixture {

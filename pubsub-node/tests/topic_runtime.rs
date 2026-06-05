@@ -37,8 +37,8 @@ async fn fixture_a_t2_only() -> TwoNodeFixture {
 /// A's filter drops the first and retains the second. Returns once the
 /// retained delivery is observable in A's snapshot.
 async fn drive_to_as1_state(fx: &TwoNodeFixture) {
-    let off_topic = Message::ping(t1(), 1);
-    let on_topic = Message::ping(t2(), 2);
+    let off_topic = common::ping(t1(), 1);
+    let on_topic = common::ping(t2(), 2);
 
     fx.b.send(fx.a.id(), off_topic)
         .await
@@ -63,7 +63,7 @@ async fn initial_set_filters_inbound() {
     let record = fx.a.received_messages();
     assert_eq!(record.len(), 1, "A retains exactly the T2 delivery");
     assert_eq!(record[0].from, *fx.b.id());
-    assert_eq!(record[0].message, Message::ping(t2(), 2));
+    assert_eq!(record[0].message, common::ping(t2(), 2));
 
     assert_subscriptions(&fx.a, &[t2()]);
 }
@@ -97,7 +97,7 @@ async fn subscribe_makes_subsequent_message_visible() {
     drive_to_as1_state(&fx).await;
     assert_eq!(fx.a.subscribe(t1()), SubscribeOutcome::Added);
 
-    let new_t1 = Message::ping(t1(), 3);
+    let new_t1 = common::ping(t1(), 3);
     fx.b.send(fx.a.id(), new_t1.clone())
         .await
         .expect("send Ping(3, T1)");
@@ -113,7 +113,7 @@ async fn subscribe_makes_subsequent_message_visible() {
             .collect();
     assert_eq!(
         messages,
-        vec![Message::ping(t2(), 2), Message::ping(t1(), 3)],
+        vec![common::ping(t2(), 2), common::ping(t1(), 3)],
         "snapshot retains AS-1 T2 entry and gains the new T1 entry",
     );
 }
@@ -129,7 +129,7 @@ async fn unsubscribe_returns_removed_and_updates_set() {
     drive_to_as1_state(&fx).await;
     assert_eq!(fx.a.subscribe(t1()), SubscribeOutcome::Added);
 
-    let new_t1 = Message::ping(t1(), 3);
+    let new_t1 = common::ping(t1(), 3);
     fx.b.send(fx.a.id(), new_t1.clone())
         .await
         .expect("send Ping(3, T1)");
@@ -159,7 +159,7 @@ async fn unsubscribe_makes_subsequent_message_dropped() {
     drive_to_as1_state(&fx).await;
     assert_eq!(fx.a.subscribe(t1()), SubscribeOutcome::Added);
 
-    let earlier_t1 = Message::ping(t1(), 3);
+    let earlier_t1 = common::ping(t1(), 3);
     fx.b.send(fx.a.id(), earlier_t1.clone())
         .await
         .expect("send Ping(3, T1)");
@@ -168,8 +168,8 @@ async fn unsubscribe_makes_subsequent_message_dropped() {
         .expect("AS-5 setup: A observes Ping(3, T1)");
     assert_eq!(fx.a.unsubscribe(t1()), UnsubscribeOutcome::Removed);
 
-    let new_t1 = Message::ping(t1(), 4);
-    let new_t2 = Message::ping(t2(), 5);
+    let new_t1 = common::ping(t1(), 4);
+    let new_t2 = common::ping(t2(), 5);
     fx.b.send(fx.a.id(), new_t1)
         .await
         .expect("send Ping(4, T1)");
@@ -189,9 +189,9 @@ async fn unsubscribe_makes_subsequent_message_dropped() {
     assert_eq!(
         messages,
         vec![
-            Message::ping(t2(), 2),
-            Message::ping(t1(), 3),
-            Message::ping(t2(), 5),
+            common::ping(t2(), 2),
+            common::ping(t1(), 3),
+            common::ping(t2(), 5),
         ],
         "snapshot keeps AS-3's T1 entry (monotonic) and adds the new T2; \
          the new Ping(4, T1) is dropped post-unsubscribe",
@@ -233,7 +233,7 @@ async fn unsubscribe_idempotent_returns_not_subscribed() {
 async fn decoupled_emission_succeeds_on_unsubscribed_topic() {
     let fx =
         two_node_fixture_with_subscriptions(HashSet::from([t2()]), HashSet::from([t1()])).await;
-    let msg = Message::ping(t1(), 99);
+    let msg = common::ping(t1(), 99);
 
     fx.a.send(fx.b.id(), msg.clone())
         .await

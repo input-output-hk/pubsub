@@ -6,13 +6,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{await_delivery, test_topic, two_node_fixture};
-use pubsub_node::{InMemoryNetwork, Message, Node, NodeConfig, PeerEntry, PeerId};
+use pubsub_node::{InMemoryNetwork, Node, NodeConfig, PeerEntry, PeerId};
 
 // US1 AS-1: A's peer set contains B; A sends Ping(42); B's record contains it.
 #[tokio::test]
 async fn ping_delivered_when_a_lists_b() {
     let fx = two_node_fixture().await;
-    let msg = Message::ping(test_topic(), 42);
+    let msg = common::ping(test_topic(), 42);
 
     fx.a.send(fx.b.id(), msg.clone()).await.expect("send Ok");
 
@@ -59,7 +59,7 @@ async fn ping_delivered_trust_on_arrival() {
     .await
     .expect("B");
 
-    let msg = Message::ping(test_topic(), 7);
+    let msg = common::ping(test_topic(), 7);
     a.send(b.id(), msg.clone()).await.expect("send Ok");
 
     await_delivery(&b, a.id(), &msg, Duration::from_secs(1))
@@ -93,7 +93,7 @@ async fn empty_peer_set_cannot_originate() {
     .expect("A");
 
     let ghost = PeerId::from_str("ghost").unwrap();
-    let outcome = a.send(&ghost, Message::ping(test_topic(), 0)).await;
+    let outcome = a.send(&ghost, common::ping(test_topic(), 0)).await;
     assert!(outcome.is_ok(), "send to unregistered id is Ok per FR-010");
 
     // Briefly yield so any spurious recv processing would settle.
@@ -120,7 +120,7 @@ async fn ping_n_intact_across_100_sends() {
     let topic = test_topic();
 
     for i in 0..TOTAL {
-        let msg = Message::ping(topic.clone(), i);
+        let msg = common::ping(topic.clone(), i);
         fx.a.send(fx.b.id(), msg.clone()).await.expect("send Ok");
         await_delivery(&fx.b, fx.a.id(), &msg, Duration::from_secs(1))
             .await
@@ -139,7 +139,7 @@ async fn ping_n_intact_across_100_sends() {
 
     // (b) no loss: every i in 0..TOTAL appears exactly once, all from A.
     for i in 0..TOTAL {
-        let expected = Message::ping(topic.clone(), i);
+        let expected = common::ping(topic.clone(), i);
         let count = record
             .iter()
             .filter(|d| d.from == *fx.a.id() && d.message == expected)

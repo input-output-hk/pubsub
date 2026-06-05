@@ -10,9 +10,15 @@
 //!   for addressing peers.
 //! - [`TopicId`] — the topic carried on every [`Message`]; opaque newtype
 //!   parallel to [`PeerId`].
-//! - [`Message`], [`MessagePayload`] — message envelope and body kinds. The
-//!   envelope carries a [`TopicId`] and a payload; currently only
-//!   [`MessagePayload::Ping`] is defined.
+//! - [`Message`], [`SignedMessage`], [`PlainMessage`], [`MessagePayload`] —
+//!   the protocol-message hierarchy. [`Message`] is a `#[non_exhaustive]` enum
+//!   whose sole variant [`Message::Signed`] carries a [`SignedMessage`]
+//!   (signed-over [`PlainMessage`] content plus a signature). The content
+//!   carries a [`TopicId`], a [`PublisherId`], and a [`MessagePayload`] body;
+//!   currently only [`MessagePayload::Ping`] is defined.
+//! - [`crypto`] — the [`Signer`]/[`Verifier`] trait pair and the byte-newtype
+//!   types they operate over ([`PublicKey`], [`PrivateKey`], [`Signature`],
+//!   [`MessageHash`], [`Timestamp`]); [`crypto::mock`] holds the test crypto.
 //! - [`ReceivedDelivery`] — one observed delivery returned by
 //!   [`Node::received_messages`].
 //! - [`SubscribeOutcome`], [`UnsubscribeOutcome`] — return values for the
@@ -38,7 +44,7 @@ pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
 };
 pub use error::{ConfigError, NetworkError, NodeError};
-pub use message::{Message, MessagePayload, PublisherId};
+pub use message::{Message, MessagePayload, PlainMessage, PublisherId, SignedMessage};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};

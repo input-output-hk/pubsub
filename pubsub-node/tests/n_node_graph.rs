@@ -83,9 +83,9 @@ async fn four_node_star_isolates_addressed_pings() {
     let fx = four_node_star_fixture().await;
     let topic = test_topic();
 
-    let m1 = Message::ping(topic.clone(), 1);
-    let m2 = Message::ping(topic.clone(), 2);
-    let m3 = Message::ping(topic.clone(), 3);
+    let m1 = common::ping(topic.clone(), 1);
+    let m2 = common::ping(topic.clone(), 2);
+    let m3 = common::ping(topic.clone(), 3);
 
     fx.a.send(fx.b.id(), m1.clone()).await.expect("send to B");
     fx.a.send(fx.c.id(), m2.clone()).await.expect("send to C");
@@ -132,9 +132,9 @@ async fn inbound_traffic_independent_of_outbound_peer_set() {
     let fx = four_node_star_fixture().await;
     let topic = test_topic();
 
-    let m_b = Message::ping(topic.clone(), 10);
-    let m_c = Message::ping(topic.clone(), 20);
-    let m_d = Message::ping(topic.clone(), 30);
+    let m_b = common::ping(topic.clone(), 10);
+    let m_c = common::ping(topic.clone(), 20);
+    let m_d = common::ping(topic.clone(), 30);
 
     fx.b.send(fx.a.id(), m_b.clone()).await.expect("B→A");
     fx.c.send(fx.a.id(), m_c.clone()).await.expect("C→A");
@@ -191,7 +191,7 @@ async fn four_node_star_100_send_isolation() {
             1 => &fx.c,
             _ => &fx.d,
         };
-        let msg = Message::ping(topic.clone(), i);
+        let msg = common::ping(topic.clone(), i);
         fx.a.send(target.id(), msg.clone()).await.expect("send");
         await_delivery(target, fx.a.id(), &msg, Duration::from_secs(1))
             .await
@@ -222,7 +222,7 @@ async fn four_node_star_100_send_isolation() {
     ] {
         assert_eq!(record.len(), expected.len(), "{name}: record size");
         for &expected_n in expected {
-            let expected_msg = Message::ping(topic.clone(), expected_n);
+            let expected_msg = common::ping(topic.clone(), expected_n);
             let count = record
                 .iter()
                 .filter(|d| d.from == *fx.a.id() && d.message == expected_msg)
@@ -362,7 +362,7 @@ async fn four_node_star_three_topics_filtering() {
     let topics = [(&fx.t1, 1_u64), (&fx.t2, 2_u64), (&fx.t3, 3_u64)];
 
     for (topic, idx) in topics {
-        let msg = Message::ping(topic.clone(), idx);
+        let msg = common::ping(topic.clone(), idx);
         for recipient in [&fx.a, &fx.b, &fx.c, &fx.d] {
             fx.emitter
                 .send(recipient.id(), msg.clone())
@@ -380,7 +380,7 @@ async fn four_node_star_three_topics_filtering() {
         (&fx.d, vec![(&fx.t3, 3)]),
     ] {
         for (topic, n) in expected {
-            let msg = Message::ping(topic.clone(), n);
+            let msg = common::ping(topic.clone(), n);
             await_delivery(recipient, fx.emitter.id(), &msg, Duration::from_secs(1))
                 .await
                 .expect("delivery");
@@ -398,32 +398,38 @@ async fn four_node_star_three_topics_filtering() {
     assert_eq!(d_rec.len(), 1, "D retains one (T3) delivery");
 
     assert_eq!(a_rec[0].from, *fx.emitter.id());
-    assert_eq!(a_rec[0].message, Message::ping(fx.t1.clone(), 1));
+    assert_eq!(a_rec[0].message, common::ping(fx.t1.clone(), 1));
 
     // Treat B / C as sets — the snapshot order is sender FIFO (emitter sent
     // T1 before T2 before T3), but AS-1 asserts membership, not order; AS-2
     // is the ordering-specific test.
     let b_msgs: Vec<&Message> = b_rec.iter().map(|d| &d.message).collect();
-    assert!(b_msgs.contains(&&Message::ping(fx.t1.clone(), 1)));
-    assert!(b_msgs.contains(&&Message::ping(fx.t2.clone(), 2)));
+    assert!(b_msgs.contains(&&common::ping(fx.t1.clone(), 1)));
+    assert!(b_msgs.contains(&&common::ping(fx.t2.clone(), 2)));
 
     let c_msgs: Vec<&Message> = c_rec.iter().map(|d| &d.message).collect();
-    assert!(c_msgs.contains(&&Message::ping(fx.t2.clone(), 2)));
-    assert!(c_msgs.contains(&&Message::ping(fx.t3.clone(), 3)));
+    assert!(c_msgs.contains(&&common::ping(fx.t2.clone(), 2)));
+    assert!(c_msgs.contains(&&common::ping(fx.t3.clone(), 3)));
 
     assert_eq!(d_rec[0].from, *fx.emitter.id());
-    assert_eq!(d_rec[0].message, Message::ping(fx.t3.clone(), 3));
+    assert_eq!(d_rec[0].message, common::ping(fx.t3.clone(), 3));
 
     // Cross-talk negative assertions: no recipient sees a topic outside its
     // subscription set.
-    assert!(a_rec.iter().all(|d| d.message.topic == fx.t1));
-    assert!(b_rec
+    assert!(a_rec
         .iter()
-        .all(|d| d.message.topic == fx.t1 || d.message.topic == fx.t2));
-    assert!(c_rec
+        .all(|d| common::message_topic(&d.message) == &fx.t1));
+    assert!(b_rec.iter().all(|d| {
+        let t = common::message_topic(&d.message);
+        t == &fx.t1 || t == &fx.t2
+    }));
+    assert!(c_rec.iter().all(|d| {
+        let t = common::message_topic(&d.message);
+        t == &fx.t2 || t == &fx.t3
+    }));
+    assert!(d_rec
         .iter()
-        .all(|d| d.message.topic == fx.t2 || d.message.topic == fx.t3));
-    assert!(d_rec.iter().all(|d| d.message.topic == fx.t3));
+        .all(|d| common::message_topic(&d.message) == &fx.t3));
 }
 
 // US2 AS-2: per-sender FIFO ordering survives the topic filter. Emitter
@@ -446,7 +452,7 @@ async fn four_node_star_topic_interleave_ordering() {
 
     for round in 0..2_u64 {
         for topic in [&fx.t2, &fx.t3] {
-            let msg = Message::ping(topic.clone(), round);
+            let msg = common::ping(topic.clone(), round);
             for recipient in [&fx.a, &fx.b, &fx.c, &fx.d] {
                 fx.emitter
                     .send(recipient.id(), msg.clone())
@@ -462,7 +468,7 @@ async fn four_node_star_topic_interleave_ordering() {
     await_delivery(
         &fx.b,
         fx.emitter.id(),
-        &Message::ping(fx.t2.clone(), 1),
+        &common::ping(fx.t2.clone(), 1),
         Duration::from_secs(1),
     )
     .await
@@ -470,7 +476,7 @@ async fn four_node_star_topic_interleave_ordering() {
     await_delivery(
         &fx.c,
         fx.emitter.id(),
-        &Message::ping(fx.t3.clone(), 1),
+        &common::ping(fx.t3.clone(), 1),
         Duration::from_secs(1),
     )
     .await
@@ -478,7 +484,7 @@ async fn four_node_star_topic_interleave_ordering() {
     await_delivery(
         &fx.d,
         fx.emitter.id(),
-        &Message::ping(fx.t3.clone(), 1),
+        &common::ping(fx.t3.clone(), 1),
         Duration::from_secs(1),
     )
     .await
@@ -498,8 +504,8 @@ async fn four_node_star_topic_interleave_ordering() {
     assert_eq!(
         b_seq,
         vec![
-            Message::ping(fx.t2.clone(), 0),
-            Message::ping(fx.t2.clone(), 1),
+            common::ping(fx.t2.clone(), 0),
+            common::ping(fx.t2.clone(), 1),
         ],
         "B sequence (T2 only, in send order)",
     );
@@ -512,10 +518,10 @@ async fn four_node_star_topic_interleave_ordering() {
     assert_eq!(
         c_seq,
         vec![
-            Message::ping(fx.t2.clone(), 0),
-            Message::ping(fx.t3.clone(), 0),
-            Message::ping(fx.t2.clone(), 1),
-            Message::ping(fx.t3.clone(), 1),
+            common::ping(fx.t2.clone(), 0),
+            common::ping(fx.t3.clone(), 0),
+            common::ping(fx.t2.clone(), 1),
+            common::ping(fx.t3.clone(), 1),
         ],
         "C sequence (T2+T3 interleaved, in send order)",
     );
@@ -528,8 +534,8 @@ async fn four_node_star_topic_interleave_ordering() {
     assert_eq!(
         d_seq,
         vec![
-            Message::ping(fx.t3.clone(), 0),
-            Message::ping(fx.t3.clone(), 1),
+            common::ping(fx.t3.clone(), 0),
+            common::ping(fx.t3.clone(), 1),
         ],
         "D sequence (T3 only, in send order)",
     );
@@ -562,7 +568,7 @@ async fn four_node_star_100_send_topic_isolation() {
 
     for i in 0..TOTAL {
         let topic = topics_seq[(i % 3) as usize];
-        let msg = Message::ping(topic.clone(), i);
+        let msg = common::ping(topic.clone(), i);
         for recipient in recipients {
             fx.emitter
                 .send(recipient.id(), msg.clone())
@@ -584,7 +590,7 @@ async fn four_node_star_100_send_topic_isolation() {
             await_delivery(
                 recipient,
                 fx.emitter.id(),
-                &Message::ping(topic.clone(), i),
+                &common::ping(topic.clone(), i),
                 Duration::from_secs(2),
             )
             .await
@@ -593,7 +599,7 @@ async fn four_node_star_100_send_topic_isolation() {
     }
 
     // Per-recipient set-equality assertion: the recipient's snapshot equals
-    // {Message::ping(topics_seq[i % 3], i) | i ∈ 0..TOTAL, topics_seq[i%3] ∈ subs}.
+    // {common::ping(topics_seq[i % 3], i) | i ∈ 0..TOTAL, topics_seq[i%3] ∈ subs}.
     for (name, recipient, subs) in [
         ("A", &fx.a, &recipient_subs[0]),
         ("B", &fx.b, &recipient_subs[1]),
@@ -619,7 +625,7 @@ async fn four_node_star_100_send_topic_isolation() {
                 *fx.emitter.id(),
                 "{name}: sender attribution"
             );
-            let topic = &delivery.message.topic;
+            let topic = common::message_topic(&delivery.message);
             assert!(
                 subs.contains(&topic),
                 "{name}: off-topic delivery leaked through filter: {topic:?}",
@@ -630,7 +636,7 @@ async fn four_node_star_100_send_topic_isolation() {
         // in the snapshot.
         for &n in &expected_ns {
             let topic = topics_seq[(n % 3) as usize];
-            let expected_msg = Message::ping(topic.clone(), n);
+            let expected_msg = common::ping(topic.clone(), n);
             let count = record
                 .iter()
                 .filter(|d| d.from == *fx.emitter.id() && d.message == expected_msg)

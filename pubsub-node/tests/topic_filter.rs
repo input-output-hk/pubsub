@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{await_delivery, two_node_fixture_with_subscriptions};
-use pubsub_node::{InMemoryNetwork, Message, Node, NodeConfig, PeerEntry, PeerId, TopicId};
+use pubsub_node::{InMemoryNetwork, Node, NodeConfig, PeerEntry, PeerId, TopicId};
 
 fn topic(s: &str) -> TopicId {
     TopicId::from_str(s).expect("valid topic id")
@@ -22,7 +22,7 @@ async fn on_topic_message_retained() {
         HashSet::from([t1.clone()]),
     )
     .await;
-    let msg = Message::ping(t1.clone(), 42);
+    let msg = common::ping(t1.clone(), 42);
 
     fx.b.send(fx.a.id(), msg.clone()).await.expect("send Ok");
 
@@ -47,7 +47,7 @@ async fn off_topic_message_dropped_silently() {
         HashSet::from([t2.clone()]),
     )
     .await;
-    let off_topic_msg = Message::ping(t2, 7);
+    let off_topic_msg = common::ping(t2, 7);
 
     fx.b.send(fx.a.id(), off_topic_msg).await.expect("send Ok");
 
@@ -96,7 +96,7 @@ async fn own_emission_not_in_local_snapshot() {
     .await
     .expect("construct B");
 
-    let msg = Message::ping(t1, 13);
+    let msg = common::ping(t1, 13);
     a.send(b.id(), msg.clone()).await.expect("send Ok");
 
     // Wait until B has observed the delivery — guarantees the recv task

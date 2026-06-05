@@ -91,30 +91,34 @@ impl Node {
                     "recv",
                 );
 
-                let is_subscribed = {
-                    let guard = subscriptions_for_task
-                        .lock()
-                        .expect("recv task: subscriptions mutex poisoned");
-                    guard.contains(&frame.message.topic)
-                };
+                match frame.message {
+                    Message::Signed(signed) => {
+                        let is_subscribed = {
+                            let guard = subscriptions_for_task
+                                .lock()
+                                .expect("recv task: subscriptions mutex poisoned");
+                            guard.contains(&signed.plain.topic)
+                        };
 
-                if is_subscribed {
-                    let delivery = ReceivedDelivery {
-                        from: frame.from,
-                        message: frame.message,
-                    };
-                    let mut guard = received_for_task
-                        .lock()
-                        .expect("recv task: received mutex poisoned");
-                    guard.push(delivery);
-                } else {
-                    tracing::info!(
-                        target: "pubsub_node::node",
-                        event = "topic_drop",
-                        self_id = %self_id_for_task,
-                        from = %frame.from,
-                        topic = %frame.message.topic,
-                    );
+                        if is_subscribed {
+                            let delivery = ReceivedDelivery {
+                                from: frame.from,
+                                message: Message::Signed(signed),
+                            };
+                            let mut guard = received_for_task
+                                .lock()
+                                .expect("recv task: received mutex poisoned");
+                            guard.push(delivery);
+                        } else {
+                            tracing::info!(
+                                target: "pubsub_node::node",
+                                event = "topic_drop",
+                                self_id = %self_id_for_task,
+                                from = %frame.from,
+                                topic = %signed.plain.topic,
+                            );
+                        }
+                    }
                 }
             }
         });

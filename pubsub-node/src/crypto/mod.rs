@@ -132,6 +132,20 @@ impl MessageHash {
         Self(bytes)
     }
 
+    /// Compute the content hash of `plain`: SHA-256 over its canonical signing
+    /// bytes.
+    ///
+    /// Content-anchored — the signature is deliberately excluded from the hash
+    /// input, so the hash is stable across signature changes and signing-scheme
+    /// migrations. This is the value a subsequent message uses as its
+    /// `parent_hash`.
+    #[must_use]
+    pub fn of(plain: &crate::message::PlainMessage) -> MessageHash {
+        use sha2::{Digest, Sha256};
+        let digest = Sha256::digest(plain.signed_bytes());
+        MessageHash(digest.into())
+    }
+
     /// Borrow the underlying 32-byte array.
     #[must_use]
     pub fn as_bytes(&self) -> &[u8; 32] {
