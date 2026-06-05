@@ -569,3 +569,61 @@ The one previously-deferred LOW item (F-L3 — `ROADMAP.md` §2 003 entry stalen
 ### Next Actions
 
 **003 artifact set is `/speckit-implement`-ready** (re-confirmed). The pass-8 fix is doc-only; no earlier-phase re-run needed. Per ROADMAP §4's session-boundary guidance, run `/speckit-implement` in a fresh Claude Code session.
+
+---
+
+## Pass-9 Findings (2026-06-04) — zero-finding confirmation closure
+
+Pass-9 triggered by user request for another round. Per the convergence rule, a fix pass (pass-8) is normally followed by a confirmation pass that verifies the fix settled without new drift. Pass-9 is that confirmation.
+
+### Pass-8 fix verification
+
+- **F-L11 verification**: `data-model.md` §0 (L7) no longer lists `` `Envelope` routing wrapper `` in the "entities unchanged by 003 … not duplicated here" inventory. ✓ A broad grep for `Envelope` across all eight artifacts (`spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `research.md`, `quickstart.md`, `contracts/library-api.md`, plus the ADRs) returns only: feature-title strings ("Message Envelope + Mock Crypto"), the prose concept ("Envelope-field cardinality" at `plan.md` L58, meaning the §2.3 envelope), and rename-contextualized mentions ("RoutingFrame (renamed from 001's `Envelope`)" at `spec.md` L174; `data-model.md` §16d; the `contracts` re-export note). No bare stale `Envelope`-as-unchanged-entity token remains anywhere.
+- **Sibling inventory lists cross-checked**: the two other "what 003 does NOT change" inventories — `contracts/library-api.md` L9 (canonical-references list) and L347–349 ("What 003 does NOT change") — both correctly **exclude** `Envelope` from their unchanged lists; `contracts` L350 handles the rename separately. No analogous drift in those lists.
+
+### Six-detection-pass sweep
+
+| Category | Result |
+|---|---|
+| **A. Duplication** | Zero (unchanged from pass-8). |
+| **B. Ambiguity** | Zero vague adjectives / unresolved placeholders in normative text. |
+| **C. Underspecification** | Zero open. |
+| **D. Constitution Alignment** | All 5 principles ✓ pass (re-verified against the actual constitution text in pass-8; no artifact changed since except pass-8's doc-only data-model edit). |
+| **E. Coverage Gaps** | 100% — 20 FR / 8 SC / 28 tasks, all mapped; no orphaned tasks. |
+| **F. Inconsistency / Terminology drift** | Zero — F-L11 was the last residue; all terminology consistent across the eight artifacts + two ADRs + IMPLEMENTATION_NOTES. |
+
+### Pass-9 Findings Table
+
+*(empty — zero substantive findings)*
+
+### Pass-9 Metrics
+
+- Total Requirements: 28 (20 FR + 8 SC).
+- Total Tasks: 28.
+- Coverage %: 100%.
+- **Critical / High / Medium / Low issues: 0 / 0 / 0 / 0.**
+
+### Pass-9 Verdict — Zero-Finding Closure (re-confirmed)
+
+**Zero substantive findings.** Pass-8's F-L11 fix settled cleanly with no new drift, and the broad detection sweep surfaces nothing further. The 003 artifact set is at convergence — the same terminal state pass-6 reached, now re-confirmed after the pass-7 (T017 scope-expansion cascade) and pass-8 (data-model inventory) edits. No edit made in this pass beyond this ledger entry.
+
+### Convergence trajectory (final form, updated)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure at pass-4 (`7d628a6`) |
+| Analyze 1 | Cross-artifact (post-compaction) | 0 (provisional) | Premature closure |
+| Analyze 2 | Cross-artifact (deep) | 1 MEDIUM + 2 LOW | F-M1 / F-L1 / F-L2 (`e031d5c`) |
+| Analyze 3 | Cross-artifact (cascade polish) | 1 LOW | F-L4 (`bdf4456`) |
+| Analyze 4 | Cross-artifact (convention sharpening) | 1 MEDIUM + 3 LOW | F-M3 / F-L5 / F-L6 / F-L7 (`ade0e90`) |
+| Analyze 5 | Cross-artifact (F-L6 cascade) | 1 LOW | F-L8 (`4b4a7ea`) |
+| Analyze 6 | Cross-artifact (zero-finding confirmation) | 0 | Zero-finding closure (`334eaf2`) |
+| Analyze 7 | Cross-artifact (post-closure T017 scope-expansion cascade) | 2 LOW | F-L9 / F-L10 (`9bb89c8`) |
+| Analyze 8 | Cross-artifact (full no-focus standard-checks sweep) | 1 LOW | F-L11 (`3d3e48a`) |
+| **Analyze 9** | **Cross-artifact (post-fix confirmation)** | **0** | **Zero-finding closure (this commit)** |
+
+The one previously-deferred LOW item (F-L3 — `ROADMAP.md` §2 003 entry staleness) remains deferred per CHK081 + ROADMAP §4's working-document stance; not blocking.
+
+### Next Actions
+
+**003 artifact set is `/speckit-implement`-ready.** The set has now reached a zero-finding closure twice (pass-6, pass-9) with the intervening edits (passes 7–8) verified clean. Further analyze passes have diminishing returns absent a new artifact edit. Per ROADMAP §4's session-boundary guidance, run `/speckit-implement` in a fresh Claude Code session.
