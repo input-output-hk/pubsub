@@ -42,6 +42,7 @@ async fn ping_delivered_trust_on_arrival() {
         },
         HashSet::from([test_topic()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("A");
@@ -55,6 +56,7 @@ async fn ping_delivered_trust_on_arrival() {
         },
         HashSet::from([test_topic()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("B");
@@ -88,6 +90,7 @@ async fn empty_peer_set_cannot_originate() {
         },
         HashSet::from([test_topic()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("A");

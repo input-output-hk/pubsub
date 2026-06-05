@@ -80,6 +80,7 @@ async fn own_emission_not_in_local_snapshot() {
         },
         HashSet::from([t1.clone()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct A");
@@ -92,6 +93,7 @@ async fn own_emission_not_in_local_snapshot() {
         },
         HashSet::from([t1.clone()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct B");

@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use pubsub_node::{load_node_config, ConfigError, InMemoryNetwork, Node, PeerId, TopicId};
+use pubsub_node::{
+    load_node_config, ConfigError, InMemoryNetwork, Node, PeerId, TestVerifier, TopicId, Verifier,
+};
 use tempfile::tempdir;
 
 // US3 AS-1: a TOML file with three [[peers]] entries loads as a
@@ -341,11 +343,13 @@ id = "node-b"
     // src/main.rs); duplicates are absorbed.
     let initial_subscriptions: HashSet<TopicId> = cfg.subscribed_topics.iter().cloned().collect();
     let network = Arc::new(InMemoryNetwork::new());
+    let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
     let node = Node::new(
         PeerId::from_str("node-x").unwrap(),
         cfg,
         initial_subscriptions,
         network,
+        verifier,
     )
     .await
     .expect("construct node");

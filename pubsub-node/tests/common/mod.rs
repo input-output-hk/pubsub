@@ -130,6 +130,7 @@ pub async fn two_node_fixture_with_subscriptions(
 ) -> TwoNodeFixture {
     init_test_tracing();
     let network = Arc::new(InMemoryNetwork::new());
+    let verifier = shared_test_verifier();
     let a_id = PeerId::from_str("node-a").expect("valid id");
     let b_id = PeerId::from_str("node-b").expect("valid id");
 
@@ -141,6 +142,7 @@ pub async fn two_node_fixture_with_subscriptions(
         },
         a_subscriptions,
         network.clone(),
+        verifier.clone(),
     )
     .await
     .expect("construct node A");
@@ -153,6 +155,7 @@ pub async fn two_node_fixture_with_subscriptions(
         },
         b_subscriptions,
         network.clone(),
+        verifier,
     )
     .await
     .expect("construct node B");

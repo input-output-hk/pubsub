@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
+use crate::crypto::Verifier;
 use crate::error::NodeError;
 use crate::message::Message;
 use crate::network::{Network, NetworkHandle};
@@ -43,15 +44,21 @@ pub enum UnsubscribeOutcome {
 ///   [`subscriptions`](Node::subscriptions) and mutable through
 ///   [`subscribe`](Node::subscribe) / [`unsubscribe`](Node::unsubscribe),
 /// - a queryable record of received messages accessible via
-///   [`received_messages`](Node::received_messages). Only messages whose
-///   topic is in the subscription set at receive time enter this record;
-///   off-topic deliveries are silently dropped (with an info-level
-///   `topic_drop` tracing event).
+///   [`received_messages`](Node::received_messages). A delivery enters this
+///   record only if its topic is in the subscription set at receive time and
+///   its signature verifies; messages failing either check are silently
+///   dropped (with an info-level `message_dropped` tracing event carrying a
+///   `cause`).
 pub struct Node {
     handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,
     received: Arc<Mutex<Vec<ReceivedDelivery>>>,
     subscriptions: Arc<Mutex<HashSet<TopicId>>>,
+    // Canonical owner of the verifier for the node's lifetime. The receive task
+    // consults its own `Arc` clone; this field is retained so the verifier
+    // outlives any future non-task use (e.g. a synchronous verify API).
+    #[allow(dead_code)]
+    verifier: Arc<dyn Verifier>,
     recv_task: JoinHandle<()>,
 }
 
@@ -64,6 +71,10 @@ impl Node {
     /// message; the set may be mutated at runtime via
     /// [`subscribe`](Self::subscribe) / [`unsubscribe`](Self::unsubscribe).
     ///
+    /// `verifier` checks each inbound message's signature; messages whose
+    /// signature does not verify are dropped. It is consulted on the receive
+    /// path only — a node does not sign.
+    ///
     /// Returns [`NodeError`] if registration fails (e.g. the id is already
     /// taken on this network instance).
     pub async fn new<N: Network>(
@@ -71,6 +82,7 @@ impl Node {
         config: NodeConfig,
         initial_subscriptions: HashSet<TopicId>,
         network: Arc<N>,
+        verifier: Arc<dyn Verifier>,
     ) -> Result<Self, NodeError> {
         let mut handle = network.register(self_id).await?;
         let mut rx = handle.take_receiver();
@@ -83,6 +95,8 @@ impl Node {
             Arc::new(Mutex::new(initial_subscriptions));
         let subscriptions_for_task = Arc::clone(&subscriptions);
 
+        let verifier_for_task = Arc::clone(&verifier);
+
         let recv_task = tokio::spawn(async move {
             while let Some(frame) = rx.recv().await {
                 tracing::debug!(
@@ -93,6 +107,9 @@ impl Node {
 
                 match frame.message {
                     Message::Signed(signed) => {
+                        // Topic filter first (cheap), then signature
+                        // verification — off-topic traffic never pays the
+                        // verification cost.
                         let is_subscribed = {
                             let guard = subscriptions_for_task
                                 .lock()
@@ -100,24 +117,44 @@ impl Node {
                             guard.contains(&signed.plain.topic)
                         };
 
-                        if is_subscribed {
-                            let delivery = ReceivedDelivery {
-                                from: frame.from,
-                                message: Message::Signed(signed),
-                            };
-                            let mut guard = received_for_task
-                                .lock()
-                                .expect("recv task: received mutex poisoned");
-                            guard.push(delivery);
-                        } else {
+                        if !is_subscribed {
                             tracing::info!(
                                 target: "pubsub_node::node",
-                                event = "topic_drop",
+                                event = "message_dropped",
+                                cause = "topic_not_subscribed",
                                 self_id = %self_id_for_task,
                                 from = %frame.from,
                                 topic = %signed.plain.topic,
                             );
+                            continue;
                         }
+
+                        let verify_outcome = verifier_for_task.verify(
+                            signed.plain.publisher_id.as_public_key(),
+                            &signed.plain.signed_bytes(),
+                            &signed.signature,
+                        );
+                        if verify_outcome.is_err() {
+                            tracing::info!(
+                                target: "pubsub_node::node",
+                                event = "message_dropped",
+                                cause = "invalid_signature",
+                                self_id = %self_id_for_task,
+                                from = %frame.from,
+                                topic = %signed.plain.topic,
+                                publisher_id = %signed.plain.publisher_id,
+                            );
+                            continue;
+                        }
+
+                        let delivery = ReceivedDelivery {
+                            from: frame.from,
+                            message: Message::Signed(signed),
+                        };
+                        let mut guard = received_for_task
+                            .lock()
+                            .expect("recv task: received mutex poisoned");
+                        guard.push(delivery);
                     }
                 }
             }
@@ -134,6 +171,7 @@ impl Node {
             peers,
             received,
             subscriptions,
+            verifier,
             recv_task,
         })
     }

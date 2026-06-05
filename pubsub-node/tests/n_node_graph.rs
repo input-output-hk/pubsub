@@ -34,6 +34,7 @@ async fn four_node_star_fixture() -> FourNodeStar {
         },
         HashSet::from([test_topic()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct A");
@@ -45,6 +46,7 @@ async fn four_node_star_fixture() -> FourNodeStar {
         },
         HashSet::from([test_topic()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct B");
@@ -56,6 +58,7 @@ async fn four_node_star_fixture() -> FourNodeStar {
         },
         HashSet::from([test_topic()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct C");
@@ -67,6 +70,7 @@ async fn four_node_star_fixture() -> FourNodeStar {
         },
         HashSet::from([test_topic()]),
         network,
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct D");
@@ -281,6 +285,7 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         },
         HashSet::new(),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct emitter");
@@ -293,6 +298,7 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         },
         HashSet::from([t1.clone()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct A");
@@ -305,6 +311,7 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         },
         HashSet::from([t1.clone(), t2.clone()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct B");
@@ -317,6 +324,7 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         },
         HashSet::from([t2.clone(), t3.clone()]),
         network.clone(),
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct C");
@@ -329,6 +337,7 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         },
         HashSet::from([t3.clone()]),
         network,
+        common::shared_test_verifier(),
     )
     .await
     .expect("construct D");

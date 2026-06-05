@@ -129,9 +129,19 @@ impl NetworkHandle {
 ///
 /// Share a single instance among multiple nodes via `Arc`:
 ///
-/// ```ignore
-/// let network = std::sync::Arc::new(InMemoryNetwork::new());
-/// let node = Node::new(self_id, config, network.clone()).await?;
+/// ```no_run
+/// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+/// # use std::collections::HashSet;
+/// # use std::sync::Arc;
+/// # use pubsub_node::{InMemoryNetwork, Node, NodeConfig, PeerId, TestVerifier, Verifier};
+/// # let self_id: PeerId = "node-a".parse()?;
+/// # let config = NodeConfig { peers: vec![], subscribed_topics: vec![] };
+/// # let initial_subscriptions: HashSet<_> = HashSet::new();
+/// let network = Arc::new(InMemoryNetwork::new());
+/// let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
+/// let node = Node::new(self_id, config, initial_subscriptions, network.clone(), verifier).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct InMemoryNetwork {
     registry: Registry,
