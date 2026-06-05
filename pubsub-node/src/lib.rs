@@ -23,6 +23,7 @@
 //!   [`TopicIdError`] — typed failure modes.
 
 mod config;
+pub mod crypto;
 mod error;
 mod message;
 mod network;
@@ -32,6 +33,10 @@ mod received;
 mod topic;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
+pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
+pub use crypto::{
+    MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
+};
 pub use error::{ConfigError, NetworkError, NodeError};
 pub use message::{Message, MessagePayload};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
