@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
-use pubsub_node::{load_node_config, InMemoryNetwork, Node, PeerId};
+use pubsub_node::{load_node_config, InMemoryNetwork, Node, PeerId, TestVerifier, Verifier};
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
 /// in-memory network, loads its peer set from TOML, and waits for Ctrl-C.
@@ -40,7 +40,10 @@ async fn main() {
     let initial_subscriptions: HashSet<_> = cfg.subscribed_topics.iter().cloned().collect();
 
     let network = Arc::new(InMemoryNetwork::new());
-    let node = Node::new(args.self_id, cfg, initial_subscriptions, network)
+    // Prototype-stage verifier: the mock accepts any correctly-bound mock
+    // signature. A real verifier replaces this when authenticated crypto lands.
+    let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
+    let node = Node::new(args.self_id, cfg, initial_subscriptions, network, verifier)
         .await
         .unwrap_or_else(|e| {
             eprintln!("pubsub-node: {e}");

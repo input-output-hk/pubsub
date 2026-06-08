@@ -1,21 +1,23 @@
 <!-- SPECKIT START -->
 **Feature roadmap (read first if planning the next feature)**: `specs/ROADMAP.md` — feature list 002–012 in dependency order, architectural anchors (edge-vs-golden config split, connection-direction inversion), and per-feature open questions.
 
-**Active feature**: **002-topic-subscription-filtering** (planning phase complete; tasks pending).
+**Active feature**: **003-message-envelope-mock-crypto** (planning phase complete; tasks pending).
 
 For technical context, project structure, dependencies, and the rationale
-behind 002's plan-level decisions:
+behind 003's plan-level decisions:
 
-- Plan:      `specs/002-topic-subscription-filtering/plan.md`
-- Research:  `specs/002-topic-subscription-filtering/research.md`
-- Data:      `specs/002-topic-subscription-filtering/data-model.md`
-- Contracts: `specs/002-topic-subscription-filtering/contracts/`
-- Quickstart:`specs/002-topic-subscription-filtering/quickstart.md`
+- Plan:      `specs/003-message-envelope-mock-crypto/plan.md`
+- Research:  `specs/003-message-envelope-mock-crypto/research.md`
+- Data:      `specs/003-message-envelope-mock-crypto/data-model.md`
+- Contracts: `specs/003-message-envelope-mock-crypto/contracts/`
+- Quickstart:`specs/003-message-envelope-mock-crypto/quickstart.md`
+- ADR 0009:  `docs/decisions/0009-crypto-trait-shape.md` (crypto trait shape — concrete byte newtypes, no associated types, mock-crypto factory shape)
+- ADR 0010:  `docs/decisions/0010-protocol-message-type-hierarchy.md` (Message enum + SignedMessage / PlainMessage split + 001 Envelope → RoutingFrame rename + MessageHash::of(&PlainMessage) content-anchored hash choice; authored post-/speckit-plan when the type-conflation concern surfaced)
 
-**Most recently completed feature**: **001-minimal-node-scaffold** (the substrate). Its artifacts under `specs/001-minimal-node-scaffold/` remain the canonical reference for everything 002 inherits unchanged (network substrate, async send/receive shape, `PeerId` / `PeerDescriptor`, TOML loader pipeline, `--self-id` / `--config` / `--log-level` CLI flags). 002's contracts cross-reference back to 001 where they extend rather than replace.
+**Most recently completed feature**: **002-topic-subscription-filtering** (the topic dimension). Its artifacts under `specs/002-topic-subscription-filtering/` remain the canonical reference for everything 003 inherits unchanged (the `topic_drop` emitter is renamed to `message_dropped` / `cause = "topic_not_subscribed"` in the same commit as 003's `invalid_signature` emitter lands per FR-015; everything else from 002 — the `TopicId` newtype, the subscription set, the `subscribe`/`unsubscribe` API, the `subscriptions()` snapshot, the TOML `subscribed_topics` field — propagates unchanged). 002's contracts cross-reference back to 001 where they extend rather than replace.
 
 **Workstream-level docs (sibling to feature dirs)**:
-- `specs/IMPLEMENTATION_NOTES.md` — deferred implementation questions to revisit (currently N-001 for local-emission/local-receipt under a future REST API; N-002 for self-addressing under connection-based transports in feature 004+).
+- `specs/IMPLEMENTATION_NOTES.md` — deferred implementation questions to revisit (currently N-001 for local-emission/local-receipt under a future REST API; N-002 for self-addressing under connection-based transports in feature 004+; N-003 for chain-integrity / equivocation / publisher-authorization validation under the future registry features 008 / 012; N-004 for CBOR-canonical encoding swap under feature 009 or first cross-language consumer; N-005 for the `MessageHash::of(&PlainMessage)` content-anchored hash decision, to revisit when downstream features first operationally consume the hash — chain-integrity validation at 008 / 012, future caching / dedup).
 <!-- SPECKIT END -->
 
 # pubsub-node — agent guidance
