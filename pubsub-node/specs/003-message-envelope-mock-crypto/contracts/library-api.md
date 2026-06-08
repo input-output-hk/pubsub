@@ -36,10 +36,10 @@ pub use message::{Message, SignedMessage, PlainMessage, PublisherId};
 // preserved unchanged from 002:
 pub use message::MessagePayload;  // #[non_exhaustive] enum, still Ping(u64); now lives inside PlainMessage.
 
-// renamed by ADR 0010 (was 001-era `Envelope`):
-pub use network::RoutingFrame;
-// The 001-era `pub use network::Envelope;` is removed. Test code and any
-// external pattern-matches on the type name update in the same commit.
+// NOT re-exported — `RoutingFrame` (the 001-era `Envelope`, renamed per ADR 0010)
+// is `pub(crate)` inside the private `network` module. It was never reachable from
+// outside the crate (in 001/002 or now) and is not re-exported; the rename is
+// invisible to the public API and touches only in-crate code.
 ```
 
 The `crypto::` and `crypto::mock::` paths are also navigable directly (`pubsub_node::crypto::Signer`, `pubsub_node::crypto::mock::MockCryptoScheme`). The flat re-exports above are convenience aliases consistent with 001 / 002's "everything at the crate root" convention; the nested paths are the canonical homes.
@@ -267,16 +267,16 @@ pub enum MessagePayload {
 
 Carried unchanged from 002. Now lives as a field of `PlainMessage` (the dissemination application content). Future variants extend the enum without touching `PlainMessage`'s shape; `Ping(u64)` remains the sole variant in 003.
 
-## `pubsub_node::network::RoutingFrame` — renamed from 001's `Envelope`
+## `network::RoutingFrame` (crate-internal) — renamed from 001's `Envelope`
 
 ```rust
-pub struct RoutingFrame {
+pub(crate) struct RoutingFrame {
     pub from: PeerId,
     pub message: Message,
 }
 ```
 
-Same shape as 001's `Envelope`; only the type name changes (per ADR 0010, freeing the term "envelope" for prose-level use matching the synthesis §2.3). All call sites that pattern-match on the type, all `tests/common/mod.rs` references, and the existing 002 tests that name the type are updated in the same commit as the rename.
+`pub(crate)` inside the private `network` module — **not** part of the public API surface: it is not re-exported and not reachable as `pubsub_node::network::RoutingFrame`, exactly as 001's `Envelope` was. Listed here only for migration context. Same shape as 001's `Envelope`; only the type name changes (per ADR 0010, freeing the term "envelope" for prose-level use matching the synthesis §2.3). All in-crate call sites that name the type are updated in the same commit as the rename; integration tests never reference it (they go through the public `Network` / `Node` APIs).
 
 ## `pubsub_node::Node::new` — extended constructor signature
 

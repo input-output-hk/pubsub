@@ -18,8 +18,8 @@ use pubsub_node::{
 /// Rust's test capture (`with_test_writer`). With this in place, the
 /// integration-test binaries surface `tracing::info!` / `warn!` events under
 /// `cargo test -- --nocapture`, matching what the quickstart promises for the
-/// off-topic drop log. Defaults to the `info` level so the FR-011 drop event
-/// is visible; override with `RUST_LOG=…` when chasing debug events.
+/// off-topic drop log. Defaults to the `info` level so the `message_dropped`
+/// drop events are visible; override with `RUST_LOG=…` when chasing debug events.
 fn init_test_tracing() {
     static INIT: Once = Once::new();
     INIT.call_once(|| {

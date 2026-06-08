@@ -506,13 +506,13 @@ pub enum MessagePayload {
 **Definition**:
 
 ```rust
-pub struct RoutingFrame {
+pub(crate) struct RoutingFrame {
     pub from: PeerId,
     pub message: Message,
 }
 ```
 
-**Role**: the network-layer routing wrapper carrying a `Message` from a sender's `PeerId` to a receiver's mailbox. The InMemoryNetwork's tokio mpsc channel transports `RoutingFrame` values per the existing 001 / 002 contract; behavior is unchanged from 001.
+**Role**: the network-layer routing wrapper carrying a `Message` from a sender's `PeerId` to a receiver's mailbox. `pub(crate)` inside the private `network` module — crate-internal plumbing, not part of the public API (not re-exported, exactly as 001's `Envelope` was). The InMemoryNetwork's tokio mpsc channel transports `RoutingFrame` values per the existing 001 / 002 contract; behavior is unchanged from 001.
 
 **Rename rationale (ADR 0010)**: freeing the name "envelope" for prose-level use matching the staged-design-synthesis §2.3 (where "envelope" = the whole signed message). The `RoutingFrame` name more precisely describes the type's job (routing a Message between Nodes).
 

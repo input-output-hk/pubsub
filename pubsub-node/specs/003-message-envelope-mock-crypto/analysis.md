@@ -627,3 +627,38 @@ The one previously-deferred LOW item (F-L3 — `ROADMAP.md` §2 003 entry stalen
 ### Next Actions
 
 **003 artifact set is `/speckit-implement`-ready.** The set has now reached a zero-finding closure twice (pass-6, pass-9) with the intervening edits (passes 7–8) verified clean. Further analyze passes have diminishing returns absent a new artifact edit. Per ROADMAP §4's session-boundary guidance, run `/speckit-implement` in a fresh Claude Code session.
+
+---
+
+## Pass-10 Findings (2026-06-08) — post-merge implementation review (code-vs-artifact)
+
+Pass-10 differs in kind from passes 1–9: it reviews the **merged implementation against the artifacts**, not the artifacts against each other. The distinction is the whole point — passes 1–9 (and the four checklist passes) compared the spec artifacts to one another and reached zero-finding closures (pass-6, pass-9) on that basis. Reading the actual code against the artifacts surfaced a finding none of those passes *could* have caught, because the artifacts were mutually consistent while jointly contradicting the code.
+
+### Pass-10 Findings Table
+
+| ID | Category | Severity | Location(s) | Summary | Resolution |
+|----|----------|----------|-------------|---------|-----------|
+| F-M4 | Inconsistency (artifact vs code — public-API surface) | MEDIUM | `contracts/library-api.md` (re-exports block + `RoutingFrame` section), `data-model.md` §16d, `tasks.md` T012 + T014 | The contract + tasks stated the 001-era `Envelope` was a crate-root re-export (`pub use network::Envelope;`) renamed to `pub use network::RoutingFrame;`, and showed `pub struct RoutingFrame`. Actual code: `mod network` is **private** and the wrapper is **`pub(crate) struct`** (confirmed: `bed8399^` had `pub(crate) struct Envelope`; 001/002 `lib.rs` never re-exported it). So `RoutingFrame` is crate-internal — never reachable as `pubsub_node::network::RoutingFrame`, never re-exported. The **implementation is correct** (kept it `pub(crate)`); the artifacts overstated the public surface. Survived 9 analyze + 4 checklist passes because all were artifact-vs-artifact. | **FIX-APPLIED (commit `37d0062`)**: dropped the false re-export from the contract; `pub struct` → `pub(crate) struct` + "(crate-internal)" framing in the contract section and `data-model.md` §16d; T012/T014 rewritten to state there is no public re-export and no `lib.rs` change. Production code unchanged — it was already right. |
+| F-L12 | Documentation (wrong cross-reference) | LOW | `tests/common/mod.rs:21` | `init_test_tracing`'s doc comment said "the **FR-011** drop event is visible". FR-011 is `MessageHash::of`; the drop events are FR-014 / FR-015 (SC-008 for default-level visibility). | **FIX-APPLIED (same commit)**: reworded to "the `message_dropped` drop events are visible" — behaviour-based and stable, sidestepping FR-number decay per the doc-audiences convention. |
+
+### Methodological note
+
+The zero-finding closures at pass-6 and pass-9 were **artifact-internal convergence** — accurate as far as cross-artifact analysis can reach. F-M4 marks the ceiling of that method: a public-API-surface claim can be internally consistent across every spec artifact yet contradict the baseline code. Certifying the public surface requires the code as the oracle (grep `lib.rs` re-exports + module visibility) — only an implementation review provides that. Captured as a saved-memory lesson (`feedback_verify_contract_public_surface_against_code`).
+
+### Pass-10 Metrics
+
+- Findings: **1 MEDIUM (F-M4) + 1 LOW (F-L12)** — both fix-applied in commit `37d0062`.
+- **Production-code defects: 0.** The implementation matched the spec; only the artifacts (and one test doc comment) were corrected.
+- Green checkpoint after fix: `cargo fmt --check` + `cargo clippy` + `cargo build` + `cargo test` all pass (the sole code-file touch is a doc comment).
+
+### Convergence trajectory (final form)
+
+| Pass | Surface | Substantive findings | Notes |
+|---|---|---|---|
+| Checklist 1–4 | Spec-internal | 9 → 4 → 1 → 0 | Zero-finding closure (`7d628a6`) |
+| Analyze 1–9 | Cross-artifact | per prior rows | Zero-finding closures at pass-6 + pass-9 |
+| **Review 10** | **Implementation vs artifacts (post-merge)** | **1 MEDIUM + 1 LOW** | **F-M4 / F-L12 — fixed in `37d0062`** |
+
+### Verdict
+
+The 003 implementation is complete, green, and faithful to the spec. The only post-merge corrections were documentation accuracy — the `RoutingFrame` public-surface overstatement and one test doc-comment cross-reference; **no production-code change was required.** This closes the 003 analysis lifecycle.
