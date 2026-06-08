@@ -48,7 +48,7 @@ Evaluate this plan against each principle in `.specify/memory/constitution.md`. 
 - **IV. Specifications as Ambiguity Detectors** — ambiguities encountered during planning are surfaced as ADRs or issues, not silently resolved in this plan.
 - **V. Specifications Are Read-Only** — this plan does not propose edits to `pubsub/docs/` or `pubsub/formal_spec/`.
 
-Engineering Standards and Development Workflow rules also apply; reference them when relevant to the plan's design choices.
+Engineering Standards and Development Workflow rules also apply; reference them when relevant to the plan's design choices. Note in particular: logs are operator UX, not a test surface; operator-facing strings stay implementation-neutral (no FR/spec citations); parse at the edge; and forward-compatible interface shapes are justified by a feature named in `specs/ROADMAP.md`, not by speculative generality.
 
 ## Project Structure
 

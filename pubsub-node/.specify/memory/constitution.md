@@ -1,39 +1,37 @@
 <!--
 Sync Impact Report
 ==================
-Version change: template (unratified) → 1.0.0
-Bump rationale: First ratified constitution for the pubsub-node implementation.
-Initial adoption establishes the principle set, engineering standards, development
-workflow, and governance rules. Subsequent amendments follow SemVer per the
-Governance section.
+Version change: 1.0.0 → 1.1.0
+Bump rationale: MINOR. Materially expands Engineering Standards and Development
+Workflow with conventions that were applied de facto across features 001–003 but
+never written down. No principle added, removed, or redefined; no governance
+change. The core principle set stays I–V. Ratified by both maintainers (project
+author + co-developing architect) on 2026-06-08, per their prior agreement that
+these de-facto conventions be codified before the next two features branch.
 
-Modified principles (placeholder → concrete):
-- [PRINCIPLE_1_NAME] → I. Correctness Over Optimization
-- [PRINCIPLE_2_NAME] → II. Test-Driven for Correctness Claims
-- [PRINCIPLE_3_NAME] → III. Document Structural Decisions as ADRs
-- [PRINCIPLE_4_NAME] → IV. Specifications as Ambiguity Detectors
-- [PRINCIPLE_5_NAME] → V. Specifications Are Read-Only to the Implementation Agent
+Added Engineering Standards bullets:
+- Logs are operator UX, not a test surface
+- Operator-facing strings are implementation-neutral
+- Parse at the edge
+- Forward-compatible interfaces for known consumers (roadmap-justified)
 
-Added sections:
-- Engineering Standards
-- Development Workflow
-- Governance
-
-Removed sections: none.
+Added Development Workflow bullets:
+- Analysis ledger (analysis.md)
+- Spec fidelity is verified against code when code exists
 
 Templates requiring updates:
-- ✅ updated: .specify/templates/plan-template.md — Constitution Check section
-  now enumerates the five principles as concrete gates (pass / at-risk /
-  violation) and points back to Engineering Standards and Development Workflow.
-- ✅ updated: .specify/templates/tasks-template.md — "Tests are OPTIONAL"
-  framing replaced with Principle II conditional rule; added an ADR-tasks note
-  pointing to Principle III.
-- ✅ reviewed, no change: .specify/templates/spec-template.md — existing
-  `[NEEDS CLARIFICATION: ...]` marker already implements Principle IV (surface
-  ambiguity, do not silently resolve). No edit required.
-- ⚠ pending review (out of scope for this skill run):
-  pubsub-node/CLAUDE.md — currently points to "the current plan" only; the
-  next CLAUDE.md update should add a pointer to this constitution alongside.
+- ✅ updated: .specify/templates/plan-template.md — Constitution Check note
+  now points at the new Engineering Standards (logs-not-tested, neutral strings,
+  parse-at-edge, forward-compatible interfaces); no new principle gate added.
+- ✅ reviewed, no change: .specify/templates/tasks-template.md — the
+  logs-are-not-a-test-surface standard is enforced per-feature in the test tasks;
+  no template-structural edit required.
+- ✅ reviewed, no change: .specify/templates/spec-template.md — unaffected by
+  this amendment.
+
+History:
+- 1.0.0 (2026-05-14): initial ratified constitution — five principles
+  (I–V) plus Engineering Standards, Development Workflow, and Governance.
 
 Follow-up TODOs: none.
 -->
@@ -123,6 +121,34 @@ rather than a fixed reference.
   emit structured logs sufficient to reconstruct behavior post-hoc (which
   message, which peer, which decision, which outcome). Log volume tuning is a
   deployment concern; the ability to reconstruct is a design concern.
+- **Logs are operator UX, not a test surface.** The structured logs required
+  above exist for operators and post-hoc reconstruction. Correctness is asserted
+  through state-observation surfaces — getters, return values, snapshots — never
+  through log content. Automated tests MUST NOT assert on log strings, log
+  events, or their fields (including via source-grep over emitter call sites).
+  When a feature's acceptance scenarios describe log output, that text is
+  descriptive operator UX, not a test-anchored contract.
+- **Operator-facing strings are implementation-neutral.** CLI help, log events,
+  `eprintln!`/stderr text, rustdoc, and library-consumer documentation describe
+  behavior in stable terms and MUST NOT cite FR identifiers, clarification
+  numbers, or spec-section references. Those citations live only in source `//`
+  comments and Spec-Kit artifacts (`spec.md`, `plan.md`, `tasks.md`,
+  `data-model.md`, `contracts/`), which are feature-scoped and decay across
+  iterations.
+- **Parse at the edge.** Core constructors and domain types take already-parsed,
+  in-memory values; file I/O, deserialization (TOML, JSON, CBOR), and
+  CLI-argument parsing live in a thin loader/CLI layer at the process boundary.
+  The core MUST be testable without touching the filesystem or the argument
+  vector.
+- **Forward-compatible interfaces for known consumers.** Where `specs/ROADMAP.md`
+  names a downstream feature that will consume an interface, prefer the shape
+  that consumer needs over the simplest stub — `#[non_exhaustive]` enums for
+  protocol-message and error types, trait-at-construction with
+  concrete-at-storage (`Arc<dyn Trait>`), opaque newtypes over raw primitives,
+  async signatures where a real transport will require them. The anticipatory
+  shape MUST be justified by a feature actually on the roadmap; shaping for a
+  consumer that no roadmap entry names is over-abstraction and a Principle I
+  violation, not an application of this standard.
 - **Justified dependencies.** External runtime or test dependencies require an
   ADR documenting why an in-tree implementation was insufficient. Standard
   language toolchain components and the project's chosen test framework are
@@ -148,6 +174,23 @@ rather than a fixed reference.
   the Spec Kit lifecycle (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`
   → `/speckit-implement`). Small fixes, dependency bumps, and documentation
   changes may bypass.
+- **Analysis ledger.** When `/speckit-analyze` runs, its findings and their
+  resolutions are recorded in the feature's `analysis.md`, following the
+  command's own category structure (mirrors
+  `specs/001-minimal-node-scaffold/analysis.md`). Commit messages are not the
+  ledger; a finding without an `analysis.md` entry is not closed.
+- **Spec fidelity is verified against code when code exists.** Cross-artifact
+  consistency checking (`/speckit-analyze`, checklists) is the baseline and runs
+  whether or not an implementation is present — when analyze runs after
+  `/speckit-tasks` and no code exists yet, cross-artifact checking is the whole
+  job and remains required. Additionally, once the implementation exists, a
+  consistency pass MUST verify artifact claims about the implementation against
+  the implementation itself — for example, grep `lib.rs` re-exports and module
+  visibility to confirm a contract's public-surface claims — rather than relying
+  on cross-artifact agreement alone. A claim that is internally consistent
+  across artifacts but contradicted by the code is a defect such a pass MUST
+  catch. This is why an analyze round after implementation is valuable, not only
+  the pre-implementation pass.
 
 ## Governance
 
@@ -173,4 +216,4 @@ rather than a fixed reference.
   justified in an ADR before merge; the ADR is the audit record that the
   trade-off was made deliberately.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
+**Version**: 1.1.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-06-08
