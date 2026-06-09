@@ -3,10 +3,10 @@
 
 **Active features (two, developed in parallel as of 2026-06-08)**:
 
-- **004 — node event-loop refactor + connection model** (project author's branch). Explicit `NodeState`, a **pure** `apply` transition function returning `Vec<Effect>`, and a single event queue with one consumer + node-owned producers; connection-orientation rides on top.
-- **008 — mock topic registry** (co-developing architect's branch). `Registry` trait + `MockRegistry` + a node-owned reader task that pushes `Event::RegistryUpdate` onto 004's event queue; rescoped to be decoupled from 007 for parallel work.
+- **004 — node event-loop refactor** (project author's branch `004-node-event-loop`). **Specified, clarified, and planned** — spec at `specs/004-node-event-loop/spec.md`, plan at `specs/004-node-event-loop/plan.md` (+ research, data-model, contracts, quickstart), structural decisions in ADR 0011 (`docs/decisions/0011-pure-state-transition-core.md`: crate-internal `NodeState` + pure `apply` → `Vec<Effect>` with `Effect` uninhabited, named per-variant handlers, tracing-as-ambient-effect carve-out) and ADR 0012 (`docs/decisions/0012-node-state-sharing-and-lifecycle.md`: `Arc<Mutex<NodeState>>` with sync getters, sync subscribe/unsubscribe retained, spawn-in-constructor + drop-abort). **Rescoped to the refactor only**: the connection model is deferred to a follow-on `004-connections` feature (branch + spec dir under the 004 umbrella) after this merges.
+- **008 — mock topic registry** (co-developing architect's branch). `Registry` trait + `MockRegistry` + a node-owned reader task that pushes `Event::RegistryUpdate` onto 004's event queue; rescoped to be decoupled from 007 for parallel work. Not yet specified: start from the contract doc plus the ROADMAP 008 entry, and read "Manual branch step" below before running `/speckit-specify`.
 
-Their shared boundary (the node event queue) is specified in **`specs/event-loop-and-registry-contract.md`** — **both features' `/speckit-specify` runs MUST cite it.** Neither feature is specified yet: start from that contract doc plus the ROADMAP 004 / 008 entries, and read "Manual branch step" below before running `/speckit-specify`.
+Their shared boundary (the node event queue) is specified in **`specs/event-loop-and-registry-contract.md`** — **both features' specs MUST cite it** (004's does).
 
 **Most recently completed feature**: **003-message-envelope-mock-crypto** — the signed message envelope + mock crypto. Canonical reference under `specs/003-message-envelope-mock-crypto/` (plan, research, data-model, contracts, quickstart). Key decisions:
 
