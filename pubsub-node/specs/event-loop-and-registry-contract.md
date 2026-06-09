@@ -35,6 +35,15 @@ they are being taken **next and in parallel**, out of the roadmap's listed order
 
 ## 1. Feature A — Node event-loop refactor
 
+> **Landed as a seam commit** (branch `common-code-004-008`, to merge to `main`
+> before 008 branches). The cross-feature seam is in place: the `Event` enum,
+> `EventQueue`, `Node::events()`, `Node::spawn_producer`, a single consumer loop,
+> and node-owned producers aborted on drop (the network mailbox is the first such
+> producer). What feature 004 still adds is the rest of *this* section — the pure
+> `NodeState` + `apply` + `Effect` restructure and connections; the seam
+> currently keeps the 003 message-handling logic inline in the consumer loop
+> rather than in a pure `apply`. 008 builds against the seam.
+
 ### 1.1 Pure core: `NodeState` + `apply`
 
 `NodeState` is a plain struct — **no `Arc`, no channel, no async** — so it is constructible and
@@ -53,7 +62,9 @@ pub struct NodeState {
 /// Everything that can change node state. Queue item type.
 #[non_exhaustive]
 pub enum Event {
-    MessageReceived(RoutingFrame),   // Feature A owns this variant
+    // Feature A owns this variant. Struct variant with pub field types because
+    // the network `RoutingFrame` wrapper is crate-internal (pub(crate)).
+    MessageReceived { from: PeerId, message: Message },
     RegistryUpdate(RegistryEvent),   // Feature B owns the variant + payload (see §2)
     // future: ConnectionRequested(...), ConnectionClosed(PeerId), ...
 }
@@ -68,7 +79,7 @@ pub enum Effect {
 /// The single state-transition function. Synchronous, no `.await`, no I/O.
 pub fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
     match event {
-        Event::MessageReceived(frame) => {
+        Event::MessageReceived { from, message } => {
             // 002 topic filter + 003 signature verify; on success push to `received`.
             // returns no effects pre-connection; returns ForwardTo(...) once 004 lands.
             Vec::new()
@@ -139,7 +150,9 @@ aborted on drop:
 
 ```rust
 node.spawn_producer(move |q| async move {
-    while let Some(frame) = net_rx.recv().await { q.push(Event::MessageReceived(frame)); }
+    while let Some(frame) = net_rx.recv().await {
+        q.push(Event::MessageReceived { from: frame.from, message: frame.message });
+    }
 });
 ```
 

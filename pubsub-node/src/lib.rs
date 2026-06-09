@@ -19,6 +19,8 @@
 //! - [`crypto`] — the [`Signer`]/[`Verifier`] trait pair and the byte-newtype
 //!   types they operate over ([`PublicKey`], [`PrivateKey`], [`Signature`],
 //!   [`MessageHash`], [`Timestamp`]); [`crypto::mock`] holds the test crypto.
+//! - [`Event`], [`EventQueue`] — the node's single event queue. Producers push
+//!   [`Event`]s via a cloned [`EventQueue`]; the node drains them in one loop.
 //! - [`ReceivedDelivery`] — one observed delivery returned by
 //!   [`Node::received_messages`].
 //! - [`SubscribeOutcome`], [`UnsubscribeOutcome`] — return values for the
@@ -31,6 +33,7 @@
 mod config;
 pub mod crypto;
 mod error;
+mod event;
 mod message;
 mod network;
 mod node;
@@ -44,6 +47,7 @@ pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
 };
 pub use error::{ConfigError, NetworkError, NodeError};
+pub use event::{Event, EventQueue};
 pub use message::{Message, MessagePayload, PlainMessage, PublisherId, SignedMessage};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};

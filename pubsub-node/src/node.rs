@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use tokio::task::JoinHandle;
@@ -6,6 +7,7 @@ use tokio::task::JoinHandle;
 use crate::config::NodeConfig;
 use crate::crypto::Verifier;
 use crate::error::NodeError;
+use crate::event::{Event, EventQueue};
 use crate::message::Message;
 use crate::network::{Network, NetworkHandle};
 use crate::peer::{BasicPeerDescriptor, PeerId};
@@ -33,9 +35,12 @@ pub enum UnsubscribeOutcome {
 /// A network participant.
 ///
 /// Constructed via [`Node::new`], which registers the node on a
-/// [`Network`], spawns a background receive task, and returns once the node
-/// is ready to send and observe messages. The receive task is aborted when
-/// the [`Node`] is dropped.
+/// [`Network`], spawns its event loop and the network producer, and returns
+/// once the node is ready to send and observe messages. Inbound messages and
+/// any other inputs flow through a single event queue drained by one loop (see
+/// [`Event`]); additional producers can be attached via
+/// [`spawn_producer`](Node::spawn_producer). The event loop and every producer
+/// are aborted when the [`Node`] is dropped.
 ///
 /// A node carries:
 /// - its own [`PeerId`],
@@ -54,12 +59,16 @@ pub struct Node {
     peers: Vec<BasicPeerDescriptor>,
     received: Arc<Mutex<Vec<ReceivedDelivery>>>,
     subscriptions: Arc<Mutex<HashSet<TopicId>>>,
-    // Canonical owner of the verifier for the node's lifetime. The receive task
+    // Canonical owner of the verifier for the node's lifetime. The event loop
     // consults its own `Arc` clone; this field is retained so the verifier
     // outlives any future non-task use (e.g. a synchronous verify API).
     #[allow(dead_code)]
     verifier: Arc<dyn Verifier>,
-    recv_task: JoinHandle<()>,
+    events: EventQueue,
+    event_loop: JoinHandle<()>,
+    // Producer tasks the node owns (the network adapter, plus any attached via
+    // `spawn_producer`); all aborted on drop.
+    producers: Vec<JoinHandle<()>>,
 }
 
 impl Node {
@@ -85,7 +94,7 @@ impl Node {
         verifier: Arc<dyn Verifier>,
     ) -> Result<Self, NodeError> {
         let mut handle = network.register(self_id).await?;
-        let mut rx = handle.take_receiver();
+        let rx = handle.take_receiver();
         let self_id_for_task = handle.id().clone();
 
         let received: Arc<Mutex<Vec<ReceivedDelivery>>> = Arc::new(Mutex::new(Vec::new()));
@@ -97,64 +106,73 @@ impl Node {
 
         let verifier_for_task = Arc::clone(&verifier);
 
-        let recv_task = tokio::spawn(async move {
-            while let Some(frame) = rx.recv().await {
-                tracing::debug!(
-                    target: "pubsub_node::node",
-                    from = %frame.from,
-                    "recv",
-                );
+        let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
+        let events = EventQueue::new(event_tx);
 
-                match frame.message {
-                    Message::Signed(signed) => {
-                        // Topic filter first (cheap), then signature
-                        // verification — off-topic traffic never pays the
-                        // verification cost.
-                        let is_subscribed = {
-                            let guard = subscriptions_for_task
-                                .lock()
-                                .expect("recv task: subscriptions mutex poisoned");
-                            guard.contains(&signed.plain.topic)
-                        };
-
-                        if !is_subscribed {
-                            tracing::info!(
-                                target: "pubsub_node::node",
-                                event = "message_dropped",
-                                cause = "topic_not_subscribed",
-                                self_id = %self_id_for_task,
-                                from = %frame.from,
-                                topic = %signed.plain.topic,
-                            );
-                            continue;
-                        }
-
-                        let verify_outcome = verifier_for_task.verify(
-                            signed.plain.publisher_id.as_public_key(),
-                            &signed.plain.signed_bytes(),
-                            &signed.signature,
+        // The single consumer: drain the event queue and apply each event in
+        // arrival order. New event variants get their own arm here.
+        let event_loop = tokio::spawn(async move {
+            while let Some(event) = event_rx.recv().await {
+                match event {
+                    Event::MessageReceived { from, message } => {
+                        tracing::debug!(
+                            target: "pubsub_node::node",
+                            from = %from,
+                            "recv",
                         );
-                        if verify_outcome.is_err() {
-                            tracing::info!(
-                                target: "pubsub_node::node",
-                                event = "message_dropped",
-                                cause = "invalid_signature",
-                                self_id = %self_id_for_task,
-                                from = %frame.from,
-                                topic = %signed.plain.topic,
-                                publisher_id = %signed.plain.publisher_id,
-                            );
-                            continue;
-                        }
 
-                        let delivery = ReceivedDelivery {
-                            from: frame.from,
-                            message: Message::Signed(signed),
-                        };
-                        let mut guard = received_for_task
-                            .lock()
-                            .expect("recv task: received mutex poisoned");
-                        guard.push(delivery);
+                        match message {
+                            Message::Signed(signed) => {
+                                // Topic filter first (cheap), then signature
+                                // verification — off-topic traffic never pays
+                                // the verification cost.
+                                let is_subscribed = {
+                                    let guard = subscriptions_for_task
+                                        .lock()
+                                        .expect("event loop: subscriptions mutex poisoned");
+                                    guard.contains(&signed.plain.topic)
+                                };
+
+                                if !is_subscribed {
+                                    tracing::info!(
+                                        target: "pubsub_node::node",
+                                        event = "message_dropped",
+                                        cause = "topic_not_subscribed",
+                                        self_id = %self_id_for_task,
+                                        from = %from,
+                                        topic = %signed.plain.topic,
+                                    );
+                                    continue;
+                                }
+
+                                let verify_outcome = verifier_for_task.verify(
+                                    signed.plain.publisher_id.as_public_key(),
+                                    &signed.plain.signed_bytes(),
+                                    &signed.signature,
+                                );
+                                if verify_outcome.is_err() {
+                                    tracing::info!(
+                                        target: "pubsub_node::node",
+                                        event = "message_dropped",
+                                        cause = "invalid_signature",
+                                        self_id = %self_id_for_task,
+                                        from = %from,
+                                        topic = %signed.plain.topic,
+                                        publisher_id = %signed.plain.publisher_id,
+                                    );
+                                    continue;
+                                }
+
+                                let delivery = ReceivedDelivery {
+                                    from,
+                                    message: Message::Signed(signed),
+                                };
+                                let mut guard = received_for_task
+                                    .lock()
+                                    .expect("event loop: received mutex poisoned");
+                                guard.push(delivery);
+                            }
+                        }
                     }
                 }
             }
@@ -166,14 +184,57 @@ impl Node {
             .map(|entry| BasicPeerDescriptor { id: entry.id })
             .collect();
 
-        Ok(Self {
+        let mut node = Self {
             handle,
             peers,
             received,
             subscriptions,
             verifier,
-            recv_task,
-        })
+            events,
+            event_loop,
+            producers: Vec::new(),
+        };
+
+        // The network mailbox is the node's first producer: it forwards each
+        // inbound frame onto the event queue. Future producers (a registry
+        // reader, per-connection receive loops) attach the same way.
+        node.spawn_producer(move |queue| async move {
+            let mut rx = rx;
+            while let Some(frame) = rx.recv().await {
+                queue.push(Event::MessageReceived {
+                    from: frame.from,
+                    message: frame.message,
+                });
+            }
+        });
+
+        Ok(node)
+    }
+
+    /// Return a cloneable handle for pushing [`Event`]s onto this node's event
+    /// queue.
+    ///
+    /// Intended for ad-hoc injection and integration tests. Long-lived
+    /// producers should be attached via [`spawn_producer`](Self::spawn_producer)
+    /// so the node owns and tears down their task.
+    #[must_use]
+    pub fn events(&self) -> EventQueue {
+        self.events.clone()
+    }
+
+    /// Attach a node-owned producer task.
+    ///
+    /// `producer` receives a clone of this node's [`EventQueue`] and runs until
+    /// the node is dropped, at which point its task is aborted. The network
+    /// adapter is registered this way at construction; later features attach a
+    /// registry reader and per-connection receive loops identically.
+    pub fn spawn_producer<F, Fut>(&mut self, producer: F)
+    where
+        F: FnOnce(EventQueue) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        self.producers
+            .push(tokio::spawn(producer(self.events.clone())));
     }
 
     /// Dispatch `message` to the peer registered under `to`.
@@ -316,6 +377,9 @@ impl Node {
 
 impl Drop for Node {
     fn drop(&mut self) {
-        self.recv_task.abort();
+        self.event_loop.abort();
+        for producer in &self.producers {
+            producer.abort();
+        }
     }
 }
