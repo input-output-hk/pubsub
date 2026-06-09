@@ -20,6 +20,12 @@ The feature is **Feature A** of the two-feature parallel-work plan described in 
 
 The value is internal but real: the message-handling logic becomes **synchronously testable in isolation**, the state becomes a single auditable value rather than scattered fields, and the event stream becomes the **one extension seam** that parallel and future features attach to without disturbing existing behavior.
 
+## Clarifications
+
+### Session 2026-06-09
+
+- Q: Is the pure core (state type + transition function) exposed as public library API, or crate-internal with `Node` remaining the only public surface? → A: Crate-internal — `Node` stays the only public surface; the synchronous state-machine tests live as in-crate unit tests; no new public API commitment is made by this feature (no external consumer justifies one).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Identical messaging behavior after the refactor (Priority: P1)
@@ -47,7 +53,7 @@ A node developer exercises the message-handling logic by constructing a state va
 
 **Why this priority**: This is the durable maintainability payoff. It makes the protocol logic fast and deterministic to test and reason about, independently of the concurrency plumbing, and it is what later features depend on when they add new transitions.
 
-**Independent Test**: Write a synchronous (non-async) test that builds the state value, applies a `Vec` of events one at a time, and asserts on state after each step. The test compiles and runs with no async runtime present.
+**Independent Test**: Write a synchronous (non-async) **in-crate unit test** that builds the state value, applies a `Vec` of events one at a time, and asserts on state after each step. The test compiles and runs with no async runtime present. (The pure core is crate-internal — see Clarifications — so these tests live inside the crate, not in the external integration-test suite.)
 
 **Acceptance Scenarios**:
 
@@ -95,7 +101,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 
 **Structural exposure (the reshape, stated as observable/testable contract):**
 
-- **FR-008**: The node's mutable state MUST be a single explicit state value, changed **only** by one transition function; that transition MUST be **pure** (no I/O, no concurrency, no asynchrony) and exercisable **synchronously** in isolation.
+- **FR-008**: The node's mutable state MUST be a single explicit state value, changed **only** by one transition function; that transition MUST be **pure** (no I/O, no concurrency, no asynchrony) and exercisable **synchronously** in isolation. The state value and transition are **crate-internal** — they are a refactoring of the node's internals, not new public API; the node remains the only public surface.
 - **FR-009**: A constructed node MUST process queued events concurrently while remaining usable through its synchronous getters and subscribe/unsubscribe methods.
 - **FR-010**: Events MUST be deliverable from multiple node-owned producers and from an ad-hoc feed handle; the node MUST own its producers' lifecycles.
 - **FR-011**: Dropping the node MUST stop event processing and terminate all of its producers; no producer may outlive the node.
@@ -121,7 +127,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 - **SC-001**: 100% of the existing 002 and 003 acceptance tests pass against the refactored node **without modification** to those tests.
 - **SC-002**: The message-handling logic can be tested with **zero** asynchronous runtime, task spawning, channels, or I/O — a purely synchronous "apply a sequence of events, assert state after each" test compiles and passes.
 - **SC-003**: Introducing a new event kind and a new event source requires adding exactly one transition branch and one producer registration, with **no edits to existing transition branches or existing producers** (verifiable by the 008 branch adding its registry-update handling additively).
-- **SC-004**: The node's public observable surface (getter and subscribe/unsubscribe signatures and outcomes) is **unchanged** from 003; no consumer of the 003 API needs to change call sites.
+- **SC-004**: The node's public observable surface (getter and subscribe/unsubscribe signatures and outcomes) is **unchanged** from 003, and **no new public API is added** (the state value and transition stay crate-internal); no consumer of the 003 API needs to change call sites.
 - **SC-005**: Dropping a node terminates all its producers and stops event processing, observable by no further events being recorded after drop and no leaked background activity.
 
 ## Assumptions
