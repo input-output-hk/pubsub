@@ -6,6 +6,8 @@
 
 This roadmap is a meta-spec, not a contract. Features may be re-shuffled, dropped, or restructured as architectural understanding evolves. Each numbered feature ultimately gets its own `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement` cycle.
 
+**Feature numbers are identifiers, not an implementation order.** The list below is roughly dependency-ordered, but the numbers are stable IDs: a feature may be built out of sequence and its `specs/NNN-<short-name>/` directory keeps its ID even when taken early. **In progress as of 2026-06-08, in parallel and ahead of the intervening entries:** **004** (node event-loop refactor + connection model) and **008** (mock topic registry). Their shared boundary — the node event queue — is specified in [`event-loop-and-registry-contract.md`](./event-loop-and-registry-contract.md), which both features' specs cite.
+
 ---
 
 ## 1. Architectural anchors
@@ -92,6 +94,8 @@ Each entry: ID, name, one-line description, dependencies, whether Constitution P
 
 #### 004 — Connection-oriented network model
 
+> **In progress (2026-06-08), taken next in parallel with 008 — led by the node-state event-loop refactor.** The primary deliverable is the refactor: an explicit `NodeState`, a **pure** `apply` transition function returning `Vec<Effect>`, and a single event queue with one consumer and node-owned producers; the connection model below rides on top. The shared seam with 008 is specified in [`event-loop-and-registry-contract.md`](./event-loop-and-registry-contract.md). The structural decisions (pure `apply`/effects, event-queue model) are captured as ADR(s) during this feature's `/speckit-plan`.
+
 - **What it adds**: the substantial architectural shift. Replaces 001's "send by id, network routes" with "open a connection, send over connection". Specifically:
   - `Network::dial(peer_id) -> Result<Connection>` — outbound initiation.
   - `network.incoming() -> impl Stream<Item = Connection>` — inbound acceptor.
@@ -147,6 +151,8 @@ Each entry: ID, name, one-line description, dependencies, whether Constitution P
 ### Onward — swap mocks for real impls (mostly independent)
 
 #### 008 — Registry abstraction (mock)
+
+> **In progress (2026-06-08), taken next in parallel with 004.** Rescoped for parallel development as a standalone `Registry` trait + `MockRegistry` (write API for topics / authorized publishers / per-topic registered `PeerId`s) plus a **node-owned reader task** that pushes `Event::RegistryUpdate` onto 004's event queue — **decoupled from 007** (golden discovery), which it formerly depended on. The node consumes the registry only via that one event variant. Shared seam with 004: [`event-loop-and-registry-contract.md`](./event-loop-and-registry-contract.md).
 
 - **What it adds**: `Registry` trait + `MockRegistry { topics, authorized_publishers, owner_attested_relays }` impl. Replaces "I know my goldens from CLI config" with "I look up topic T's owner-attested relays from the registry". Mock for now; real on-chain feed is feature 012.
 - **Dependencies**: 007 (registry is consumed for golden-node discovery; until then, the static config suffices).
