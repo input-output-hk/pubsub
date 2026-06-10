@@ -7,7 +7,7 @@ Three illustrative slices, mirroring the test strategy. Code is indicative (fina
 ## 1. Exercise the registry alone (no node loop)
 
 ```rust
-use pubsub_node::{InMemorySubscriptionRegistry, SubscriptionRegistry, SubscriptionEvent};
+use pubsub_node::{InMemorySubscriptionRegistry, SubscriptionRegistry, MembershipEvent};
 use std::collections::BTreeSet;
 
 let reg = InMemorySubscriptionRegistry::new();
@@ -15,17 +15,17 @@ reg.set_interest(peer("node-a"), topics(["weather"])).await.unwrap();
 reg.set_interest(peer("node-b"), topics(["weather", "sports"])).await.unwrap();
 
 // Cold start: a new subscription replays current members of the watched topics.
-let mut watch = reg.subscribe(topics(["weather"])).await.unwrap();
+let mut watch = reg.watch_members(topics(["weather"])).await.unwrap();
 // drain the burst: Joined{node-a, {weather}}, Joined{node-b, {weather}} (order: write-application)
 
 // Live deltas:
 reg.set_interest(peer("node-b"), topics(["sports"])).await.unwrap(); // → TopicsChanged{node-b, removed:{weather}}
 reg.unregister(peer("node-a")).await.unwrap();                       // → Left{node-a}
-assert!(matches!(watch.recv().await, Some(SubscriptionEvent::TopicsChanged { .. })));
+assert!(matches!(watch.recv().await, Some(MembershipEvent::TopicsChanged { .. })));
 
-// Self-lookup (the node's own authoritative interests):
-assert_eq!(reg.interests_of(peer("node-b")).await.unwrap(), Some(topics(["sports"])));
-assert_eq!(reg.interests_of(peer("ghost")).await.unwrap(), None);
+// Self-lookup (the node's own authoritative interests, via its entry):
+assert_eq!(reg.entry(peer("node-b")).await.unwrap().map(|e| e.topics), Some(topics(["sports"])));
+assert_eq!(reg.entry(peer("ghost")).await.unwrap(), None);
 ```
 
 ## 2. Pure fold into the candidate set (synchronous, no async)
@@ -34,10 +34,10 @@ assert_eq!(reg.interests_of(peer("ghost")).await.unwrap(), None);
 // state.rs unit test — scripted Vec<Event> through `apply`, asserting candidate sets.
 let mut st = NodeState::new(peer("S"), /*subscriptions*/ set!{"T1"}, verifier());
 
-apply(&mut st, Event::SubscriptionUpdate(joined("A", ["T1"])));
-apply(&mut st, Event::SubscriptionUpdate(joined("S", ["T1"]))); // self — ignored
-apply(&mut st, Event::SubscriptionUpdate(topics_changed("A", added=["T2"], removed=[])));
-apply(&mut st, Event::SubscriptionUpdate(left("B")));
+apply(&mut st, Event::MembershipUpdate(joined("A", ["T1"])));
+apply(&mut st, Event::MembershipUpdate(joined("S", ["T1"]))); // self — ignored
+apply(&mut st, Event::MembershipUpdate(topics_changed("A", added=["T2"], removed=[])));
+apply(&mut st, Event::MembershipUpdate(left("B")));
 
 assert_eq!(st.candidates_snapshot(&topic("T1")), vec![peer("A")]);     // S excluded
 assert_eq!(st.candidates_snapshot(&topic("T2")), vec![peer("A")]);
@@ -74,5 +74,5 @@ assert!(Node::new(peer("ghost"), cfg(), net, verifier(), registry).await.is_err(
 ## Notes
 
 - The `subscription-list.toml` file is read only by `InMemorySubscriptionRegistry::from_file` (parse-at-the-edge); the node never reads it.
-- Tests assert on `SubscriptionEvent`s, candidate-set snapshots, and `interests_of` — never on log content (constitution).
+- Tests assert on `MembershipEvent`s, candidate-set snapshots, and `entry` — never on log content (constitution).
 - Multi-process networks: each process loads the same file into its own registry instance (identical membership); runtime file re-read is deferred to 012.

@@ -12,25 +12,25 @@ All decisions were resolved before planning — through the post-merge review of
 
 ## R2 — Subscription list is authoritative for a node's own interests, not config
 
-- **Decision**: A node sources its topic-interest set from its own subscription-list entry via `interests_of(self_id)`; config carries identity + bootstrap only; 002's `subscribed_topics` is removed. Absent entry at startup → fail fast.
+- **Decision**: A node sources its topic-interest set from its own subscription-list entry via `entry(self_id)`; config carries identity + bootstrap only; 002's `subscribed_topics` is removed. Absent entry at startup → fail fast.
 - **Rationale**: Config authority would let an operator make a node participate beyond its registered, deposited commitment — defeating the deposit's accountability. Fail-fast suits the in-memory mock (register/seed before constructing nodes); the protocol's retry-with-backoff is a 012 concern.
 - **Alternatives**: config-authoritative; config-validated-against-chain; self-seed-from-config (all rejected — see ADR 0013).
 
 ## R3 — Read model is push/subscribe, not poll/diff
 
-- **Decision**: `subscribe(topics) → SubscriptionWatch` replays current members as a `Joined` cold-start burst, then streams live deltas. The in-memory impl fans out a delta to subscriber channels on each write.
+- **Decision**: `watch_members(topics) → MembershipWatch` replays current members as a `Joined` cold-start burst, then streams live deltas. The in-memory impl fans out a delta to subscriber channels on each write.
 - **Rationale**: Matches how a chain follower exposes accepted state transitions, and reuses the `Network::register → handle{mpsc}` actor-handle idiom (ADR 0007) already in the crate. Polling reinvents change detection. The protocol's *authoritative* periodic chain re-read (`subscription_list_poll_interval`) is reconciliation that belongs to the on-chain reader (012); for the in-memory mock, push suffices.
 - **Alternatives**: poll-and-diff loop (rejected — latency, redundant reads, impedance mismatch with the real backend); the deleted `docs/registry-node-contract.md` sketch's own-handle that bypassed the event queue (rejected — broke the agreed seam).
 
 ## R4 — Watch mirrors `NetworkHandle`; unbounded channel; no boundary marker
 
-- **Decision**: `SubscriptionWatch` is single-consumer, not `Clone`, owns the receive half, ends on drop. Unbounded channel (ADR 0007). The cold-start burst has **no** explicit end-of-snapshot marker. The burst + live deltas are one gap-free, duplicate-free sequence (atomic snapshot + subscriber registration).
-- **Rationale**: Direct reuse of the proven `NetworkHandle` shape. No v1 consumer needs a "warm" boundary signal (the node folds uniformly into a set); `SubscriptionEvent` is `#[non_exhaustive]`, so a `SnapshotComplete` variant can be added when feature 010's sampler needs it — honoring "no forward-compatible surface without a live consumer."
+- **Decision**: `MembershipWatch` is single-consumer, not `Clone`, owns the receive half, ends on drop. Unbounded channel (ADR 0007). The cold-start burst has **no** explicit end-of-snapshot marker. The burst + live deltas are one gap-free, duplicate-free sequence (atomic snapshot + subscriber registration).
+- **Rationale**: Direct reuse of the proven `NetworkHandle` shape. No v1 consumer needs a "warm" boundary signal (the node folds uniformly into a set); `MembershipEvent` is `#[non_exhaustive]`, so a `SnapshotComplete` variant can be added when feature 010's sampler needs it — honoring "no forward-compatible surface without a live consumer."
 - **Alternatives**: a `SnapshotComplete` variant now (deferred); a bounded channel + `Lagged` repair (deferred to a real transport).
 
 ## R5 — Node integration on the merged 004 pure core; candidate set is state
 
-- **Decision**: Add `Event::SubscriptionUpdate(SubscriptionEvent)` + a named `handle_subscription_update` handler in `apply`; fold deltas into `NodeState.candidates: HashMap<TopicId, HashSet<PeerId>>`, self-excluded; expose `Node::candidates(&TopicId) -> Vec<PeerId>`. A node-owned reader producer (via `spawn_producer`) drains the watch.
+- **Decision**: Add `Event::MembershipUpdate(MembershipEvent)` + a named `handle_membership_update` handler in `apply`; fold deltas into `NodeState.candidates: HashMap<TopicId, HashSet<PeerId>>`, self-excluded; expose `Node::candidates(&TopicId) -> Vec<PeerId>`. A node-owned reader producer (via `spawn_producer`) drains the watch.
 - **Rationale**: Feature 004 (PR #50) merged the pure `apply`/`NodeState`/`Effect` core (ADR 0011/0012); the candidate set is mutated by a transition, so it is state and belongs in `NodeState` — exactly the trigger N-007 named ("`peers` joins `NodeState` when a transition first consumes peer data; revisit at 008"). The handler returns an empty `Vec<Effect>` (`Effect` uninhabited; effects arrive with the dialer/connections).
 - **Alternatives**: a side `TopicPeerView` outside `apply` (rejected — bypasses the pure core / the seam; was the deleted sketch's mistake).
 
