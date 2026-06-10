@@ -39,6 +39,7 @@ mod network;
 mod node;
 mod peer;
 mod received;
+mod state;
 mod topic;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};

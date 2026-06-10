@@ -120,3 +120,27 @@ The 003 feature spec should record an explicit note pointing back to this entry 
 3. **Future signing-scheme changes** (post-feature 011 Ed25519 swap, if a future scheme is introduced — e.g., a BLS variant for signature aggregation, or post-quantum schemes much later): verify that chains produced under the previous scheme are still valid under the new scheme. Option (a) guarantees this; option (b) would force a chain-format migration.
 
 At each trigger, weigh whether option (a) still serves, or whether a parallel "wire hash" / "full-form hash" is needed alongside it. The 003 feature spec's FR-011 and ADR 0010 capture the current rationale; this entry tracks the revisit obligation.
+
+## N-006 — Construction-failure integration test (duplicate registration)
+
+**Surfaced during**: 004 (node event-loop refactor) checklist walk (CHK018/CHK019 in `specs/004-node-event-loop/checklists/refactor.md`).
+
+**Question**: 004's FR-016 pins construction-failure parity — a failed `Node::new` (e.g. `DuplicateRegistration` of an already-taken id) surfaces the existing typed error and leaves no background activity running. The success path is exercised by every integration test (15 `Node::new` call sites), but **no test anywhere triggers the failure path**: `DuplicateRegistration` exists only as the error definition (`src/error.rs`) and the `register` guard (`src/network.rs`). The failure path is also unreachable from the CLI quickstarts — separate processes own separate `InMemoryNetwork`s, so the collision is library-level only.
+
+**Working answer (004 scope)**: do **not** add the test in 004. The refactor's contract is "no new behavior is added or newly tested" (behavioral parity; existing suite passes unmodified); adding a new integration test inside the parity feature would itself trip later consistency passes and force a cascade of rewordings. FR-016's failure clause is verified in 004 by structural review (registration precedes any task spawn in `Node::new`, so a failed construction has nothing to leak — same review-based verification as the CHK007 drop-abort ruling).
+
+**Trigger to revisit**: **feature 004-connections** (the follow-on that reshapes construction and the dial/accept paths). Add a proper integration test there: construct a node, attempt a second construction with the same id on the same network, assert the typed error (`NodeError` from `NetworkError::DuplicateRegistration`) — and extend it to whatever construction/dial failure modes the connection model introduces. 004-connections touches exactly the constructor region whose ordering currently makes the no-leak property true, so the test lands where the risk does.
+
+## N-007 — `peers` placement: shell field today, `NodeState` when a transition consumes peer data
+
+**Surfaced during**: 004 (node event-loop refactor) checkpoint-2 review — maintainer asked whether the static `peers` list should live in `NodeState` alongside the rest of the node's state.
+
+**Question**: `Node.peers` (`Vec<BasicPeerDescriptor>`, config-derived) stayed on the shell when 004 consolidated mutable state into `NodeState`. Shouldn't peer knowledge be part of the node's state value?
+
+**Working answer (004 scope)**: **No — deliberately shell-resident.** Three reasons:
+
+1. **Parity**: `Node::peers()` returns `&[BasicPeerDescriptor]` (a borrow). Inside `Arc<Mutex<NodeState>>` that signature is unimplementable (cannot borrow out of a dropped `MutexGuard`); the getter would have to become a clone-out `Vec` — a public-API change 004's parity contract (SC-004, contracts §A) forbids.
+2. **The `NodeState` rule**: the struct holds *mutable, transition-relevant* state (FR-008, CHK021). Today's `peers` is neither — static for the node's lifetime (001 contract: no mutation API) and consulted by no `apply` transition.
+3. **Wrong shape to lock in**: ROADMAP 005 replaces the config list with a per-topic `PeerView` behind a `PeerSource` trait; pre-moving today's `Vec` would lock the wrong shape into the core just before the feature that defines the right one.
+
+**Trigger to revisit**: **feature 008** (first transition that writes peer/registry-derived data: the `Event::RegistryUpdate` arm makes that knowledge mutable, transition-written state → it belongs in `NodeState` per the same rule that excludes today's list), and **feature 005** (the `PeerView` the epochal dialer reads). The seam contract §1.1 already reserves the slot ("registry-derived state and logical connection/peer metadata land here later"); this note makes the revisit obligation explicit. The static config-derived list may remain a shell field even then if nothing transitions it — the rule is "what `apply` reads or writes lives in `NodeState`", not "everything peer-shaped".
