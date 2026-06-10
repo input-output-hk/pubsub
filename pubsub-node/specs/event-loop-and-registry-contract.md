@@ -20,9 +20,9 @@ Feature B) and the implementation agent on either branch.
   `NodeState` struct mutated only by a **pure** state-transition function `apply`, driven by a
   single **event queue** with one consumer and many producers. Connection-orientation
   (ROADMAP ~004) rides along but is secondary; the refactor is the core deliverable.
-- **Feature B — InMemory mock topic registry** (architect's branch). A `Registry` trait +
-  `MockRegistry` with a write API and a **read side** that feeds the node via a periodic
-  reader task.
+- **Feature B — InMemory node-membership registry** (architect's branch). A `Registry` trait +
+  `InMemoryRegistry` with a declarative write API (`set_interest` / `unregister`) and a **push
+  read side** that feeds the node via a node-owned subscription-draining reader task.
 
 **The entire interdependence is one seam: the event queue.** Feature B produces a new kind of
 event; Feature A defines the queue, the consumer, and the producer-registration mechanism.
@@ -176,37 +176,76 @@ to execute them. This is what keeps `apply` pure.
 
 ---
 
-## 2. Feature B — InMemory mock topic registry
+## 2. Feature B — InMemory node-membership registry
 
-A `Registry` trait + `MockRegistry` impl. **Write side** (publishers and nodes call it):
+> **Amendment (2026-06-09).** This section is revised from its original sketch after a design
+> pass. Two changes for the co-developing architect to note: **(a) the read side is push, not
+> poll** (the original poll/diff loop is superseded below), and **(b) the first cut is
+> node-membership only** — the topic-governance writes (create/delete topic, authorized
+> publishers) the original draft listed are deferred to their real consumer (golden discovery,
+> ~007) and are *not* added to the trait yet (Constitution VI: no forward-compatible surface
+> without a live consumer). **The seam in §3 is unchanged** — only the registry's internal read
+> mechanism and write surface are refined.
 
-- create/delete topic; add/remove authorized publisher per topic (publishers own topic
-  management for now — the node does not).
-- add/remove a `PeerId` to/from a topic's registered-peers list. Nodes call this to
-  register/unregister themselves to/from a topic.
+A `Registry` trait + `InMemoryRegistry` impl. The node manages **its own membership** in the
+topics it cares about; "who else is in topic T" flows back to the node as a push stream.
 
-**Read side** (the harder, core part of the feature): a node-owned producer task that
-periodically reads the registry, detects updates of interest, and pushes
-`Event::RegistryUpdate(..)` onto the node's queue. The architect designs what "updates of
-interest" and the diff/poll model look like; the node side is just a producer.
+**Write side** — declarative, the node calls one endpoint:
+
+- `set_interest(node, topics)` — idempotent upsert of a node's interest set. First call for a
+  node emits `Joined`; a later call with a changed set emits `TopicsChanged { added, removed }`
+  (the registry diffs against prior state); an unchanged set is a no-op. The registry owns the
+  create-vs-update decision — and, on-chain later (012), which transaction to construct.
+- `unregister(node)` — withdraw entirely; emits `Left`. Distinct from `set_interest(node, {})`
+  ("registered, interested in nothing").
+
+**Read side — push, not poll.** The registry exposes a subscription that mirrors the
+`Network::register → handle{mpsc}` actor-handle idiom (ADR 0006/0007), because that is how the
+real backend behaves: a chain indexer publishes accepted state transitions as an event stream,
+so the registry is event-driven *at the source*. Polling would reinvent the change-detection
+the indexer hands us for free, and adds poll-interval latency.
+
+`subscribe(topics)` returns a single-consumer `RegistryWatch`. On open it replays current
+members of the watched topics as a `Joined` burst (cold start — so a late subscriber's candidate
+list is not blind to pre-existing membership), then streams live deltas.
 
 ```rust
-async fn registry_reader_loop(events: EventQueue, registry: Arc<dyn Registry>) {
-    let mut last = RegistrySnapshot::default();
-    loop {
-        tokio::time::sleep(POLL).await;
-        let now = registry.read(/* topics of interest */);
-        for update in now.diff(&last) { events.push(Event::RegistryUpdate(update)); }
-        last = now;
-    }
+/// Payload of `Event::RegistryUpdate`. Carries identity + interest only — no network
+/// address (gossip resolves node id → address later) and no deposit (anti-Sybil is
+/// enforced at registration/validation, deferred — see IMPLEMENTATION_NOTES N-003).
+pub enum RegistryEvent {
+    Joined        { node: PeerId, topics: BTreeSet<TopicId> },
+    TopicsChanged { node: PeerId, added: BTreeSet<TopicId>, removed: BTreeSet<TopicId> },
+    Left          { node: PeerId },
+}
+
+#[allow(async_fn_in_trait)] // mirrors the Network trait's v1 allowance
+pub trait Registry: Send + Sync + 'static {
+    async fn set_interest(&self, node: PeerId, topics: BTreeSet<TopicId>) -> Result<(), RegistryError>;
+    async fn unregister(&self, node: PeerId) -> Result<(), RegistryError>;
+    async fn subscribe(&self, topics: BTreeSet<TopicId>) -> Result<RegistryWatch, RegistryError>;
 }
 ```
 
-Wired so the node owns the task (symmetric with the network adapter):
+The node-owned reader drains the watch and forwards each event onto the queue — the seam (§3)
+is untouched; only the reader's *source* is a push stream rather than a poll loop:
 
 ```rust
-node.spawn_producer(move |q| registry_reader_loop(q, registry));
+node.spawn_producer(move |q| async move {
+    let mut watch = registry.subscribe(topics_of_interest).await.expect("subscribe");
+    while let Some(ev) = watch.recv().await { q.push(Event::RegistryUpdate(ev)); }
+});
 ```
+
+`apply` folds `Joined` / `TopicsChanged` / `Left` into registry-derived `NodeState` (not a side
+structure), filtering the node's own `PeerId` locally so it never sees itself.
+
+**Coupling with local subscriptions (002).** A node's local subscription set (`subscribe` /
+`unsubscribe`, the receive-path topic filter) becomes the single source of truth that *drives*
+`set_interest`: subscribing to a topic both accepts its messages and announces interest to the
+registry. This makes 002's `subscribe`/`unsubscribe` registry-aware — `async` + fallible — which
+is a deliberate edit to 002's surface that Feature B's spec calls out. Whether that announce is a
+direct call or an `Effect` depends on §1.4's `subscribe`-as-method-vs-event decision (Feature A).
 
 ---
 
@@ -229,7 +268,7 @@ Exactly three items cross the branch boundary:
 | `NodeState`, `Event` enum (+ `MessageReceived`), `Effect`, `apply` skeleton + `MessageReceived` arm | Feature A |
 | `EventQueue`, the event loop, `spawn_producer`, `events()`, producer/`JoinHandle` ownership + drop-abort | Feature A |
 | Network adapter producer | Feature A |
-| `Registry` trait, `MockRegistry`, write API, `RegistrySnapshot`/diff, `RegistryEvent` payload | Feature B |
+| `Registry` trait, `InMemoryRegistry`, write API (`set_interest`/`unregister`), `subscribe` + `RegistryWatch`, `RegistryEvent` payload | Feature B |
 | `Event::RegistryUpdate` variant + its `apply` arm + the reader producer | Feature B |
 
 Feature A's branch never imports `Registry`. Feature B's branch needs only the three contract
@@ -269,8 +308,9 @@ items above.
 - Connections as dynamic keyed producers + shell-executed effects: **~004**, Feature A's later
   scope. The `Event`/`EventQueue`/producer/effect shape already accommodates it.
 - Getter mechanism; `subscribe`-as-method-vs-event: open, Feature A's spec (§1.4).
-- Registry read model (poll cadence, freshness, what counts as an "update of interest"):
-  Feature B's spec.
+- Registry read model: **decided — push/subscribe** (§2, amended 2026-06-09). Cold-start
+  snapshot semantics, backpressure/lag handling (bounded vs the v1 unbounded channel), and
+  exact `RegistryWatch` shape: Feature B's spec.
 
 ---
 
