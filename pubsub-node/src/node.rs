@@ -74,7 +74,8 @@ pub struct Node {
 
 impl Node {
     /// Construct a node, registering on `network` under `self_id` and
-    /// spawning its background receive task.
+    /// spawning its event loop and network producer. A failed registration
+    /// returns the error before any background task is spawned.
     ///
     /// `initial_subscriptions` is the set of topics this node will accept on
     /// receive. An empty set yields a node that drops every inbound

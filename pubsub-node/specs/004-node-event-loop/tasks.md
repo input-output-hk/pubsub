@@ -92,9 +92,9 @@ fmt in every sweep).
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T009 [P] Rustdoc pass on `src/node.rs` and `src/state.rs`: `Node`'s docs describe the loop→transition structure in stable library terms; `state.rs` module docs address crate-internal readers; **no FR/spec citations in rustdoc** (constitution: implementation-neutral operator/library strings; FR refs live in `//` source comments only).
-- [ ] T010 [P] Walk `specs/004-node-event-loop/quickstart.md` end-to-end: parity sweep command, the in-module test pattern matches what T003 actually wrote (update quickstart snippets if names drifted), queue-level pattern still works as documented.
-- [ ] T011 Final full sweep (`cargo fmt && cargo build && cargo clippy --all-targets && cargo test`) and self-check the remaining contracts §C items ahead of the formal `/speckit-analyze` round (which records findings in this feature's `analysis.md` per the constitution's analysis-ledger rule). Final commit.
+- [X] T009 [P] Rustdoc pass on `src/node.rs` and `src/state.rs`: `Node`'s docs describe the loop→transition structure in stable library terms; `state.rs` module docs address crate-internal readers; **no FR/spec citations in rustdoc** (constitution: implementation-neutral operator/library strings; FR refs live in `//` source comments only).
+- [X] T010 [P] Walk `specs/004-node-event-loop/quickstart.md` end-to-end: parity sweep command, the in-module test pattern matches what T003 actually wrote (update quickstart snippets if names drifted), queue-level pattern still works as documented.
+- [X] T011 Final full sweep (`cargo fmt && cargo build && cargo clippy --all-targets && cargo test`) and self-check the remaining contracts §C items ahead of the formal `/speckit-analyze` round (which records findings in this feature's `analysis.md` per the constitution's analysis-ledger rule). Final commit.
 
 ---
 
