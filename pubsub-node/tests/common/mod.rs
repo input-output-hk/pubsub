@@ -218,6 +218,35 @@ pub enum AwaitError {
     Timeout(Duration),
 }
 
+/// Poll `node.candidates(topic)` until it equals `expected` (as a set of id
+/// strings) or `timeout` elapses. Candidate-set convergence is asynchronous
+/// (the registry reader drains the membership stream onto the event loop), so
+/// tests wait the same way they wait for message delivery.
+pub async fn await_candidates(
+    node: &Node,
+    topic: &TopicId,
+    expected: &[&str],
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let want: std::collections::BTreeSet<String> =
+        expected.iter().map(|s| (*s).to_string()).collect();
+    let start = tokio::time::Instant::now();
+    loop {
+        let got: std::collections::BTreeSet<String> = node
+            .candidates(topic)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        if got == want {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 pub async fn await_delivery(
     node: &Node,
     expected_sender: &PeerId,
