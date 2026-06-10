@@ -81,6 +81,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 ### Edge Cases
 
 - **Event pushed after the node is dropped / the loop has shut down**: the event is silently discarded; pushing never panics and never blocks the producer (preserves the existing fire-and-forget feed semantics).
+- **Events still queued when the node is dropped**: discarded along with the queue; teardown does not drain or process remaining events. (Same fate as events pushed after shutdown.)
 - **Empty subscription set**: a node subscribed to nothing drops every inbound message (each with `cause = "topic_not_subscribed"`), unchanged from current behavior.
 - **Subscribe/unsubscribe while events are being processed concurrently**: the control-plane call and event processing are serialized so that a snapshot taken afterward is consistent (no torn or lost updates).
 - **Node dropped while producers are running**: dropping the node stops event processing and terminates all node-owned producers; no producer outlives the node.
@@ -101,7 +102,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 
 **Structural exposure (the reshape, stated as observable/testable contract):**
 
-- **FR-008**: The node's mutable state MUST be a single explicit state value, changed **only** by one transition function; that transition MUST be **pure** (no I/O, no concurrency, no asynchrony) and exercisable **synchronously** in isolation. The state value and transition are **crate-internal** — they are a refactoring of the node's internals, not new public API; the node remains the only public surface.
+- **FR-008**: The node's mutable state MUST be a single explicit state value, changed **only** by one transition function; that transition MUST be **pure** (no **protocol** I/O, no concurrency, no asynchrony) and exercisable **synchronously** in isolation — inline emission of operator log events is permitted ambient observability, per Assumptions. The state value and transition are **crate-internal** — they are a refactoring of the node's internals, not new public API; the node remains the only public surface.
 - **FR-009**: A constructed node MUST process queued events concurrently while remaining usable through its synchronous getters and subscribe/unsubscribe methods.
 - **FR-010**: Events MUST be deliverable from multiple node-owned producers and from an ad-hoc feed handle; the node MUST own its producers' lifecycles.
 - **FR-011**: Dropping the node MUST stop event processing and terminate all of its producers; no producer may outlive the node.
@@ -111,6 +112,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 
 - **FR-013**: The connection model (dialing, accepting, per-connection send/receive, message fan-out) MUST NOT be implemented in this feature; the transition's outbound-command output type ships present-but-empty and the transition returns no outbound commands. This is deferred to a later `004-connections` feature.
 - **FR-014**: Registry-driven subscription confirmation and updates MUST NOT be implemented in this feature; the registry-update event seam is reserved for 008 and consumed there.
+- **FR-015**: Message **sending** MUST be preserved unchanged: `send` resolves once the network accepts the message; sending to an unregistered recipient is silently dropped with no synchronous error to the sender; sending is independent of the sender's own subscription set.
 
 ### Key Entities
 
@@ -127,7 +129,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 - **SC-001**: 100% of the existing 002 and 003 acceptance tests pass against the refactored node **without modification** to those tests.
 - **SC-002**: The message-handling logic can be tested with **zero** asynchronous runtime, task spawning, channels, or I/O — a purely synchronous "apply a sequence of events, assert state after each" test compiles and passes.
 - **SC-003**: Introducing a new event kind and a new event source requires adding exactly one transition branch and one producer registration, with **no edits to existing transition branches or existing producers** (verifiable by the 008 branch adding its registry-update handling additively).
-- **SC-004**: The node's public observable surface (getter and subscribe/unsubscribe signatures and outcomes) is **unchanged** from 003, and **no new public API is added** (the state value and transition stay crate-internal); no consumer of the 003 API needs to change call sites.
+- **SC-004**: The node's public observable surface (all public methods and their outcomes — construction, send, getters, subscribe/unsubscribe, producer registration, drop behavior) is **unchanged** from 003, and **no new public API is added** (the state value and transition stay crate-internal); no consumer of the 003 API needs to change call sites.
 - **SC-005**: Dropping a node terminates all its producers and stops event processing, observable by no further events being recorded after drop and no leaked background activity.
 
 ## Assumptions
