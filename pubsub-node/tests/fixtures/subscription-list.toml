@@ -1,0 +1,15 @@
+# Mocked on-chain subscription list (test fixture for feature 008).
+# Each entry is one node's subscription-list record: its node id and the
+# topics it subscribes to. Read only by InMemorySubscriptionRegistry::from_file.
+
+[[entry]]
+node_id = "node-a"
+topics  = ["t1"]
+
+[[entry]]
+node_id = "node-b"
+topics  = ["t1", "t2"]
+
+[[entry]]
+node_id = "node-c"
+topics  = ["t2"]

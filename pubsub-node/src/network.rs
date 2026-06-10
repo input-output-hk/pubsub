@@ -45,11 +45,11 @@ pub trait Network: Send + Sync + 'static {
     async fn register(&self, id: PeerId) -> Result<NetworkHandle, NetworkError>;
 }
 
-type Registry = Arc<RwLock<HashMap<PeerId, UnboundedSender<RoutingFrame>>>>;
+type PeerSenders = Arc<RwLock<HashMap<PeerId, UnboundedSender<RoutingFrame>>>>;
 
 #[derive(Clone)]
 pub(crate) struct NetworkSender {
-    registry: Registry,
+    registry: PeerSenders,
 }
 
 impl NetworkSender {
@@ -144,7 +144,7 @@ impl NetworkHandle {
 /// # }
 /// ```
 pub struct InMemoryNetwork {
-    registry: Registry,
+    registry: PeerSenders,
 }
 
 impl InMemoryNetwork {

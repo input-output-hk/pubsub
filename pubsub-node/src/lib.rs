@@ -40,6 +40,7 @@ mod node;
 mod peer;
 mod received;
 mod state;
+mod subscription_registry;
 mod topic;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
@@ -54,4 +55,8 @@ pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::ReceivedDelivery;
+pub use subscription_registry::{
+    InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionEntry,
+    SubscriptionRegistry, SubscriptionRegistryControl, SubscriptionRegistryError,
+};
 pub use topic::{TopicId, TopicIdError};

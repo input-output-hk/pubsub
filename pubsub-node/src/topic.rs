@@ -25,7 +25,7 @@ pub enum TopicIdError {
 ///
 /// Topic ids are case-sensitive: `TopicId::from_str("T1")` and
 /// `TopicId::from_str("t1")` parse to distinct values.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct TopicId(String);
 
 impl TopicId {
