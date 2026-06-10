@@ -19,7 +19,7 @@ runtime, no channels, no tasks (spec SC-002). The pattern (contract doc §5, "pr
 
 ```rust
 // in src/state.rs  #[cfg(test)] mod tests
-let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier::accepting());
+let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);   // unit struct, constructed bare
 let mut state = NodeState::new(self_id, [topic_t.clone()].into(), verifier);
 
 // scripted events, assert state (and effects) after each apply
@@ -31,6 +31,10 @@ let effects = apply(&mut state, Event::MessageReceived { from: peer_a, message: 
 assert!(effects.is_empty());
 assert_eq!(state.received_snapshot().len(), 1);    // dropped: not subscribed — state unchanged
 ```
+
+An invalid-signature drop is produced the way the existing suite does it — sign with one key
+pair and present a different public key (or altered content), so `TestVerifier` rejects the
+mismatch; there is no configurable "rejecting verifier".
 
 Subscription logic is testable the same way, no `Node` required:
 
