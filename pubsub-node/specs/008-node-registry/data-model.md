@@ -28,7 +28,7 @@ One membership delta. **Identity + topics only** — no network address (endpoin
 | Variant | Fields | Meaning |
 |---|---|---|
 | `Joined` | `{ node: PeerId, topics: BTreeSet<TopicId> }` | `node` is present in `topics` (a watched subset). Emitted during cold-start replay and for live joins. |
-| `TopicsChanged` | `{ node: PeerId, added: BTreeSet<TopicId>, removed: BTreeSet<TopicId> }` | `node` changed interests; `added`/`removed` already intersected with the watched set. |
+| `TopicsChanged` | `{ node: PeerId, added: BTreeSet<TopicId>, removed: BTreeSet<TopicId> }` | `node` changed topics; `added`/`removed` already intersected with the watched set. |
 | `Left` | `{ node: PeerId }` | `node` left the registry entirely; drop from every candidate set. |
 
 `#[non_exhaustive]` reserves room for a future `SnapshotComplete` (010 warmth signal) or `Lagged` (bounded-channel backpressure) without a breaking change.

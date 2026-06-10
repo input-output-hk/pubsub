@@ -113,14 +113,14 @@ tests/
 
 Consolidated in [research.md](./research.md); structural rationale in ADR 0013 / ADR 0014.
 
-1. **Source of truth = subscription list, not config** — node learns interests from the head `Joined` of its `watch(self_id)` stream; `subscribed_topics` removed; absent entry → empty derived state (no fail-fast), converges from the stream. (ADR 0013; spec FR-018, SC-007)
+1. **Source of truth = subscription list, not config** — node learns its topics from the head `Joined` of its `watch(self_id)` stream; `subscribed_topics` removed; absent entry → empty derived state (no fail-fast), converges from the stream. (ADR 0013; spec FR-018, SC-007)
 2. **Trait + push watch mirror the Network actor-handle** — `watch(node) → MembershipWatch{unbounded rx}`, node-keyed cold-start burst (own entry first, then scoped members) then deltas; not `Clone`; drop ends the subscription. (ADR 0014, extending ADR 0007)
 3. **Read model is push, not poll** — the registry emits deltas on write; the in-memory impl fans out to subscriber channels. The protocol's authoritative periodic chain re-read is a 012 concern. (spec FR-006; contract §2)
 4. **Seam variant `Event::MembershipUpdate`** — replaces the `RegistryUpdate` placeholder anticipated by ADR 0011/CLAUDE.md; one dispatch line in `apply` + `handle_membership_update`. Needs a heads-up to the 004 author + one-line updates to ADR 0011's comment and the CLAUDE.md SpecKit block when landing. (ADR 0014)
 5. **Candidate set in `NodeState`, distinct from bootstrap `peers`** — `HashMap<TopicId, HashSet<PeerId>>`, self-excluded; `Node::candidates` getter; the config `[[peers]]` field is untouched. (ADR 0014; spec FR-015/FR-017; resolves N-007)
 6. **Strictly read-only node** — the write API (`set_topics`/`unregister`) lives on a **separate** `SubscriptionRegistryControl` trait, not the node-facing `SubscriptionRegistry`; `Node` holds the registry generically as `Arc<R>` (`R: SubscriptionRegistry`, an `async fn`/RPITIT trait — not `dyn`-compatible), so it has no write methods in scope. Used by the file loader's equivalent and test harnesses, never the node daemon. (spec FR-001/FR-005/FR-018; analyze F3)
 7. **Subscription-list file at the edge** — `from_file` parses TOML into the registry's initial membership; `new()` builds an empty registry for programmatic tests. (spec FR-004; parse-at-the-edge)
-8. **`subscribe`/`unsubscribe` stay sync** (ADR 0012) — unchanged by this feature; the node's topic set is fixed at startup (spec Clarifications), so runtime self-interest changes are out of scope (deferred to 012).
+8. **`subscribe`/`unsubscribe` stay sync** (ADR 0012) — unchanged by this feature; the node's topic set is fixed at `watch(self_id)` time (spec Clarifications), so runtime own-topic changes are out of scope (deferred to 012).
 
 ## Complexity Tracking
 

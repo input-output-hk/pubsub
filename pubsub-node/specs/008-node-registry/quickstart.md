@@ -41,7 +41,7 @@ apply(&mut st, Event::MembershipUpdate(joined("S", ["T1"]))); // self → sets S
 apply(&mut st, Event::MembershipUpdate(topics_changed("A", added=["T2"], removed=[])));
 apply(&mut st, Event::MembershipUpdate(left("B")));
 
-assert_eq!(st.subscriptions(), vec![topic("T1")]);                     // derived from the self `Joined`
+assert_eq!(st.subscriptions, HashSet::from([topic("T1")]));            // own set (crate-internal field), derived from the self `Joined`
 assert_eq!(st.candidates_snapshot(&topic("T1")), vec![peer("A")]);     // S excluded (its own events fed subscriptions)
 assert_eq!(st.candidates_snapshot(&topic("T2")), vec![peer("A")]);
 // every apply returned Vec::<Effect>::new()  (Effect uninhabited)
