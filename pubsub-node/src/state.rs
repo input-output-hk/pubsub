@@ -30,8 +30,14 @@ use crate::topic::TopicId;
 /// changes via [`subscribe`](Self::subscribe) /
 /// [`unsubscribe`](Self::unsubscribe). The verifier rides along as the
 /// immutable service handle the message-received transition consults.
+///
+/// Holds what the transition reads or writes — nothing more: static
+/// shell concerns (the network handle, the config-derived peer list) stay on
+/// the node. Peer or registry-derived data joins this struct when a
+/// transition first consumes it.
 // FR-008: single explicit state value; crate-internal (Clarifications
-// 2026-06-09). Field set per the seam contract §1.1 / data-model.md.
+// 2026-06-09). Field set per the seam contract §1.1 / data-model.md; the
+// peers-placement boundary is IMPLEMENTATION_NOTES N-007 (revisit at 008/005).
 pub(crate) struct NodeState {
     self_id: PeerId,
     subscriptions: HashSet<TopicId>,
