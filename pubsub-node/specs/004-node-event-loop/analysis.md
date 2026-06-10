@@ -130,3 +130,40 @@ Analytical sweep of the walk-1 edit surface: quickstart snippet matches code (`A
 | 2 | 0 | — | — | Convergence confirmed (this commit) |
 
 **Recommended next step**: **`/speckit-implement`** (T001–T011, four green checkpoint commits). The next analyze round that adds value is the post-implementation pass after T011, per the constitution's verify-against-code rule.
+
+---
+
+## Session 2026-06-09 — Third pass (post-implementation)
+
+**Trigger**: `/speckit-analyze` after all 11 tasks completed (checkpoint commits `64c9009` / `fa2c20a` / `f9c0235` / `af31d6d`, plus the `246c6fc` N-007 interlude). This is the constitution-mandated verify-against-code round: artifact claims checked against the implementation itself, not cross-artifact agreement alone.
+
+**Result summary**: 1 LOW finding; all six claim classes otherwise verified.
+
+### Verification by claim class
+
+| # | Claim class | Result |
+|---|---|---|
+| 1 | contracts §A/§B vs code | ✅ all 10 public methods present with exact §A signatures; `lib.rs` re-exports byte-identical to `main` (+`mod state;` only); §B items `pub(crate)`-only, unreferenced from `tests/` |
+| 2 | log events vs emitters | ✅ `message_dropped` ×2 (both causes, fields verbatim), `topic_subscribed`/`topic_unsubscribed` + noop variants, debug `recv` — `pubsub_node::node` target preserved; send-drop warn untouched in `network.rs` |
+| 3 | data-model vs structures | ✅ `NodeState` + `Node` field tables exact; transition-table handler granularity → V1 |
+| 4 | quickstart vs API | ✅ (T010 walk re-confirmed; session-1 I1 fix held) |
+| 5 | code-only FR claims | ✅ FR-016 register-precedes-spawn (`node.rs:98` vs `:118`); FR-003 filter-before-verify; FR-011 Drop unchanged vs `main` |
+| 6 | tasks.md vs git history | ✅ four checkpoint commits as mapped (+ documented N-007 interlude); T003 red-run claim matches cp1's recorded 3-failure run |
+
+### Findings
+
+- [x] V1 [LOW] — data-model.md's transition table named `handle_message_received` as the handler for all three message rows; as built, that function is the per-event dispatcher and the signed-message logic lives in `handle_signed_message` (per-kind named-handler split requested by the maintainer during cp1 — a tactical refinement, no ADR impact; ADR 0011/plan/quickstart use generic "handlers" wording and are unaffected). **Location**: data-model.md transition table vs `src/state.rs`. _Fixed 2026-06-09: Handler column now reads `handle_message_received` → `handle_signed_message`, with a note that future message kinds get sibling handlers behind the same dispatcher._
+
+### Metrics (this pass)
+
+- **Findings**: 1 (0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW) | **Constitution conflicts**: 0 | **Coverage**: 21/21 (unchanged)
+
+### Cumulative state
+
+| Pass | Timing | Findings | Outcome |
+|------|--------|----------|---------|
+| 1 | pre-implementation | 3 (2 M, 1 L) | resolved (`208e05d`) |
+| 2 | pre-implementation, confirming | 0 | convergence (`943ec2c`) |
+| 3 | post-implementation | 1 (1 L) | resolved (this commit) |
+
+**Recommended next step**: feature lifecycle complete — refresh the CLAUDE.md SPECKIT block (004 implemented), push, and open the PR to `main`; merging unblocks 008's branch point.

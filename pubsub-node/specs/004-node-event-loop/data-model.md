@@ -67,9 +67,13 @@ Pure w.r.t. state and protocol effects: synchronous, no `.await`, no protocol I/
 
 | Event variant | Handler | State change | Effects | Log (ambient) |
 |---|---|---|---|---|
-| `MessageReceived { from, message }`, topic ∉ `subscriptions` | `handle_message_received` | none | `[]` | `message_dropped`, `cause = "topic_not_subscribed"` |
-| `MessageReceived { from, message }`, topic ∈ `subscriptions`, signature invalid | `handle_message_received` | none | `[]` | `message_dropped`, `cause = "invalid_signature"` |
-| `MessageReceived { from, message }`, topic ∈ `subscriptions`, signature valid | `handle_message_received` | push `ReceivedDelivery { from, message }` onto `received` | `[]` | debug-level `recv` |
+| `MessageReceived { from, message }`, topic ∉ `subscriptions` | `handle_message_received` → `handle_signed_message` | none | `[]` | `message_dropped`, `cause = "topic_not_subscribed"` |
+| `MessageReceived { from, message }`, topic ∈ `subscriptions`, signature invalid | `handle_message_received` → `handle_signed_message` | none | `[]` | `message_dropped`, `cause = "invalid_signature"` |
+| `MessageReceived { from, message }`, topic ∈ `subscriptions`, signature valid | `handle_message_received` → `handle_signed_message` | push `ReceivedDelivery { from, message }` onto `received` | `[]` | debug-level `recv` |
+
+(`handle_message_received` is the per-event dispatcher — it emits the debug `recv` and
+matches on message kind; the signed-message logic lives in `handle_signed_message`. Future
+message kinds get sibling handlers behind the same dispatcher.)
 
 Order of checks is preserved from 003: topic filter first (cheap), then signature
 verification — off-topic traffic never pays the verification cost.
