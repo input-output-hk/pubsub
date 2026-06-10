@@ -39,6 +39,10 @@ mod network;
 mod node;
 mod peer;
 mod received;
+// dead_code allow is temporary: the pure core is not yet wired into the shell;
+// removed when the event loop switches to `state::apply` (T005).
+#[allow(dead_code)]
+mod state;
 mod topic;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
