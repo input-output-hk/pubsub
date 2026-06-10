@@ -15,7 +15,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -34,9 +34,7 @@
 ## Notes
 
 - **Revised 2026-06-10** after the post-merge review (PRs #44/#49/#50) and a source-of-truth refinement. See the spec's Clarifications log: renamed `Registry`→`SubscriptionRegistry`; **the subscription list (a file in the mock) is the single source of truth for a node's own interests, not config**; node is **strictly read-only** (no self-seed); `interests_of` self-lookup added; 002 `subscribed_topics` removed (node config = `node_id` + bootstrap); seam variant `Event::SubscriptionUpdate`; integration targets feature 004's merged pure core; candidate set coexists with config bootstrap `peers` (resolves N-007).
-- **2 open [NEEDS CLARIFICATION] markers** (spec Edge Cases), for `/speckit-clarify`:
-  1. Whether the cold-start burst carries an explicit snapshot-boundary marker (a `SnapshotComplete`-style `SubscriptionEvent` variant) — affects the `SubscriptionEvent` surface.
-  2. When a node's `node_id` has no subscription-list entry at startup: error, wait-and-retry (faithful to `joining.md`), or run with empty interests?
+- **`/speckit-clarify` session 2026-06-10 — 3 questions, all resolved** (see spec Clarifications): no cold-start boundary marker (A); fail-fast on absent entry (A); interest set fixed at startup (A). Also tightened FR-009 (burst/live boundary is gap-free + duplicate-free). No `[NEEDS CLARIFICATION]` markers remain.
 - Cross-feature: node-integration requirements (FR-013–FR-018) build on the now-merged feature 004 core; registry-module requirements (FR-001–FR-012, FR-021) are independent and buildable first.
 - Coordination items: (a) the seam-variant rename touches ADR 0011's illustrative comment + the CLAUDE.md SpecKit block; (b) the `joining.md` config-vs-chain authority ambiguity is surfaced as a GitHub issue (Principle V — protocol docs not edited on this branch).
 - Items marked incomplete require spec updates before `/speckit-plan`.
