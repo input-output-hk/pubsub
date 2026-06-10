@@ -86,6 +86,14 @@ field — project-wide convention). One residual:
 - [x] CHK023 Does contracts/public-surface.md §A's `Node::new` row reflect the failure-mode parity FR-016 now pins (typed error on duplicate registration; no background activity on failed construction), or only the success semantics? [Consistency, Completeness, Spec §FR-016 vs contracts §A]
   - **MINOR FAIL → resolved 2026-06-09**: round-2 self-inflicted skew (same mechanism as CHK017) — FR-016 landed without updating the contract row §C walks. Added the failure-mode clause to the `Node::new` semantics cell. No other artifact touched; convergence declared after this item (third pass's entire yield was a one-cell echo of round 2's fix).
 
+## Fourth Pass (2026-06-09)
+
+**No findings — zero items raised.** Round 3's delta (one terminal contract cell + ledger
+annotations) introduced no skew; §C deliberately leaves FR-016's failure clause to review per
+N-006. Full dimension re-scan produced only candidates already adjudicated in CHK001–023 or
+settled by maintainer rulings (no new observability; no new tests in parity scope;
+annotation over spec edit). Checklist closed at CHK023; artifacts ready for `/speckit-tasks`.
+
 ## Notes
 
 - Check items off as completed: `[x]`
