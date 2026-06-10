@@ -7,12 +7,12 @@ All decisions were resolved before planning — through the post-merge review of
 ## R1 — Two registries, separate types (no shared trait)
 
 - **Decision**: This feature is the **subscription list** (`SubscriptionRegistry`), a distinct type from the future **topic registry** (`TopicRegistry`, ~007/012). No shared `Registry` trait.
-- **Rationale**: `../docs/node-lifecycle/README.md` defines them as separate on-chain artifacts with different keys (node vs topic), payloads (interest+deposit vs authorised publishers), and readers (subscribers computing candidate sets vs relayers verifying signatures). A merged trait would be fat — half the methods nonsense for each side. The generic name `Registry` also collides with the topic registry.
+- **Rationale**: `../docs/node-lifecycle/README.md` defines them as separate on-chain artifacts with different keys (node vs topic), payloads (topics+deposit vs authorised publishers), and readers (subscribers computing candidate sets vs relayers verifying signatures). A merged trait would be fat — half the methods nonsense for each side. The generic name `Registry` also collides with the topic registry.
 - **Alternatives**: a bundled `Registry` trait (rejected — fat abstraction, name collision); see ADR 0013/0014.
 
-## R2 — Subscription list is authoritative for a node's own interests, not config
+## R2 — Subscription list is authoritative for a node's own topics, not config
 
-- **Decision**: A node sources its topic-interest set from its own subscription-list entry via `entry(self_id)`; config carries identity + bootstrap only; 002's `subscribed_topics` is removed. Absent entry at startup → fail fast.
+- **Decision**: A node sources its topic set from its own subscription-list entry via `entry(self_id)`; config carries identity + bootstrap only; 002's `subscribed_topics` is removed. Absent entry at startup → fail fast.
 - **Rationale**: Config authority would let an operator make a node participate beyond its registered, deposited commitment — defeating the deposit's accountability. Fail-fast suits the in-memory mock (register/seed before constructing nodes); the protocol's retry-with-backoff is a 012 concern.
 - **Alternatives**: config-authoritative; config-validated-against-chain; self-seed-from-config (all rejected — see ADR 0013).
 
@@ -38,11 +38,11 @@ All decisions were resolved before planning — through the post-merge review of
 
 - **Decision**: The registry-derived candidate set is distinct from the existing config `[[peers]]` field (the `Node` shell's bootstrap list). This feature adds the candidate set and does not touch `peers`; `Node::peers()` is unchanged.
 - **Rationale**: `joining.md` connects to bootstrap nodes (step 4) **and separately** filters the subscription list into a candidate set (step 6) — two roles, two sources. Connecting/dialing from the candidate set is the dialer's job (~006 / `004-connections`), out of scope here.
-- **Alternatives**: merge/replace `peers` with the candidate set (rejected — conflates bootstrap with interest-derived membership; would break the dialer's bootstrap contract).
+- **Alternatives**: merge/replace `peers` with the candidate set (rejected — conflates bootstrap with topic-derived membership; would break the dialer's bootstrap contract).
 
 ## R7 — Node is strictly read-only; write API is for the file loader + tests
 
-- **Decision**: `set_interest` / `unregister` exist on the trait but are called only by the `from_file` loader's equivalent and by test harnesses simulating operator churn; the node daemon issues no registry writes.
+- **Decision**: `set_topics` / `unregister` exist on the trait but are called only by the `from_file` loader's equivalent and by test harnesses simulating operator churn; the node daemon issues no registry writes.
 - **Rationale**: `joining.md`: "the node does NOT initiate a registration transaction; that is the operator's job." Read-only keeps the mock faithful and the node's role clean; it also resolves the earlier self-seed tension. Multi-node networks share one `Arc<dyn SubscriptionRegistry>` (as in-process nodes share one `InMemoryNetwork`); membership originates from the shared file / harness.
 - **Alternatives**: node self-seeds on startup (rejected — circular, makes the node a writer, contradicts the read-only role).
 

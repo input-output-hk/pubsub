@@ -28,7 +28,7 @@
 **Purpose**: The registry module skeleton every story builds on (plan §Structure Decision; ADR 0014). Stubs make tests compile and fail.
 
 - [ ] T003 In `src/network.rs`, rename the private `type Registry = Arc<RwLock<HashMap<PeerId, UnboundedSender<RoutingFrame>>>>` alias to `PeerSenders` (module-internal, mechanical — frees the name `Registry` family from confusion with this feature, spec FR-011). Confirm green.
-- [ ] T004 Create the module `src/subscription_registry/mod.rs` + `src/subscription_registry/in_memory.rs` and wire it in `src/lib.rs` (`mod subscription_registry;` + the `pub use` block from contracts §A). In `mod.rs`: `#[allow(async_fn_in_trait)] pub trait SubscriptionRegistry: Send + Sync + 'static` with `set_interest`, `unregister`, `watch_members`, `entry` (signatures per data-model/contract); `#[non_exhaustive] pub enum MembershipEvent { Joined { node, topics }, TopicsChanged { node, added, removed }, Left { node } }`; `#[non_exhaustive] pub struct SubscriptionEntry { pub node: PeerId, pub topics: BTreeSet<TopicId> }`; `pub struct MembershipWatch` wrapping `tokio::sync::mpsc::UnboundedReceiver<MembershipEvent>` (not `Clone`; `recv(&mut self) -> Option<MembershipEvent>`); `#[non_exhaustive] pub enum SubscriptionRegistryError` impl `std::error::Error + Debug + Display`. In `in_memory.rs`: `pub struct InMemorySubscriptionRegistry { membership: Mutex<HashMap<PeerId, BTreeSet<TopicId>>>, subscribers: Mutex<Vec<(BTreeSet<TopicId>, UnboundedSender<MembershipEvent>)>> }` with `new()` and **stub** trait-method impls (return `Ok(())` / `Ok(None)` / an empty watch) so US1/US2 tests compile and fail. Rustdoc is implementation-neutral (no FR cites); `//` comments may cite FR-001..003. Compiles green; node untouched.
+- [ ] T004 Create the module `src/subscription_registry/mod.rs` + `src/subscription_registry/in_memory.rs` and wire it in `src/lib.rs` (`mod subscription_registry;` + the `pub use` block from contracts §A). In `mod.rs`: `#[allow(async_fn_in_trait)] pub trait SubscriptionRegistry: Send + Sync + 'static` (read-only, node-facing) with `watch_members`, `entry`; a separate `pub trait SubscriptionRegistryControl: SubscriptionRegistry` with `set_topics`, `unregister` (write surface — node never depends on it) (signatures per data-model/contract); `#[non_exhaustive] pub enum MembershipEvent { Joined { node, topics }, TopicsChanged { node, added, removed }, Left { node } }`; `#[non_exhaustive] pub struct SubscriptionEntry { pub node: PeerId, pub topics: BTreeSet<TopicId> }`; `pub struct MembershipWatch` wrapping `tokio::sync::mpsc::UnboundedReceiver<MembershipEvent>` (not `Clone`; `recv(&mut self) -> Option<MembershipEvent>`); `#[non_exhaustive] pub enum SubscriptionRegistryError` impl `std::error::Error + Debug + Display`. In `in_memory.rs`: `pub struct InMemorySubscriptionRegistry { membership: Mutex<HashMap<PeerId, BTreeSet<TopicId>>>, subscribers: Mutex<Vec<(BTreeSet<TopicId>, UnboundedSender<MembershipEvent>)>> }` with `new()` and **stub** trait-method impls (return `Ok(())` / `Ok(None)` / an empty watch) so US1/US2 tests compile and fail. Rustdoc is implementation-neutral (no FR cites); `//` comments may cite FR-001..003. Compiles green; node untouched.
 
 **Checkpoint**: module skeleton exists, unused by the node; suite still green.
 
@@ -38,15 +38,15 @@
 
 **Goal**: A node's subscription-list entry can be declared, changed, withdrawn, and looked up; loadable from the subscription-list file (FR-004..006, FR-008).
 
-**Independent Test**: against `InMemorySubscriptionRegistry` alone, drive `set_interest`/`unregister`/`from_file` and assert state via `entry()` read-back — **no watch and no node** (spec US2; SC-006).
+**Independent Test**: against `InMemorySubscriptionRegistry` alone, drive `set_topics`/`unregister`/`from_file` and assert state via `entry()` read-back — **no watch and no node** (spec US2; SC-006).
 
 ### Tests for User Story 2 (MANDATORY — written first, MUST fail against T004 stubs)
 
-- [ ] T005 [US2] In `src/subscription_registry/in_memory.rs` `#[cfg(test)] mod tests`: assert via `entry()` read-back — `set_interest(A, {t1})` then `entry(A) == Some(SubscriptionEntry { topics: {t1}, .. })`; updating to `{t1,t2}` reflects in `entry`; `set_interest(A, {})` ⇒ `entry(A) == Some(empty topics)` and is **distinct** from `unregister(A)` ⇒ `entry(A) == None` (FR-005/FR-006); re-`set_interest` with the identical set leaves `entry` unchanged (idempotency substrate, SC-004); `from_file("tests/fixtures/subscription-list.toml")` ⇒ `entry` returns the loaded sets; a file with a duplicate `node_id` or an unknown field ⇒ load error (FR-004, parse-at-the-edge). `proptest` optional for the upsert/idempotency property. Fail against stubs.
+- [ ] T005 [US2] In `src/subscription_registry/in_memory.rs` `#[cfg(test)] mod tests`: assert via `entry()` read-back — `set_topics(A, {t1})` then `entry(A) == Some(SubscriptionEntry { topics: {t1}, .. })`; updating to `{t1,t2}` reflects in `entry`; `set_topics(A, {})` ⇒ `entry(A) == Some(empty topics)` and is **distinct** from `unregister(A)` ⇒ `entry(A) == None` (FR-005/FR-006); re-`set_topics` with the identical set leaves `entry` unchanged (idempotency substrate, SC-004); `from_file("tests/fixtures/subscription-list.toml")` ⇒ `entry` returns the loaded sets; a file with a duplicate `node_id` or an unknown field ⇒ load error (FR-004, parse-at-the-edge). `proptest` optional for the upsert/idempotency property. Fail against stubs.
 
 ### Implementation for User Story 2
 
-- [ ] T006 [US2] Implement `set_interest` (upsert the `membership` map; compute `added`/`removed` vs the prior set and hold it for emission — emission wiring lands in US1/T008), `unregister` (remove the entry), `entry` (clone-out a `SubscriptionEntry`), and `from_file` (TOML deserialize at the boundary into `membership`; strict unknown-field rejection per 001; duplicate `node_id` → load error; any `deposit` field ignored). `new()` builds an empty registry. **Checkpoint commit #1**: fmt + build + clippy + test green.
+- [ ] T006 [US2] Implement `set_topics` (upsert the `membership` map; compute `added`/`removed` vs the prior set and hold it for emission — emission wiring lands in US1/T008), `unregister` (remove the entry), `entry` (clone-out a `SubscriptionEntry`), and `from_file` (TOML deserialize at the boundary into `membership`; strict unknown-field rejection per 001; duplicate `node_id` → load error; any `deposit` field ignored). `new()` builds an empty registry. **Checkpoint commit #1**: fmt + build + clippy + test green.
 
 **Checkpoint**: registry state + writes + `entry` + `from_file` complete and unit-tested via read-back; the stream is next.
 
@@ -56,23 +56,23 @@
 
 **Goal**: `watch_members(topics)` yields the current members (cold-start `Joined` burst) then live, topic-scoped deltas — the candidate source (FR-007..010; SC-001/002/005).
 
-**Independent Test**: against `InMemorySubscriptionRegistry` alone, populate via `set_interest`, open `watch_members`, and assert the emitted `MembershipEvent` sequence — no node loop (spec US1; SC-006).
+**Independent Test**: against `InMemorySubscriptionRegistry` alone, populate via `set_topics`, open `watch_members`, and assert the emitted `MembershipEvent` sequence — no node loop (spec US1; SC-006).
 
 ### Tests for User Story 1 (MANDATORY — written first, MUST fail before T008)
 
-- [ ] T007 [US1] In `in_memory.rs` `#[cfg(test)] mod tests`: **cold start** — with `A→{t1}`, `B→{t1,t2}`, `C→{t2}` registered, `watch_members({t1})` yields `Joined` for exactly `A` and `B` (each reporting `t1`) and nothing for `C`/`t2` (SC-001, US1-AS1); **live deltas** — after draining the burst, `set_interest(D,{t1})` ⇒ one `Joined{D,{t1}}`, `unregister(A)` ⇒ one `Left{A}`, an interest change touching the watched set ⇒ one `TopicsChanged` with `added`/`removed` **intersected** with the watched set (US1-AS2/3); **scoping** — a change confined to an unwatched topic ⇒ **no** event (SC-005, US1-AS4); **empty-topic watch** — `watch_members({t4})` yields no burst, a later join is delivered (US1-AS5); **ordering/atomicity** — burst + live deltas are one gap-free, duplicate-free sequence (FR-009); **drop** — dropping the `MembershipWatch` ends cleanly with no effect on other watches (Edge Cases). No log assertions. Fail against stubs.
+- [ ] T007 [US1] In `in_memory.rs` `#[cfg(test)] mod tests`: **cold start** — with `A→{t1}`, `B→{t1,t2}`, `C→{t2}` registered, `watch_members({t1})` yields `Joined` for exactly `A` and `B` (each reporting `t1`) and nothing for `C`/`t2` (SC-001, US1-AS1); **live deltas** — after draining the burst, `set_topics(D,{t1})` ⇒ one `Joined{D,{t1}}`, `unregister(A)` ⇒ one `Left{A}`, an interest change touching the watched set ⇒ one `TopicsChanged` with `added`/`removed` **intersected** with the watched set (US1-AS2/3); **scoping** — a change confined to an unwatched topic ⇒ **no** event (SC-005, US1-AS4); **empty-topic watch** — `watch_members({t4})` yields no burst, a later join is delivered (US1-AS5); **ordering/atomicity** — burst + live deltas are one gap-free, duplicate-free sequence (FR-009); **drop** — dropping the `MembershipWatch` ends cleanly with no effect on other watches (Edge Cases). No log assertions. Fail against stubs.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement `watch_members`: **atomically under the `membership` + `subscribers` lock**, snapshot the current matching members into a `Joined` cold-start burst and register the subscriber's `UnboundedSender` (FR-009 boundary atomicity), then return the `MembershipWatch`. Wire the **fanout** into `set_interest`/`unregister` (from T006): after mutating state, emit the scoped, watched-topic-**intersected** `MembershipEvent` (`Joined`/`TopicsChanged`/`Left`) to each matching subscriber; prune closed senders; unchanged-set ⇒ no emission (SC-004). Unbounded channel (ADR 0007). **Checkpoint commit #2 — registry module complete and independently tested (US1 + US2; SC-001/002/004/005/006).**
+- [ ] T008 [US1] Implement `watch_members`: **atomically under the `membership` + `subscribers` lock**, snapshot the current matching members into a `Joined` cold-start burst and register the subscriber's `UnboundedSender` (FR-009 boundary atomicity), then return the `MembershipWatch`. Wire the **fanout** into `set_topics`/`unregister` (from T006): after mutating state, emit the scoped, watched-topic-**intersected** `MembershipEvent` (`Joined`/`TopicsChanged`/`Left`) to each matching subscriber; prune closed senders; unchanged-set ⇒ no emission (SC-004). Unbounded channel (ADR 0007). **Checkpoint commit #2 — registry module complete and independently tested (US1 + US2; SC-001/002/004/005/006).**
 
 **Checkpoint**: the registry is a usable, tested, standalone module (the MVP) — no node required.
 
 ---
 
-## Phase 5: User Story 3 — Node reads its interests and folds candidates (Priority: P3)
+## Phase 5: User Story 3 — Node reads its topics and folds candidates (Priority: P3)
 
-**Goal**: the node sources its own interests from its `entry`, folds the membership stream into a self-excluded per-topic candidate set in `NodeState`, and stays read-only (FR-013..018; SC-003/007/009). Builds on feature 004's pure core (ADR 0011/0012) and the US1/US2 registry.
+**Goal**: the node sources its own topics from its `entry`, folds the membership stream into a self-excluded per-topic candidate set in `NodeState`, and stays read-only (FR-013..018; SC-003/007/009). Builds on feature 004's pure core (ADR 0011/0012) and the US1/US2 registry.
 
 **Independent Test**: pure, synchronous — scripted `Vec<Event>` of `MembershipUpdate` through `apply`, asserting `NodeState` candidate sets and `Vec<Effect>` (spec US3; contract §5); plus the source-of-truth invariant test.
 
@@ -86,7 +86,7 @@
 - [ ] T011 [US3] Wire the shell in `src/node.rs`, `src/config.rs`, `src/error.rs`, `src/main.rs`, and the `tests/` callers (public-surface change, contracts §B/§C): `Node::new` drops `initial_subscriptions` and adds `registry: Arc<dyn SubscriptionRegistry>`; at startup it calls `entry(self_id)` → `None` ⇒ fail fast with a new `NodeError` registration-not-found variant (FR-018), else seed `NodeState.subscriptions` from `entry.topics`, call `watch_members(topics)`, and register the node-owned reader producer via `spawn_producer` (a named `async fn` draining the watch and pushing `Event::MembershipUpdate`, symmetric with `network_mailbox_loop`); add the public `Node::candidates(&TopicId) -> Vec<PeerId>` getter (lock-and-clone). Remove `subscribed_topics` from `NodeConfig` (and any TOML fixtures/templates that set it). Update `main.rs` to build `InMemorySubscriptionRegistry::from_file` and pass it. Update every existing `Node::new` call site in `tests/` + `tests/common` helpers to the new signature (drop `initial_subscriptions`, inject a registry pre-seeded with the test node's entry). `Node::peers()` unchanged.
 - [ ] T012 [US3] Integration tests in `tests/` (source-of-truth + N-007): a node constructed as `S` against a registry whose entry is `S→{t1}` accepts/participates only on `t1` regardless of any other configured value (SC-007); `Node::candidates(t)` is distinct from `Node::peers()` and does not alter the config bootstrap list (SC-009, FR-017); a node whose id has no entry fails construction (FR-018). **Checkpoint commit #3 — node integration delivered.**
 
-**Checkpoint**: the node reads its interests from the registry, folds candidates, stays read-only; the source-of-truth invariant holds.
+**Checkpoint**: the node reads its topics from the registry, folds candidates, stays read-only; the source-of-truth invariant holds.
 
 ---
 
@@ -94,11 +94,11 @@
 
 **Goal**: multiple nodes sharing one `Arc<InMemorySubscriptionRegistry>` (file-seeded) discover one another via their candidate sets, with no operator and no chain (FR-011, US4; SC-008).
 
-**Independent Test**: build three `Node`s sharing one file-seeded registry `Arc`, configured by `node_id` only; poll `candidates()` to steady state and assert interest-scoped, self-excluded views of the others (spec US4).
+**Independent Test**: build three `Node`s sharing one file-seeded registry `Arc`, configured by `node_id` only; poll `candidates()` to steady state and assert topic-scoped, self-excluded views of the others (spec US4).
 
 ### Tests for User Story 4 (MANDATORY)
 
-- [ ] T013 [US4] Integration test in `tests/` mirroring quickstart §3: load `InMemorySubscriptionRegistry::from_file("tests/fixtures/subscription-list.toml")` into one `Arc`, share across `Node`s `node-a`/`node-b`/`node-c` (configured by `node_id` + bootstrap only); poll each node's `candidates()` to steady state (003 `await_delivery` pattern) and assert `node-a`'s `t1` candidates `== {node-b}`, `node-b` sees `t1→{node-a}` + `t2→{node-c}`, `node-c`'s `t2` `== {node-b}`, each self-excluded (SC-008, US4-AS1); a 4th node `node-d→{t1}` (via `set_interest` on the shared registry) is observed by `node-a`/`node-b` but not `node-c` (US4-AS2); constructing `ghost` (no entry) errors (US4-AS3). Asserts on `candidates()` snapshots only.
+- [ ] T013 [US4] Integration test in `tests/` mirroring quickstart §3: load `InMemorySubscriptionRegistry::from_file("tests/fixtures/subscription-list.toml")` into one `Arc`, share across `Node`s `node-a`/`node-b`/`node-c` (configured by `node_id` + bootstrap only); poll each node's `candidates()` to steady state (003 `await_delivery` pattern) and assert `node-a`'s `t1` candidates `== {node-b}`, `node-b` sees `t1→{node-a}` + `t2→{node-c}`, `node-c`'s `t2` `== {node-b}`, each self-excluded (SC-008, US4-AS1); a 4th node `node-d→{t1}` (via `set_topics` on the shared registry) is observed by `node-a`/`node-b` but not `node-c` (US4-AS2); constructing `ghost` (no entry) errors (US4-AS3). Asserts on `candidates()` snapshots only.
 
 ### Implementation for User Story 4
 
@@ -142,6 +142,6 @@ T001 (baseline) ─ T002 [P] (fixture)
 
 ## Notes
 
-- The node is **strictly read-only** toward the registry: `set_interest`/`unregister` are exercised only by `from_file`, test harnesses, and operator stand-ins — never called by `Node` (FR-018; ADR 0013).
+- The node is **strictly read-only** toward the registry: the write methods live on a separate `SubscriptionRegistryControl: SubscriptionRegistry` trait (not the node-facing `SubscriptionRegistry`), so `Node`'s `Arc<dyn SubscriptionRegistry>` has no write methods in scope. `set_topics`/`unregister` are exercised only by `from_file`, test harnesses, and operator stand-ins — never by `Node` (FR-001/FR-018; ADR 0013; analyze F3).
 - The candidate set lives in `NodeState` and is **distinct** from the config `[[peers]]` bootstrap field, which is untouched (FR-017; N-007).
 - On-chain decode/serialization types are **not** introduced here; the module boundary is fixed for the 012 reader (FR-003).

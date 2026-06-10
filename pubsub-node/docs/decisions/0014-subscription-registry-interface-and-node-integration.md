@@ -11,14 +11,19 @@ Feature 008 is the in-memory **subscription registry** (the node-membership "sub
 
 ## Decision
 
-### 1. Trait + event + watch (mirror the Network actor-handle, ADR 0007)
+### 1. Two traits — read (node-facing) and control (operator/test) — + event + watch (mirror the Network actor-handle, ADR 0007)
+
+The node-facing trait is **read-only**; the write surface is a separate trait extending it. The node depends only on the read trait, so it has no write methods in scope; the real 012 chain reader implements only the read trait (on-chain writes are transactions, not a reader call); and the domain interface stays free of write/test signatures (`/speckit-analyze` finding F3).
 
 ```rust
-pub trait SubscriptionRegistry: Send + Sync + 'static {
-    async fn set_interest(&self, node: PeerId, topics: BTreeSet<TopicId>) -> Result<(), SubscriptionRegistryError>;
-    async fn unregister(&self, node: PeerId) -> Result<(), SubscriptionRegistryError>;
+pub trait SubscriptionRegistry: Send + Sync + 'static {        // read-only; Node depends on this; 012 implements it
     async fn watch_members(&self, topics: BTreeSet<TopicId>) -> Result<MembershipWatch, SubscriptionRegistryError>;
     async fn entry(&self, node: PeerId) -> Result<Option<SubscriptionEntry>, SubscriptionRegistryError>;
+}
+
+pub trait SubscriptionRegistryControl: SubscriptionRegistry {  // operator/test write surface; node never depends on it
+    async fn set_topics(&self, node: PeerId, topics: BTreeSet<TopicId>) -> Result<(), SubscriptionRegistryError>;
+    async fn unregister(&self, node: PeerId) -> Result<(), SubscriptionRegistryError>;
 }
 
 #[non_exhaustive]
@@ -37,7 +42,7 @@ pub struct SubscriptionEntry {
 }
 ```
 
-`MembershipWatch` is single-consumer (not `Clone`, owns an unbounded `mpsc` receiver, ends on drop), replays current members as a `Joined` cold-start burst then streams live deltas — the `NetworkHandle` shape (ADR 0007). No end-of-snapshot boundary marker (the enum is `#[non_exhaustive]`; add `SnapshotComplete` when 010 needs warmth). `entry` is the self-lookup that lets the node learn its own authoritative interests before opening a membership watch (enforces ADR 0013). Events carry identity + interest only — no address (off-chain), no deposit (deferred).
+`MembershipWatch` is single-consumer (not `Clone`, owns an unbounded `mpsc` receiver, ends on drop), replays current members as a `Joined` cold-start burst then streams live deltas — the `NetworkHandle` shape (ADR 0007). No end-of-snapshot boundary marker (the enum is `#[non_exhaustive]`; add `SnapshotComplete` when 010 needs warmth). `entry` is the self-lookup that lets the node learn its own authoritative topics before opening a membership watch (enforces ADR 0013). Events carry identity + topics only — no address (off-chain), no deposit (deferred).
 
 ### 2. Seam variant + handler
 
@@ -49,7 +54,7 @@ The node consumes the registry through one new `Event` variant: `Event::Membersh
 
 ### 4. `Node::new` sources interests from the registry; node is read-only
 
-`Node::new` **drops `initial_subscriptions`** and **adds `registry: Arc<dyn SubscriptionRegistry>`**. At startup it calls `entry(self_id)`; `None` ⇒ **fail fast** with a registration-not-found `NodeError` (no empty-interest fallback); otherwise it seeds `NodeState.subscriptions` from the returned set, `watch_members` on those topics, and spawns the node-owned reader producer. 002's `subscribed_topics` config field is **removed**. The node issues **no** registry writes — `set_interest`/`unregister` are for the `from_file` loader and test harnesses (operator stand-ins). `subscribe`/`unsubscribe` stay synchronous (ADR 0012), unchanged by this feature.
+`Node::new` **drops `initial_subscriptions`** and **adds `registry: Arc<dyn SubscriptionRegistry>`**. At startup it calls `entry(self_id)`; `None` ⇒ **fail fast** with a registration-not-found `NodeError` (no empty-topics fallback); otherwise it seeds `NodeState.subscriptions` from the returned set, `watch_members` on those topics, and spawns the node-owned reader producer. 002's `subscribed_topics` config field is **removed**. The node issues **no** registry writes — `set_topics`/`unregister` are for the `from_file` loader and test harnesses (operator stand-ins). `subscribe`/`unsubscribe` stay synchronous (ADR 0012), unchanged by this feature.
 
 ## Consequences
 
@@ -57,12 +62,12 @@ The node consumes the registry through one new `Event` variant: `Event::Membersh
 - **Public API change**: `Node::new`'s signature changes and `NodeConfig.subscribed_topics` is removed — `main.rs` and existing `tests/` callers are updated in the same feature. The candidate set adds `Node::candidates`; `Node::peers` is unchanged.
 - Clean 012 swap: `from_file` → chain reader; `entry`/`watch_members` → on-chain reads; the node, `apply`, and the candidate-set fold are untouched.
 - The seam stays minimal (one variant + one handler + one producer), per the contract §3 ownership split; whoever merges the 008 arm against `apply` is exhaustiveness-checked by the compiler.
-- The node's interest set is fixed at startup (spec Clarifications); runtime self-interest changes are deferred to 012.
+- The node's topic set is fixed at startup (spec Clarifications); runtime self-interest changes are deferred to 012.
 
 ## Alternatives considered
 
 - **A side `TopicPeerView` outside `apply`** (the deleted `docs/registry-node-contract.md` sketch): rejected — bypasses the pure core and the agreed event-queue seam; the fold belongs in `apply`/`NodeState`.
-- **Merge the candidate set into the config `peers` field**: rejected — conflates the bootstrap set with interest-derived membership and would break the future dialer's bootstrap contract (N-007).
+- **Merge the candidate set into the config `peers` field**: rejected — conflates the bootstrap set with topic-derived membership and would break the future dialer's bootstrap contract (N-007).
 - **Keep the `RegistryUpdate` variant name**: rejected — ambiguous now that the topic registry is a separate artifact; `MembershipUpdate` names what it carries.
 - **Make `subscribe`/`unsubscribe` async, registry-writing**: rejected — the node is read-only (ADR 0013), and 004 (ADR 0012) deliberately kept them sync.
 - **Node self-seeds its registration on startup**: rejected — see ADR 0013 (circular; makes the node a writer).

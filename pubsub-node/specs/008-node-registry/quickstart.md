@@ -11,19 +11,19 @@ use pubsub_node::{InMemorySubscriptionRegistry, SubscriptionRegistry, Membership
 use std::collections::BTreeSet;
 
 let reg = InMemorySubscriptionRegistry::new();
-reg.set_interest(peer("node-a"), topics(["weather"])).await.unwrap();
-reg.set_interest(peer("node-b"), topics(["weather", "sports"])).await.unwrap();
+reg.set_topics(peer("node-a"), topics(["weather"])).await.unwrap();
+reg.set_topics(peer("node-b"), topics(["weather", "sports"])).await.unwrap();
 
 // Cold start: a new subscription replays current members of the watched topics.
 let mut watch = reg.watch_members(topics(["weather"])).await.unwrap();
 // drain the burst: Joined{node-a, {weather}}, Joined{node-b, {weather}} (order: write-application)
 
 // Live deltas:
-reg.set_interest(peer("node-b"), topics(["sports"])).await.unwrap(); // → TopicsChanged{node-b, removed:{weather}}
+reg.set_topics(peer("node-b"), topics(["sports"])).await.unwrap(); // → TopicsChanged{node-b, removed:{weather}}
 reg.unregister(peer("node-a")).await.unwrap();                       // → Left{node-a}
 assert!(matches!(watch.recv().await, Some(MembershipEvent::TopicsChanged { .. })));
 
-// Self-lookup (the node's own authoritative interests, via its entry):
+// Self-lookup (the node's own authoritative topics, via its entry):
 assert_eq!(reg.entry(peer("node-b")).await.unwrap().map(|e| e.topics), Some(topics(["sports"])));
 assert_eq!(reg.entry(peer("ghost")).await.unwrap(), None);
 ```
@@ -56,7 +56,7 @@ let a = Node::new(peer("node-a"), cfg(), net.clone(), verifier(), registry.clone
 let b = Node::new(peer("node-b"), cfg(), net.clone(), verifier(), registry.clone()).await?;
 let c = Node::new(peer("node-c"), cfg(), net.clone(), verifier(), registry.clone()).await?;
 
-// Each node sourced its interests from its own subscription-list entry (not config),
+// Each node sourced its topics from its own subscription-list entry (not config),
 // subscribed, and folded the others into its candidate set (self-excluded, topic-scoped).
 await_steady(|| a.candidates(&topic("T1")) == vec![peer("node-b")]);
 await_steady(|| b.candidates(&topic("T2")) == vec![peer("node-c")]);

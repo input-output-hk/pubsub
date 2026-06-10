@@ -11,25 +11,31 @@ New module `src/subscription_registry/`, re-exported from `lib.rs`:
 ```rust
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionEntry,
-    SubscriptionRegistry, SubscriptionRegistryError,
+    SubscriptionRegistry, SubscriptionRegistryControl, SubscriptionRegistryError,
 };
 ```
 
-### Trait `SubscriptionRegistry`
+### Traits — read (node-facing) vs control (operator/test)
 
 ```rust
 #[allow(async_fn_in_trait)] // mirrors the Network trait's v1 allowance (ADR 0007)
-pub trait SubscriptionRegistry: Send + Sync + 'static {
-    async fn set_interest(&self, node: PeerId, topics: BTreeSet<TopicId>) -> Result<(), SubscriptionRegistryError>;
-    async fn unregister(&self, node: PeerId) -> Result<(), SubscriptionRegistryError>;
+pub trait SubscriptionRegistry: Send + Sync + 'static {  // read-only; what Node depends on; 012 implements this
     async fn watch_members(&self, topics: BTreeSet<TopicId>) -> Result<MembershipWatch, SubscriptionRegistryError>;
     async fn entry(&self, node: PeerId) -> Result<Option<SubscriptionEntry>, SubscriptionRegistryError>;
 }
+
+#[allow(async_fn_in_trait)]
+pub trait SubscriptionRegistryControl: SubscriptionRegistry {  // operator/test write surface; node never depends on it
+    async fn set_topics(&self, node: PeerId, topics: BTreeSet<TopicId>) -> Result<(), SubscriptionRegistryError>;
+    async fn unregister(&self, node: PeerId) -> Result<(), SubscriptionRegistryError>;
+}
 ```
+
+`Node` is constructed with `Arc<dyn SubscriptionRegistry>` (read-only — no write methods in scope). `InMemorySubscriptionRegistry` implements **both** traits; tests/operator-sim hold the concrete type (or `Arc<dyn SubscriptionRegistryControl>`).
 
 | Item | Shape | Contract |
 |---|---|---|
-| `MembershipEvent` | `#[non_exhaustive] enum { Joined { node, topics }, TopicsChanged { node, added, removed }, Left { node } }` | identity + interest only; no address, no deposit |
+| `MembershipEvent` | `#[non_exhaustive] enum { Joined { node, topics }, TopicsChanged { node, added, removed }, Left { node } }` | identity + topics only; no address, no deposit |
 | `SubscriptionEntry` | `#[non_exhaustive] struct { node: PeerId, topics: BTreeSet<TopicId> }` | the materialized subscription-list entry returned by `entry`; grows (deposit/keys) at 012 |
 | `MembershipWatch` | `struct` (not `Clone`); drain via `recv().await -> Option<MembershipEvent>` | single-consumer; cold-start `Joined` burst then live deltas; gap-free/duplicate-free; ends on drop |
 | `SubscriptionRegistryError` | `#[non_exhaustive] enum`; `Error + Debug + Display` | minimal now; grows with the on-chain backend (012) |
@@ -52,7 +58,7 @@ The on-chain decode/serialization types (012) MUST remain module-internal and MU
 
 | Item | Change |
 |---|---|
-| `NodeConfig` (`config.rs`) | **remove** the `subscribed_topics` field (the node's interests come from the registry, ADR 0013). `[[peers]]` bootstrap entries retained. |
+| `NodeConfig` (`config.rs`) | **remove** the `subscribed_topics` field (the node's topics come from the registry, ADR 0013). `[[peers]]` bootstrap entries retained. |
 | `Event` (`event.rs`) | **add** `MembershipUpdate(MembershipEvent)` variant (enum stays `#[non_exhaustive]`). |
 | `NodeError` (`error.rs`) | **add** a registration-not-found variant (fail-fast, spec FR-018); enum exhaustiveness per the crate's per-feature-error convention. |
 
@@ -69,6 +75,6 @@ The on-chain decode/serialization types (012) MUST remain module-internal and MU
 1. `git diff main -- src/lib.rs` shows the new `mod subscription_registry;` + the five new `pub use` items, and **no** unintended re-export of internals.
 2. `Node::new` call sites (`main.rs`, all `tests/`) compile against the new signature; no caller passes `initial_subscriptions`; `main.rs` constructs the registry via `from_file`.
 3. `NodeConfig` no longer has `subscribed_topics` (grep `config.rs` + any TOML fixtures/templates).
-4. `Node::candidates` returns the self-excluded, interest-scoped set; `Node::peers` is byte-identical to `main`.
+4. `Node::candidates` returns the self-excluded, topic-scoped set; `Node::peers` is byte-identical to `main`.
 5. `grep -n "pub " src/subscription_registry/in_memory.rs` shows the impl public but the entry type and fields private; `handle_membership_update` is private in `state.rs`.
 6. The source-of-truth invariant test (SC-007) and the multi-node integration test (SC-008) pass; registry-module tests pass without instantiating `Node`.
