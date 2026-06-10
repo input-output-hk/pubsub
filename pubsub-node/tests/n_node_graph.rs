@@ -231,7 +231,14 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         &[],
     )
     .await;
-    let a = node_with(&registry, &network, "node-a", &[], &[t1.clone()]).await;
+    let a = node_with(
+        &registry,
+        &network,
+        "node-a",
+        &[],
+        std::slice::from_ref(&t1),
+    )
+    .await;
     let b = node_with(
         &registry,
         &network,
@@ -248,7 +255,14 @@ async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
         &[t2.clone(), t3.clone()],
     )
     .await;
-    let d = node_with(&registry, &network, "node-d", &[], &[t3.clone()]).await;
+    let d = node_with(
+        &registry,
+        &network,
+        "node-d",
+        &[],
+        std::slice::from_ref(&t3),
+    )
+    .await;
 
     FourNodeTopicsFixture {
         emitter,

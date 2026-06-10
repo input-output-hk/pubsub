@@ -70,8 +70,22 @@ async fn own_emission_not_in_local_snapshot() {
     let t1 = topic("t1");
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    let a = node_with(&registry, &network, "node-a", &["node-b"], &[t1.clone()]).await;
-    let b = node_with(&registry, &network, "node-b", &["node-a"], &[t1.clone()]).await;
+    let a = node_with(
+        &registry,
+        &network,
+        "node-a",
+        &["node-b"],
+        std::slice::from_ref(&t1),
+    )
+    .await;
+    let b = node_with(
+        &registry,
+        &network,
+        "node-b",
+        &["node-a"],
+        std::slice::from_ref(&t1),
+    )
+    .await;
 
     let msg = common::ping(t1, 13);
     a.send(b.id(), msg.clone()).await.expect("send Ok");
