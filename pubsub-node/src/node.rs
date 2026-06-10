@@ -12,6 +12,7 @@ use crate::message::Message;
 use crate::network::{Network, NetworkHandle};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
+use crate::state::{apply, NodeState};
 use crate::topic::TopicId;
 
 /// Outcome of a [`Node::subscribe`] call.
@@ -57,11 +58,12 @@ pub enum UnsubscribeOutcome {
 pub struct Node {
     handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,
-    received: Arc<Mutex<Vec<ReceivedDelivery>>>,
-    subscriptions: Arc<Mutex<HashSet<TopicId>>>,
-    // Canonical owner of the verifier for the node's lifetime. The event loop
-    // consults its own `Arc` clone; this field is retained so the verifier
-    // outlives any future non-task use (e.g. a synchronous verify API).
+    // The node's full mutable state as one value (see `crate::state`). The
+    // event loop is the sole event-driven writer; the public getters and
+    // subscription mutators take the same lock.
+    state: Arc<Mutex<NodeState>>,
+    // Canonical owner of the verifier moved into `NodeState`; this duplicate
+    // field is removed alongside the producer extraction (T007).
     #[allow(dead_code)]
     verifier: Arc<dyn Verifier>,
     events: EventQueue,
@@ -95,85 +97,40 @@ impl Node {
     ) -> Result<Self, NodeError> {
         let mut handle = network.register(self_id).await?;
         let rx = handle.take_receiver();
-        let self_id_for_task = handle.id().clone();
 
-        let received: Arc<Mutex<Vec<ReceivedDelivery>>> = Arc::new(Mutex::new(Vec::new()));
-        let received_for_task = Arc::clone(&received);
-
-        let subscriptions: Arc<Mutex<HashSet<TopicId>>> =
-            Arc::new(Mutex::new(initial_subscriptions));
-        let subscriptions_for_task = Arc::clone(&subscriptions);
-
-        let verifier_for_task = Arc::clone(&verifier);
+        // Registration precedes every spawn: a failed construction returns
+        // before any background task exists, so nothing leaks on the error
+        // path (FR-016).
+        let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
+            handle.id().clone(),
+            initial_subscriptions,
+            Arc::clone(&verifier),
+        )));
+        let state_for_task = Arc::clone(&state);
 
         let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
         let events = EventQueue::new(event_tx);
 
-        // The single consumer: drain the event queue and apply each event in
-        // arrival order. New event variants get their own arm here.
+        // The single consumer: drain the event queue and run each event in
+        // arrival order through the pure transition, then execute whatever
+        // effects it returns. New event variants get their handling in
+        // `state::apply`, not here.
         let event_loop = tokio::spawn(async move {
             while let Some(event) = event_rx.recv().await {
-                match event {
-                    Event::MessageReceived { from, message } => {
-                        tracing::debug!(
-                            target: "pubsub_node::node",
-                            from = %from,
-                            "recv",
-                        );
-
-                        match message {
-                            Message::Signed(signed) => {
-                                // Topic filter first (cheap), then signature
-                                // verification — off-topic traffic never pays
-                                // the verification cost.
-                                let is_subscribed = {
-                                    let guard = subscriptions_for_task
-                                        .lock()
-                                        .expect("event loop: subscriptions mutex poisoned");
-                                    guard.contains(&signed.plain.topic)
-                                };
-
-                                if !is_subscribed {
-                                    tracing::info!(
-                                        target: "pubsub_node::node",
-                                        event = "message_dropped",
-                                        cause = "topic_not_subscribed",
-                                        self_id = %self_id_for_task,
-                                        from = %from,
-                                        topic = %signed.plain.topic,
-                                    );
-                                    continue;
-                                }
-
-                                let verify_outcome = verifier_for_task.verify(
-                                    signed.plain.publisher_id.as_public_key(),
-                                    &signed.plain.signed_bytes(),
-                                    &signed.signature,
-                                );
-                                if verify_outcome.is_err() {
-                                    tracing::info!(
-                                        target: "pubsub_node::node",
-                                        event = "message_dropped",
-                                        cause = "invalid_signature",
-                                        self_id = %self_id_for_task,
-                                        from = %from,
-                                        topic = %signed.plain.topic,
-                                        publisher_id = %signed.plain.publisher_id,
-                                    );
-                                    continue;
-                                }
-
-                                let delivery = ReceivedDelivery {
-                                    from,
-                                    message: Message::Signed(signed),
-                                };
-                                let mut guard = received_for_task
-                                    .lock()
-                                    .expect("event loop: received mutex poisoned");
-                                guard.push(delivery);
-                            }
-                        }
-                    }
+                let effects = {
+                    let mut guard = state_for_task
+                        .lock()
+                        .expect("event loop: state mutex poisoned");
+                    apply(&mut guard, event)
+                };
+                // `Effect` is uninhabited pre-connection, so this executor is
+                // vacuous; the connection model populates it. The lint is
+                // right that the loop never loops — that is the point: the
+                // empty match is the compile-time proof that every future
+                // variant must be handled here.
+                #[allow(clippy::never_loop)]
+                for effect in effects {
+                    match effect {}
                 }
             }
         });
@@ -187,8 +144,7 @@ impl Node {
         let mut node = Self {
             handle,
             peers,
-            received,
-            subscriptions,
+            state,
             verifier,
             events,
             event_loop,
@@ -274,11 +230,10 @@ impl Node {
     /// is the observability surface acceptance tests assert against.
     #[must_use]
     pub fn received_messages(&self) -> Vec<ReceivedDelivery> {
-        let guard = self
-            .received
+        self.state
             .lock()
-            .expect("received_messages: received mutex poisoned");
-        guard.clone()
+            .expect("received_messages: state mutex poisoned")
+            .received_snapshot()
     }
 
     /// Add `topic` to this node's subscription set.
@@ -288,36 +243,17 @@ impl Node {
     /// topic was already present (idempotent no-op). Emits an info-level
     /// `topic_subscribed` tracing event on `Added`; emits a debug-level
     /// `topic_subscribe_noop` event on `AlreadyPresent`.
-    // Owned `TopicId` matches `HashSet::insert`'s consuming shape and the
-    // public-API contract; the lint-flagged "needless pass by value" is the
-    // contract choice, not an accident.
-    #[allow(clippy::needless_pass_by_value)]
+    // Thin lock-taker: outcome logic and its log events live on `NodeState`
+    // (the pure core), where they are synchronously testable.
+    // Not `#[must_use]`: this is a mutator whose outcome is informational;
+    // callers that don't care whether the topic was already present
+    // legitimately ignore it (unchanged contract from 002).
+    #[allow(clippy::must_use_candidate)]
     pub fn subscribe(&self, topic: TopicId) -> SubscribeOutcome {
-        let mut guard = self
-            .subscriptions
+        self.state
             .lock()
-            .expect("subscribe: subscriptions mutex poisoned");
-        let was_inserted = guard.insert(topic.clone());
-        drop(guard);
-
-        if was_inserted {
-            tracing::info!(
-                target: "pubsub_node::node",
-                event = "topic_subscribed",
-                self_id = %self.id(),
-                topic = %topic,
-            );
-            SubscribeOutcome::Added
-        } else {
-            tracing::debug!(
-                target: "pubsub_node::node",
-                event = "topic_subscribe_noop",
-                self_id = %self.id(),
-                topic = %topic,
-                reason = "already_present",
-            );
-            SubscribeOutcome::AlreadyPresent
-        }
+            .expect("subscribe: state mutex poisoned")
+            .subscribe(topic)
     }
 
     /// Remove `topic` from this node's subscription set.
@@ -327,35 +263,13 @@ impl Node {
     /// when the topic was absent (idempotent no-op). Emits an info-level
     /// `topic_unsubscribed` tracing event on `Removed`; emits a debug-level
     /// `topic_unsubscribe_noop` event on `NotSubscribed`.
-    // Owned `TopicId` for API symmetry with `subscribe`; see the analogous
-    // allow there.
-    #[allow(clippy::needless_pass_by_value)]
+    // Thin lock-taker; see `subscribe` (including the must_use rationale).
+    #[allow(clippy::must_use_candidate)]
     pub fn unsubscribe(&self, topic: TopicId) -> UnsubscribeOutcome {
-        let mut guard = self
-            .subscriptions
+        self.state
             .lock()
-            .expect("unsubscribe: subscriptions mutex poisoned");
-        let was_removed = guard.remove(&topic);
-        drop(guard);
-
-        if was_removed {
-            tracing::info!(
-                target: "pubsub_node::node",
-                event = "topic_unsubscribed",
-                self_id = %self.id(),
-                topic = %topic,
-            );
-            UnsubscribeOutcome::Removed
-        } else {
-            tracing::debug!(
-                target: "pubsub_node::node",
-                event = "topic_unsubscribe_noop",
-                self_id = %self.id(),
-                topic = %topic,
-                reason = "not_subscribed",
-            );
-            UnsubscribeOutcome::NotSubscribed
-        }
+            .expect("unsubscribe: state mutex poisoned")
+            .unsubscribe(topic)
     }
 
     /// Return a snapshot of this node's subscription set.
@@ -367,11 +281,10 @@ impl Node {
     /// [`unsubscribe`](Self::unsubscribe) calls on the same node.
     #[must_use]
     pub fn subscriptions(&self) -> Vec<TopicId> {
-        let guard = self
-            .subscriptions
+        self.state
             .lock()
-            .expect("subscriptions: subscriptions mutex poisoned");
-        guard.iter().cloned().collect()
+            .expect("subscriptions: state mutex poisoned")
+            .subscriptions_snapshot()
     }
 }
 
