@@ -14,6 +14,9 @@ Every node runs a chain follower (light client at minimum) — a trustless, Byza
 > [!IMPORTANT]
 > Network endpoints (IPs/hostnames) are not on-chain. They are exchanged peer-to-peer as signed descriptors and served by bootstrap nodes during [IP discovery](./ip-discovery.md).
 
+> [!NOTE]
+> A node's **own** topic interests are authoritatively defined by its on-chain subscription-list entry, not by its local config. The config topic-interest field (see [joining.md](./joining.md) step 4) is operator convenience and must not widen the node's runtime behaviour beyond its registered, deposited commitment.
+
 ## Procedure index
 
 Per-procedure docs, in roughly the order a node encounters them. Each row links to the dedicated doc; status indicates the state of the spec.
