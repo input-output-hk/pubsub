@@ -15,7 +15,7 @@ use crate::network::{Network, NetworkHandle, RoutingFrame};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
 use crate::state::{apply, NodeState};
-use crate::subscription_registry::{MembershipWatch, SubscriptionRegistry};
+use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
 
 /// Outcome of a [`Node::subscribe`] call.
@@ -76,23 +76,24 @@ pub struct Node {
 impl Node {
     /// Construct a node, registering on `network` under `self_id` and spawning
     /// its event loop, the network producer, and the subscription-registry
-    /// reader. A failed registry lookup or network registration returns the
-    /// error before any background task is spawned.
+    /// reader. A failed network registration returns the error before any
+    /// background task is spawned.
     ///
-    /// The node's subscribed topics are **sourced from its own entry in the
-    /// `registry`** (the source of truth), not from config: at startup the node
-    /// looks up its entry and fails with [`NodeError::NotRegistered`] if it has
-    /// none. It then watches the membership of those topics and folds the
-    /// stream into a per-topic candidate set, queryable via
-    /// [`candidates`](Self::candidates). The node is read-only toward the
-    /// registry — it performs no writes.
+    /// The node derives **all** of its registry state from the `registry`'s
+    /// node-keyed [`watch`](SubscriptionRegistry::watch) stream (the source of
+    /// truth, ADR 0013/0014): it starts with an **empty** subscription set and
+    /// folds the stream — its own entry resolves its subscriptions (which topics
+    /// it accepts on receive); other nodes' entries build the per-topic
+    /// candidate set, queryable via [`candidates`](Self::candidates). Topics do
+    /// not come from config. The node is read-only toward the registry — it
+    /// performs no writes — and if it has no registry entry it simply derives an
+    /// empty set (no construction error; it is "not yet active").
     ///
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. It is consulted on the receive
     /// path only — a node does not sign.
     ///
-    /// Returns [`NodeError`] if the registry read fails, the node has no
-    /// registry entry, or network registration fails.
+    /// Returns [`NodeError`] if network registration fails.
     pub async fn new<N: Network, R: SubscriptionRegistry>(
         self_id: PeerId,
         config: NodeConfig,
@@ -100,26 +101,17 @@ impl Node {
         verifier: Arc<dyn Verifier>,
         registry: Arc<R>,
     ) -> Result<Self, NodeError> {
-        // Source the node's topics from its own subscription-list entry (the
-        // source of truth, ADR 0013), not config. Both registry reads happen
-        // before any network registration or task spawn, so a node with no
-        // entry fails fast with nothing left running (FR-016/FR-018).
-        let topics = registry
-            .entry(self_id.clone())
-            .await?
-            .ok_or_else(|| NodeError::NotRegistered {
-                node: self_id.clone(),
-            })?
-            .topics;
-        let subscriptions: HashSet<TopicId> = topics.iter().cloned().collect();
-        let watch = registry.watch_members(topics).await?;
-
         let mut handle = network.register(self_id).await?;
+        let node_id = handle.id().clone();
         let rx = handle.take_receiver();
 
+        // The node starts with an empty subscription set and derives it — and
+        // its candidate sets — by folding the registry `watch` stream (ADR
+        // 0013/0014). Registration precedes the spawns so nothing leaks on the
+        // error path (FR-016).
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
-            handle.id().clone(),
-            subscriptions,
+            node_id.clone(),
+            HashSet::new(),
             verifier,
         )));
         let state_for_task = Arc::clone(&state);
@@ -168,10 +160,11 @@ impl Node {
 
         // Two node-owned producers, both named async fns handed to
         // `spawn_producer` and aborted on drop: the network mailbox, and the
-        // subscription-registry reader (which owns the registry `Arc` so the
-        // membership subscription stays live for the node's lifetime).
+        // subscription-registry reader (which opens the node-keyed `watch` and
+        // owns the registry `Arc` so the subscription stays live for the node's
+        // lifetime).
         node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
-        node.spawn_producer(move |queue| registry_reader_loop(queue, watch, registry));
+        node.spawn_producer(move |queue| registry_reader_loop(queue, registry, node_id));
 
         Ok(node)
     }
@@ -337,17 +330,32 @@ async fn network_mailbox_loop(queue: EventQueue, mut rx: UnboundedReceiver<Routi
     }
 }
 
-/// The subscription-registry reader producer: drains the membership
-/// [`MembershipWatch`] onto the node's event queue as `MembershipUpdate`
-/// events. Owns the registry `Arc` (`_registry`) so the watch's sender side
-/// stays alive — and thus the subscription stays live — for the node's
-/// lifetime; the task is aborted on drop.
+/// The subscription-registry reader producer: opens the node-keyed
+/// [`watch`](SubscriptionRegistry::watch) and drains its [`MembershipWatch`]
+/// onto the node's event queue as `MembershipUpdate` events (the node folds
+/// them into its subscriptions + candidate sets). Holds the registry `Arc` so
+/// the watch's sender side stays alive — and thus the subscription stays live —
+/// for the node's lifetime; the task is aborted on drop.
 async fn registry_reader_loop<R: SubscriptionRegistry>(
     queue: EventQueue,
-    mut watch: MembershipWatch,
-    _registry: Arc<R>,
+    registry: Arc<R>,
+    node_id: PeerId,
 ) {
+    let mut watch = match registry.watch(node_id).await {
+        Ok(watch) => watch,
+        Err(error) => {
+            tracing::error!(
+                target: "pubsub_node::node",
+                %error,
+                "subscription-registry watch failed; node has no topics",
+            );
+            return;
+        }
+    };
     while let Some(event) = watch.recv().await {
         queue.push(Event::MembershipUpdate(event));
     }
+    // `registry` is owned by this task so the watch's sender side stays alive
+    // for the loop; drop it explicitly when the task ends.
+    drop(registry);
 }

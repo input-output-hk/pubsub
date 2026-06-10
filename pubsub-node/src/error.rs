@@ -49,14 +49,4 @@ pub enum NetworkError {
 pub enum NodeError {
     #[error(transparent)]
     Network(#[from] NetworkError),
-
-    /// The node has no entry in the subscription registry at startup, so it
-    /// cannot determine its topics (its topics are sourced from the registry,
-    /// not config). A hard startup error rather than running with no topics.
-    #[error("node {node} has no subscription-list entry")]
-    NotRegistered { node: PeerId },
-
-    /// A subscription-registry read failed during construction.
-    #[error(transparent)]
-    Registry(#[from] crate::subscription_registry::SubscriptionRegistryError),
 }

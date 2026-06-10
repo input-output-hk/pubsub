@@ -12,13 +12,13 @@ All decisions were resolved before planning — through the post-merge review of
 
 ## R2 — Subscription list is authoritative for a node's own topics, not config
 
-- **Decision**: A node sources its topic set from its own subscription-list entry via `entry(self_id)`; config carries identity + bootstrap only; 002's `subscribed_topics` is removed. Absent entry at startup → fail fast.
-- **Rationale**: Config authority would let an operator make a node participate beyond its registered, deposited commitment — defeating the deposit's accountability. Fail-fast suits the in-memory mock (register/seed before constructing nodes); the protocol's retry-with-backoff is a 012 concern.
+- **Decision**: A node sources its topic set from its own subscription-list entry, learned from the head `Joined` of its node-keyed `watch(self_id)` cold-start burst; config carries identity + bootstrap only; 002's `subscribed_topics` is removed. Absent entry → empty derived state (no fail-fast); the node converges from the stream.
+- **Rationale**: Config authority would let an operator make a node participate beyond its registered, deposited commitment — defeating the deposit's accountability. Deriving topics from the stream lets a node with no entry construct cleanly and stay at empty derived state (the "registered but not yet present / initializing" posture); the protocol's retry-with-backoff is a 012 concern.
 - **Alternatives**: config-authoritative; config-validated-against-chain; self-seed-from-config (all rejected — see ADR 0013).
 
 ## R3 — Read model is push/subscribe, not poll/diff
 
-- **Decision**: `watch_members(topics) → MembershipWatch` replays current members as a `Joined` cold-start burst, then streams live deltas. The in-memory impl fans out a delta to subscriber channels on each write.
+- **Decision**: `watch(node) → MembershipWatch` is **node-keyed**: it scopes the stream to that node's own subscription-list entry, replaying a single cold-start `Joined` burst — the node's **own** entry first (`Joined { node, own_topics }`), then the current members of those topics (`Joined { member, scoped_topics }`) — then streams live deltas. The in-memory impl fans out a delta to subscriber channels on each write.
 - **Rationale**: Matches how a chain follower exposes accepted state transitions, and reuses the `Network::register → handle{mpsc}` actor-handle idiom (ADR 0007) already in the crate. Polling reinvents change detection. The protocol's *authoritative* periodic chain re-read (`subscription_list_poll_interval`) is reconciliation that belongs to the on-chain reader (012); for the in-memory mock, push suffices.
 - **Alternatives**: poll-and-diff loop (rejected — latency, redundant reads, impedance mismatch with the real backend); the deleted `docs/registry-node-contract.md` sketch's own-handle that bypassed the event queue (rejected — broke the agreed seam).
 
@@ -43,7 +43,7 @@ All decisions were resolved before planning — through the post-merge review of
 ## R7 — Node is strictly read-only; write API is for the file loader + tests
 
 - **Decision**: `set_topics` / `unregister` exist on the trait but are called only by the `from_file` loader's equivalent and by test harnesses simulating operator churn; the node daemon issues no registry writes.
-- **Rationale**: `joining.md`: "the node does NOT initiate a registration transaction; that is the operator's job." Read-only keeps the mock faithful and the node's role clean; it also resolves the earlier self-seed tension. Multi-node networks share one `Arc<dyn SubscriptionRegistry>` (as in-process nodes share one `InMemoryNetwork`); membership originates from the shared file / harness.
+- **Rationale**: `joining.md`: "the node does NOT initiate a registration transaction; that is the operator's job." Read-only keeps the mock faithful and the node's role clean; it also resolves the earlier self-seed tension. Multi-node networks share one `Arc<InMemorySubscriptionRegistry>` (consumed generically as `Arc<R>` where `R: SubscriptionRegistry`, exactly as nodes share one `InMemoryNetwork` via `Arc<N>` — an `async fn`/RPITIT trait is not `dyn`-compatible, ADR 0007); membership originates from the shared file / harness.
 - **Alternatives**: node self-seeds on startup (rejected — circular, makes the node a writer, contradicts the read-only role).
 
 ## R8 — No new dependencies; subscription-list file is TOML at the edge

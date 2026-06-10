@@ -140,11 +140,11 @@ pub async fn two_node_fixture_with_subscriptions(
     // topics) before constructing the nodes — both look up their own entry.
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     registry
-        .set_topics(a_id.clone(), a_subscriptions.into_iter().collect())
+        .set_topics(a_id.clone(), a_subscriptions.iter().cloned().collect())
         .await
         .expect("seed node A topics");
     registry
-        .set_topics(b_id.clone(), b_subscriptions.into_iter().collect())
+        .set_topics(b_id.clone(), b_subscriptions.iter().cloned().collect())
         .await
         .expect("seed node B topics");
 
@@ -171,6 +171,17 @@ pub async fn two_node_fixture_with_subscriptions(
     )
     .await
     .expect("construct node B");
+
+    // Both nodes derive their subscriptions from the registry stream; wait for
+    // convergence so the 001/002-style send-then-observe tests are deterministic.
+    let a_expected: Vec<TopicId> = a_subscriptions.into_iter().collect();
+    let b_expected: Vec<TopicId> = b_subscriptions.into_iter().collect();
+    await_subscriptions(&a, &a_expected, Duration::from_secs(1))
+        .await
+        .expect("node A subscriptions converge");
+    await_subscriptions(&b, &b_expected, Duration::from_secs(1))
+        .await
+        .expect("node B subscriptions converge");
 
     TwoNodeFixture {
         network,
@@ -201,7 +212,7 @@ pub async fn node_with(
             id: PeerId::from_str(p).expect("valid peer id"),
         })
         .collect();
-    Node::new(
+    let node = Node::new(
         id,
         NodeConfig { peers },
         network.clone(),
@@ -209,13 +220,42 @@ pub async fn node_with(
         registry.clone(),
     )
     .await
-    .expect("construct node")
+    .expect("construct node");
+    // The node derives its subscriptions from the registry stream; wait for
+    // that before handing it back so send-then-observe tests are deterministic.
+    await_subscriptions(&node, topics, Duration::from_secs(1))
+        .await
+        .expect("node subscriptions converge");
+    node
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum AwaitError {
     #[error("timed out after {0:?} waiting for delivery")]
     Timeout(Duration),
+}
+
+/// Poll `node.subscriptions()` until it equals `expected` (as a set) or
+/// `timeout` elapses. A node derives its subscription set asynchronously from
+/// the registry `watch` stream (it starts empty), so tests/fixtures wait for it
+/// to converge before relying on the node's accept-filter.
+pub async fn await_subscriptions(
+    node: &Node,
+    expected: &[TopicId],
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let want: std::collections::BTreeSet<TopicId> = expected.iter().cloned().collect();
+    let start = tokio::time::Instant::now();
+    loop {
+        let got: std::collections::BTreeSet<TopicId> = node.subscriptions().into_iter().collect();
+        if got == want {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
 }
 
 /// Poll `node.candidates(topic)` until it equals `expected` (as a set of id

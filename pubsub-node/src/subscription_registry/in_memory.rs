@@ -10,8 +10,8 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 use super::{
-    MembershipEvent, MembershipWatch, SubscriptionEntry, SubscriptionRegistry,
-    SubscriptionRegistryControl, SubscriptionRegistryError,
+    MembershipEvent, MembershipWatch, SubscriptionRegistry, SubscriptionRegistryControl,
+    SubscriptionRegistryError,
 };
 
 /// In-process subscription list: the mock source of truth for node membership.
@@ -113,39 +113,45 @@ fn lock_poisoned() -> ! {
 }
 
 impl SubscriptionRegistry for InMemorySubscriptionRegistry {
-    async fn watch_members(
-        &self,
-        topics: BTreeSet<TopicId>,
-    ) -> Result<MembershipWatch, SubscriptionRegistryError> {
+    async fn watch(&self, node: PeerId) -> Result<MembershipWatch, SubscriptionRegistryError> {
         let (tx, rx) = unbounded_channel();
         let mut inner = self.inner.lock().unwrap_or_else(|_| lock_poisoned());
 
-        // Cold start: replay current members of the watched topics, then
-        // register the subscriber — atomically under the lock, so no write is
-        // missed or double-delivered at the burst/live boundary.
-        for (node, node_topics) in &inner.membership {
-            let scoped: BTreeSet<TopicId> = node_topics.intersection(&topics).cloned().collect();
+        // The node's own topics scope the watch. (Empty if it has no entry —
+        // the node then derives an empty subscription set and no candidates.)
+        let own_topics = inner.membership.get(&node).cloned().unwrap_or_default();
+
+        // Cold start, atomically under the lock (so no write is missed or
+        // double-delivered at the burst/live boundary):
+        //   1. the node's own entry first — the node folds this into its
+        //      subscription set;
+        let _ = tx.send(MembershipEvent::Joined {
+            node: node.clone(),
+            topics: own_topics.clone(),
+        });
+        //   2. then the current members of those topics (scoped) — candidates.
+        for (member, member_topics) in &inner.membership {
+            if *member == node {
+                continue;
+            }
+            let scoped: BTreeSet<TopicId> =
+                member_topics.intersection(&own_topics).cloned().collect();
             if !scoped.is_empty() {
                 let _ = tx.send(MembershipEvent::Joined {
-                    node: node.clone(),
+                    node: member.clone(),
                     topics: scoped,
                 });
             }
         }
-        inner.subscribers.push(Subscriber { topics, tx });
+        // Live deltas are fanned out scoped to the node's topics. (Re-scoping
+        // when the node's *own* entry changes at runtime is deferred to 012;
+        // the watched set is the node's topics at watch time.)
+        inner.subscribers.push(Subscriber {
+            topics: own_topics,
+            tx,
+        });
 
         Ok(MembershipWatch::new(rx))
-    }
-
-    async fn entry(
-        &self,
-        node: PeerId,
-    ) -> Result<Option<SubscriptionEntry>, SubscriptionRegistryError> {
-        let inner = self.inner.lock().unwrap_or_else(|_| lock_poisoned());
-        Ok(inner.membership.get(&node).map(|topics| SubscriptionEntry {
-            node: node.clone(),
-            topics: topics.clone(),
-        }))
     }
 }
 
@@ -266,43 +272,83 @@ mod tests {
         out
     }
 
-    // ---- US2: write/state via entry() read-back (no watch, no node) ----
+    // ---- US2: write/state observed through the watch stream ----
+    //
+    // There is no point-read: a node learns its own id + topics from the head
+    // `Joined` of its own watch's cold-start burst (the event-stream replacement
+    // for the removed `entry()` read-back), and write semantics are observed as
+    // deltas on a watcher's stream.
 
     #[tokio::test]
-    async fn set_topics_then_entry_reflects_and_update_changes() {
+    async fn set_topics_upsert_reflected_in_own_watch_head() {
         let reg = InMemorySubscriptionRegistry::new();
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
-        assert_eq!(
-            reg.entry(peer("a")).await.unwrap().map(|e| e.topics),
-            Some(topics(["t1"]))
-        );
         reg.set_topics(peer("a"), topics(["t1", "t2"]))
             .await
             .unwrap();
+        // Watching as `a`, the cold-start head is a's own entry — its id and its
+        // (upserted) topics, exactly what a node folds into its subscription set.
+        let mut watch = reg.watch(peer("a")).await.unwrap();
         assert_eq!(
-            reg.entry(peer("a")).await.unwrap().map(|e| e.topics),
-            Some(topics(["t1", "t2"]))
+            drain(&mut watch),
+            vec![MembershipEvent::Joined {
+                node: peer("a"),
+                topics: topics(["t1", "t2"]),
+            }]
         );
     }
 
     #[tokio::test]
     async fn empty_topics_is_distinct_from_unregister() {
+        // The distinction is observable on a watcher's stream by what re-adding a
+        // topic emits: a present-but-empty entry *changes* (TopicsChanged), an
+        // absent (unregistered) entry is a *first registration* (Joined).
         let reg = InMemorySubscriptionRegistry::new();
+        reg.set_topics(peer("w"), topics(["t1"])).await.unwrap();
+        let mut watch = reg.watch(peer("w")).await.unwrap();
+        let _ = drain(&mut watch); // w's own entry; no members of t1 yet
+
+        // Registered on t1, then emptied — the entry is retained.
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
         reg.set_topics(peer("a"), topics([])).await.unwrap();
-        // registered, empty topics
+        let _ = drain(&mut watch); // Joined a, then TopicsChanged removing t1
+                                   // Re-adding t1 to the retained (empty) entry is a change, not a join.
+        reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
         assert_eq!(
-            reg.entry(peer("a")).await.unwrap().map(|e| e.topics),
-            Some(topics([]))
+            drain(&mut watch),
+            vec![MembershipEvent::TopicsChanged {
+                node: peer("a"),
+                added: topics(["t1"]),
+                removed: topics([]),
+            }]
         );
+
+        // Unregistering removes the entry; re-adding t1 is then a first join.
         reg.unregister(peer("a")).await.unwrap();
-        assert_eq!(reg.entry(peer("a")).await.unwrap(), None);
+        let _ = drain(&mut watch); // Left a
+        reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
+        assert_eq!(
+            drain(&mut watch),
+            vec![MembershipEvent::Joined {
+                node: peer("a"),
+                topics: topics(["t1"]),
+            }]
+        );
     }
 
     #[tokio::test]
-    async fn unknown_node_entry_is_none() {
+    async fn watch_of_unregistered_node_replays_only_empty_self() {
+        // No entry ⇒ the cold-start burst is just the node's own empty `Joined`
+        // (so it derives an empty subscription set and no candidates).
         let reg = InMemorySubscriptionRegistry::new();
-        assert_eq!(reg.entry(peer("ghost")).await.unwrap(), None);
+        let mut watch = reg.watch(peer("ghost")).await.unwrap();
+        assert_eq!(
+            drain(&mut watch),
+            vec![MembershipEvent::Joined {
+                node: peer("ghost"),
+                topics: topics([]),
+            }]
+        );
     }
 
     #[tokio::test]
@@ -311,11 +357,21 @@ mod tests {
             "tests/fixtures/subscription-list.toml",
         ))
         .expect("fixture loads");
+        // node-b loaded with {t1, t2}: its own watch head reports them.
+        let mut watch_b = reg.watch(peer("node-b")).await.unwrap();
+        assert!(drain(&mut watch_b).contains(&MembershipEvent::Joined {
+            node: peer("node-b"),
+            topics: topics(["t1", "t2"]),
+        }));
+        // node-d absent from the file: its head is an empty self `Joined`.
+        let mut watch_d = reg.watch(peer("node-d")).await.unwrap();
         assert_eq!(
-            reg.entry(peer("node-b")).await.unwrap().map(|e| e.topics),
-            Some(topics(["t1", "t2"]))
+            drain(&mut watch_d),
+            vec![MembershipEvent::Joined {
+                node: peer("node-d"),
+                topics: topics([]),
+            }]
         );
-        assert_eq!(reg.entry(peer("node-d")).await.unwrap(), None);
     }
 
     #[test]
@@ -350,10 +406,10 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
-    // ---- US1: membership stream via watch_members ----
+    // ---- US1: node-keyed membership stream via watch(node) ----
 
     #[tokio::test]
-    async fn cold_start_replays_current_members_scoped() {
+    async fn cold_start_replays_own_entry_then_scoped_members() {
         let reg = InMemorySubscriptionRegistry::new();
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
         reg.set_topics(peer("b"), topics(["t1", "t2"]))
@@ -361,12 +417,13 @@ mod tests {
             .unwrap();
         reg.set_topics(peer("c"), topics(["t2"])).await.unwrap();
 
-        let mut watch = reg.watch_members(topics(["t1"])).await.unwrap();
+        // Watch as `a` (own topics {t1}): cold start is a's own entry first,
+        // then members of {t1} (b); c (t2-only) is absent.
+        let mut watch = reg.watch(peer("a")).await.unwrap();
         let burst = drain(&mut watch);
-        // exactly a and b joined; c (t2-only) is absent
         let expected: BTreeSet<String> = ["a", "b"].iter().map(|s| (*s).to_string()).collect();
         assert_eq!(joined_nodes(&burst), expected);
-        // every Joined reports only the watched topic t1
+        // a's own entry reports its topics; the member b is scoped to {t1}.
         for e in &burst {
             if let MembershipEvent::Joined { topics: t, .. } = e {
                 assert_eq!(t, &topics(["t1"]));
@@ -377,8 +434,12 @@ mod tests {
     #[tokio::test]
     async fn live_join_leave_and_topics_changed() {
         let reg = InMemorySubscriptionRegistry::new();
-        let mut watch = reg.watch_members(topics(["t1", "t2"])).await.unwrap();
-        assert!(drain(&mut watch).is_empty()); // empty cold start
+        // The watcher is registered for {t1, t2}; we watch as it.
+        reg.set_topics(peer("w"), topics(["t1", "t2"]))
+            .await
+            .unwrap();
+        let mut watch = reg.watch(peer("w")).await.unwrap();
+        let _ = drain(&mut watch); // cold start: w's own entry, no members yet
 
         reg.set_topics(peer("d"), topics(["t1"])).await.unwrap();
         assert_eq!(
@@ -389,7 +450,7 @@ mod tests {
             }]
         );
 
-        // d moves t1 -> t2; both within the watched set {t1,t2}.
+        // d moves t1 -> t2; both within w's watched set {t1,t2}.
         reg.set_topics(peer("d"), topics(["t2"])).await.unwrap();
         assert_eq!(
             drain(&mut watch),
@@ -410,10 +471,11 @@ mod tests {
     #[tokio::test]
     async fn changes_outside_watched_topics_are_not_delivered() {
         let reg = InMemorySubscriptionRegistry::new();
-        let mut watch = reg.watch_members(topics(["t1"])).await.unwrap();
-        let _ = drain(&mut watch);
+        reg.set_topics(peer("w"), topics(["t1"])).await.unwrap();
+        let mut watch = reg.watch(peer("w")).await.unwrap();
+        let _ = drain(&mut watch); // w's own entry
 
-        // c is only on t2; a watcher of t1 sees nothing.
+        // c is only on t2; a watcher of {t1} sees nothing.
         reg.set_topics(peer("c"), topics(["t2"])).await.unwrap();
         reg.set_topics(peer("c"), topics(["t2", "t3"]))
             .await
@@ -426,9 +488,11 @@ mod tests {
     async fn unchanged_set_emits_no_event() {
         let reg = InMemorySubscriptionRegistry::new();
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
-        let mut watch = reg.watch_members(topics(["t1"])).await.unwrap();
-        let _ = drain(&mut watch);
-        reg.set_topics(peer("a"), topics(["t1"])).await.unwrap(); // identical
+        reg.set_topics(peer("w"), topics(["t1"])).await.unwrap();
+        let mut watch = reg.watch(peer("w")).await.unwrap();
+        let _ = drain(&mut watch); // w's own entry + member a
+
+        reg.set_topics(peer("a"), topics(["t1"])).await.unwrap(); // identical → no event
         assert!(drain(&mut watch).is_empty());
     }
 }

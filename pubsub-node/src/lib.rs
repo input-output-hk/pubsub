@@ -56,7 +56,7 @@ pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::ReceivedDelivery;
 pub use subscription_registry::{
-    InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionEntry,
-    SubscriptionRegistry, SubscriptionRegistryControl, SubscriptionRegistryError,
+    InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
+    SubscriptionRegistryControl, SubscriptionRegistryError,
 };
 pub use topic::{TopicId, TopicIdError};

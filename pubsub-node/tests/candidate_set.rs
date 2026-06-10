@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use common::{await_candidates, await_delivery, node_with, ping, shared_test_verifier};
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, Node, NodeConfig, NodeError, PeerId,
+    InMemoryNetwork, InMemorySubscriptionRegistry, Node, NodeConfig, PeerId,
     SubscriptionRegistryControl, TopicId,
 };
 
@@ -18,23 +18,35 @@ fn peer(s: &str) -> PeerId {
     PeerId::from_str(s).expect("valid peer id")
 }
 
-// FR-018: a node whose id has no subscription-list entry fails fast at
-// construction — it cannot fabricate topics from config.
+// FR-018: a node whose id has no subscription-list entry constructs cleanly and
+// derives empty state from the registry stream. The node starts empty and folds
+// the membership stream; with no entry, the stream replays nothing, so the node
+// stays at an empty subscription set and empty candidate sets — the "registered
+// but not yet present" / "initializing" posture, not a hard construction error.
 #[tokio::test]
-async fn fail_fast_when_node_has_no_registry_entry() {
+async fn node_with_no_registry_entry_derives_empty_state() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new()); // empty — no entry for ghost
-    let result = Node::new(
+    let node = Node::new(
         peer("ghost"),
         NodeConfig { peers: vec![] },
         network,
         shared_test_verifier(),
         registry,
     )
-    .await;
+    .await
+    .expect("construction succeeds even with no registry entry");
+
+    // Give the reader loop a window to drain its (empty) cold-start replay.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
     assert!(
-        matches!(result, Err(NodeError::NotRegistered { .. })),
-        "construction must fail fast when the node has no registry entry",
+        node.subscriptions().is_empty(),
+        "no registry entry -> empty subscription set",
+    );
+    assert!(
+        node.candidates(&topic("t1")).is_empty(),
+        "no registry entry -> no candidates",
     );
 }
 

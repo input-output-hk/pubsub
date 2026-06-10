@@ -17,9 +17,16 @@ The node-facing trait is **read-only**; the write surface is a separate trait ex
 
 ```rust
 pub trait SubscriptionRegistry: Send + Sync + 'static {        // read-only; Node depends on this; 012 implements it
-    async fn watch_members(&self, topics: BTreeSet<TopicId>) -> Result<MembershipWatch, SubscriptionRegistryError>;
-    async fn entry(&self, node: PeerId) -> Result<Option<SubscriptionEntry>, SubscriptionRegistryError>;
+    // Node-keyed watch: the SINGLE method, and the single stream from which the
+    // node derives ALL of its registry state. Returns a Send future (RPITIT)
+    // because the node-owned reader awaits it inside a spawned task.
+    fn watch(&self, node: PeerId)
+        -> impl std::future::Future<Output = Result<MembershipWatch, SubscriptionRegistryError>> + Send;
 }
+
+// No point-read anywhere: nothing consumes one (the node derives its topics from
+// `watch`; 010 reads via `watch`; 012 is the impl). Tests assert on the head
+// `Joined { node, topics }` of a watch's cold-start burst instead.
 
 pub trait SubscriptionRegistryControl: SubscriptionRegistry {  // operator/test write surface; node never depends on it
     async fn set_topics(&self, node: PeerId, topics: BTreeSet<TopicId>) -> Result<(), SubscriptionRegistryError>;
@@ -32,17 +39,9 @@ pub enum MembershipEvent {
     TopicsChanged { node: PeerId, added: BTreeSet<TopicId>, removed: BTreeSet<TopicId> },
     Left { node: PeerId },
 }
-
-/// A node's entry in the subscription list (the materialized record `entry` returns).
-#[non_exhaustive]
-pub struct SubscriptionEntry {
-    pub node: PeerId,
-    pub topics: BTreeSet<TopicId>,
-    // future (012): deposit, identity keys, …
-}
 ```
 
-`MembershipWatch` is single-consumer (not `Clone`, owns an unbounded `mpsc` receiver, ends on drop), replays current members as a `Joined` cold-start burst then streams live deltas — the `NetworkHandle` shape (ADR 0007). No end-of-snapshot boundary marker (the enum is `#[non_exhaustive]`; add `SnapshotComplete` when 010 needs warmth). `entry` is the self-lookup that lets the node learn its own authoritative topics before opening a membership watch (enforces ADR 0013). Events carry identity + topics only — no address (off-chain), no deposit (deferred).
+`MembershipWatch` is single-consumer (not `Clone`, owns an unbounded `mpsc` receiver, ends on drop) — the `NetworkHandle` shape (ADR 0007). `watch(node)` is **node-keyed**: it scopes the stream to `node`'s own subscription-list entry, and on open replays a single cold-start burst of `Joined` events — the node's **own** entry first (`Joined { node, own_topics }`, from which the node derives its subscription set), then the current **members** of those topics (`Joined { member, scoped_topics }`, from which it derives candidate sets) — before streaming live deltas. The node folds the whole stream from empty initial state, distinguishing its own id from others. This single-stream model **supersedes** the earlier split of `entry(self_id)` (self-lookup) + `watch_members(topics)` (membership): the node no longer does a separate point-read to learn its topics — it learns them from the stream, so it can start with an empty subscription set and an empty accept-filter and converge as the burst drains. The point-read `entry`/`SubscriptionEntry` is therefore **removed entirely** (not just demoted): no consumer needs it, and tests assert on the head `Joined { node, topics }` of the cold-start burst — the event-stream carrier of a node's own id + topics. No end-of-snapshot boundary marker (the enum is `#[non_exhaustive]`; add `SnapshotComplete` when 010 needs warmth). A future `SubscriptionEntry` (with deposit/identity keys) can return when a consumer first needs a materialized record (012). Events carry identity + topics only — no address (off-chain), no deposit (deferred).
 
 ### 2. Seam variant + handler
 
@@ -50,19 +49,19 @@ The node consumes the registry through one new `Event` variant: `Event::Membersh
 
 ### 3. Candidate set in `NodeState`, distinct from config `peers`
 
-`NodeState` gains `candidates: HashMap<TopicId, HashSet<PeerId>>`, folded by `handle_membership_update` (`Joined` adds, `TopicsChanged` adds/removes, `Left` removes), with the node's own `PeerId` excluded **locally** in the fold. A public `Node::candidates(&TopicId) -> Vec<PeerId>` getter exposes a snapshot (the `received_messages()` lock-and-clone pattern). This **resolves N-007** for the 008 side: the candidate set is the peer data that enters `NodeState` (it is mutated by a transition, so it is state); the static config `[[peers]]` bootstrap list stays a `Node` shell field, untouched — the two are distinct sources (`joining.md` connects to bootstrap nodes *and separately* filters the subscription list).
+`NodeState` gains `candidates: HashMap<TopicId, HashSet<PeerId>>`, folded by `handle_membership_update`. The handler **branches on `node == self_id`**: an event about the node itself updates `subscriptions` (its accept-filter); an event about any other node updates `candidates` (`Joined` adds, `TopicsChanged` adds/removes, `Left` removes). This self-branch is what makes the single `watch` stream the source of truth for *both* kinds of state — the node is never its own candidate because its own-id events are routed to `subscriptions`, not `candidates`. A public `Node::candidates(&TopicId) -> Vec<PeerId>` getter exposes a snapshot (the `received_messages()` lock-and-clone pattern). This **resolves N-007** for the 008 side: the candidate set is the peer data that enters `NodeState` (it is mutated by a transition, so it is state); the static config `[[peers]]` bootstrap list stays a `Node` shell field, untouched — the two are distinct sources (`joining.md` connects to bootstrap nodes *and separately* filters the subscription list).
 
 ### 4. `Node::new` sources interests from the registry; node is read-only
 
-`Node::new` **drops `initial_subscriptions`** and **adds the registry generically** — `Node::new<N: Network, R: SubscriptionRegistry>(…, registry: Arc<R>)`, *not* `Arc<dyn SubscriptionRegistry>`. (An `async fn` trait is not `dyn`-compatible; the registry is therefore consumed generically exactly as `Network` is via `Arc<N>` under ADR 0007's `async_fn_in_trait` allowance. The real chain reader, 012, is a second generic impl, not a trait object.) At startup it calls `entry(self_id)`; `None` ⇒ **fail fast** with a registration-not-found `NodeError` (no empty-topics fallback); otherwise it seeds `NodeState.subscriptions` from the returned set, `watch_members` on those topics, and spawns the node-owned reader producer. 002's `subscribed_topics` config field is **removed**. The node issues **no** registry writes — `set_topics`/`unregister` are for the `from_file` loader and test harnesses (operator stand-ins). `subscribe`/`unsubscribe` stay synchronous (ADR 0012), unchanged by this feature.
+`Node::new` **drops `initial_subscriptions`** and **adds the registry generically** — `Node::new<N: Network, R: SubscriptionRegistry>(…, registry: Arc<R>)`, *not* `Arc<dyn SubscriptionRegistry>`. (An `async fn` trait is not `dyn`-compatible; the registry is therefore consumed generically exactly as `Network` is via `Arc<N>` under ADR 0007's `async_fn_in_trait` allowance. The real chain reader, 012, is a second generic impl, not a trait object.) It seeds `NodeState` with an **empty** subscription set, spawns the node-owned reader producer (which calls `watch(self_id)`), and returns — it does **not** block on a startup point-read. The node's subscriptions and candidates then converge as the reader drains the cold-start burst onto the event loop. Because the topic set is now learned from the stream rather than a startup `entry` lookup, **construction no longer fails fast on a missing entry**: a node whose id has no subscription-list entry constructs cleanly and simply stays at empty derived state (the "registered but not yet present / initializing" posture; FR-018 is relaxed accordingly, the reader logs at `error` if the watch cannot be opened). 002's `subscribed_topics` config field is **removed**. The node issues **no** registry writes — `set_topics`/`unregister` are for the `from_file` loader and test harnesses (operator stand-ins). `subscribe`/`unsubscribe` stay synchronous (ADR 0012), unchanged by this feature.
 
 ## Consequences
 
 - The registry module is independently testable without the node loop; the fold is testable as a pure state machine (contract §5).
 - **Public API change**: `Node::new`'s signature changes and `NodeConfig.subscribed_topics` is removed — `main.rs` and existing `tests/` callers are updated in the same feature. The candidate set adds `Node::candidates`; `Node::peers` is unchanged.
-- Clean 012 swap: `from_file` → chain reader; `entry`/`watch_members` → on-chain reads; the node, `apply`, and the candidate-set fold are untouched.
+- Clean 012 swap: `from_file` → chain reader; `watch` → on-chain reads/subscriptions; the node, `apply`, and the fold (subscriptions + candidates) are untouched.
 - The seam stays minimal (one variant + one handler + one producer), per the contract §3 ownership split; whoever merges the 008 arm against `apply` is exhaustiveness-checked by the compiler.
-- The node's topic set is fixed at startup (spec Clarifications); runtime self-interest changes are deferred to 012.
+- **Subscriptions are derived asynchronously**: a freshly constructed node starts with an empty accept-filter and converges once the cold-start burst drains. Send-then-observe tests must wait for convergence (the `await_subscriptions` harness helper) rather than assuming topics are set the instant `Node::new` returns. The watched topic set is the node's own topics *at watch time*; full runtime re-scoping on an own-topic change is deferred to 012.
 
 ## Alternatives considered
 

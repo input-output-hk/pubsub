@@ -178,15 +178,22 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
     }
 }
 
-/// Transition for a subscription-registry membership delta: folds the change
-/// into the per-topic candidate set, excluding the node's own id (the registry
-/// stream may include it; self-exclusion is applied here, locally). Pure;
-/// returns no effects (the candidate set is read by a future sampler/dialer).
-// FR-013/FR-015/FR-016; ADR 0014.
+/// Transition for a subscription-registry membership delta.
+///
+/// The node derives **all** its registry state from this single stream: an
+/// event about the node's **own** id updates its subscription set (what it
+/// accepts on receive); an event about **any other** node updates the per-topic
+/// candidate set. The node starts with empty subscriptions and folds the
+/// `watch` stream (cold-start own entry + members, then live deltas) from
+/// empty. Pure; returns no effects.
+// FR-013/FR-015/FR-016/FR-018; ADR 0014.
 fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Vec<Effect> {
     match event {
         MembershipEvent::Joined { node, topics } => {
-            if node != state.self_id {
+            if node == state.self_id {
+                // The node's own entry: this *is* its subscription set.
+                state.subscriptions = topics.into_iter().collect();
+            } else {
                 for topic in topics {
                     state
                         .candidates
@@ -201,7 +208,16 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             added,
             removed,
         } => {
-            if node != state.self_id {
+            if node == state.self_id {
+                for topic in added {
+                    state.subscriptions.insert(topic);
+                }
+                for topic in &removed {
+                    state.subscriptions.remove(topic);
+                    // No longer interested in this topic — drop its candidates.
+                    state.candidates.remove(topic);
+                }
+            } else {
                 for topic in added {
                     state
                         .candidates
@@ -217,8 +233,14 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             }
         }
         MembershipEvent::Left { node } => {
-            for peers in state.candidates.values_mut() {
-                peers.remove(&node);
+            if node == state.self_id {
+                // The node's own registration was withdrawn.
+                state.subscriptions.clear();
+                state.candidates.clear();
+            } else {
+                for peers in state.candidates.values_mut() {
+                    peers.remove(&node);
+                }
             }
         }
     }

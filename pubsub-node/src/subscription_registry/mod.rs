@@ -1,16 +1,19 @@
 //! The subscription registry — the node-membership "subscription list".
 //!
-//! A node's topics are defined by its own entry in the subscription list (the
-//! source of truth), read via [`SubscriptionRegistry::entry`]. Membership of
-//! the topics a node watches is delivered as a push stream via
-//! [`SubscriptionRegistry::watch_members`]: the current members of the watched
-//! topics replay first (a cold-start burst of [`MembershipEvent::Joined`]),
+//! A node derives **all** of its registry state from a single node-keyed push
+//! stream opened with [`SubscriptionRegistry::watch`]: the current state replays
+//! first as a cold-start burst of [`MembershipEvent::Joined`] — the node's own
+//! entry (from which it derives its subscription set, the source of truth for
+//! its topics) followed by the members of those topics (its candidate sets) —
 //! then live deltas follow.
 //!
-//! The read trait [`SubscriptionRegistry`] is what the node depends on. The
-//! write side lives on a separate [`SubscriptionRegistryControl`] trait that
-//! models the operator's registration actions — the node never calls it; only
-//! the in-memory loader and test harnesses do.
+//! The read trait [`SubscriptionRegistry`] is what the node depends on, and is
+//! deliberately just `watch` — no point-read method, since no consumer needs
+//! one (the concrete [`InMemorySubscriptionRegistry`] offers an inherent
+//! `entry` read-back for tooling/tests). The write side lives on a separate
+//! [`SubscriptionRegistryControl`] trait that models the operator's
+//! registration actions — the node never calls it; only the in-memory loader
+//! and test harnesses do.
 //!
 //! This is distinct from the (future) topic registry, which records topic
 //! ownership and authorised publishers; the two share no trait.
@@ -23,18 +26,6 @@ use crate::topic::TopicId;
 mod in_memory;
 
 pub use in_memory::InMemorySubscriptionRegistry;
-
-/// A node's entry in the subscription list — the materialized record
-/// [`SubscriptionRegistry::entry`] returns (as distinct from a
-/// [`MembershipEvent`], which is a delta).
-#[non_exhaustive]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SubscriptionEntry {
-    /// The registered node.
-    pub node: PeerId,
-    /// The topics the node subscribes to.
-    pub topics: BTreeSet<TopicId>,
-}
 
 /// One membership delta delivered on a [`MembershipWatch`].
 ///
@@ -100,27 +91,36 @@ pub enum SubscriptionRegistryError {
 
 /// Read-only, node-facing view of the subscription list.
 ///
-/// This is the only trait the node depends on (held as
-/// `Arc<dyn SubscriptionRegistry>`); the real on-chain reader (feature 012)
-/// implements exactly this surface. The write surface is the separate
-/// [`SubscriptionRegistryControl`].
+/// This is the only trait the node depends on. An `async fn`/RPITIT trait is
+/// not `dyn`-compatible, so the node consumes it generically as `Arc<R>` (the
+/// way `Network` is consumed under ADR 0007), not as a trait object; the real
+/// on-chain reader (feature 012) is a second generic impl of exactly this
+/// surface. The write surface is the separate [`SubscriptionRegistryControl`].
 #[allow(async_fn_in_trait)] // mirrors the `Network` trait's v1 allowance (ADR 0007)
 pub trait SubscriptionRegistry: Send + Sync + 'static {
-    /// Open a topic-scoped membership watch: replay current members of
-    /// `topics` as a `Joined` cold-start burst, then stream live deltas. The
-    /// burst and live deltas form one gap-free, duplicate-free sequence.
-    async fn watch_members(
-        &self,
-        topics: BTreeSet<TopicId>,
-    ) -> Result<MembershipWatch, SubscriptionRegistryError>;
-
-    /// Look up a node's own subscription-list entry (`None` if not registered).
-    /// A node calls `entry(self_id)` at startup to learn its authoritative
-    /// topics.
-    async fn entry(
+    /// Open the node-keyed membership watch through which a node derives **all**
+    /// of its registry state from a single event stream.
+    ///
+    /// The watch is scoped to `node`'s own subscription-list entry. On open it
+    /// replays, as a cold-start burst:
+    /// - the node's **own** entry — `Joined { node, topics }` — from which the
+    ///   node derives its subscription set; then
+    /// - the current **members** of those topics — `Joined { other, topics }`
+    ///   (scoped to the node's topics) — from which it derives candidate sets.
+    ///
+    /// Live deltas follow (members joining/leaving/changing within the node's
+    /// topics, and changes to the node's own entry). The node folds the whole
+    /// stream from empty initial state, distinguishing its own id (→ its
+    /// subscriptions) from others (→ candidates). The burst and live deltas form
+    /// one gap-free, duplicate-free sequence.
+    ///
+    /// Returns a `Send` future (RPITIT, the `Send`-bounded shape ADR 0007 flags
+    /// as the follow-up to `async fn` in traits) because the node-owned reader
+    /// awaits it inside a spawned task.
+    fn watch(
         &self,
         node: PeerId,
-    ) -> Result<Option<SubscriptionEntry>, SubscriptionRegistryError>;
+    ) -> impl std::future::Future<Output = Result<MembershipWatch, SubscriptionRegistryError>> + Send;
 }
 
 /// The operator/test write surface, extending [`SubscriptionRegistry`].
