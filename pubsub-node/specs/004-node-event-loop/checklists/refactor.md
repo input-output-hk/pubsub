@@ -76,6 +76,16 @@ and angles round 1 did not probe.
 - [x] CHK022 Is checklists/requirements.md (the spec-quality checklist, validated against the pre-amendment spec text) still accurate after the round-1 edits, or should it note re-validation? [Traceability, Process, checklists/requirements.md]
   - **PASS (substance) + meta-fix 2026-06-09**: re-ran every requirements.md item against the amended spec — all still pass (FR-015/016 testable behavior-level MUSTs; FR-008 rewording improved precision; scope/assumptions/scenarios unchanged or strengthened). Appended a dated re-validation note to requirements.md so its all-pass claim is anchored to the amended text.
 
+## Third Pass (2026-06-09, post-round-2 sweep)
+
+Scan focused on skew introduced by round 2's own edits (FR-016, N-006, plan range, CLAUDE.md
+inventory, requirements.md re-validation note). All other candidate angles examined and
+discarded (FR-016↔FR-009 consistency; N-006 cross-references; terminology; Draft-status
+field — project-wide convention). One residual:
+
+- [x] CHK023 Does contracts/public-surface.md §A's `Node::new` row reflect the failure-mode parity FR-016 now pins (typed error on duplicate registration; no background activity on failed construction), or only the success semantics? [Consistency, Completeness, Spec §FR-016 vs contracts §A]
+  - **MINOR FAIL → resolved 2026-06-09**: round-2 self-inflicted skew (same mechanism as CHK017) — FR-016 landed without updating the contract row §C walks. Added the failure-mode clause to the `Node::new` semantics cell. No other artifact touched; convergence declared after this item (third pass's entire yield was a one-cell echo of round 2's fix).
+
 ## Notes
 
 - Check items off as completed: `[x]`

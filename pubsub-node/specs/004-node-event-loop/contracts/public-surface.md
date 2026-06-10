@@ -34,7 +34,7 @@ pub use topic::{TopicId, TopicIdError};
 
 | Method | Signature (unchanged) | Semantics (unchanged) |
 |---|---|---|
-| `Node::new` | `async fn new<N: Network>(PeerId, NodeConfig, HashSet<TopicId>, Arc<N>, Arc<dyn Verifier>) -> Result<Self, NodeError>` | registers, spawns loop + network producer, ready on return |
+| `Node::new` | `async fn new<N: Network>(PeerId, NodeConfig, HashSet<TopicId>, Arc<N>, Arc<dyn Verifier>) -> Result<Self, NodeError>` | registers, spawns loop + network producer, ready on return; failed registration (duplicate id) returns the typed error with no background activity left running |
 | `send` | `async fn send(&self, &PeerId, Message) -> Result<(), NodeError>` | fire-and-forget to unregistered ids (warn log), no sender-side subscription coupling |
 | `id` / `peers` | `fn id(&self) -> &PeerId` / `fn peers(&self) -> &[BasicPeerDescriptor]` | identical |
 | `events` | `fn events(&self) -> EventQueue` | cloneable push handle; pushes after shutdown silently dropped |
