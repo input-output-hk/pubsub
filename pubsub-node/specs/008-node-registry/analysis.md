@@ -38,3 +38,13 @@ No violations. **I** traced to spec/ADRs/protocol docs. **II** TDD ordering pres
 ### Next Actions
 
 No CRITICAL/HIGH findings — **cleared for `/speckit-implement`** (TDD order, checkpoint commits). The MEDIUM items are resolved (F3, Term1) or gated/acknowledged (F1, T2). The post-implementation analyze pass MUST verify contracts §E against the code.
+
+## Session 2026-06-10 (post-implementation)
+
+The implementation surfaced one artifact-vs-code mismatch, reconciled in the docs:
+
+| ID | Category | Severity | Summary | Resolution |
+|----|----------|----------|---------|------------|
+| F4 | Inconsistency (artifact vs code) | MEDIUM | Spec/contract/ADR 0014/data-model described the node holding the registry as `Arc<dyn SubscriptionRegistry>`. An `async fn` trait is not `dyn`-compatible, so the code consumes it **generically** — `Node::new<N: Network, R: SubscriptionRegistry>(…, Arc<R>)` — exactly as `Network` is consumed (`Arc<N>`, ADR 0007). | **RESOLVED (applied).** Spec FR-001, contract §A/§B, ADR 0014 §4, and data-model updated to the generic `Arc<R>` shape with the `async`-trait/`dyn`-incompatibility rationale. (Residual descriptive `Arc<dyn …>` prose in plan.md/research.md is non-normative.) |
+
+Contracts §E verification against code (post-implementation): `git diff main -- src/lib.rs` shows only the new `mod subscription_registry;` + the registry `pub use` block; `set_topics`/`unregister` live on `SubscriptionRegistryControl` (node holds only the read trait); `handle_membership_update` is private in `state.rs`; the candidate set is `pub(crate)` on `NodeState` (exposed via `Node::candidates`), distinct from the config `peers` field. All green: `cargo fmt && build && clippy --all-targets -D warnings && test`.

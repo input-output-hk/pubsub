@@ -6,7 +6,7 @@ New **public** types live in module `src/subscription_registry/`. New node-side 
 
 ## SubscriptionRegistry (new, public trait — `src/subscription_registry/mod.rs`)
 
-The **read-only, node-facing** interface / anti-corruption boundary over the subscription-list source. `Send + Sync + 'static`, async methods (mirrors `Network`, incl. `#[allow(async_fn_in_trait)]` + its tracked `Send`-bound follow-up). `Node` holds `Arc<dyn SubscriptionRegistry>` — no write methods in scope. The 012 chain reader implements exactly this trait.
+The **read-only, node-facing** interface / anti-corruption boundary over the subscription-list source. `Send + Sync + 'static`, async methods (mirrors `Network`, incl. `#[allow(async_fn_in_trait)]` + its tracked `Send`-bound follow-up). `Node` consumes this trait **generically** (`Node::new<…, R: SubscriptionRegistry>(…, Arc<R>)`, not `Arc<dyn>` — `async fn` traits aren't `dyn`-compatible; same as `Network`'s `Arc<N>`), so it has no write methods in scope. The 012 chain reader implements exactly this trait.
 
 | Method | Signature | Semantics |
 |---|---|---|
@@ -117,7 +117,7 @@ Self-exclusion is applied **here** (locally), not in the registry — `watch_mem
 
 | Item | Change |
 |---|---|
-| `Node::new` | **signature change**: drops `initial_subscriptions: HashSet<TopicId>`; adds `registry: Arc<dyn SubscriptionRegistry>`. Startup: `topics = registry.entry(self_id).await?` → `None` ⇒ fail fast (`NodeError` registration-not-found); seed `NodeState.subscriptions` from `interests`; `registry.watch_members(topics)` → spawn the reader producer (drains the watch, pushes `Event::MembershipUpdate`). |
+| `Node::new` | **signature change**: drops `initial_subscriptions: HashSet<TopicId>`; adds a generic `registry: Arc<R>` where `R: SubscriptionRegistry` (not `Arc<dyn>` — see the trait note above). Startup: `topics = registry.entry(self_id).await?` → `None` ⇒ fail fast (`NodeError::NotRegistered`); seed `NodeState.subscriptions` from `topics`; `registry.watch_members(topics)` → spawn the reader producer (drains the watch, pushes `Event::MembershipUpdate`). |
 | `Node::candidates` | **new** public getter: `fn candidates(&self, topic: &TopicId) -> Vec<PeerId>` — sync lock-and-clone snapshot of the per-topic candidate set. |
 | `Node::peers` | **unchanged** — still returns the config `[[peers]]` bootstrap list; distinct from `candidates`. |
 | `NodeError` | gains a registration-not-found variant (fail-fast, spec FR-018). |

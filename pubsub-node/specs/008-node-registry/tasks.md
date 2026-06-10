@@ -110,10 +110,10 @@
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T015 [P] Rustdoc pass on `src/subscription_registry/{mod,in_memory}.rs`, `Node::candidates`, and the changed `Node::new` — stable library terms, **no FR/spec citations** (constitution: implementation-neutral; FR refs live in `//` comments only).
-- [ ] T016 [P] Walk `specs/008-node-registry/quickstart.md` end-to-end; update snippets if names/signatures drifted from what landed.
-- [ ] T017 Cross-feature + ledger updates: add the restart-recovery deferred entry to `specs/IMPLEMENTATION_NOTES.md` (FR-018, revisit at 012) and note N-007's 008-side resolution; update `specs/event-loop-and-registry-contract.md`'s seam note and **— with the 004 author's sign-off —** ADR 0011's illustrative comment + the CLAUDE.md SpecKit block from the placeholder to `Event::MembershipUpdate(MembershipEvent)`.
-- [ ] T018 Final full sweep (`cargo fmt && cargo build && cargo clippy --all-targets && cargo test`) and self-check the contracts §E verification items (lib.rs diff shows only the intended `pub use` additions; `grep "pub " src/subscription_registry/in_memory.rs` shows the entry-type/fields private; `handle_membership_update` private in `state.rs`) ahead of the formal `/speckit-analyze` round (findings recorded in `analysis.md` per the constitution). Final commit.
+- [X] T015 [P] Rustdoc pass on `src/subscription_registry/{mod,in_memory}.rs`, `Node::candidates`, and the changed `Node::new` — stable library terms, **no FR/spec citations** (constitution: implementation-neutral; FR refs live in `//` comments only).
+- [X] T016 [P] Walk `specs/008-node-registry/quickstart.md` end-to-end; update snippets if names/signatures drifted from what landed.
+- [X] T017 Cross-feature + ledger updates: add the restart-recovery deferred entry to `specs/IMPLEMENTATION_NOTES.md` (FR-018, revisit at 012) and note N-007's 008-side resolution; update `specs/event-loop-and-registry-contract.md`'s seam note and **— with the 004 author's sign-off —** ADR 0011's illustrative comment + the CLAUDE.md SpecKit block from the placeholder to `Event::MembershipUpdate(MembershipEvent)`.
+- [X] T018 Final full sweep (`cargo fmt && cargo build && cargo clippy --all-targets && cargo test`) and self-check the contracts §E verification items (lib.rs diff shows only the intended `pub use` additions; `grep "pub " src/subscription_registry/in_memory.rs` shows the entry-type/fields private; `handle_membership_update` private in `state.rs`) ahead of the formal `/speckit-analyze` round (findings recorded in `analysis.md` per the constitution). Final commit.
 
 ---
 

@@ -31,7 +31,7 @@ pub trait SubscriptionRegistryControl: SubscriptionRegistry {  // operator/test 
 }
 ```
 
-`Node` is constructed with `Arc<dyn SubscriptionRegistry>` (read-only — no write methods in scope). `InMemorySubscriptionRegistry` implements **both** traits; tests/operator-sim hold the concrete type (or `Arc<dyn SubscriptionRegistryControl>`).
+`Node` is constructed **generically** over the read trait — `Node::new<N: Network, R: SubscriptionRegistry>(…, registry: Arc<R>)` — so it has no write methods in scope. (It is `Arc<R>`, not `Arc<dyn SubscriptionRegistry>`: `async fn` traits aren't `dyn`-compatible, so the registry is consumed generically exactly as `Network` is, per ADR 0007's allowance.) `InMemorySubscriptionRegistry` implements **both** traits; tests/operator-sim hold the concrete `Arc<InMemorySubscriptionRegistry>` to drive writes.
 
 | Item | Shape | Contract |
 |---|---|---|
@@ -47,7 +47,7 @@ The on-chain decode/serialization types (012) MUST remain module-internal and MU
 
 | Method | Before (004 on `main`) | After (008) |
 |---|---|---|
-| `Node::new` | `async fn new<N: Network>(PeerId, NodeConfig, initial_subscriptions: HashSet<TopicId>, Arc<N>, Arc<dyn Verifier>) -> Result<Self, NodeError>` | `async fn new<N: Network>(PeerId, NodeConfig, Arc<N>, Arc<dyn Verifier>, Arc<dyn SubscriptionRegistry>) -> Result<Self, NodeError>` — **drops `initial_subscriptions`** (interests now from `entry(self_id)`); **adds the registry**; fails fast with a registration-not-found `NodeError` when the node has no entry |
+| `Node::new` | `async fn new<N: Network>(PeerId, NodeConfig, initial_subscriptions: HashSet<TopicId>, Arc<N>, Arc<dyn Verifier>) -> Result<Self, NodeError>` | `async fn new<N: Network, R: SubscriptionRegistry>(PeerId, NodeConfig, Arc<N>, Arc<dyn Verifier>, Arc<R>) -> Result<Self, NodeError>` — **drops `initial_subscriptions`**; **adds the registry generically** (`Arc<R>`, *not* `Arc<dyn>` — `async fn` traits aren't `dyn`-compatible; mirrors `Network`'s `Arc<N>`); sources topics from `entry(self_id)` and fails fast with a registration-not-found `NodeError` when the node has no entry |
 | `Node::candidates` | — | **new**: `fn candidates(&self, topic: &TopicId) -> Vec<PeerId>` — sync lock-and-clone snapshot of the per-topic candidate set, self-excluded |
 | `Node::peers` | `fn peers(&self) -> &[BasicPeerDescriptor]` | **unchanged** — config bootstrap list, distinct from `candidates` |
 | other methods | — | unchanged (`send`, `id`, `events`, `spawn_producer`, `received_messages`, `subscriptions`, `subscribe`, `unsubscribe`, `Drop`) |
