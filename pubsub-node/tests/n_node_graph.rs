@@ -5,8 +5,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, test_topic};
-use pubsub_node::{InMemoryNetwork, Message, Node, NodeConfig, PeerEntry, PeerId};
+use common::{await_delivery, node_with, test_topic};
+use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Message, Node};
 
 struct FourNodeStar {
     a: Node,
@@ -17,63 +17,19 @@ struct FourNodeStar {
 
 async fn four_node_star_fixture() -> FourNodeStar {
     let network = Arc::new(InMemoryNetwork::new());
-    let a_id = PeerId::from_str("node-a").expect("valid id");
-    let b_id = PeerId::from_str("node-b").expect("valid id");
-    let c_id = PeerId::from_str("node-c").expect("valid id");
-    let d_id = PeerId::from_str("node-d").expect("valid id");
-
-    let a = Node::new(
-        a_id,
-        NodeConfig {
-            peers: vec![
-                PeerEntry { id: b_id.clone() },
-                PeerEntry { id: c_id.clone() },
-                PeerEntry { id: d_id.clone() },
-            ],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network.clone(),
-        common::shared_test_verifier(),
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let topics = [test_topic()];
+    let a = node_with(
+        &registry,
+        &network,
+        "node-a",
+        &["node-b", "node-c", "node-d"],
+        &topics,
     )
-    .await
-    .expect("construct A");
-    let b = Node::new(
-        b_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct B");
-    let c = Node::new(
-        c_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct C");
-    let d = Node::new(
-        d_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network,
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct D");
+    .await;
+    let b = node_with(&registry, &network, "node-b", &[], &topics).await;
+    let c = node_with(&registry, &network, "node-c", &[], &topics).await;
+    let d = node_with(&registry, &network, "node-d", &[], &topics).await;
 
     FourNodeStar { a, b, c, d }
 }
@@ -262,85 +218,37 @@ struct FourNodeTopicsFixture {
 // A/B/C/D so it can address each.
 async fn four_node_topics_fixture() -> FourNodeTopicsFixture {
     let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t1 = pubsub_node::TopicId::from_str("t1").expect("valid topic id");
     let t2 = pubsub_node::TopicId::from_str("t2").expect("valid topic id");
     let t3 = pubsub_node::TopicId::from_str("t3").expect("valid topic id");
 
-    let emitter_id = PeerId::from_str("emitter").expect("valid id");
-    let a_id = PeerId::from_str("node-a").expect("valid id");
-    let b_id = PeerId::from_str("node-b").expect("valid id");
-    let c_id = PeerId::from_str("node-c").expect("valid id");
-    let d_id = PeerId::from_str("node-d").expect("valid id");
-
-    let emitter = Node::new(
-        emitter_id,
-        NodeConfig {
-            peers: vec![
-                PeerEntry { id: a_id.clone() },
-                PeerEntry { id: b_id.clone() },
-                PeerEntry { id: c_id.clone() },
-                PeerEntry { id: d_id.clone() },
-            ],
-            subscribed_topics: vec![],
-        },
-        HashSet::new(),
-        network.clone(),
-        common::shared_test_verifier(),
+    let emitter = node_with(
+        &registry,
+        &network,
+        "emitter",
+        &["node-a", "node-b", "node-c", "node-d"],
+        &[],
     )
-    .await
-    .expect("construct emitter");
-
-    let a = Node::new(
-        a_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([t1.clone()]),
-        network.clone(),
-        common::shared_test_verifier(),
+    .await;
+    let a = node_with(&registry, &network, "node-a", &[], &[t1.clone()]).await;
+    let b = node_with(
+        &registry,
+        &network,
+        "node-b",
+        &[],
+        &[t1.clone(), t2.clone()],
     )
-    .await
-    .expect("construct A");
-
-    let b = Node::new(
-        b_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([t1.clone(), t2.clone()]),
-        network.clone(),
-        common::shared_test_verifier(),
+    .await;
+    let c = node_with(
+        &registry,
+        &network,
+        "node-c",
+        &[],
+        &[t2.clone(), t3.clone()],
     )
-    .await
-    .expect("construct B");
-
-    let c = Node::new(
-        c_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([t2.clone(), t3.clone()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct C");
-
-    let d = Node::new(
-        d_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([t3.clone()]),
-        network,
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct D");
+    .await;
+    let d = node_with(&registry, &network, "node-d", &[], &[t3.clone()]).await;
 
     FourNodeTopicsFixture {
         emitter,

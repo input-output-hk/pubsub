@@ -5,8 +5,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, two_node_fixture_with_subscriptions};
-use pubsub_node::{InMemoryNetwork, Node, NodeConfig, PeerEntry, PeerId, TopicId};
+use common::{await_delivery, node_with, two_node_fixture_with_subscriptions};
+use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, TopicId};
 
 fn topic(s: &str) -> TopicId {
     TopicId::from_str(s).expect("valid topic id")
@@ -69,34 +69,9 @@ async fn off_topic_message_dropped_silently() {
 async fn own_emission_not_in_local_snapshot() {
     let t1 = topic("t1");
     let network = Arc::new(InMemoryNetwork::new());
-    let a_id = PeerId::from_str("node-a").expect("valid id");
-    let b_id = PeerId::from_str("node-b").expect("valid id");
-
-    let a = Node::new(
-        a_id.clone(),
-        NodeConfig {
-            peers: vec![PeerEntry { id: b_id.clone() }],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([t1.clone()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct A");
-
-    let b = Node::new(
-        b_id,
-        NodeConfig {
-            peers: vec![PeerEntry { id: a_id }],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([t1.clone()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("construct B");
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let a = node_with(&registry, &network, "node-a", &["node-b"], &[t1.clone()]).await;
+    let b = node_with(&registry, &network, "node-b", &["node-a"], &[t1.clone()]).await;
 
     let msg = common::ping(t1, 13);
     a.send(b.id(), msg.clone()).await.expect("send Ok");

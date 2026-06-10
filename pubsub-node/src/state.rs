@@ -12,7 +12,7 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::crypto::Verifier;
@@ -21,6 +21,7 @@ use crate::message::{Message, SignedMessage};
 use crate::node::{SubscribeOutcome, UnsubscribeOutcome};
 use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
+use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 
 /// The node's full mutable state as one explicit value.
@@ -43,6 +44,11 @@ pub(crate) struct NodeState {
     subscriptions: HashSet<TopicId>,
     received: Vec<ReceivedDelivery>,
     verifier: Arc<dyn Verifier>,
+    /// Per-topic candidate peers, folded from the subscription-registry stream
+    /// (`Event::MembershipUpdate`). The node's own id is never present. This is
+    /// the topic-derived peer set, distinct from the shell's static config
+    /// `peers` bootstrap list (`IMPLEMENTATION_NOTES` N-007).
+    candidates: HashMap<TopicId, HashSet<PeerId>>,
 }
 
 impl NodeState {
@@ -57,6 +63,7 @@ impl NodeState {
             subscriptions,
             received: Vec::new(),
             verifier,
+            candidates: HashMap::new(),
         }
     }
 
@@ -70,6 +77,16 @@ impl NodeState {
     #[must_use]
     pub(crate) fn subscriptions_snapshot(&self) -> Vec<TopicId> {
         self.subscriptions.iter().cloned().collect()
+    }
+
+    /// Snapshot of the candidate peers for `topic` (unspecified order; the
+    /// node's own id is never included). Empty if the topic has no members.
+    #[must_use]
+    pub(crate) fn candidates_snapshot(&self, topic: &TopicId) -> Vec<PeerId> {
+        self.candidates
+            .get(topic)
+            .map(|peers| peers.iter().cloned().collect())
+            .unwrap_or_default()
     }
 
     /// Add `topic` to the subscription set.
@@ -157,7 +174,55 @@ pub(crate) enum Effect {}
 pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
     match event {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
+        Event::MembershipUpdate(update) => handle_membership_update(state, update),
     }
+}
+
+/// Transition for a subscription-registry membership delta: folds the change
+/// into the per-topic candidate set, excluding the node's own id (the registry
+/// stream may include it; self-exclusion is applied here, locally). Pure;
+/// returns no effects (the candidate set is read by a future sampler/dialer).
+// FR-013/FR-015/FR-016; ADR 0014.
+fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Vec<Effect> {
+    match event {
+        MembershipEvent::Joined { node, topics } => {
+            if node != state.self_id {
+                for topic in topics {
+                    state
+                        .candidates
+                        .entry(topic)
+                        .or_default()
+                        .insert(node.clone());
+                }
+            }
+        }
+        MembershipEvent::TopicsChanged {
+            node,
+            added,
+            removed,
+        } => {
+            if node != state.self_id {
+                for topic in added {
+                    state
+                        .candidates
+                        .entry(topic)
+                        .or_default()
+                        .insert(node.clone());
+                }
+                for topic in &removed {
+                    if let Some(peers) = state.candidates.get_mut(topic) {
+                        peers.remove(&node);
+                    }
+                }
+            }
+        }
+        MembershipEvent::Left { node } => {
+            for peers in state.candidates.values_mut() {
+                peers.remove(&node);
+            }
+        }
+    }
+    Vec::new()
 }
 
 /// Transition for an inbound network message: dispatches per message kind.
@@ -479,5 +544,38 @@ mod tests {
             },
         );
         assert_eq!(state.received_snapshot().len(), 1, "subscribed now");
+    }
+
+    // US3 / FR-013/015/016: MembershipUpdate folds into per-topic candidate
+    // sets; the node's own id is excluded; the transition returns no effects.
+    #[test]
+    fn membership_updates_fold_into_candidates_excluding_self() {
+        let mut state = state_subscribed(vec![topic("t1"), topic("t2")]); // self_id = "self"
+        let script = [
+            MembershipEvent::Joined {
+                node: peer("a"),
+                topics: [topic("t1")].into_iter().collect(),
+            },
+            MembershipEvent::Joined {
+                node: peer("b"),
+                topics: [topic("t1"), topic("t2")].into_iter().collect(),
+            },
+            MembershipEvent::Joined {
+                node: peer("self"), // own id — must be ignored
+                topics: [topic("t1")].into_iter().collect(),
+            },
+            MembershipEvent::TopicsChanged {
+                node: peer("a"),
+                added: [topic("t2")].into_iter().collect(),
+                removed: [topic("t1")].into_iter().collect(),
+            },
+            MembershipEvent::Left { node: peer("b") },
+        ];
+        for ev in script {
+            assert!(apply(&mut state, Event::MembershipUpdate(ev)).is_empty());
+        }
+        // a moved t1->t2; b left; self never added.
+        assert!(state.candidates_snapshot(&topic("t1")).is_empty());
+        assert_eq!(state.candidates_snapshot(&topic("t2")), vec![peer("a")]);
     }
 }

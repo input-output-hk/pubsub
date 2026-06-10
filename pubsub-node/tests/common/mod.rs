@@ -9,9 +9,10 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    InMemoryNetwork, Message, MessageHash, MessagePayload, Node, NodeConfig, PeerEntry, PeerId,
-    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, TestSigner,
-    TestVerifier, Timestamp, TopicId, Verifier,
+    InMemoryNetwork, InMemorySubscriptionRegistry, Message, MessageHash, MessagePayload, Node,
+    NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -109,6 +110,7 @@ pub fn message_topic(message: &Message) -> &TopicId {
 
 pub struct TwoNodeFixture {
     pub network: Arc<InMemoryNetwork>,
+    pub registry: Arc<InMemorySubscriptionRegistry>,
     pub a: Node,
     pub b: Node,
 }
@@ -134,15 +136,26 @@ pub async fn two_node_fixture_with_subscriptions(
     let a_id = PeerId::from_str("node-a").expect("valid id");
     let b_id = PeerId::from_str("node-b").expect("valid id");
 
+    // Seed the subscription registry (the source of truth for each node's
+    // topics) before constructing the nodes — both look up their own entry.
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    registry
+        .set_topics(a_id.clone(), a_subscriptions.into_iter().collect())
+        .await
+        .expect("seed node A topics");
+    registry
+        .set_topics(b_id.clone(), b_subscriptions.into_iter().collect())
+        .await
+        .expect("seed node B topics");
+
     let a = Node::new(
         a_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
-            subscribed_topics: vec![],
         },
-        a_subscriptions,
         network.clone(),
         verifier.clone(),
+        registry.clone(),
     )
     .await
     .expect("construct node A");
@@ -151,16 +164,52 @@ pub async fn two_node_fixture_with_subscriptions(
         b_id,
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
-            subscribed_topics: vec![],
         },
-        b_subscriptions,
         network.clone(),
         verifier,
+        registry.clone(),
     )
     .await
     .expect("construct node B");
 
-    TwoNodeFixture { network, a, b }
+    TwoNodeFixture {
+        network,
+        registry,
+        a,
+        b,
+    }
+}
+
+/// Build a node sharing `registry` and `network`, with its subscription-list
+/// entry seeded with `topics` and a config peer list of `peers`. Centralises
+/// the registry-seed-then-construct dance for the inline multi-node tests.
+pub async fn node_with(
+    registry: &Arc<InMemorySubscriptionRegistry>,
+    network: &Arc<InMemoryNetwork>,
+    id: &str,
+    peers: &[&str],
+    topics: &[TopicId],
+) -> Node {
+    let id = PeerId::from_str(id).expect("valid id");
+    registry
+        .set_topics(id.clone(), topics.iter().cloned().collect())
+        .await
+        .expect("seed node topics");
+    let peers = peers
+        .iter()
+        .map(|p| PeerEntry {
+            id: PeerId::from_str(p).expect("valid peer id"),
+        })
+        .collect();
+    Node::new(
+        id,
+        NodeConfig { peers },
+        network.clone(),
+        shared_test_verifier(),
+        registry.clone(),
+    )
+    .await
+    .expect("construct node")
 }
 
 #[derive(Debug, thiserror::Error)]

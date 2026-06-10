@@ -1,12 +1,11 @@
 mod common;
 
-use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, test_topic, two_node_fixture};
-use pubsub_node::{InMemoryNetwork, Node, NodeConfig, PeerEntry, PeerId};
+use common::{await_delivery, node_with, test_topic, two_node_fixture};
+use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, PeerId};
 
 // US1 AS-1: A's peer set contains B; A sends Ping(42); B's record contains it.
 #[tokio::test]
@@ -31,35 +30,11 @@ async fn ping_delivered_when_a_lists_b() {
 #[tokio::test]
 async fn ping_delivered_trust_on_arrival() {
     let network = Arc::new(InMemoryNetwork::new());
-    let a_id = PeerId::from_str("node-a").unwrap();
-    let b_id = PeerId::from_str("node-b").unwrap();
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
 
-    let a = Node::new(
-        a_id.clone(),
-        NodeConfig {
-            peers: vec![PeerEntry { id: b_id.clone() }],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("A");
-
+    let a = node_with(&registry, &network, "node-a", &["node-b"], &[test_topic()]).await;
     // B's peer set is EMPTY — does not list A.
-    let b = Node::new(
-        b_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("B");
+    let b = node_with(&registry, &network, "node-b", &[], &[test_topic()]).await;
 
     let msg = common::ping(test_topic(), 7);
     a.send(b.id(), msg.clone()).await.expect("send Ok");
@@ -80,20 +55,8 @@ async fn ping_delivered_trust_on_arrival() {
 #[tokio::test]
 async fn empty_peer_set_cannot_originate() {
     let network = Arc::new(InMemoryNetwork::new());
-    let a_id = PeerId::from_str("node-a").unwrap();
-
-    let a = Node::new(
-        a_id,
-        NodeConfig {
-            peers: vec![],
-            subscribed_topics: vec![],
-        },
-        HashSet::from([test_topic()]),
-        network.clone(),
-        common::shared_test_verifier(),
-    )
-    .await
-    .expect("A");
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let a = node_with(&registry, &network, "node-a", &[], &[test_topic()]).await;
 
     let ghost = PeerId::from_str("ghost").unwrap();
     let outcome = a.send(&ghost, common::ping(test_topic(), 0)).await;
