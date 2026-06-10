@@ -66,7 +66,7 @@ untouched
 *GATE: evaluated before Phase 0; re-evaluated after Phase 1 design — both pass.*
 
 - **I. Correctness Over Optimization** — ✅ Every behavior in this plan traces to: spec.md
-  FR-001..014 (parity + structure), `specs/event-loop-and-registry-contract.md` §1/§3/§5
+  FR-001..016 (parity + structure), `specs/event-loop-and-registry-contract.md` §1/§3/§5
   (the seam and test strategy), ADR 0011 / ADR 0012 (structural decisions, authored with
   this plan), and prior ADRs 0006–0008 (receive task, network handle, subscription mutator
   shape) whose decisions this refactor preserves or supersedes explicitly.

@@ -44,3 +44,7 @@
   subscriptions → 008) are stated as explicit out-of-scope requirements.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.
   None are incomplete.
+- **Re-validated 2026-06-09** after the checklist-walk amendments (Clarifications section;
+  FR-015/FR-016 added; FR-008 reworded to "no protocol I/O"; SC-004 widened;
+  queued-events-at-drop edge case): all items still pass. See `checklists/refactor.md` for
+  the findings that drove the amendments.

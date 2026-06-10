@@ -113,6 +113,7 @@ A parallel or future feature (the mock topic registry, 008; later the connection
 - **FR-013**: The connection model (dialing, accepting, per-connection send/receive, message fan-out) MUST NOT be implemented in this feature; the transition's outbound-command output type ships present-but-empty and the transition returns no outbound commands. This is deferred to a later `004-connections` feature.
 - **FR-014**: Registry-driven subscription confirmation and updates MUST NOT be implemented in this feature; the registry-update event seam is reserved for 008 and consumed there.
 - **FR-015**: Message **sending** MUST be preserved unchanged: `send` resolves once the network accepts the message; sending to an unregistered recipient is silently dropped with no synchronous error to the sender; sending is independent of the sender's own subscription set.
+- **FR-016**: Node **construction** MUST be preserved unchanged: a successful construction returns a node already able to process events; a failed construction (e.g. an identifier already registered on the network) surfaces the existing typed error and leaves **no background activity running**.
 
 ### Key Entities
 

@@ -50,6 +50,32 @@
 - [x] CHK016 Are the merge-ordering obligations from the seam contract (004 lands first; whoever merges second writes the new arm) reflected or referenced in this feature's artifacts where a reviewer will see them? [Traceability, Dependency; event-loop-and-registry-contract.md §4]
   - **PASS 2026-06-09 (annotation only)**: contract §4 is the normative source (cited by spec Assumptions + plan); research.md R1 and ADR 0011's consequences carry the obligation in-feature; CLAUDE.md ("Manual branch step" + SPECKIT block) states it for maintainers. The merges-second real-arm obligation correctly lives in the contract both features cite — it binds 008's (or 004-connections') review, not this feature's code.
 
+## Second Pass (2026-06-09, post-amendment sweep)
+
+Items generated after the round-1 fixes (FR-015, SC-004 widening, FR-008 rewording, drop edge
+case) — targeting the amended text itself, cross-artifact skew the edits may have created,
+and angles round 1 did not probe.
+
+### Post-Amendment Consistency
+
+- [x] CHK017 Does plan.md's Constitution Check still cite the correct FR range — it references "FR-001..014 (parity + structure)" while the amended spec now ends at FR-015? [Consistency, Traceability, plan.md §Constitution Check vs Spec §FR-015]
+  - **FAIL → resolved 2026-06-09**: plan committed before the round-1 walk added FR-015; range updated to FR-001..015. Verified no other plan reference hardcodes FR numbers invalidated by the amendments (Design Notes cite concepts; Summary cites SC-001/SC-004 generically).
+  - **Re-addressed same day**: CHK018's fix added FR-016, re-staling the range; bumped to FR-001..016 in the same walk.
+- [x] CHK018 Is SC-004's widened parenthetical ("construction, send, … drop behavior") fully backed by requirements — construction parity (registration failure → typed error; no background activity leaked on failed construction) is named in SC-004 but covered by no FR or edge case [Coverage, Gap, Spec §SC-004]
+  - **FAIL → resolved 2026-06-09**: added FR-016 (successful construction returns a ready node; failed construction surfaces the existing typed error and leaves no background activity). The no-leak-on-failure clause is the real regression guard — the refactor reorders exactly the constructor region where register-before-spawn ordering currently makes it true by accident. Plan FR range bumped alongside (see CHK017).
+- [x] CHK019 Does new FR-015 trace to acceptance coverage — which existing scenarios/tests exercise send's three preserved behaviors (resolve-on-accept, unregistered-recipient silent drop, sender/subscription decoupling) under SC-001's umbrella? [Traceability, Spec §FR-015, §SC-001]
+  - **PASS 2026-06-09 (FR-015)**: resolve-on-accept + unregistered-recipient drop explicitly tested (`tests/two_node_ping.rs:78–100`, send-to-ghost-id asserts Ok); sender/subscription decoupling exercised implicitly by the publisher-pattern tests (`multi_publisher.rs`, `filter_composition.rs`, `topic_filter.rs` incl. `own_emission_not_in_local_snapshot`). All under SC-001's pass-unmodified gate.
+  - **FR-016 extension (maintainer decision)**: success path covered by the suite's 15 `Node::new` call sites; failure path (duplicate registration) has **zero** coverage anywhere and is CLI-unreachable (per-process in-memory networks). No test added in 004 — a new test inside the parity feature would contradict its no-new-behavior/no-new-tests framing and trigger consistency-cascade rewording. Deferred to **004-connections** as a proper integration test via **IMPLEMENTATION_NOTES N-006**; in 004, the failure clause is verified by structural review (register precedes spawn — nothing to leak), per the CHK007 ruling.
+
+### Fresh-Angle Coverage
+
+- [x] CHK020 Is US2-AS3's determinism claim ("same input sequence ⇒ same state") explicitly conditional on the injected verifier being deterministic, and is that dependency recorded as an assumption? [Assumption, Measurability, Spec §US2-AS3]
+  - **PASS 2026-06-09 (annotation only)**: the verifier is a field of the constructed state value, so the claim formally reads "same initial state (verifier included) + same events ⇒ same final state" — the dependency is inside the Given, not ambient. Verification is deterministic in every honest impl (pure predicate of key/bytes/signature; mock proven deterministic in mock_crypto_repro.rs; Ed25519 likewise at 011). The reproducible-tests constitutional standard polices test nondeterminism generally; apply contains no clock/randomness/scheduling. No Assumptions bullet added.
+- [x] CHK021 Is FR-008's "single explicit state value" scoped precisely to **mutable** state, so the immutable peer set and the I/O handles legitimately remaining outside it cannot be read as violations? [Clarity, Spec §FR-008; data-model.md §Node]
+  - **PASS 2026-06-09 (annotation only)**: FR-008 binds "the node's **mutable** state"; peers is static by 001's contract and the handles are I/O/runtime plumbing — nothing mutable-and-transition-relevant lives outside NodeState. Inverse checked: NodeState containing the immutable verifier doesn't contradict (all-mutable-inside ≠ only-mutable-inside; data-model annotates it as a service handle). data-model's field tables document the boundary per field. Forward note: 004-connections' live connection sinks also stay on the shell by design (ADR 0011) — same reading applies then.
+- [x] CHK022 Is checklists/requirements.md (the spec-quality checklist, validated against the pre-amendment spec text) still accurate after the round-1 edits, or should it note re-validation? [Traceability, Process, checklists/requirements.md]
+  - **PASS (substance) + meta-fix 2026-06-09**: re-ran every requirements.md item against the amended spec — all still pass (FR-015/016 testable behavior-level MUSTs; FR-008 rewording improved precision; scope/assumptions/scenarios unchanged or strengthened). Appended a dated re-validation note to requirements.md so its all-pass claim is anchored to the amended text.
+
 ## Notes
 
 - Check items off as completed: `[x]`
