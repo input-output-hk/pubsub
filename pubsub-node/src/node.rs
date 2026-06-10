@@ -9,7 +9,9 @@ use crate::crypto::Verifier;
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
 use crate::message::Message;
-use crate::network::{Network, NetworkHandle};
+use tokio::sync::mpsc::UnboundedReceiver;
+
+use crate::network::{Network, NetworkHandle, RoutingFrame};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
 use crate::state::{apply, NodeState};
@@ -60,12 +62,9 @@ pub struct Node {
     peers: Vec<BasicPeerDescriptor>,
     // The node's full mutable state as one value (see `crate::state`). The
     // event loop is the sole event-driven writer; the public getters and
-    // subscription mutators take the same lock.
+    // subscription mutators take the same lock. The verifier's canonical
+    // owner is `NodeState`.
     state: Arc<Mutex<NodeState>>,
-    // Canonical owner of the verifier moved into `NodeState`; this duplicate
-    // field is removed alongside the producer extraction (T007).
-    #[allow(dead_code)]
-    verifier: Arc<dyn Verifier>,
     events: EventQueue,
     event_loop: JoinHandle<()>,
     // Producer tasks the node owns (the network adapter, plus any attached via
@@ -104,7 +103,7 @@ impl Node {
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
             handle.id().clone(),
             initial_subscriptions,
-            Arc::clone(&verifier),
+            verifier,
         )));
         let state_for_task = Arc::clone(&state);
 
@@ -145,24 +144,16 @@ impl Node {
             handle,
             peers,
             state,
-            verifier,
             events,
             event_loop,
             producers: Vec::new(),
         };
 
-        // The network mailbox is the node's first producer: it forwards each
-        // inbound frame onto the event queue. Future producers (a registry
-        // reader, per-connection receive loops) attach the same way.
-        node.spawn_producer(move |queue| async move {
-            let mut rx = rx;
-            while let Some(frame) = rx.recv().await {
-                queue.push(Event::MessageReceived {
-                    from: frame.from,
-                    message: frame.message,
-                });
-            }
-        });
+        // The network mailbox is the node's first producer: see
+        // `network_mailbox_loop`. Future producers (a registry reader,
+        // per-connection receive loops) attach the same way, as named
+        // async fns handed to `spawn_producer`.
+        node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
 
         Ok(node)
     }
@@ -294,5 +285,21 @@ impl Drop for Node {
         for producer in &self.producers {
             producer.abort();
         }
+    }
+}
+
+/// The network mailbox producer: forwards each inbound frame from the
+/// network receiver onto the node's event queue.
+///
+/// The node's first producer, registered through
+/// [`spawn_producer`](Node::spawn_producer) at construction; future
+/// producers (a registry reader, per-connection receive loops) follow the
+/// same named-async-fn shape.
+async fn network_mailbox_loop(queue: EventQueue, mut rx: UnboundedReceiver<RoutingFrame>) {
+    while let Some(frame) = rx.recv().await {
+        queue.push(Event::MessageReceived {
+            from: frame.from,
+            message: frame.message,
+        });
     }
 }
