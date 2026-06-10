@@ -97,3 +97,36 @@ All 3 findings resolved. Final state:
 **Net impact**: no task count change (still 11); coverage unchanged (21/21); no constitution violations. Artifacts implementation-ready.
 
 **Recommended next step**: commit the post-walk state and proceed to `/speckit-implement`. A post-implementation analyze pass follows T011.
+
+---
+
+## Session 2026-06-09 — Second pass (confirming convergence)
+
+**Trigger**: re-run of `/speckit-analyze` after the pass-1 walk closure (commit `208e05d`). Purpose: confirm the walk's own edits (quickstart snippet, T008 notes, ledger annotations) introduced no drift, and that the artifact set is ready for `/speckit-implement`.
+
+**Result**: **zero findings**. Convergence confirmed.
+
+### Empirical evidence
+
+| Audit | Result |
+|-------|--------|
+| Unresolved placeholders (TODO/TKTK/FIXME/???) across all 004 artifacts | 0 |
+| Stale `TestVerifier::accepting()` references | 0 outside this file's historical record |
+| FR / SC declarations vs cited ranges | 16 FRs + 5 SCs — matches everywhere |
+| Task IDs | T001–T011 contiguous, matches all references |
+| tasks.md "all 9 integration files" claim | `tests/` contains exactly 9 `.rs` files |
+
+Analytical sweep of the walk-1 edit surface: quickstart snippet matches code (`Arc::new(TestVerifier)`, unit struct at `src/crypto/mock.rs:142`) and the mismatch-rejection paragraph matches `mock_crypto_repro.rs` behavior and T003's wording; T008's added notes are consistent with contracts §A, FR-011/SC-005, and the C1 disposition; duplication / ambiguity / coverage / constitution passes clean.
+
+### Metrics (this pass)
+
+- **Findings**: 0 | **Constitution conflicts**: 0 | **Coverage**: 21/21 = 100% | **Duplications**: 0 | **Ambiguities**: 0
+
+### Cumulative state
+
+| Pass | Findings | MEDIUM | LOW | Outcome |
+|------|----------|--------|-----|---------|
+| 1 | 3 (I1, C1, C2) | 2 | 1 | Resolved (commit `208e05d`) |
+| 2 | 0 | — | — | Convergence confirmed (this commit) |
+
+**Recommended next step**: **`/speckit-implement`** (T001–T011, four green checkpoint commits). The next analyze round that adds value is the post-implementation pass after T011, per the constitution's verify-against-code rule.
