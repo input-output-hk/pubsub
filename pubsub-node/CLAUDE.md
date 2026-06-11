@@ -25,7 +25,7 @@ Rust implementation of the Cardano PubSub node. Project-level context is in the 
 
 ## Authoritative documents
 
-- **Constitution**: `.specify/memory/constitution.md` (v1.1.0) — five principles (I–V) plus Engineering Standards and Development Workflow rules; honour all of them before authoring code or specs. (Notably: logs are operator UX, not a test surface; operator-facing strings carry no FR/spec citations; parse at the edge; forward-compatible interfaces are justified by a ROADMAP consumer; `/speckit-analyze` findings are recorded in the feature's `analysis.md`.)
+- **Constitution**: `.specify/memory/constitution.md` (v1.2.0) — five principles (I–V) plus Engineering Standards and Development Workflow rules; honour all of them before authoring code or specs. (Notably: logs are operator UX, not a test surface; operator-facing strings carry no FR/spec citations; parse at the edge; forward-compatible interfaces are justified by a ROADMAP consumer; multi-step test state is built via declarative test-only helpers; `/speckit-analyze` findings are recorded in the feature's `analysis.md`.)
 - **Feature specs** (agent-editable): `specs/NNN-<short-name>/spec.md`, produced by `/speckit-specify`.
 - **ADRs** (agent-authored): `docs/decisions/NNNN-<title>.md` — structural decisions, per Constitution Principle III.
 - **Protocol specifications (READ-ONLY per Principle V)**: `../formal_spec/`, `../docs/`, `../docs/extensions/`. Surface ambiguity via ADR or issue; do not edit.

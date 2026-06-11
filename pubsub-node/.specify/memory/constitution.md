@@ -1,35 +1,33 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0
-Bump rationale: MINOR. Materially expands Engineering Standards and Development
-Workflow with conventions that were applied de facto across features 001–003 but
-never written down. No principle added, removed, or redefined; no governance
-change. The core principle set stays I–V. Ratified by both maintainers (project
-author + co-developing architect) on 2026-06-08, per their prior agreement that
-these de-facto conventions be codified before the next two features branch.
+Version change: 1.1.0 → 1.2.0
+Bump rationale: MINOR. Materially expands Engineering Standards with one new
+bullet (Declarative test construction). No principle added, removed, or
+redefined; no governance change. The core principle set stays I–V. Ratified by
+both maintainers (project author + co-developing architect) on 2026-06-11,
+codifying the practice they agreed alongside the MembershipScript test-builder
+refactor on main.
 
 Added Engineering Standards bullets:
-- Logs are operator UX, not a test surface
-- Operator-facing strings are implementation-neutral
-- Parse at the edge
-- Forward-compatible interfaces for known consumers (roadmap-justified)
-
-Added Development Workflow bullets:
-- Analysis ledger (analysis.md)
-- Spec fidelity is verified against code when code exists
+- Declarative test construction (test-only builders/script constructors for
+  multi-step domain state; worked example: MembershipScript in
+  src/subscription_registry/test_support.rs)
 
 Templates requiring updates:
-- ✅ updated: .specify/templates/plan-template.md — Constitution Check note
-  now points at the new Engineering Standards (logs-not-tested, neutral strings,
-  parse-at-edge, forward-compatible interfaces); no new principle gate added.
-- ✅ reviewed, no change: .specify/templates/tasks-template.md — the
-  logs-are-not-a-test-surface standard is enforced per-feature in the test tasks;
-  no template-structural edit required.
+- ✅ updated: .specify/templates/plan-template.md — Constitution Check note's
+  Engineering Standards enumeration now includes declarative test construction.
+- ✅ reviewed, no change: .specify/templates/tasks-template.md — test-task
+  authoring guidance is per-feature; no template-structural edit required.
 - ✅ reviewed, no change: .specify/templates/spec-template.md — unaffected by
   this amendment.
 
 History:
+- 1.1.0 (2026-06-08): codified de-facto conventions from features 001–003 —
+  four Engineering Standards bullets (logs-not-a-test-surface, neutral
+  operator-facing strings, parse-at-the-edge, forward-compatible interfaces)
+  and two Development Workflow bullets (analysis ledger, spec fidelity
+  verified against code).
 - 1.0.0 (2026-05-14): initial ratified constitution — five principles
   (I–V) plus Engineering Standards, Development Workflow, and Governance.
 
@@ -117,6 +115,15 @@ rather than a fixed reference.
   signature binding, deduplication idempotence), property-based tests are
   preferred over single-case unit tests. Single-case tests remain appropriate
   for example-driven illustration and regression pins.
+- **Declarative test construction.** When a test constructs multi-step domain
+  state — event scripts, registry-membership sequences, message sequences —
+  it SHOULD do so through a compact declarative helper (a test-only builder or
+  script constructor, living beside the type it builds) rather than inline
+  struct-literal construction of each value: the scenario then reads one step
+  per line and construction noise stays out of the assertion path. Single
+  values MAY be built inline where a helper would not shorten them. Worked
+  example: `MembershipScript` and the `MembershipEvent` test constructors in
+  `src/subscription_registry/test_support.rs`.
 - **Observable state transitions.** Protocol-critical state transitions MUST
   emit structured logs sufficient to reconstruct behavior post-hoc (which
   message, which peer, which decision, which outcome). Log volume tuning is a
@@ -216,4 +223,4 @@ rather than a fixed reference.
   justified in an ADR before merge; the ADR is the audit record that the
   trade-off was made deliberately.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-06-08
+**Version**: 1.2.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-06-11
