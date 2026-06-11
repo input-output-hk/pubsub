@@ -4,6 +4,28 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-06-11 — Brainstorm: peer-sampling protocol evaluation, state-machine prototype, per-topic vs global sampling
+
+**Peer-sampling literature update — Basalt vs Honeybee.** Denis gave an update on the peer-sampling service survey, comparing Basalt and Honeybee. Honeybee uses a random-walk strategy for uniformity and Byzantine resistance — efficient with respect to network size, but it demands significant up-front computation. Basalt's cost instead scales with the view-size requirement, which itself grows with the desired security level. Neither is a clear winner yet; the trade-off is computational overhead versus the strength of the security model.
+
+**Evaluation methodology — categorise before committing.** Will and Denis agreed on a deep-dive rather than an arbitrary pick. Denis will sort the candidate protocols into families by strategy (random walk vs verifiable brokers) to produce a manageable shortlist, sync with Sandro to refine it, then present to the wider team to surface downstream effects on the current stack. Open question deliberately left open: whether a comparative trade-off table is enough to select a candidate, or whether formal modelling is required first. Claude floated as a tool to synthesise core structural concepts from the literature into that table.
+
+**Evaluation criteria.** Denis outlined the primary criteria: maximum uniformity, acceptable resampling speed, and Sybil/Byzantine resistance. Critically, the protocol must be *analysable* — some protocols with highly structured adversarial models (e.g. SecureCyclon) are harder to validate than others like Basalt. Ezequiel stressed *elegance*: simpler, well-defined software lowers the chance of complex, undiscovered errors. GossipSub and Discv5 noted in passing, with the same filter — favour protocols with clear, analysable properties.
+
+**Evaluate now to avoid architectural rework.** Will and Denis judged it critical to settle peer sampling now rather than defer to stages 3–5. Pushing it later risks engineering teams discovering, late, that the chosen protocol cannot meet production-ready Byzantine-resistance requirements — exactly the rework the team wants to avoid.
+
+**Prototype refactored to a state machine.** Ezequiel reported the prototype is now a state machine driven by a single event queue processing state transitions. Will noted the node is now effectively read-only with respect to on-chain interactions, sourcing configuration from a static file that stands in for the registry. This sharpens testability: developers can feed specific event queues into the system and verify the derived state directly.
+
+**Navigation layer — per-topic vs network-wide sampling.** Will and Ezequiel questioned whether to run peer sampling per-topic or network-wide. The existing navigation layer is vulnerable to adversarial attacks; a per-topic gossip/dissemination layer could offer better scaling and domain-specific optimisations. Denis and Ezequiel weighed forward-all-messages against topic-based propagation: topic-based systems risk encouraging selfish behaviour, where nodes selectively forward to save resources. Denis flagged the deeper concern — if the navigation layer imposes structured biases, the randomness peer sampling is supposed to provide may not be preserved.
+
+**Incentives and deposits as an adversarial defence.** Will proposed deposit mechanisms as a defence against adversaries subscribing to all topics to gain influence or connect to peers for free. Jesus offered an alternative: separate network instances by expected load (e.g. grouping low-frequency topics together) to optimise resources, plus encryption for specific use cases. Ezequiel's conclusion: even if an adversary subscribes to every topic, the security analysis should focus on setting deposit and penalty levels high enough to make misbehaviour costly regardless of how many topics exist. Future extensions — rate limiting, aggregating topics into channels — deferred until the core structure is finalised.
+
+**Decisions.** *Aligned:* run a comparative evaluation and categorisation of promising peer-sampling protocols (trade-off table) before selecting one for formal modelling and implementation; pause formal analysis of Basalt until the broader landscape study is complete, to avoid wasted effort. *Open:* per-topic vs global/uniform peer-sampling architecture — deferred pending further research into protocol capabilities; whether a trade-off table suffices or formal modelling is needed to choose.
+
+**Next.** Denis to prepare an initial protocol categorisation and shortlist structure for the next meeting (Tuesday), syncing with Sandro beforehand; Will to reserve agenda time for it. Team to revisit navigation-layer extensions (rate limiting, channels) after the prototype core is finalised.
+
+---
+
 ## 2026-06-04 — Brainstorm: key rotation, sequence integrity, SecureCyclon presentation framing
 
 **SecureCyclon and key rotation.** Jesus walked through the SecureCyclon misbehaviour-eviction path: nodes are banned via cryptographic signatures, so a compromised key lets an attacker fabricate evidence of past misbehaviour. Mitigations discussed: key-evolving signature schemes or epoch-based key rotation. Jesus flagged that rotation costs more in space and signing time than vanilla ED25519, but the trade-off prevents an attacker from signing messages for past epochs.
