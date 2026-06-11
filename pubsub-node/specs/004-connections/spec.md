@@ -20,6 +20,14 @@
 >
 > This feature is deliberately not parity-preserving: pre-connection delivery semantics are retired, and the existing integration suites are reworked (not preserved) with an establishment preamble through the real path — script the registry, trigger setup, await Active — using declarative test builders per constitution v1.2.0; all other receive-path behavior (subscription filter, signature check, drop-event convention, recording) is unchanged once a connection exists and is re-asserted as the regression boundary. Resolves deferred notes N-002 (self-addressing, as above) and N-006 (construction-failure integration test, extended to construction's new signer/timer parameters). Out of scope, each recorded as a spec line or deferred note: fan-out/forwarding over downstream (006), dynamic connection transitions including re-selection, reconnection, stale-AwaitingAccept garbage collection, and a rejection/deny path (deferred package; explicit rejection messages return when a deny path exists), blacklisting, alternative selection policies from config, golden-mode toggles (007), transport-level connections and multiplexing (009+, supersedes the event-loop contract §1.3 sketch), Active-connection liveness/heartbeat (009), handshake identity-binding hardening (real crypto), backpressure (unchanged, queue stays unbounded), DDoS resistance (architecture docs), hardcoded-connections config affordance (no consumer yet). Effect execution errors are logged only.
 
+## Clarifications
+
+### Session 2026-06-11
+
+- Q: Where does the misbehavior trigger sit in the receive-path check order? → A: Connection check first, then the pre-existing order preserved unchanged (subscription filter, then signature verification); misbehavior severance fires only for a message that passed all earlier checks and fails signature verification. An invalid-signature message on a no-longer-subscribed topic over an Active connection is a plain topic-not-subscribed drop, never a severance.
+- Q: Which connections receive a Terminated notice at graceful shutdown? → A: Every entry in both structures regardless of state — Active and AwaitingAccept upstreams plus all downstreams. The counterpart of a pending entry may already hold matching state, and a redundant notice is harmlessly absorbed by the unknown-Terminated drop rule.
+- Q: Is the one-sided connection after an acceptor's abrupt restart accepted v1 state? → A: Yes — when an accepter restarts abruptly, the survivor's Active upstream toward it goes permanently quiet (the restarted node lost its downstream entry and once-only establishment never recreates it). Accepted, documented stale state; healed only when dynamic transitions/liveness land. No healing at re-dial.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A node autonomously builds its per-topic connection topology (Priority: P1)
@@ -120,6 +128,7 @@ A library consumer or test inspects a node's connection state through read-only 
 - **Both directions between the same pair**: A↔B may simultaneously hold, for the same topic, an upstream and a downstream connection each (A requested from B, and B requested from A). These are independent connections; the role-split state makes the coexistence structural.
 - **Shutdown with queued events ahead of it**: events already queued are processed before the shutdown event; the node quiesces in order.
 - **Abrupt drop without shutdown**: no notices are sent; this remains the no-guarantees teardown path.
+- **Acceptor's abrupt restart (one-sided connection)**: A holds Active upstream (B, T); B restarts abruptly, losing its downstream entry toward A. B's re-run setup heals B's own sources but nothing recreates B's downstream toward A — A's Active upstream goes permanently quiet. Accepted v1 state: stale entries only admit traffic, never create it; healed when dynamic transitions/liveness land. No healing at re-dial (it would add a connection-creation trigger beyond once-only establishment).
 
 ## Requirements *(mandatory)*
 
@@ -151,14 +160,14 @@ A library consumer or test inspects a node's connection state through read-only 
 
 **Receive-path enforcement and misbehavior**
 
-- **FR-016**: A signed payload message MUST be admitted toward recording only if its sender holds an **Active upstream** connection with the recipient for the message's topic; otherwise it MUST be dropped, emitting the established drop event with a new not-connected cause. Pre-connection delivery semantics are retired.
-- **FR-017**: A payload message that fails signature verification while arriving over an Active upstream connection is **misbehavior**: the node MUST remove that upstream entry immediately, raise a distinct misbehavior signal carrying the peer, topic, and cause (in this feature the node runtime only logs it), and MUST NOT send any notice to the offending peer (silent, non-cooperative severance).
+- **FR-016**: A signed payload message MUST be admitted toward recording only if its sender holds an **Active upstream** connection with the recipient for the message's topic; otherwise it MUST be dropped, emitting the established drop event with a new not-connected cause. Pre-connection delivery semantics are retired. The connection check is the **first** receive check; the pre-existing checks retain their current order after it — subscription filter, then signature verification.
+- **FR-017**: A payload message that **passed the connection check and the subscription filter** and then fails signature verification is **misbehavior**: the node MUST remove that upstream entry immediately, raise a distinct misbehavior signal carrying the peer, topic, and cause (in this feature the node runtime only logs it), and MUST NOT send any notice to the offending peer (silent, non-cooperative severance). A message dropped by an earlier check never reaches the misbehavior verdict — in particular, an invalid-signature message on a no-longer-subscribed topic over an Active connection is a plain topic-not-subscribed drop, not a severance.
 - **FR-018**: Misbehavior is **signature-only** in this feature. Messages dropped for any other reason (no connection, topic not subscribed) are plain cause-tagged drops and MUST NOT sever connections.
 - **FR-019**: For messages admitted through an Active upstream connection, all previously specified receive behavior — subscription filtering, signature verification, drop-event conventions, recording of deliveries — MUST apply unchanged. This is the feature's regression boundary.
 
 **Teardown**
 
-- **FR-020**: The node MUST offer a consuming, awaitable **shutdown** operation that: processes any events already queued ahead of it, clears both connection structures, sends one Terminated notice per live counterpart in both roles, and completes only after those notices have been handed to the network; the node's background activity then stops and resources are released.
+- **FR-020**: The node MUST offer a consuming, awaitable **shutdown** operation that: processes any events already queued ahead of it, clears both connection structures, sends one Terminated notice **per entry in both structures regardless of state — Active and AwaitingAccept upstreams plus all downstreams** (a counterpart of a pending entry may already hold matching state; redundant notices are absorbed by FR-014), and completes only after those notices have been handed to the network; the node's background activity then stops and resources are released.
 - **FR-021**: Discarding a node without invoking shutdown MUST remain the abrupt path: background activity stops, no notices are sent, and counterparts are left with stale entries (which admit no messages and are re-confirmed idempotently if the node returns).
 
 **Public surface and observability**
