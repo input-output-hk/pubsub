@@ -260,6 +260,7 @@ mod tests {
     use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
     use crate::crypto::{Signer, Timestamp};
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
+    use crate::subscription_registry::MembershipScript;
 
     fn topic(s: &str) -> TopicId {
         TopicId::from_str(s).expect("valid topic id")
@@ -481,10 +482,7 @@ mod tests {
         // The node's own entry arrives on the membership stream → subscribes t1.
         apply(
             &mut state,
-            Event::MembershipUpdate(MembershipEvent::Joined {
-                node: peer("self"),
-                topics: [t1.clone()].into_iter().collect(),
-            }),
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["t1"])),
         );
         apply(
             &mut state,
@@ -501,26 +499,12 @@ mod tests {
     #[test]
     fn membership_updates_fold_into_candidates_excluding_self() {
         let mut state = state_subscribed(vec![topic("t1"), topic("t2")]); // self_id = "self"
-        let script = [
-            MembershipEvent::Joined {
-                node: peer("a"),
-                topics: [topic("t1")].into_iter().collect(),
-            },
-            MembershipEvent::Joined {
-                node: peer("b"),
-                topics: [topic("t1"), topic("t2")].into_iter().collect(),
-            },
-            MembershipEvent::Joined {
-                node: peer("self"), // own id — must be ignored
-                topics: [topic("t1")].into_iter().collect(),
-            },
-            MembershipEvent::TopicsChanged {
-                node: peer("a"),
-                added: [topic("t2")].into_iter().collect(),
-                removed: [topic("t1")].into_iter().collect(),
-            },
-            MembershipEvent::Left { node: peer("b") },
-        ];
+        let script = MembershipScript::new()
+            .joined("a", ["t1"])
+            .joined("b", ["t1", "t2"])
+            .joined("self", ["t1"]) // own id — must be ignored
+            .topics_changed("a", ["t2"], ["t1"])
+            .left("b");
         for ev in script {
             assert!(apply(&mut state, Event::MembershipUpdate(ev)).is_empty());
         }

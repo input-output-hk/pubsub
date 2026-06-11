@@ -291,10 +291,7 @@ mod tests {
         let mut watch = reg.watch(peer("a")).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::Joined {
-                node: peer("a"),
-                topics: topics(["t1", "t2"]),
-            }]
+            vec![MembershipEvent::joined("a", ["t1", "t2"])]
         );
     }
 
@@ -316,11 +313,7 @@ mod tests {
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::TopicsChanged {
-                node: peer("a"),
-                added: topics(["t1"]),
-                removed: topics([]),
-            }]
+            vec![MembershipEvent::topics_changed("a", ["t1"], [])]
         );
 
         // Unregistering removes the entry; re-adding t1 is then a first join.
@@ -329,10 +322,7 @@ mod tests {
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::Joined {
-                node: peer("a"),
-                topics: topics(["t1"]),
-            }]
+            vec![MembershipEvent::joined("a", ["t1"])]
         );
     }
 
@@ -344,10 +334,7 @@ mod tests {
         let mut watch = reg.watch(peer("ghost")).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::Joined {
-                node: peer("ghost"),
-                topics: topics([]),
-            }]
+            vec![MembershipEvent::joined("ghost", [])]
         );
     }
 
@@ -359,18 +346,12 @@ mod tests {
         .expect("fixture loads");
         // node-b loaded with {t1, t2}: its own watch head reports them.
         let mut watch_b = reg.watch(peer("node-b")).await.unwrap();
-        assert!(drain(&mut watch_b).contains(&MembershipEvent::Joined {
-            node: peer("node-b"),
-            topics: topics(["t1", "t2"]),
-        }));
+        assert!(drain(&mut watch_b).contains(&MembershipEvent::joined("node-b", ["t1", "t2"])));
         // node-d absent from the file: its head is an empty self `Joined`.
         let mut watch_d = reg.watch(peer("node-d")).await.unwrap();
         assert_eq!(
             drain(&mut watch_d),
-            vec![MembershipEvent::Joined {
-                node: peer("node-d"),
-                topics: topics([]),
-            }]
+            vec![MembershipEvent::joined("node-d", [])]
         );
     }
 
@@ -444,28 +425,18 @@ mod tests {
         reg.set_topics(peer("d"), topics(["t1"])).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::Joined {
-                node: peer("d"),
-                topics: topics(["t1"])
-            }]
+            vec![MembershipEvent::joined("d", ["t1"])]
         );
 
         // d moves t1 -> t2; both within w's watched set {t1,t2}.
         reg.set_topics(peer("d"), topics(["t2"])).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::TopicsChanged {
-                node: peer("d"),
-                added: topics(["t2"]),
-                removed: topics(["t1"]),
-            }]
+            vec![MembershipEvent::topics_changed("d", ["t2"], ["t1"])]
         );
 
         reg.unregister(peer("d")).await.unwrap();
-        assert_eq!(
-            drain(&mut watch),
-            vec![MembershipEvent::Left { node: peer("d") }]
-        );
+        assert_eq!(drain(&mut watch), vec![MembershipEvent::left("d")]);
     }
 
     #[tokio::test]

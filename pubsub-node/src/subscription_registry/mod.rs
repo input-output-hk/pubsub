@@ -24,8 +24,12 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 mod in_memory;
+#[cfg(test)]
+mod test_support;
 
 pub use in_memory::InMemorySubscriptionRegistry;
+#[cfg(test)]
+pub(crate) use test_support::MembershipScript;
 
 /// One membership delta delivered on a [`MembershipWatch`].
 ///
