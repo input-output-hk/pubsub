@@ -53,6 +53,8 @@ Workstream-level (not feature-scoped). Sibling to `ROADMAP.md`. Migrated into a 
 
 The 003 feature spec should record an explicit note pointing back to this entry so the revisit trigger isn't lost across sessions.
 
+**Partially resolved (013 — topic registry)**: revisit item **1** (drop messages whose `publisher_id` is not authorized for the claimed topic per the registry) is **closed** by feature 013 (ADR 0016, spec FR-015): on the inbound signed-message path the node drops a message whose publisher key is not in its topic's non-empty authorized-publisher set (open topics — empty set — accept any), checked before signature verification. Items **2–4** (equivocation proofs / misbehavior reports, parent-hash + sequence chain-integrity, gap/catch-up reports) and deposit/anti-Sybil remain deferred to **012** (the real on-chain feed), where chain history and the full topic-registry contract exist.
+
 ---
 
 ## N-004 — Canonical encoding for envelope bytes (signing + hashing)
@@ -154,3 +156,15 @@ At each trigger, weigh whether option (a) still serves, or whether a parallel "w
 **Deferred**: Under a real on-chain subscription list (feature 012), a restarting node must recover its registration state from the chain — confirm its own entry is live (the operator's registration may lag the tip) and resume gap-free. `joining.md` step 3 specifies the faithful behaviour: read the list, look up the node's own pubkey, **retry with exponential backoff** (warn → error escalation) until the entry appears. The mock instead **fails fast** when the entry is absent (spec FR-018 / `/speckit-clarify` 2026-06-10); the retry/recovery path is out of scope here.
 
 **Trigger to revisit**: feature 012 (the on-chain registry feed), where chain lag makes read-and-wait the correct startup behaviour and a persisted prior registration becomes recoverable.
+
+## N-009 — Identity unification: topic-registry publisher key ≡ subscription-list node id
+
+**Surfaced during**: 013 (topic registry) design review (2026-06-11).
+
+**Question**: the topic registry's authorized publishers are `PublicKey`s (formal model `publishers: Set[PublicKey]`; the message `publisher_id` wraps a `PublicKey`, consulted on verification). The subscription list (008) identifies nodes by `PeerId`. Are these the same identity?
+
+**Working answer (013 scope)**: In the **protocol** they are the same identity space — a node is identified by its **pubkey**, which is both its subscription-list key and (when it publishes) its authorized-publisher key. In the **current mock** they are distinct Rust types: `PeerId` is an opaque `String` (002/008), `PublicKey` is `Vec<u8>` bytes (003). 013 therefore keys authorized publishers by `PublicKey` (matching the formal model and the verification path), **not** by `PeerId`. No translation layer is introduced — the message's publisher is already a `PublicKey`, so authorization is a direct set membership check.
+
+**Why deferred**: unifying `PeerId` and `PublicKey` is feature **011**'s concern (real Ed25519; "`PeerId` grows to carry a public-key fingerprint", ROADMAP open-question 3). Forcing the unification now — before real crypto — would be premature and would touch 002/003/008 identity surfaces for no 013 benefit.
+
+**Trigger to revisit**: feature **011** (real crypto / identity model). At that point, confirm that the subscription list's node id and the topic registry's publisher key resolve to one identity type, and decide whether authorization is expressed against `PeerId`, `PublicKey`, or a unified identity newtype. Until then, 013 keys publishers by `PublicKey` and the subscription list keys members by `PeerId`, with the node folding both independently.

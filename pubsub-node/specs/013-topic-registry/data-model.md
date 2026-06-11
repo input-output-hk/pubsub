@@ -4,6 +4,22 @@
 
 New **public** types live in module `src/topic_registry/`. New node-side state is **crate-internal** (`pub(crate)`, `src/state.rs`). Existing public types (`TopicId`, `PublicKey`, `PublisherId`, `Event`, `Node`, `NodeError`) are reused; deltas are noted. The shape parallels 008's `src/subscription_registry/` data model.
 
+## Formal-model grounding (`formal_spec/topic_registry/`)
+
+The authoritative Quint `Topic` record (`types.qnt`) is `{ name: str, owners: Set[PublicKey], admins: Set[PublicKey], publishers: Set[PublicKey], replicationFactor: int, retentionPeriod: int, alive: bool, publishedAtEpoch: int }`, with a numeric counter-assigned `TopicID` separate from `name`. The contract's authorization matrix (`topic_registry.qnt`) gates writes by **owner** (deleteTopic; add/remove owner/admin) or **owner-or-admin** (add/remove publisher; set R/T); createTopic is open (sender becomes sole owner); deleteTopic soft-deletes (tombstone, id retained forever). All identities are `PublicKey`.
+
+The 013 mock is the **node-facing projection** of this record, not the full contract:
+
+| Quint `Topic` field | 013 mock |
+|---|---|
+| `publishers: Set[PublicKey]` (empty ⇒ open) | **carried** — the only node-consumed field; `BTreeSet<PublicKey>` in `TopicRegistryEvent`/`registered_topics` |
+| `owners`, `admins` | **deferred to 012** — no node consumer; the mock write surface (`set_topic`/`remove_topic`) is permissionless, not owner/admin-gated |
+| `replicationFactor`, `retentionPeriod`, `publishedAtEpoch` | **deferred to 012** — no node consumer |
+| `alive` (soft-delete) | **not modelled** — `remove_topic` is a hard delete; the id-reassignment-prevention concern has no analog in the in-memory mock |
+| numeric `TopicID` + `name: str` | **collapsed** to the crate's string `TopicId` (the 012 reader maps on-chain numeric id → name → `TopicId`) |
+
+**Identity**: authorized publishers are `PublicKey`s — the same identity space the subscription list keys on (node pubkey) in the protocol. The current mock's `PeerId` (string) vs `PublicKey` (bytes) split is a pre-011 artifact; the unification at 011 is recorded as IMPLEMENTATION_NOTES **N-009** (Principle IV).
+
 ## TopicRegistry (new, public trait — `src/topic_registry/mod.rs`)
 
 The **read-only, node-facing** interface / anti-corruption boundary over the topic-registry source. `Send + Sync + 'static`. `Node` consumes this trait **generically** (`Node::new<…, T: TopicRegistry>(…, Arc<T>)`, not `Arc<dyn>` — an `async fn`/RPITIT trait isn't `dyn`-compatible; same as `Network`/`SubscriptionRegistry`), so it has no write methods in scope. The 012 chain reader implements exactly this trait. It has a **single method**, and unlike 008's `SubscriptionRegistry::watch(node)` it is **global** (no scoping argument).
@@ -73,7 +89,7 @@ publishers = ["6b317...", "a91f0..."]   # lowercase-hex public keys; absent or [
 id = "chat"                              # no publishers key = open topic
 ```
 
-  Strict unknown-field rejection (per 001). Duplicate `id` → `ConfigError::DuplicateTopicEntry`. Malformed hex in `publishers` → `ConfigError::InvalidPublisherKey`. Governance fields (`owners`, `admins`, `replication_factor`, `retention_period`), if present, are ignored (out of scope) — accepted via a catch field like 008's ignored `deposit`, or rejected by `deny_unknown_fields`; the impl chooses (tactical), but the *node-consumed* projection is topic + publishers only.
+  The mock entry type has **only** `id` + optional `publishers` — the registered topics and their authorized publishers, all the node consumes. Strict `deny_unknown_fields` (per 001) applies **uniformly**: governance fields (`owners`/`admins`/`replication_factor`/`retention_period`) are **not** part of the mock format (they are 012's on-chain domain), so a field outside `id`/`publishers` is a load error — no accepted-but-ignored fields (resolves analyze F1 by simplification: the mock file is our own minimal config, not a faithful on-chain dump, so the "ignore governance" clause is dropped rather than reconciled). Duplicate `id` → `ConfigError::DuplicateTopicEntry`. Malformed hex in `publishers` → `ConfigError::InvalidPublisherKey`.
 - `set_topic`/`remove_topic` mutate `topics` under the lock, compute the diff against prior state, and fan out the resulting `TopicRegistryEvent` to every subscriber. `watch()` captures, **atomically** under the lock, the current topics as the `Registered` cold-start burst, registers the sender, then returns the `TopicRegistryWatch`.
 
 ## NodeState (existing crate-internal — extended)
