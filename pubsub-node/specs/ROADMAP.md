@@ -193,6 +193,15 @@ Each entry: ID, name, one-line description, dependencies, whether Constitution P
 - **TDD trigger**: yes.
 - **Open questions**: which Cardano client library, mainnet vs preview vs preprod for testing, latency tolerances.
 
+#### 013 — Topic registry (mock)
+
+> **Added 2026-06-11.** The topic-governance counterpart to 008's subscription list — the portion 008 explicitly deferred (008 FR-019: "topic governance is the separate `TopicRegistry`"). A standalone `TopicRegistry` trait + `InMemoryTopicRegistry`, parallel in shape to 008 (push `watch`, `Control`-trait write split, `from_file`) but sharing **no trait** with it (distinct on-chain artifacts per `docs/node-lifecycle/README.md`). Spec dir `specs/013-topic-registry/`.
+
+- **What it adds**: `TopicRegistry` trait + `InMemoryTopicRegistry` recording **which topics legitimately exist** and each topic's **authorized publisher keys** (empty set ⇒ open topic), grounded in `formal_spec/topic_registry/`. A node-owned reader pushes `Event::TopicRegistryUpdate` onto 004's event queue; the node folds a registered-topics + authorized-publishers projection into `NodeState`. Two integration points: (a) a node's **effective subscriptions** become the intersection of its subscription-list topics (008) and the registered topics — subscription-list topics absent from the registry are ignored + logged; (b) inbound messages are dropped if their publisher is not authorized for the topic (open topics accept any). Mock for now; the real on-chain feed is feature 012.
+- **Dependencies**: 008 (the subscription-list source it validates against) + 004 (the pure core / event queue it folds into). Both merged.
+- **TDD trigger**: yes.
+- **Open questions**: is publisher-authorization *enforcement* in this feature or deferred (defaulted in)? a global vs node-scoped topic watch; whether a cross-stream "registries warm" signal is needed before a node accepts traffic. Full governance (RBAC, replication, retention, soft-delete) stays with 012.
+
 ---
 
 ## 3. Deferred / further future
