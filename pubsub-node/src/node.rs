@@ -15,25 +15,8 @@ use crate::network::{Network, NetworkHandle, RoutingFrame};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
 use crate::state::{apply, NodeState};
+use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
-
-/// Outcome of a [`Node::subscribe`] call.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum SubscribeOutcome {
-    /// The topic was not previously in the subscription set; the call added it.
-    Added,
-    /// The topic was already in the subscription set; the call was a no-op.
-    AlreadyPresent,
-}
-
-/// Outcome of a [`Node::unsubscribe`] call.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum UnsubscribeOutcome {
-    /// The topic was in the subscription set; the call removed it.
-    Removed,
-    /// The topic was not in the subscription set; the call was a no-op.
-    NotSubscribed,
-}
 
 /// A network participant.
 ///
@@ -73,37 +56,44 @@ pub struct Node {
 }
 
 impl Node {
-    /// Construct a node, registering on `network` under `self_id` and
-    /// spawning its event loop and network producer. A failed registration
-    /// returns the error before any background task is spawned.
+    /// Construct a node, registering on `network` under `self_id` and spawning
+    /// its event loop, the network producer, and the subscription-registry
+    /// reader. A failed network registration returns the error before any
+    /// background task is spawned.
     ///
-    /// `initial_subscriptions` is the set of topics this node will accept on
-    /// receive. An empty set yields a node that drops every inbound
-    /// message; the set may be mutated at runtime via
-    /// [`subscribe`](Self::subscribe) / [`unsubscribe`](Self::unsubscribe).
+    /// The node derives **all** of its registry state from the `registry`'s
+    /// node-keyed [`watch`](SubscriptionRegistry::watch) stream (the source of
+    /// truth, ADR 0013/0014): it starts with an **empty** subscription set and
+    /// folds the stream — its own entry resolves its subscriptions (which topics
+    /// it accepts on receive); other nodes' entries build the per-topic
+    /// candidate set, queryable via [`candidates`](Self::candidates). Topics do
+    /// not come from config. The node is read-only toward the registry — it
+    /// performs no writes — and if it has no registry entry it simply derives an
+    /// empty set (no construction error; it is "not yet active").
     ///
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. It is consulted on the receive
     /// path only — a node does not sign.
     ///
-    /// Returns [`NodeError`] if registration fails (e.g. the id is already
-    /// taken on this network instance).
-    pub async fn new<N: Network>(
+    /// Returns [`NodeError`] if network registration fails.
+    pub async fn new<N: Network, R: SubscriptionRegistry>(
         self_id: PeerId,
         config: NodeConfig,
-        initial_subscriptions: HashSet<TopicId>,
         network: Arc<N>,
         verifier: Arc<dyn Verifier>,
+        registry: Arc<R>,
     ) -> Result<Self, NodeError> {
         let mut handle = network.register(self_id).await?;
+        let node_id = handle.id().clone();
         let rx = handle.take_receiver();
 
-        // Registration precedes every spawn: a failed construction returns
-        // before any background task exists, so nothing leaks on the error
-        // path (FR-016).
+        // The node starts with an empty subscription set and derives it — and
+        // its candidate sets — by folding the registry `watch` stream (ADR
+        // 0013/0014). Registration precedes the spawns so nothing leaks on the
+        // error path (FR-016).
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
-            handle.id().clone(),
-            initial_subscriptions,
+            node_id.clone(),
+            HashSet::new(),
             verifier,
         )));
         let state_for_task = Arc::clone(&state);
@@ -150,11 +140,13 @@ impl Node {
             producers: Vec::new(),
         };
 
-        // The network mailbox is the node's first producer: see
-        // `network_mailbox_loop`. Future producers (a registry reader,
-        // per-connection receive loops) attach the same way, as named
-        // async fns handed to `spawn_producer`.
+        // Two node-owned producers, both named async fns handed to
+        // `spawn_producer` and aborted on drop: the network mailbox, and the
+        // subscription-registry reader (which opens the node-keyed `watch` and
+        // owns the registry `Arc` so the subscription stays live for the node's
+        // lifetime).
         node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
+        node.spawn_producer(move |queue| registry_reader_loop(queue, registry, node_id));
 
         Ok(node)
     }
@@ -214,6 +206,21 @@ impl Node {
         &self.peers
     }
 
+    /// Return the candidate peers for `topic` — the topic-derived membership
+    /// the node folded from the subscription registry, with the node's own id
+    /// excluded. Order is unspecified; empty if the topic has no members.
+    ///
+    /// This is distinct from [`peers`](Self::peers) (the static config
+    /// bootstrap list); the candidate set is what a future sampler/dialer
+    /// draws from.
+    #[must_use]
+    pub fn candidates(&self, topic: &TopicId) -> Vec<PeerId> {
+        self.state
+            .lock()
+            .expect("candidates: state mutex poisoned")
+            .candidates_snapshot(topic)
+    }
+
     /// Return a snapshot of every delivery observed by this node so far,
     /// in receive order.
     ///
@@ -228,49 +235,14 @@ impl Node {
             .received_snapshot()
     }
 
-    /// Add `topic` to this node's subscription set.
-    ///
-    /// Synchronous; returns [`SubscribeOutcome::Added`] when the topic was
-    /// newly inserted, or [`SubscribeOutcome::AlreadyPresent`] when the
-    /// topic was already present (idempotent no-op). Emits an info-level
-    /// `topic_subscribed` tracing event on `Added`; emits a debug-level
-    /// `topic_subscribe_noop` event on `AlreadyPresent`.
-    // Thin lock-taker: outcome logic and its log events live on `NodeState`
-    // (the pure core), where they are synchronously testable.
-    // Not `#[must_use]`: this is a mutator whose outcome is informational;
-    // callers that don't care whether the topic was already present
-    // legitimately ignore it (unchanged contract from 002).
-    #[allow(clippy::must_use_candidate)]
-    pub fn subscribe(&self, topic: TopicId) -> SubscribeOutcome {
-        self.state
-            .lock()
-            .expect("subscribe: state mutex poisoned")
-            .subscribe(topic)
-    }
-
-    /// Remove `topic` from this node's subscription set.
-    ///
-    /// Synchronous; returns [`UnsubscribeOutcome::Removed`] when the topic
-    /// was present and removed, or [`UnsubscribeOutcome::NotSubscribed`]
-    /// when the topic was absent (idempotent no-op). Emits an info-level
-    /// `topic_unsubscribed` tracing event on `Removed`; emits a debug-level
-    /// `topic_unsubscribe_noop` event on `NotSubscribed`.
-    // Thin lock-taker; see `subscribe` (including the must_use rationale).
-    #[allow(clippy::must_use_candidate)]
-    pub fn unsubscribe(&self, topic: TopicId) -> UnsubscribeOutcome {
-        self.state
-            .lock()
-            .expect("unsubscribe: state mutex poisoned")
-            .unsubscribe(topic)
-    }
-
     /// Return a snapshot of this node's subscription set.
     ///
     /// The returned `Vec` is built by cloning the subscription set's
     /// contents under the internal lock; entry order is unspecified
-    /// (set semantics). The snapshot is stable for the caller and
-    /// unaffected by subsequent [`subscribe`](Self::subscribe) /
-    /// [`unsubscribe`](Self::unsubscribe) calls on the same node.
+    /// (set semantics). The set is **derived** from the subscription
+    /// registry (the node's own entry, via the `watch` stream) and the
+    /// node holds no API to mutate it directly; the snapshot is a
+    /// point-in-time view that later registry updates may supersede.
     #[must_use]
     pub fn subscriptions(&self) -> Vec<TopicId> {
         self.state
@@ -303,4 +275,34 @@ async fn network_mailbox_loop(queue: EventQueue, mut rx: UnboundedReceiver<Routi
             message: frame.message,
         });
     }
+}
+
+/// The subscription-registry reader producer: opens the node-keyed
+/// [`watch`](SubscriptionRegistry::watch) and drains its [`MembershipWatch`]
+/// onto the node's event queue as `MembershipUpdate` events (the node folds
+/// them into its subscriptions + candidate sets). Holds the registry `Arc` so
+/// the watch's sender side stays alive — and thus the subscription stays live —
+/// for the node's lifetime; the task is aborted on drop.
+async fn registry_reader_loop<R: SubscriptionRegistry>(
+    queue: EventQueue,
+    registry: Arc<R>,
+    node_id: PeerId,
+) {
+    let mut watch = match registry.watch(node_id).await {
+        Ok(watch) => watch,
+        Err(error) => {
+            tracing::error!(
+                target: "pubsub_node::node",
+                %error,
+                "subscription-registry watch failed; node has no topics",
+            );
+            return;
+        }
+    };
+    while let Some(event) = watch.recv().await {
+        queue.push(Event::MembershipUpdate(event));
+    }
+    // `registry` is owned by this task so the watch's sender side stays alive
+    // for the loop; drop it explicitly when the task ends.
+    drop(registry);
 }

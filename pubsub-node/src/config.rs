@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
 use crate::error::ConfigError;
 use crate::peer::PeerId;
-use crate::topic::TopicId;
 
 /// A single peer descriptor as it appears in a TOML node-config file.
 ///
@@ -21,19 +19,14 @@ pub struct PeerEntry {
 ///
 /// An empty or absent `peers` array is valid: a node constructed from an
 /// empty list cannot originate sends, but may still receive messages from
-/// other nodes that list it. `subscribed_topics` is independently optional;
-/// an empty list yields a node that drops every inbound message.
+/// other nodes that list it. The node's subscribed topics are **not** in this
+/// config — they are sourced from the node's own subscription-registry entry
+/// at startup (the source of truth; see ADR 0013).
 #[derive(Debug, Clone, serde::Deserialize, Default)]
 pub struct NodeConfig {
     /// The peer descriptors loaded from the TOML file, in declaration order.
     #[serde(default)]
     pub peers: Vec<PeerEntry>,
-
-    /// The topics this node subscribes to at startup, in declaration order.
-    /// Duplicates are preserved here; consumers deduplicate at the
-    /// `HashSet<TopicId>` boundary at Node construction.
-    #[serde(default)]
-    pub subscribed_topics: Vec<TopicId>,
 }
 
 // Shadow types used only by `load_node_config`. They let the loader
@@ -55,9 +48,6 @@ struct RawPeerEntry {
 struct RawNodeConfig {
     #[serde(default)]
     peers: Vec<RawPeerEntry>,
-
-    #[serde(default)]
-    subscribed_topics: Vec<String>,
 }
 
 /// Load and validate a TOML node-config file.
@@ -72,16 +62,9 @@ struct RawNodeConfig {
 ///    underlying parser.
 /// 3. Validate each [`PeerId`] via [`FromStr`]. A rule violation (empty id,
 ///    internal NUL byte) surfaces as [`ConfigError::InvalidPeer`].
-/// 4. Validate each topic in `subscribed_topics` via
-///    [`TopicId::from_str`](crate::TopicId). A rule violation surfaces as
-///    [`ConfigError::InvalidTopic`]. After all topics validate, scan for
-///    duplicates and emit one `warn`-level `topic_config_duplicate` tracing
-///    event per duplicated topic (operator-observable misconfig signal; not
-///    a startup failure).
 ///
-/// The returned [`NodeConfig`] retains the original `subscribed_topics` Vec
-/// shape, including any duplicates the operator wrote. Deduplication is the
-/// consumer's concern at the `HashSet<TopicId>` boundary.
+/// Topics are **not** part of the node config — a node's subscribed topics are
+/// sourced from its own subscription-registry entry at startup (ADR 0013).
 pub fn load_node_config(path: &Path) -> Result<NodeConfig, ConfigError> {
     let content = std::fs::read_to_string(path).map_err(|source| ConfigError::Io {
         path: path.to_path_buf(),
@@ -102,31 +85,5 @@ pub fn load_node_config(path: &Path) -> Result<NodeConfig, ConfigError> {
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let subscribed_topics = raw
-        .subscribed_topics
-        .into_iter()
-        .map(|raw_topic| {
-            TopicId::from_str(&raw_topic)
-                .map_err(|err| ConfigError::InvalidTopic(format!("{}: {err}", path.display())))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let mut seen: HashMap<&TopicId, usize> = HashMap::new();
-    for topic in &subscribed_topics {
-        let count = seen.entry(topic).or_insert(0);
-        *count += 1;
-        if *count == 2 {
-            tracing::warn!(
-                target: "pubsub_node::config",
-                event = "topic_config_duplicate",
-                topic = %topic,
-                config_path = %path.display(),
-            );
-        }
-    }
-
-    Ok(NodeConfig {
-        peers,
-        subscribed_topics,
-    })
+    Ok(NodeConfig { peers })
 }

@@ -30,6 +30,10 @@ pub enum ConfigError {
     /// the [`TopicId`](crate::TopicId) validation rules.
     #[error("config invalid topic entry: {0}")]
     InvalidTopic(String),
+
+    /// Two entries in a subscription-list file declared the same `node_id`.
+    #[error("duplicate subscription-list entry for node id {0}")]
+    DuplicateSubscriptionEntry(String),
 }
 
 /// Failure modes returned by [`Network`](crate::Network) implementations.

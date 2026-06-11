@@ -9,9 +9,10 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    InMemoryNetwork, Message, MessageHash, MessagePayload, Node, NodeConfig, PeerEntry, PeerId,
-    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, TestSigner,
-    TestVerifier, Timestamp, TopicId, Verifier,
+    InMemoryNetwork, InMemorySubscriptionRegistry, Message, MessageHash, MessagePayload, Node,
+    NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -109,6 +110,7 @@ pub fn message_topic(message: &Message) -> &TopicId {
 
 pub struct TwoNodeFixture {
     pub network: Arc<InMemoryNetwork>,
+    pub registry: Arc<InMemorySubscriptionRegistry>,
     pub a: Node,
     pub b: Node,
 }
@@ -134,15 +136,26 @@ pub async fn two_node_fixture_with_subscriptions(
     let a_id = PeerId::from_str("node-a").expect("valid id");
     let b_id = PeerId::from_str("node-b").expect("valid id");
 
+    // Seed the subscription registry (the source of truth for each node's
+    // topics) before constructing the nodes — both look up their own entry.
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    registry
+        .set_topics(a_id.clone(), a_subscriptions.iter().cloned().collect())
+        .await
+        .expect("seed node A topics");
+    registry
+        .set_topics(b_id.clone(), b_subscriptions.iter().cloned().collect())
+        .await
+        .expect("seed node B topics");
+
     let a = Node::new(
         a_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
-            subscribed_topics: vec![],
         },
-        a_subscriptions,
         network.clone(),
         verifier.clone(),
+        registry.clone(),
     )
     .await
     .expect("construct node A");
@@ -151,22 +164,127 @@ pub async fn two_node_fixture_with_subscriptions(
         b_id,
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
-            subscribed_topics: vec![],
         },
-        b_subscriptions,
         network.clone(),
         verifier,
+        registry.clone(),
     )
     .await
     .expect("construct node B");
 
-    TwoNodeFixture { network, a, b }
+    // Both nodes derive their subscriptions from the registry stream; wait for
+    // convergence so the 001/002-style send-then-observe tests are deterministic.
+    let a_expected: Vec<TopicId> = a_subscriptions.into_iter().collect();
+    let b_expected: Vec<TopicId> = b_subscriptions.into_iter().collect();
+    await_subscriptions(&a, &a_expected, Duration::from_secs(1))
+        .await
+        .expect("node A subscriptions converge");
+    await_subscriptions(&b, &b_expected, Duration::from_secs(1))
+        .await
+        .expect("node B subscriptions converge");
+
+    TwoNodeFixture {
+        network,
+        registry,
+        a,
+        b,
+    }
+}
+
+/// Build a node sharing `registry` and `network`, with its subscription-list
+/// entry seeded with `topics` and a config peer list of `peers`. Centralises
+/// the registry-seed-then-construct dance for the inline multi-node tests.
+pub async fn node_with(
+    registry: &Arc<InMemorySubscriptionRegistry>,
+    network: &Arc<InMemoryNetwork>,
+    id: &str,
+    peers: &[&str],
+    topics: &[TopicId],
+) -> Node {
+    let id = PeerId::from_str(id).expect("valid id");
+    registry
+        .set_topics(id.clone(), topics.iter().cloned().collect())
+        .await
+        .expect("seed node topics");
+    let peers = peers
+        .iter()
+        .map(|p| PeerEntry {
+            id: PeerId::from_str(p).expect("valid peer id"),
+        })
+        .collect();
+    let node = Node::new(
+        id,
+        NodeConfig { peers },
+        network.clone(),
+        shared_test_verifier(),
+        registry.clone(),
+    )
+    .await
+    .expect("construct node");
+    // The node derives its subscriptions from the registry stream; wait for
+    // that before handing it back so send-then-observe tests are deterministic.
+    await_subscriptions(&node, topics, Duration::from_secs(1))
+        .await
+        .expect("node subscriptions converge");
+    node
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum AwaitError {
     #[error("timed out after {0:?} waiting for delivery")]
     Timeout(Duration),
+}
+
+/// Poll `node.subscriptions()` until it equals `expected` (as a set) or
+/// `timeout` elapses. A node derives its subscription set asynchronously from
+/// the registry `watch` stream (it starts empty), so tests/fixtures wait for it
+/// to converge before relying on the node's accept-filter.
+pub async fn await_subscriptions(
+    node: &Node,
+    expected: &[TopicId],
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let want: std::collections::BTreeSet<TopicId> = expected.iter().cloned().collect();
+    let start = tokio::time::Instant::now();
+    loop {
+        let got: std::collections::BTreeSet<TopicId> = node.subscriptions().into_iter().collect();
+        if got == want {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll `node.candidates(topic)` until it equals `expected` (as a set of id
+/// strings) or `timeout` elapses. Candidate-set convergence is asynchronous
+/// (the registry reader drains the membership stream onto the event loop), so
+/// tests wait the same way they wait for message delivery.
+pub async fn await_candidates(
+    node: &Node,
+    topic: &TopicId,
+    expected: &[&str],
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let want: std::collections::BTreeSet<String> =
+        expected.iter().map(|s| (*s).to_string()).collect();
+    let start = tokio::time::Instant::now();
+    loop {
+        let got: std::collections::BTreeSet<String> = node
+            .candidates(topic)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        if got == want {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
 }
 
 pub async fn await_delivery(

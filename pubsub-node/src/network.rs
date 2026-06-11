@@ -45,11 +45,11 @@ pub trait Network: Send + Sync + 'static {
     async fn register(&self, id: PeerId) -> Result<NetworkHandle, NetworkError>;
 }
 
-type Registry = Arc<RwLock<HashMap<PeerId, UnboundedSender<RoutingFrame>>>>;
+type PeerSenders = Arc<RwLock<HashMap<PeerId, UnboundedSender<RoutingFrame>>>>;
 
 #[derive(Clone)]
 pub(crate) struct NetworkSender {
-    registry: Registry,
+    registry: PeerSenders,
 }
 
 impl NetworkSender {
@@ -131,20 +131,19 @@ impl NetworkHandle {
 ///
 /// ```no_run
 /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
-/// # use std::collections::HashSet;
 /// # use std::sync::Arc;
-/// # use pubsub_node::{InMemoryNetwork, Node, NodeConfig, PeerId, TestVerifier, Verifier};
+/// # use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Node, NodeConfig, PeerId, TestVerifier, Verifier};
 /// # let self_id: PeerId = "node-a".parse()?;
-/// # let config = NodeConfig { peers: vec![], subscribed_topics: vec![] };
-/// # let initial_subscriptions: HashSet<_> = HashSet::new();
+/// # let config = NodeConfig { peers: vec![] };
 /// let network = Arc::new(InMemoryNetwork::new());
 /// let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
-/// let node = Node::new(self_id, config, initial_subscriptions, network.clone(), verifier).await?;
+/// let registry = Arc::new(InMemorySubscriptionRegistry::new());
+/// let node = Node::new(self_id, config, network.clone(), verifier, registry).await?;
 /// # Ok(())
 /// # }
 /// ```
 pub struct InMemoryNetwork {
-    registry: Registry,
+    registry: PeerSenders,
 }
 
 impl InMemoryNetwork {

@@ -12,6 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::message::Message;
 use crate::peer::PeerId;
+use crate::subscription_registry::MembershipEvent;
 
 /// An input to a [`Node`](crate::Node)'s event loop.
 ///
@@ -30,6 +31,9 @@ pub enum Event {
         /// The delivered message.
         message: Message,
     },
+    /// A membership delta from the subscription registry, drained from a
+    /// `MembershipWatch` by the node-owned registry reader.
+    MembershipUpdate(MembershipEvent),
 }
 
 /// A cloneable handle for pushing [`Event`]s onto a node's event queue.

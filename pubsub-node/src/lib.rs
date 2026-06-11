@@ -23,8 +23,6 @@
 //!   [`Event`]s via a cloned [`EventQueue`]; the node drains them in one loop.
 //! - [`ReceivedDelivery`] — one observed delivery returned by
 //!   [`Node::received_messages`].
-//! - [`SubscribeOutcome`], [`UnsubscribeOutcome`] — return values for the
-//!   runtime subscription mutators on [`Node`].
 //! - [`NodeConfig`], [`PeerEntry`], [`load_node_config`] — TOML-driven
 //!   configuration.
 //! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`],
@@ -40,6 +38,7 @@ mod node;
 mod peer;
 mod received;
 mod state;
+mod subscription_registry;
 mod topic;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
@@ -51,7 +50,11 @@ pub use error::{ConfigError, NetworkError, NodeError};
 pub use event::{Event, EventQueue};
 pub use message::{Message, MessagePayload, PlainMessage, PublisherId, SignedMessage};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
-pub use node::{Node, SubscribeOutcome, UnsubscribeOutcome};
+pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::ReceivedDelivery;
+pub use subscription_registry::{
+    InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
+    SubscriptionRegistryControl, SubscriptionRegistryError,
+};
 pub use topic::{TopicId, TopicIdError};
