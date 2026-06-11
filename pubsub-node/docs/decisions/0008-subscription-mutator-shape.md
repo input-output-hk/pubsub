@@ -1,9 +1,11 @@
 # ADR 0008: Subscription mutator shape — sync `&self` mutators with interior mutability, linearizable
 
-**Status**: Accepted
+**Status**: Superseded (in part) by [ADR 0015](0015-node-has-no-local-subscription-mutators.md)
 **Date**: 2026-05-30
 **Feature**: 002-topic-subscription-filtering
 **Source**: `specs/002-topic-subscription-filtering/research.md` §3 and §8
+
+> **Superseded by [ADR 0015](0015-node-has-no-local-subscription-mutators.md).** The *runtime mutator surface* this ADR shapes — `Node::subscribe`/`unsubscribe` + `SubscribeOutcome`/`UnsubscribeOutcome` — was **removed** once feature 008 made the subscription list the single source of truth (ADR 0013) and had the node derive its subscription set from the `watch` stream (ADR 0014). A node no longer mutates its own subscriptions; runtime changes are operator/registry actions that arrive on the membership stream. The concurrency reasoning below (sync `&self`, interior mutability, linearizability) remains of historical interest but no longer describes a live API.
 
 ## Context
 

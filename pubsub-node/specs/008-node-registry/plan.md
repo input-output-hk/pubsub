@@ -120,7 +120,7 @@ Consolidated in [research.md](./research.md); structural rationale in ADR 0013 /
 5. **Candidate set in `NodeState`, distinct from bootstrap `peers`** — `HashMap<TopicId, HashSet<PeerId>>`, self-excluded; `Node::candidates` getter; the config `[[peers]]` field is untouched. (ADR 0014; spec FR-015/FR-017; resolves N-007)
 6. **Strictly read-only node** — the write API (`set_topics`/`unregister`) lives on a **separate** `SubscriptionRegistryControl` trait, not the node-facing `SubscriptionRegistry`; `Node` holds the registry generically as `Arc<R>` (`R: SubscriptionRegistry`, an `async fn`/RPITIT trait — not `dyn`-compatible), so it has no write methods in scope. Used by the file loader's equivalent and test harnesses, never the node daemon. (spec FR-001/FR-005/FR-018; analyze F3)
 7. **Subscription-list file at the edge** — `from_file` parses TOML into the registry's initial membership; `new()` builds an empty registry for programmatic tests. (spec FR-004; parse-at-the-edge)
-8. **`subscribe`/`unsubscribe` stay sync** (ADR 0012) — unchanged by this feature; the node's topic set is fixed at `watch(self_id)` time (spec Clarifications), so runtime own-topic changes are out of scope (deferred to 012).
+8. **The node-local `subscribe`/`unsubscribe` mutators are removed** (ADR 0015) — with the subscription set registry-derived (ADR 0013/0014), a node-local writer to it would be a second, non-authoritative source. Runtime topic changes arrive on the `watch` stream (operator/registry action); the watched set is fixed at `watch(self_id)` time, so runtime narrowing works but expansion/re-scoping is deferred to 012.
 
 ## Complexity Tracking
 

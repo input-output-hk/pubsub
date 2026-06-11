@@ -38,6 +38,7 @@ consumer of `Node` relies on.
    where the logic and its inline logging live (testable in the pure core). The invariant
    reads: *`NodeState` is mutated only under its mutex — event-driven transitions via
    `apply`, control-plane subscription changes via its own methods.*
+   > **Superseded by [ADR 0015](0015-node-has-no-local-subscription-mutators.md).** Feature 008 made the subscription list the source of truth (ADR 0013) and the subscription set registry-derived (ADR 0014), so the local `subscribe`/`unsubscribe` mutators were **removed**. The revised invariant: *`NodeState` is mutated only under its mutex, exclusively via `apply`* — the subscription set is folded from the node's own entry on the membership stream, not from a control-plane method.
    - Subscriptions in this feature are config-seeded and effectively static (mutated only
      in tests); topics from config are assumed already registry-confirmed (spec
      Assumptions). When registry-driven subscription-update events arrive through the

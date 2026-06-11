@@ -18,24 +18,6 @@ use crate::state::{apply, NodeState};
 use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
 
-/// Outcome of a [`Node::subscribe`] call.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum SubscribeOutcome {
-    /// The topic was not previously in the subscription set; the call added it.
-    Added,
-    /// The topic was already in the subscription set; the call was a no-op.
-    AlreadyPresent,
-}
-
-/// Outcome of a [`Node::unsubscribe`] call.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum UnsubscribeOutcome {
-    /// The topic was in the subscription set; the call removed it.
-    Removed,
-    /// The topic was not in the subscription set; the call was a no-op.
-    NotSubscribed,
-}
-
 /// A network participant.
 ///
 /// Constructed via [`Node::new`], which registers the node on a
@@ -253,49 +235,14 @@ impl Node {
             .received_snapshot()
     }
 
-    /// Add `topic` to this node's subscription set.
-    ///
-    /// Synchronous; returns [`SubscribeOutcome::Added`] when the topic was
-    /// newly inserted, or [`SubscribeOutcome::AlreadyPresent`] when the
-    /// topic was already present (idempotent no-op). Emits an info-level
-    /// `topic_subscribed` tracing event on `Added`; emits a debug-level
-    /// `topic_subscribe_noop` event on `AlreadyPresent`.
-    // Thin lock-taker: outcome logic and its log events live on `NodeState`
-    // (the pure core), where they are synchronously testable.
-    // Not `#[must_use]`: this is a mutator whose outcome is informational;
-    // callers that don't care whether the topic was already present
-    // legitimately ignore it (unchanged contract from 002).
-    #[allow(clippy::must_use_candidate)]
-    pub fn subscribe(&self, topic: TopicId) -> SubscribeOutcome {
-        self.state
-            .lock()
-            .expect("subscribe: state mutex poisoned")
-            .subscribe(topic)
-    }
-
-    /// Remove `topic` from this node's subscription set.
-    ///
-    /// Synchronous; returns [`UnsubscribeOutcome::Removed`] when the topic
-    /// was present and removed, or [`UnsubscribeOutcome::NotSubscribed`]
-    /// when the topic was absent (idempotent no-op). Emits an info-level
-    /// `topic_unsubscribed` tracing event on `Removed`; emits a debug-level
-    /// `topic_unsubscribe_noop` event on `NotSubscribed`.
-    // Thin lock-taker; see `subscribe` (including the must_use rationale).
-    #[allow(clippy::must_use_candidate)]
-    pub fn unsubscribe(&self, topic: TopicId) -> UnsubscribeOutcome {
-        self.state
-            .lock()
-            .expect("unsubscribe: state mutex poisoned")
-            .unsubscribe(topic)
-    }
-
     /// Return a snapshot of this node's subscription set.
     ///
     /// The returned `Vec` is built by cloning the subscription set's
     /// contents under the internal lock; entry order is unspecified
-    /// (set semantics). The snapshot is stable for the caller and
-    /// unaffected by subsequent [`subscribe`](Self::subscribe) /
-    /// [`unsubscribe`](Self::unsubscribe) calls on the same node.
+    /// (set semantics). The set is **derived** from the subscription
+    /// registry (the node's own entry, via the `watch` stream) and the
+    /// node holds no API to mutate it directly; the snapshot is a
+    /// point-in-time view that later registry updates may supersede.
     #[must_use]
     pub fn subscriptions(&self) -> Vec<TopicId> {
         self.state

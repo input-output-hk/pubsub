@@ -53,9 +53,10 @@ The on-chain decode/serialization types (012) MUST remain module-internal and MU
 | `Node::new` | `async fn new<N: Network>(PeerId, NodeConfig, initial_subscriptions: HashSet<TopicId>, Arc<N>, Arc<dyn Verifier>) -> Result<Self, NodeError>` | `async fn new<N: Network, R: SubscriptionRegistry>(PeerId, NodeConfig, Arc<N>, Arc<dyn Verifier>, Arc<R>) -> Result<Self, NodeError>` — **drops `initial_subscriptions`**; **adds the registry generically** (`Arc<R>`, *not* `Arc<dyn>` — `async fn` traits aren't `dyn`-compatible; mirrors `Network`'s `Arc<N>`); seeds `NodeState` with an **empty** subscription set and spawns a node-owned reader that calls `watch(self_id)` — topics + candidates converge as the cold-start burst drains. **No fail-fast**: a node with no entry constructs cleanly and stays at empty derived state (FR-018 relaxed) |
 | `Node::candidates` | — | **new**: `fn candidates(&self, topic: &TopicId) -> Vec<PeerId>` — sync lock-and-clone snapshot of the per-topic candidate set, self-excluded |
 | `Node::peers` | `fn peers(&self) -> &[BasicPeerDescriptor]` | **unchanged** — config bootstrap list, distinct from `candidates` |
-| other methods | — | unchanged (`send`, `id`, `events`, `spawn_producer`, `received_messages`, `subscriptions`, `subscribe`, `unsubscribe`, `Drop`) |
+| `Node::subscribe` / `Node::unsubscribe` | sync mutators returning `SubscribeOutcome` / `UnsubscribeOutcome` | **removed** (ADR 0015) — the subscription set is registry-derived, so a node-local mutator would be a second, non-authoritative writer. The two outcome enums are dropped from `lib.rs`. |
+| other methods | — | unchanged (`send`, `id`, `events`, `spawn_producer`, `received_messages`, `subscriptions` (read-only snapshot), `Drop`) |
 
-`subscribe`/`unsubscribe` remain **sync** (ADR 0012); this feature does not make them async or registry-writing — the node is read-only.
+The node-local `subscribe`/`unsubscribe` mutators are **removed** (ADR 0015): the node is read-only toward its subscription set as well as the registry — the set is folded from the `watch` stream, and runtime changes are operator/registry actions, not node calls.
 
 ## C. Changed public surface — config & event & error
 

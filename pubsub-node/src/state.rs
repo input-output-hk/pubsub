@@ -3,12 +3,13 @@
 //!
 //! [`NodeState`] is a plain struct — no channels, no tasks, no interior
 //! locking — so it is constructible and drivable in a synchronous unit test.
-//! All event-driven mutation goes through [`apply`], which performs no
-//! protocol I/O and returns the outbound commands ([`Effect`]) the shell must
-//! execute. Control-plane subscription changes go through
-//! [`NodeState::subscribe`] / [`NodeState::unsubscribe`]. Operator log events
-//! are emitted inline at the decision sites; they are ambient observability,
-//! not part of the transition's contract.
+//! All mutation — including the node's own subscription set — goes through
+//! [`apply`], which performs no protocol I/O and returns the outbound commands
+//! ([`Effect`]) the shell must execute. The subscription set is **derived** from
+//! the registry membership stream (the node's own entry); the node has no local
+//! subscribe/unsubscribe mutator (the subscription list is the source of truth,
+//! ADR 0013/0014/0015). Operator log events are emitted inline at the decision
+//! sites; they are ambient observability, not part of the transition's contract.
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
@@ -18,7 +19,6 @@ use std::sync::Arc;
 use crate::crypto::Verifier;
 use crate::event::Event;
 use crate::message::{Message, SignedMessage};
-use crate::node::{SubscribeOutcome, UnsubscribeOutcome};
 use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
 use crate::subscription_registry::MembershipEvent;
@@ -26,11 +26,11 @@ use crate::topic::TopicId;
 
 /// The node's full mutable state as one explicit value.
 ///
-/// Mutated only under the shell's lock: event-driven transitions via
-/// [`apply`] (sole caller: the event loop), control-plane subscription
-/// changes via [`subscribe`](Self::subscribe) /
-/// [`unsubscribe`](Self::unsubscribe). The verifier rides along as the
-/// immutable service handle the message-received transition consults.
+/// Mutated only under the shell's lock, exclusively via [`apply`] (sole
+/// caller: the event loop) — including the subscription set, which is folded
+/// from the node's own entry on the registry membership stream rather than a
+/// local mutator. The verifier rides along as the immutable service handle the
+/// message-received transition consults.
 ///
 /// Holds what the transition reads or writes — nothing more: static
 /// shell concerns (the network handle, the config-derived peer list) stay on
@@ -87,69 +87,6 @@ impl NodeState {
             .get(topic)
             .map(|peers| peers.iter().cloned().collect())
             .unwrap_or_default()
-    }
-
-    /// Add `topic` to the subscription set.
-    ///
-    /// Returns [`SubscribeOutcome::Added`] when newly inserted, or
-    /// [`SubscribeOutcome::AlreadyPresent`] for an idempotent no-op.
-    // FR-004: outcome semantics unchanged from ADR 0008; logic lives here so
-    // it is synchronously testable (ADR 0012).
-    // Owned `TopicId` matches `HashSet::insert`'s consuming shape and the
-    // public-API contract (ADR 0008); the lint-flagged "needless pass by
-    // value" is the contract choice, not an accident (as on the 002 original).
-    #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn subscribe(&mut self, topic: TopicId) -> SubscribeOutcome {
-        let was_inserted = self.subscriptions.insert(topic.clone());
-
-        if was_inserted {
-            tracing::info!(
-                target: "pubsub_node::node",
-                event = "topic_subscribed",
-                self_id = %self.self_id,
-                topic = %topic,
-            );
-            SubscribeOutcome::Added
-        } else {
-            tracing::debug!(
-                target: "pubsub_node::node",
-                event = "topic_subscribe_noop",
-                self_id = %self.self_id,
-                topic = %topic,
-                reason = "already_present",
-            );
-            SubscribeOutcome::AlreadyPresent
-        }
-    }
-
-    /// Remove `topic` from the subscription set.
-    ///
-    /// Returns [`UnsubscribeOutcome::Removed`] when present and removed, or
-    /// [`UnsubscribeOutcome::NotSubscribed`] for an idempotent no-op.
-    // Owned `TopicId` for API symmetry with `subscribe`; see the analogous
-    // allow there.
-    #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn unsubscribe(&mut self, topic: TopicId) -> UnsubscribeOutcome {
-        let was_removed = self.subscriptions.remove(&topic);
-
-        if was_removed {
-            tracing::info!(
-                target: "pubsub_node::node",
-                event = "topic_unsubscribed",
-                self_id = %self.self_id,
-                topic = %topic,
-            );
-            UnsubscribeOutcome::Removed
-        } else {
-            tracing::debug!(
-                target: "pubsub_node::node",
-                event = "topic_unsubscribe_noop",
-                self_id = %self.self_id,
-                topic = %topic,
-                reason = "not_subscribed",
-            );
-            UnsubscribeOutcome::NotSubscribed
-        }
     }
 }
 
@@ -522,30 +459,14 @@ mod tests {
         );
     }
 
-    // FR-004: subscribe/unsubscribe outcome pairs, idempotent no-ops included.
-    #[test]
-    fn subscription_mutator_outcomes() {
-        let t1 = topic("t1");
-        let mut state = state_subscribed(vec![]);
-
-        assert_eq!(state.subscribe(t1.clone()), SubscribeOutcome::Added);
-        assert_eq!(
-            state.subscribe(t1.clone()),
-            SubscribeOutcome::AlreadyPresent
-        );
-        assert_eq!(state.subscriptions_snapshot(), vec![t1.clone()]);
-
-        assert_eq!(state.unsubscribe(t1.clone()), UnsubscribeOutcome::Removed);
-        assert_eq!(state.unsubscribe(t1), UnsubscribeOutcome::NotSubscribed);
-        assert!(state.subscriptions_snapshot().is_empty());
-    }
-
-    // Subscribing mid-script changes which subsequent messages are accepted —
-    // the transition reads the current subscription state, not a snapshot.
+    // A self membership update changes which subsequent messages are accepted —
+    // the transition reads the current subscription state, not a snapshot. The
+    // subscription set is derived from the node's own entry on the membership
+    // stream; there is no local subscribe mutator (ADR 0013/0014/0015).
     #[test]
     fn subscription_change_affects_subsequent_transitions() {
         let t1 = topic("t1");
-        let mut state = state_subscribed(vec![]);
+        let mut state = state_subscribed(vec![]); // self_id = "self", empty subscriptions
         let s = signer();
 
         apply(
@@ -557,7 +478,14 @@ mod tests {
         );
         assert!(state.received_snapshot().is_empty(), "not subscribed yet");
 
-        state.subscribe(t1.clone());
+        // The node's own entry arrives on the membership stream → subscribes t1.
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::Joined {
+                node: peer("self"),
+                topics: [t1.clone()].into_iter().collect(),
+            }),
+        );
         apply(
             &mut state,
             Event::MessageReceived {

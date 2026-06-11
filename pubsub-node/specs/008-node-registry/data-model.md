@@ -110,6 +110,7 @@ Self-exclusion is a consequence of this branch (own-id events never touch `candi
 | `Node::new` | **signature change**: drops `initial_subscriptions: HashSet<TopicId>`; adds a generic `registry: Arc<R>` where `R: SubscriptionRegistry` (not `Arc<dyn>` — see the trait note above). Seeds `NodeState` with an **empty** subscription set and spawns a node-owned reader that calls `registry.watch(self_id)` and pushes one `Event::MembershipUpdate` per delta; subscriptions + candidates converge as the cold-start burst drains. **No startup point-read and no fail-fast** — a node with no entry constructs cleanly and stays at empty derived state. |
 | `Node::candidates` | **new** public getter: `fn candidates(&self, topic: &TopicId) -> Vec<PeerId>` — sync lock-and-clone snapshot of the per-topic candidate set. |
 | `Node::peers` | **unchanged** — still returns the config `[[peers]]` bootstrap list; distinct from `candidates`. |
+| `Node::subscribe` / `Node::unsubscribe` | **removed** (ADR 0015) — with the subscription set registry-derived, a node-local mutator would be a second, non-authoritative writer. `SubscribeOutcome`/`UnsubscribeOutcome` are dropped from `lib.rs`; the read-only `subscriptions()` snapshot getter stays. Runtime topic changes arrive on the `watch` stream. |
 | `NodeError` | **unchanged** — no new variant; construction no longer fails on a missing entry (FR-018 relaxed). |
 
 ## Relationships

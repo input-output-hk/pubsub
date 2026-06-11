@@ -215,7 +215,7 @@ The write surface MUST live on a **separate** trait `SubscriptionRegistryControl
 
 ## Assumptions
 
-- **Feature 004 has merged** (PR #50): the pure core (`apply`/`NodeState`/uninhabited `Effect`), `Arc<Mutex<NodeState>>` shell with sync getters, sync `subscribe`/`unsubscribe`, and the `Event`/`EventQueue`/`spawn_producer` seam exist on `main` (ADR 0011/0012). Registry-module stories (US1/US2) are independent of it; node-integration stories (US3/US4) build on it.
+- **Feature 004 has merged** (PR #50): the pure core (`apply`/`NodeState`/uninhabited `Effect`), `Arc<Mutex<NodeState>>` shell with sync getters, sync `subscribe`/`unsubscribe`, and the `Event`/`EventQueue`/`spawn_producer` seam exist on `main` (ADR 0011/0012). Registry-module stories (US1/US2) are independent of it; node-integration stories (US3/US4) build on it. (This feature subsequently **removes** the node-local `subscribe`/`unsubscribe` mutators — ADR 0015 — once the subscription set becomes registry-derived; runtime topic changes arrive on the `watch` stream.)
 - **Source of truth is the subscription list**, not config — both in production (on-chain) and in the mock (the subscription-list file). The node derives its topics from its own entry (the head of its `watch` stream); config supplies identity + bootstrap only. The `joining.md` config-vs-chain authority ambiguity is surfaced as an issue/ADR per Principle V.
 - **The seam-variant rename** (`RegistryUpdate` → `MembershipUpdate`) needs a heads-up to the 004 author + a one-line update to ADR 0011's illustrative comment and the CLAUDE.md SpecKit block.
 - **In-memory, single source via file or shared `Arc`.** No network, chain, or persistence; unbounded channel per ADR 0007.
