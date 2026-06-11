@@ -27,6 +27,7 @@
 - Q: Where does the misbehavior trigger sit in the receive-path check order? → A: Connection check first, then the pre-existing order preserved unchanged (subscription filter, then signature verification); misbehavior severance fires only for a message that passed all earlier checks and fails signature verification. An invalid-signature message on a no-longer-subscribed topic over an Active connection is a plain topic-not-subscribed drop, never a severance.
 - Q: Which connections receive a Terminated notice at graceful shutdown? → A: Every entry in both structures regardless of state — Active and AwaitingAccept upstreams plus all downstreams. The counterpart of a pending entry may already hold matching state, and a redundant notice is harmlessly absorbed by the unknown-Terminated drop rule.
 - Q: Is the one-sided connection after an acceptor's abrupt restart accepted v1 state? → A: Yes — when an accepter restarts abruptly, the survivor's Active upstream toward it goes permanently quiet (the restarted node lost its downstream entry and once-only establishment never recreates it). Accepted, documented stale state; healed only when dynamic transitions/liveness land. No healing at re-dial.
+- Q: Is Request acceptance gated only on control-message validity, or also on topic membership? → A: Membership-validated — "accepted unconditionally" in the input description meant no acceptance *policy*, not no validation. After the control-message checks, the receiver accepts a Request iff the topic is among its own topics AND the requester is a member of that topic in the receiver's current view; a failing Request is silently dropped (cause-tagged, no state change, no reply — there is no Rejected message). This membership gate is what makes the converged topology a full bidirectional graph *per topic*.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -44,8 +45,9 @@ A node is constructed against a network and a subscription registry. Without any
 2. **Given** a node registered for two topics with different member sets, **When** its setup delay elapses, **Then** it issues one connection request per (member, topic) pair across both topics, and its connection entries are keyed per (peer, topic) — a peer sharing both topics yields two independent connections.
 3. **Given** a node whose registry view at timer expiry knows only a subset of a topic's members (partial convergence), **When** the setup event is processed, **Then** it connects to exactly that subset and issues no further requests when later membership updates arrive (static, once-only establishment).
 4. **Given** a node whose registry view is empty at timer expiry, **When** the setup event is processed, **Then** it issues no requests and remains a node with no upstream connections; it still accepts incoming requests from others.
-5. **Given** any node, **When** another node's connection request for a shared context arrives, **Then** it is accepted unconditionally: a downstream entry is recorded and an acceptance is sent back.
+5. **Given** any node, **When** another node's connection request arrives for a topic that is among the receiver's own topics and from a requester the receiver knows as a member of that topic, **Then** it is accepted: a downstream entry is recorded and an acceptance is sent back.
 6. **Given** a node that issued a request, **When** the acceptance arrives, **Then** the matching upstream entry transitions from AwaitingAccept to Active; messages from that source are admissible from that point on.
+7. **Given** any node, **When** a connection request arrives for a topic that is not among the receiver's own topics, or from a requester the receiver does not know as a member of that topic, **Then** it is dropped with a cause-tagged event: no downstream entry is created, no reply is sent, and the requester remains pending.
 
 ---
 
@@ -85,7 +87,7 @@ A node that receives an invalid-signature message over an Active upstream connec
 
 ### User Story 4 - Graceful shutdown notifies counterparts; abrupt loss is recoverable on restart (Priority: P2)
 
-An operator (or owning program) shuts a node down gracefully: the node sends a termination notice for every live connection in both roles, and only completes shutdown after those notices are on their way. Counterparts receiving a notice remove the matching entry. If a node instead disappears abruptly (no notices), its counterparts keep stale entries — and when the node restarts and re-requests the same connections, the counterparts re-confirm idempotently, so the restarted node converges back to Active without operator action.
+An operator (or owning program) shuts a node down gracefully: the node sends a termination notice for every connection entry in both roles — including requests still awaiting an answer — and only completes shutdown after those notices are on their way. Counterparts receiving a notice remove the matching entry. If a node instead disappears abruptly (no notices), its counterparts keep stale entries — and when the node restarts and re-requests the same connections, the counterparts re-confirm idempotently, so the restarted node converges back to Active without operator action.
 
 **Why this priority**: Teardown semantics complete the lifecycle and make multi-node tests hermetic, but the topology is useful without them.
 
@@ -93,7 +95,7 @@ An operator (or owning program) shuts a node down gracefully: the node sends a t
 
 **Acceptance Scenarios**:
 
-1. **Given** a node with live upstream and downstream connections, **When** its shutdown operation is invoked, **Then** one termination notice per live counterpart (both roles) is sent, the connection state is cleared, and the operation completes only after the notices have been handed to the network.
+1. **Given** a node with upstream entries (Active or AwaitingAccept) and downstream entries, **When** its shutdown operation is invoked, **Then** one termination notice per entry in both structures is sent regardless of state, the connection state is cleared, and the operation completes only after the notices have been handed to the network.
 2. **Given** a counterpart receiving a termination notice for a connection it holds (either role), **When** the notice is processed, **Then** the matching entry is removed and no reply is sent.
 3. **Given** a node dropped abruptly (no shutdown call), **When** nothing else happens, **Then** counterparts retain their entries (stale, harmless: they admit no messages by themselves).
 4. **Given** a counterpart holding a downstream entry for a peer that restarted, **When** the restarted peer's new connection request for the same (peer, topic) arrives, **Then** the entry is kept as-is and an acceptance is re-sent (idempotent re-accept), letting the restarted peer reach Active.
@@ -125,6 +127,7 @@ A library consumer or test inspects a node's connection state through read-only 
 - **Control message whose sender is the node itself**: dropped, no state change. Combined with the strategy never selecting self (the candidate set excludes self), self-connections are unrepresentable end to end — this resolves deferred note N-002. No cross-check between transport-frame identity and signed emitter is performed (the real transport's frame data is not yet known).
 - **Control message with an invalid signature**: dropped with a cause-tagged event, no state change (misbehavior termination is defined only for payload messages over an Active upstream).
 - **Request targeting a peer present in the registry but absent from the network**: the network silently drops the send (existing behavior); the requester's entry stays at AwaitingAccept indefinitely — accepted, observable, harmless.
+- **Request arriving before the receiver's view has converged** (the receiver does not yet know the requester as a member, or does not yet know its own topic): membership validation fails and the Request is silently dropped — the requester stays at AwaitingAccept indefinitely (no Rejected message, no retry under once-only establishment). In healthy deployments the setup delay makes this unreachable: every node's view converges before any timer fires, so requests arrive after both ends know each other. Tests script registry convergence on both ends before triggering setup.
 - **Both directions between the same pair**: A↔B may simultaneously hold, for the same topic, an upstream and a downstream connection each (A requested from B, and B requested from A). These are independent connections; the role-split state makes the coexistence structural.
 - **Shutdown with queued events ahead of it**: events already queued are processed before the shutdown event; the node quiesces in order.
 - **Abrupt drop without shutdown**: no notices are sent; this remains the no-guarantees teardown path.
@@ -153,7 +156,7 @@ A library consumer or test inspects a node's connection state through read-only 
 
 - **FR-010**: Connections MUST be established and torn down by application-level control messages — **Request**, **Accepted**, **Terminated**, each carrying the topic — exchanged over the existing peer-addressed network without any transport change. No Rejected message exists in this feature.
 - **FR-011**: Control messages MUST be signed by the emitting node; nodes therefore acquire a signing capability at construction. Verification of control-message signatures MUST happen inside the transition, alongside all other validation.
-- **FR-012**: On receiving a Request, the node MUST accept unconditionally: record the downstream entry and send Accepted. A Request matching an existing downstream entry MUST be re-confirmed idempotently (entry kept as-is, Accepted re-sent).
+- **FR-012**: On receiving a Request that passed the control-message checks (FR-015), the node MUST validate membership against its current view: the request's topic is among the node's own topics AND the requester is a known member of that topic. A valid Request MUST be accepted: record the downstream entry and send Accepted; a Request matching an existing downstream entry MUST be re-confirmed idempotently (entry kept as-is, Accepted re-sent), subject to the same validation. A Request failing membership validation MUST be dropped with a cause-tagged event, no state change, and no reply (no Rejected message exists; the requester is left pending). There is no acceptance policy beyond this fixed membership validation.
 - **FR-013**: On receiving an Accepted matching one of its AwaitingAccept entries, the node MUST transition that entry to Active. An Accepted with no matching pending entry MUST be dropped with a cause-tagged event and MUST NOT create or modify any entry.
 - **FR-014**: On receiving a Terminated for a held connection (either role), the node MUST remove the matching entry. A Terminated for a connection not held MUST be dropped with a cause-tagged event and no state change.
 - **FR-015**: A control message whose sender identity equals the node's own MUST be dropped with no state change. A control message whose signature fails verification MUST be dropped with a cause-tagged event and no state change. No cross-check between the transport frame's sender and the signed emitter identity is performed in this feature.
@@ -180,7 +183,7 @@ A library consumer or test inspects a node's connection state through read-only 
 **Scope boundaries (explicitly out of scope here)**
 
 - **FR-026**: No fan-out or forwarding over downstream connections is implemented in this feature; downstream entries are recorded and maintained but carry no traffic yet (deferred to the fan-out feature, 006).
-- **FR-027**: No dynamic evolution of the connection set is implemented: no re-selection on membership changes, no reconnection, no garbage collection of stale AwaitingAccept entries, no deny path or Rejected message, no blacklisting. These form one deferred package revisited when the connection set becomes dynamic.
+- **FR-027**: No dynamic evolution of the connection set is implemented: no re-selection on membership changes, no reconnection, no garbage collection of stale AwaitingAccept entries, no Rejected message, no acceptance policy beyond FR-012's fixed membership validation, no blacklisting. These form one deferred package revisited when the connection set becomes dynamic.
 - **FR-028**: No transport changes: no transport-level connections or multiplexing (deferred to a real transport, 009+; the event-loop/registry contract's sketch of per-connection producers is superseded accordingly), no liveness probing of Active connections, no identity-binding hardening between transport frames and signed emitters, no backpressure changes (the event queue stays unbounded).
 
 ### Key Entities
@@ -209,7 +212,7 @@ A library consumer or test inspects a node's connection state through read-only 
 
 - The in-memory network's existing delivery semantics (reliable, in-order per sender-recipient pair, silent drop toward unregistered recipients) carry over unchanged; control messages rely on them exactly as payload messages do.
 - The mock cryptography of the existing signing/verification capability is sufficient for this feature's signature checks; it distinguishes valid from tampered content but does not truly bind identity — identity-binding hardening is explicitly deferred.
-- The operator tunes the setup delay to cover registry synchronization for their deployment; the default value (chosen at planning) is suitable for tests and local runs.
+- The operator tunes the setup delay to cover registry synchronization for their deployment — the delay protects both roles: dialers select from a converged view, and acceptors validate incoming requests against a converged view. The default value (chosen at planning) is suitable for tests and local runs.
 - A node's subscription set and candidate knowledge converge through the registry watch as established by the registry feature; this feature adds no registry interaction of its own.
 - Topic-change reconciliation (a node's own registered topics changing after establishment) is deferred; in the meantime, stale traffic arising from it is innocently reachable and therefore never treated as misbehavior.
 - Exact identifiers — event names, effect names, drop causes, configuration field name and default — are fixed at planning under the project's existing naming conventions.
