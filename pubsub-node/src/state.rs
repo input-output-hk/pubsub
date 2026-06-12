@@ -13,16 +13,17 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::crypto::Verifier;
+use crate::crypto::{PublicKey, Verifier};
 use crate::event::Event;
 use crate::message::{Message, SignedMessage};
 use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
+use crate::topic_registry::TopicRegistryEvent;
 
 /// The node's full mutable state as one explicit value.
 ///
@@ -49,6 +50,13 @@ pub(crate) struct NodeState {
     /// the topic-derived peer set, distinct from the shell's static config
     /// `peers` bootstrap list (`IMPLEMENTATION_NOTES` N-007).
     candidates: HashMap<TopicId, HashSet<PeerId>>,
+    /// Registered topics → their authorized publisher keys (empty ⇒ open),
+    /// folded from the topic-registry stream (`Event::TopicRegistryUpdate`).
+    /// Written only by `handle_topic_registry_update`. The node's **effective**
+    /// subscription set — its message accept-filter — is `subscriptions`
+    /// intersected with the keys here; a subscribed topic absent here is not yet
+    /// (or no longer) a legitimate topic, so its traffic is dropped.
+    registered_topics: HashMap<TopicId, BTreeSet<PublicKey>>,
 }
 
 impl NodeState {
@@ -64,6 +72,7 @@ impl NodeState {
             received: Vec::new(),
             verifier,
             candidates: HashMap::new(),
+            registered_topics: HashMap::new(),
         }
     }
 
@@ -73,10 +82,21 @@ impl NodeState {
         self.received.clone()
     }
 
-    /// Snapshot of the current subscription set (unspecified order).
+    /// Snapshot of the node's subscription set — the actual message
+    /// accept-filter (unspecified order): the topics the node both declared
+    /// (its subscription-list entry) **and** that are registered (legitimate)
+    /// in the topic registry, i.e. `subscriptions ∩ registered_topics`. A
+    /// declared topic that is not a registered topic is excluded (it has no
+    /// effect — traffic on it is dropped). The declared set and the
+    /// registered-topics projection remain separate internal fields; only this
+    /// intersection is observable.
     #[must_use]
     pub(crate) fn subscriptions_snapshot(&self) -> Vec<TopicId> {
-        self.subscriptions.iter().cloned().collect()
+        self.subscriptions
+            .iter()
+            .filter(|topic| self.registered_topics.contains_key(*topic))
+            .cloned()
+            .collect()
     }
 
     /// Snapshot of the candidate peers for `topic` (unspecified order; the
@@ -97,7 +117,9 @@ impl NodeState {
 /// the type exists now so the transition's signature is stable for the
 /// features that extend it.
 // FR-013: ships present-but-empty; locked signature justified by the ROADMAP
-// consumers (004-connections effects; 008's RegistryUpdate arm) — ADR 0011.
+// consumers (004-connections effects; the registry-fold arms — 008's
+// `MembershipUpdate` and 013's `TopicRegistryUpdate`, both returning `[]`)
+// — ADR 0011.
 #[non_exhaustive]
 pub(crate) enum Effect {}
 
@@ -112,7 +134,41 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
     match event {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
+        Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
     }
+}
+
+/// Transition for a topic-registry delta.
+///
+/// Folds only the `registered_topics` projection (topic → authorized
+/// publishers): which topics are legitimate and who may publish to each. It does
+/// not touch `subscriptions` or `candidates` — each registry's handler owns its
+/// own field; the node's effective accept-filter is the intersection, read at
+/// message-acceptance time. Pure; returns no effects.
+// FR-011/FR-013; ADR 0016.
+fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent) -> Vec<Effect> {
+    match event {
+        TopicRegistryEvent::Registered { topic, publishers } => {
+            state.registered_topics.insert(topic, publishers);
+        }
+        TopicRegistryEvent::PublishersChanged {
+            topic,
+            added,
+            removed,
+        } => {
+            let entry = state.registered_topics.entry(topic).or_default();
+            for key in added {
+                entry.insert(key);
+            }
+            for key in &removed {
+                entry.remove(key);
+            }
+        }
+        TopicRegistryEvent::Removed { topic } => {
+            state.registered_topics.remove(&topic);
+        }
+    }
+    Vec::new()
 }
 
 /// Transition for a subscription-registry membership delta.
@@ -199,12 +255,12 @@ fn handle_message_received(state: &mut NodeState, from: PeerId, message: Message
 
 /// Transition for a signed dissemination message.
 ///
-/// Records the delivery when its topic is subscribed and its signature
-/// verifies; otherwise the message is dropped (with an info-level
-/// `message_dropped` event carrying the cause).
-// FR-001/002/003; ported verbatim from the 003 consumer loop — topic filter
-// first (cheap), then signature verification, so off-topic traffic never pays
-// the verification cost.
+/// Records the delivery when its topic is subscribed **and** a registered
+/// (legitimate) topic, and its signature verifies; otherwise the message is
+/// dropped (with an info-level `message_dropped` event carrying the cause).
+// FR-001/002/003 + FR-014; the cheap filters run first — subscribed?, then
+// registered? — so off-topic / illegitimate-topic traffic never pays the
+// signature-verification cost (ADR 0016).
 fn handle_signed_message(
     state: &mut NodeState,
     from: PeerId,
@@ -220,6 +276,42 @@ fn handle_signed_message(
             topic = %signed.plain.topic,
         );
         return Vec::new();
+    }
+
+    // Topic-validity: the topic must be a registered (legitimate) topic. A
+    // subscribed-but-unregistered topic is dropped — the effective accept-filter
+    // is `subscriptions ∩ registered_topics` (ADR 0016, FR-014).
+    if !state.registered_topics.contains_key(&signed.plain.topic) {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "topic_not_registered",
+            self_id = %state.self_id,
+            from = %from,
+            topic = %signed.plain.topic,
+        );
+        return Vec::new();
+    }
+
+    // Authorized-publisher: on a non-open topic the message's publisher key must
+    // be in the topic's authorized set; an open topic (empty set) accepts any
+    // publisher. Checked before signature verification — a cheap set lookup, so
+    // unauthorized-publisher traffic never pays the verification cost (FR-015,
+    // ADR 0016). The `registered?` check above guarantees the entry exists.
+    if let Some(authorized) = state.registered_topics.get(&signed.plain.topic) {
+        if !authorized.is_empty() && !authorized.contains(signed.plain.publisher_id.as_public_key())
+        {
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "publisher_not_authorized",
+                self_id = %state.self_id,
+                from = %from,
+                topic = %signed.plain.topic,
+                publisher_id = %signed.plain.publisher_id,
+            );
+            return Vec::new();
+        }
     }
 
     let verify_outcome = state.verifier.verify(
@@ -261,6 +353,7 @@ mod tests {
     use crate::crypto::{Signer, Timestamp};
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
     use crate::subscription_registry::MembershipScript;
+    use crate::topic_registry::TopicRegistryScript;
 
     fn topic(s: &str) -> TopicId {
         TopicId::from_str(s).expect("valid topic id")
@@ -270,20 +363,59 @@ mod tests {
         PeerId::from_str(s).expect("valid peer id")
     }
 
-    /// A state subscribed to the given topics, with the standard mock verifier.
-    fn state_subscribed(topics: impl IntoIterator<Item = TopicId>) -> NodeState {
-        NodeState::new(
-            peer("self"),
-            topics.into_iter().collect(),
-            Arc::new(TestVerifier),
-        )
+    fn pk(bytes: &[u8]) -> PublicKey {
+        PublicKey::new(bytes.to_vec())
     }
 
-    /// A deterministic signer (fixed scheme seed).
-    fn signer() -> TestSigner {
-        let mut scheme = MockCryptoScheme::with_seed([7u8; 32]);
+    fn sorted(mut v: Vec<TopicId>) -> Vec<TopicId> {
+        v.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        v
+    }
+
+    /// A `TopicRegistryUpdate` event registering `t` as an **open** topic.
+    fn reg_open(t: &str) -> Event {
+        Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+            topic: topic(t),
+            publishers: BTreeSet::new(),
+        })
+    }
+
+    /// A state subscribed to the given topics, with each topic also registered
+    /// **open** in the topic registry (so it is a legitimate topic and the
+    /// effective accept-filter — `subscriptions ∩ registered_topics` — equals
+    /// the subscription set). These example tests exercise the subscription and
+    /// signature filters; topic-validity and publisher-authorization have their
+    /// own dedicated tests below.
+    fn state_subscribed(topics: impl IntoIterator<Item = TopicId>) -> NodeState {
+        let topics: Vec<TopicId> = topics.into_iter().collect();
+        let mut state = NodeState::new(
+            peer("self"),
+            topics.iter().cloned().collect(),
+            Arc::new(TestVerifier),
+        );
+        for t in topics {
+            apply(
+                &mut state,
+                Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                    topic: t,
+                    publishers: BTreeSet::new(),
+                }),
+            );
+        }
+        state
+    }
+
+    /// A deterministic signer from an explicit scheme seed (distinct seeds yield
+    /// distinct keys — used to model authorized vs unauthorized publishers).
+    fn signer_seeded(seed: [u8; 32]) -> TestSigner {
+        let mut scheme = MockCryptoScheme::with_seed(seed);
         let kp = scheme.generate_keypair();
         TestSigner::new(kp.private)
+    }
+
+    /// The standard deterministic signer (fixed scheme seed).
+    fn signer() -> TestSigner {
+        signer_seeded([7u8; 32])
     }
 
     /// Build a validly-signed message on `topic` carrying `Ping(n)`.
@@ -479,10 +611,18 @@ mod tests {
         );
         assert!(state.received_snapshot().is_empty(), "not subscribed yet");
 
-        // The node's own entry arrives on the membership stream → subscribes t1.
+        // The node's own entry arrives on the membership stream → subscribes t1,
+        // and the topic registry registers t1 (legitimate) → t1 is now effective.
         apply(
             &mut state,
             Event::MembershipUpdate(MembershipEvent::joined("self", ["t1"])),
+        );
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: t1.clone(),
+                publishers: BTreeSet::new(),
+            }),
         );
         apply(
             &mut state,
@@ -511,5 +651,209 @@ mod tests {
         // a moved t1->t2; b left; self never added.
         assert!(state.candidates_snapshot(&topic("t1")).is_empty());
         assert_eq!(state.candidates_snapshot(&topic("t2")), vec![peer("a")]);
+    }
+
+    // US2 / FR-014, SC-003: effective subscriptions = subscriptions ∩ registered.
+    // A subscribed topic that is not a registered topic is excluded.
+    #[test]
+    fn subscriptions_are_subscribed_intersect_registered() {
+        let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
+        // Topic registry registers only `weather`; membership declares both.
+        apply(&mut state, reg_open("weather"));
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["weather", "ghosttopic"])),
+        );
+        assert_eq!(
+            sorted(state.subscriptions_snapshot()),
+            vec![topic("weather")],
+            "ghosttopic is subscribed but not registered → excluded",
+        );
+    }
+
+    // US2 / FR-014, SC-003/SC-004: a message on a subscribed-but-unregistered
+    // topic is dropped (topic_not_registered); registering the topic later makes
+    // it effective and the next message is accepted — no restart.
+    #[test]
+    fn unregistered_subscribed_topic_drops_then_accepts_after_registration() {
+        let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
+        let s = signer();
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["ghosttopic"])),
+        );
+        // Subscribed but not registered → dropped.
+        assert!(apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("a"),
+                message: signed_ping(&s, topic("ghosttopic"), 1),
+            },
+        )
+        .is_empty());
+        assert!(
+            state.received_snapshot().is_empty(),
+            "unregistered topic → message dropped",
+        );
+        // Register it → now effective → accepted.
+        apply(&mut state, reg_open("ghosttopic"));
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("a"),
+                message: signed_ping(&s, topic("ghosttopic"), 2),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "registered now → accepted"
+        );
+    }
+
+    // US2 / SC-004: removing a topic from the registry makes it ineffective.
+    #[test]
+    fn removing_a_topic_makes_it_ineffective() {
+        let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["weather"])),
+        );
+        assert!(
+            state.subscriptions_snapshot().is_empty(),
+            "not registered yet",
+        );
+        apply(&mut state, reg_open("weather"));
+        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")],);
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Removed {
+                topic: topic("weather"),
+            }),
+        );
+        assert!(
+            state.subscriptions_snapshot().is_empty(),
+            "removed → no longer effective",
+        );
+    }
+
+    // US2 / FR-013: handle_topic_registry_update folds the registered-topics
+    // projection across a scripted register → publishers-changed → remove
+    // sequence (declarative TopicRegistryScript); every apply returns no effects.
+    #[test]
+    fn topic_registry_script_folds_projection() {
+        let mut state = state_subscribed(vec![topic("weather")]);
+        // state_subscribed already registered weather open; drive a script that
+        // re-registers it with a publisher, rotates publishers, and removes an
+        // unrelated topic.
+        let script = TopicRegistryScript::new()
+            .registered("weather", [pk(b"k1")])
+            .publishers_changed("weather", [pk(b"k4")], [pk(b"k1")])
+            .removed("other");
+        for ev in script {
+            assert!(apply(&mut state, Event::TopicRegistryUpdate(ev)).is_empty());
+        }
+        // weather stays registered (so still effective); the no-op remove of an
+        // unregistered "other" is harmless.
+        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")],);
+    }
+
+    // US3 / FR-015, SC-005: a non-open topic accepts only authorized publishers;
+    // an open topic accepts any. Authorization precedes signature verification —
+    // an unauthorized publisher with a *valid* signature is still dropped.
+    #[test]
+    fn publisher_authorization_restricted_then_open() {
+        let authorized = signer();
+        let outsider = signer_seeded([9u8; 32]);
+        let weather = topic("weather");
+        let mut state = NodeState::new(
+            peer("self"),
+            HashSet::from([weather.clone()]),
+            Arc::new(TestVerifier),
+        );
+        // weather restricted to the authorized signer's key.
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([authorized.public_key()]),
+            }),
+        );
+
+        // Authorized publisher, valid signature → recorded.
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: signed_ping(&authorized, weather.clone(), 1),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "authorized publisher accepted",
+        );
+
+        // Unauthorized publisher with a VALID signature → dropped (authorization
+        // precedes verification).
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: signed_ping(&outsider, weather.clone(), 2),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "unauthorized publisher dropped despite a valid signature",
+        );
+
+        // Re-register weather OPEN → the outsider is now accepted.
+        apply(&mut state, reg_open("weather"));
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: signed_ping(&outsider, weather, 3),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            2,
+            "open topic accepts any publisher",
+        );
+    }
+
+    // US3 / FR-015: authorization is ordered BEFORE verification — an authorized
+    // publisher's *tampered* (invalid-signature) message passes the authorization
+    // check but is dropped at verification.
+    #[test]
+    fn authorized_but_tampered_message_dropped_at_verification() {
+        let authorized = signer();
+        let weather = topic("weather");
+        let mut state = NodeState::new(
+            peer("self"),
+            HashSet::from([weather.clone()]),
+            Arc::new(TestVerifier),
+        );
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([authorized.public_key()]),
+            }),
+        );
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: tampered_ping(&authorized, weather, 1),
+            },
+        );
+        assert!(
+            state.received_snapshot().is_empty(),
+            "authorized publisher but invalid signature → dropped at verify",
+        );
     }
 }

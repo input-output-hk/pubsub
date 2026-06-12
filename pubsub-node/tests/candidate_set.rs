@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use common::{await_candidates, await_delivery, node_with, ping, shared_test_verifier};
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, Node, NodeConfig, PeerId,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId,
     SubscriptionRegistryControl, TopicId,
 };
 
@@ -27,12 +27,14 @@ fn peer(s: &str) -> PeerId {
 async fn node_with_no_registry_entry_derives_empty_state() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new()); // empty — no entry for ghost
+    let topic_registry = Arc::new(InMemoryTopicRegistry::new()); // empty — no registered topics
     let node = Node::new(
         peer("ghost"),
         NodeConfig { peers: vec![] },
         network,
         shared_test_verifier(),
         registry,
+        topic_registry,
     )
     .await
     .expect("construction succeeds even with no registry entry");

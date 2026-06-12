@@ -28,7 +28,12 @@ fn write_lower_hex(f: &mut fmt::Formatter<'_>, bytes: &[u8]) -> fmt::Result {
 /// The bytes are uninterpreted at this type; concrete [`Signer`] / [`Verifier`]
 /// implementations choose how to read them. `Display` renders the bytes as a
 /// contiguous lowercase hex string.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+///
+/// `Ord`/`PartialOrd` order by the raw bytes lexicographically — a stable,
+/// arbitrary total order used only to hold keys in ordered collections
+/// (e.g. a topic's authorized-publisher `BTreeSet`); it carries no protocol
+/// meaning.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PublicKey(Vec<u8>);
 
 impl PublicKey {

@@ -40,6 +40,7 @@ mod received;
 mod state;
 mod subscription_registry;
 mod topic;
+mod topic_registry;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
@@ -58,3 +59,7 @@ pub use subscription_registry::{
     SubscriptionRegistryControl, SubscriptionRegistryError,
 };
 pub use topic::{TopicId, TopicIdError};
+pub use topic_registry::{
+    InMemoryTopicRegistry, TopicRegistry, TopicRegistryControl, TopicRegistryError,
+    TopicRegistryEvent, TopicRegistryWatch,
+};

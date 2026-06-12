@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, InMemoryNetwork, InMemorySubscriptionRegistry, Node, PeerId, TestVerifier,
-    Verifier,
+    load_node_config, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node,
+    PeerId, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -24,6 +24,11 @@ struct Args {
     /// the node reads its topics and peer membership from).
     #[arg(long)]
     subscription_list: PathBuf,
+
+    /// Path to the TOML topic-registry file (the mock topic registry: which
+    /// topics legitimately exist and their authorized publishers).
+    #[arg(long)]
+    topic_registry: PathBuf,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -53,16 +58,32 @@ async fn main() {
         }),
     );
 
+    // The mock topic registry, seeded from the topic-registry file (the stand-in
+    // for the on-chain topic registry: legitimate topics + authorized publishers).
+    let topic_registry = Arc::new(
+        InMemoryTopicRegistry::from_file(&args.topic_registry).unwrap_or_else(|e| {
+            eprintln!("pubsub-node: {e}");
+            std::process::exit(2);
+        }),
+    );
+
     let network = Arc::new(InMemoryNetwork::new());
     // Prototype-stage verifier: the mock accepts any correctly-bound mock
     // signature. A real verifier replaces this when authenticated crypto lands.
     let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
-    let node = Node::new(args.self_id, cfg, network, verifier, registry)
-        .await
-        .unwrap_or_else(|e| {
-            eprintln!("pubsub-node: {e}");
-            std::process::exit(1);
-        });
+    let node = Node::new(
+        args.self_id,
+        cfg,
+        network,
+        verifier,
+        registry,
+        topic_registry,
+    )
+    .await
+    .unwrap_or_else(|e| {
+        eprintln!("pubsub-node: {e}");
+        std::process::exit(1);
+    });
 
     if let Err(e) = tokio::signal::ctrl_c().await {
         eprintln!("pubsub-node: failed to install signal handler: {e}");
