@@ -85,7 +85,7 @@ registered in the operational certificate signed by the cold key.
 
 Next, we review known alternative use cases for these keys.
 
-### CIP-22 and CIP-151
+### CIP-22
 
 [CIP-22](https://cips.cardano.org/cip/CIP-22) proposes a mechanism to allow web
 sites (assumed to have trusted access to a Cardano node) to authenticate SPOs. 
@@ -95,6 +95,18 @@ website checks it matches the one in the pool registration certificate, sends
 back a random challenge, and the SPO returns it signed under the VRF key
 (that is, derives a nonce from it, and proves it was correctly derived).
 
+## CIP-88 and CIP-151
+[CIP-88](https://cips.cardano.org/cip/CIP-88) proposed a mechanism to allow
+token projects (defining their own NFTs or FTs) to register on-chain 
+authenticated information about their projects. Subsequently, 
+[CIP-151](https://cips.cardano.org/cip/CIP-151) extended CIP-88 to the case
+of SPOs that need _to register verifiable information on-chain_. In a nutshell,
+and in connection with PubSub's interests, CIP-151 defines data structures for 
+SPOs to register what they call a _Calidus key_, an Ed25519 key authorized by
+the owner (the SPO) to sign messages associated to some _scope_ also defined
+in the same data structure. This data structure needs to be signed by the 
+SPO's cold key.
+
 ### CIP-94
 
 [CIP-94](https://cips.cardano.org/cip/CIP-94) describes a mechanism for polling
@@ -102,23 +114,24 @@ SPOs on governance matters. SPOs sign their poll answers with their cold key.
 
 ## What's safe to reuse, what's not, and why
 
-All keys are in principle safe to use. However, cold keys are expected to be 
-"air gapped". As such, expecting them to be used frequently is not reasonable, 
-and KES is an overkill for publishing, as we do not care about forward secrecy 
-(see [publishing](./publishing.md)).
+As stated, it is unclear if VRF keys are safe to use. Alternatively, both KES 
+and cold keys are in principle safe to use. However, cold keys are expected to 
+be "air gapped". As such, expecting them to be used frequently is not 
+reasonable, and KES is an overkill for publishing, as we do not care about 
+forward secrecy (see [publishing](./publishing.md)).
 
 This leaves two choices:
 
 1. Use the VRF key.
 2. Use a new key.
 
-Option 1 is what CIP-22 and CIP-151 opted for. This option would not require 
+Option 1 is what CIP-22 opted for. This option would not require 
 identity anchoring, as the VRF key is already bound to the SPO via the pool 
 registration certificate. Yet, note that this employs a VRF key for a usage 
 other than the originally intended one. At first sight it seems safe as long as 
-there is proper domain separation (from CIP-22, CIP-151, and other usages
-of the VRF, like lottery check and nonce contribution). However, there does not
-seem to exist formal proofs demonstrating that the security properties of a VRF
+there is proper domain separation (from CIP-22, and other usages of the
+VRF, like lottery check and nonce contribution). However, there does not seem to
+exist formal proofs demonstrating what the security properties of a VRF are
 (typically: uniqueness, pseudorandomness, and collision resistance) when used
 as a signature scheme (that is, requiring some variant of unforgeability). While
 it seems natural to expect some relation, it is also uncertain what type of 
@@ -141,17 +154,24 @@ best choice, as it allows easier key rotation in case of need (e.g., key loss or
 compromise). Additionally, note that there are ongoing conversations to do the 
 same with the VRF keys (rotate them via the operational certificate), as part of
 the Leios deployment -- hence, this may be a good moment to add a new key type 
-in the operational certificates.
+in the operational certificates. Alternatively, this new key could also be
+registered via CIP-151. This would not require a change in the operational 
+certificates -- it remains to be analyzed whether CIP-151 is a widely accepted
+mechanism, but cryptographically it seems equivalent to extending the
+operational certificates.
 
 ## Recommendation
 
 Given the options analyzed above, using a new key, and specifying it in the
-operational certificate, seems the most appropriate:
+operational certificate or via a CIP-151 on-chain registration payload object, 
+seems the most appropriate:
 
 - It prevents attacks due to sloppy domain separation, or unclear unforgeability
 properties.
 - It anchors a new key type directly to the root of trust for SPOs.
-- It can be naturally rotated every 90 days via operational certificates.
+- If an extension of operational certificates is used, the keys can be naturally
+rotated every 90 days via operational certificates. If CIP-151 is used, this can
+be done as needed.
 
 As a conventional strongly unforgeable scheme would meet our security needs
 (see [publishing](./publishing.md)), the natural target is Ed25519.
