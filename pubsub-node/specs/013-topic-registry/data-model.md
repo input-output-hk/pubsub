@@ -141,7 +141,7 @@ The accept path gains two checks; existing checks/causes are retained. New behav
 
 | Item | Change |
 |---|---|
-| `Node::new` | **signature change**: adds a generic `topic_registry: Arc<T>` where `T: TopicRegistry` (third registry param after `network: Arc<N>` and `registry: Arc<R>`). Spawns a node-owned reader that calls `topic_registry.watch()` and pushes one `Event::TopicRegistryUpdate` per delta; `registered_topics` converges as the burst drains. No fail-fast — an empty registry simply yields no registered topics (and thus no effective subscriptions until topics register). |
+| `Node::new` | **signature change**: adds a generic `topic_registry: Arc<T>` where `T: TopicRegistry` (third registry param after `network: Arc<N>` and `subscription_registry: Arc<R>`, the 008 param renamed from `registry` for symmetry). Spawns a node-owned reader that calls `topic_registry.watch()` and pushes one `Event::TopicRegistryUpdate` per delta; `registered_topics` converges as the burst drains. No fail-fast — an empty registry simply yields no registered topics (and thus no effective subscriptions until topics register). |
 | `Node::effective_subscriptions` | **new** public getter: `fn effective_subscriptions(&self) -> Vec<TopicId>` — sync lock-and-clone snapshot of `subscriptions ∩ registered_topics`. |
 | `Node::subscriptions` | **unchanged** — still returns the membership-derived set (008). Tests/observability distinguish "subscribed (declared)" from "effective (declared ∩ registered)". |
 | `Node::candidates` / `Node::peers` | **unchanged** (008 / config bootstrap). |

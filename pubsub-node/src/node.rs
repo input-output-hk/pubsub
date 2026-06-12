@@ -92,7 +92,7 @@ impl Node {
         config: NodeConfig,
         network: Arc<N>,
         verifier: Arc<dyn Verifier>,
-        registry: Arc<R>,
+        subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
     ) -> Result<Self, NodeError> {
         let mut handle = network.register(self_id).await?;
@@ -100,7 +100,7 @@ impl Node {
         let rx = handle.take_receiver();
 
         // The node starts with an empty subscription set and derives it — and
-        // its candidate sets — by folding the registry `watch` stream (ADR
+        // its candidate sets — by folding the subscription-registry `watch` stream (ADR
         // 0013/0014). Registration precedes the spawns so nothing leaks on the
         // error path (FR-016).
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
@@ -158,7 +158,9 @@ impl Node {
         // topic-registry reader (global `watch`). Each reader owns its registry
         // `Arc` so its watch stays live for the node's lifetime.
         node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
-        node.spawn_producer(move |queue| registry_reader_loop(queue, registry, node_id));
+        node.spawn_producer(move |queue| {
+            subscription_registry_reader_loop(queue, subscription_registry, node_id)
+        });
         node.spawn_producer(move |queue| topic_registry_reader_loop(queue, topic_registry));
 
         Ok(node)
@@ -310,12 +312,12 @@ async fn network_mailbox_loop(queue: EventQueue, mut rx: UnboundedReceiver<Routi
 /// them into its subscriptions + candidate sets). Holds the registry `Arc` so
 /// the watch's sender side stays alive — and thus the subscription stays live —
 /// for the node's lifetime; the task is aborted on drop.
-async fn registry_reader_loop<R: SubscriptionRegistry>(
+async fn subscription_registry_reader_loop<R: SubscriptionRegistry>(
     queue: EventQueue,
-    registry: Arc<R>,
+    subscription_registry: Arc<R>,
     node_id: PeerId,
 ) {
-    let mut watch = match registry.watch(node_id).await {
+    let mut watch = match subscription_registry.watch(node_id).await {
         Ok(watch) => watch,
         Err(error) => {
             tracing::error!(
@@ -329,9 +331,9 @@ async fn registry_reader_loop<R: SubscriptionRegistry>(
     while let Some(event) = watch.recv().await {
         queue.push(Event::MembershipUpdate(event));
     }
-    // `registry` is owned by this task so the watch's sender side stays alive
-    // for the loop; drop it explicitly when the task ends.
-    drop(registry);
+    // `subscription_registry` is owned by this task so the watch's sender side
+    // stays alive for the loop; drop it explicitly when the task ends.
+    drop(subscription_registry);
 }
 
 /// The topic-registry reader producer: opens the global
