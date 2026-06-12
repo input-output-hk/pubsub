@@ -60,7 +60,8 @@ apply(&mut state, Event::MembershipUpdate(MembershipEvent::Joined {
 }));
 
 // Effective = declared ∩ registered = {weather}. `ghosttopic` is ignored (not registered).
-assert_eq!(state.effective_subscriptions_sorted(), vec![topic("weather")]);
+let mut effective = state.effective_subscriptions(); effective.sort();   // getter returns unordered; sort for a stable assert
+assert_eq!(effective, vec![topic("weather")]);
 
 // US3 authorization: open topic accepts any publisher; a non-open topic rejects outsiders.
 apply(&mut state, Event::TopicRegistryUpdate(TopicRegistryEvent::PublishersChanged {
@@ -74,7 +75,7 @@ assert_eq!(state.received_snapshot().len(), 1);
 apply(&mut state, Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
     topic: topic("ghosttopic"), publishers: BTreeSet::new(),
 }));
-assert!(state.effective_subscriptions_sorted().contains(&topic("ghosttopic")));
+assert!(state.effective_subscriptions().contains(&topic("ghosttopic")));
 
 // Every apply returns no effects (Effect uninhabited).
 ```

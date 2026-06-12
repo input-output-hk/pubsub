@@ -80,8 +80,10 @@ src/
 │   │                       #   pub enum TopicRegistryEvent { Registered, PublishersChanged, Removed }  (#[non_exhaustive])
 │   │                       #   pub struct TopicRegistryWatch  (single-consumer; wraps unbounded rx; not Clone)
 │   │                       #   pub enum TopicRegistryError  (#[non_exhaustive])
-│   └── in_memory.rs        #   pub struct InMemoryTopicRegistry  (state + subscriber channels; private internals)
-│                           #     ::new() / ::from_file(path)  + module-internal TOML topic entry type + hex decode
+│   ├── in_memory.rs        #   pub struct InMemoryTopicRegistry  (state + subscriber channels; private internals)
+│   │                       #     ::new() / ::from_file(path)  + module-internal TOML topic entry type + hex decode
+│   └── test_support.rs     #   NEW (test-only) — TopicRegistryScript + TopicRegistryEvent constructors
+│                           #     (constitution v1.2.0 declarative test construction; mirrors 008's MembershipScript)
 │                           #   #[cfg(test)] mod tests — write/watch (cold-start burst, idempotency, open-vs-removed)
 ├── state.rs                # EXTENDED — NodeState gains `registered_topics: HashMap<TopicId, BTreeSet<PublicKey>>`;
 │                           #   new private handler `handle_topic_registry_update(&mut NodeState, TopicRegistryEvent) -> Vec<Effect>`;

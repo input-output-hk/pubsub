@@ -53,3 +53,17 @@ Re-checked against the added standard: **Declarative test construction** — sat
 ### Next Actions
 
 Cleared for `/speckit-implement`. The post-implementation analyze pass MUST verify contracts §E against the code (incl. the new `test_support.rs` builder and the publishers-only projection).
+
+## Session 2026-06-12 (analyze pass 2 — convergence + LOW remediation)
+
+A second `/speckit-analyze` pass after the design-review + v1.2.0 + F1 edits, to catch cascade drift. `contracts/topic-registry.md` (untouched in the prior session) verified consistent with the updated spec/data-model. One new trivial drift (G1) surfaced; G1 + the carried LOWs F3/F5 were then remediated.
+
+| ID | Category | Severity | Summary | Resolution |
+|----|----------|----------|---------|------------|
+| G1 | Inconsistency (cascade drift) | LOW | plan.md's Scale/Scope + tasks T005 reference `src/topic_registry/test_support.rs`, but the plan's source-code **tree diagram** omitted it. | **RESOLVED (applied).** Added the `test_support.rs` line to the plan's source tree (after `in_memory.rs`). |
+| F3 | Coverage gap (was carried) | LOW | FR-007's gap-free/duplicate-free burst↔live atomicity clause wasn't explicitly enumerated in T006. | **RESOLVED (applied).** Added an **atomicity** case to T006: opening `watch()` then immediately writing yields the write exactly once (no gap/dup at the boundary). |
+| F5 | Inconsistency (naming, was carried) | LOW | quickstart §2 called `effective_subscriptions_sorted()`; the defined getter is `effective_subscriptions()`. | **RESOLVED (applied).** Quickstart now uses `effective_subscriptions()` — sorting inline before the `assert_eq!` (the `.contains()` site just renamed). |
+
+**Carried (still acknowledged, not changed)**: F2 (operator log emitted at the drop site — non-contractual, logs not test-anchored) and F4 (SC-002 multi-watcher fan-out covered by T014's multi-node test).
+
+**Convergence**: pass 1 → 1 MEDIUM + 4 LOW; pass 2 → 0 MEDIUM + 1 new LOW (G1), then all actionable LOWs (G1/F3/F5) applied. 0 critical / 0 high throughout. The artifact set has converged — cleared for `/speckit-implement`.
