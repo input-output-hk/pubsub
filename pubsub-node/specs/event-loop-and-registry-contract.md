@@ -111,7 +111,8 @@ pub struct Node {
     queue: EventQueue,
     state: Arc<Mutex<NodeState>>,     // event loop is the SOLE writer; getters are readers
     event_loop: JoinHandle<()>,
-    producers: Vec<JoinHandle<()>>,   // network adapter, registry reader, ... (singletons)
+    producers: Vec<JoinHandle<()>>,   // network adapter, subscription-registry reader,
+                                      // topic-registry reader (013), ... (singletons)
     // connections: HashMap<PeerId, JoinHandle<()>>,  // added by 004 — see §1.3
 }
 

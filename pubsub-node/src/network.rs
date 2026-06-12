@@ -132,13 +132,14 @@ impl NetworkHandle {
 /// ```no_run
 /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 /// # use std::sync::Arc;
-/// # use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Node, NodeConfig, PeerId, TestVerifier, Verifier};
+/// # use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId, TestVerifier, Verifier};
 /// # let self_id: PeerId = "node-a".parse()?;
 /// # let config = NodeConfig { peers: vec![] };
 /// let network = Arc::new(InMemoryNetwork::new());
 /// let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
 /// let registry = Arc::new(InMemorySubscriptionRegistry::new());
-/// let node = Node::new(self_id, config, network.clone(), verifier, registry).await?;
+/// let topic_registry = Arc::new(InMemoryTopicRegistry::new());
+/// let node = Node::new(self_id, config, network.clone(), verifier, registry, topic_registry).await?;
 /// # Ok(())
 /// # }
 /// ```
