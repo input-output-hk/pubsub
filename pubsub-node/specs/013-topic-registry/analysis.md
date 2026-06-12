@@ -85,7 +85,7 @@ The required post-implementation pass (constitution Development Workflow: "once 
 
 | ID | Category | Severity | Summary | Status |
 |----|----------|----------|---------|--------|
-| P1 | Inconsistency (stale comment, pre-existing) | LOW | `src/state.rs`'s `Effect` justification comment still reads "008's **RegistryUpdate** arm" — a 004-era label (008 renamed that seam to `MembershipUpdate`; 013 adds `TopicRegistryUpdate`). **Inherited from `main`, not introduced by 013.** | **Deferred** — out of 013 scope; flagged for a future 004/008 comment cleanup. |
+| P1 | Inconsistency (stale comment, pre-existing) | LOW | `src/state.rs`'s `Effect` justification comment still read "008's **RegistryUpdate** arm" — a 004-era label (008 renamed that seam to `MembershipUpdate`; 013 adds `TopicRegistryUpdate`). **Inherited from `main`, not introduced by 013.** | **RESOLVED (applied)** — comment updated to name the actual fold arms (008 `MembershipUpdate` + 013 `TopicRegistryUpdate`, both returning `[]`). |
 
 **Post-implementation naming refinements** (applied, all green; recorded for the ledger):
 

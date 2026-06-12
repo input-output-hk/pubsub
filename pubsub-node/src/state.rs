@@ -119,7 +119,9 @@ impl NodeState {
 /// the type exists now so the transition's signature is stable for the
 /// features that extend it.
 // FR-013: ships present-but-empty; locked signature justified by the ROADMAP
-// consumers (004-connections effects; 008's RegistryUpdate arm) — ADR 0011.
+// consumers (004-connections effects; the registry-fold arms — 008's
+// `MembershipUpdate` and 013's `TopicRegistryUpdate`, both returning `[]`)
+// — ADR 0011.
 #[non_exhaustive]
 pub(crate) enum Effect {}
 
