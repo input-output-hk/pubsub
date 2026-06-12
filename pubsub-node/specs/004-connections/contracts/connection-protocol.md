@@ -110,6 +110,12 @@ never a test surface.
   `ConnectionMessage`, `PlainConnection`, `ConnectionAction` (alongside the existing
   message types); `MockCryptoScheme::keypair_from_alias` (mock test convenience).
 
+### Unchanged but consumed
+
+- The pre-existing event-intake surface (`Node::events()` / `EventQueue::push` /
+  `Node::spawn_producer`) is untouched; this feature consumes it for the setup event
+  (the scripted establishment path) without altering its semantics (FR-022).
+
 ### Explicitly absent (spec scope boundaries)
 
 - No manual connect/disconnect verbs (FR-022).
