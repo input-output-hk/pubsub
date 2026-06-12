@@ -1,0 +1,17 @@
+# Mock on-chain topic registry — read only by InMemoryTopicRegistry::from_file.
+# Each [[topic]] is a legitimately-registered topic. `publishers` is a list of
+# lowercase-hex public keys authorized to publish; an absent or empty list means
+# the topic is OPEN (any publisher accepted). Only `id` + `publishers` are part
+# of the mock format — governance fields (owners/admins/…) are 012's on-chain
+# domain and are NOT accepted here (strict unknown-field rejection).
+
+[[topic]]
+id         = "weather"
+publishers = ["a1b2c3d4", "55667788"]
+
+[[topic]]
+id         = "sports"
+publishers = []                          # explicit empty → open
+
+[[topic]]
+id = "chat"                              # publishers absent → open

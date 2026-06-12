@@ -34,6 +34,15 @@ pub enum ConfigError {
     /// Two entries in a subscription-list file declared the same `node_id`.
     #[error("duplicate subscription-list entry for node id {0}")]
     DuplicateSubscriptionEntry(String),
+
+    /// Two entries in a topic-registry file declared the same topic `id`.
+    #[error("duplicate topic-registry entry for topic id {0}")]
+    DuplicateTopicEntry(String),
+
+    /// A `publishers` entry in a topic-registry file was not valid lowercase
+    /// hex decoding to public-key bytes.
+    #[error("invalid publisher key in topic-registry file: {0}")]
+    InvalidPublisherKey(String),
 }
 
 /// Failure modes returned by [`Network`](crate::Network) implementations.
