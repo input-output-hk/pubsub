@@ -51,8 +51,7 @@ The on-chain decode/governance types (012) MUST remain module-internal and MUST 
 | Method | Before (008 on `main`) | After (013) |
 |---|---|---|
 | `Node::new` | `async fn new<N: Network, R: SubscriptionRegistry>(PeerId, NodeConfig, Arc<N>, Arc<dyn Verifier>, Arc<R>) -> Result<Self, NodeError>` | `async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(PeerId, NodeConfig, Arc<N>, Arc<dyn Verifier>, Arc<R>, Arc<T>) -> Result<Self, NodeError>` — **adds the topic registry generically** (`Arc<T>`, *not* `Arc<dyn>`); spawns a node-owned reader calling `watch()` — `registered_topics` converges as the cold-start burst drains. No fail-fast on an empty registry. |
-| `Node::effective_subscriptions` | — | **new**: `fn effective_subscriptions(&self) -> Vec<TopicId>` — sync lock-and-clone snapshot of `subscriptions ∩ registered_topics` (the actual accept-filter) |
-| `Node::subscriptions` | `fn subscriptions(&self) -> Vec<TopicId>` | **unchanged** — still the membership-derived (declared) set; distinct from `effective_subscriptions` |
+| `Node::subscriptions` | `fn subscriptions(&self) -> Vec<TopicId>` (008: the *declared* set) | **changed semantics** — now returns the **effective accept-filter**: `subscriptions ∩ registered_topics` (declared ∩ registered). A single getter; the declared set and the registered-topics projection stay internal-only. **Supersedes 008's declared-set semantics** (heads-up to the 008 author). No separate `effective_subscriptions` getter (collapsed post-implementation, 2026-06-12). |
 | `Node::candidates` / `Node::peers` / others | — | unchanged (`send`, `id`, `events`, `spawn_producer`, `received_messages`, `Drop`) |
 
 The node holds **no** write methods for either registry; both are read-only at the type level.
@@ -71,7 +70,7 @@ The node holds **no** write methods for either registry; both are read-only at t
 |---|---|---|
 | `NodeState.registered_topics` field | `pub(crate)`/private on `NodeState` | `NodeState` not re-exported |
 | `handle_topic_registry_update` | private to `state.rs` | not reachable from `tests/` |
-| accept-path `registered?`/`authorized?` checks | private in `handle_signed_message` | exercised via `received_messages()` / `effective_subscriptions()`, not directly |
+| accept-path `registered?`/`authorized?` checks | private in `handle_signed_message` | exercised via `received_messages()` / `subscriptions()`, not directly |
 | TOML topic entry type + hex decode | module-internal to `topic_registry::in_memory` | not in `lib.rs` `pub use` |
 
 ## E. Verification procedure (post-implementation analyze pass)
@@ -79,7 +78,7 @@ The node holds **no** write methods for either registry; both are read-only at t
 1. `git diff main -- src/lib.rs` shows the new `mod topic_registry;` + the six new `pub use` items (registry, control, error, event, watch, in-memory impl), and **no** unintended re-export of internals.
 2. `Node::new` call sites (`main.rs`, all `tests/`) compile against the new signature; every delivery test registers the topics it sends on (else messages drop as `topic_not_registered`); `main.rs` constructs the topic registry via `from_file`.
 3. `TopicRegistry::watch` takes **no** node/topic argument (global); `set_topic`/`remove_topic` live on `TopicRegistryControl` only; `TopicRegistry` and `SubscriptionRegistry` share no trait.
-4. `Node::effective_subscriptions` returns `subscriptions ∩ registered_topics`; `Node::subscriptions` is byte-identical to `main` (still the declared set).
+4. `Node::subscriptions` returns the effective accept-filter `subscriptions ∩ registered_topics` (a deliberate semantics change from 008's declared set; no separate effective getter).
 5. `handle_signed_message` performs the registered? and authorized? checks **before** `verifier.verify(...)`; `grep` confirms ordering; drop causes `topic_not_registered` + `publisher_not_authorized` exist (operator UX, not test-asserted).
 6. `grep -n "pub " src/topic_registry/in_memory.rs` shows the impl + `new`/`from_file` public but the internals (`Inner`, the TOML decode type, the hex helper) private; `handle_topic_registry_update` is private in `state.rs`.
 7. `PublicKey` gains only `Ord, PartialOrd` (no other derive/API change). `BTreeSet<PublicKey>` is used in `TopicRegistryEvent` + `NodeState.registered_topics`.

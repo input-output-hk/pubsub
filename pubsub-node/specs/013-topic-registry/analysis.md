@@ -75,7 +75,7 @@ The required post-implementation pass (constitution Development Workflow: "once 
 **Verify-against-code (contracts §E) — all confirmed:**
 
 - `git diff main -- src/lib.rs` adds only `mod topic_registry;` + the six `pub use` items (registry, control, error, event, watch, in-memory impl). ✅
-- `Node::new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(…, subscription_registry: Arc<R>, topic_registry: Arc<T>)`; `Node::effective_subscriptions` added; `subscriptions`/`candidates`/`peers` unchanged; no extra pub fns. ✅
+- `Node::new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(…, subscription_registry: Arc<R>, topic_registry: Arc<T>)`; `Node::subscriptions()` returns the **effective accept-filter** (`subscriptions ∩ registered_topics`) — a single getter; `candidates`/`peers` unchanged; no extra pub fns. ✅
 - `Event::TopicRegistryUpdate`; `ConfigError::{DuplicateTopicEntry, InvalidPublisherKey}`; `PublicKey` gains only `Ord, PartialOrd`. ✅
 - `handle_signed_message` order: subscribed → **registered** → **authorized** → verify (drop causes `topic_not_registered` / `publisher_not_authorized` precede `invalid_signature`). ✅
 - `handle_topic_registry_update` private in `state.rs`; `registered_topics` `pub(crate)`; `InMemoryTopicRegistry` internals (`Inner`, `RawTopicList`, `RawTopic`, `decode_hex`, `fanout`) private; global `watch()` with no per-subscriber filter. ✅
@@ -91,6 +91,7 @@ The required post-implementation pass (constitution Development Workflow: "once 
 
 - `Node::new`'s subscription-registry parameter renamed `registry` → `subscription_registry` (symmetry with `topic_registry`; the bare `registry` was ambiguous once two registries existed). Zero API impact (Rust has no named args). Private reader fn `registry_reader_loop` → `subscription_registry_reader_loop` to pair with `topic_registry_reader_loop`. (commit on PR #55)
 - Reviewed and **kept**: `test_support.rs` (matches the constitution-cited `subscription_registry/test_support.rs` worked example) and `NodeState.registered_topics` (the qualifier disambiguates from the sibling `subscriptions` field and names registry provenance; the registry's own unqualified `topics` field is unambiguous in its context).
+- **Subscription getters collapsed to one** (review, 2026-06-12): the separate `Node::effective_subscriptions()` getter was removed; `Node::subscriptions()` now returns the **effective accept-filter** (`subscriptions ∩ registered_topics`), with the declared set + `registered_topics` kept internal-only. A single, intuitive observability concept ("what the node accepts"); the bare `effective` qualifier had nothing to contrast against at the API. This **changes 008's `subscriptions()` declared-set semantics** (all tests still pass — fixtures register topics open, so declared == effective there) — flagged to the 008 author in PR #55. The contract §B/§D/§E, data-model, ADR 0016, quickstart, plan, and research were synced; the historical task descriptions (T009/T010/T014) and the F5 finding above reference the now-superseded `effective_subscriptions` getter name.
 
 **Metrics**: 19 tasks complete (100%); 29 buildable FR/SC, 100% covered; 0 critical / 0 high; 1 LOW (P1, pre-existing/deferred).
 

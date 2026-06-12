@@ -192,10 +192,10 @@ pub async fn two_node_fixture_with_subscriptions(
     // wait for convergence so send-then-observe tests are deterministic.
     let a_expected: Vec<TopicId> = a_subscriptions.into_iter().collect();
     let b_expected: Vec<TopicId> = b_subscriptions.into_iter().collect();
-    await_effective_subscriptions(&a, &a_expected, Duration::from_secs(1))
+    await_subscriptions(&a, &a_expected, Duration::from_secs(1))
         .await
         .expect("node A subscriptions converge");
-    await_effective_subscriptions(&b, &b_expected, Duration::from_secs(1))
+    await_subscriptions(&b, &b_expected, Duration::from_secs(1))
         .await
         .expect("node B subscriptions converge");
 
@@ -252,7 +252,7 @@ pub async fn node_with(
     // The node derives its effective subscriptions from the registry streams;
     // wait for convergence before handing it back so send-then-observe tests are
     // deterministic.
-    await_effective_subscriptions(&node, topics, Duration::from_secs(1))
+    await_subscriptions(&node, topics, Duration::from_secs(1))
         .await
         .expect("node subscriptions converge");
     node
@@ -295,10 +295,12 @@ pub enum AwaitError {
     Timeout(Duration),
 }
 
-/// Poll `node.subscriptions()` until it equals `expected` (as a set) or
-/// `timeout` elapses. A node derives its subscription set asynchronously from
-/// the registry `watch` stream (it starts empty), so tests/fixtures wait for it
-/// to converge before relying on the node's accept-filter.
+/// Poll `node.subscriptions()` (the effective accept-filter) until it equals
+/// `expected` (as a set) or `timeout` elapses. A node derives its subscription
+/// set asynchronously by folding two `watch` streams (subscription registry +
+/// topic registry) — it starts empty and converges only once *both* cold-start
+/// bursts have drained — so tests/fixtures wait for it before relying on the
+/// accept-filter for send-then-observe.
 pub async fn await_subscriptions(
     node: &Node,
     expected: &[TopicId],
@@ -308,31 +310,6 @@ pub async fn await_subscriptions(
     let start = tokio::time::Instant::now();
     loop {
         let got: std::collections::BTreeSet<TopicId> = node.subscriptions().into_iter().collect();
-        if got == want {
-            return Ok(());
-        }
-        if start.elapsed() >= timeout {
-            return Err(AwaitError::Timeout(timeout));
-        }
-        tokio::time::sleep(Duration::from_millis(1)).await;
-    }
-}
-
-/// Poll `node.effective_subscriptions()` until it equals `expected` (as a set)
-/// or `timeout` elapses. The effective set is `subscriptions ∩ registered_topics`
-/// — it converges only once *both* the subscription-registry and topic-registry
-/// cold-start bursts have drained, so delivery tests wait on this rather than on
-/// the declared `subscriptions()`.
-pub async fn await_effective_subscriptions(
-    node: &Node,
-    expected: &[TopicId],
-    timeout: Duration,
-) -> Result<(), AwaitError> {
-    let want: std::collections::BTreeSet<TopicId> = expected.iter().cloned().collect();
-    let start = tokio::time::Instant::now();
-    loop {
-        let got: std::collections::BTreeSet<TopicId> =
-            node.effective_subscriptions().into_iter().collect();
         if got == want {
             return Ok(());
         }

@@ -104,7 +104,7 @@ id = "chat"                              # no publishers key = open topic
 | `registered_topics` | `HashMap<TopicId, BTreeSet<PublicKey>>` | **new** — the topic-registry projection: registered topic → authorized publishers (empty = open). Written **only** by `handle_topic_registry_update`. |
 
 New methods:
-- `effective_subscriptions(&self) -> Vec<TopicId>` — the intersection `subscriptions ∩ registered_topics.keys()` (the actual accept-filter), cloned out for a public getter and tests.
+- `subscriptions_snapshot(&self) -> Vec<TopicId>` — the intersection `subscriptions ∩ registered_topics.keys()` (the actual accept-filter), cloned out for the public `Node::subscriptions` getter and tests. (Post-implementation collapse, 2026-06-12: this single snapshot replaced the earlier declared `subscriptions_snapshot` + a separate `effective_subscriptions_snapshot`.)
 - (private accept-path helper) the registered? + authorized? checks consult `registered_topics`.
 
 ## Event (existing public — extended)
@@ -142,8 +142,7 @@ The accept path gains two checks; existing checks/causes are retained. New behav
 | Item | Change |
 |---|---|
 | `Node::new` | **signature change**: adds a generic `topic_registry: Arc<T>` where `T: TopicRegistry` (third registry param after `network: Arc<N>` and `subscription_registry: Arc<R>`, the 008 param renamed from `registry` for symmetry). Spawns a node-owned reader that calls `topic_registry.watch()` and pushes one `Event::TopicRegistryUpdate` per delta; `registered_topics` converges as the burst drains. No fail-fast — an empty registry simply yields no registered topics (and thus no effective subscriptions until topics register). |
-| `Node::effective_subscriptions` | **new** public getter: `fn effective_subscriptions(&self) -> Vec<TopicId>` — sync lock-and-clone snapshot of `subscriptions ∩ registered_topics`. |
-| `Node::subscriptions` | **unchanged** — still returns the membership-derived set (008). Tests/observability distinguish "subscribed (declared)" from "effective (declared ∩ registered)". |
+| `Node::subscriptions` | **changed semantics** (single getter): `fn subscriptions(&self) -> Vec<TopicId>` now returns the **effective accept-filter** `subscriptions ∩ registered_topics` (declared ∩ registered). The declared set + registered-topics projection stay internal-only. Supersedes 008's declared-set semantics; no separate `effective_subscriptions` getter (collapsed post-implementation, 2026-06-12). |
 | `Node::candidates` / `Node::peers` | **unchanged** (008 / config bootstrap). |
 | `NodeError` | **unchanged** — no new variant; construction never fails on an empty/absent topic registry. |
 
@@ -165,7 +164,7 @@ topic-registry.toml ──from_file──► InMemoryTopicRegistry  (shared via 
    subscription registry (008) ──► NodeState.subscriptions ────────┤
                                                                    ▼  (intersect at accept time)
                           handle_signed_message: subscribed? registered? authorized? verify? → record
-                          Node::effective_subscriptions ◄── lock-and-clone ── subscriptions ∩ registered_topics
+                          Node::subscriptions          ◄── lock-and-clone ── subscriptions ∩ registered_topics
 ```
 
 ## Validation rules

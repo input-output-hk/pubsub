@@ -82,10 +82,21 @@ impl NodeState {
         self.received.clone()
     }
 
-    /// Snapshot of the current subscription set (unspecified order).
+    /// Snapshot of the node's subscription set — the actual message
+    /// accept-filter (unspecified order): the topics the node both declared
+    /// (its subscription-list entry) **and** that are registered (legitimate)
+    /// in the topic registry, i.e. `subscriptions ∩ registered_topics`. A
+    /// declared topic that is not a registered topic is excluded (it has no
+    /// effect — traffic on it is dropped). The declared set and the
+    /// registered-topics projection remain separate internal fields; only this
+    /// intersection is observable.
     #[must_use]
     pub(crate) fn subscriptions_snapshot(&self) -> Vec<TopicId> {
-        self.subscriptions.iter().cloned().collect()
+        self.subscriptions
+            .iter()
+            .filter(|topic| self.registered_topics.contains_key(*topic))
+            .cloned()
+            .collect()
     }
 
     /// Snapshot of the candidate peers for `topic` (unspecified order; the
@@ -96,19 +107,6 @@ impl NodeState {
             .get(topic)
             .map(|peers| peers.iter().cloned().collect())
             .unwrap_or_default()
-    }
-
-    /// Snapshot of the **effective** subscription set (unspecified order): the
-    /// subscribed topics that are also registered in the topic registry — the
-    /// actual message accept-filter. A subscribed topic that is not (yet) a
-    /// registered topic is excluded.
-    #[must_use]
-    pub(crate) fn effective_subscriptions_snapshot(&self) -> Vec<TopicId> {
-        self.subscriptions
-            .iter()
-            .filter(|topic| self.registered_topics.contains_key(*topic))
-            .cloned()
-            .collect()
     }
 }
 
@@ -658,7 +656,7 @@ mod tests {
     // US2 / FR-014, SC-003: effective subscriptions = subscriptions ∩ registered.
     // A subscribed topic that is not a registered topic is excluded.
     #[test]
-    fn effective_subscriptions_are_subscribed_intersect_registered() {
+    fn subscriptions_are_subscribed_intersect_registered() {
         let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
         // Topic registry registers only `weather`; membership declares both.
         apply(&mut state, reg_open("weather"));
@@ -667,7 +665,7 @@ mod tests {
             Event::MembershipUpdate(MembershipEvent::joined("self", ["weather", "ghosttopic"])),
         );
         assert_eq!(
-            sorted(state.effective_subscriptions_snapshot()),
+            sorted(state.subscriptions_snapshot()),
             vec![topic("weather")],
             "ghosttopic is subscribed but not registered → excluded",
         );
@@ -722,14 +720,11 @@ mod tests {
             Event::MembershipUpdate(MembershipEvent::joined("self", ["weather"])),
         );
         assert!(
-            state.effective_subscriptions_snapshot().is_empty(),
+            state.subscriptions_snapshot().is_empty(),
             "not registered yet",
         );
         apply(&mut state, reg_open("weather"));
-        assert_eq!(
-            state.effective_subscriptions_snapshot(),
-            vec![topic("weather")],
-        );
+        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")],);
         apply(
             &mut state,
             Event::TopicRegistryUpdate(TopicRegistryEvent::Removed {
@@ -737,7 +732,7 @@ mod tests {
             }),
         );
         assert!(
-            state.effective_subscriptions_snapshot().is_empty(),
+            state.subscriptions_snapshot().is_empty(),
             "removed → no longer effective",
         );
     }
@@ -760,10 +755,7 @@ mod tests {
         }
         // weather stays registered (so still effective); the no-op remove of an
         // unregistered "other" is harmless.
-        assert_eq!(
-            state.effective_subscriptions_snapshot(),
-            vec![topic("weather")],
-        );
+        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")],);
     }
 
     // US3 / FR-015, SC-005: a non-open topic accepts only authorized publishers;

@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_candidates, await_delivery, await_effective_subscriptions, node_sharing, ping};
+use common::{await_candidates, await_delivery, await_subscriptions, node_sharing, ping};
 use pubsub_node::{
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, PeerId,
     SubscriptionRegistryControl, TopicId, TopicRegistryControl,
@@ -56,7 +56,7 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
     let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
 
     // ghosttopic is subscribed but not registered → excluded from the effective set.
-    await_effective_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
+    await_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("only the registered topic is effective");
     // Membership still folds into candidates regardless of the topic registry
@@ -86,7 +86,7 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
         .set_topic(topic("ghosttopic"), BTreeSet::new())
         .await
         .unwrap();
-    await_effective_subscriptions(
+    await_subscriptions(
         &s,
         &[topic("ghosttopic"), topic("weather")],
         Duration::from_secs(1),
@@ -125,7 +125,7 @@ async fn removing_a_topic_stops_acceptance() {
     let s = node_sharing(&subs, &topics, &network, "node-s", &[]).await;
     let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
 
-    await_effective_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
+    await_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("weather effective");
 
@@ -137,7 +137,7 @@ async fn removing_a_topic_stops_acceptance() {
 
     // Remove weather from the topic registry → no longer a legitimate topic.
     topics.remove_topic(topic("weather")).await.unwrap();
-    await_effective_subscriptions(&s, &[], Duration::from_secs(1))
+    await_subscriptions(&s, &[], Duration::from_secs(1))
         .await
         .expect("weather leaves the effective set once removed");
 

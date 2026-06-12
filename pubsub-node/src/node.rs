@@ -32,16 +32,15 @@ use crate::topic_registry::TopicRegistry;
 /// A node carries:
 /// - its own [`PeerId`],
 /// - a static peer set (no peer-set mutation API at this stage),
-/// - a registry-derived subscription set, queryable via
-///   [`subscriptions`](Node::subscriptions) (the declared set) and
-///   [`effective_subscriptions`](Node::effective_subscriptions) (the declared
-///   set intersected with the topic registry's registered topics); the node
-///   holds no API to mutate its own subscriptions (they are folded from the
-///   subscription-registry stream),
+/// - a registry-derived subscription set — the topics it accepts on — queryable
+///   via [`subscriptions`](Node::subscriptions) (the topics it both declared in
+///   its subscription-list entry **and** that are registered in the topic
+///   registry); the node holds no API to mutate it (it is folded from the two
+///   registry streams),
 /// - a queryable record of received messages accessible via
 ///   [`received_messages`](Node::received_messages). A delivery enters this
-///   record only if its topic is effectively subscribed (subscribed **and** a
-///   registered topic), its publisher is authorized for that topic (or the
+///   record only if its topic is subscribed (declared **and** a registered
+///   topic), its publisher is authorized for that topic (or the
 ///   topic is open), and its signature verifies; messages failing any check are
 ///   silently dropped (with an info-level `message_dropped` tracing event
 ///   carrying a `cause`).
@@ -74,9 +73,9 @@ impl Node {
     /// - `topic_registry` ([`TopicRegistry`]), global: which topics are
     ///   legitimately registered and who may publish to each.
     ///
-    /// A message is accepted only if its topic is **effectively subscribed**
-    /// (declared-subscribed **and** registered, see
-    /// [`effective_subscriptions`](Self::effective_subscriptions)), its publisher
+    /// A message is accepted only if its topic is in the node's effective
+    /// subscription set (declared **and** registered, see
+    /// [`subscriptions`](Self::subscriptions)), its publisher
     /// is authorized for the topic (or the topic is open), and its signature
     /// verifies. The node starts with empty derived state and converges as the
     /// cold-start bursts drain; topics do not come from config, and a node with
@@ -250,34 +249,22 @@ impl Node {
             .received_snapshot()
     }
 
-    /// Return a snapshot of this node's subscription set.
+    /// Return a snapshot of this node's subscription set — the topics it
+    /// actually accepts messages on (the accept-filter).
     ///
-    /// The returned `Vec` is built by cloning the subscription set's
-    /// contents under the internal lock; entry order is unspecified
-    /// (set semantics). The set is **derived** from the subscription
-    /// registry (the node's own entry, via the `watch` stream) and the
-    /// node holds no API to mutate it directly; the snapshot is a
-    /// point-in-time view that later registry updates may supersede.
+    /// This is the topics the node both **declared** (its own subscription-list
+    /// entry, folded from the subscription-registry `watch` stream) **and** that
+    /// are **registered** (legitimate) in the topic registry — i.e. the
+    /// intersection. A declared topic that is not a registered topic is excluded
+    /// (the node drops traffic on it). The node holds no API to mutate this; it
+    /// is derived from the two registry streams, and later updates on either
+    /// stream may supersede the snapshot. Entry order is unspecified.
     #[must_use]
     pub fn subscriptions(&self) -> Vec<TopicId> {
         self.state
             .lock()
             .expect("subscriptions: state mutex poisoned")
             .subscriptions_snapshot()
-    }
-
-    /// Return a snapshot of this node's **effective** subscription set — the
-    /// declared subscriptions ([`subscriptions`](Self::subscriptions))
-    /// intersected with the topics registered in the topic registry. This is
-    /// the actual message accept-filter: a declared topic that is not a
-    /// registered (legitimate) topic is excluded. Entry order is unspecified;
-    /// later registry updates (on either stream) may supersede the snapshot.
-    #[must_use]
-    pub fn effective_subscriptions(&self) -> Vec<TopicId> {
-        self.state
-            .lock()
-            .expect("effective_subscriptions: state mutex poisoned")
-            .effective_subscriptions_snapshot()
     }
 }
 

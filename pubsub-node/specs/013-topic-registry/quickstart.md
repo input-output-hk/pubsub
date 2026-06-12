@@ -60,8 +60,8 @@ apply(&mut state, Event::MembershipUpdate(MembershipEvent::Joined {
 }));
 
 // Effective = declared ∩ registered = {weather}. `ghosttopic` is ignored (not registered).
-let mut effective = state.effective_subscriptions(); effective.sort();   // getter returns unordered; sort for a stable assert
-assert_eq!(effective, vec![topic("weather")]);
+let mut subs = state.subscriptions(); subs.sort();          // getter is the effective accept-filter; sort for a stable assert
+assert_eq!(subs, vec![topic("weather")]);
 
 // US3 authorization: open topic accepts any publisher; a non-open topic rejects outsiders.
 apply(&mut state, Event::TopicRegistryUpdate(TopicRegistryEvent::PublishersChanged {
@@ -75,7 +75,7 @@ assert_eq!(state.received_snapshot().len(), 1);
 apply(&mut state, Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
     topic: topic("ghosttopic"), publishers: BTreeSet::new(),
 }));
-assert!(state.effective_subscriptions().contains(&topic("ghosttopic")));
+assert!(state.subscriptions().contains(&topic("ghosttopic")));
 
 // Every apply returns no effects (Effect uninhabited).
 ```
@@ -94,8 +94,8 @@ let b = Node::new(peer("node-b"), cfg(), net.clone(), verifier(), subs.clone(), 
 let c = Node::new(peer("node-c"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;
 
 // Poll to steady state (both registry bursts drained):
-await_effective_subscriptions(&c, &[topic("weather")]).await;   // ghosttopic dropped (not registered) — SC-003
-await_effective_subscriptions(&b, &[topic("sports"), topic("weather")]).await;
+await_subscriptions(&c, &[topic("weather")]).await;   // ghosttopic dropped (not registered) — SC-003
+await_subscriptions(&b, &[topic("sports"), topic("weather")]).await;
 
 // A message on `weather` from k1 is accepted by subscribers; from a non-k1 publisher it is dropped — SC-005.
 a.send(b.id(), signed_on("weather", &signer_k1)).await?;
@@ -108,4 +108,4 @@ a.send(b.id(), signed_on("weather", &signer_k2)).await?;        // k2 unauthoriz
 - Registry module (US1): cold-start burst completeness (SC-001), exactly-once delta (SC-002), idempotent no-op (SC-006), open-vs-removed distinction, `from_file` (duplicate id, bad hex). No `Node`.
 - Pure core (US2/US3): effective-subscription intersection + topic-validity invariant (SC-003), dynamic register/remove (SC-004), publisher authorization incl. open topics (SC-005), no-regression for the valid path (SC-010), every `apply` → empty `Vec<Effect>`.
 - Integration (US4): multi-node convergence over shared `Arc`s with both registries; effective subscriptions per node; accept/drop by publisher; isolation from `peers`/`candidates` (SC-008/SC-009).
-- Assertions are on events / `received_messages()` / `effective_subscriptions()` snapshots — never log content.
+- Assertions are on events / `received_messages()` / `subscriptions()` snapshots — never log content.

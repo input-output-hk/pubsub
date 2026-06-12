@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    await_delivery, await_effective_subscriptions, build_signed_message_simple, node_sharing, ping,
+    await_delivery, await_subscriptions, build_signed_message_simple, node_sharing, ping,
     test_signer,
 };
 use pubsub_node::{
@@ -76,17 +76,17 @@ async fn network_enforces_legitimacy_and_authorization_uniformly() {
     let c = node_sharing(&subs, &topics, &network, "node-c", &["node-b"]).await;
 
     // Per-node effective sets: the registered subset of each subscription entry.
-    await_effective_subscriptions(&a, &[topic("weather")], Duration::from_secs(1))
+    await_subscriptions(&a, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("a effective = {weather}");
-    await_effective_subscriptions(
+    await_subscriptions(
         &b,
         &[topic("sports"), topic("weather")],
         Duration::from_secs(1),
     )
     .await
     .expect("b effective = {sports, weather}");
-    await_effective_subscriptions(&c, &[topic("weather")], Duration::from_secs(1))
+    await_subscriptions(&c, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("c effective = {weather} — ghosttopic is unregistered (SC-003)");
 
