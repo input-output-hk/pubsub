@@ -10,12 +10,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{
-    await_candidates, await_delivery, await_effective_subscriptions, ping, shared_test_verifier,
-};
+use common::{await_candidates, await_delivery, await_effective_subscriptions, node_sharing, ping};
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig,
-    PeerEntry, PeerId, SubscriptionRegistryControl, TopicId, TopicRegistryControl,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, PeerId,
+    SubscriptionRegistryControl, TopicId, TopicRegistryControl,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -24,27 +22,6 @@ fn topic(s: &str) -> TopicId {
 
 fn peer(s: &str) -> PeerId {
     PeerId::from_str(s).expect("valid peer id")
-}
-
-/// Build a node sharing the given registries, with config `peers`.
-async fn node(
-    subs: &Arc<InMemorySubscriptionRegistry>,
-    topics: &Arc<InMemoryTopicRegistry>,
-    network: &Arc<InMemoryNetwork>,
-    id: &str,
-    peers: &[&str],
-) -> Node {
-    let peers = peers.iter().map(|p| PeerEntry { id: peer(p) }).collect();
-    Node::new(
-        peer(id),
-        NodeConfig { peers },
-        network.clone(),
-        shared_test_verifier(),
-        subs.clone(),
-        topics.clone(),
-    )
-    .await
-    .expect("construct node")
 }
 
 // SC-003 + SC-004 + SC-010: a node subscribed to {weather, ghosttopic} with only
@@ -75,8 +52,8 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
         .await
         .unwrap();
 
-    let s = node(&subs, &topics, &network, "node-s", &[]).await;
-    let b = node(&subs, &topics, &network, "node-b", &["node-s"]).await;
+    let s = node_sharing(&subs, &topics, &network, "node-s", &[]).await;
+    let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
 
     // ghosttopic is subscribed but not registered → excluded from the effective set.
     await_effective_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
@@ -145,8 +122,8 @@ async fn removing_a_topic_stops_acceptance() {
         .await
         .unwrap();
 
-    let s = node(&subs, &topics, &network, "node-s", &[]).await;
-    let b = node(&subs, &topics, &network, "node-b", &["node-s"]).await;
+    let s = node_sharing(&subs, &topics, &network, "node-s", &[]).await;
+    let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
 
     await_effective_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
         .await

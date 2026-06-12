@@ -258,6 +258,37 @@ pub async fn node_with(
     node
 }
 
+/// Construct a node sharing the given subscription **and** topic registries,
+/// with config `peers`. Unlike [`node_with`], this seeds **neither** registry —
+/// the caller sets up membership (`set_topics`) and topic registration
+/// (`set_topic`) explicitly, and awaits convergence itself. Used by the
+/// topic-validity and multi-node topic-registry tests, which need a node
+/// subscribed to more (or other) topics than are registered.
+pub async fn node_sharing(
+    registry: &Arc<InMemorySubscriptionRegistry>,
+    topic_registry: &Arc<InMemoryTopicRegistry>,
+    network: &Arc<InMemoryNetwork>,
+    id: &str,
+    peers: &[&str],
+) -> Node {
+    let peers = peers
+        .iter()
+        .map(|p| PeerEntry {
+            id: PeerId::from_str(p).expect("valid peer id"),
+        })
+        .collect();
+    Node::new(
+        PeerId::from_str(id).expect("valid id"),
+        NodeConfig { peers },
+        network.clone(),
+        shared_test_verifier(),
+        registry.clone(),
+        topic_registry.clone(),
+    )
+    .await
+    .expect("construct node")
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AwaitError {
     #[error("timed out after {0:?} waiting for delivery")]
