@@ -1,4 +1,4 @@
-# ADR 0017: Connection-selection strategy seam
+# ADR 0018: Connection-selection strategy seam
 
 **Status**: Accepted
 **Date**: 2026-06-12

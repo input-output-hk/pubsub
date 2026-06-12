@@ -1,4 +1,4 @@
-# ADR 0018: Graceful shutdown lifecycle (amends ADR 0012's teardown story)
+# ADR 0019: Graceful shutdown lifecycle (amends ADR 0012's teardown story)
 
 **Status**: Accepted
 **Date**: 2026-06-12

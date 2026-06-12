@@ -1,4 +1,4 @@
-# ADR 0016: Key-backed peer identity and signed connection control messages
+# ADR 0017: Key-backed peer identity and signed connection control messages
 
 **Status**: Accepted
 **Date**: 2026-06-12

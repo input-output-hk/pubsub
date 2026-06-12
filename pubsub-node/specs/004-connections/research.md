@@ -50,7 +50,7 @@ files — kills fixture readability, the very property the alias scheme preserve
 (c) keeping `PeerId(String)` plus a separate key field in control messages — two
 unanchored identity concepts, ripped out at real crypto. The `FromStr`/`Display`
 alias rule is explicitly the mock-stage wire/file format; real crypto (feature 011)
-replaces both ends with a real encoding in one place. ADR 0016 records this.
+replaces both ends with a real encoding in one place. ADR 0017 records this.
 
 ## R3 — Control-message shape
 
@@ -109,7 +109,7 @@ the deny-path package — the ROADMAP-justified forward shape).
 **Alternatives considered**: per-action send effects (`SendRequest`/`SendAccepted`/…)
 — three executor arms doing the same thing; rejected as noise. A `Shutdown` effect
 instead of shell-side loop break — the break is loop lifecycle, not state semantics;
-ADR 0018 records the carve-out.
+ADR 0019 records the carve-out.
 
 ## R5 — Strategy seam
 
@@ -132,7 +132,7 @@ beside the verifier — same precedent (the immutable service handle a transitio
 consults), keeps `apply`'s signature unchanged, and the strategy is reachable from
 the `ConnectionSetup` arm without threading parameters. `Node::new` takes it as a
 new parameter (`Arc<dyn ConnectionStrategy>` — sync trait, dyn-compatible, matching
-`Arc<dyn Verifier>`). ADR 0017 records the seam.
+`Arc<dyn Verifier>`). ADR 0018 records the seam.
 
 **Alternatives considered**: threading the strategy into `apply` as a parameter —
 changes the transition signature every feature that adds a service; a generic
@@ -181,7 +181,7 @@ the event loop executes the effects then `break`s when the drained event was
 `JoinError`, and lets `self` drop (producers aborted as today). `Drop` itself is
 unchanged. The effect executor needs the network send half inside the loop task: the
 loop closure captures a clone of the handle's crate-internal `NetworkSender` (it is
-`Clone`; a small `NetworkHandle::sender()` `pub(crate)` accessor exposes it). ADR 0018.
+`Clone`; a small `NetworkHandle::sender()` `pub(crate)` accessor exposes it). ADR 0019.
 
 ## R9 — Test identity and script builders
 

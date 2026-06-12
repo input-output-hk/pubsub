@@ -3,7 +3,7 @@
 The agreed input text passed to the `/speckit-plan` command, preserved byte-for-byte
 per the project's verbatim-input convention (collaborators review this as the agreed
 record; the derived artifacts are plan.md, research.md, data-model.md, contracts/,
-quickstart.md, and ADRs 0016–0018).
+quickstart.md, and ADRs 0017–0019).
 
 ---
 

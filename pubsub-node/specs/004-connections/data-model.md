@@ -10,7 +10,7 @@ mandates; every transition shown traces to a spec FR or edge case.
 
 | Aspect | Value |
 |---|---|
-| Representation | newtype over `PublicKey` (was `String`) — research R2, ADR 0016 |
+| Representation | newtype over `PublicKey` (was `String`) — research R2, ADR 0017 |
 | String form | mock-stage **alias rule**: `FromStr` derives the key from the alias (`derive_public(PrivateKey(alias bytes))` after the existing non-empty / no-NUL validation); `Display` renders the alias back (UTF-8 prefix when the bytes end with the mock public suffix), hex otherwise |
 | Equality/Hash | byte equality of the key (derived) |
 | Distinctness | `PublisherId` remains a separate newtype over the same key type (role distinction, `message.rs`) |
@@ -60,7 +60,7 @@ struct ConnectToAllCandidates;   // v1: every candidate of every own topic
 ```
 
 Pure and synchronous; consulted only from the `ConnectionSetup` arm of `apply`;
-applied by the FR-007 diff (never removes). ADR 0017.
+applied by the FR-007 diff (never removes). ADR 0018.
 
 ### 1.5 Events and effects
 
@@ -151,6 +151,7 @@ deferral entry that will record it (N-new identifiers assigned at implementation
 | S4 | Own-topic drift | Node's own registered topics shrink after establishment; reconciliation deferred — `Active` connections for the dropped topic persist on both ends | Senders keep sending; recipient's subscription filter drops (`topic_not_subscribed`) — protected, never misbehavior (FR-017/018) | Registry-driven re-scoping at 012 | EC via FR-017 note, Assumptions; existing deferral (ADR 0014's re-scoping note) |
 | S5 | Peer-membership drift (both roles) | Candidates shrink between setups; held pairs no longer expected are left untouched (FR-007). Acceptor-side mirror: a downstream entry for a since-removed member is kept when its re-dial fails re-validation (FR-012) or when no re-dial occurs | Entries persist for ex-members in either role; payload from them still admitted while `Active` (severance only via misbehavior/Terminated) | Removal at dynamic transitions (re-selection with drops) | EC "repeated setup event", EC "duplicate connection request"; N-new(dynamic) |
 | S6 | Misbehavior asymmetry | Severance removes the receiver's upstream entry only and is silent | Offender keeps its `downstream` and keeps sending into `not_connected` drops | Blacklist package (notice-less by design even then) | US3-2; N-new(misbehavior package) |
+| S7 | Connections on unregistered/deregistered topics | Acceptance validates membership only (FR-012, revisit-flagged); cross-registry event ordering not guaranteed by the mocks, and topic removal does not cascade into membership | Connections establish and persist on topics the registry does not recognize (incl. a topic deregistered for a compromised publisher key); their payload delivers nothing (013's `topic_not_registered` gate) | The proposed cross-registry chain-order invariant (013 PR comment) making membership ⊆ registered structural; failing that, registration check added to acceptance or removal cascade | EC "Request for a topic not (or no longer) registered"; Clarifications 2026-06-12; N-new(acceptance-vs-registered) |
 
 Reading the catalog: every stale state **admits no traffic it shouldn't** — stale
 entries only ever *admit* (S2/S5's `Active` upstreams) or *send into drops* (S4/S6);
@@ -161,7 +162,7 @@ staleness costs memory and wasted sends, never correctness of the received recor
 
 | Input | Checks, in order | On failure |
 |---|---|---|
-| Payload (`Message::Signed`) | ① frame sender holds `Active` upstream for topic (FR-016) ② topic subscribed ③ signature verifies | ① `not_connected` drop ② `topic_not_subscribed` drop ③ `invalid_signature` drop **+ severance iff ① and ② passed** (FR-017) |
+| Payload (`Message::Signed`) | ① frame sender holds `Active` upstream for topic (FR-016) ② topic subscribed ③ topic registered (013) ④ publisher authorized (013) ⑤ signature verifies | ① `not_connected` drop ② `topic_not_subscribed` drop ③ `topic_not_registered` drop ④ `publisher_not_authorized` drop ⑤ `invalid_signature` drop **+ severance iff ①–④ passed** (FR-017) |
 | Any control message | ① carried emitter ≠ self (FR-015) ② signature verifies over `plain.signed_bytes()` (FR-011/015) | `self_emitter` / `invalid_signature` drop; no state change |
 | `Request` | ③ topic ∈ own subscriptions AND emitter ∈ candidates[topic] (FR-012) | `membership_validation_failed` drop; no reply |
 | `Accepted` | ③ matching `AwaitingAccept` entry exists (FR-013) | `unsolicited_accept` drop |

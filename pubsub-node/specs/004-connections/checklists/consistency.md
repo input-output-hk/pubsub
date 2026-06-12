@@ -2,7 +2,7 @@
 
 **Purpose**: Validate artifact consistency and architectural fidelity of the plan-phase
 outputs (plan.md, plan-input.md, research.md, data-model.md, contracts/, quickstart.md,
-ADRs 0016–0018) against the converged spec, before `/speckit-tasks`. This checklist
+ADRs 0017–0019) against the converged spec, before `/speckit-tasks`. This checklist
 tests the *artifacts*, not the implementation (which does not exist yet); where an
 artifact claims a fact about existing code, the check is that the claim is verified
 against source, per the Development Workflow's spec-fidelity rule.
@@ -16,19 +16,19 @@ against source, per the Development Workflow's spec-fidelity rule.
 - [x] CHK001 - Is every functional requirement FR-001..FR-028 discharged by at least one statement in plan.md, research.md, data-model.md, or contracts/ (no orphan FR)? [Traceability, Spec FR-001..028]
   _Verified 2026-06-12: FR-by-FR walk — all 28 discharged. FR-022's event-intake clause initially lacked a contracts anchor → finding F2, fixed (contracts §4 "Unchanged but consumed"). Unchanged behaviors (FR-023 send) intentionally carry no delta entry._
 - [x] CHK002 - Is every Clarifications-session decision reflected in a planning artifact, with no planning statement contradicting a clarified answer? [Consistency, Spec Clarifications]
-  _Verified 2026-06-12: each session entry mapped — check order → R7/data-model §4; notice scope → R8/ADR 0018; restart staleness → S2/S3; membership validation → R-/contracts §2; emitter → R3/contracts §1.2; coherence → R1; delay default → R6; diff-reprocess + re-dial → R5/data-model §2.1. No contradictions found._
+  _Verified 2026-06-12: each session entry mapped — check order → R7/data-model §4; notice scope → R8/ADR 0019; restart staleness → S2/S3; membership validation → R-/contracts §2; emitter → R3/contracts §1.2; coherence → R1; delay default → R6; diff-reprocess + re-dial → R5/data-model §2.1. No contradictions found._
 - [x] CHK003 - Does the planned diff rule match the clarified semantics exactly — missing pair → entry + Request; AwaitingAccept → entry kept, re-dialed; Active → untouched; expected-set membership never removes? [Consistency, Spec FR-007; research R5; data-model §2.1]
-  _Verified 2026-06-12: all four clauses present and identical in plan-input, ADR 0017 §2, and the §2.1 re-dial self-loop._
+  _Verified 2026-06-12: all four clauses present and identical in plan-input, ADR 0018 §2, and the §2.1 re-dial self-loop._
 - [x] CHK004 - Is membership-validated, idempotent acceptance (re-validation on duplicates; silent drop with no reply on failure) stated identically in spec FR-012, contracts §2, and data-model §2.2? [Consistency]
   _Verified 2026-06-12: contracts §2 Request row and §2.2's re-validated self-loop both carry re-validation + silent-drop-no-reply; wording aligned with FR-012._
 - [x] CHK005 - Is the unset-by-default setup delay carried through every artifact — optional config field, no timer producer when unset, public-intake injection named as the scripted path — with no artifact implying a numeric default exists? [Consistency, Spec FR-006; research R6; contracts §4]
-  _Verified 2026-06-12: R6, contracts §4 ("absent by default"), data-model §1.6, ADR 0017 §3, quickstart §1–2, plan technical context — all unset-by-default; no numeric default anywhere._
+  _Verified 2026-06-12: R6, contracts §4 ("absent by default"), data-model §1.6, ADR 0018 §3, quickstart §1–2, plan technical context — all unset-by-default; no numeric default anywhere._
 - [x] CHK006 - Are the two identity rules kept uncontaminated everywhere — control handling (self-check, validation, entry keying, reply addressing) on the carried emitter; payload connection check on the transport's delivering peer? [Consistency, Spec FR-011/FR-016; contracts §1.2; data-model §4]
-  _Verified 2026-06-12: contracts §1.2 states both rules with the publisher-identity rationale; data-model §4 splits the rows accordingly; ADR 0016 §4 records the asymmetry; no artifact mixes the sources._
+  _Verified 2026-06-12: contracts §1.2 states both rules with the publisher-identity rationale; data-model §4 splits the rows accordingly; ADR 0017 §4 records the asymmetry; no artifact mixes the sources._
 - [x] CHK007 - Is misbehavior severance scoped, in every artifact that mentions it, to signature failures that passed the connection and subscription checks — never to control messages or earlier-check drops? [Consistency, Spec FR-017/018; research R7]
   _Verified 2026-06-12: data-model §4 payload row ("severance iff ① and ② passed") and control row (drop only); R7; contracts §2-3; quickstart §4 — uniformly scoped._
 - [x] CHK008 - Do all shutdown-notice statements cover every entry in both structures including AwaitingAccept upstreams (no artifact narrowing to "Active" or "live")? [Consistency, Spec FR-020]
-  _Verified 2026-06-12: R8 "per entry regardless of state"; ADR 0018 "both roles, any state"; contracts §2 same; no "live"-narrowed wording remains in plan artifacts._
+  _Verified 2026-06-12: R8 "per entry regardless of state"; ADR 0019 "both roles, any state"; contracts §2 same; no "live"-narrowed wording remains in plan artifacts._
 - [x] CHK009 - Are the spec's scope boundaries (FR-026..028) mirrored as absent surface in contracts §4 and absent transitions in the data-model state machines (no planned artifact smuggling in fan-out, dynamics, or transport change)? [Consistency, Spec FR-026..028]
   _Verified 2026-06-12: contracts §4 "Explicitly absent" lists all three boundary groups; state machines contain no fan-out/reconnect/GC transitions; pass-1's F2 subsection adds no new surface (re-checked in pass 2)._
 
@@ -49,15 +49,15 @@ against source, per the Development Workflow's spec-fidelity rule.
 
 ## ADR Soundness
 
-- [x] CHK016 - Do ADRs 0016/0017/0018 each record the decision, consequences, and alternatives-with-rejection-reasons, consistent with research R1–R10 (no ADR↔research divergence)? [Consistency, ADR 0016–0018]
+- [x] CHK016 - Do ADRs 0017/0018/0019 each record the decision, consequences, and alternatives-with-rejection-reasons, consistent with research R1–R10 (no ADR↔research divergence)? [Consistency, ADR 0018–0019]
   _Verified 2026-06-12: 0016↔R1/R2/R3, 0017↔R5/R6, 0018↔R8 — decisions and alternatives match; every alternative carries a rejection reason._
-- [x] CHK017 - Is ADR 0018's loop-break carve-out explicit, with its boundary stated (loop lifecycle vs event semantics) and named as the single sanctioned exception? [Clarity, ADR 0018]
+- [x] CHK017 - Is ADR 0019's loop-break carve-out explicit, with its boundary stated (loop lifecycle vs event semantics) and named as the single sanctioned exception? [Clarity, ADR 0019]
   _Verified 2026-06-12: 0018 §2 "Carve-out, recorded" paragraph states boundary and single-exception status verbatim._
-- [x] CHK018 - Does ADR 0016 record the alias rule as mock-stage, with the real-crypto swap point identified (FromStr/Display + mock scheme only)? [Completeness, ADR 0016]
+- [x] CHK018 - Does ADR 0017 record the alias rule as mock-stage, with the real-crypto swap point identified (FromStr/Display + mock scheme only)? [Completeness, ADR 0017]
   _Verified 2026-06-12: 0016 §2 closes with the feature-011 swap-point paragraph._
-- [x] CHK019 - Is every forward-compatible shape in ADR 0017 justified by a named ROADMAP consumer (006 policies, 007 golden mode) rather than speculative generality? [Traceability, ADR 0017]
+- [x] CHK019 - Is every forward-compatible shape in ADR 0018 justified by a named ROADMAP consumer (006 policies, 007 golden mode) rather than speculative generality? [Traceability, ADR 0018]
   _Verified 2026-06-12: 0017 names 006/007 in context and consequences; sources cite the ROADMAP entries._
-- [x] CHK020 - Is ADR 0018 explicitly marked as amending ADR 0012, stating what stands (drop-abort) and what is extended (the graceful path)? [Consistency, ADR 0018]
+- [x] CHK020 - Is ADR 0019 explicitly marked as amending ADR 0012, stating what stands (drop-abort) and what is extended (the graceful path)? [Consistency, ADR 0019]
   _Verified 2026-06-12: amendment in the title; context + decision state Drop unchanged / graceful path added._
 
 ## Contract Accuracy
@@ -66,8 +66,8 @@ against source, per the Development Workflow's spec-fidelity rule.
   _Verified 2026-06-12: parameter list and order identical in contracts §4 and quickstart §1; coherence-before-registration stated in both contracts §4 and R1/plan row 1._
 - [x] CHK022 - Is every claim about existing code verified against source rather than assumed — `Signer::public_key` present (crypto/mod.rs), `EventQueue::push` silent on closed queue (event.rs), `NetworkSender: Clone` (network.rs), `Event`/`Message` non_exhaustive? [Traceability, contracts; Development Workflow spec-fidelity rule]
   _Verified 2026-06-12 against source this pass: `Signer::public_key` (crypto/mod.rs trait), `EventQueue::push` silent-on-closed doc+impl (event.rs), `#[derive(Clone)] NetworkSender` (network.rs), `#[non_exhaustive]` on `Event` (event.rs) and `Message` (message.rs), `Node`'s `Drop` impl (node.rs) for the no-destructure claim._
-- [x] CHK023 - Is the PeerId reshape described consistently everywhere — key-backed, `as_str` removed, FromStr/Display alias rule with round-trip, serde string forms unchanged at file level? [Consistency, research R2; ADR 0016; contracts §1.2/§4]
-  _Verified 2026-06-12: R2, ADR 0016 §2, contracts §1.2 + §4 Changed, quickstart §1 — same four facts everywhere, round-trip stated in R2 and 0016._
+- [x] CHK023 - Is the PeerId reshape described consistently everywhere — key-backed, `as_str` removed, FromStr/Display alias rule with round-trip, serde string forms unchanged at file level? [Consistency, research R2; ADR 0017; contracts §1.2/§4]
+  _Verified 2026-06-12: R2, ADR 0017 §2, contracts §1.2 + §4 Changed, quickstart §1 — same four facts everywhere, round-trip stated in R2 and 0016._
 - [x] CHK024 - Is the re-export delta stated once as a complete list (contracts §4), with no other artifact naming a public item that list omits? [Completeness, contracts §4]
   _Verified 2026-06-12: quickstart's imports ⊆ existing exports + the contracts §4 Added list; `NodeError::IdentityMismatch` correctly appears under Changed (variant, not re-export)._
 - [x] CHK025 - Is the config field named and typed identically everywhere (TOML `connection_setup_delay_ms: Option<u64>` → parsed `Option<Duration>`)? [Consistency, research R6; contracts §4; plan.md]
@@ -86,7 +86,7 @@ against source, per the Development Workflow's spec-fidelity rule.
 - [x] CHK030 - Is parsing for the new config field confined to the loader, with the core taking the already-parsed `Option<Duration>`? [Consistency, Constitution: parse at the edge]
   _Verified 2026-06-12: R6 and plan structure place the conversion in config.rs; NodeConfig carries the parsed Option<Duration>._
 - [x] CHK031 - Is each forward-compatible shape (`#[non_exhaustive] ConnectionAction`, the strategy trait, `Effect::Misbehaved`) justified by a named consumer (deny-path package, ROADMAP 006/007, blacklist package)? [Traceability, Constitution: forward-compatible interfaces]
-  _Verified 2026-06-12: R3 (deny-path package), ADR 0017 (006/007), R4 (blacklist package) — each shape names its consumer._
+  _Verified 2026-06-12: R3 (deny-path package), ADR 0018 (006/007), R4 (blacklist package) — each shape names its consumer._
 - [x] CHK032 - Is declarative test construction planned for every multi-step scenario (ConnectionScript beside its types; tests/common establishment helpers), per constitution v1.2.0? [Completeness, Constitution: declarative test construction]
   _Verified 2026-06-12: R9 plans ConnectionScript (sibling of MembershipScript) + tests/common preamble helpers; quickstart §6 demonstrates the script shape._
 

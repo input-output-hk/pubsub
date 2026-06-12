@@ -12,14 +12,14 @@ fan-out destinations) as a set — established autonomously by an injected
 connection-selection strategy on a setup event (optional one-shot timer, unset by
 default, or public-intake injection), torn down by signed control messages and a new
 consuming `shutdown`. The receive path becomes connection-gated (connection →
-subscription → signature, severing silently on invalid signatures over Active
+subscription → registration/authorization (013) → signature, severing silently on invalid signatures over Active
 upstreams), `PeerId` becomes key-backed (the `PublisherId` pattern, with a mock-stage
 alias rule preserving readable fixtures/logs), and the `Effect` type gains its first
 inhabitants. Everything dynamic (re-selection, GC, deny path, blacklist, liveness)
 stays deferred and is catalogued as documented stale states.
 
-Technical approach per `research.md` R1–R10 and ADRs 0016 (key-backed identity +
-signed control messages), 0017 (strategy seam), 0018 (shutdown lifecycle): all
+Technical approach per `research.md` R1–R10 and ADRs 0017 (key-backed identity +
+signed control messages), 0018 (strategy seam), 0019 (shutdown lifecycle): all
 decisions land in the pure core (`state.rs` arms with named handlers), the shell
 gains only the setup-timer producer, the effect executor (a `NetworkSender` clone in
 the loop task), and `shutdown`'s await-the-loop mechanics.
@@ -60,7 +60,7 @@ per topic is N−1 connections per node per role
 Tracking entries needed).*
 
 - **I. Correctness Over Optimization — ✅** Every behavior traces: spec FR-001..028 +
-  Clarifications; research R1–R10; ADRs 0016/0017/0018; data-model state machines map
+  Clarifications; research R1–R10; ADRs 0017/0018/0019; data-model state machines map
   transitions to FRs; the staleness catalog maps every deliberate gap to its spec edge
   case and deferral.
 - **II. Test-Driven for Correctness Claims — ✅ (TDD required)** Connection lifecycle,
@@ -70,8 +70,8 @@ Tracking entries needed).*
   SC-006 (every transition reachable by feeding events, no timers) is the test-shape
   contract.
 - **III. Document Structural Decisions as ADRs — ✅** Authored with this plan:
-  ADR 0016 (key-backed `PeerId` + signed control messages), ADR 0017 (strategy seam +
-  setup producer), ADR 0018 (shutdown lifecycle, amends 0012 with a recorded
+  ADR 0017 (key-backed `PeerId` + signed control messages), ADR 0018 (strategy seam +
+  setup producer), ADR 0019 (shutdown lifecycle, amends 0012 with a recorded
   loop-break carve-out). Tactical choices (names, causes, module layout) are recorded
   in research.md/contracts and exempt.
 - **IV. Specifications as Ambiguity Detectors — ✅** Ambiguities were surfaced and
@@ -117,9 +117,9 @@ specs/004-connections/
 └── tasks.md             # Phase 2 (/speckit-tasks — not created by this command)
 
 docs/decisions/
-├── 0016-key-backed-peer-identity-and-signed-connection-control.md
-├── 0017-connection-selection-strategy-seam.md
-└── 0018-graceful-shutdown-lifecycle.md
+├── 0017-key-backed-peer-identity-and-signed-connection-control.md
+├── 0018-connection-selection-strategy-seam.md
+└── 0019-graceful-shutdown-lifecycle.md
 ```
 
 ### Source Code (repository root: `pubsub-node/`)
@@ -152,6 +152,8 @@ tests/
 ├── two_node_ping.rs     # reworked: establishment preamble (not parity-preserving)
 ├── topic_filter.rs      # reworked: same
 ├── n_node_graph.rs      # reworked: same; full-graph assertions (SC-001)
+├── topic_validity.rs    # reworked: 013 suite — gains establishment preambles
+├── topic_registry_network.rs  # reworked: 013 suite — same
 ├── candidate_set.rs     # touched only where PeerId construction changes
 ├── config_loading.rs    # + connection_setup_delay_ms cases
 └── connections.rs       # NEW: lifecycle integration (handshake, misbehavior, shutdown,
@@ -167,23 +169,37 @@ keeping `state.rs` focused on the transition arms (mirrors how
 
 | # | Decision | Where recorded |
 |---|---|---|
-| 1 | Coherence check before registration via existing `Signer::public_key()`; `NodeError::IdentityMismatch` | R1, ADR 0016, contracts §4 |
-| 2 | `PeerId(PublicKey)` + alias `FromStr`/`Display` rule; `as_str` removed | R2, ADR 0016 |
-| 3 | `Message::Connection` plain/signed split; tags 0x00/0x01/0x02; `#[non_exhaustive]` action enum | R3, ADR 0016, contracts §1 |
+| 1 | Coherence check before registration via existing `Signer::public_key()`; `NodeError::IdentityMismatch` | R1, ADR 0017, contracts §4 |
+| 2 | `PeerId(PublicKey)` + alias `FromStr`/`Display` rule; `as_str` removed | R2, ADR 0017 |
+| 3 | `Message::Connection` plain/signed split; tags 0x00/0x01/0x02; `#[non_exhaustive]` action enum | R3, ADR 0017, contracts §1 |
 | 4 | Events `ConnectionSetup`/`Shutdown`; control dispatch inside `MessageReceived`; `Effect::{Send, Misbehaved}` | R4 |
-| 5 | `ConnectionStrategy` sync trait, `Arc<dyn>` on `NodeState` beside the verifier; diff in `apply` | R5, ADR 0017 |
-| 6 | `connection_setup_delay_ms: Option<u64>` TOML → `Option<Duration>`; timer = third owned producer, only when set | R6, ADR 0017 |
-| 7 | Receive order connection→subscription→signature; severance at signature step; cause vocabulary fixed | R7, contracts §3, data-model §4 |
-| 8 | `shutdown(self)` awaits the loop; Shutdown event = terminal marker (recorded carve-out); executor holds `NetworkSender` clone | R8, ADR 0018 |
+| 5 | `ConnectionStrategy` sync trait, `Arc<dyn>` on `NodeState` beside the verifier; diff in `apply` | R5, ADR 0018 |
+| 6 | `connection_setup_delay_ms: Option<u64>` TOML → `Option<Duration>`; timer = third owned producer, only when set | R6, ADR 0018 |
+| 7 | Receive order: connection gate first, then the merged chain (subscription→topic-registered→publisher-authorized→signature) unchanged; severance at the signature step only; cause vocabulary fixed | R7, contracts §3, data-model §4 |
+| 8 | `shutdown(self)` awaits the loop; Shutdown event = terminal marker (recorded carve-out); executor holds `NetworkSender` clone | R8, ADR 0019 |
 | 9 | `keypair_from_alias` + `ConnectionScript` + `tests/common` establishment helpers | R9 |
 | 10 | Severance log `connection_severed` (warn); drops via `message_dropped` | R10, contracts §3 |
+
+## Post-013 reconciliation (2026-06-12)
+
+Feature 013 (topic registry) merged to `main` after this plan converged; the
+reconciliation pass updated this plan and its siblings in place: ADRs renumbered
+0016/0017/0018 → **0017/0018/0019** (013 holds 0016); the `Node::new` baseline gains
+the topic-registry parameter (contracts §4); the receive chain enumeration names the
+merged checks (decision row 7; severance stays signature-only); the two 013 suites
+join the rework list; and connection acceptance deliberately validates the
+membership-derived set only — revisit-flagged pending the cross-registry
+event-ordering invariant raised on the 013 PR (spec Clarifications 2026-06-12,
+staleness catalog S7). `plan-input.md` is the pre-merge verbatim record and is
+intentionally untouched.
 
 ## Post-plan obligations carried to /speckit-tasks (not done here)
 
 - `IMPLEMENTATION_NOTES.md`: mark N-002 and N-006 resolved by this feature; add the
-  four new deferral entries (stale-AwaitingAccept GC; Active-connection liveness at
-  009; identity-binding hardening at real crypto; misbehavior follow-ups package) —
-  each cross-referencing the data-model staleness catalog rows.
+  five new deferral entries (stale-AwaitingAccept GC; Active-connection liveness at
+  009; identity-binding hardening at real crypto; misbehavior follow-ups package;
+  acceptance-vs-registered-topics revisit, S7) — each cross-referencing the
+  data-model staleness catalog rows.
 - `specs/event-loop-and-registry-contract.md` §1.3 supersession note (per-connection
   producers deferred to a real connection-oriented transport).
 - Rustdoc refresh: `Node`'s doc block still references the removed

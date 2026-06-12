@@ -10,11 +10,13 @@ use std::sync::Arc;
 use std::str::FromStr;
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry,
-    MockCryptoScheme, Node, NodeConfig, PeerId, SubscriptionRegistryControl, TopicId,
+    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeConfig, PeerId,
+    SubscriptionRegistryControl, TopicId, TopicRegistryControl,
 };
 
 let network  = Arc::new(InMemoryNetwork::new());
 let registry = Arc::new(InMemorySubscriptionRegistry::new());
+let topics   = Arc::new(InMemoryTopicRegistry::new());
 let scheme   = MockCryptoScheme::with_seed([0u8; 32]);
 
 // Alias identities: PeerId::from_str("a") and keypair_from_alias("a") agree by
@@ -24,8 +26,10 @@ let kp_b = scheme.keypair_from_alias("b");
 let id_a = PeerId::from_str("a")?;
 let id_b = PeerId::from_str("b")?;
 
-// Both registered for topic t in the subscription registry (the source of truth).
+// Topic t registered in the topic registry (open topic: empty publisher set), and
+// both nodes registered for it in the subscription registry (the source of truth).
 let t = TopicId::from_str("t")?;
+topics.set_topic(t.clone(), Default::default()).await?;
 registry.set_topics(id_a.clone(), [t.clone()].into()).await?;
 registry.set_topics(id_b.clone(), [t.clone()].into()).await?;
 
@@ -34,6 +38,7 @@ let node_a = Node::new(
     Arc::new(scheme.signer(kp_a.private)),         // the node's signing identity
     Arc::new(scheme.verifier()),
     Arc::clone(&registry),
+    Arc::clone(&topics),                           // topic registry (013)
     Arc::new(ConnectToAllCandidates),              // v1 selection policy
 ).await?;
 let node_b = Node::new(
@@ -41,6 +46,7 @@ let node_b = Node::new(
     Arc::new(scheme.signer(kp_b.private)),
     Arc::new(scheme.verifier()),
     Arc::clone(&registry),
+    Arc::clone(&topics),
     Arc::new(ConnectToAllCandidates),
 ).await?;
 ```

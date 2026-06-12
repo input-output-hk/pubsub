@@ -58,7 +58,8 @@ Establishment is initiated only by the setup event (optional one-shot timer, uns
 by default, or external injection through the public event intake), applied as a
 diff: dial everything expected that is not `Active` (pending pairs are re-dialed;
 nothing is ever removed by selection). Misbehavior severance (invalid payload
-signature over an `Active` upstream, having passed the subscription filter) removes
+signature over an `Active` upstream, having passed every earlier check — subscription,
+topic registration, publisher authorization) removes
 the upstream entry silently — no `Terminated` is sent. Graceful shutdown sends one
 `Terminated` per held entry, both roles, any state.
 
@@ -73,6 +74,8 @@ never a test surface.
 |---|---|
 | `not_connected` | payload from a sender without an Active upstream for its topic |
 | `topic_not_subscribed` | (existing) admitted-connection payload outside the subscription set |
+| `topic_not_registered` | (existing, 013) admitted-connection payload on a topic absent from the topic registry |
+| `publisher_not_authorized` | (existing, 013) admitted-connection payload whose publisher key is not in the topic's authorized set |
 | `invalid_signature` | (existing value) payload or control message failing verification |
 | `membership_validation_failed` | Request failing the membership gate |
 | `unsolicited_accept` | Accepted with no matching pending entry |
@@ -86,8 +89,8 @@ never a test surface.
 - `PeerId`: now wraps a public key; `as_str()` **removed**; `FromStr`/`Display`
   follow the alias rule; serde formats unchanged at the file level (strings in,
   strings out).
-- `Node::new(self_id, config, network, verifier, registry)` →
-  `Node::new(self_id, config, network, signer, verifier, registry, strategy)`:
+- `Node::new(self_id, config, network, verifier, subscription_registry, topic_registry)` →
+  `Node::new(self_id, config, network, signer, verifier, subscription_registry, topic_registry, strategy)`:
   - `signer: Arc<dyn Signer>` — the node's signing identity; construction fails
     (typed `NodeError::IdentityMismatch`, no background activity) when
     `self_id` does not match `signer.public_key()`. Checked before network
