@@ -127,3 +127,30 @@ Targeted pass over pass 1's own edits: the broadened S5 row remains consistent w
 FR-007/FR-012 and distinct from S3; the contracts "Unchanged but consumed" subsection
 adds no new surface (CHK009 unaffected). Zero findings — checklist converged
 (2 → 0).
+
+## Pass 3 — 2026-06-12 (post-013 reconciliation delta walk)
+
+Feature 013 merged after passes 1–2; the reconciliation commit (ADR renumber
+0017–0019, merged-chain enumeration, constructor baseline, S7, T-edits) re-opens the
+affected items. Delta walk:
+
+- CHK001/CHK013/CHK014: _Re-verified — the new edge case ↔ S7 ↔ T029's fifth deferral
+  chain is complete; FR-016/017/018 changes consistent._ One finding: **F3 — the S7
+  decision (accept despite unregistered topic) lacked a regression pin** (the C1
+  lesson: deliberate-by-construction behavior needs an explicit test).
+  _Fixed 2026-06-12: T010 gains the acceptance-succeeds-for-unregistered-topic pin._
+- CHK007/CHK033: _Re-verified — severance scope reads "every earlier check" uniformly
+  (spec FR-017, contracts §2, data-model §4, R7, T021); the cause table gains the two
+  013 rows identically in contracts §3 (canonical) and R7._
+- CHK016–CHK020: _Re-verified — ADR references uniformly 0017/0018/0019; item texts
+  updated by the renumber; 013's ADR 0016 untouched._
+- CHK021/CHK025/CHK026: _Re-verified — the 8-parameter constructor identical across
+  contracts §4, T012, quickstart; config field unchanged._
+- CHK022: _Re-verified against source — `TopicRegistryControl::set_topic`/`remove_topic`
+  signatures, `InMemoryTopicRegistry::new`, and the lib.rs re-exports match the
+  quickstart's new calls (topic_registry/mod.rs, in_memory.rs, lib.rs)._
+- CHK035/CHK036: _Re-verified — plan-input.md and the spec Input untouched by the
+  reconciliation (pre-merge verbatim records); the historical round-1 clarify entry
+  retains its pre-013 wording by design (superseded by the 2026-06-12 session)._
+
+Trajectory: 2 → 0 → 1 (reconciliation-induced) → fixed in-pass.

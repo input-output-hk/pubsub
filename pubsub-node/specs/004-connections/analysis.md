@@ -121,3 +121,33 @@ pre-implementation analysis converged.** Next analyze obligation: the
 post-implementation pass verifying artifact claims against the code (Development
 Workflow spec-fidelity rule; carried by tasks T032/T033 plus a closing analyze
 session).
+
+## Session 4 — 2026-06-12 (post-013 reconciliation re-convergence)
+
+External change: feature 013 (topic registry) merged to `main` after Session 3; the
+branch was rebased and a reconciliation commit updated the artifacts (ADRs renumbered
+0017/0018/0019; merged receive chain enumerated in FR-016/017/018; `Node::new`
+baseline + quickstart + T012/T015/T019 absorb the topic-registry parameter and suites;
+new edge case + staleness row S7 + fifth T029 deferral for the revisit-flagged
+membership-only acceptance decision — maintainer-decided, rationale in spec
+Clarifications 2026-06-12 referencing the cross-registry ordering invariant raised on
+the 013 PR).
+
+Re-convergence walk over the reconciliation's edit surface plus a broad re-scan:
+
+- [x] **R1** — Coverage — **LOW** — the S7 decision lacked a regression pin (the C1
+  precedent: deliberate-by-construction behavior needs an explicit test).
+  _Fixed 2026-06-12: T010 gains "acceptance succeeds for a membership-valid topic
+  absent from the topic registry"._
+- Code claims introduced by the reconciliation verified against source:
+  `TopicRegistryControl::set_topic`/`remove_topic`, `InMemoryTopicRegistry::new`,
+  lib.rs re-exports (quickstart's new calls compile-accurate in shape).
+- Coverage both directions re-verified (the new EC maps to T010's pin + T029's
+  deferral; no orphan edits); TDD pairs and the Phase-4 single-commit structure
+  unaffected; terminology uniform (merged-chain wording identical across six
+  artifacts); constitution gates hold; plan-input.md/spec Input verbatim records
+  untouched; historical clarify entries retain pre-013 wording by design.
+
+**Cumulative trajectory 3 → 1 → 0 → 1 (reconciliation-induced, fixed in-pass) → 0.
+Re-converged; `/speckit-implement` unblocked.** Checklist counterpart: consistency.md
+Pass 3.
