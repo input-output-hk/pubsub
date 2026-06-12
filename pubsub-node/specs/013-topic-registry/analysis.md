@@ -67,3 +67,33 @@ A second `/speckit-analyze` pass after the design-review + v1.2.0 + F1 edits, to
 **Carried (still acknowledged, not changed)**: F2 (operator log emitted at the drop site — non-contractual, logs not test-anchored) and F4 (SC-002 multi-watcher fan-out covered by T014's multi-node test).
 
 **Convergence**: pass 1 → 1 MEDIUM + 4 LOW; pass 2 → 0 MEDIUM + 1 new LOW (G1), then all actionable LOWs (G1/F3/F5) applied. 0 critical / 0 high throughout. The artifact set has converged — cleared for `/speckit-implement`.
+
+## Session 2026-06-12 (post-implementation — verify artifacts against code)
+
+The required post-implementation pass (constitution Development Workflow: "once the implementation exists, a consistency pass MUST verify artifact claims about the implementation against the implementation itself"). Implementation landed across 5 green checkpoint commits (US1 → US2 → US3 → US4 → polish; PR #55) plus a post-implementation naming refinement; this pass verifies the artifacts' §E claims against the code.
+
+**Verify-against-code (contracts §E) — all confirmed:**
+
+- `git diff main -- src/lib.rs` adds only `mod topic_registry;` + the six `pub use` items (registry, control, error, event, watch, in-memory impl). ✅
+- `Node::new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(…, subscription_registry: Arc<R>, topic_registry: Arc<T>)`; `Node::effective_subscriptions` added; `subscriptions`/`candidates`/`peers` unchanged; no extra pub fns. ✅
+- `Event::TopicRegistryUpdate`; `ConfigError::{DuplicateTopicEntry, InvalidPublisherKey}`; `PublicKey` gains only `Ord, PartialOrd`. ✅
+- `handle_signed_message` order: subscribed → **registered** → **authorized** → verify (drop causes `topic_not_registered` / `publisher_not_authorized` precede `invalid_signature`). ✅
+- `handle_topic_registry_update` private in `state.rs`; `registered_topics` `pub(crate)`; `InMemoryTopicRegistry` internals (`Inner`, `RawTopicList`, `RawTopic`, `decode_hex`, `fanout`) private; global `watch()` with no per-subscriber filter. ✅
+- Doctest in `src/network.rs` updated for the 6-arg `Node::new` (doctests run under `cargo test`, not `--all-targets`). ✅
+
+**Green**: `cargo fmt --check`, `clippy --all-targets --all-features -D warnings`, `build --all-targets --locked`, `test` (incl. doctests) — all pass; no new dependencies.
+
+| ID | Category | Severity | Summary | Status |
+|----|----------|----------|---------|--------|
+| P1 | Inconsistency (stale comment, pre-existing) | LOW | `src/state.rs`'s `Effect` justification comment still reads "008's **RegistryUpdate** arm" — a 004-era label (008 renamed that seam to `MembershipUpdate`; 013 adds `TopicRegistryUpdate`). **Inherited from `main`, not introduced by 013.** | **Deferred** — out of 013 scope; flagged for a future 004/008 comment cleanup. |
+
+**Post-implementation naming refinements** (applied, all green; recorded for the ledger):
+
+- `Node::new`'s subscription-registry parameter renamed `registry` → `subscription_registry` (symmetry with `topic_registry`; the bare `registry` was ambiguous once two registries existed). Zero API impact (Rust has no named args). Private reader fn `registry_reader_loop` → `subscription_registry_reader_loop` to pair with `topic_registry_reader_loop`. (commit on PR #55)
+- Reviewed and **kept**: `test_support.rs` (matches the constitution-cited `subscription_registry/test_support.rs` worked example) and `NodeState.registered_topics` (the qualifier disambiguates from the sibling `subscriptions` field and names registry provenance; the registry's own unqualified `topics` field is unambiguous in its context).
+
+**Metrics**: 19 tasks complete (100%); 29 buildable FR/SC, 100% covered; 0 critical / 0 high; 1 LOW (P1, pre-existing/deferred).
+
+### Next Actions
+
+Implementation faithfully realises spec/plan/contracts/ADR 0016 — **PR #55 ready for review**. No 013 defects. P1 is a pre-existing 004-era comment, optionally cleaned up separately.
