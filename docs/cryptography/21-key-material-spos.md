@@ -112,34 +112,44 @@ This leaves two choices:
 1. Use the VRF key.
 2. Use a new key.
 
-Option 1 is what CIP-22 and CIP-151 opted for. As long as we ensure domain 
-separation (from CIP-22, CIP-151, and lottery checks), these keys are safe to
-reuse. Also, this option would not require identity anchoring, as the VRF key
-is already bound to the SPO via the pool registration certificate. This however
-employs a VRF key for a usage other than the originally intended one. 
+Option 1 is what CIP-22 and CIP-151 opted for. This option would not require 
+identity anchoring, as the VRF key is already bound to the SPO via the pool 
+registration certificate. Yet, note that this employs a VRF key for a usage 
+other than the originally intended one. At first sight it seems safe as long as 
+there is proper domain separation (from CIP-22, CIP-151, and other usages
+of the VRF, like lottery check and nonce contribution). However, there does not
+seem to exist formal proofs demonstrating that the security properties of a VRF
+(typically: uniqueness, pseudorandomness, and collision resistance) when used
+as a signature scheme (that is, requiring some variant of unforgeability). While
+it seems natural to expect some relation, it is also uncertain what type of 
+unforgeability we could expect. Finally, the "signatures" produced by the VRF 
+(again, note that they are not really a signature) are about 112 bytes (80 bytes
+of proof, and 32 bytes of VRF output), about twice the sice of a normal Ed25519
+signature (64 bytes).
 
 Option 2 establishes a clearer role separation and natively prevents attacks 
-due to sloppy domain separation. However, it requires binding this new key to
-the SPO. This could be done by adding into the pool registration or the 
-operational certificates a `pubsub_keyhash` akin to the `pool_keyhash` and 
-`vrf_keyhash`, or by having the `pubsub_keyhash` signed by either the VRF key 
-or the KES key. In the former case, we would need to extend the pool or
-operational certificate data structures. In the latter, this is not needed, but
-we would again incur in domain separation needs, which may be more error prone 
--- and is one of the points in favor of Option 2 vs Option 1. Regarding where
-to include it: the operational certificate seems the best choice, as it allows
-easier key rotation in case of need (e.g., key loss or compromise). 
-Additionally, note that there are ongoing conversations to do the same with
-the VRF keys (rotate them via the operational certificate), as part of the Leios
-deployment -- hence, this may be a good moment to add a new key type in the 
-operational certificates.
+due to sloppy domain separation or unclear unforgeability properties. However, 
+it requires binding this new key to the SPO. This could be done by adding into 
+the pool registration or the  operational certificates a `pubsub_keyhash` akin 
+to the `pool_keyhash` and `vrf_keyhash`, or by having the `pubsub_keyhash` 
+signed by either the VRF key or the KES key. In the former case, we would need 
+to extend the pool or operational certificate data structures. In the latter, 
+this is not needed, but we would again incur in domain separation needs, which 
+may be more error prone -- and is one of the points in favor of Option 2 vs 
+Option 1. Regarding where to include it: the operational certificate seems the 
+best choice, as it allows easier key rotation in case of need (e.g., key loss or
+compromise). Additionally, note that there are ongoing conversations to do the 
+same with the VRF keys (rotate them via the operational certificate), as part of
+the Leios deployment -- hence, this may be a good moment to add a new key type 
+in the operational certificates.
 
 ## Recommendation
 
 Given the options analyzed above, using a new key, and specifying it in the
 operational certificate, seems the most appropriate:
 
-- It prevents attacks due to sloppy domain separation.
+- It prevents attacks due to sloppy domain separation, or unclear unforgeability
+properties.
 - It anchors a new key type directly to the root of trust for SPOs.
 - It can be naturally rotated every 90 days via operational certificates.
 
