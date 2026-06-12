@@ -293,6 +293,27 @@ fn handle_signed_message(
         return Vec::new();
     }
 
+    // Authorized-publisher: on a non-open topic the message's publisher key must
+    // be in the topic's authorized set; an open topic (empty set) accepts any
+    // publisher. Checked before signature verification — a cheap set lookup, so
+    // unauthorized-publisher traffic never pays the verification cost (FR-015,
+    // ADR 0016). The `registered?` check above guarantees the entry exists.
+    if let Some(authorized) = state.registered_topics.get(&signed.plain.topic) {
+        if !authorized.is_empty() && !authorized.contains(signed.plain.publisher_id.as_public_key())
+        {
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "publisher_not_authorized",
+                self_id = %state.self_id,
+                from = %from,
+                topic = %signed.plain.topic,
+                publisher_id = %signed.plain.publisher_id,
+            );
+            return Vec::new();
+        }
+    }
+
     let verify_outcome = state.verifier.verify(
         signed.plain.publisher_id.as_public_key(),
         &signed.plain.signed_bytes(),
@@ -384,11 +405,17 @@ mod tests {
         state
     }
 
-    /// A deterministic signer (fixed scheme seed).
-    fn signer() -> TestSigner {
-        let mut scheme = MockCryptoScheme::with_seed([7u8; 32]);
+    /// A deterministic signer from an explicit scheme seed (distinct seeds yield
+    /// distinct keys — used to model authorized vs unauthorized publishers).
+    fn signer_seeded(seed: [u8; 32]) -> TestSigner {
+        let mut scheme = MockCryptoScheme::with_seed(seed);
         let kp = scheme.generate_keypair();
         TestSigner::new(kp.private)
+    }
+
+    /// The standard deterministic signer (fixed scheme seed).
+    fn signer() -> TestSigner {
+        signer_seeded([7u8; 32])
     }
 
     /// Build a validly-signed message on `topic` carrying `Ping(n)`.
@@ -734,6 +761,105 @@ mod tests {
         assert_eq!(
             state.effective_subscriptions_snapshot(),
             vec![topic("weather")],
+        );
+    }
+
+    // US3 / FR-015, SC-005: a non-open topic accepts only authorized publishers;
+    // an open topic accepts any. Authorization precedes signature verification —
+    // an unauthorized publisher with a *valid* signature is still dropped.
+    #[test]
+    fn publisher_authorization_restricted_then_open() {
+        let authorized = signer();
+        let outsider = signer_seeded([9u8; 32]);
+        let weather = topic("weather");
+        let mut state = NodeState::new(
+            peer("self"),
+            HashSet::from([weather.clone()]),
+            Arc::new(TestVerifier),
+        );
+        // weather restricted to the authorized signer's key.
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([authorized.public_key()]),
+            }),
+        );
+
+        // Authorized publisher, valid signature → recorded.
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: signed_ping(&authorized, weather.clone(), 1),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "authorized publisher accepted",
+        );
+
+        // Unauthorized publisher with a VALID signature → dropped (authorization
+        // precedes verification).
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: signed_ping(&outsider, weather.clone(), 2),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "unauthorized publisher dropped despite a valid signature",
+        );
+
+        // Re-register weather OPEN → the outsider is now accepted.
+        apply(&mut state, reg_open("weather"));
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: signed_ping(&outsider, weather, 3),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            2,
+            "open topic accepts any publisher",
+        );
+    }
+
+    // US3 / FR-015: authorization is ordered BEFORE verification — an authorized
+    // publisher's *tampered* (invalid-signature) message passes the authorization
+    // check but is dropped at verification.
+    #[test]
+    fn authorized_but_tampered_message_dropped_at_verification() {
+        let authorized = signer();
+        let weather = topic("weather");
+        let mut state = NodeState::new(
+            peer("self"),
+            HashSet::from([weather.clone()]),
+            Arc::new(TestVerifier),
+        );
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([authorized.public_key()]),
+            }),
+        );
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("relay"),
+                message: tampered_ping(&authorized, weather, 1),
+            },
+        );
+        assert!(
+            state.received_snapshot().is_empty(),
+            "authorized publisher but invalid signature → dropped at verify",
         );
     }
 }
