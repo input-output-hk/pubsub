@@ -13,16 +13,17 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::crypto::Verifier;
+use crate::crypto::{PublicKey, Verifier};
 use crate::event::Event;
 use crate::message::{Message, SignedMessage};
 use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
+use crate::topic_registry::TopicRegistryEvent;
 
 /// The node's full mutable state as one explicit value.
 ///
@@ -49,6 +50,13 @@ pub(crate) struct NodeState {
     /// the topic-derived peer set, distinct from the shell's static config
     /// `peers` bootstrap list (`IMPLEMENTATION_NOTES` N-007).
     candidates: HashMap<TopicId, HashSet<PeerId>>,
+    /// Registered topics → their authorized publisher keys (empty ⇒ open),
+    /// folded from the topic-registry stream (`Event::TopicRegistryUpdate`).
+    /// Written only by `handle_topic_registry_update`. The node's **effective**
+    /// subscription set — its message accept-filter — is `subscriptions`
+    /// intersected with the keys here; a subscribed topic absent here is not yet
+    /// (or no longer) a legitimate topic, so its traffic is dropped.
+    registered_topics: HashMap<TopicId, BTreeSet<PublicKey>>,
 }
 
 impl NodeState {
@@ -64,6 +72,7 @@ impl NodeState {
             received: Vec::new(),
             verifier,
             candidates: HashMap::new(),
+            registered_topics: HashMap::new(),
         }
     }
 
@@ -87,6 +96,19 @@ impl NodeState {
             .get(topic)
             .map(|peers| peers.iter().cloned().collect())
             .unwrap_or_default()
+    }
+
+    /// Snapshot of the **effective** subscription set (unspecified order): the
+    /// subscribed topics that are also registered in the topic registry — the
+    /// actual message accept-filter. A subscribed topic that is not (yet) a
+    /// registered topic is excluded.
+    #[must_use]
+    pub(crate) fn effective_subscriptions_snapshot(&self) -> Vec<TopicId> {
+        self.subscriptions
+            .iter()
+            .filter(|topic| self.registered_topics.contains_key(*topic))
+            .cloned()
+            .collect()
     }
 }
 
@@ -112,7 +134,41 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
     match event {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
+        Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
     }
+}
+
+/// Transition for a topic-registry delta.
+///
+/// Folds only the `registered_topics` projection (topic → authorized
+/// publishers): which topics are legitimate and who may publish to each. It does
+/// not touch `subscriptions` or `candidates` — each registry's handler owns its
+/// own field; the node's effective accept-filter is the intersection, read at
+/// message-acceptance time. Pure; returns no effects.
+// FR-011/FR-013; ADR 0016.
+fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent) -> Vec<Effect> {
+    match event {
+        TopicRegistryEvent::Registered { topic, publishers } => {
+            state.registered_topics.insert(topic, publishers);
+        }
+        TopicRegistryEvent::PublishersChanged {
+            topic,
+            added,
+            removed,
+        } => {
+            let entry = state.registered_topics.entry(topic).or_default();
+            for key in added {
+                entry.insert(key);
+            }
+            for key in &removed {
+                entry.remove(key);
+            }
+        }
+        TopicRegistryEvent::Removed { topic } => {
+            state.registered_topics.remove(&topic);
+        }
+    }
+    Vec::new()
 }
 
 /// Transition for a subscription-registry membership delta.
@@ -199,12 +255,12 @@ fn handle_message_received(state: &mut NodeState, from: PeerId, message: Message
 
 /// Transition for a signed dissemination message.
 ///
-/// Records the delivery when its topic is subscribed and its signature
-/// verifies; otherwise the message is dropped (with an info-level
-/// `message_dropped` event carrying the cause).
-// FR-001/002/003; ported verbatim from the 003 consumer loop — topic filter
-// first (cheap), then signature verification, so off-topic traffic never pays
-// the verification cost.
+/// Records the delivery when its topic is subscribed **and** a registered
+/// (legitimate) topic, and its signature verifies; otherwise the message is
+/// dropped (with an info-level `message_dropped` event carrying the cause).
+// FR-001/002/003 + FR-014; the cheap filters run first — subscribed?, then
+// registered? — so off-topic / illegitimate-topic traffic never pays the
+// signature-verification cost (ADR 0016).
 fn handle_signed_message(
     state: &mut NodeState,
     from: PeerId,
@@ -215,6 +271,21 @@ fn handle_signed_message(
             target: "pubsub_node::node",
             event = "message_dropped",
             cause = "topic_not_subscribed",
+            self_id = %state.self_id,
+            from = %from,
+            topic = %signed.plain.topic,
+        );
+        return Vec::new();
+    }
+
+    // Topic-validity: the topic must be a registered (legitimate) topic. A
+    // subscribed-but-unregistered topic is dropped — the effective accept-filter
+    // is `subscriptions ∩ registered_topics` (ADR 0016, FR-014).
+    if !state.registered_topics.contains_key(&signed.plain.topic) {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "topic_not_registered",
             self_id = %state.self_id,
             from = %from,
             topic = %signed.plain.topic,
@@ -261,6 +332,7 @@ mod tests {
     use crate::crypto::{Signer, Timestamp};
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
     use crate::subscription_registry::MembershipScript;
+    use crate::topic_registry::TopicRegistryScript;
 
     fn topic(s: &str) -> TopicId {
         TopicId::from_str(s).expect("valid topic id")
@@ -270,13 +342,46 @@ mod tests {
         PeerId::from_str(s).expect("valid peer id")
     }
 
-    /// A state subscribed to the given topics, with the standard mock verifier.
+    fn pk(bytes: &[u8]) -> PublicKey {
+        PublicKey::new(bytes.to_vec())
+    }
+
+    fn sorted(mut v: Vec<TopicId>) -> Vec<TopicId> {
+        v.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        v
+    }
+
+    /// A `TopicRegistryUpdate` event registering `t` as an **open** topic.
+    fn reg_open(t: &str) -> Event {
+        Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+            topic: topic(t),
+            publishers: BTreeSet::new(),
+        })
+    }
+
+    /// A state subscribed to the given topics, with each topic also registered
+    /// **open** in the topic registry (so it is a legitimate topic and the
+    /// effective accept-filter — `subscriptions ∩ registered_topics` — equals
+    /// the subscription set). These example tests exercise the subscription and
+    /// signature filters; topic-validity and publisher-authorization have their
+    /// own dedicated tests below.
     fn state_subscribed(topics: impl IntoIterator<Item = TopicId>) -> NodeState {
-        NodeState::new(
+        let topics: Vec<TopicId> = topics.into_iter().collect();
+        let mut state = NodeState::new(
             peer("self"),
-            topics.into_iter().collect(),
+            topics.iter().cloned().collect(),
             Arc::new(TestVerifier),
-        )
+        );
+        for t in topics {
+            apply(
+                &mut state,
+                Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                    topic: t,
+                    publishers: BTreeSet::new(),
+                }),
+            );
+        }
+        state
     }
 
     /// A deterministic signer (fixed scheme seed).
@@ -479,10 +584,18 @@ mod tests {
         );
         assert!(state.received_snapshot().is_empty(), "not subscribed yet");
 
-        // The node's own entry arrives on the membership stream → subscribes t1.
+        // The node's own entry arrives on the membership stream → subscribes t1,
+        // and the topic registry registers t1 (legitimate) → t1 is now effective.
         apply(
             &mut state,
             Event::MembershipUpdate(MembershipEvent::joined("self", ["t1"])),
+        );
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: t1.clone(),
+                publishers: BTreeSet::new(),
+            }),
         );
         apply(
             &mut state,
@@ -511,5 +624,116 @@ mod tests {
         // a moved t1->t2; b left; self never added.
         assert!(state.candidates_snapshot(&topic("t1")).is_empty());
         assert_eq!(state.candidates_snapshot(&topic("t2")), vec![peer("a")]);
+    }
+
+    // US2 / FR-014, SC-003: effective subscriptions = subscriptions ∩ registered.
+    // A subscribed topic that is not a registered topic is excluded.
+    #[test]
+    fn effective_subscriptions_are_subscribed_intersect_registered() {
+        let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
+        // Topic registry registers only `weather`; membership declares both.
+        apply(&mut state, reg_open("weather"));
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["weather", "ghosttopic"])),
+        );
+        assert_eq!(
+            sorted(state.effective_subscriptions_snapshot()),
+            vec![topic("weather")],
+            "ghosttopic is subscribed but not registered → excluded",
+        );
+    }
+
+    // US2 / FR-014, SC-003/SC-004: a message on a subscribed-but-unregistered
+    // topic is dropped (topic_not_registered); registering the topic later makes
+    // it effective and the next message is accepted — no restart.
+    #[test]
+    fn unregistered_subscribed_topic_drops_then_accepts_after_registration() {
+        let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
+        let s = signer();
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["ghosttopic"])),
+        );
+        // Subscribed but not registered → dropped.
+        assert!(apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("a"),
+                message: signed_ping(&s, topic("ghosttopic"), 1),
+            },
+        )
+        .is_empty());
+        assert!(
+            state.received_snapshot().is_empty(),
+            "unregistered topic → message dropped",
+        );
+        // Register it → now effective → accepted.
+        apply(&mut state, reg_open("ghosttopic"));
+        apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("a"),
+                message: signed_ping(&s, topic("ghosttopic"), 2),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "registered now → accepted"
+        );
+    }
+
+    // US2 / SC-004: removing a topic from the registry makes it ineffective.
+    #[test]
+    fn removing_a_topic_makes_it_ineffective() {
+        let mut state = NodeState::new(peer("self"), HashSet::new(), Arc::new(TestVerifier));
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["weather"])),
+        );
+        assert!(
+            state.effective_subscriptions_snapshot().is_empty(),
+            "not registered yet",
+        );
+        apply(&mut state, reg_open("weather"));
+        assert_eq!(
+            state.effective_subscriptions_snapshot(),
+            vec![topic("weather")],
+        );
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Removed {
+                topic: topic("weather"),
+            }),
+        );
+        assert!(
+            state.effective_subscriptions_snapshot().is_empty(),
+            "removed → no longer effective",
+        );
+    }
+
+    // US2 / FR-013: handle_topic_registry_update folds the registered-topics
+    // projection across a scripted register → publishers-changed → remove
+    // sequence (declarative TopicRegistryScript); every apply returns no effects.
+    #[test]
+    fn topic_registry_script_folds_projection() {
+        let mut state = state_subscribed(vec![topic("weather")]);
+        // state_subscribed already registered weather open; drive a script that
+        // re-registers it with a publisher, rotates publishers, and removes an
+        // unrelated topic.
+        let script = TopicRegistryScript::new()
+            .registered("weather", [pk(b"k1")])
+            .publishers_changed("weather", [pk(b"k4")], [pk(b"k1")])
+            .removed("other");
+        for ev in script {
+            assert!(apply(&mut state, Event::TopicRegistryUpdate(ev)).is_empty());
+        }
+        // weather stays registered (so still effective); the no-op remove of an
+        // unregistered "other" is harmless.
+        assert_eq!(
+            state.effective_subscriptions_snapshot(),
+            vec![topic("weather")],
+        );
     }
 }

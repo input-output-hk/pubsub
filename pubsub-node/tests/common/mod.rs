@@ -3,16 +3,16 @@
 // per-binary `dead_code` warnings here at the module level.
 #![allow(dead_code)]
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, Message, MessageHash, MessagePayload, Node,
-    NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
-    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
-    TopicId, Verifier,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
+    MessagePayload, Node, NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId,
+    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
+    Timestamp, TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -111,6 +111,7 @@ pub fn message_topic(message: &Message) -> &TopicId {
 pub struct TwoNodeFixture {
     pub network: Arc<InMemoryNetwork>,
     pub registry: Arc<InMemorySubscriptionRegistry>,
+    pub topic_registry: Arc<InMemoryTopicRegistry>,
     pub a: Node,
     pub b: Node,
 }
@@ -148,6 +149,19 @@ pub async fn two_node_fixture_with_subscriptions(
         .await
         .expect("seed node B topics");
 
+    // Register every subscribed topic as OPEN in the shared topic registry, so
+    // each node's effective set (subscriptions ∩ registered) equals its declared
+    // set — the 001/002-style delivery tests behave as before. Tests that want
+    // unregistered or publisher-restricted topics drive `topic_registry`
+    // directly.
+    let topic_registry = Arc::new(InMemoryTopicRegistry::new());
+    for t in a_subscriptions.iter().chain(b_subscriptions.iter()) {
+        topic_registry
+            .set_topic(t.clone(), BTreeSet::new())
+            .await
+            .expect("register topic open");
+    }
+
     let a = Node::new(
         a_id.clone(),
         NodeConfig {
@@ -156,6 +170,7 @@ pub async fn two_node_fixture_with_subscriptions(
         network.clone(),
         verifier.clone(),
         registry.clone(),
+        topic_registry.clone(),
     )
     .await
     .expect("construct node A");
@@ -168,24 +183,26 @@ pub async fn two_node_fixture_with_subscriptions(
         network.clone(),
         verifier,
         registry.clone(),
+        topic_registry.clone(),
     )
     .await
     .expect("construct node B");
 
-    // Both nodes derive their subscriptions from the registry stream; wait for
-    // convergence so the 001/002-style send-then-observe tests are deterministic.
+    // Both nodes derive their effective subscriptions from two registry streams;
+    // wait for convergence so send-then-observe tests are deterministic.
     let a_expected: Vec<TopicId> = a_subscriptions.into_iter().collect();
     let b_expected: Vec<TopicId> = b_subscriptions.into_iter().collect();
-    await_subscriptions(&a, &a_expected, Duration::from_secs(1))
+    await_effective_subscriptions(&a, &a_expected, Duration::from_secs(1))
         .await
         .expect("node A subscriptions converge");
-    await_subscriptions(&b, &b_expected, Duration::from_secs(1))
+    await_effective_subscriptions(&b, &b_expected, Duration::from_secs(1))
         .await
         .expect("node B subscriptions converge");
 
     TwoNodeFixture {
         network,
         registry,
+        topic_registry,
         a,
         b,
     }
@@ -206,6 +223,16 @@ pub async fn node_with(
         .set_topics(id.clone(), topics.iter().cloned().collect())
         .await
         .expect("seed node topics");
+    // Register the node's topics OPEN in a topic registry so they are legitimate
+    // (effective = subscriptions ∩ registered). Candidate-only tests are
+    // unaffected; delivery tests need the topic registered for acceptance.
+    let topic_registry = Arc::new(InMemoryTopicRegistry::new());
+    for t in topics {
+        topic_registry
+            .set_topic(t.clone(), BTreeSet::new())
+            .await
+            .expect("register topic open");
+    }
     let peers = peers
         .iter()
         .map(|p| PeerEntry {
@@ -218,12 +245,14 @@ pub async fn node_with(
         network.clone(),
         shared_test_verifier(),
         registry.clone(),
+        topic_registry,
     )
     .await
     .expect("construct node");
-    // The node derives its subscriptions from the registry stream; wait for
-    // that before handing it back so send-then-observe tests are deterministic.
-    await_subscriptions(&node, topics, Duration::from_secs(1))
+    // The node derives its effective subscriptions from the registry streams;
+    // wait for convergence before handing it back so send-then-observe tests are
+    // deterministic.
+    await_effective_subscriptions(&node, topics, Duration::from_secs(1))
         .await
         .expect("node subscriptions converge");
     node
@@ -248,6 +277,31 @@ pub async fn await_subscriptions(
     let start = tokio::time::Instant::now();
     loop {
         let got: std::collections::BTreeSet<TopicId> = node.subscriptions().into_iter().collect();
+        if got == want {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll `node.effective_subscriptions()` until it equals `expected` (as a set)
+/// or `timeout` elapses. The effective set is `subscriptions ∩ registered_topics`
+/// — it converges only once *both* the subscription-registry and topic-registry
+/// cold-start bursts have drained, so delivery tests wait on this rather than on
+/// the declared `subscriptions()`.
+pub async fn await_effective_subscriptions(
+    node: &Node,
+    expected: &[TopicId],
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let want: std::collections::BTreeSet<TopicId> = expected.iter().cloned().collect();
+    let start = tokio::time::Instant::now();
+    loop {
+        let got: std::collections::BTreeSet<TopicId> =
+            node.effective_subscriptions().into_iter().collect();
         if got == want {
             return Ok(());
         }

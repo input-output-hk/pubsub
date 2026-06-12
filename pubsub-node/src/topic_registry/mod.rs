@@ -26,8 +26,12 @@ use crate::crypto::PublicKey;
 use crate::topic::TopicId;
 
 mod in_memory;
+#[cfg(test)]
+mod test_support;
 
 pub use in_memory::InMemoryTopicRegistry;
+#[cfg(test)]
+pub(crate) use test_support::TopicRegistryScript;
 
 /// One topic-registry delta delivered on a [`TopicRegistryWatch`].
 ///

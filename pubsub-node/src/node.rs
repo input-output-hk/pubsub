@@ -17,6 +17,7 @@ use crate::received::ReceivedDelivery;
 use crate::state::{apply, NodeState};
 use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
+use crate::topic_registry::TopicRegistry;
 
 /// A network participant.
 ///
@@ -31,15 +32,19 @@ use crate::topic::TopicId;
 /// A node carries:
 /// - its own [`PeerId`],
 /// - a static peer set (no peer-set mutation API at this stage),
-/// - a mutable subscription set queryable via
-///   [`subscriptions`](Node::subscriptions) and mutable through
-///   [`subscribe`](Node::subscribe) / [`unsubscribe`](Node::unsubscribe),
+/// - a registry-derived subscription set, queryable via
+///   [`subscriptions`](Node::subscriptions) (the declared set) and
+///   [`effective_subscriptions`](Node::effective_subscriptions) (the declared
+///   set intersected with the topic registry's registered topics); the node
+///   holds no API to mutate its own subscriptions (they are folded from the
+///   subscription-registry stream),
 /// - a queryable record of received messages accessible via
 ///   [`received_messages`](Node::received_messages). A delivery enters this
-///   record only if its topic is in the subscription set at receive time and
-///   its signature verifies; messages failing either check are silently
-///   dropped (with an info-level `message_dropped` tracing event carrying a
-///   `cause`).
+///   record only if its topic is effectively subscribed (subscribed **and** a
+///   registered topic), its publisher is authorized for that topic (or the
+///   topic is open), and its signature verifies; messages failing any check are
+///   silently dropped (with an info-level `message_dropped` tracing event
+///   carrying a `cause`).
 pub struct Node {
     handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,
@@ -57,31 +62,38 @@ pub struct Node {
 
 impl Node {
     /// Construct a node, registering on `network` under `self_id` and spawning
-    /// its event loop, the network producer, and the subscription-registry
-    /// reader. A failed network registration returns the error before any
-    /// background task is spawned.
+    /// its event loop, the network producer, the subscription-registry reader,
+    /// and the topic-registry reader. A failed network registration returns the
+    /// error before any background task is spawned.
     ///
-    /// The node derives **all** of its registry state from the `registry`'s
-    /// node-keyed [`watch`](SubscriptionRegistry::watch) stream (the source of
-    /// truth, ADR 0013/0014): it starts with an **empty** subscription set and
-    /// folds the stream — its own entry resolves its subscriptions (which topics
-    /// it accepts on receive); other nodes' entries build the per-topic
-    /// candidate set, queryable via [`candidates`](Self::candidates). Topics do
-    /// not come from config. The node is read-only toward the registry — it
-    /// performs no writes — and if it has no registry entry it simply derives an
-    /// empty set (no construction error; it is "not yet active").
+    /// The node derives **all** of its registry state from two read-only watch
+    /// streams (it is read-only toward both registries — it performs no writes):
+    /// - `registry` ([`SubscriptionRegistry`]), node-keyed: its own entry
+    ///   resolves its declared subscription set; other nodes' entries build the
+    ///   per-topic candidate set ([`candidates`](Self::candidates)).
+    /// - `topic_registry` ([`TopicRegistry`]), global: which topics are
+    ///   legitimately registered and who may publish to each.
+    ///
+    /// A message is accepted only if its topic is **effectively subscribed**
+    /// (declared-subscribed **and** registered, see
+    /// [`effective_subscriptions`](Self::effective_subscriptions)), its publisher
+    /// is authorized for the topic (or the topic is open), and its signature
+    /// verifies. The node starts with empty derived state and converges as the
+    /// cold-start bursts drain; topics do not come from config, and a node with
+    /// no registry entries simply stays empty (no construction error).
     ///
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. It is consulted on the receive
     /// path only — a node does not sign.
     ///
     /// Returns [`NodeError`] if network registration fails.
-    pub async fn new<N: Network, R: SubscriptionRegistry>(
+    pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
         config: NodeConfig,
         network: Arc<N>,
         verifier: Arc<dyn Verifier>,
         registry: Arc<R>,
+        topic_registry: Arc<T>,
     ) -> Result<Self, NodeError> {
         let mut handle = network.register(self_id).await?;
         let node_id = handle.id().clone();
@@ -140,13 +152,14 @@ impl Node {
             producers: Vec::new(),
         };
 
-        // Two node-owned producers, both named async fns handed to
-        // `spawn_producer` and aborted on drop: the network mailbox, and the
-        // subscription-registry reader (which opens the node-keyed `watch` and
-        // owns the registry `Arc` so the subscription stays live for the node's
-        // lifetime).
+        // Three node-owned producers, all named async fns handed to
+        // `spawn_producer` and aborted on drop: the network mailbox, the
+        // subscription-registry reader (node-keyed `watch`), and the
+        // topic-registry reader (global `watch`). Each reader owns its registry
+        // `Arc` so its watch stays live for the node's lifetime.
         node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
         node.spawn_producer(move |queue| registry_reader_loop(queue, registry, node_id));
+        node.spawn_producer(move |queue| topic_registry_reader_loop(queue, topic_registry));
 
         Ok(node)
     }
@@ -250,6 +263,20 @@ impl Node {
             .expect("subscriptions: state mutex poisoned")
             .subscriptions_snapshot()
     }
+
+    /// Return a snapshot of this node's **effective** subscription set — the
+    /// declared subscriptions ([`subscriptions`](Self::subscriptions))
+    /// intersected with the topics registered in the topic registry. This is
+    /// the actual message accept-filter: a declared topic that is not a
+    /// registered (legitimate) topic is excluded. Entry order is unspecified;
+    /// later registry updates (on either stream) may supersede the snapshot.
+    #[must_use]
+    pub fn effective_subscriptions(&self) -> Vec<TopicId> {
+        self.state
+            .lock()
+            .expect("effective_subscriptions: state mutex poisoned")
+            .effective_subscriptions_snapshot()
+    }
 }
 
 impl Drop for Node {
@@ -305,4 +332,30 @@ async fn registry_reader_loop<R: SubscriptionRegistry>(
     // `registry` is owned by this task so the watch's sender side stays alive
     // for the loop; drop it explicitly when the task ends.
     drop(registry);
+}
+
+/// The topic-registry reader producer: opens the global
+/// [`watch`](TopicRegistry::watch) and drains its [`TopicRegistryWatch`] onto
+/// the node's event queue as `TopicRegistryUpdate` events (the node folds them
+/// into its registered-topics projection, which gates the message accept-path).
+/// Holds the topic-registry `Arc` so the watch's sender side stays alive for the
+/// node's lifetime; the task is aborted on drop.
+async fn topic_registry_reader_loop<T: TopicRegistry>(queue: EventQueue, topic_registry: Arc<T>) {
+    let mut watch = match topic_registry.watch().await {
+        Ok(watch) => watch,
+        Err(error) => {
+            tracing::error!(
+                target: "pubsub_node::node",
+                %error,
+                "topic-registry watch failed; node has no registered topics",
+            );
+            return;
+        }
+    };
+    while let Some(event) = watch.recv().await {
+        queue.push(Event::TopicRegistryUpdate(event));
+    }
+    // `topic_registry` is owned by this task so the watch's sender side stays
+    // alive for the loop; drop it explicitly when the task ends.
+    drop(topic_registry);
 }
