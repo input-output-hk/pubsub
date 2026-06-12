@@ -140,7 +140,7 @@ src/
 ├── node.rs              # Node::new(+signer,+strategy, coherence check), shutdown(self),
 │                        #   setup_timer_producer, effect executor (NetworkSender clone),
 │                        #   upstream_connections()/downstream_connections() getters
-├── network.rs           # pub(crate) NetworkHandle::sender() accessor (only change)
+├── network.rs           # pub(crate) NetworkHandle::sender() accessor + Node::new doctest updated
 ├── config.rs            # + connection_setup_delay_ms → Option<Duration>
 ├── error.rs             # + NodeError::IdentityMismatch
 ├── lib.rs               # re-export delta per contracts §4

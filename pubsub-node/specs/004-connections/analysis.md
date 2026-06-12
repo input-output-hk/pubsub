@@ -148,6 +148,29 @@ Re-convergence walk over the reconciliation's edit surface plus a broad re-scan:
   artifacts); constitution gates hold; plan-input.md/spec Input verbatim records
   untouched; historical clarify entries retain pre-013 wording by design.
 
-**Cumulative trajectory 3 → 1 → 0 → 1 (reconciliation-induced, fixed in-pass) → 0.
-Re-converged; `/speckit-implement` unblocked.** Checklist counterpart: consistency.md
-Pass 3.
+**Cumulative trajectory 3 → 1 → 0 → 1 (reconciliation-induced, fixed in-pass) → 0.**
+Checklist counterpart: consistency.md Pass 3.
+
+### Session 4 addendum — maintainer-prompted systematic sweep (same day)
+
+The maintainer correctly challenged that the Session-4 walk verified only the claims
+the reconciliation *introduced*, not the prior verifications against the **new** 013
+code. Systematic re-sweep (PeerId usage in `src/topic_registry/` + fixtures; all
+`Node::new` call sites including doctests; tests/common helper names; main.rs shape):
+
+- [x] **R2** — Task accuracy / green checkpoint — **MEDIUM** — `tasks.md` T012
+  The Session-1 `Node::new` call-site grep predates 013: `src/network.rs:142` carries
+  a `no_run` **doctest** calling `Node::new` (doctests compile — a real call site),
+  and tests/common now holds four calls (013 added `node_sharing`).
+  _Fixed 2026-06-12: T012 lists the doctest and notes the four common calls; the plan
+  tree's "(only change)" note on network.rs corrected._
+- Verified clean: `src/topic_registry/` has zero `PeerId` usage (T003 list stands —
+  now verified, previously inferred); the topic-registry fixture is topic-id +
+  publisher keys (no alias-rule interaction; `PublisherId`/`PublicKey` untouched by
+  the reshape); `await_candidates` exists as T015 claims and 013's helpers already
+  register topics; main.rs's new `--topic-registry` loading is covered by T012 (call
+  site) and T003 (self_id parse).
+
+**Re-converged after the addendum: trajectory … → 1 → 0.** Lesson recorded: after an
+external merge, *re-run* the source-facing verifications — artifact-internal delta
+walks do not refresh stale code claims.
