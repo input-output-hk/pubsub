@@ -174,3 +174,59 @@ code. Systematic re-sweep (PeerId usage in `src/topic_registry/` + fixtures; all
 **Re-converged after the addendum: trajectory … → 1 → 0.** Lesson recorded: after an
 external merge, *re-run* the source-facing verifications — artifact-internal delta
 walks do not refresh stale code claims.
+
+## Session 5 — 2026-06-12 (final pre-implementation deep pass; full surface)
+
+Scope per the agreed input: all feature artifacts + ADRs 0017–0019 + the current
+post-013 code + IMPLEMENTATION_NOTES + the event-loop contract; every code claim
+re-verified (none grandfathered); semantic-interaction hunt across the 013×004
+surface; edge-case/staleness completeness. Findings (all mechanical; none required a
+maintainer decision):
+
+- [x] **S5-1** — Stale claim — **MEDIUM** — the setup timer was described as the
+  **third** node-owned producer (R6, ADR 0018 §3, plan row 6); 013 added the
+  topic-registry reader, making it the **fourth** (verified: `Node::new` spawns
+  mailbox + subscription reader + topic reader). _Fixed 2026-06-12 in all three._
+- [x] **S5-2** — Stale claim — **LOW** — T031/plan claimed `Node`'s rustdoc "still
+  references the removed subscribe/unsubscribe mutators"; 013's polish already fixed
+  that (the doc now describes the two-registry fold). _Fixed: T031 reworded to the
+  real obligation (add the connection surface)._
+- [x] **S5-3** — Task accuracy — **LOW** — `peer.rs`'s rustdoc example uses
+  `as_str()` (a compiling doctest); T002 removes `as_str` but didn't name the
+  example. _Fixed: T002 names it._
+- [x] **S5-4** — Underspecification — **MEDIUM** — with 013's collapse of
+  `Node::subscriptions()` to the effective filter, the strategy's `subscriptions`
+  input was ambiguous (field vs snapshot). Pinned everywhere as the
+  **membership-derived `NodeState` field** — the dial side deliberately mirrors the
+  S7 acceptance rule (same revisit flag). _Fixed: R5, data-model §1.4, spec strategy
+  entity._
+- [x] **S5-5** — Numbering — **LOW** — IMPLEMENTATION_NOTES now ends at N-009 (013
+  added N-008/N-009); T029's five entries take N-010..N-014. _Fixed: T029 notes it._
+
+Semantic interactions verified clean (recorded so they are not re-derived):
+
+- `handle_topic_registry_update` is a pure fold; `Removed` only deletes
+  `registered_topics[topic]` — **no** connection effect, matching S7's deliberate
+  non-effect and the validation table.
+- `handle_membership_update` still drops `candidates[topic]` on own-topic loss —
+  consistent with S4 (connections persist; no re-dial after loss, since both strategy
+  inputs lose the topic).
+- The two 013 drop causes sit before signature verification in
+  `handle_signed_message` — the misbehavior boundary (severance iff ①–④ passed) maps
+  exactly onto current code order.
+- `await_subscriptions` waits on the effective filter — T015/T016's preamble order
+  (register topic first) is therefore load-bearing and correctly stated.
+- Producer/teardown story (ADR 0019): drop-abort covers all four producers; the
+  Shutdown terminal-marker mechanics are unaffected by the added reader.
+- `main.rs` (`--topic-registry` + `from_file`) and tests/common's four `Node::new`
+  calls covered by T012; T013's config flows through `load_node_config` as planned.
+- N-002 and N-006 exist in IMPLEMENTATION_NOTES as T029 describes; contract §1.3
+  ("Connections (forward-looking, ~004)") still present — T030's supersession note
+  remains accurate and owed.
+- plan-input.md / spec Input verbatim records untouched; adjudicated decisions
+  unchallenged (factual claims inside them re-verified).
+
+**Go/no-go: GO.** Coverage 100% both directions; zero open findings at any severity;
+all code claims current as of the post-013 merge (`2678696`). The remaining analyze
+obligation is unchanged: the post-implementation verify-against-code pass
+(T032/T033 + closing session).

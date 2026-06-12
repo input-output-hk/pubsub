@@ -52,12 +52,17 @@ emitter + kind + topic (FR-011). Layout details in `contracts/connection-protoco
 
 ```rust
 trait ConnectionStrategy: Send + Sync {
-    fn expected_upstream(&self, subscriptions: &HashSet<TopicId>,
-                         candidates: &HashMap<TopicId, HashSet<PeerId>>)
+    fn expected_upstream(&self, subscriptions: &HashSet<TopicId>,  // membership-derived field,
+                         candidates: &HashMap<TopicId, HashSet<PeerId>>) // not 013's effective filter
         -> HashSet<(PeerId, TopicId)>;
 }
 struct ConnectToAllCandidates;   // v1: every candidate of every own topic
 ```
+
+The `subscriptions` input is the **membership-derived `NodeState` field**, not the
+collapsed effective-filter snapshot 013 gave `Node::subscriptions()` — the dial side
+deliberately mirrors the S7 acceptance rule (registration gates delivery, not
+establishment; same revisit flag).
 
 Pure and synchronous; consulted only from the `ConnectionSetup` arm of `apply`;
 applied by the FR-007 diff (never removes). ADR 0018.

@@ -48,8 +48,9 @@ testable; the lifecycle mechanics are written once.
 
 ### 3. The setup trigger is an ordinary event with two producers
 
-`Event::ConnectionSetup` is pushed either by the optional one-shot timer — a third
-node-owned producer (`setup_timer_producer`: sleep, push once, return), spawned via
+`Event::ConnectionSetup` is pushed either by the optional one-shot timer — a fourth
+node-owned producer, after the network mailbox and the two registry readers
+(`setup_timer_producer`: sleep, push once, return), spawned via
 the existing `spawn_producer` only when `NodeConfig.connection_setup_delay` is
 `Some`, and therefore drop-aborted like every producer (ADR 0012) — or externally
 through the public event intake. The transition cannot tell the producers apart and

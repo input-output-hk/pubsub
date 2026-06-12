@@ -174,7 +174,7 @@ keeping `state.rs` focused on the transition arms (mirrors how
 | 3 | `Message::Connection` plain/signed split; tags 0x00/0x01/0x02; `#[non_exhaustive]` action enum | R3, ADR 0017, contracts §1 |
 | 4 | Events `ConnectionSetup`/`Shutdown`; control dispatch inside `MessageReceived`; `Effect::{Send, Misbehaved}` | R4 |
 | 5 | `ConnectionStrategy` sync trait, `Arc<dyn>` on `NodeState` beside the verifier; diff in `apply` | R5, ADR 0018 |
-| 6 | `connection_setup_delay_ms: Option<u64>` TOML → `Option<Duration>`; timer = third owned producer, only when set | R6, ADR 0018 |
+| 6 | `connection_setup_delay_ms: Option<u64>` TOML → `Option<Duration>`; timer = fourth owned producer (after mailbox + two registry readers), only when set | R6, ADR 0018 |
 | 7 | Receive order: connection gate first, then the merged chain (subscription→topic-registered→publisher-authorized→signature) unchanged; severance at the signature step only; cause vocabulary fixed | R7, contracts §3, data-model §4 |
 | 8 | `shutdown(self)` awaits the loop; Shutdown event = terminal marker (recorded carve-out); executor holds `NetworkSender` clone | R8, ADR 0019 |
 | 9 | `keypair_from_alias` + `ConnectionScript` + `tests/common` establishment helpers | R9 |

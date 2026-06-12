@@ -120,7 +120,9 @@ pub trait ConnectionStrategy: Send + Sync {
     /// Pure, synchronous: the expected upstream set given the node's view.
     fn expected_upstream(
         &self,
-        subscriptions: &HashSet<TopicId>,
+        subscriptions: &HashSet<TopicId>,   // the MEMBERSHIP-derived NodeState field —
+                                            // not the effective-filter snapshot (013);
+                                            // dial-side mirrors the S7 acceptance rule
         candidates: &HashMap<TopicId, HashSet<PeerId>>,
     ) -> HashSet<(PeerId, TopicId)>;
 }
@@ -144,7 +146,8 @@ changes the transition signature every feature that adds a service; a generic
 **Decision**: TOML field `connection_setup_delay_ms: Option<u64>` →
 `NodeConfig.connection_setup_delay: Option<Duration>` (loader converts; parse at the
 edge). Default `None` — nothing spawned, no event self-generated. When `Some(d)`,
-`Node::new` registers a third node-owned producer via the existing `spawn_producer`
+`Node::new` registers a fourth node-owned producer (after the network mailbox and
+the two registry readers) via the existing `spawn_producer`
 (named async fn `setup_timer_producer`: `sleep(d)` then one `push(Event::ConnectionSetup)`
 and return) — owned, drop-aborted, exactly the producer discipline ADR 0012 set.
 
