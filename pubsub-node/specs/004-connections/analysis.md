@@ -282,3 +282,86 @@ ledgered pass — the 003 lesson).
 **Go/no-go: GO.** Contracts/quickstart accurate against code; T033 sweep green.
 The only remaining obligation is the closing post-implementation
 `/speckit-analyze` session.
+
+## Session 7 — 2026-06-13 (closing post-implementation pass; independent, full-surface)
+
+Maintainer-requested independent verify-against-code pass, broader than Session 6's
+T032 (which scoped to contracts §4): every adjudicated decision checked against the
+built code **and its tests**, plus public surface, task-ledger truth, edge-case /
+staleness realization, and constitution spec-fidelity. Read source directly
+(`state.rs`, `node.rs`, `lib.rs`, `error.rs`, `peer.rs`) — nothing grandfathered.
+
+### Verified clean against code (with locations)
+
+- **Public surface (§4)**: `lib.rs:53–75` re-exports match the contract exactly
+  (`UpstreamState`/`ConnectionStrategy`/`ConnectToAllCandidates` from `connection`;
+  `ConnectionMessage`/`PlainConnection`/`ConnectionAction` from `message`);
+  `NodeState` and `Effect` both `pub(crate)` (`state.rs:46,161`); `PeerId::as_str`
+  absent crate-wide; getters `subscriptions`/`upstream_connections`/
+  `downstream_connections` present with the documented signatures (`node.rs:330–377`);
+  8-param `Node::new` generic over `<N, R, T>` (`node.rs:125`); `NodeError::IdentityMismatch`
+  present (`error.rs:66`).
+- **Receive chain (FR-016/017/018)**: `handle_signed_message` orders connection
+  (Active upstream) → subscription → topic-registered → publisher-authorized →
+  signature, each an early-return drop with the contracts-§3 cause; severance fires
+  only at the signature step (reachable only past all four prior checks), removes the
+  upstream entry, returns `Effect::Misbehaved`, sends **no** `Terminated`.
+- **Coherence (FR-024)**: `*self_id.as_public_key() != signer.public_key()` →
+  `IdentityMismatch`, **before** `network.register` (no leak).
+- **Diff rule + S5-4 (the load-bearing one)**: `handle_connection_setup` reads the
+  **membership-derived `state.subscriptions` field**, not the effective filter;
+  Active → `continue`, AwaitingAccept → kept + re-dialed, missing → inserted + Request;
+  never removes. The getter `subscriptions_snapshot` computes the
+  `∩ registered_topics` intersection separately (`state.rs`), so dial-side membership
+  and delivery-side effective-filter are correctly distinct — the S7 decision is
+  realized exactly as specified.
+- **Membership-only acceptance + S7 pin**: `handle_connection_request` validates own
+  topic ∈ membership `subscriptions` AND requester ∈ `candidates` only — registration
+  not consulted. Pinned by `request_accepted_for_membership_valid_but_unregistered_topic`
+  (`state.rs:1548`).
+- **Shutdown (FR-020, ADR 0019)**: `handle_shutdown` emits one `Terminated` per
+  `upstream.keys()` (all states, incl. AwaitingAccept) chained with `downstream`, then
+  clears both; the event loop executes a `Shutdown` event's effects, **then** breaks
+  (`node.rs:181–192`) — notices on the wire before termination, which `shutdown()`
+  awaits.
+- **Four producers + drop-abort**: mailbox + subscription reader + topic reader +
+  (conditional) `setup_timer_producer` (`node.rs:217–229`); `Drop` aborts the loop and
+  every producer.
+- **Constitution**: zero log/event assertions in `tests/` (state/effect surfaces
+  only); zero FR citations in non-comment source; `ConnectionScript` used for
+  multi-step state scenarios (`state.rs`, `connection.rs`); all phases landed as green
+  commits `dd5679d..b045ef2`.
+
+### Findings
+
+- [x] **V1** — Task-ledger accuracy — **LOW (resolved by implementer)** — Session 5
+  predicted the T029 deferral entries would take N-010..N-014; the implementer surfaced
+  N-010 (restart inexpressibility) mid-Phase-6, so the package became N-011..N-015 and
+  **T029's own text was updated to say so**. Sound deviation, self-recorded — no action.
+- [x] **V2** — Spec measurability — **LOW (no code defect; optional)** — SC-004 reads
+  "an abruptly restarted node returns to Active with every counterpart it re-requests",
+  which scans as an end-to-end claim; per N-010 the literal same-alias restart is
+  **inexpressible** on `InMemoryNetwork` (no deregistration), so the healing mechanic is
+  verified at the **state level** (`duplicate_request_idempotent_then_stale_on_failed_revalidation`)
+  with the limitation documented in `tests/connections.rs:320` and N-010. The behavior
+  is correct and deliberately bounded; only SC-004's wording slightly over-promises the
+  *test altitude*. Optional one-line spec footnote on SC-004 pointing at N-010;
+  **not a merge blocker** (maintainer decision — left unchecked pending your call).
+  _Resolved 2026-06-13: maintainer chose the footnote; SC-004 gains a restart-recovery
+  note pointing at N-010 (literal same-alias restart inexpressible on the mock; healing
+  mechanic state-tested, graduates to end-to-end at 009)._
+
+### N-010 reconciliation
+
+N-010 is **not** an uncatalogued stale flow: it records that the *literal* restart
+in US4-AS4/SC-004 cannot be exercised end-to-end on the mock, and routes the healing
+mechanic to a state-level test. It neither overlaps nor contradicts S1–S7 (those are
+deliberate non-reconciliations of live connection state; N-010 is a mock-transport
+expressibility limit). Its deferral trigger (009 real transport / 011–012 persistent
+identity, cf. N-008) is correct. Properly placed.
+
+**Go/no-go: GO for opening the PR / merge.** Every adjudicated decision is realized in
+code and covered by tests; public surface matches the contract; zero divergences at
+CRITICAL/HIGH/MEDIUM. The two LOW findings are a self-resolved numbering note (V1) and
+an optional spec-wording footnote (V2) — neither blocks merge. Coverage 100% both
+directions; build + tests green at `b045ef2`.
