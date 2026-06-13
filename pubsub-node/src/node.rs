@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
-use crate::crypto::Verifier;
+use crate::connection::{ConnectToAllCandidates, ConnectionStrategy};
+use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
 use crate::message::Message;
@@ -106,10 +107,20 @@ impl Node {
         // its candidate sets — by folding the subscription-registry `watch` stream (ADR
         // 0013/0014). Registration precedes the spawns so nothing leaks on the
         // error path (FR-016).
+        // Scaffolding (T011): the real signing identity and selection strategy
+        // are threaded from `Node::new`'s parameters in T012. Until then no
+        // setup event is produced and no control message is emitted, so these
+        // placeholders are never exercised.
+        let signer: Arc<dyn Signer> = Arc::new(crate::crypto::mock::TestSigner::new(
+            crate::crypto::PrivateKey::new(Vec::new()),
+        ));
+        let strategy: Arc<dyn ConnectionStrategy> = Arc::new(ConnectToAllCandidates);
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
             node_id.clone(),
             HashSet::new(),
             verifier,
+            signer,
+            strategy,
         )));
         let state_for_task = Arc::clone(&state);
 
