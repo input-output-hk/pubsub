@@ -80,8 +80,8 @@
 
 **Independent test**: scripted lifecycle (setup → accept → misbehave → shutdown) asserted step-by-step via snapshots, no timers (spec US5, SC-006).
 
-- [ ] T027 [US5] Add the full-lifecycle `ConnectionScript` sync test in `src/state.rs` (every spec-defined transition reachable by fed events alone; snapshot assertions per step; determinism re-run) and a stuck-AwaitingAccept state test (request to an absent peer stays pending, admits nothing — US5-AS2/3, SC-006/SC-007 self-exclusion sweep)
-- [ ] T028 [US5] Add the getter-consistency integration test in `tests/connections.rs`: snapshots are stable clones (unaffected by subsequent events) and pending entries are visible diagnostics (US5-AS1) ⛳
+- [X] T027 [US5] Add the full-lifecycle `ConnectionScript` sync test in `src/state.rs` (every spec-defined transition reachable by fed events alone; snapshot assertions per step; determinism re-run) and a stuck-AwaitingAccept state test (request to an absent peer stays pending, admits nothing — US5-AS2/3, SC-006/SC-007 self-exclusion sweep)
+- [X] T028 [US5] Add the getter-consistency integration test in `tests/connections.rs`: snapshots are stable clones (unaffected by subsequent events) and pending entries are visible diagnostics (US5-AS1) ⛳
 
 ## Phase 8: Polish & cross-cutting obligations
 

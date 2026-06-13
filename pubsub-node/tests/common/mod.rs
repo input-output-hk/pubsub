@@ -504,6 +504,31 @@ pub async fn await_downstream(
 /// event loop several times (request, accept, activate).
 const ESTABLISH_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// Poll until `node` holds an upstream entry for `(peer, topic)` in any state
+/// (e.g. an `AwaitingAccept` entry toward a peer that never answers), or
+/// `timeout` elapses.
+pub async fn await_upstream_present(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node
+            .upstream_connections()
+            .iter()
+            .any(|(p, t, _)| p == peer && t == topic)
+        {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 /// Poll until `peer` appears in `node`'s candidate set for `topic` (a superset
 /// check, unlike [`await_candidates`]' set-equality) or `timeout` elapses —
 /// the precondition for a setup event to dial `peer`.

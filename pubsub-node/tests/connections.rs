@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use common::{
     alias_signer, await_candidates, await_delivery, await_downstream, await_peer_forgotten,
-    await_upstream_active, establish_mutual, establish_upstreams, node_with, ping,
-    shared_test_verifier, tampered_ping, trigger_setup,
+    await_upstream_active, await_upstream_present, establish_mutual, establish_upstreams,
+    node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
@@ -325,6 +325,54 @@ async fn abrupt_drop_leaves_stale_entries() {
 // to Active — is covered at the state level by
 // `duplicate_request_idempotent_then_stale_on_failed_revalidation` in
 // `src/state.rs`.
+
+// US5-AS1/AS2: connection snapshots are stable, consistent clones, and a request
+// to a peer that never answers is a visible AwaitingAccept diagnostic.
+#[tokio::test]
+async fn pending_connection_is_a_visible_stable_diagnostic() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t = topic("t");
+
+    // ghost is a registry member (so a candidate) but is never constructed, so
+    // its mailbox does not exist and s's Request to it is silently dropped.
+    registry
+        .set_topics(peer("ghost"), [t.clone()].into_iter().collect())
+        .await
+        .unwrap();
+    let s = node_with(&registry, &network, "s", &[], std::slice::from_ref(&t)).await;
+    await_candidates(&s, &t, &["ghost"], TIMEOUT)
+        .await
+        .expect("s knows ghost as a candidate");
+
+    trigger_setup(&s); // dials ghost; the request goes unanswered
+    await_upstream_present(&s, &peer("ghost"), &t, TIMEOUT)
+        .await
+        .expect("the pending upstream is created");
+
+    // The pending entry is a visible diagnostic at AwaitingAccept.
+    let snapshot = s.upstream_connections();
+    assert_eq!(
+        snapshot,
+        vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
+        "the unanswered request is observable as a pending entry",
+    );
+
+    // The snapshot is an owned clone — subsequent events don't mutate it, and a
+    // re-read is consistent (the entry stays pending; nothing auto-heals it).
+    trigger_setup(&s); // re-dials the pending pair
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(
+        snapshot,
+        vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
+        "the earlier snapshot is a stable clone, unaffected by later events",
+    );
+    assert_eq!(
+        s.upstream_connections(),
+        vec![(peer("ghost"), t, UpstreamState::AwaitingAccept)],
+        "a fresh read still shows the pending entry — it never auto-heals",
+    );
+}
 
 // US1 / FR-006: the autonomous path — nodes constructed with a configured setup
 // delay dial on their own when the one-shot timer fires (no manual trigger).
