@@ -53,7 +53,12 @@ pub(crate) struct NetworkSender {
 }
 
 impl NetworkSender {
-    async fn send(&self, from: &PeerId, to: &PeerId, message: Message) -> Result<(), NetworkError> {
+    pub(crate) async fn send(
+        &self,
+        from: &PeerId,
+        to: &PeerId,
+        message: Message,
+    ) -> Result<(), NetworkError> {
         let guard = self.registry.read().await;
         if let Some(tx) = guard.get(to) {
             let frame = RoutingFrame {
@@ -117,6 +122,13 @@ impl NetworkHandle {
         self.rx
             .take()
             .expect("NetworkHandle::take_receiver called more than once")
+    }
+
+    /// Clone the sender half of this handle, for the node's effect executor to
+    /// dispatch `Effect::Send` from inside the event loop. The clone stamps
+    /// outbound frames with this handle's id (the loop passes it as `from`).
+    pub(crate) fn sender(&self) -> NetworkSender {
+        self.tx.clone()
     }
 }
 

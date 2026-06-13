@@ -11,10 +11,10 @@ use crate::event::{Event, EventQueue};
 use crate::message::Message;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::network::{Network, NetworkHandle, RoutingFrame};
+use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
-use crate::state::{apply, NodeState};
+use crate::state::{apply, Effect, NodeState};
 use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
 use crate::topic_registry::TopicRegistry;
@@ -97,6 +97,10 @@ impl Node {
         let mut handle = network.register(self_id).await?;
         let node_id = handle.id().clone();
         let rx = handle.take_receiver();
+        // The effect executor needs the network send half and the node's own
+        // id inside the loop task (to stamp outbound frames as `from`).
+        let sender = handle.sender();
+        let loop_self_id = node_id.clone();
 
         // The node starts with an empty subscription set and derives it — and
         // its candidate sets — by folding the subscription-registry `watch` stream (ADR
@@ -115,7 +119,9 @@ impl Node {
         // The single consumer: drain the event queue and run each event in
         // arrival order through the pure transition, then execute whatever
         // effects it returns. New event variants get their handling in
-        // `state::apply`, not here.
+        // `state::apply`, not here. The state lock is held only across `apply`
+        // and released before effects execute — effects do I/O (`await`) and
+        // must not run under the lock.
         let event_loop = tokio::spawn(async move {
             while let Some(event) = event_rx.recv().await {
                 let effects = {
@@ -124,14 +130,8 @@ impl Node {
                         .expect("event loop: state mutex poisoned");
                     apply(&mut guard, event)
                 };
-                // `Effect` is uninhabited pre-connection, so this executor is
-                // vacuous; the connection model populates it. The lint is
-                // right that the loop never loops — that is the point: the
-                // empty match is the compile-time proof that every future
-                // variant must be handled here.
-                #[allow(clippy::never_loop)]
                 for effect in effects {
-                    match effect {}
+                    execute_effect(&sender, &loop_self_id, effect).await;
                 }
             }
         });
@@ -273,6 +273,39 @@ impl Drop for Node {
         self.event_loop.abort();
         for producer in &self.producers {
             producer.abort();
+        }
+    }
+}
+
+/// Execute one [`Effect`] the transition returned, outside the state lock.
+///
+/// `Send` failures are logged and otherwise ignored — the network drops sends
+/// to unregistered ids without surfacing an error, mirroring [`Node::send`].
+/// `Misbehaved` becomes the operator-facing `connection_severed` warn event
+/// and nothing else at this stage. No `apply` arm produces effects yet, so
+/// this executor is wired but not exercised until the connection transitions
+/// land.
+async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect) {
+    match effect {
+        Effect::Send { to, message } => {
+            if let Err(error) = sender.send(self_id, &to, message).await {
+                tracing::warn!(
+                    target: "pubsub_node::node",
+                    %error,
+                    to = %to,
+                    "connection send failed",
+                );
+            }
+        }
+        Effect::Misbehaved { peer, topic, cause } => {
+            tracing::warn!(
+                target: "pubsub_node::node",
+                event = "connection_severed",
+                peer = %peer,
+                topic = %topic,
+                cause,
+                "connection severed",
+            );
         }
     }
 }

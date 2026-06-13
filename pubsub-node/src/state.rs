@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use crate::crypto::{PublicKey, Verifier};
 use crate::event::Event;
-use crate::message::{Message, SignedMessage};
+use crate::message::{ConnectionMessage, Message, SignedMessage};
 use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
 use crate::subscription_registry::MembershipEvent;
@@ -112,16 +112,39 @@ impl NodeState {
 
 /// Outbound commands the shell executes on the transition's behalf.
 ///
-/// Uninhabited at this stage: the node only ingests. The first variants
-/// (message forwarding, dialing, closing) arrive with the connection model;
-/// the type exists now so the transition's signature is stable for the
-/// features that extend it.
-// FR-013: ships present-but-empty; locked signature justified by the ROADMAP
-// consumers (004-connections effects; the registry-fold arms — 008's
-// `MembershipUpdate` and 013's `TopicRegistryUpdate`, both returning `[]`)
-// — ADR 0011.
-#[non_exhaustive]
-pub(crate) enum Effect {}
+/// The transition itself performs no protocol I/O; it returns these and the
+/// shell's effect executor (in `crate::node`) carries them out outside the
+/// state lock. Crate-internal, like [`NodeState`].
+// The executor matches both variants, but no `apply` arm constructs an effect
+// yet — the connection transitions that produce them land with User Story 1
+// (tasks T009–T011). The allow keeps this inert checkpoint warning-clean and
+// is removed once the first constructor exists.
+#[allow(dead_code)]
+pub(crate) enum Effect {
+    /// Send `message` to the peer registered under `to`. Every wire action a
+    /// connection transition takes — a `Request`, an `Accepted`, a
+    /// `Terminated` notice — reduces to this single effect, so the executor
+    /// has one send arm (R4).
+    Send {
+        /// The peer to deliver to.
+        to: PeerId,
+        /// The message to send.
+        message: Message,
+    },
+    /// The semantic misbehavior signal: an `Active` upstream forwarded a
+    /// payload that failed signature verification after passing every earlier
+    /// check (FR-017). The executor logs it (`connection_severed`, warn) and
+    /// nothing else in this feature; a future blacklist consumes this variant
+    /// without reshaping the transition's output.
+    Misbehaved {
+        /// The offending peer.
+        peer: PeerId,
+        /// The topic the severed connection was for.
+        topic: TopicId,
+        /// A static cause tag for the operator log.
+        cause: &'static str,
+    },
+}
 
 /// The single state-transition function. Synchronous; no protocol I/O.
 ///
@@ -135,7 +158,28 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
+        Event::ConnectionSetup => handle_connection_setup(state),
+        Event::Shutdown => handle_shutdown(state),
     }
+}
+
+/// Transition for the connection-establishment trigger.
+///
+/// Will consult the node's connection-selection strategy and dial the expected
+/// upstreams it does not already hold (the FR-007 diff). Inert until User
+/// Story 1 wires the strategy and connection structures (tasks T009–T011);
+/// returns no effects for now.
+fn handle_connection_setup(_state: &mut NodeState) -> Vec<Effect> {
+    Vec::new()
+}
+
+/// Transition for the graceful-shutdown trigger.
+///
+/// Will clear both connection structures and emit one `Terminated` notice per
+/// held entry (FR-020). Inert until User Story 4 (tasks T024–T025); returns no
+/// effects for now.
+fn handle_shutdown(_state: &mut NodeState) -> Vec<Effect> {
+    Vec::new()
 }
 
 /// Transition for a topic-registry delta.
@@ -250,7 +294,21 @@ fn handle_message_received(state: &mut NodeState, from: PeerId, message: Message
 
     match message {
         Message::Signed(signed) => handle_signed_message(state, from, signed),
+        Message::Connection(connection) => handle_connection_message(state, from, connection),
     }
+}
+
+/// Transition for an inbound connection-control message.
+///
+/// Will verify the carried emitter's signature and dispatch on the action
+/// kind to `handle_connection_request` / `_accepted` / `_terminated`. Inert
+/// until User Story 1 (tasks T010–T011); returns no effects for now.
+fn handle_connection_message(
+    _state: &mut NodeState,
+    _from: PeerId,
+    _connection: ConnectionMessage,
+) -> Vec<Effect> {
+    Vec::new()
 }
 
 /// Transition for a signed dissemination message.
@@ -435,7 +493,9 @@ mod tests {
     /// Same as [`signed_ping`] but with the payload altered after signing,
     /// so the signature no longer verifies (the suite's mismatch pattern).
     fn tampered_ping(signer: &TestSigner, topic: TopicId, n: u64) -> Message {
-        let Message::Signed(mut sm) = signed_ping(signer, topic, n);
+        let Message::Signed(mut sm) = signed_ping(signer, topic, n) else {
+            unreachable!("signed_ping always builds a Message::Signed");
+        };
         sm.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
         Message::Signed(sm)
     }
