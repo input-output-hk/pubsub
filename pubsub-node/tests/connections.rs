@@ -6,8 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, await_candidates, await_delivery, await_downstream, await_upstream_active,
-    establish_upstreams, node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
+    alias_signer, await_candidates, await_delivery, await_downstream, await_peer_forgotten,
+    await_upstream_active, establish_mutual, establish_upstreams, node_with, ping,
+    shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
@@ -260,6 +261,70 @@ async fn misbehavior_severs_one_connection_silently() {
         "the severed connection drops the offender's later valid t1 message",
     );
 }
+
+// US4-AS1 / SC-004: graceful shutdown notifies counterparts — after a node
+// shuts down, the survivor holds zero dangling entries about it (both roles).
+#[tokio::test]
+async fn graceful_shutdown_clears_counterpart_entries() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t = topic("t");
+
+    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    establish_mutual(&a, &b, std::slice::from_ref(&t)).await;
+    assert!(
+        !a.upstream_connections().is_empty() && !a.downstream_connections().is_empty(),
+        "a holds both-role entries about b before shutdown",
+    );
+
+    // b shuts down gracefully — one Terminated per held entry, then it releases.
+    b.shutdown().await;
+
+    await_peer_forgotten(&a, &peer("b"), TIMEOUT)
+        .await
+        .expect("a removes every entry about the departed b");
+}
+
+// US4-AS3 / FR-021: an abrupt drop sends no notices — the survivor keeps stale
+// entries (harmless: they admit nothing on their own).
+#[tokio::test]
+async fn abrupt_drop_leaves_stale_entries() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t = topic("t");
+
+    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    establish_mutual(&a, &b, std::slice::from_ref(&t)).await;
+
+    // Abrupt teardown — no shutdown call, no notices.
+    drop(b);
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    // a still holds its (now stale) entries about b.
+    assert!(
+        a.upstream_connections()
+            .iter()
+            .any(|(p, _, _)| p == &peer("b")),
+        "abrupt drop leaves the survivor's upstream entry stale",
+    );
+    assert!(
+        a.downstream_connections()
+            .iter()
+            .any(|(p, _)| p == &peer("b")),
+        "abrupt drop leaves the survivor's downstream entry stale",
+    );
+}
+
+// Note (US4-AS4 / SC-004, restart recovery): a literal same-alias *restart* is
+// not expressible at integration level on the in-memory network — it has no
+// deregistration, so re-`register`ing a dropped node's id returns
+// DuplicateRegistration. The healing mechanic restart relies on — a counterpart
+// idempotently re-accepting a re-dialing peer's duplicate Request, returning it
+// to Active — is covered at the state level by
+// `duplicate_request_idempotent_then_stale_on_failed_revalidation` in
+// `src/state.rs`.
 
 // US1 / FR-006: the autonomous path — nodes constructed with a configured setup
 // delay dial on their own when the one-shot timer fires (no manual trigger).

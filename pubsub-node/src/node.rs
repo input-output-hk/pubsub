@@ -153,6 +153,13 @@ impl Node {
         // must not run under the lock.
         let event_loop = tokio::spawn(async move {
             while let Some(event) = event_rx.recv().await {
+                // ADR 0019 carve-out: the loop inspects the event kind only to
+                // know when to stop — the event's *handling* (clear + notices)
+                // still lives in `state::apply`. After executing a Shutdown
+                // event's effects (the Terminated notices), the loop breaks;
+                // that termination is the signal `shutdown` awaits, guaranteeing
+                // the notices were handed to the network first.
+                let is_shutdown = matches!(event, Event::Shutdown);
                 let effects = {
                     let mut guard = state_for_task
                         .lock()
@@ -161,6 +168,9 @@ impl Node {
                 };
                 for effect in effects {
                     execute_effect(&sender, &loop_self_id, effect).await;
+                }
+                if is_shutdown {
+                    break;
                 }
             }
         });
@@ -332,6 +342,33 @@ impl Node {
             .lock()
             .expect("downstream_connections: state mutex poisoned")
             .downstream_snapshot()
+    }
+
+    /// Gracefully shut the node down: drain any already-queued events, send one
+    /// `Terminated` notice per held connection (both roles, any state), then
+    /// release the node. Consuming `self` makes use-after-shutdown
+    /// unrepresentable.
+    ///
+    /// Resolves only after the notices have been handed to the network: it
+    /// pushes a `Shutdown` event and awaits the event loop's completion (the
+    /// loop breaks once that event's effects have executed). Plain
+    /// [`drop`](Drop) without calling this remains the abrupt, no-notice path —
+    /// counterparts keep stale entries, which admit nothing and are
+    /// re-confirmed idempotently if the node returns.
+    pub async fn shutdown(mut self) {
+        self.events.push(Event::Shutdown);
+        // `JoinHandle` is `Unpin`; await by reference (the node has a `Drop`
+        // impl, so the handle cannot be moved out). A join error means the loop
+        // task panicked or was aborted — log and proceed to drop.
+        if let Err(error) = (&mut self.event_loop).await {
+            tracing::warn!(
+                target: "pubsub_node::node",
+                %error,
+                "event loop did not complete cleanly during shutdown",
+            );
+        }
+        // `self` drops here: `Drop` aborts the producers (and the
+        // already-finished loop, a no-op).
     }
 }
 

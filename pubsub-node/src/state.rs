@@ -256,11 +256,33 @@ fn signed_connection(self_id: &PeerId, signer: &dyn Signer, action: ConnectionAc
 
 /// Transition for the graceful-shutdown trigger.
 ///
-/// Will clear both connection structures and emit one `Terminated` notice per
-/// held entry (FR-020). Inert until User Story 4 (tasks T024–T025); returns no
-/// effects for now.
-fn handle_shutdown(_state: &mut NodeState) -> Vec<Effect> {
-    Vec::new()
+/// Clears both connection structures and emits one `Terminated` notice per held
+/// entry — both roles, any state, including `AwaitingAccept` upstreams (FR-020).
+/// A pair held in both roles is notified once per structure (two notices; the
+/// redundant one is absorbed by the counterpart's unknown-termination rule).
+fn handle_shutdown(state: &mut NodeState) -> Vec<Effect> {
+    let self_id = state.self_id.clone();
+    let signer = Arc::clone(&state.signer);
+    let terminate = |peer: PeerId, topic: TopicId| Effect::Send {
+        to: peer,
+        message: signed_connection(
+            &self_id,
+            signer.as_ref(),
+            ConnectionAction::Terminated { topic },
+        ),
+    };
+
+    let effects: Vec<Effect> = state
+        .upstream
+        .keys()
+        .cloned()
+        .chain(state.downstream.iter().cloned())
+        .map(|(peer, topic)| terminate(peer, topic))
+        .collect();
+
+    state.upstream.clear();
+    state.downstream.clear();
+    effects
 }
 
 /// Transition for a topic-registry delta.
@@ -1973,5 +1995,98 @@ mod tests {
             Some(UpstreamState::Active),
             "other peer intact",
         );
+    }
+
+    // ---- T024: graceful shutdown & Terminated reception (US4, FR-014/020) -----
+
+    /// Seed a downstream entry `(peer, topic)` directly.
+    fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
+        state.downstream.insert((peer(peer_alias), topic(t)));
+    }
+
+    /// The `(to, topic)` of every `Terminated` send effect (asserting emitter).
+    fn terminated_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
+        let mut out = Vec::new();
+        for effect in effects {
+            if let Effect::Send {
+                to,
+                message: Message::Connection(cm),
+            } = effect
+            {
+                if let ConnectionAction::Terminated { topic } = &cm.plain.action {
+                    assert_eq!(
+                        cm.plain.emitter,
+                        peer(expected_emitter),
+                        "terminated emitter"
+                    );
+                    out.push((to.clone(), topic.clone()));
+                }
+            }
+        }
+        out
+    }
+
+    // US4-AS1 / FR-020: shutdown clears both structures and emits one Terminated
+    // per entry in both roles, any state — including AwaitingAccept upstreams.
+    #[test]
+    fn shutdown_notifies_every_entry_including_awaiting_accept() {
+        let mut state = node_state("self", HashSet::new());
+        state
+            .upstream
+            .insert((peer("b"), topic("t1")), UpstreamState::Active);
+        state
+            .upstream
+            .insert((peer("c"), topic("t1")), UpstreamState::AwaitingAccept);
+        with_downstream(&mut state, "d", "t1");
+
+        let effects = apply(&mut state, Event::Shutdown);
+
+        assert!(state.upstream_snapshot().is_empty(), "upstream cleared");
+        assert!(state.downstream_snapshot().is_empty(), "downstream cleared");
+        assert_eq!(
+            sorted_pairs(terminated_sends(&effects, "self")),
+            sorted_pairs(vec![
+                (peer("b"), topic("t1")),
+                (peer("c"), topic("t1")), // the AwaitingAccept upstream is notified too
+                (peer("d"), topic("t1")),
+            ]),
+            "one Terminated per held entry, both roles, any state",
+        );
+    }
+
+    // FR-020: a pair held in BOTH roles is notified once per structure (two
+    // Terminated notices — the redundant one is absorbed by the counterpart's
+    // unknown-termination rule).
+    #[test]
+    fn shutdown_notifies_each_role_of_a_both_roles_pair() {
+        let mut state = node_state("self", HashSet::new());
+        state
+            .upstream
+            .insert((peer("b"), topic("t1")), UpstreamState::Active);
+        with_downstream(&mut state, "b", "t1");
+
+        let effects = apply(&mut state, Event::Shutdown);
+        assert_eq!(
+            terminated_sends(&effects, "self").len(),
+            2,
+            "both the upstream and downstream entry are notified",
+        );
+    }
+
+    // US4-AS2 / FR-014: a Terminated removes the matching entry in either role,
+    // with no reply (the reception side of graceful shutdown).
+    #[test]
+    fn terminated_reception_removes_either_role() {
+        let mut state = node_state("self", HashSet::from([topic("t1")]));
+        apply(&mut state, membership_joined("b", ["t1"]));
+        state
+            .upstream
+            .insert((peer("b"), topic("t1")), UpstreamState::Active);
+        with_downstream(&mut state, "b", "t1");
+
+        let effects = apply(&mut state, terminated_from("b", "t1"));
+        assert!(effects.is_empty(), "Terminated is never replied to");
+        assert_eq!(upstream_state(&state, "b", "t1"), None, "upstream removed");
+        assert!(!has_downstream(&state, "b", "t1"), "downstream removed");
     }
 }

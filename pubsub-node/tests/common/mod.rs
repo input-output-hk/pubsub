@@ -552,6 +552,31 @@ pub async fn establish_mutual(a: &Node, b: &Node, topics: &[TopicId]) {
     }
 }
 
+/// Poll until `node` holds no upstream or downstream connection naming `peer`
+/// (in any topic), or `timeout` elapses — e.g. after a counterpart's graceful
+/// shutdown, whose `Terminated` notices the node processes asynchronously.
+pub async fn await_peer_forgotten(
+    node: &Node,
+    peer: &PeerId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        let in_upstream = node
+            .upstream_connections()
+            .iter()
+            .any(|(p, _, _)| p == peer);
+        let in_downstream = node.downstream_connections().iter().any(|(p, _)| p == peer);
+        if !in_upstream && !in_downstream {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 /// Establish `receiver`'s Active upstream to each of `senders` on `topic`:
 /// await the candidates are known, trigger the receiver's single setup event,
 /// then await each upstream Active. The one-directional preamble for the

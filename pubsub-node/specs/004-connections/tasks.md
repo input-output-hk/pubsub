@@ -70,9 +70,9 @@
 
 **Independent test**: graceful shutdown clears the survivor's entries; abrupt drop + restart re-dial returns to Active (spec US4, SC-004).
 
-- [ ] T024 [US4] Write failing sync state tests in `src/state.rs`: `handle_shutdown` clears both structures and returns one `Send(Terminated)` per entry incl. AwaitingAccept; `Terminated` reception removes the matching entry in either role (FR-014/020, US4-AS1..2)
-- [ ] T025 [US4] Implement `handle_shutdown` in `src/state.rs` and `pub async fn shutdown(mut self)` in `src/node.rs` (push `Event::Shutdown`; loop breaks after executing a Shutdown event's effects per ADR 0019's recorded carve-out; `(&mut self.event_loop).await` with `JoinError` logged-ignored; `Drop` untouched)
-- [ ] T026 [US4] Add shutdown/restart integration tests to `tests/connections.rs`: graceful shutdown → zero dangling counterpart entries; abrupt drop → stale entries retained (harmless); restart under same alias → re-dial → idempotent re-accept → Active (US4-AS3..4) ⛳
+- [X] T024 [US4] Write failing sync state tests in `src/state.rs`: `handle_shutdown` clears both structures and returns one `Send(Terminated)` per entry incl. AwaitingAccept; `Terminated` reception removes the matching entry in either role (FR-014/020, US4-AS1..2)
+- [X] T025 [US4] Implement `handle_shutdown` in `src/state.rs` and `pub async fn shutdown(mut self)` in `src/node.rs` (push `Event::Shutdown`; loop breaks after executing a Shutdown event's effects per ADR 0019's recorded carve-out; `(&mut self.event_loop).await` with `JoinError` logged-ignored; `Drop` untouched)
+- [X] T026 [US4] Add shutdown/restart integration tests to `tests/connections.rs`: graceful shutdown → zero dangling counterpart entries; abrupt drop → stale entries retained (harmless); restart under same alias → re-dial → idempotent re-accept → Active (US4-AS3..4) ⛳
 
 ## Phase 7: User Story 5 — observable, deterministically testable lifecycle (P3)
 
