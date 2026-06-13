@@ -32,6 +32,8 @@ Workstream-level (not feature-scoped). Sibling to `ROADMAP.md`. Migrated into a 
 
 **Trigger to revisit**: when feature 004 (connection-oriented network model) lands. The connection-lifecycle ADR for that feature should explicitly address self-connections; the receive-path filter behavior may need to be re-examined alongside it.
 
+**Resolved (004-connections)**: self-connections are unrepresentable end to end. The connection-selection strategy never selects self (candidates exclude the node's own id — FR-009, SC-007), and a control message whose carried emitter is the node itself is dropped (`self_emitter`, FR-015), so a node can never hold an Active upstream to itself. The payload receive path is now connection-gated (FR-016): a self-addressed payload — even one delivered through the in-memory loopback — finds no Active self-upstream and is dropped `not_connected`. The residual frame-vs-emitter identity-binding question is a distinct, security-flavoured deferral, now tracked in N-013.
+
 ---
 
 ## N-003 — Arrival-time chain validation under registry availability
@@ -133,6 +135,8 @@ At each trigger, weigh whether option (a) still serves, or whether a parallel "w
 
 **Trigger to revisit**: **feature 004-connections** (the follow-on that reshapes construction and the dial/accept paths). Add a proper integration test there: construct a node, attempt a second construction with the same id on the same network, assert the typed error (`NodeError` from `NetworkError::DuplicateRegistration`) — and extend it to whatever construction/dial failure modes the connection model introduces. 004-connections touches exactly the constructor region whose ordering currently makes the no-leak property true, so the test lands where the risk does.
 
+**Resolved (004-connections, T016)**: `tests/connections.rs` covers the construction-failure path. `construction_fails_on_duplicate_registration` asserts the typed `NodeError::Network(NetworkError::DuplicateRegistration)` on a second `Node::new` for the same id, and that the failed attempt left the id free for a later coherent construction. `construction_fails_on_identity_mismatch` covers the connection model's new failure mode — `NodeError::IdentityMismatch`, checked **before** network registration (FR-024, ADR 0017) so nothing leaks.
+
 ## N-007 — `peers` placement: shell field today, `NodeState` when a transition consumes peer data
 
 **Surfaced during**: 004 (node event-loop refactor) checkpoint-2 review — maintainer asked whether the static `peers` list should live in `NodeState` alongside the rest of the node's state.
@@ -180,3 +184,57 @@ At each trigger, weigh whether option (a) still serves, or whether a parallel "w
 **Why deferred**: adding deregistration to the mock (`Network::deregister`, or freeing the slot on `NetworkHandle` drop) is a transport-shape decision that belongs with the real connection-oriented transport, where node departure/restart and slot reuse have concrete semantics (a TCP peer that disconnects frees nothing in a registry by itself; reuse is an application/registry concern). Baking a deregistration API into the in-memory mock now — solely to make one integration test literal — would lock a shape before the feature that defines it, for no behavior the state-level test does not already cover.
 
 **Trigger to revisit**: when real node restarts are defined — feature **009** (real transport: connection teardown / reconnection) or **011/012** (persistent identity + on-chain registration recovery, cf. N-008). At that point decide whether the network grows a deregistration/slot-reuse API, and if so, promote the restart-recovery flow to a literal end-to-end integration test (drop → re-register same id → re-dial → idempotent re-accept → `Active`). Until then the mechanic is verified at the state level and the in-memory restart stays inexpressible by design.
+
+---
+
+The next five entries are 004-connections' deferred-dynamics package — the deliberate non-reconciliations the connection model ships, each mapped to its row in the feature's data-model staleness catalog (`specs/004-connections/data-model.md` §3, rows S1–S7). All are safe to defer for the same reason the catalog records: a stale entry only ever *admits* traffic it already would, or *sends into drops* — none creates traffic or corrupts the received record.
+
+## N-011 — Stale-`AwaitingAccept` GC and peer-membership-drift removal
+
+**Surfaced during**: 004-connections (logical connections) — data-model staleness catalog **S1** (stuck `AwaitingAccept`) and **S5** (peer-membership drift, both roles).
+
+**Question**: when do connection entries that selection no longer expects get **removed**? A request to an absent peer pins an `AwaitingAccept` upstream indefinitely (S1); candidates that shrink between setups leave held pairs (upstream and downstream) for ex-members untouched (S5).
+
+**Working answer (004-connections scope)**: **No removal.** Selection only ever *adds* (FR-007: "expected-set membership never removes anything"); a recurring setup re-dials pending pairs but prunes nothing. Stuck/`AwaitingAccept` entries stay visible diagnostics (admit nothing); drifted entries persist (their payload is still gated by subscription/registration/severance). Removal is the connection set becoming **dynamic**, explicitly out of scope (FR-027).
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature (re-selection on membership change, GC of stale `AwaitingAccept`, removal of no-longer-expected pairs). At that point selection gains a remove side and the diff stops being add-only.
+
+## N-012 — Active-connection liveness / heartbeat
+
+**Surfaced during**: 004-connections — data-model staleness catalog **S2** (one-sided connection after an acceptor's abrupt restart) and **S3** (survivor-side stale entries after an abrupt drop).
+
+**Question**: how does a node discover that an `Active` upstream has gone silent — the counterpart restarted abruptly (losing its downstream) or vanished without a `Terminated`? The survivor holds a permanently quiet `Active` entry that its own add-only diff will never re-request.
+
+**Working answer (004-connections scope)**: **No liveness probing.** Graceful `shutdown` sends `Terminated` for every entry; the abrupt path sends nothing and the survivor keeps stale entries (FR-021, accepted v1 state). The requester-restart re-dial heals the restarted node's *own* direction via idempotent re-accept; the survivor's quiet `Active` entry is not healed. No heartbeat exists (FR-028).
+
+**Trigger to revisit**: feature **009** (real transport + liveness/heartbeat), where connection liveness is probeable and a dead `Active` entry can be detected and reaped.
+
+## N-013 — Handshake identity-binding hardening (frame sender vs signed emitter)
+
+**Surfaced during**: 004-connections — ADR 0017 §4 and spec Assumptions (the transport frame's sender is *trusted as delivered*); FR-028 (no identity-binding hardening). Not a staleness-catalog row — a security-hardening deferral.
+
+**Question**: control-message handling keys entirely on the **carried emitter** (verified by signature), and no cross-check is performed between the transport frame's sender and that emitter. Under a real transport with spoofable frames, should the two be reconciled?
+
+**Working answer (004-connections scope)**: **No cross-check.** The in-memory network stamps frames itself, so a frame cannot misattribute its sender (spec Assumptions); the control path uses the carried emitter, the payload path uses the frame's delivering peer (a payload carries a publisher identity, not the sender's), and that asymmetry is deliberate (FR-011/FR-016). Mock crypto binds identity only symbolically anyway (the 003 caveat).
+
+**Trigger to revisit**: feature **011** (real crypto) and/or **009** (real transport), where frame tampering enters the threat model. Decide whether a frame-vs-emitter cross-check, or authenticated transport framing, is required, and where it sits relative to signature verification.
+
+## N-014 — Misbehavior follow-ups: blacklist, re-selection, topic-scoped misbehavior
+
+**Surfaced during**: 004-connections — data-model staleness catalog **S6** (misbehavior asymmetry).
+
+**Question**: severance removes only the receiver's *upstream* entry and is silent — the offender keeps its downstream and keeps sending into `not_connected` drops; nothing blacklists it or prevents re-establishment, and misbehavior is signature-only (topic-scoped misbehavior is not modelled). What consumes the `Effect::Misbehaved` signal beyond a log line?
+
+**Working answer (004-connections scope)**: **Log only.** The misbehavior signal is surfaced as `connection_severed` (warn) and otherwise unconsumed; `Effect::Misbehaved` exists precisely so a future blacklist can consume it without reshaping `apply`'s output (the spec's stated forward intent). No deny path, no re-selection avoidance, no topic-scoped misbehavior (FR-018, FR-027).
+
+**Trigger to revisit**: the **misbehavior/deny-path** package (blacklist that consumes `Effect::Misbehaved`; re-selection that avoids blacklisted peers; a `Rejected` control message when a deny path exists; any topic-scoped misbehavior model). Returns with dynamic transitions and the deny-path work.
+
+## N-015 — Acceptance validates membership only, not topic registration (cross-registry ordering)
+
+**Surfaced during**: 004-connections — data-model staleness catalog **S7**; spec Clarifications 2026-06-12 (post-013 reconciliation). Revisit-flagged at planning.
+
+**Question**: connection acceptance validates the **membership-derived** subscription set only (FR-012) — it does **not** require the topic to be registered in the topic registry. So connections can establish and persist on a topic the registry does not recognise (e.g. one deregistered because a publisher key was compromised); their payload delivers nothing (013's `topic_not_registered` gate), but the connection-level exposure is real.
+
+**Working answer (004-connections scope)**: **Membership-only acceptance**, deliberate and revisit-flagged. The maintainer's preferred resolution is a **cross-registry event-ordering invariant**: both registries are chain-derived, and a faithful follower delivers their events in chain order, making membership ⊆ registered *structural* (raised on the 013 PR). Until that invariant is adopted, acceptance is intentionally inconsistent with the active-topics set, with delivery still gated by registration.
+
+**Trigger to revisit**: resolution of the **cross-registry chain-order invariant**. If adopted, membership ⊆ registered holds structurally and no acceptance change is needed. If rejected, acceptance must gain the registration check (validate against `subscriptions ∩ registered_topics`) **or** topic removal must cascade into membership so an unregistered topic loses its members.

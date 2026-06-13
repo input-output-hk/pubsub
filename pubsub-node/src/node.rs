@@ -32,20 +32,39 @@ use crate::topic_registry::TopicRegistry;
 /// are aborted when the [`Node`] is dropped.
 ///
 /// A node carries:
-/// - its own [`PeerId`],
+/// - its own [`PeerId`] (a public key) and a signing identity that signs the
+///   connection-control messages it emits,
 /// - a static peer set (no peer-set mutation API at this stage),
 /// - a registry-derived subscription set — the topics it accepts on — queryable
 ///   via [`subscriptions`](Node::subscriptions) (the topics it both declared in
 ///   its subscription-list entry **and** that are registered in the topic
 ///   registry); the node holds no API to mutate it (it is folded from the two
 ///   registry streams),
+/// - **logical connections** to peers, one per `(peer, topic)`, in two roles:
+///   *upstream* connections it requested (its message sources, each
+///   [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
+///   [`Active`](crate::UpstreamState::Active)) and *downstream* connections it
+///   accepted (its fan-out destinations). They are established autonomously by
+///   an injected connection-selection strategy on a setup event, exchanged as
+///   signed control messages over the network, and observable through
+///   [`upstream_connections`](Node::upstream_connections) /
+///   [`downstream_connections`](Node::downstream_connections). There is no
+///   manual connect/disconnect API — only construction, [`send`](Node::send),
+///   [`shutdown`](Node::shutdown), and the read-only snapshot getters.
 /// - a queryable record of received messages accessible via
-///   [`received_messages`](Node::received_messages). A delivery enters this
-///   record only if its topic is subscribed (declared **and** a registered
-///   topic), its publisher is authorized for that topic (or the
-///   topic is open), and its signature verifies; messages failing any check are
-///   silently dropped (with an info-level `message_dropped` tracing event
-///   carrying a `cause`).
+///   [`received_messages`](Node::received_messages). The receive path is
+///   **connection-gated**: a delivery enters the record only if the delivering
+///   peer holds an Active upstream with the node for the message's topic, the
+///   topic is subscribed (declared **and** a registered topic), the publisher
+///   is authorized for that topic (or the topic is open), and the signature
+///   verifies. Messages failing a check are silently dropped (an info-level
+///   `message_dropped` event with a `cause`); a signature failure over an
+///   otherwise-admissible Active upstream additionally **severs** that
+///   connection (a warn-level `connection_severed`, no notice sent).
+///
+/// Teardown has two paths: [`shutdown`](Node::shutdown) (consuming, awaitable)
+/// notifies every connection counterpart before releasing the node; a plain
+/// drop is the abrupt, no-notice path.
 pub struct Node {
     handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,

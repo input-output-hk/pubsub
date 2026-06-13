@@ -230,3 +230,55 @@ Semantic interactions verified clean (recorded so they are not re-derived):
 all code claims current as of the post-013 merge (`2678696`). The remaining analyze
 obligation is unchanged: the post-implementation verify-against-code pass
 (T032/T033 + closing session).
+
+## Session 6 — 2026-06-13 (T032: post-implementation verify-against-code, contracts §4)
+
+Implementation of 004-connections complete (Phases 1–8: T001–T033). This is the
+T032 verify-against-code pass — contracts §4's public-surface claims checked
+against the merged code on `004-connections` (Phase-1..8 commits), applying the
+003 lesson (compare artifacts to **code**, not just to each other).
+
+### Verified-against-source this pass
+
+- **`PeerId` reshape** — `src/peer.rs` wraps `PublicKey`; `as_str` is **gone**
+  (grep: none in `peer.rs`); `FromStr`/`Display` implement the alias rule; serde
+  is string-shaped (Serialize via `collect_str`, Deserialize via `FromStr`).
+  Matches contracts §4 "Changed".
+- **`Node::new` signature** — `src/node.rs` is exactly `(self_id, config,
+  network, signer: Arc<dyn Signer>, verifier, subscription_registry,
+  topic_registry, strategy: Arc<dyn ConnectionStrategy>)`, in §4's order;
+  identity/signer coherence returns the new `NodeError::IdentityMismatch`
+  (`src/error.rs`) **before** registration.
+- **`NodeConfig`** — gains `connection_setup_delay: Option<Duration>` (TOML
+  `connection_setup_delay_ms`), unset by default.
+- **Added surface** — `pub async fn Node::shutdown(self)`;
+  `upstream_connections()` / `downstream_connections()` getters with §4's return
+  types.
+- **Re-exports** (`src/lib.rs`) — `UpstreamState`, `ConnectionStrategy`,
+  `ConnectToAllCandidates`, `ConnectionMessage`, `PlainConnection`,
+  `ConnectionAction` all present alongside the existing message types;
+  `MockCryptoScheme::keypair_from_alias` present on the already-exported scheme.
+- **Crate-internal invariants (§5 note)** — `NodeState` and `Effect` are
+  `pub(crate)`, not re-exported through `lib.rs`.
+- **Explicitly absent (§4)** — no `connect`/`disconnect` verb; `ConnectionAction`
+  has only `Request`/`Accepted`/`Terminated` (no `Rejected`); no transport change.
+
+**Finding: zero divergences.** Every contracts §4 claim matches the code as
+built; no artifact reconciliation was required (a clean verify pass is still a
+ledgered pass — the 003 lesson).
+
+### Documentation reconciliation this phase (T029–T031)
+
+- `IMPLEMENTATION_NOTES.md`: N-002 and N-006 marked resolved; N-010 (added
+  mid-Phase-6) plus the deferred-dynamics package N-011..N-015, each mapped to a
+  data-model staleness row S1–S7 (except N-013 identity-binding — an
+  ADR-0017/FR-028 deferral with no staleness row).
+- `event-loop-and-registry-contract.md` §1.3: supersession note added (logical
+  connections in `NodeState` over the single mailbox; the keyed-producer sketch
+  is deferred to a real transport, 009+).
+- `Node` rustdoc: now documents the connection surface, the connection-gated
+  receive path, severance, and the two teardown paths.
+
+**Go/no-go: GO.** Contracts/quickstart accurate against code; T033 sweep green.
+The only remaining obligation is the closing post-implementation
+`/speckit-analyze` session.
