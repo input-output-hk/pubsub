@@ -60,9 +60,9 @@
 
 **Independent test**: establish → one tampered message → upstream gone, misbehavior signal raised → subsequent valid message drops `not_connected` (spec US3, SC-003).
 
-- [ ] T021 [US3] Write failing sync state tests in `src/state.rs`: severance (entry removed + `Effect::Misbehaved`, **no** `Send`) only when every earlier check passed (connection, subscription, registration, authorization); earlier-check failures never sever; other topics/peers untouched; post-severance valid message → `not_connected` (FR-017/018, US3-AS1..4)
-- [ ] T022 [US3] Implement severance at the signature step of `handle_signed_message` in `src/state.rs` (executor's `connection_severed` warn already lands via T007)
-- [ ] T023 [US3] Add the misbehavior integration flow to `tests/connections.rs` (tamper → severed → subsequent valid excluded; offender's other-topic connection intact) ⛳
+- [X] T021 [US3] Write failing sync state tests in `src/state.rs`: severance (entry removed + `Effect::Misbehaved`, **no** `Send`) only when every earlier check passed (connection, subscription, registration, authorization); earlier-check failures never sever; other topics/peers untouched; post-severance valid message → `not_connected` (FR-017/018, US3-AS1..4)
+- [X] T022 [US3] Implement severance at the signature step of `handle_signed_message` in `src/state.rs` (executor's `connection_severed` warn already lands via T007)
+- [X] T023 [US3] Add the misbehavior integration flow to `tests/connections.rs` (tamper → severed → subsequent valid excluded; offender's other-topic connection intact) ⛳
 
 ## Phase 6: User Story 4 — graceful shutdown & restart recovery (P2)
 

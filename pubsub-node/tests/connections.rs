@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use common::{
     alias_signer, await_candidates, await_delivery, await_downstream, await_upstream_active,
-    establish_upstreams, node_with, ping, shared_test_verifier, trigger_setup,
+    establish_upstreams, node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
@@ -207,6 +207,57 @@ async fn unconnected_sender_is_not_recorded() {
     assert!(
         !record.iter().any(|d| d.from == *ghost.id()),
         "the unconnected sender's valid message is dropped (not_connected)",
+    );
+}
+
+// US3 / SC-003: one tampered message over an Active connection severs it
+// silently; the offender's subsequent valid messages on that topic are then
+// excluded, while its connection on another topic is untouched.
+#[tokio::test]
+async fn misbehavior_severs_one_connection_silently() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t1 = topic("t1");
+    let t2 = topic("t2");
+
+    // s (receiver) dials the offender b on both topics they share.
+    let s = node_with(&registry, &network, "s", &[], &[t1.clone(), t2.clone()]).await;
+    let b = node_with(&registry, &network, "b", &[], &[t1.clone(), t2.clone()]).await;
+    establish_upstreams(&s, &[&b], &t1).await;
+    await_upstream_active(&s, b.id(), &t2, TIMEOUT)
+        .await
+        .expect("the same setup dialed b on t2 too");
+
+    // b misbehaves on t1, then sends a valid t2 message. The b→s channel is
+    // FIFO, so awaiting the t2 delivery guarantees the tampered t1 was processed
+    // (and the connection severed) first.
+    b.send(s.id(), tampered_ping(t1.clone(), 1))
+        .await
+        .expect("tampered t1");
+    let good_t2 = ping(t2.clone(), 2);
+    b.send(s.id(), good_t2.clone()).await.expect("valid t2");
+    await_delivery(&s, b.id(), &good_t2, TIMEOUT)
+        .await
+        .expect("the t2 connection still delivers");
+
+    let up = s.upstream_connections();
+    assert!(
+        !up.iter().any(|(p, t, _)| p == b.id() && t == &t1),
+        "the t1 connection was severed",
+    );
+    assert!(
+        up.iter()
+            .any(|(p, t, st)| p == b.id() && t == &t2 && *st == UpstreamState::Active),
+        "the offender's t2 connection is untouched",
+    );
+
+    // A subsequent valid t1 message from b is now excluded (not_connected).
+    let good_t1 = ping(t1.clone(), 3);
+    b.send(s.id(), good_t1.clone()).await.expect("valid t1");
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(
+        !s.received_messages().iter().any(|d| d.message == good_t1),
+        "the severed connection drops the offender's later valid t1 message",
     );
 }
 

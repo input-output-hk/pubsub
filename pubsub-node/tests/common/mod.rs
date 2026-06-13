@@ -109,6 +109,16 @@ pub fn ping(topic: TopicId, n: u64) -> Message {
     build_signed_message_simple(&test_signer(), topic, MessagePayload::Ping(n))
 }
 
+/// Build a `Ping(n)` whose payload is mutated after signing, so its signature
+/// no longer verifies — a tampered message for the misbehavior-severance path.
+pub fn tampered_ping(topic: TopicId, n: u64) -> Message {
+    let Message::Signed(mut signed) = ping(topic, n) else {
+        unreachable!("ping yields Message::Signed")
+    };
+    signed.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
+    Message::Signed(signed)
+}
+
 /// Borrow the topic of a [`Message`] regardless of variant.
 pub fn message_topic(message: &Message) -> &TopicId {
     match message {

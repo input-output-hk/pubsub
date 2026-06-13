@@ -174,10 +174,6 @@ pub(crate) enum Effect {
     /// check (FR-017). The executor logs it (`connection_severed`, warn) and
     /// nothing else in this feature; a future blacklist consumes this variant
     /// without reshaping the transition's output.
-    // Constructed by the misbehavior severance in User Story 3 (Phase 5); the
-    // executor already handles it. The allow keeps the variant warning-clean
-    // until that constructor lands.
-    #[allow(dead_code)]
     Misbehaved {
         /// The offending peer.
         peer: PeerId,
@@ -638,7 +634,18 @@ fn handle_signed_message(
             topic = %signed.plain.topic,
             publisher_id = %signed.plain.publisher_id,
         );
-        return Vec::new();
+        // FR-017: reaching signature verification means the connection gate,
+        // subscription, registration, and authorization checks all passed — so
+        // a failure here, over an Active upstream, is misbehavior. Sever
+        // silently: remove the upstream entry and raise the misbehavior signal
+        // (the executor logs `connection_severed`); no Terminated is sent.
+        let topic = signed.plain.topic.clone();
+        state.upstream.remove(&(from.clone(), topic.clone()));
+        return vec![Effect::Misbehaved {
+            peer: from,
+            topic,
+            cause: "invalid_signature",
+        }];
     }
 
     state.received.push(ReceivedDelivery {
@@ -851,13 +858,16 @@ mod tests {
         assert_eq!(state.received_snapshot(), before, "off-topic drop");
     }
 
-    // FR-003: subscribed topic but invalid signature => dropped.
+    // FR-003 / FR-017: subscribed topic but invalid signature over an Active
+    // upstream => dropped AND severed (the signature failure past every earlier
+    // check is misbehavior). Detailed severance coverage is in the T021 block;
+    // this is the 003-era receive test, updated for the connection model.
     #[test]
     fn invalid_signature_message_dropped() {
         let t1 = topic("t1");
         let mut state = state_subscribed(vec![t1.clone()]);
-        // a is Active on t1, so the tampered payload passes the gate and is
-        // dropped at the signature check (the behavior under test).
+        // a is Active on t1, so the tampered payload passes the gate and reaches
+        // the signature check.
         with_active_upstream(&mut state, "a", "t1");
         let s = signer();
 
@@ -868,7 +878,11 @@ mod tests {
                 message: tampered_ping(&s, t1, 1),
             },
         );
-        assert!(effects.is_empty());
+        assert_eq!(
+            misbehaved(&effects),
+            vec![(peer("a"), topic("t1"), "invalid_signature")],
+            "tampered over an Active upstream severs",
+        );
         assert!(
             state.received_snapshot().is_empty(),
             "tampered message never recorded"
@@ -932,18 +946,38 @@ mod tests {
             with_active_upstream(state, "c", "t1");
         };
 
+        // The tampered (b, t1) event severs that upstream (returning a
+        // Misbehaved effect), so the per-step effects are not all empty; the
+        // determinism claim is that the same script yields the same final state.
         let mut first = state_subscribed(vec![t1.clone()]);
         seed(&mut first);
         for event in script() {
-            assert!(apply(&mut first, event).is_empty());
+            apply(&mut first, event);
         }
         let mut second = state_subscribed(vec![t1.clone()]);
         seed(&mut second);
         for event in script() {
-            assert!(apply(&mut second, event).is_empty());
+            apply(&mut second, event);
         }
 
         assert_eq!(first.received_snapshot(), second.received_snapshot());
+        assert_eq!(
+            sorted_pairs(
+                first
+                    .upstream_snapshot()
+                    .into_iter()
+                    .map(|(p, t, _)| (p, t))
+                    .collect()
+            ),
+            sorted_pairs(
+                second
+                    .upstream_snapshot()
+                    .into_iter()
+                    .map(|(p, t, _)| (p, t))
+                    .collect()
+            ),
+            "the severed (b, t1) upstream is gone in both runs",
+        );
         let sorted = |mut v: Vec<TopicId>| {
             v.sort_by(|a, b| a.as_str().cmp(b.as_str()));
             v
@@ -1714,18 +1748,23 @@ mod tests {
     }
 
     // US2-AS4 / FR-019: the gate is the FIRST check; the merged chain after it
-    // is unchanged — a tampered payload over an Active upstream still drops at
-    // signature verification (a plain drop in this feature; severance is US3).
+    // is unchanged — a tampered payload over an Active upstream reaches
+    // signature verification, where it is dropped and (US3, FR-017) severs the
+    // connection.
     #[test]
     fn gate_first_then_signature_check_unchanged() {
         let mut state = state_subscribed(vec![topic("t1")]);
         with_active_upstream(&mut state, "b", "t1");
 
         let effects = apply(&mut state, tampered_payload_from("b", "t1", 1));
-        assert!(effects.is_empty(), "no severance effect in this feature");
+        assert_eq!(
+            misbehaved(&effects),
+            vec![(peer("b"), topic("t1"), "invalid_signature")],
+            "admitted by the gate, then severed at signature",
+        );
         assert!(
             state.received_snapshot().is_empty(),
-            "admitted by the gate, then dropped at signature",
+            "tampered not recorded"
         );
     }
 
@@ -1744,6 +1783,195 @@ mod tests {
         assert!(
             state.received_snapshot().is_empty(),
             "passes the gate but t2 is not subscribed → topic_not_subscribed drop",
+        );
+    }
+
+    // ---- T021: misbehavior severance (US3, FR-017/018) ------------------------
+
+    /// The mock public key for an alias (the publisher key `tampered_payload_from`
+    /// / `payload_from` sign under for that alias).
+    fn alias_public(alias: &str) -> PublicKey {
+        MockCryptoScheme::with_seed([0u8; 32])
+            .keypair_from_alias(alias)
+            .public
+    }
+
+    /// The `(peer, topic, cause)` of every `Misbehaved` effect.
+    fn misbehaved(effects: &[Effect]) -> Vec<(PeerId, TopicId, &'static str)> {
+        effects
+            .iter()
+            .filter_map(|effect| match effect {
+                Effect::Misbehaved { peer, topic, cause } => {
+                    Some((peer.clone(), topic.clone(), *cause))
+                }
+                Effect::Send { .. } => None,
+            })
+            .collect()
+    }
+
+    /// Whether any effect is a `Send` (severance must send nothing).
+    fn has_send(effects: &[Effect]) -> bool {
+        effects.iter().any(|e| matches!(e, Effect::Send { .. }))
+    }
+
+    // US3-AS1 / FR-017: a tampered payload over an Active upstream (having passed
+    // the gate, subscription, registration, authorization) severs that upstream
+    // — entry removed, one Misbehaved effect, no Send, nothing recorded.
+    #[test]
+    fn tampered_over_active_upstream_severs() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_active_upstream(&mut state, "b", "t1");
+
+        let effects = apply(&mut state, tampered_payload_from("b", "t1", 1));
+
+        assert_eq!(upstream_state(&state, "b", "t1"), None, "upstream removed");
+        assert_eq!(
+            misbehaved(&effects),
+            vec![(peer("b"), topic("t1"), "invalid_signature")],
+        );
+        assert!(
+            !has_send(&effects),
+            "severance is silent — no Terminated sent"
+        );
+        assert!(
+            state.received_snapshot().is_empty(),
+            "tampered never recorded"
+        );
+    }
+
+    // FR-017: severance fires only *past* authorization — an authorized
+    // publisher's tampered message over an Active upstream is severed.
+    #[test]
+    fn severance_fires_past_authorization() {
+        let weather = topic("weather");
+        let mut state = node_state("self", HashSet::from([weather.clone()]));
+        // weather restricted to b's key (the publisher tampered_payload_from
+        // signs under), so authorization passes and the signature check is
+        // reached.
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([alias_public("b")]),
+            }),
+        );
+        with_active_upstream(&mut state, "b", "weather");
+
+        let effects = apply(&mut state, tampered_payload_from("b", "weather", 1));
+        assert_eq!(upstream_state(&state, "b", "weather"), None, "severed");
+        assert_eq!(
+            misbehaved(&effects),
+            vec![(peer("b"), weather, "invalid_signature")],
+        );
+    }
+
+    // US3-AS3: an invalid-signature message from a peer with no Active connection
+    // is a plain not_connected drop — never a severance (a forged sender must not
+    // cost the genuine peer anything).
+    #[test]
+    fn no_severance_without_connection() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        // No upstream seeded.
+        let effects = apply(&mut state, tampered_payload_from("b", "t1", 1));
+        assert!(
+            misbehaved(&effects).is_empty(),
+            "no connection → no severance"
+        );
+        assert!(effects.is_empty());
+    }
+
+    // US3-AS4 / FR-018: a tampered message dropped by an *earlier* check (not
+    // subscribed, not registered, not authorized) never reaches the signature
+    // verdict, so it never severs and leaves the entry intact.
+    #[test]
+    fn no_severance_when_an_earlier_check_fails() {
+        // (a) topic not subscribed — Active upstream on an unsubscribed t2.
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_active_upstream(&mut state, "b", "t2");
+        let effects = apply(&mut state, tampered_payload_from("b", "t2", 1));
+        assert!(
+            misbehaved(&effects).is_empty(),
+            "not subscribed → no severance"
+        );
+        assert_eq!(
+            upstream_state(&state, "b", "t2"),
+            Some(UpstreamState::Active),
+            "entry intact",
+        );
+
+        // (b) topic not registered — subscribed (membership) but unregistered.
+        let mut state = node_state("self", HashSet::from([topic("t1")]));
+        with_active_upstream(&mut state, "b", "t1");
+        let effects = apply(&mut state, tampered_payload_from("b", "t1", 1));
+        assert!(
+            misbehaved(&effects).is_empty(),
+            "not registered → no severance"
+        );
+        assert_eq!(
+            upstream_state(&state, "b", "t1"),
+            Some(UpstreamState::Active)
+        );
+
+        // (c) publisher not authorized — restricted topic, b's key not in the set.
+        let weather = topic("weather");
+        let mut state = node_state("self", HashSet::from([weather.clone()]));
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([alias_public("someone-else")]),
+            }),
+        );
+        with_active_upstream(&mut state, "b", "weather");
+        let effects = apply(&mut state, tampered_payload_from("b", "weather", 1));
+        assert!(
+            misbehaved(&effects).is_empty(),
+            "not authorized → no severance"
+        );
+        assert_eq!(
+            upstream_state(&state, "b", "weather"),
+            Some(UpstreamState::Active),
+        );
+    }
+
+    // US3-AS2 / SC-003: after severance, a subsequent *valid* message from the
+    // same peer on that topic is dropped not_connected (the connection is gone).
+    #[test]
+    fn post_severance_valid_message_is_not_connected() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_active_upstream(&mut state, "b", "t1");
+        apply(&mut state, tampered_payload_from("b", "t1", 1)); // severs
+        assert_eq!(upstream_state(&state, "b", "t1"), None);
+
+        let effects = apply(&mut state, payload_from("b", "t1", 2));
+        assert!(effects.is_empty());
+        assert!(
+            state.received_snapshot().is_empty(),
+            "a valid message over the severed connection is dropped not_connected",
+        );
+    }
+
+    // SC-003: severance is scoped to the one (peer, topic) — the offender's
+    // other-topic connection and other peers' connections are untouched.
+    #[test]
+    fn severance_isolates_other_topics_and_peers() {
+        let mut state = state_subscribed(vec![topic("t1"), topic("t2")]);
+        with_active_upstream(&mut state, "b", "t1");
+        with_active_upstream(&mut state, "b", "t2");
+        with_active_upstream(&mut state, "c", "t1");
+
+        apply(&mut state, tampered_payload_from("b", "t1", 1)); // severs (b, t1) only
+
+        assert_eq!(upstream_state(&state, "b", "t1"), None, "severed pair gone");
+        assert_eq!(
+            upstream_state(&state, "b", "t2"),
+            Some(UpstreamState::Active),
+            "offender's other topic intact",
+        );
+        assert_eq!(
+            upstream_state(&state, "c", "t1"),
+            Some(UpstreamState::Active),
+            "other peer intact",
         );
     }
 }
