@@ -14,9 +14,9 @@
 
 **Purpose**: the cross-cutting identity reshape (plan row 2, ADR 0017), self-contained and green before any connection type exists.
 
-- [ ] T001 [P] Add `MockCryptoScheme::keypair_from_alias(&self, alias: &str) -> KeyPair` (private = alias bytes, public via `derive_public`; does not advance the RNG) with unit tests asserting the derive invariant and sign/verify through the unmodified `TestSigner`/`TestVerifier`, in `src/crypto/mock.rs`
-- [ ] T002 Reshape `PeerId` to wrap `PublicKey` in `src/peer.rs`: alias `FromStr` (existing non-empty/no-NUL validation, then derivation), `Display` inverse (UTF-8 prefix when bytes end with the mock public suffix, hex fallback), serde via FromStr/Display, `new`/`as_public_key`; **remove `as_str`** — including the type's rustdoc example, which uses it (doctests compile); unit tests: alias round-trip, hex fallback, equality across construction paths (FromStr vs `keypair_from_alias(..).public`)
-- [ ] T003 Propagate the reshape mechanically until green: `src/config.rs`, `src/main.rs`, `src/subscription_registry/{mod,in_memory,test_support}.rs`, `src/state.rs`/`src/node.rs` (compile fixes only), `tests/common/mod.rs` and any test using `PeerId::as_str`/string assumptions — no behavior change ⛳
+- [X] T001 [P] Add `MockCryptoScheme::keypair_from_alias(&self, alias: &str) -> KeyPair` (private = alias bytes, public via `derive_public`; does not advance the RNG) with unit tests asserting the derive invariant and sign/verify through the unmodified `TestSigner`/`TestVerifier`, in `src/crypto/mock.rs`
+- [X] T002 Reshape `PeerId` to wrap `PublicKey` in `src/peer.rs`: alias `FromStr` (existing non-empty/no-NUL validation, then derivation), `Display` inverse (UTF-8 prefix when bytes end with the mock public suffix, hex fallback), serde via FromStr/Display, `new`/`as_public_key`; **remove `as_str`** — including the type's rustdoc example, which uses it (doctests compile); unit tests: alias round-trip, hex fallback, equality across construction paths (FromStr vs `keypair_from_alias(..).public`)
+- [X] T003 Propagate the reshape mechanically until green: `src/config.rs`, `src/main.rs`, `src/subscription_registry/{mod,in_memory,test_support}.rs`, `src/state.rs`/`src/node.rs` (compile fixes only), `tests/common/mod.rs` and any test using `PeerId::as_str`/string assumptions — no behavior change ⛳
 
 ## Phase 2: Foundational B — connection domain vocabulary (checkpoint 2)
 
