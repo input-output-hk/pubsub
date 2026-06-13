@@ -137,10 +137,6 @@ impl NodeState {
 
     /// Snapshot of the upstream connections — `(peer, topic, state)` triples in
     /// unspecified order. A stable clone, unaffected by later events.
-    // The public `Node::upstream_connections` getter that consumes this in the
-    // (non-test) lib build lands in T014; the allow keeps commit 1 (state
-    // machine + crate-internal tests) warning-clean and is removed there.
-    #[allow(dead_code)]
     #[must_use]
     pub(crate) fn upstream_snapshot(&self) -> Vec<(PeerId, TopicId, UpstreamState)> {
         self.upstream
@@ -151,9 +147,6 @@ impl NodeState {
 
     /// Snapshot of the downstream connections — `(peer, topic)` pairs in
     /// unspecified order. A stable clone, unaffected by later events.
-    // See `upstream_snapshot`: the lib-build consumer (`Node::downstream_connections`)
-    // lands in T014; allow removed there.
-    #[allow(dead_code)]
     #[must_use]
     pub(crate) fn downstream_snapshot(&self) -> Vec<(PeerId, TopicId)> {
         self.downstream.iter().cloned().collect()

@@ -9,10 +9,11 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, Node, NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId,
-    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
-    Timestamp, TopicId, TopicRegistryControl, Verifier,
+    ConnectToAllCandidates, Event, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, Message, MessageHash, MessagePayload, MockCryptoScheme, Node,
+    NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -54,6 +55,15 @@ pub fn test_signer() -> TestSigner {
 /// [`TestSigner`] under the matching derived public key.
 pub fn shared_test_verifier() -> Arc<dyn Verifier> {
     Arc::new(TestVerifier)
+}
+
+/// The signing identity for a node addressed by `alias`: the mock keypair for
+/// that alias. `PeerId::from_str(alias)` and this signer agree by construction
+/// (both derive from the alias bytes), so the identity/signer coherence check
+/// passes — the node's own coherent signer.
+pub fn alias_signer(alias: &str) -> Arc<dyn Signer> {
+    let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+    Arc::new(scheme.signer(scheme.keypair_from_alias(alias).private))
 }
 
 /// Build a signed [`Message`] from explicit envelope inputs.
@@ -166,24 +176,30 @@ pub async fn two_node_fixture_with_subscriptions(
         a_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
+            connection_setup_delay: None,
         },
         network.clone(),
+        alias_signer(&a_id.to_string()),
         verifier.clone(),
         registry.clone(),
         topic_registry.clone(),
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node A");
 
     let b = Node::new(
-        b_id,
+        b_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
+            connection_setup_delay: None,
         },
         network.clone(),
+        alias_signer(&b_id.to_string()),
         verifier,
         registry.clone(),
         topic_registry.clone(),
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node B");
@@ -239,13 +255,19 @@ pub async fn node_with(
             id: PeerId::from_str(p).expect("valid peer id"),
         })
         .collect();
+    let signer = alias_signer(&id.to_string());
     let node = Node::new(
         id,
-        NodeConfig { peers },
+        NodeConfig {
+            peers,
+            connection_setup_delay: None,
+        },
         network.clone(),
+        signer,
         shared_test_verifier(),
         registry.clone(),
         topic_registry,
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node");
@@ -279,11 +301,16 @@ pub async fn node_sharing(
         .collect();
     Node::new(
         PeerId::from_str(id).expect("valid id"),
-        NodeConfig { peers },
+        NodeConfig {
+            peers,
+            connection_setup_delay: None,
+        },
         network.clone(),
+        alias_signer(id),
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node")
@@ -392,4 +419,63 @@ pub fn assert_subscriptions(node: &Node, expected: &[TopicId]) {
         got, want,
         "subscription set mismatch: got {got:?}, expected {want:?}",
     );
+}
+
+// ---- Connection establishment helpers (004-connections) -------------------
+
+/// Inject a setup event through the node's public event intake — the scripted
+/// (timer-free) trigger for autonomous establishment. The node consults its
+/// strategy and dials on the next drain of its event loop.
+pub fn trigger_setup(node: &Node) {
+    node.events().push(Event::ConnectionSetup);
+}
+
+/// Poll `node.upstream_connections()` until it holds `(peer, topic)` as
+/// `Active`, or `timeout` elapses. Establishment is asynchronous (the request,
+/// its acceptance, and the activation each cross the event loop), so tests wait
+/// the same way they wait for delivery.
+pub async fn await_upstream_active(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        let active = node
+            .upstream_connections()
+            .into_iter()
+            .any(|(p, t, state)| &p == peer && &t == topic && state == UpstreamState::Active);
+        if active {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll `node.downstream_connections()` until it holds `(peer, topic)`, or
+/// `timeout` elapses.
+pub async fn await_downstream(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node
+            .downstream_connections()
+            .iter()
+            .any(|(p, t)| p == peer && t == topic)
+        {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
 }

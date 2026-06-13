@@ -58,4 +58,11 @@ pub enum NetworkError {
 pub enum NodeError {
     #[error(transparent)]
     Network(#[from] NetworkError),
+
+    /// The node's identifier does not match its signing key — the configured
+    /// identity and the signer disagree, so every control message the node
+    /// emitted would be rejected by its peers. Surfaced at construction before
+    /// any registration or background activity.
+    #[error("node identity {0} does not match its signing key")]
+    IdentityMismatch(PeerId),
 }

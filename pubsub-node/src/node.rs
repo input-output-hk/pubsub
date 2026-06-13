@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
-use crate::connection::{ConnectToAllCandidates, ConnectionStrategy};
+use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
@@ -83,18 +84,43 @@ impl Node {
     /// no registry entries simply stays empty (no construction error).
     ///
     /// `verifier` checks each inbound message's signature; messages whose
-    /// signature does not verify are dropped. It is consulted on the receive
-    /// path only — a node does not sign.
+    /// signature does not verify are dropped. `signer` is the node's signing
+    /// identity — it signs the connection-control messages the node emits
+    /// (`Request`/`Accepted`/`Terminated`); `strategy` is the
+    /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
+    /// a setup event.
     ///
-    /// Returns [`NodeError`] if network registration fails.
+    /// Construction validates **identity/signer coherence before** registering
+    /// on the network: if `self_id` does not match `signer`'s public key it
+    /// returns [`NodeError::IdentityMismatch`] with no background activity
+    /// started (a mismatch would make every control message the node emits
+    /// verifiably invalid and silently dropped by its peers).
+    ///
+    /// Returns [`NodeError`] if the identity/signer check fails or network
+    /// registration fails.
+    // The parameter list is the feature's specified construction contract
+    // (contracts §4): network + signer + verifier + two registries + strategy
+    // are each a distinct collaborator, not incidental sprawl. A config/builder
+    // struct is the natural future refactor if it grows further.
+    #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
         config: NodeConfig,
         network: Arc<N>,
+        signer: Arc<dyn Signer>,
         verifier: Arc<dyn Verifier>,
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
+        strategy: Arc<dyn ConnectionStrategy>,
     ) -> Result<Self, NodeError> {
+        // Identity/signer coherence, checked before registration so a mismatch
+        // leaks nothing — no handle, no tasks (FR-024).
+        if *self_id.as_public_key() != signer.public_key() {
+            return Err(NodeError::IdentityMismatch(self_id));
+        }
+
+        let connection_setup_delay = config.connection_setup_delay;
+
         let mut handle = network.register(self_id).await?;
         let node_id = handle.id().clone();
         let rx = handle.take_receiver();
@@ -107,14 +133,6 @@ impl Node {
         // its candidate sets — by folding the subscription-registry `watch` stream (ADR
         // 0013/0014). Registration precedes the spawns so nothing leaks on the
         // error path (FR-016).
-        // Scaffolding (T011): the real signing identity and selection strategy
-        // are threaded from `Node::new`'s parameters in T012. Until then no
-        // setup event is produced and no control message is emitted, so these
-        // placeholders are never exercised.
-        let signer: Arc<dyn Signer> = Arc::new(crate::crypto::mock::TestSigner::new(
-            crate::crypto::PrivateKey::new(Vec::new()),
-        ));
-        let strategy: Arc<dyn ConnectionStrategy> = Arc::new(ConnectToAllCandidates);
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
             node_id.clone(),
             HashSet::new(),
@@ -172,6 +190,15 @@ impl Node {
             subscription_registry_reader_loop(queue, subscription_registry, node_id)
         });
         node.spawn_producer(move |queue| topic_registry_reader_loop(queue, topic_registry));
+
+        // The optional fourth producer: the one-shot setup timer, spawned only
+        // when a delay is configured. It fires a single `ConnectionSetup` event
+        // after the delay (giving the registry view time to converge), then
+        // returns; it is drop-aborted like every producer (ADR 0018). Unset by
+        // default, so autonomy is opt-in and scripted tests never race a timer.
+        if let Some(delay) = connection_setup_delay {
+            node.spawn_producer(move |queue| setup_timer_producer(queue, delay));
+        }
 
         Ok(node)
     }
@@ -277,6 +304,35 @@ impl Node {
             .expect("subscriptions: state mutex poisoned")
             .subscriptions_snapshot()
     }
+
+    /// Return a snapshot of this node's **upstream** connections — the
+    /// `(peer, topic, state)` triples it requested as message sources, each
+    /// either [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
+    /// [`Active`](crate::UpstreamState::Active).
+    ///
+    /// A stable clone of the node's record, unaffected by subsequent events;
+    /// entry order is unspecified. Pending (`AwaitingAccept`) entries are a
+    /// visible diagnostic — a request awaiting an answer that may never come.
+    #[must_use]
+    pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, UpstreamState)> {
+        self.state
+            .lock()
+            .expect("upstream_connections: state mutex poisoned")
+            .upstream_snapshot()
+    }
+
+    /// Return a snapshot of this node's **downstream** connections — the
+    /// `(peer, topic)` pairs it accepted as fan-out destinations.
+    ///
+    /// A stable clone of the node's record, unaffected by subsequent events;
+    /// entry order is unspecified.
+    #[must_use]
+    pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)> {
+        self.state
+            .lock()
+            .expect("downstream_connections: state mutex poisoned")
+            .downstream_snapshot()
+    }
 }
 
 impl Drop for Node {
@@ -319,6 +375,19 @@ async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect
             );
         }
     }
+}
+
+/// The optional one-shot setup-timer producer: sleeps for the configured
+/// delay, pushes a single [`Event::ConnectionSetup`], and returns.
+///
+/// Spawned via [`spawn_producer`](Node::spawn_producer) only when a delay is
+/// configured (so it is node-owned and drop-aborted); the delay lets the
+/// node's registry view converge before it dials (ADR 0018). It fires at most
+/// once per node lifetime — the autonomous topology is the single setup
+/// event's diff.
+async fn setup_timer_producer(queue: EventQueue, delay: Duration) {
+    tokio::time::sleep(delay).await;
+    queue.push(Event::ConnectionSetup);
 }
 
 /// The network mailbox producer: forwards each inbound frame from the

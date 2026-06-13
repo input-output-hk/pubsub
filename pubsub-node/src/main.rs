@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node,
-    PeerId, TestVerifier, Verifier,
+    load_node_config, ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, MockCryptoScheme, Node, PeerId, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -71,13 +71,21 @@ async fn main() {
     // Prototype-stage verifier: the mock accepts any correctly-bound mock
     // signature. A real verifier replaces this when authenticated crypto lands.
     let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
+    // Prototype-stage signing identity: the mock keypair for the node's alias
+    // (the alias round-trips through `PeerId`'s display form), so it is coherent
+    // with `self_id` by construction. Real key material replaces this at 011.
+    let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+    let signer: Arc<dyn Signer> =
+        Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
     let node = Node::new(
         args.self_id,
         cfg,
         network,
+        signer,
         verifier,
         registry,
         topic_registry,
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .unwrap_or_else(|e| {

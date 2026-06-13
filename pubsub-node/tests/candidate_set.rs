@@ -4,10 +4,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_candidates, await_delivery, node_with, ping, shared_test_verifier};
+use common::{
+    alias_signer, await_candidates, await_delivery, node_with, ping, shared_test_verifier,
+};
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId,
-    SubscriptionRegistryControl, TopicId,
+    ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    Node, NodeConfig, PeerId, SubscriptionRegistryControl, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -30,11 +32,16 @@ async fn node_with_no_registry_entry_derives_empty_state() {
     let topic_registry = Arc::new(InMemoryTopicRegistry::new()); // empty — no registered topics
     let node = Node::new(
         peer("ghost"),
-        NodeConfig { peers: vec![] },
+        NodeConfig {
+            peers: vec![],
+            connection_setup_delay: None,
+        },
         network,
+        alias_signer("ghost"),
         shared_test_verifier(),
         registry,
         topic_registry,
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construction succeeds even with no registry entry");
