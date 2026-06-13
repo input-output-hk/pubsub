@@ -10,8 +10,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    await_delivery, await_subscriptions, build_signed_message_simple, node_sharing, ping,
-    test_signer,
+    await_delivery, await_subscriptions, build_signed_message_simple, establish_upstreams,
+    node_sharing, ping, test_signer,
 };
 use pubsub_node::{
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MessagePayload, PeerId,
@@ -89,6 +89,11 @@ async fn network_enforces_legitimacy_and_authorization_uniformly() {
     await_subscriptions(&c, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("c effective = {weather} — ghosttopic is unregistered (SC-003)");
+
+    // Establishment preamble: a and c dial b (the publisher) on weather, so b's
+    // messages are admitted over an Active upstream (FR-016).
+    establish_upstreams(&a, &[&b], &topic("weather")).await;
+    establish_upstreams(&c, &[&b], &topic("weather")).await;
 
     // A weather message from the authorized publisher (the shared test signer,
     // which `ping` uses) is accepted by every weather subscriber.

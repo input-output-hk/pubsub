@@ -25,29 +25,13 @@ async fn ping_delivered_when_a_lists_b() {
     assert_eq!(record[0].message, msg);
 }
 
-// US1 AS-2: B's peer set does NOT contain A; A still sends and B still receives
-// (trust-on-arrival per FR-003).
-#[tokio::test]
-async fn ping_delivered_trust_on_arrival() {
-    let network = Arc::new(InMemoryNetwork::new());
-    let registry = Arc::new(InMemorySubscriptionRegistry::new());
-
-    let a = node_with(&registry, &network, "node-a", &["node-b"], &[test_topic()]).await;
-    // B's peer set is EMPTY — does not list A.
-    let b = node_with(&registry, &network, "node-b", &[], &[test_topic()]).await;
-
-    let msg = common::ping(test_topic(), 7);
-    a.send(b.id(), msg.clone()).await.expect("send Ok");
-
-    await_delivery(&b, a.id(), &msg, Duration::from_secs(1))
-        .await
-        .expect("B still receives (trust-on-arrival)");
-
-    let record = b.received_messages();
-    assert_eq!(record.len(), 1);
-    assert_eq!(record[0].from, *a.id());
-    assert_eq!(record[0].message, msg);
-}
+// (Retired by 004-connections.) The 001/002 "trust-on-arrival" test —
+// delivery to B independent of B's config peer set — encoded pre-connection
+// receive semantics: B recorded A's message without having connected to it.
+// Under the connection gate (FR-016) delivery is admitted only over an Active
+// upstream the receiver dialed, so config-peer-independence is no longer the
+// relevant property. The connection topology's delivery behavior is covered by
+// `tests/connections.rs` and the reworked fixtures here.
 
 // US1 AS-3 + spec Edge Cases bullet 1: Node A with empty peer list sending to
 // an unregistered "ghost" id. Send resolves Ok(()) (drop-on-unregistered per

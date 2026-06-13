@@ -59,9 +59,13 @@ async fn valid_on_topic_message_appears_in_snapshot() {
     assert_eq!(record[0].message, msg);
 }
 
-// US3 AS-2: valid + off-topic (T2) → dropped (cause topic_not_subscribed).
+// US3 AS-2 (post-004): valid + off-topic (T2) → dropped. A is connected to B on
+// T1 only; it has no connection on T2 (a node cannot connect on a topic it is
+// not subscribed to), so the connection gate — now the outermost receive check
+// — drops the message as `not_connected`, before the subscription filter is
+// reached. The observable outcome (absent from the snapshot) is unchanged.
 #[tokio::test]
-async fn valid_off_topic_message_dropped_with_cause_topic_not_subscribed() {
+async fn valid_off_topic_message_dropped_with_cause_not_connected() {
     let fx = fixture_a_t1().await;
     let mut scheme = MockCryptoScheme::with_seed([0u8; 32]);
     let signer = TestSigner::new(scheme.generate_keypair().private);
@@ -91,10 +95,13 @@ async fn invalid_on_topic_message_dropped_with_cause_invalid_signature() {
     );
 }
 
-// US3 AS-4 (Q6 ordering): off-topic AND invalid → dropped. The topic filter
-// rejects first, so the bad signature is never reached; we assert absence only.
+// US3 AS-4 (post-004 ordering): off-topic AND invalid → dropped. The connection
+// gate is now the outermost check, so it fires before either the subscription
+// filter or signature verification — the message drops as `not_connected`
+// regardless of its (invalid) signature. (Pre-004 this asserted the topic
+// filter rejected ahead of signature; the gate is now the first filter.)
 #[tokio::test]
-async fn invalid_off_topic_message_dropped_with_cause_topic_not_subscribed() {
+async fn invalid_off_topic_message_dropped_with_cause_not_connected() {
     let fx = fixture_a_t1().await;
     let msg = bogus_signature_message(topic("t2"), 4);
 

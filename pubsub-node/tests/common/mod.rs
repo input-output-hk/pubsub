@@ -206,6 +206,10 @@ pub async fn two_node_fixture_with_subscriptions(
 
     // Both nodes derive their effective subscriptions from two registry streams;
     // wait for convergence so send-then-observe tests are deterministic.
+    let shared: Vec<TopicId> = a_subscriptions
+        .intersection(&b_subscriptions)
+        .cloned()
+        .collect();
     let a_expected: Vec<TopicId> = a_subscriptions.into_iter().collect();
     let b_expected: Vec<TopicId> = b_subscriptions.into_iter().collect();
     await_subscriptions(&a, &a_expected, Duration::from_secs(1))
@@ -214,6 +218,12 @@ pub async fn two_node_fixture_with_subscriptions(
     await_subscriptions(&b, &b_expected, Duration::from_secs(1))
         .await
         .expect("node B subscriptions converge");
+
+    // Establishment preamble (004-connections): mutually connect A and B on
+    // every topic they share, so payload between them passes the connection
+    // gate. Disjoint-subscription fixtures share nothing and stay unconnected —
+    // their cross-topic sends are dropped at the gate, as the drop tests expect.
+    establish_mutual(&a, &b, &shared).await;
 
     TwoNodeFixture {
         network,
@@ -477,5 +487,75 @@ pub async fn await_downstream(
             return Err(AwaitError::Timeout(timeout));
         }
         tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// The establishment-helper timeout — generous, since establishment crosses the
+/// event loop several times (request, accept, activate).
+const ESTABLISH_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Poll until `peer` appears in `node`'s candidate set for `topic` (a superset
+/// check, unlike [`await_candidates`]' set-equality) or `timeout` elapses —
+/// the precondition for a setup event to dial `peer`.
+pub async fn await_candidate_present(
+    node: &Node,
+    topic: &TopicId,
+    peer: &PeerId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node.candidates(topic).iter().any(|p| p == peer) {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Mutually establish Active connections between `a` and `b` on every topic in
+/// `topics`: await each end knows the other as a candidate, trigger both setup
+/// events, then await the Active upstream both ways. A no-op for an empty list.
+pub async fn establish_mutual(a: &Node, b: &Node, topics: &[TopicId]) {
+    if topics.is_empty() {
+        return;
+    }
+    for t in topics {
+        await_candidate_present(a, t, b.id(), ESTABLISH_TIMEOUT)
+            .await
+            .expect("a knows b as a candidate");
+        await_candidate_present(b, t, a.id(), ESTABLISH_TIMEOUT)
+            .await
+            .expect("b knows a as a candidate");
+    }
+    trigger_setup(a);
+    trigger_setup(b);
+    for t in topics {
+        await_upstream_active(a, b.id(), t, ESTABLISH_TIMEOUT)
+            .await
+            .expect("a's upstream to b is Active");
+        await_upstream_active(b, a.id(), t, ESTABLISH_TIMEOUT)
+            .await
+            .expect("b's upstream to a is Active");
+    }
+}
+
+/// Establish `receiver`'s Active upstream to each of `senders` on `topic`:
+/// await the candidates are known, trigger the receiver's single setup event,
+/// then await each upstream Active. The one-directional preamble for the
+/// multi-node suites (the receiver dials its senders).
+pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &TopicId) {
+    for sender in senders {
+        await_candidate_present(receiver, topic, sender.id(), ESTABLISH_TIMEOUT)
+            .await
+            .expect("receiver knows the sender as a candidate");
+    }
+    trigger_setup(receiver);
+    for sender in senders {
+        await_upstream_active(receiver, sender.id(), topic, ESTABLISH_TIMEOUT)
+            .await
+            .expect("receiver's upstream to the sender is Active");
     }
 }

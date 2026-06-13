@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, await_candidates, await_delivery, node_with, ping, shared_test_verifier,
+    alias_signer, await_candidates, await_delivery, establish_upstreams, node_with, ping,
+    shared_test_verifier,
 };
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
@@ -68,6 +69,9 @@ async fn effective_topics_come_from_registry_entry() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let s = node_with(&registry, &network, "node-s", &[], &[topic("t1")]).await;
     let b = node_with(&registry, &network, "node-b", &["node-s"], &[topic("t1")]).await;
+
+    // Establishment preamble: s dials b on t1 so b's t1 message is admitted.
+    establish_upstreams(&s, &[&b], &topic("t1")).await;
 
     let on_topic = ping(topic("t1"), 1);
     let off_topic = ping(topic("t2"), 2);

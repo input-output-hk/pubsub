@@ -541,17 +541,40 @@ fn handle_connection_terminated(
 
 /// Transition for a signed dissemination message.
 ///
-/// Records the delivery when its topic is subscribed **and** a registered
-/// (legitimate) topic, and its signature verifies; otherwise the message is
-/// dropped (with an info-level `message_dropped` event carrying the cause).
-// FR-001/002/003 + FR-014; the cheap filters run first — subscribed?, then
-// registered? — so off-topic / illegitimate-topic traffic never pays the
-// signature-verification cost (ADR 0016).
+/// Records the delivery when the **delivering peer holds an Active upstream**
+/// for the message's topic (the connection gate, FR-016), its topic is
+/// subscribed **and** a registered (legitimate) topic, its publisher is
+/// authorized, and its signature verifies; otherwise the message is dropped
+/// (with an info-level `message_dropped` event carrying the cause).
+// FR-016: the connection gate is the FIRST check (keyed on the delivering
+// peer — a payload carries a publisher identity, not the sender's); the
+// pre-existing chain runs unchanged after it — subscribed?, registered?,
+// authorized?, signature? (ADR 0016). Severance on signature failure arrives
+// with US3; here a bad signature is still a plain drop.
 fn handle_signed_message(
     state: &mut NodeState,
     from: PeerId,
     signed: SignedMessage,
 ) -> Vec<Effect> {
+    // FR-016: admit only from an Active upstream for this topic.
+    let connected = matches!(
+        state
+            .upstream
+            .get(&(from.clone(), signed.plain.topic.clone())),
+        Some(UpstreamState::Active),
+    );
+    if !connected {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "not_connected",
+            self_id = %state.self_id,
+            from = %from,
+            topic = %signed.plain.topic,
+        );
+        return Vec::new();
+    }
+
     if !state.subscriptions.contains(&signed.plain.topic) {
         tracing::info!(
             target: "pubsub_node::node",
@@ -636,8 +659,8 @@ mod tests {
 
     use super::*;
     use crate::connection::test_support::{
-        accepted_from, membership_joined, misattributed_request, request_from, terminated_from,
-        ConnectionScript,
+        accepted_from, membership_joined, misattributed_request, payload_from, request_from,
+        tampered_payload_from, terminated_from, ConnectionScript,
     };
     use crate::connection::ConnectToAllCandidates;
     use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
@@ -759,6 +782,10 @@ mod tests {
     fn valid_messages_recorded_in_processing_order() {
         let t1 = topic("t1");
         let mut state = state_subscribed(vec![t1.clone()]);
+        // Establishment preamble: both senders are Active upstreams on t1, so
+        // their payload passes the connection gate (FR-016).
+        with_active_upstream(&mut state, "a", "t1");
+        with_active_upstream(&mut state, "b", "t1");
         let s = signer();
         let m1 = signed_ping(&s, t1.clone(), 1);
         let m2 = signed_ping(&s, t1.clone(), 2);
@@ -770,7 +797,7 @@ mod tests {
                 message: m1.clone(),
             },
         );
-        assert!(effects.is_empty(), "no effects pre-connection");
+        assert!(effects.is_empty(), "recording produces no effects");
         let snap = state.received_snapshot();
         assert_eq!(snap.len(), 1);
         assert_eq!(snap[0].from, peer("a"));
@@ -795,6 +822,11 @@ mod tests {
     fn off_topic_message_leaves_state_unchanged() {
         let t1 = topic("t1");
         let mut state = state_subscribed(vec![t1.clone()]);
+        // a is Active on both topics — both payloads pass the gate, so this
+        // genuinely exercises the subscription filter behind it (t2 is the
+        // off-topic one, dropped by subscription, not by the gate).
+        with_active_upstream(&mut state, "a", "t1");
+        with_active_upstream(&mut state, "a", "t2");
         let s = signer();
 
         // One accepted delivery first, so "unchanged" is asserted against a
@@ -824,6 +856,9 @@ mod tests {
     fn invalid_signature_message_dropped() {
         let t1 = topic("t1");
         let mut state = state_subscribed(vec![t1.clone()]);
+        // a is Active on t1, so the tampered payload passes the gate and is
+        // dropped at the signature check (the behavior under test).
+        with_active_upstream(&mut state, "a", "t1");
         let s = signer();
 
         let effects = apply(
@@ -844,6 +879,9 @@ mod tests {
     #[test]
     fn empty_subscription_set_drops_everything() {
         let mut state = state_subscribed(vec![]);
+        // a is Active on t1, so the payloads pass the gate and are dropped by
+        // the (empty) subscription filter — the behavior under test.
+        with_active_upstream(&mut state, "a", "t1");
         let s = signer();
 
         for n in 0..3 {
@@ -885,11 +923,22 @@ mod tests {
             ]
         };
 
+        // Both senders Active on the topics they use, so the script exercises
+        // the full post-gate chain identically across the two runs.
+        let seed = |state: &mut NodeState| {
+            with_active_upstream(state, "a", "t1");
+            with_active_upstream(state, "b", "t1");
+            with_active_upstream(state, "b", "t2");
+            with_active_upstream(state, "c", "t1");
+        };
+
         let mut first = state_subscribed(vec![t1.clone()]);
+        seed(&mut first);
         for event in script() {
             assert!(apply(&mut first, event).is_empty());
         }
         let mut second = state_subscribed(vec![t1.clone()]);
+        seed(&mut second);
         for event in script() {
             assert!(apply(&mut second, event).is_empty());
         }
@@ -913,6 +962,9 @@ mod tests {
     fn subscription_change_affects_subsequent_transitions() {
         let t1 = topic("t1");
         let mut state = state_subscribed(vec![]); // self_id = "self", empty subscriptions
+                                                  // a is an Active upstream on t1 throughout — the gate is open; what
+                                                  // changes across the test is the subscription filter behind it.
+        with_active_upstream(&mut state, "a", "t1");
         let s = signer();
 
         apply(
@@ -990,6 +1042,9 @@ mod tests {
     #[test]
     fn unregistered_subscribed_topic_drops_then_accepts_after_registration() {
         let mut state = node_state("self", HashSet::new());
+        // a is an Active upstream on ghosttopic — the gate is open; the topic
+        // registration is what gates delivery here.
+        with_active_upstream(&mut state, "a", "ghosttopic");
         let s = signer();
         apply(
             &mut state,
@@ -1080,6 +1135,9 @@ mod tests {
         let outsider = signer_seeded([9u8; 32]);
         let weather = topic("weather");
         let mut state = node_state("self", HashSet::from([weather.clone()]));
+        // relay is an Active upstream on weather — the gate is open; what this
+        // test exercises behind it is publisher authorization.
+        with_active_upstream(&mut state, "relay", "weather");
         // weather restricted to the authorized signer's key.
         apply(
             &mut state,
@@ -1142,6 +1200,10 @@ mod tests {
         let authorized = signer();
         let weather = topic("weather");
         let mut state = node_state("self", HashSet::from([weather.clone()]));
+        // relay is an Active upstream on weather — the payload passes the gate
+        // and the authorized publisher passes authorization, so it reaches (and
+        // is dropped at) signature verification.
+        with_active_upstream(&mut state, "relay", "weather");
         apply(
             &mut state,
             Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
@@ -1575,6 +1637,113 @@ mod tests {
         assert_eq!(
             upstream_state(&state, "b", "t"),
             Some(UpstreamState::Active)
+        );
+    }
+
+    // ---- T017: connection-gated delivery (US2, FR-016/019) --------------------
+
+    /// Seed an Active upstream `(peer, topic)` directly — the declarative
+    /// stand-in for a full setup→accept handshake when a test only needs the
+    /// gate to be open (the test module reaches `NodeState`'s private fields).
+    fn with_active_upstream(state: &mut NodeState, peer_alias: &str, t: &str) {
+        state
+            .upstream
+            .insert((peer(peer_alias), topic(t)), UpstreamState::Active);
+    }
+
+    // US2-AS1 / FR-016: a validly-signed payload from an Active upstream is
+    // recorded — the post-connection receive path is unchanged.
+    #[test]
+    fn payload_over_active_upstream_is_recorded() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_active_upstream(&mut state, "b", "t1");
+
+        let effects = apply(&mut state, payload_from("b", "t1", 1));
+        assert!(effects.is_empty());
+        assert_eq!(state.received_snapshot().len(), 1, "admitted and recorded");
+    }
+
+    // US2-AS2 / SC-002: a payload from a sender with no connection is dropped
+    // (not_connected) — pre-connection delivery is retired.
+    #[test]
+    fn payload_without_connection_is_dropped() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        // No upstream seeded.
+        let effects = apply(&mut state, payload_from("b", "t1", 1));
+        assert!(effects.is_empty());
+        assert!(
+            state.received_snapshot().is_empty(),
+            "no Active upstream → not_connected drop",
+        );
+    }
+
+    // US2-AS2 / SC-002: an AwaitingAccept connection does not admit payload —
+    // only Active does.
+    #[test]
+    fn payload_over_awaiting_accept_is_dropped() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        state
+            .upstream
+            .insert((peer("b"), topic("t1")), UpstreamState::AwaitingAccept);
+
+        let effects = apply(&mut state, payload_from("b", "t1", 1));
+        assert!(effects.is_empty());
+        assert!(
+            state.received_snapshot().is_empty(),
+            "pending connection admits nothing",
+        );
+    }
+
+    // US2-AS3: connections are per-topic — an Active upstream for t1 does not
+    // admit the same peer's traffic on t2.
+    #[test]
+    fn connection_is_per_topic() {
+        let mut state = state_subscribed(vec![topic("t1"), topic("t2")]);
+        with_active_upstream(&mut state, "b", "t1");
+
+        // t1 from b → admitted; t2 from b → dropped (no connection for t2),
+        // even though t2 is subscribed and registered.
+        apply(&mut state, payload_from("b", "t1", 1));
+        let effects = apply(&mut state, payload_from("b", "t2", 2));
+        assert!(effects.is_empty());
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "only t1 admitted; t2 has no connection",
+        );
+    }
+
+    // US2-AS4 / FR-019: the gate is the FIRST check; the merged chain after it
+    // is unchanged — a tampered payload over an Active upstream still drops at
+    // signature verification (a plain drop in this feature; severance is US3).
+    #[test]
+    fn gate_first_then_signature_check_unchanged() {
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_active_upstream(&mut state, "b", "t1");
+
+        let effects = apply(&mut state, tampered_payload_from("b", "t1", 1));
+        assert!(effects.is_empty(), "no severance effect in this feature");
+        assert!(
+            state.received_snapshot().is_empty(),
+            "admitted by the gate, then dropped at signature",
+        );
+    }
+
+    // US2-AS4 / FR-019: a payload that passes the gate but is off the
+    // subscription set still drops by the subscription filter (the gate keys on
+    // (sender, topic) independent of subscription; the filter runs after it).
+    #[test]
+    fn gate_first_then_subscription_filter_unchanged() {
+        // Subscribed+registered only for t1; seed an Active upstream for the
+        // unsubscribed t2 (an own-topic-drift stale state, S4).
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_active_upstream(&mut state, "b", "t2");
+
+        let effects = apply(&mut state, payload_from("b", "t2", 1));
+        assert!(effects.is_empty());
+        assert!(
+            state.received_snapshot().is_empty(),
+            "passes the gate but t2 is not subscribed → topic_not_subscribed drop",
         );
     }
 }

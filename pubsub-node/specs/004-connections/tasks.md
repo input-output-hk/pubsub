@@ -49,10 +49,10 @@
 
 **Independent test**: connected vs unconnected sender of the same valid message — only the connected one recorded; the other drops `not_connected` (spec US2).
 
-- [ ] T017 [US2] Write failing sync state tests in `src/state.rs`: gate order: connection first, the merged chain (subscription → registration → authorization → signature) unchanged after it; `not_connected` for absent and AwaitingAccept connections; per-topic gating (T's connection does not admit U); post-connection behaviors unchanged (subscription filter, valid recording — FR-016/019, US2-AS1..4)
-- [ ] T018 [US2] Implement the connection gate as the first check in `handle_signed_message` in `src/state.rs` (frame-sender keyed per FR-016; existing checks untouched after it)
-- [ ] T019 [US2] Rework the pre-existing suites with establishment preambles in `tests/two_node_ping.rs`, `tests/topic_filter.rs`, `tests/n_node_graph.rs`, `tests/topic_validity.rs`, `tests/topic_registry_network.rs` (the two 013 suites send payload and fall under the gate too), re-asserting the post-connection regression boundary (SC-005); **T017–T019 are one commit** with T020
-- [ ] T020 [US2] Add the unconnected-sender integration test (valid signed message from a non-connected peer → not recorded, getter-observable) in `tests/connections.rs` ⛳
+- [X] T017 [US2] Write failing sync state tests in `src/state.rs`: gate order: connection first, the merged chain (subscription → registration → authorization → signature) unchanged after it; `not_connected` for absent and AwaitingAccept connections; per-topic gating (T's connection does not admit U); post-connection behaviors unchanged (subscription filter, valid recording — FR-016/019, US2-AS1..4)
+- [X] T018 [US2] Implement the connection gate as the first check in `handle_signed_message` in `src/state.rs` (frame-sender keyed per FR-016; existing checks untouched after it)
+- [X] T019 [US2] Rework the pre-existing suites with establishment preambles in `tests/two_node_ping.rs`, `tests/topic_filter.rs`, `tests/n_node_graph.rs`, `tests/topic_validity.rs`, `tests/topic_registry_network.rs` (the two 013 suites send payload and fall under the gate too), re-asserting the post-connection regression boundary (SC-005); **T017–T019 are one commit** with T020
+- [X] T020 [US2] Add the unconnected-sender integration test (valid signed message from a non-connected peer → not recorded, getter-observable) in `tests/connections.rs` ⛳
 
 ## Phase 5: User Story 3 — silent misbehavior severance (P2)
 

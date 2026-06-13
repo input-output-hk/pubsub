@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, await_candidates, await_downstream, await_upstream_active, node_with,
-    shared_test_verifier, trigger_setup,
+    alias_signer, await_candidates, await_delivery, await_downstream, await_upstream_active,
+    establish_upstreams, node_with, ping, shared_test_verifier, trigger_setup,
 };
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
@@ -168,6 +168,46 @@ async fn two_topics_yield_two_independent_connections() {
 
     let up = a.upstream_connections();
     assert_eq!(up.len(), 2, "one connection per (peer, topic)");
+}
+
+// US2 / SC-002: a valid signed message from a connected source is recorded,
+// while the same valid message from an unconnected peer is dropped
+// (not_connected) and never recorded — connection-gated delivery, observable
+// through the getter.
+#[tokio::test]
+async fn unconnected_sender_is_not_recorded() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t = topic("t");
+
+    // s (receiver) and b (connected sender) share t. ghost is a member of no
+    // topic, so it is not a t candidate and s never dials it — yet it can still
+    // send (sending is decoupled from subscription, FR-023).
+    let s = node_with(&registry, &network, "s", &[], std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    let ghost = node_with(&registry, &network, "ghost", &[], &[]).await;
+
+    // s dials its only t candidate, b — ghost stays unconnected to s.
+    establish_upstreams(&s, &[&b], &t).await;
+
+    let from_b = ping(t.clone(), 1);
+    let from_ghost = ping(t.clone(), 2);
+    b.send(s.id(), from_b.clone()).await.expect("b → s");
+    ghost.send(s.id(), from_ghost).await.expect("ghost → s");
+
+    // The connected source's message lands.
+    await_delivery(&s, b.id(), &from_b, TIMEOUT)
+        .await
+        .expect("connected source recorded");
+    // Settle, then confirm the unconnected source's message never landed.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let record = s.received_messages();
+    assert_eq!(record.len(), 1, "only the connected source is recorded");
+    assert_eq!(record[0].from, *b.id());
+    assert!(
+        !record.iter().any(|d| d.from == *ghost.id()),
+        "the unconnected sender's valid message is dropped (not_connected)",
+    );
 }
 
 // US1 / FR-006: the autonomous path — nodes constructed with a configured setup

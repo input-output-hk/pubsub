@@ -10,7 +10,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_candidates, await_delivery, await_subscriptions, node_sharing, ping};
+use common::{
+    await_candidates, await_delivery, await_subscriptions, establish_upstreams, node_sharing, ping,
+};
 use pubsub_node::{
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, PeerId,
     SubscriptionRegistryControl, TopicId, TopicRegistryControl,
@@ -34,7 +36,10 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
     let subs = Arc::new(InMemorySubscriptionRegistry::new());
     let topics = Arc::new(InMemoryTopicRegistry::new());
 
-    // node-s subscribes both topics; node-b (the sender) is a weather member.
+    // node-s subscribes both topics; node-b (the sender) is a member of both
+    // too, so s can connect to it on each — establishment uses the
+    // membership-derived set, not topic registration (the S7 rule), so s dials
+    // b on ghosttopic even while it is unregistered.
     subs.set_topics(
         peer("node-s"),
         [topic("weather"), topic("ghosttopic")]
@@ -43,9 +48,14 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
     )
     .await
     .unwrap();
-    subs.set_topics(peer("node-b"), [topic("weather")].into_iter().collect())
-        .await
-        .unwrap();
+    subs.set_topics(
+        peer("node-b"),
+        [topic("weather"), topic("ghosttopic")]
+            .into_iter()
+            .collect(),
+    )
+    .await
+    .unwrap();
     // Only weather is a registered (legitimate) topic for now — open.
     topics
         .set_topic(topic("weather"), BTreeSet::new())
@@ -64,6 +74,12 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
     await_candidates(&s, &topic("weather"), &["node-b"], Duration::from_secs(1))
         .await
         .expect("candidate set is unaffected by the topic registry");
+
+    // Establishment preamble: s dials b on both topics it is a member of
+    // (ghosttopic establishes despite being unregistered — registration gates
+    // delivery, not the connection).
+    establish_upstreams(&s, &[&b], &topic("weather")).await;
+    establish_upstreams(&s, &[&b], &topic("ghosttopic")).await;
 
     let on = ping(topic("weather"), 1);
     let off = ping(topic("ghosttopic"), 2);
@@ -128,6 +144,9 @@ async fn removing_a_topic_stops_acceptance() {
     await_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("weather effective");
+
+    // Establishment preamble: s dials b on weather.
+    establish_upstreams(&s, &[&b], &topic("weather")).await;
 
     let first = ping(topic("weather"), 1);
     b.send(s.id(), first.clone()).await.expect("send");
