@@ -238,3 +238,22 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Working answer (004-connections scope)**: **Membership-only acceptance**, deliberate and revisit-flagged. The maintainer's preferred resolution is a **cross-registry event-ordering invariant**: both registries are chain-derived, and a faithful follower delivers their events in chain order, making membership ⊆ registered *structural* (raised on the 013 PR). Until that invariant is adopted, acceptance is intentionally inconsistent with the active-topics set, with delivery still gated by registration.
 
 **Trigger to revisit**: resolution of the **cross-registry chain-order invariant**. If adopted, membership ⊆ registered holds structurally and no acceptance change is needed. If rejected, acceptance must gain the registration check (validate against `subscriptions ∩ registered_topics`) **or** topic removal must cascade into membership so an unregistered topic loses its members.
+
+## N-016 — Signature domain separation across message kinds
+
+**Surfaced during**: PR #56 review (004-connections), 2026-06-15 — raised by the reviewing architect.
+
+**Question**: the node signs control messages (`PlainConnection`) and dissemination messages (`PlainMessage`) with the **same** key shape, but neither `signed_bytes()` encoding carries a tag committing to *which kind* it is. The two are distinguished only because their byte layouts happen not to collide — an implicit, unproven property. Could a signature produced for one kind be replayed by re-wrapping the bytes in the other `Message` variant?
+
+**Working answer (004-connections scope)**: **No domain tag; deferred.** A practical reuse attack is not reachable at this stage:
+
+- The node signs **only control messages** it creates; it does not sign dissemination messages at all (payload messages carry a *publisher* signature, and `Node::send` only routes). So the "one key signs both layers" premise does not hold in the current code.
+- A reuse would require a **structured-layout collision** between `PlainMessage::signed_bytes()` and `PlainConnection::signed_bytes()` (e.g. forcing a topic field to contain raw public-key bytes with matching `u32` length prefixes); the victim does not control the attacker's target content, so engineering the collision is infeasible.
+- Even a forged dissemination message still faces the full receive gate (connection → subscription → registration → authorization → signature), so the blast radius is near-nil.
+- Everything is shared as in-memory objects over the mock network; there is no wire format yet.
+
+**The fix, when it lands** (the architect's concrete proposal): prepend a per-kind **domain tag** (e.g. a 1-byte `0x01` dissemination / `0x02` control, or a short context string) at the start of each `signed_bytes()`, so the signature commits to the message kind and a re-wrapped message recomputes to the wrong domain and fails verification **by construction**. The PR #56 refactor that lifted `push_len_prefixed` into a single crate-internal helper (`src/message.rs`) leaves this a one-touch change — the tag is written first in each encoder (and the helper's rustdoc points here).
+
+**Why deferred**: domain separation is a **canonical-encoding** concern and belongs with the same decision as the CBOR-canonical swap, i.e. the first real serialization / cross-language consumer — exactly N-004's milestone. Introducing a hand-rolled tag now would be re-specified under the CBOR scheme anyway and would amend the protocol layout docs (ADR 0010, contracts §1.1) for a property that is not load-bearing at PoC.
+
+**Trigger to revisit**: with **N-004** (canonical encoding swap) — feature **009** (TCP transport) or the first cross-language publisher/verifier, and/or **011** (real crypto). At that point the domain tag rides on the canonical scheme: the signed bytes for each message kind must be unambiguously self-describing so cross-protocol signature reuse fails by construction, not by layout coincidence.
