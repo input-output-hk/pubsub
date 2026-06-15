@@ -4,10 +4,13 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_candidates, await_delivery, node_with, ping, shared_test_verifier};
+use common::{
+    alias_signer, await_candidates, await_delivery, establish_upstreams, node_with, ping,
+    shared_test_verifier,
+};
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId,
-    SubscriptionRegistryControl, TopicId,
+    ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    Node, NodeConfig, PeerId, SubscriptionRegistryControl, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -30,11 +33,16 @@ async fn node_with_no_registry_entry_derives_empty_state() {
     let topic_registry = Arc::new(InMemoryTopicRegistry::new()); // empty — no registered topics
     let node = Node::new(
         peer("ghost"),
-        NodeConfig { peers: vec![] },
+        NodeConfig {
+            peers: vec![],
+            connection_setup_delay: None,
+        },
         network,
+        alias_signer("ghost"),
         shared_test_verifier(),
         registry,
         topic_registry,
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construction succeeds even with no registry entry");
@@ -61,6 +69,9 @@ async fn effective_topics_come_from_registry_entry() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let s = node_with(&registry, &network, "node-s", &[], &[topic("t1")]).await;
     let b = node_with(&registry, &network, "node-b", &["node-s"], &[topic("t1")]).await;
+
+    // Establishment preamble: s dials b on t1 so b's t1 message is admitted.
+    establish_upstreams(&s, &[&b], &topic("t1")).await;
 
     let on_topic = ping(topic("t1"), 1);
     let off_topic = ping(topic("t2"), 2);

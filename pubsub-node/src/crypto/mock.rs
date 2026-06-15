@@ -86,6 +86,22 @@ impl MockCryptoScheme {
         KeyPair { public, private }
     }
 
+    /// Construct the [`KeyPair`] for a string alias: the private key is the
+    /// alias's bytes, the public key is [`derive_public`] of it. Deterministic;
+    /// does not advance the RNG.
+    ///
+    /// The mock-stage identity convenience: an alias-derived keypair signs and
+    /// verifies through the unmodified [`TestSigner`]/[`TestVerifier`], and its
+    /// public key equals the key inside the same alias parsed as a
+    /// [`PeerId`](crate::PeerId) by construction.
+    #[allow(clippy::unused_self)]
+    #[must_use]
+    pub fn keypair_from_alias(&self, alias: &str) -> KeyPair {
+        let private = PrivateKey::new(alias.as_bytes().to_vec());
+        let public = derive_public(&private);
+        KeyPair { public, private }
+    }
+
     // `signer` and `verifier` take `&self` by design: the scheme is the factory
     // entry point for both, and neither call advances the RNG. The `&self`
     // receiver keeps the factory shape uniform and leaves room for future
@@ -155,5 +171,50 @@ impl Verifier for TestVerifier {
         } else {
             Err(VerifyError::Invalid)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{derive_public, MockCryptoScheme, TestVerifier};
+    use crate::crypto::{Signer, Verifier};
+
+    // R9: an alias keypair satisfies the same derive invariant as a generated
+    // one — the public key is `derive_public` of the private (alias-bytes) key.
+    #[test]
+    fn alias_keypair_satisfies_derive_invariant() {
+        let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+        let kp = scheme.keypair_from_alias("node-a");
+        assert_eq!(kp.public, derive_public(&kp.private));
+        assert_eq!(kp.private.as_bytes(), b"node-a");
+    }
+
+    // R9: alias identities sign and verify through the unmodified mock pair.
+    #[test]
+    fn alias_keypair_signs_and_verifies_through_mock_pair() {
+        let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+        let kp = scheme.keypair_from_alias("node-a");
+        let signer = scheme.signer(kp.private);
+        assert_eq!(signer.public_key(), kp.public);
+
+        let msg = b"payload bytes";
+        let sig = signer.sign(msg);
+        assert!(TestVerifier.verify(&kp.public, msg, &sig).is_ok());
+        assert!(TestVerifier
+            .verify(&kp.public, b"other bytes", &sig)
+            .is_err());
+    }
+
+    // R9: `keypair_from_alias` does not advance the RNG — a scheme that called
+    // it still generates the same keypair sequence as a fresh same-seed scheme.
+    #[test]
+    fn keypair_from_alias_does_not_advance_the_rng() {
+        let mut with_alias_call = MockCryptoScheme::with_seed([3u8; 32]);
+        let _ = with_alias_call.keypair_from_alias("node-a");
+        let mut fresh = MockCryptoScheme::with_seed([3u8; 32]);
+        let a = with_alias_call.generate_keypair();
+        let b = fresh.generate_keypair();
+        assert_eq!(a.public, b.public);
+        assert_eq!(a.private, b.private);
     }
 }

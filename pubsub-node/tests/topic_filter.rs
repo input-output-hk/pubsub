@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, node_with, two_node_fixture_with_subscriptions};
+use common::{await_delivery, establish_upstreams, node_with, two_node_fixture_with_subscriptions};
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, TopicId};
 
 fn topic(s: &str) -> TopicId {
@@ -86,6 +86,9 @@ async fn own_emission_not_in_local_snapshot() {
         std::slice::from_ref(&t1),
     )
     .await;
+
+    // Establishment preamble: B dials A so A's emission is admitted at B.
+    establish_upstreams(&b, &[&a], &t1).await;
 
     let msg = common::ping(t1, 13);
     a.send(b.id(), msg.clone()).await.expect("send Ok");

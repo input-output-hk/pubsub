@@ -53,7 +53,12 @@ pub(crate) struct NetworkSender {
 }
 
 impl NetworkSender {
-    async fn send(&self, from: &PeerId, to: &PeerId, message: Message) -> Result<(), NetworkError> {
+    pub(crate) async fn send(
+        &self,
+        from: &PeerId,
+        to: &PeerId,
+        message: Message,
+    ) -> Result<(), NetworkError> {
         let guard = self.registry.read().await;
         if let Some(tx) = guard.get(to) {
             let frame = RoutingFrame {
@@ -118,6 +123,13 @@ impl NetworkHandle {
             .take()
             .expect("NetworkHandle::take_receiver called more than once")
     }
+
+    /// Clone the sender half of this handle, for the node's effect executor to
+    /// dispatch `Effect::Send` from inside the event loop. The clone stamps
+    /// outbound frames with this handle's id (the loop passes it as `from`).
+    pub(crate) fn sender(&self) -> NetworkSender {
+        self.tx.clone()
+    }
 }
 
 /// In-process, in-memory [`Network`] implementation.
@@ -132,14 +144,17 @@ impl NetworkHandle {
 /// ```no_run
 /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 /// # use std::sync::Arc;
-/// # use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId, TestVerifier, Verifier};
+/// # use pubsub_node::{ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node, NodeConfig, PeerId, Signer, TestVerifier, Verifier};
 /// # let self_id: PeerId = "node-a".parse()?;
-/// # let config = NodeConfig { peers: vec![] };
+/// # let config = NodeConfig::default();
 /// let network = Arc::new(InMemoryNetwork::new());
+/// let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+/// let signer: Arc<dyn Signer> = Arc::new(scheme.signer(scheme.keypair_from_alias("node-a").private));
 /// let verifier: Arc<dyn Verifier> = Arc::new(TestVerifier);
 /// let registry = Arc::new(InMemorySubscriptionRegistry::new());
 /// let topic_registry = Arc::new(InMemoryTopicRegistry::new());
-/// let node = Node::new(self_id, config, network.clone(), verifier, registry, topic_registry).await?;
+/// let strategy = Arc::new(ConnectToAllCandidates);
+/// let node = Node::new(self_id, config, network.clone(), signer, verifier, registry, topic_registry, strategy).await?;
 /// # Ok(())
 /// # }
 /// ```

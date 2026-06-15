@@ -11,11 +11,18 @@
 //! - [`TopicId`] — the topic carried on every [`Message`]; opaque newtype
 //!   parallel to [`PeerId`].
 //! - [`Message`], [`SignedMessage`], [`PlainMessage`], [`MessagePayload`] —
-//!   the protocol-message hierarchy. [`Message`] is a `#[non_exhaustive]` enum
-//!   whose sole variant [`Message::Signed`] carries a [`SignedMessage`]
-//!   (signed-over [`PlainMessage`] content plus a signature). The content
-//!   carries a [`TopicId`], a [`PublisherId`], and a [`MessagePayload`] body;
-//!   currently only [`MessagePayload::Ping`] is defined.
+//!   the protocol-message hierarchy. [`Message`] is a `#[non_exhaustive]` enum;
+//!   [`Message::Signed`] carries a [`SignedMessage`] (signed-over
+//!   [`PlainMessage`] content plus a signature, with a [`TopicId`], a
+//!   [`PublisherId`], and a [`MessagePayload`] body — currently only
+//!   [`MessagePayload::Ping`]), and [`Message::Connection`] carries a
+//!   [`ConnectionMessage`] (a signed [`PlainConnection`] — the carried emitter
+//!   plus a [`ConnectionAction`]).
+//! - [`UpstreamState`], [`ConnectionStrategy`], [`ConnectToAllCandidates`] —
+//!   the logical-connection vocabulary: a node's upstream connections carry an
+//!   explicit state, and an injected strategy selects which upstreams to dial
+//!   on a setup event. Read the topology via
+//!   [`Node::upstream_connections`]/[`Node::downstream_connections`].
 //! - [`crypto`] — the [`Signer`]/[`Verifier`] trait pair and the byte-newtype
 //!   types they operate over ([`PublicKey`], [`PrivateKey`], [`Signature`],
 //!   [`MessageHash`], [`Timestamp`]); [`crypto::mock`] holds the test crypto.
@@ -29,6 +36,7 @@
 //!   [`TopicIdError`] — typed failure modes.
 
 mod config;
+mod connection;
 pub mod crypto;
 mod error;
 mod event;
@@ -43,13 +51,17 @@ mod topic;
 mod topic_registry;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
+pub use connection::{ConnectToAllCandidates, ConnectionStrategy, UpstreamState};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
 };
 pub use error::{ConfigError, NetworkError, NodeError};
 pub use event::{Event, EventQueue};
-pub use message::{Message, MessagePayload, PlainMessage, PublisherId, SignedMessage};
+pub use message::{
+    ConnectionAction, ConnectionMessage, Message, MessagePayload, PlainConnection, PlainMessage,
+    PublisherId, SignedMessage,
+};
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};

@@ -159,6 +159,19 @@ node.spawn_producer(move |q| async move {
 
 ### 1.3 Connections (forward-looking, ~004 — not in the contract)
 
+> **Superseded by 004-connections (shipped).** The per-connection-producer sketch below did
+> **not** materialise. 004-connections shipped **logical** connections: per-`(peer, topic)`
+> upstream/downstream entries live **in `NodeState`** (not as keyed shell producers), and they
+> are established/torn down by signed control messages (`Request`/`Accepted`/`Terminated`) that
+> arrive over the **unchanged single network mailbox** — no `HashMap<PeerId, JoinHandle<()>>`,
+> no per-connection recv loops. The only new shell producer is the optional one-shot setup
+> timer. The receive path is connection-*gated* (`apply` admits payload only from an `Active`
+> upstream) rather than fan-out-driven; fan-out **over** downstream connections (`apply` emitting
+> per-connection send `Effect`s mapped to live sinks) is still deferred — to a real
+> connection-oriented transport (009+), where keyed producers and individual teardown regain
+> their meaning. The forward-looking text below is retained as the original sketch for that
+> later transport, not as 004's design.
+
 Connections are **dynamic, keyed producers**: each accepted/dialed `Connection` runs a recv
 loop that pushes events, owned in a `HashMap<PeerId, JoinHandle<()>>` on the shell so it can be
 torn down **individually** when the connection closes (note: dropping a `JoinHandle` does not

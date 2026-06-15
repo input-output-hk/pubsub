@@ -1,20 +1,22 @@
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
-use crate::crypto::Verifier;
+use crate::connection::{ConnectionStrategy, UpstreamState};
+use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
 use crate::message::Message;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::network::{Network, NetworkHandle, RoutingFrame};
+use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
-use crate::state::{apply, NodeState};
+use crate::state::{apply, Effect, NodeState};
 use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
 use crate::topic_registry::TopicRegistry;
@@ -30,20 +32,39 @@ use crate::topic_registry::TopicRegistry;
 /// are aborted when the [`Node`] is dropped.
 ///
 /// A node carries:
-/// - its own [`PeerId`],
+/// - its own [`PeerId`] (a public key) and a signing identity that signs the
+///   connection-control messages it emits,
 /// - a static peer set (no peer-set mutation API at this stage),
 /// - a registry-derived subscription set — the topics it accepts on — queryable
 ///   via [`subscriptions`](Node::subscriptions) (the topics it both declared in
 ///   its subscription-list entry **and** that are registered in the topic
 ///   registry); the node holds no API to mutate it (it is folded from the two
 ///   registry streams),
+/// - **logical connections** to peers, one per `(peer, topic)`, in two roles:
+///   *upstream* connections it requested (its message sources, each
+///   [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
+///   [`Active`](crate::UpstreamState::Active)) and *downstream* connections it
+///   accepted (its fan-out destinations). They are established autonomously by
+///   an injected connection-selection strategy on a setup event, exchanged as
+///   signed control messages over the network, and observable through
+///   [`upstream_connections`](Node::upstream_connections) /
+///   [`downstream_connections`](Node::downstream_connections). There is no
+///   manual connect/disconnect API — only construction, [`send`](Node::send),
+///   [`shutdown`](Node::shutdown), and the read-only snapshot getters.
 /// - a queryable record of received messages accessible via
-///   [`received_messages`](Node::received_messages). A delivery enters this
-///   record only if its topic is subscribed (declared **and** a registered
-///   topic), its publisher is authorized for that topic (or the
-///   topic is open), and its signature verifies; messages failing any check are
-///   silently dropped (with an info-level `message_dropped` tracing event
-///   carrying a `cause`).
+///   [`received_messages`](Node::received_messages). The receive path is
+///   **connection-gated**: a delivery enters the record only if the delivering
+///   peer holds an Active upstream with the node for the message's topic, the
+///   topic is subscribed (declared **and** a registered topic), the publisher
+///   is authorized for that topic (or the topic is open), and the signature
+///   verifies. Messages failing a check are silently dropped (an info-level
+///   `message_dropped` event with a `cause`); a signature failure over an
+///   otherwise-admissible Active upstream additionally **severs** that
+///   connection (a warn-level `connection_severed`, no notice sent).
+///
+/// Teardown has two paths: [`shutdown`](Node::shutdown) (consuming, awaitable)
+/// notifies every connection counterpart before releasing the node; a plain
+/// drop is the abrupt, no-notice path.
 pub struct Node {
     handle: NetworkHandle,
     peers: Vec<BasicPeerDescriptor>,
@@ -82,21 +103,50 @@ impl Node {
     /// no registry entries simply stays empty (no construction error).
     ///
     /// `verifier` checks each inbound message's signature; messages whose
-    /// signature does not verify are dropped. It is consulted on the receive
-    /// path only — a node does not sign.
+    /// signature does not verify are dropped. `signer` is the node's signing
+    /// identity — it signs the connection-control messages the node emits
+    /// (`Request`/`Accepted`/`Terminated`); `strategy` is the
+    /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
+    /// a setup event.
     ///
-    /// Returns [`NodeError`] if network registration fails.
+    /// Construction validates **identity/signer coherence before** registering
+    /// on the network: if `self_id` does not match `signer`'s public key it
+    /// returns [`NodeError::IdentityMismatch`] with no background activity
+    /// started (a mismatch would make every control message the node emits
+    /// verifiably invalid and silently dropped by its peers).
+    ///
+    /// Returns [`NodeError`] if the identity/signer check fails or network
+    /// registration fails.
+    // The parameter list is the feature's specified construction contract
+    // (contracts §4): network + signer + verifier + two registries + strategy
+    // are each a distinct collaborator, not incidental sprawl. A config/builder
+    // struct is the natural future refactor if it grows further.
+    #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
         config: NodeConfig,
         network: Arc<N>,
+        signer: Arc<dyn Signer>,
         verifier: Arc<dyn Verifier>,
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
+        strategy: Arc<dyn ConnectionStrategy>,
     ) -> Result<Self, NodeError> {
+        // Identity/signer coherence, checked before registration so a mismatch
+        // leaks nothing — no handle, no tasks (FR-024).
+        if *self_id.as_public_key() != signer.public_key() {
+            return Err(NodeError::IdentityMismatch(self_id));
+        }
+
+        let connection_setup_delay = config.connection_setup_delay;
+
         let mut handle = network.register(self_id).await?;
         let node_id = handle.id().clone();
         let rx = handle.take_receiver();
+        // The effect executor needs the network send half and the node's own
+        // id inside the loop task (to stamp outbound frames as `from`).
+        let sender = handle.sender();
+        let loop_self_id = node_id.clone();
 
         // The node starts with an empty subscription set and derives it — and
         // its candidate sets — by folding the subscription-registry `watch` stream (ADR
@@ -106,6 +156,8 @@ impl Node {
             node_id.clone(),
             HashSet::new(),
             verifier,
+            signer,
+            strategy,
         )));
         let state_for_task = Arc::clone(&state);
 
@@ -115,23 +167,29 @@ impl Node {
         // The single consumer: drain the event queue and run each event in
         // arrival order through the pure transition, then execute whatever
         // effects it returns. New event variants get their handling in
-        // `state::apply`, not here.
+        // `state::apply`, not here. The state lock is held only across `apply`
+        // and released before effects execute — effects do I/O (`await`) and
+        // must not run under the lock.
         let event_loop = tokio::spawn(async move {
             while let Some(event) = event_rx.recv().await {
+                // ADR 0019 carve-out: the loop inspects the event kind only to
+                // know when to stop — the event's *handling* (clear + notices)
+                // still lives in `state::apply`. After executing a Shutdown
+                // event's effects (the Terminated notices), the loop breaks;
+                // that termination is the signal `shutdown` awaits, guaranteeing
+                // the notices were handed to the network first.
+                let is_shutdown = matches!(event, Event::Shutdown);
                 let effects = {
                     let mut guard = state_for_task
                         .lock()
                         .expect("event loop: state mutex poisoned");
                     apply(&mut guard, event)
                 };
-                // `Effect` is uninhabited pre-connection, so this executor is
-                // vacuous; the connection model populates it. The lint is
-                // right that the loop never loops — that is the point: the
-                // empty match is the compile-time proof that every future
-                // variant must be handled here.
-                #[allow(clippy::never_loop)]
                 for effect in effects {
-                    match effect {}
+                    execute_effect(&sender, &loop_self_id, effect).await;
+                }
+                if is_shutdown {
+                    break;
                 }
             }
         });
@@ -161,6 +219,15 @@ impl Node {
             subscription_registry_reader_loop(queue, subscription_registry, node_id)
         });
         node.spawn_producer(move |queue| topic_registry_reader_loop(queue, topic_registry));
+
+        // The optional fourth producer: the one-shot setup timer, spawned only
+        // when a delay is configured. It fires a single `ConnectionSetup` event
+        // after the delay (giving the registry view time to converge), then
+        // returns; it is drop-aborted like every producer (ADR 0018). Unset by
+        // default, so autonomy is opt-in and scripted tests never race a timer.
+        if let Some(delay) = connection_setup_delay {
+            node.spawn_producer(move |queue| setup_timer_producer(queue, delay));
+        }
 
         Ok(node)
     }
@@ -266,6 +333,62 @@ impl Node {
             .expect("subscriptions: state mutex poisoned")
             .subscriptions_snapshot()
     }
+
+    /// Return a snapshot of this node's **upstream** connections — the
+    /// `(peer, topic, state)` triples it requested as message sources, each
+    /// either [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
+    /// [`Active`](crate::UpstreamState::Active).
+    ///
+    /// A stable clone of the node's record, unaffected by subsequent events;
+    /// entry order is unspecified. Pending (`AwaitingAccept`) entries are a
+    /// visible diagnostic — a request awaiting an answer that may never come.
+    #[must_use]
+    pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, UpstreamState)> {
+        self.state
+            .lock()
+            .expect("upstream_connections: state mutex poisoned")
+            .upstream_snapshot()
+    }
+
+    /// Return a snapshot of this node's **downstream** connections — the
+    /// `(peer, topic)` pairs it accepted as fan-out destinations.
+    ///
+    /// A stable clone of the node's record, unaffected by subsequent events;
+    /// entry order is unspecified.
+    #[must_use]
+    pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)> {
+        self.state
+            .lock()
+            .expect("downstream_connections: state mutex poisoned")
+            .downstream_snapshot()
+    }
+
+    /// Gracefully shut the node down: drain any already-queued events, send one
+    /// `Terminated` notice per held connection (both roles, any state), then
+    /// release the node. Consuming `self` makes use-after-shutdown
+    /// unrepresentable.
+    ///
+    /// Resolves only after the notices have been handed to the network: it
+    /// pushes a `Shutdown` event and awaits the event loop's completion (the
+    /// loop breaks once that event's effects have executed). Plain
+    /// [`drop`](Drop) without calling this remains the abrupt, no-notice path —
+    /// counterparts keep stale entries, which admit nothing and are
+    /// re-confirmed idempotently if the node returns.
+    pub async fn shutdown(mut self) {
+        self.events.push(Event::Shutdown);
+        // `JoinHandle` is `Unpin`; await by reference (the node has a `Drop`
+        // impl, so the handle cannot be moved out). A join error means the loop
+        // task panicked or was aborted — log and proceed to drop.
+        if let Err(error) = (&mut self.event_loop).await {
+            tracing::warn!(
+                target: "pubsub_node::node",
+                %error,
+                "event loop did not complete cleanly during shutdown",
+            );
+        }
+        // `self` drops here: `Drop` aborts the producers (and the
+        // already-finished loop, a no-op).
+    }
 }
 
 impl Drop for Node {
@@ -275,6 +398,52 @@ impl Drop for Node {
             producer.abort();
         }
     }
+}
+
+/// Execute one [`Effect`] the transition returned, outside the state lock.
+///
+/// `Send` failures are logged and otherwise ignored — the network drops sends
+/// to unregistered ids without surfacing an error, mirroring [`Node::send`].
+/// `Misbehaved` becomes the operator-facing `connection_severed` warn event
+/// and nothing else at this stage. No `apply` arm produces effects yet, so
+/// this executor is wired but not exercised until the connection transitions
+/// land.
+async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect) {
+    match effect {
+        Effect::Send { to, message } => {
+            if let Err(error) = sender.send(self_id, &to, message).await {
+                tracing::warn!(
+                    target: "pubsub_node::node",
+                    %error,
+                    to = %to,
+                    "connection send failed",
+                );
+            }
+        }
+        Effect::Misbehaved { peer, topic, cause } => {
+            tracing::warn!(
+                target: "pubsub_node::node",
+                event = "connection_severed",
+                peer = %peer,
+                topic = %topic,
+                cause,
+                "connection severed",
+            );
+        }
+    }
+}
+
+/// The optional one-shot setup-timer producer: sleeps for the configured
+/// delay, pushes a single [`Event::ConnectionSetup`], and returns.
+///
+/// Spawned via [`spawn_producer`](Node::spawn_producer) only when a delay is
+/// configured (so it is node-owned and drop-aborted); the delay lets the
+/// node's registry view converge before it dials (ADR 0018). It fires at most
+/// once per node lifetime — the autonomous topology is the single setup
+/// event's diff.
+async fn setup_timer_producer(queue: EventQueue, delay: Duration) {
+    tokio::time::sleep(delay).await;
+    queue.push(Event::ConnectionSetup);
 }
 
 /// The network mailbox producer: forwards each inbound frame from the

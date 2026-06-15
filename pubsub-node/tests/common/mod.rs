@@ -9,10 +9,11 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, Node, NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId,
-    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
-    Timestamp, TopicId, TopicRegistryControl, Verifier,
+    ConnectToAllCandidates, Event, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, Message, MessageHash, MessagePayload, MockCryptoScheme, Node,
+    NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -56,6 +57,15 @@ pub fn shared_test_verifier() -> Arc<dyn Verifier> {
     Arc::new(TestVerifier)
 }
 
+/// The signing identity for a node addressed by `alias`: the mock keypair for
+/// that alias. `PeerId::from_str(alias)` and this signer agree by construction
+/// (both derive from the alias bytes), so the identity/signer coherence check
+/// passes — the node's own coherent signer.
+pub fn alias_signer(alias: &str) -> Arc<dyn Signer> {
+    let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+    Arc::new(scheme.signer(scheme.keypair_from_alias(alias).private))
+}
+
 /// Build a signed [`Message`] from explicit envelope inputs.
 ///
 /// Constructs the [`PlainMessage`] (deriving `publisher_id` from the signer's
@@ -97,6 +107,16 @@ pub fn build_signed_message_simple(
 /// migrated call sites.
 pub fn ping(topic: TopicId, n: u64) -> Message {
     build_signed_message_simple(&test_signer(), topic, MessagePayload::Ping(n))
+}
+
+/// Build a `Ping(n)` whose payload is mutated after signing, so its signature
+/// no longer verifies — a tampered message for the misbehavior-severance path.
+pub fn tampered_ping(topic: TopicId, n: u64) -> Message {
+    let Message::Signed(mut signed) = ping(topic, n) else {
+        unreachable!("ping yields Message::Signed")
+    };
+    signed.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
+    Message::Signed(signed)
 }
 
 /// Borrow the topic of a [`Message`] regardless of variant.
@@ -166,30 +186,40 @@ pub async fn two_node_fixture_with_subscriptions(
         a_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
+            connection_setup_delay: None,
         },
         network.clone(),
+        alias_signer(&a_id.to_string()),
         verifier.clone(),
         registry.clone(),
         topic_registry.clone(),
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node A");
 
     let b = Node::new(
-        b_id,
+        b_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
+            connection_setup_delay: None,
         },
         network.clone(),
+        alias_signer(&b_id.to_string()),
         verifier,
         registry.clone(),
         topic_registry.clone(),
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node B");
 
     // Both nodes derive their effective subscriptions from two registry streams;
     // wait for convergence so send-then-observe tests are deterministic.
+    let shared: Vec<TopicId> = a_subscriptions
+        .intersection(&b_subscriptions)
+        .cloned()
+        .collect();
     let a_expected: Vec<TopicId> = a_subscriptions.into_iter().collect();
     let b_expected: Vec<TopicId> = b_subscriptions.into_iter().collect();
     await_subscriptions(&a, &a_expected, Duration::from_secs(1))
@@ -198,6 +228,12 @@ pub async fn two_node_fixture_with_subscriptions(
     await_subscriptions(&b, &b_expected, Duration::from_secs(1))
         .await
         .expect("node B subscriptions converge");
+
+    // Establishment preamble (004-connections): mutually connect A and B on
+    // every topic they share, so payload between them passes the connection
+    // gate. Disjoint-subscription fixtures share nothing and stay unconnected —
+    // their cross-topic sends are dropped at the gate, as the drop tests expect.
+    establish_mutual(&a, &b, &shared).await;
 
     TwoNodeFixture {
         network,
@@ -239,13 +275,19 @@ pub async fn node_with(
             id: PeerId::from_str(p).expect("valid peer id"),
         })
         .collect();
+    let signer = alias_signer(&id.to_string());
     let node = Node::new(
         id,
-        NodeConfig { peers },
+        NodeConfig {
+            peers,
+            connection_setup_delay: None,
+        },
         network.clone(),
+        signer,
         shared_test_verifier(),
         registry.clone(),
         topic_registry,
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node");
@@ -279,11 +321,16 @@ pub async fn node_sharing(
         .collect();
     Node::new(
         PeerId::from_str(id).expect("valid id"),
-        NodeConfig { peers },
+        NodeConfig {
+            peers,
+            connection_setup_delay: None,
+        },
         network.clone(),
+        alias_signer(id),
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
+        Arc::new(ConnectToAllCandidates),
     )
     .await
     .expect("construct node")
@@ -392,4 +439,183 @@ pub fn assert_subscriptions(node: &Node, expected: &[TopicId]) {
         got, want,
         "subscription set mismatch: got {got:?}, expected {want:?}",
     );
+}
+
+// ---- Connection establishment helpers (004-connections) -------------------
+
+/// Inject a setup event through the node's public event intake — the scripted
+/// (timer-free) trigger for autonomous establishment. The node consults its
+/// strategy and dials on the next drain of its event loop.
+pub fn trigger_setup(node: &Node) {
+    node.events().push(Event::ConnectionSetup);
+}
+
+/// Poll `node.upstream_connections()` until it holds `(peer, topic)` as
+/// `Active`, or `timeout` elapses. Establishment is asynchronous (the request,
+/// its acceptance, and the activation each cross the event loop), so tests wait
+/// the same way they wait for delivery.
+pub async fn await_upstream_active(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        let active = node
+            .upstream_connections()
+            .into_iter()
+            .any(|(p, t, state)| &p == peer && &t == topic && state == UpstreamState::Active);
+        if active {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll `node.downstream_connections()` until it holds `(peer, topic)`, or
+/// `timeout` elapses.
+pub async fn await_downstream(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node
+            .downstream_connections()
+            .iter()
+            .any(|(p, t)| p == peer && t == topic)
+        {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// The establishment-helper timeout — generous, since establishment crosses the
+/// event loop several times (request, accept, activate).
+const ESTABLISH_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Poll until `node` holds an upstream entry for `(peer, topic)` in any state
+/// (e.g. an `AwaitingAccept` entry toward a peer that never answers), or
+/// `timeout` elapses.
+pub async fn await_upstream_present(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node
+            .upstream_connections()
+            .iter()
+            .any(|(p, t, _)| p == peer && t == topic)
+        {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll until `peer` appears in `node`'s candidate set for `topic` (a superset
+/// check, unlike [`await_candidates`]' set-equality) or `timeout` elapses —
+/// the precondition for a setup event to dial `peer`.
+pub async fn await_candidate_present(
+    node: &Node,
+    topic: &TopicId,
+    peer: &PeerId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node.candidates(topic).iter().any(|p| p == peer) {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Mutually establish Active connections between `a` and `b` on every topic in
+/// `topics`: await each end knows the other as a candidate, trigger both setup
+/// events, then await the Active upstream both ways. A no-op for an empty list.
+pub async fn establish_mutual(a: &Node, b: &Node, topics: &[TopicId]) {
+    if topics.is_empty() {
+        return;
+    }
+    for t in topics {
+        await_candidate_present(a, t, b.id(), ESTABLISH_TIMEOUT)
+            .await
+            .expect("a knows b as a candidate");
+        await_candidate_present(b, t, a.id(), ESTABLISH_TIMEOUT)
+            .await
+            .expect("b knows a as a candidate");
+    }
+    trigger_setup(a);
+    trigger_setup(b);
+    for t in topics {
+        await_upstream_active(a, b.id(), t, ESTABLISH_TIMEOUT)
+            .await
+            .expect("a's upstream to b is Active");
+        await_upstream_active(b, a.id(), t, ESTABLISH_TIMEOUT)
+            .await
+            .expect("b's upstream to a is Active");
+    }
+}
+
+/// Poll until `node` holds no upstream or downstream connection naming `peer`
+/// (in any topic), or `timeout` elapses — e.g. after a counterpart's graceful
+/// shutdown, whose `Terminated` notices the node processes asynchronously.
+pub async fn await_peer_forgotten(
+    node: &Node,
+    peer: &PeerId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        let in_upstream = node
+            .upstream_connections()
+            .iter()
+            .any(|(p, _, _)| p == peer);
+        let in_downstream = node.downstream_connections().iter().any(|(p, _)| p == peer);
+        if !in_upstream && !in_downstream {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Establish `receiver`'s Active upstream to each of `senders` on `topic`:
+/// await the candidates are known, trigger the receiver's single setup event,
+/// then await each upstream Active. The one-directional preamble for the
+/// multi-node suites (the receiver dials its senders).
+pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &TopicId) {
+    for sender in senders {
+        await_candidate_present(receiver, topic, sender.id(), ESTABLISH_TIMEOUT)
+            .await
+            .expect("receiver knows the sender as a candidate");
+    }
+    trigger_setup(receiver);
+    for sender in senders {
+        await_upstream_active(receiver, sender.id(), topic, ESTABLISH_TIMEOUT)
+            .await
+            .expect("receiver's upstream to the sender is Active");
+    }
 }

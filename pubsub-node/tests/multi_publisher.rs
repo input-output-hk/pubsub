@@ -98,15 +98,22 @@ async fn mismatched_publisher_id_rejected() {
     let m_bob = build_signed_message_simple(&bob, t1.clone(), MessagePayload::Ping(2));
     let m_carol = build_signed_message_simple(&carol, t1.clone(), MessagePayload::Ping(3));
 
+    // The valid deliveries are sent first and land; the mislabeled message is
+    // sent last. Under 004's misbehavior rule (FR-017) a publisher/signature
+    // mismatch over the Active connection severs it — so the mislabeled message
+    // is both rejected and severs A↔B; sending it last leaves Bob's and Carol's
+    // genuine deliveries already recorded. (The FIFO channel orders the sends.)
+    fx.b.send(fx.a.id(), m_bob.clone()).await.expect("send");
+    fx.b.send(fx.a.id(), m_carol.clone()).await.expect("send");
     fx.b.send(fx.a.id(), m_alice_mislabeled)
         .await
         .expect("send");
-    fx.b.send(fx.a.id(), m_bob.clone()).await.expect("send");
-    fx.b.send(fx.a.id(), m_carol.clone()).await.expect("send");
 
     await_delivery(&fx.a, fx.b.id(), &m_carol, Duration::from_secs(1))
         .await
         .expect("A observes Carol's delivery");
+    // Settle so the mislabeled message has been processed (rejected + severs).
+    tokio::time::sleep(SETTLE).await;
 
     let messages: Vec<Message> =
         fx.a.received_messages()
@@ -116,7 +123,7 @@ async fn mismatched_publisher_id_rejected() {
     assert_eq!(
         messages,
         vec![m_bob, m_carol],
-        "only the unaltered Bob and Carol deliveries land",
+        "only the unaltered Bob and Carol deliveries land; the mismatched one is rejected",
     );
 }
 

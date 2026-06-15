@@ -29,11 +29,13 @@ fn t2() -> TopicId {
     TopicId::from_str("t2").expect("valid topic id")
 }
 
-/// A subscribed to {T2}, B subscribed to {T1} (so A's inbound filter is
-/// exercised; B's set is orthogonal). The fixture wires A↔B as peers and awaits
-/// each node's subscription convergence before returning.
+/// A subscribed to {T2}; B subscribed to {T1, T2} so B is a T2 member A can
+/// connect to (the gate admits payload only over an Active upstream the
+/// receiver dialed). The fixture establishes A↔B on the shared T2; A's inbound
+/// filter is still exercised — B's T1 send is not admitted at A, its T2 send
+/// is.
 async fn fixture_a_t2_only() -> TwoNodeFixture {
-    two_node_fixture_with_subscriptions(HashSet::from([t2()]), HashSet::from([t1()])).await
+    two_node_fixture_with_subscriptions(HashSet::from([t2()]), HashSet::from([t1(), t2()])).await
 }
 
 // A's initial subscription = {T2} (derived from its registry entry). B emits two
@@ -71,9 +73,15 @@ async fn initial_set_filters_inbound() {
 // deferred to feature 012; the watch is scoped to A's topics at watch time.)
 #[tokio::test]
 async fn registry_narrowing_updates_accept_filter() {
-    let fx =
-        two_node_fixture_with_subscriptions(HashSet::from([t1(), t2()]), HashSet::from([t1()]))
-            .await;
+    // B subscribes {T1, T2} so it is a member A can connect to on both; A↔B is
+    // established on both shared topics by the fixture. After A narrows to {T2}
+    // its (now stale) T1 upstream still passes the gate, so the subscription
+    // filter behind the gate is what drops the post-narrowing T1 message.
+    let fx = two_node_fixture_with_subscriptions(
+        HashSet::from([t1(), t2()]),
+        HashSet::from([t1(), t2()]),
+    )
+    .await;
     assert_subscriptions(&fx.a, &[t1(), t2()]);
 
     // Operator reduces A's subscription-list entry to {T2}.
@@ -106,25 +114,10 @@ async fn registry_narrowing_updates_accept_filter() {
     assert_eq!(record[0].message, on_topic);
 }
 
-// Emission is decoupled from the emitter's subscription set: A (subs = {T2}, T1
-// NOT in set) sends Ping(99, T1) to B (subs = {T1}); the send resolves Ok and B
-// receives the delivery.
-#[tokio::test]
-async fn decoupled_emission_succeeds_on_unsubscribed_topic() {
-    let fx =
-        two_node_fixture_with_subscriptions(HashSet::from([t2()]), HashSet::from([t1()])).await;
-    let msg = common::ping(t1(), 99);
-
-    fx.a.send(fx.b.id(), msg.clone())
-        .await
-        .expect("A sends on T1 despite not subscribing");
-
-    await_delivery(&fx.b, fx.a.id(), &msg, Duration::from_secs(1))
-        .await
-        .expect("B receives the T1 delivery");
-
-    let record = fx.b.received_messages();
-    assert_eq!(record.len(), 1, "B retains exactly the one delivery");
-    assert_eq!(record[0].from, *fx.a.id());
-    assert_eq!(record[0].message, msg);
-}
+// (Retired by 004-connections.) The decoupled-emission test required B to
+// *record* a message A sent on a topic A is not subscribed to. Under the
+// connection gate B admits payload only over an Active upstream it dialed to A
+// on that topic — and B cannot dial A on a topic A is not a member of, so the
+// delivery this test asserted can no longer occur. Sending is still decoupled
+// from subscription (FR-023: `send` resolves regardless); only the *receive*
+// side now requires a connection, which is what this test conflicts with.
