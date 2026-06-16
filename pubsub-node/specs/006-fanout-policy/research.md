@@ -91,6 +91,30 @@ returning one `Effect::Send { to, message: Message::Signed(message.clone()) }` p
 
 **Alternatives**: a `FanOutToNobody` production default to preserve every test verbatim — rejected (see R7).
 
+## R9 — Shared validation/record-and-fanout factoring (publish ∩ receive)
+
+**Decision**: The publish and signed-receive paths share their middle and tail; factor that into two pure crate-internal helpers in `state.rs`, leaving only the genuinely path-specific bits in each handler:
+
+```rust
+// subscribed → registered → authorized; returns the drop cause, or None if all pass.
+fn validate_dissemination(state: &NodeState, plain: &PlainMessage) -> Option<&'static str>;
+
+// dedup-check → record ReceivedDelivery{origin,..} → seen.insert → fanout(exclude).
+fn record_and_fanout(state: &mut NodeState, signed: SignedMessage, origin: Origin, exclude: Option<&PeerId>) -> Vec<Effect>;
+```
+
+Resulting handlers are thin:
+- `handle_signed_message`: connection gate → `validate_dissemination` → verify (**fail ⇒ sever**: `Effect::Misbehaved` + remove upstream) → `record_and_fanout(Origin::Peer(from), Some(&from))`.
+- `handle_publish`: `validate_dissemination` → verify (**fail ⇒ plain drop**, no upstream to sever) → `record_and_fanout(Origin::Local, None)`.
+
+**Path-specific bits that deliberately stay out of the helpers**: the connection gate (receive-only), the signature-failure *action* (sever vs plain drop), the `Origin` value, and the fan-out `exclude`. Drop **logging** also stays in each handler — `validate_dissemination` returns the cause; the caller logs it with path-appropriate fields (e.g. `from=` on receive) — so observability stays per-path while the decision logic is shared once.
+
+**Rationale**: two concrete call sites with an identical 3-check chain and an identical dedup→record→fanout tail is genuine duplication (not speculative), so DRY is justified by real consumers. Factoring at these seams keeps each handler readable and the shared correctness logic single-sourced, without merging two dispatch handlers (the named-handler-per-dispatch-level discipline is preserved — these are sub-helpers, not a dispatch merge).
+
+**Scope note**: `handle_signed_message` is existing merged 004/013 code; this refactors it to call the shared helpers — a deliberate touch of working code, already inside the not-parity-preserving charter. Tactical/local (reversal = inline rewrite in `state.rs`), so no ADR.
+
+**Alternatives**: (a) one merged handler with a `bool is_publish` flag — rejected: branchy, obscures the two dispatch entries, fights the named-handler discipline. (b) leave both inline (no extraction) — rejected: duplicates the check chain and the dedup/record/fanout tail, two places to drift.
+
 ## Cross-cutting
 
 - **No new dependencies** — `HashSet`, the existing `MessageHash`, `Arc<dyn>` only. No justified-dependency ADR needed.
