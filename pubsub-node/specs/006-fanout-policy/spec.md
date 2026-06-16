@@ -25,6 +25,7 @@
 ### Session 2026-06-16
 
 - Q: Which topologies should the dissemination acceptance tests cover, given that 004's v1 strategy builds a full bidirectional mesh where relay never becomes the sole delivery path? → A: Both — full-mesh tests where dedup must absorb the redundant-delivery storm (US3), **and** manually-built partial/line topologies (scripted `Request`/`Accepted` control messages, as `connections.rs` already does) where a node receives a message *only* via relay, so relay is exercised as a genuine standalone delivery path (US2). A full mesh alone masks relay correctness, because every node also receives a direct copy from the publisher.
+- Convergence re-confirmed (round 2, confirmation scan after the round-1 edit): 0 new decisions, 0 questions. One spec-internal story-independence fix applied — US2 scenario 4 asserted "every member records exactly once" over a *cyclic* mesh, which only holds once US3's dedup exists; it is reworded to an **acyclic** relay topology (line/tree, single path per member) so US2 is testable without US3, and the cyclic "exactly once" claim is left to US3 (scenario 3). Spec judged converged; remaining verification is cross-artifact (`/speckit-analyze` after plan + tasks).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -58,7 +59,7 @@ A node receiving a dissemination message over an Active upstream — after it pa
 1. **Given** a node holding an Active upstream toward peer X and a downstream toward peer Y on a topic, **When** a valid message on that topic is delivered by X, **Then** the node records it and emits a forward to Y.
 2. **Given** a node where the delivering peer is also one of its downstream peers on the topic (a bidirectional connection), **When** that peer delivers a valid message, **Then** the node forwards to its other downstream peers but **not** back to the delivering peer (split-horizon).
 3. **Given** a node whose only downstream peer on the topic is the peer that delivered the message, **When** that message is delivered, **Then** the node records it and emits no forwards.
-4. **Given** a connected mesh of nodes all sharing a topic, **When** one node publishes a message, **Then** every other member records the message exactly once.
+4. **Given** an **acyclic** relay topology (a line or tree where each member has exactly one path from the publisher), **When** the publisher publishes a message, **Then** every member records it exactly once, each interior node relaying it onward to its downstream — relay reaches members several hops away without dedup being involved (the cyclic-mesh "exactly once" case, which *does* depend on dedup, is asserted under US3).
 
 ---
 
