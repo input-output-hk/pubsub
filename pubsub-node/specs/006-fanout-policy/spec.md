@@ -20,6 +20,12 @@
 >
 > Out of scope: the epochal/periodic re-dialer (a connections concern, deferred), pick-k fan-out subsets (which would break the deterministic `apply` and require a seeded RNG in state), and renaming `Message::Signed` to `Message::Dissemination` (a separate mechanical refactor).
 
+## Clarifications
+
+### Session 2026-06-16
+
+- Q: Which topologies should the dissemination acceptance tests cover, given that 004's v1 strategy builds a full bidirectional mesh where relay never becomes the sole delivery path? → A: Both — full-mesh tests where dedup must absorb the redundant-delivery storm (US3), **and** manually-built partial/line topologies (scripted `Request`/`Accepted` control messages, as `connections.rs` already does) where a node receives a message *only* via relay, so relay is exercised as a genuine standalone delivery path (US2). A full mesh alone masks relay correctness, because every node also receives a direct copy from the publisher.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A node publishes a message and it reaches its direct subscribers (Priority: P1)
@@ -45,7 +51,7 @@ A node receiving a dissemination message over an Active upstream — after it pa
 
 **Why this priority**: Multi-hop relay is what makes the system a dissemination *network* rather than a one-hop push. It builds directly on US1's fan-out machinery, applied to the receive path, and is independently demonstrable once US1 exists.
 
-**Independent Test**: Build a three-node line A→B→C sharing a topic (A downstream of nobody upstream of B, B between A and C); publish at A; observe C records the message, having received it relayed by B, and that B does not forward it back to A.
+**Independent Test**: Build a controlled partial topology — a three-node line A→B→C sharing a topic, where A and C are **not** directly connected (constructed by scripting `Request`/`Accepted` control messages rather than the full-mesh strategy); publish at A; observe C records the message, having received it *only* via B's relay (its sole delivery path), and that B does not forward it back to A. The full-mesh redundant-delivery case is covered separately under US3.
 
 **Acceptance Scenarios**:
 
@@ -127,6 +133,7 @@ In a mesh with cycles (the full bidirectional per-topic graph 004 builds is cycl
 - The duplicate-suppression key is the content hash over the plain message (`MessageHash::of`), consistent with the existing content-anchored hash. The seen-set is unbounded in the in-memory model; bounding (LRU/TTL) is deferred to a real implementation.
 - The transition remains pure and deterministic in its state outcome; `ForwardToAll` is deterministic, and because fan-out target order is unspecified, tests sort targets before asserting (as the existing connection-effect helpers do).
 - This feature is, like 004, **not parity-preserving** at the integration level: dissemination suites are reworked to assert forwarding. Receive-path unit tests with empty downstream sets are unaffected beyond the shared constructor gaining the fan-out-strategy argument; a test-only no-op fan-out strategy lives in `test_support` for connection-lifecycle suites where fan-out is irrelevant noise, and is never part of the production surface.
+- Dissemination tests cover **both** topology shapes (Clarifications 2026-06-16): full-mesh tests (the natural 004 topology) where dedup absorbs redundant relayed copies, and partial/line topologies — built by scripting `Request`/`Accepted` control messages rather than the full-mesh setup path — where relay is a node's sole delivery path. Both are constructible with existing 004 machinery (the connection lifecycle tests already drive control messages manually).
 
 ## Out of Scope
 
