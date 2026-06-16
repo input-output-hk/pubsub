@@ -1,0 +1,13 @@
+# Plan input (verbatim)
+
+The agreed `/speckit-plan` input text, preserved byte-for-byte as the pre-implementation record (per the project's verbatim-input convention; mirrors `004-connections/plan-input.md`).
+
+---
+
+Plan within the existing pure-core architecture and 004-connections model. Build on: the crate-internal `NodeState` + pure `apply` → `Vec<Effect>` transition with named per-variant handlers and the single event queue (ADRs 0011/0012); the per-`(peer, topic)` upstream/downstream connection sets, `Effect::Send`, signed messages, and the injected `ConnectionStrategy` seam (ADRs 0017/0018/0019); and the subscription/topic registries (ADRs 0013/0016). Reuse, do not reshape, these seams.
+
+Structure the new code as: a `fanout` module (parallel to `connection`) holding the `FanoutStrategy` trait, the `ForwardToAll` v1 implementor, and a `#[cfg(test)]` no-op strategy in its `test_support` (never in the production surface, mirroring the `ConnectionScript` placement). `NodeState` gains a `seen: HashSet<MessageHash>` dedup field and an `Arc<dyn FanoutStrategy>` handle alongside the existing strategy/verifier/signer service handles; `Node::new` gains the fan-out-strategy parameter in the same manner as the connection strategy. `Event` gains a `Publish(SignedMessage)` variant dispatched by a new named `handle_publish` handler; `Node::publish` is the fire-and-forget public method that enqueues it. Fan-out is a shared pure helper called from both `handle_signed_message` (at the record point, after verification) and `handle_publish`. `ReceivedDelivery`'s `from` becomes an explicit `Origin { Local, Peer(PeerId) }`.
+
+Author one ADR for this feature's structural decision — the fan-out strategy seam + content-hash dedup + the `Origin` model — referencing ADR 0018's strategy-seam rationale (the `FanoutStrategy`/`ConnectionStrategy` symmetry) and the content-anchored `MessageHash` (N-005). Note where pick-k and a bounded seen-set are deferred.
+
+TDD applies (protocol-behavior claims): strict red-green from the data-model and contract artifacts. The feature is deliberately not parity-preserving, like 004: rework dissemination integration suites to assert forwarding (both full-mesh dedup tests and scripted partial/line relay topologies per the Clarifications), and add the fan-out-strategy argument to the shared test constructor. Honor the constitution standards already in force — parse-at-the-edge (the node takes parsed values; the `SignedMessage` is built and signed by the caller), named handlers at every dispatch level, the `message_dropped` cause convention (dedup cause `duplicate`; publish reuses the receive-path causes), and the fmt/clippy/test green-checkpoint sweep per commit.
