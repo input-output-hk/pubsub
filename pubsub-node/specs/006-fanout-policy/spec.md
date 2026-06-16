@@ -56,10 +56,11 @@ A node receiving a dissemination message over an Active upstream — after it pa
 
 **Acceptance Scenarios**:
 
-1. **Given** a node holding an Active upstream toward peer X and a downstream toward peer Y on a topic, **When** a valid message on that topic is delivered by X, **Then** the node records it and emits a forward to Y.
+1. **Given** a node holding an Active upstream toward peer X and a downstream toward peer Y on a topic, **When** a valid message on that topic is delivered by X, **Then** the node records it with origin `Peer(X)` and emits a forward to Y.
 2. **Given** a node where the delivering peer is also one of its downstream peers on the topic (a bidirectional connection), **When** that peer delivers a valid message, **Then** the node forwards to its other downstream peers but **not** back to the delivering peer (split-horizon).
 3. **Given** a node whose only downstream peer on the topic is the peer that delivered the message, **When** that message is delivered, **Then** the node records it and emits no forwards.
 4. **Given** an **acyclic** relay topology (a line or tree where each member has exactly one path from the publisher), **When** the publisher publishes a message, **Then** every member records it exactly once, each interior node relaying it onward to its downstream — relay reaches members several hops away without dedup being involved (the cyclic-mesh "exactly once" case, which *does* depend on dedup, is asserted under US3).
+5. **Given** a node relaying a received message to a downstream peer, **When** the forward is produced, **Then** the forwarded message is byte-identical to the message received — the original publisher's signature is carried unchanged, with no re-signing by the relaying node (verbatim forwarding).
 
 ---
 
@@ -76,6 +77,7 @@ In a mesh with cycles (the full bidirectional per-topic graph 004 builds is cycl
 1. **Given** a node that has already recorded a message, **When** an identical copy of that message is later delivered over an Active upstream, **Then** it is dropped — not recorded a second time and not forwarded again.
 2. **Given** a node that published a message (and thereby recorded and marked it seen), **When** a downstream peer that is also an upstream relays the same message back, **Then** the node drops it as already-seen.
 3. **Given** a triangle of three mutually-connected members on a topic, **When** one publishes a message, **Then** the total number of forwards across all nodes is finite and each node holds exactly one recorded copy.
+4. **Given** a node that received a message whose `plain` content matches a genuine message but carries an **invalid** signature (so it hashes identically yet is dropped at verification, before the dedup gate), **When** the genuine message — same content, valid signature, same content hash — is subsequently delivered, **Then** it is recorded: the failed verification did not pre-seed the seen-set with that hash, so dedup does not suppress the genuine message (no poisoning).
 
 ---
 
@@ -85,7 +87,7 @@ In a mesh with cycles (the full bidirectional per-topic graph 004 builds is cycl
 - **Split-horizon collapses to no-op**: when the delivering peer is not among the node's downstream peers, excluding it changes nothing; when it is the sole downstream, the exclusion yields an empty target set.
 - **Invalid-signature publish**: dropped at signature verification; because publishing has no upstream connection, this is a plain drop — it never triggers the 004 misbehavior/severance path (which is gated on an Active upstream) and never marks the message seen.
 - **Duplicate of a previously-dropped message**: a message that failed a check is never marked seen, so a later copy is re-evaluated from scratch (and dropped again if it still fails) — failed verification does not poison the seen-set.
-- **Off-topic / unregistered / unauthorized received message**: dropped by the existing receive-path checks before the record/fan-out point — never relayed (a node never relays a topic it is not a member of).
+- **Off-topic / unregistered / unauthorized received message**: dropped by the existing receive-path checks before the record/fan-out point — never relayed (a node never relays a topic it is not a member of). This subscriber-relay property is a **structural consequence of the 004 connection-acceptance gate** — a node only accepts downstream connections on topics it is subscribed to, so it has no downstream to fan out to on any other topic — not a new rule this feature enforces; hence no dedicated requirement or scenario.
 - **Equivocation**: two distinct messages sharing a publisher and sequence have distinct content hashes, so both are recorded and both propagate; detecting the conflict is out of scope.
 
 ## Requirements *(mandatory)*
