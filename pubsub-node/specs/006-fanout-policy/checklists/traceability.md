@@ -70,4 +70,12 @@
 - **F3 (subscriber-relay)** — *traceability, mild*. **Resolved**: the off-topic edge case now states the property is a structural consequence of the 004 connection-acceptance gate (downstream only on member topics), deliberately not a new FR/scenario.
 - **F4 (`Origin::Peer`)** — *clarity, minor*. **Resolved**: US2 AS1 now records with origin `Peer(X)`.
 
-**Profile**: 32 items, **32 pass, 0 open flags** after pass 2. No conflicts. Spec acceptance scenarios tightened pre-tasks; the new scenarios (US2 AS5, US3 AS4) are explicit TDD obligations for `/speckit-tasks`.
+**Profile**: 32 items, **32 pass, 0 open flags** after pass 2. Spec acceptance scenarios tightened pre-tasks; the new scenarios (US2 AS5, US3 AS4) are explicit TDD obligations for `/speckit-tasks`.
+
+### Pass 3 — confirmation re-audit of the pass-2 edits (2026-06-16)
+
+Re-checked the four edits for newly-introduced inconsistency (the clarify round-2 style scan). One **new** issue found and fixed:
+
+- **F5 (US3 AS4 conflated with severance)** — the no-poisoning scenario originally had the invalid-signature copy arrive *over an Active upstream*, which is 004's misbehavior trigger: it **severs** the upstream, so the genuine follow-up would be dropped `not_connected` — the scenario asserted a false outcome and demonstrated severance, not dedup ordering. **Resolved**: the invalid copy is now **published** (a plain drop, no upstream to sever), isolating the dedup-after-verification property. US2 AS5, US2 AS1, and the F3 note re-checked — no conflicts.
+
+**Profile after pass 3**: 0 open flags; decreasing finding profile across passes (4 → 0, then 1 → 0). Converged.
