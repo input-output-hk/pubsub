@@ -30,7 +30,7 @@ Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `
 
 ## E. Construction-ordering contract — `Node::new`
 
-- `Node::new` MUST establish a warm `registered_topics` projection (drain the topic watch up to `SnapshotComplete`, folding each event) **before** it spawns the membership reader, so membership events are always evaluated against the current registered set. The two registries remain separate streams (no merge); this is an ordering gate only. Construction completes once readiness is reached (immediate for an empty/mock registry).
+- `Node::new` is **non-blocking**: it spawns all producers and returns. The topic-registry projection is warmed before any membership event is folded via an **in-node oneshot** — the topic reader signals once it has enqueued its cold-start `SnapshotComplete`; the membership reader awaits that signal (a single, cold-start-only await) before it pushes any membership event. The single FIFO event queue then orders the topic burst ahead of membership. The two registries remain separate streams (no merge); this is an ordering gate only. The await is fail-safe (the topic reader also signals on a watch-open error, so the membership reader never stalls) and one-shot — steady state has no gating.
 
 ## F. Internal surface — `TopicEntry` (`pub(crate)`)
 

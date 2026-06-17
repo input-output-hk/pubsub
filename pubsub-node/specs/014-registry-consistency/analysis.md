@@ -36,3 +36,19 @@ One conflict (C1, green-checkpoint MUST) — **resolved** by re-sequencing. All 
 ### Disposition
 
 **GO for `/speckit-implement`.** All findings remediated in spec/plan/tasks this session; no open items. The single behavioural consequence to keep visible during implementation is C1's: the US1 invariant is **one** green commit (T004+T005+T006), not three — the working tree is intentionally red between T004 and T006.
+
+## Session 2 — 2026-06-17 (post-implementation, verify-against-code)
+
+Post-implementation pass (constitution: verify artifact claims against the implementation), after 014 was rebased onto merged 004-connections and the code landed green (`fmt`, `clippy -D warnings`, 16 test binaries, doctests). Coverage 100% (16 FR + 12 SC, all code-verified). The verify-against-code sweep confirmed every normative claim (atomic 5-structure cascade, dial trigger, `SnapshotComplete` on both registries, oneshot readiness gate, `TopicEntry` projection + `pub(crate)`, timer fully removed from `src/`, direct `subscriptions_snapshot`, no log-content assertions). Three **doc-vs-as-built drift** findings — all remediated in this session.
+
+### Findings
+
+| ID | Category | Severity | Location | Summary | Resolution |
+|----|----------|----------|----------|---------|------------|
+| D1 | Inconsistency / verify-against-code | MEDIUM | data-model §6, contracts §E, quickstart §3, ADR 0020 §5 | Described the readiness gate as "`Node::new` drains the topic watch to `SnapshotComplete`" (the originally-planned shape), but the as-built mechanism is a **non-blocking** `Node::new` + an **in-node oneshot** between the topic and membership reader producers. | **Resolved.** data-model §6 rewritten to the oneshot (non-blocking, one-shot cold-start await, fail-safe); contracts §E and quickstart §3 corrected; ADR 0020 §5 gains an as-built pointer to the amendment. |
+| D2 | Inconsistency | MEDIUM | spec Edge Cases | The "Connection-state cascade (forward, out of scope here)" bullet contradicted FR-002/FR-010 (now in scope + implemented). | **Resolved.** Rewritten to state the cascade clears `upstream`/`downstream` (in scope post-rebase). |
+| D3 | Terminology / provenance | LOW | spec references block | The 004-connections reference still called it "open, not on `main`". | **Resolved.** Marked superseded, pointing to Clarifications 2026-06-17. |
+
+### Disposition
+
+**GO.** Implementation matches the (now-corrected) artifacts; 0 open findings. No blocking action was introduced: `Node::new` is non-blocking, and the only wait is a one-shot cold-start await inside the membership reader (fail-safe; steady state has no gating or timer).

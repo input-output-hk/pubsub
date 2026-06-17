@@ -93,18 +93,30 @@ after:   if !entry.is_publisher_authorized(key) { drop }     // entry = register
 
 Every accept/drop outcome identical to 013 (SC-004 behaviour-preservation matrix).
 
-## 6. Readiness / construction ordering
+## 6. Readiness / construction ordering (as built — in-node oneshot)
+
+`Node::new` does **not** block: it spawns all producers and returns. The gate is a one-shot signal between two of them.
 
 ```
-Node::new (async):
-  watch = topic_registry.watch().await
-  loop { ev = watch.recv().await; if ev == SnapshotComplete { break } else fold ev into registered_topics }   // seed
-  spawn topic-reader producer draining `watch` for live deltas
-  spawn membership reader        // now guaranteed to see a warm registered_topics
-  spawn network mailbox, event loop, etc.
+Node::new (async, non-blocking):
+  let (ready_tx, ready_rx) = oneshot::channel()
+  spawn network mailbox
+  spawn subscription_reader(ready_rx)   // membership: holds events until topic-ready
+  spawn topic_reader(ready_tx)          // topic: signals once its SnapshotComplete is enqueued
+  return                                // construction does not await readiness
+
+topic_reader:
+  for ev in watch:
+    queue.push(TopicRegistryUpdate(ev))
+    if ev == SnapshotComplete { ready_tx.send(()) }   // once; also sent on watch-open error (fail-safe)
+
+subscription_reader:
+  watch = subscription_registry.watch(node)
+  ready_rx.await                        // ONE-SHOT, cold-start only; then no further gating
+  for ev in watch: queue.push(MembershipUpdate(ev))
 ```
 
-The membership reader cannot fold before `registered_topics` is warm ⇒ strict drop / candidate gating are correct at cold start (no spurious drop). Empty registry ⇒ `SnapshotComplete` arrives immediately after zero `Registered`s. `Node::new` blocks on this readiness (immediate for the mock; ADR 0020 notes the semantics).
+The single FIFO event queue + the signal guarantee the topic burst is folded before any membership event ⇒ strict drop / candidate gating are correct at cold start (no spurious drop). Empty registry ⇒ `SnapshotComplete` arrives immediately. The await is bounded (the topic reader signals on its error path too, so the membership reader never stalls) and one-shot — steady state has no gating, no timer.
 
 ## 7. State invariants (test targets)
 

@@ -66,8 +66,9 @@ let topics_reg = Arc::new(InMemoryTopicRegistry::from_file(/* topic → publishe
 //   topics:  weather → {k1}, sports → {} (open)         // ghost NOT registered
 //   subs:    node-a → {weather}, node-b → {weather, sports}, node-c → {weather, ghost}
 
-// Node::new drains the topic watch to SnapshotComplete (warming registered_topics)
-// BEFORE folding membership — so strict drop never fires spuriously on a cold-start race.
+// Node::new is non-blocking: an in-node oneshot holds the membership reader until
+// the topic reader has enqueued its SnapshotComplete (registered_topics warm), so
+// strict drop never fires spuriously on a cold-start race. (Signatures illustrative.)
 let a = Node::new(peer("node-a"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;
 let b = Node::new(peer("node-b"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;
 let c = Node::new(peer("node-c"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;

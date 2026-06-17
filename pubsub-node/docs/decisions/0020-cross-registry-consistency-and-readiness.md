@@ -39,6 +39,8 @@ Only `Registered` creates a topic in the projection. A `PublishersChanged` for a
 
 ### 5. The readiness gate — `SnapshotComplete` marker + drain-then-spawn ordering
 
+> **As-built note (see 2026-06-17 amendment §1):** the realised mechanism is an **in-node oneshot between the two reader producers** — `Node::new` is non-blocking (spawns and returns); the membership reader awaits the topic reader's signal. The "drain-and-fold in `Node::new`" wording below is the originally-planned shape; the marker decision stands, only the realisation differs.
+
 Strict drop evaluates each subscription against the *current* registered set, so the node must warm `registered_topics` before folding membership. `TopicRegistryEvent` gains an additive (`#[non_exhaustive]`) **`SnapshotComplete`** variant terminating the cold-start `Registered` burst. `InMemoryTopicRegistry::watch()` emits it once after the burst, before live deltas; the 012 reader emits it after initial chain-sync. `Node::new` opens the topic watch, **drains and folds events up to `SnapshotComplete`** (seeding the projection), and only **then** spawns the membership reader (it then spawns the topic-reader producer to continue draining live deltas from the same watch). `handle_topic_registry_update` treats `SnapshotComplete` as a no-op. The two registries remain separate streams (no merge); this is an ordering gate only — the minimal un-deferred slice of the "registry synchronization complete" event the team otherwise deferred.
 
 ### 6. `TopicEntry` — the declarative publisher type (crate-internal)
