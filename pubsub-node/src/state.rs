@@ -336,8 +336,9 @@ fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent
             state.upstream.retain(|(_, t), _| t != &topic);
             state.downstream.retain(|(_, t)| t != &topic);
         }
-        // Readiness boundary (consumed at construction; see crate::node). The
-        // fold treats it as a no-op so a re-delivered marker is harmless.
+        // Stream-replay delimiter: the registry indexer consumes it to find the
+        // topic burst's end and never enqueues it (see crate::node). The fold
+        // treats a stray one as a no-op so a re-delivered marker is harmless.
         TopicRegistryEvent::SnapshotComplete => {}
     }
     Vec::new()
@@ -357,8 +358,7 @@ fn log_topic_not_registered(self_id: &PeerId, topic: &TopicId) {
     );
 }
 
-/// Transition for a subscription-registry membership delta — **strict drop**,
-/// with the cold-start boundary as the **dial trigger**.
+/// Transition for a subscription-registry membership delta — **strict drop**.
 ///
 /// The node derives its membership-side state from this single stream: an event
 /// about the node's **own** id updates its subscription set; an event about
@@ -367,12 +367,11 @@ fn log_topic_not_registered(self_id: &PeerId, topic: &TopicId) {
 /// not currently registered is **dropped** — not admitted to `subscriptions`,
 /// not recorded as a `candidate` — and logged. There is no declared/pending
 /// buffer and no auto-promotion; under the chain follower's ordering (and the
-/// node's construction-time readiness gate, see `crate::node`) a topic is
-/// registered before any membership event references it. The `SnapshotComplete`
-/// boundary — the node's view has converged — is the trigger to establish
-/// connections: it runs the connection-selection diff (`handle_connection_setup`)
-/// and returns the resulting dial `Request`s, replacing a wall-clock setup
-/// timer. Every other arm returns no effects.
+/// registry indexer draining the topic burst before the membership burst, see
+/// `crate::node`) a topic is registered before any membership event references
+/// it. The `SnapshotComplete` arm is a no-op stream delimiter consumed by the
+/// indexer; the dial is triggered separately by `Event::ConnectionSetup`. Every
+/// arm returns no effects.
 // ADR 0020 (amends 0014); FR-001/FR-003/FR-003a.
 fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Vec<Effect> {
     match event {
@@ -451,10 +450,11 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
                 }
             }
         }
-        // The cold-start membership burst is complete — the node's subscription
-        // and candidate view has converged. Establish connections now (the
-        // event-driven dial trigger; ADR 0020/0018), returning the Requests.
-        MembershipEvent::SnapshotComplete => return handle_connection_setup(state),
+        // Stream-replay delimiter: the registry indexer consumes it to find the
+        // membership burst's end and never enqueues it (see crate::node). It is
+        // a no-op in the fold; the dial is triggered by `Event::ConnectionSetup`,
+        // which the indexer pushes once both registries are warm (ADR 0020).
+        MembershipEvent::SnapshotComplete => {}
     }
     Vec::new()
 }
@@ -1326,32 +1326,42 @@ mod tests {
         assert_invariants(&state);
     }
 
-    // ADR 0020 / FR-005: the membership-readiness boundary (SnapshotComplete) is
-    // the dial trigger — by the time it folds, subscriptions + candidates have
-    // converged, so it runs the connection strategy and returns the Requests
-    // (replacing a wall-clock setup timer).
+    // ADR 0020 (2026-06-17 single-indexer revision): the per-stream
+    // `SnapshotComplete` markers are stream-replay delimiters the registry
+    // indexer consumes — they are no-ops in the fold. The single dial trigger is
+    // `Event::ConnectionSetup`, which the indexer pushes once both cold-start
+    // bursts have drained.
     #[test]
-    fn membership_snapshot_complete_triggers_dial() {
+    fn snapshot_complete_is_noop_connection_setup_dials() {
         let mut state = node_state("self", HashSet::new());
         apply(&mut state, reg_open("t1"));
         apply(&mut state, membership_joined("self", ["t1"]));
         apply(&mut state, membership_joined("a", ["t1"]));
-        // No dial yet — establishment is triggered by the readiness boundary.
-        assert_eq!(upstream_state(&state, "a", "t1"), None);
 
+        // The membership delimiter is a no-op: folding it neither dials nor emits.
         let effects = apply(
             &mut state,
             Event::MembershipUpdate(MembershipEvent::snapshot_complete()),
         );
+        assert!(effects.is_empty(), "the delimiter is a no-op in the fold");
+        assert_eq!(
+            upstream_state(&state, "a", "t1"),
+            None,
+            "the delimiter does not dial",
+        );
+
+        // ConnectionSetup — pushed by the indexer once both registries are warm
+        // — is the single dial trigger.
+        let effects = apply(&mut state, Event::ConnectionSetup);
         assert_eq!(
             upstream_state(&state, "a", "t1"),
             Some(UpstreamState::AwaitingAccept),
-            "readiness boundary dials the candidate",
+            "ConnectionSetup dials the candidate",
         );
         assert_eq!(
             request_sends(&effects, "self"),
             vec![(peer("a"), topic("t1"))],
-            "the boundary returns the dial Request",
+            "ConnectionSetup returns the dial Request",
         );
     }
 

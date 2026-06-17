@@ -62,7 +62,7 @@ TopicEntry {
 | `Registered { topic, publishers }` | `registered_topics.insert(topic, TopicEntry::from_publishers(publishers))` (create/replace). |
 | `PublishersChanged { topic, added, removed }` | **if `topic` is registered**: `entry.apply_publishers_diff(added, removed)`. **else**: drop + log (`cause = topic_not_registered`); **no `or_default` create**. |
 | `Removed { topic }` | **Atomic cascade**: `registered_topics.remove(topic)`; `subscriptions.remove(topic)`; `candidates.remove(topic)`. No-op if `topic` absent. |
-| `SnapshotComplete` | no-op (readiness boundary; consumed at construction, idempotent thereafter). |
+| `SnapshotComplete` | no-op stream delimiter (consumed by the registry indexer to find the burst end; never enqueued — a stray one folds harmlessly). |
 
 Returns `Vec::new()` (`Effect` uninhabited).
 
@@ -93,30 +93,29 @@ after:   if !entry.is_publisher_authorized(key) { drop }     // entry = register
 
 Every accept/drop outcome identical to 013 (SC-004 behaviour-preservation matrix).
 
-## 6. Readiness / construction ordering (as built — in-node oneshot)
+## 6. Readiness / construction ordering (as built — single registry indexer)
 
-`Node::new` does **not** block: it spawns all producers and returns. The gate is a one-shot signal between two of them.
+`Node::new` does **not** block: it spawns its producers and returns. Readiness is owned by a **single** reader — the registry indexer — modelling the one chain follower a realistic deployment runs (ADR 0020, 2026-06-17 (b)). It drains the two cold-start bursts in chain order, then triggers the dial.
 
 ```
 Node::new (async, non-blocking):
-  let (ready_tx, ready_rx) = oneshot::channel()
   spawn network mailbox
-  spawn subscription_reader(ready_rx)   // membership: holds events until topic-ready
-  spawn topic_reader(ready_tx)          // topic: signals once its SnapshotComplete is enqueued
+  spawn registry_indexer(subscription_registry, topic_registry, node_id)
   return                                // construction does not await readiness
 
-topic_reader:
-  for ev in watch:
-    queue.push(TopicRegistryUpdate(ev))
-    if ev == SnapshotComplete { ready_tx.send(()) }   // once; also sent on watch-open error (fail-safe)
-
-subscription_reader:
-  watch = subscription_registry.watch(node)
-  ready_rx.await                        // ONE-SHOT, cold-start only; then no further gating
-  for ev in watch: queue.push(MembershipUpdate(ev))
+registry_indexer:
+  topic_watch = topic_registry.watch()          // opened up front so no event is missed
+  sub_watch   = subscription_registry.watch(node)
+  for ev in topic_watch until SnapshotComplete: // TOPIC burst first → registered set warm
+    queue.push(TopicRegistryUpdate(ev))         // (delimiter consumed, not enqueued)
+  for ev in sub_watch until SnapshotComplete:   // then MEMBERSHIP burst
+    queue.push(MembershipUpdate(ev))            // (delimiter consumed, not enqueued)
+  queue.push(ConnectionSetup)                   // single dial trigger: both registries warm
+  loop select { topic_watch | sub_watch }:      // live deltas; stray delimiters ignored
+    queue.push(TopicRegistryUpdate / MembershipUpdate)
 ```
 
-The single FIFO event queue + the signal guarantee the topic burst is folded before any membership event ⇒ strict drop / candidate gating are correct at cold start (no spurious drop). Empty registry ⇒ `SnapshotComplete` arrives immediately. The await is bounded (the topic reader signals on its error path too, so the membership reader never stalls) and one-shot — steady state has no gating, no timer.
+Because one reader drains topics before membership, the topic burst is folded before any membership event ⇒ strict drop / candidate gating are correct at cold start (no spurious drop), with **no cross-stream ordering primitive** — the oneshot of the first as-built is gone, the ordering is intrinsic to the reader's sequence. Empty registry ⇒ the `SnapshotComplete` delimiter arrives immediately and the burst loop exits at once. A watch-open error degrades gracefully (that burst is skipped; `ConnectionSetup` still fires). The per-stream `SnapshotComplete` markers are stream-replay delimiters consumed here and never enqueued; both fold arms are symmetric no-ops.
 
 ## 7. State invariants (test targets)
 

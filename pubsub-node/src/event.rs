@@ -41,9 +41,10 @@ pub enum Event {
     TopicRegistryUpdate(TopicRegistryEvent),
     /// The connection-establishment trigger: the node consults its
     /// connection-selection strategy and dials the expected upstreams it does
-    /// not already hold (ADR 0018). Produced when the membership view converges
-    /// — folded from `MembershipEvent::SnapshotComplete` (ADR 0020) — or pushed
-    /// externally through the public event intake (tests, operator injection).
+    /// not already hold (ADR 0018). Pushed by the registry indexer once both
+    /// registry cold-start bursts have drained (the node's membership view has
+    /// converged; ADR 0020) — or pushed externally through the public event
+    /// intake (tests, operator injection).
     ConnectionSetup,
     /// The graceful-teardown trigger, pushed by
     /// [`Node::shutdown`](crate::Node::shutdown). The node notifies every

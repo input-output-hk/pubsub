@@ -20,7 +20,7 @@ Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `
 - **Candidate gating (membership, others)**: a `(peer, topic)` candidate is recorded **only if** `topic` is registered; else dropped + logged. `candidates.keys() ⊆ registered_topics.keys()` (INV-2).
 - **Defensive registry fold**: only `Registered` creates a topic; `PublishersChanged` for an unregistered topic is dropped + logged (no `or_default` create); `Removed` of an unknown topic is a no-op.
 - **Atomic cascade**: `Removed { topic }` clears `topic` from `subscriptions`, `candidates`, and `registered_topics` within the one `apply` fold (synchronous under the state lock — no partial state observable).
-- **`SnapshotComplete`**: no-op in the fold (readiness boundary).
+- **`SnapshotComplete`** (both `TopicRegistryEvent` and `MembershipEvent`): no-op in the fold — a stream-replay delimiter the registry indexer consumes and never enqueues; a stray one folds harmlessly.
 - Every `apply` returns an empty `Vec<Effect>` (`Effect` uninhabited).
 
 ## D. Behavioural contract — receive path (`handle_signed_message`)
@@ -30,7 +30,7 @@ Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `
 
 ## E. Construction-ordering contract — `Node::new`
 
-- `Node::new` is **non-blocking**: it spawns all producers and returns. The topic-registry projection is warmed before any membership event is folded via an **in-node oneshot** — the topic reader signals once it has enqueued its cold-start `SnapshotComplete`; the membership reader awaits that signal (a single, cold-start-only await) before it pushes any membership event. The single FIFO event queue then orders the topic burst ahead of membership. The two registries remain separate streams (no merge); this is an ordering gate only. The await is fail-safe (the topic reader also signals on a watch-open error, so the membership reader never stalls) and one-shot — steady state has no gating.
+- `Node::new` is **non-blocking**: it spawns its producers and returns. A **single registry indexer** reader owns both watches (the one chain follower a realistic deployment runs; ADR 0020, 2026-06-17 (b)). It drains the **topic** cold-start burst first, then the **membership** burst, so the topic projection is warm before any membership event is folded — cold-start ordering is **intrinsic to the single reader's sequence**, with no cross-stream primitive (the earlier in-node oneshot is removed). Once both bursts have drained it pushes one `Event::ConnectionSetup` (the single dial trigger), then forwards live deltas from both watches. The two registries remain separate streams (no data merge); only the readiness signal is unified. A watch-open error degrades gracefully (that burst is skipped; `ConnectionSetup` still fires). The per-stream `SnapshotComplete` markers are stream-replay delimiters consumed by the indexer and never enqueued.
 
 ## F. Internal surface — `TopicEntry` (`pub(crate)`)
 
@@ -40,7 +40,7 @@ Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `
 
 ## G. Out of scope (contract boundaries)
 
-- **Connection surface — in scope post-rebase (2026-06-17).** After rebasing onto merged 004, the `Removed` cascade also clears `upstream`/`downstream`, and `MembershipEvent::SnapshotComplete` is the dial trigger (replacing the removed `connection_setup_delay` timer). S7/N-015 is resolved: an unregistered topic is never subscribed/candidate, so a `Request` on it is rejected (no acceptance-path code change — strict drop makes it unreachable). (Originally this was deferred while 004 was unmerged.)
+- **Connection surface — in scope post-rebase (2026-06-17).** After rebasing onto merged 004, the `Removed` cascade also clears `upstream`/`downstream`, and `Event::ConnectionSetup` — pushed by the registry indexer once both registries are warm (2026-06-17 (b)) — is the dial trigger (replacing the removed `connection_setup_delay` timer). S7/N-015 is resolved: an unregistered topic is never subscribed/candidate, so a `Request` on it is rejected (no acceptance-path code change — strict drop makes it unreachable). (Originally this was deferred while 004 was unmerged.)
 - **No registry merge** — two distinct traits/streams retained (FR-009).
 - **No governance fields** — `TopicEntry` is publishers-only; owners/admins deferred to 012 (the seam exists, unused here).
 - **No new public methods on `TopicRegistry`/`TopicRegistryControl`** — readiness rides the existing watch stream as an event, not a new accessor (honors 013 FR-001 watch-only).
