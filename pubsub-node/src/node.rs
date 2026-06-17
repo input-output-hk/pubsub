@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
@@ -19,7 +18,7 @@ use crate::received::ReceivedDelivery;
 use crate::state::{apply, Effect, NodeState};
 use crate::subscription_registry::SubscriptionRegistry;
 use crate::topic::TopicId;
-use crate::topic_registry::TopicRegistry;
+use crate::topic_registry::{TopicRegistry, TopicRegistryEvent};
 
 /// A network participant.
 ///
@@ -138,8 +137,6 @@ impl Node {
             return Err(NodeError::IdentityMismatch(self_id));
         }
 
-        let connection_setup_delay = config.connection_setup_delay;
-
         let mut handle = network.register(self_id).await?;
         let node_id = handle.id().clone();
         let rx = handle.take_receiver();
@@ -214,21 +211,27 @@ impl Node {
         // subscription-registry reader (node-keyed `watch`), and the
         // topic-registry reader (global `watch`). Each reader owns its registry
         // `Arc` so its watch stays live for the node's lifetime.
+        //
+        // Cross-stream readiness gate (ADR 0020): strict drop evaluates each
+        // membership topic against the *current* registered set, so the topic
+        // reader signals once it has enqueued its cold-start `SnapshotComplete`,
+        // and the membership reader holds its events until that signal. Because
+        // the event queue is a single FIFO, the topic burst is therefore folded
+        // before any membership event — no cold-start race.
+        let (topic_ready_tx, topic_ready_rx) = tokio::sync::oneshot::channel::<()>();
         node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
         node.spawn_producer(move |queue| {
-            subscription_registry_reader_loop(queue, subscription_registry, node_id)
+            subscription_registry_reader_loop(queue, subscription_registry, node_id, topic_ready_rx)
         });
-        node.spawn_producer(move |queue| topic_registry_reader_loop(queue, topic_registry));
+        node.spawn_producer(move |queue| {
+            topic_registry_reader_loop(queue, topic_registry, topic_ready_tx)
+        });
 
-        // The optional fourth producer: the one-shot setup timer, spawned only
-        // when a delay is configured. It fires a single `ConnectionSetup` event
-        // after the delay (giving the registry view time to converge), then
-        // returns; it is drop-aborted like every producer (ADR 0018). Unset by
-        // default, so autonomy is opt-in and scripted tests never race a timer.
-        if let Some(delay) = connection_setup_delay {
-            node.spawn_producer(move |queue| setup_timer_producer(queue, delay));
-        }
-
+        // Autonomous establishment is **event-driven**, not timer-driven: the
+        // node dials when its membership view converges, which the subscription
+        // reader signals as `MembershipEvent::SnapshotComplete` (folded by
+        // `handle_membership_update` into the connection-setup diff). No
+        // wall-clock setup timer is armed (ADR 0020 supersedes 0018's timer).
         Ok(node)
     }
 
@@ -433,19 +436,6 @@ async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect
     }
 }
 
-/// The optional one-shot setup-timer producer: sleeps for the configured
-/// delay, pushes a single [`Event::ConnectionSetup`], and returns.
-///
-/// Spawned via [`spawn_producer`](Node::spawn_producer) only when a delay is
-/// configured (so it is node-owned and drop-aborted); the delay lets the
-/// node's registry view converge before it dials (ADR 0018). It fires at most
-/// once per node lifetime — the autonomous topology is the single setup
-/// event's diff.
-async fn setup_timer_producer(queue: EventQueue, delay: Duration) {
-    tokio::time::sleep(delay).await;
-    queue.push(Event::ConnectionSetup);
-}
-
 /// The network mailbox producer: forwards each inbound frame from the
 /// network receiver onto the node's event queue.
 ///
@@ -472,6 +462,7 @@ async fn subscription_registry_reader_loop<R: SubscriptionRegistry>(
     queue: EventQueue,
     subscription_registry: Arc<R>,
     node_id: PeerId,
+    topic_ready: tokio::sync::oneshot::Receiver<()>,
 ) {
     let mut watch = match subscription_registry.watch(node_id).await {
         Ok(watch) => watch,
@@ -484,6 +475,12 @@ async fn subscription_registry_reader_loop<R: SubscriptionRegistry>(
             return;
         }
     };
+    // Readiness gate (ADR 0020): hold membership events until the topic-registry
+    // projection is warm, so strict drop evaluates each topic against the
+    // current registered set. (An `Err` means the topic reader ended without
+    // signalling — e.g. its watch failed; proceed against whatever registered
+    // set exists rather than stalling.)
+    let _ = topic_ready.await;
     while let Some(event) = watch.recv().await {
         queue.push(Event::MembershipUpdate(event));
     }
@@ -498,7 +495,11 @@ async fn subscription_registry_reader_loop<R: SubscriptionRegistry>(
 /// into its registered-topics projection, which gates the message accept-path).
 /// Holds the topic-registry `Arc` so the watch's sender side stays alive for the
 /// node's lifetime; the task is aborted on drop.
-async fn topic_registry_reader_loop<T: TopicRegistry>(queue: EventQueue, topic_registry: Arc<T>) {
+async fn topic_registry_reader_loop<T: TopicRegistry>(
+    queue: EventQueue,
+    topic_registry: Arc<T>,
+    topic_ready: tokio::sync::oneshot::Sender<()>,
+) {
     let mut watch = match topic_registry.watch().await {
         Ok(watch) => watch,
         Err(error) => {
@@ -507,11 +508,24 @@ async fn topic_registry_reader_loop<T: TopicRegistry>(queue: EventQueue, topic_r
                 %error,
                 "topic-registry watch failed; node has no registered topics",
             );
+            // Release the readiness gate so the membership reader proceeds
+            // (against an empty registered set) rather than stalling forever.
+            let _ = topic_ready.send(());
             return;
         }
     };
+    let mut topic_ready = Some(topic_ready);
     while let Some(event) = watch.recv().await {
+        let is_boundary = matches!(event, TopicRegistryEvent::SnapshotComplete);
         queue.push(Event::TopicRegistryUpdate(event));
+        // Signal readiness once the cold-start burst is fully enqueued — the
+        // single FIFO queue then guarantees it is folded before any membership
+        // event the gated reader pushes (ADR 0020).
+        if is_boundary {
+            if let Some(tx) = topic_ready.take() {
+                let _ = tx.send(());
+            }
+        }
     }
     // `topic_registry` is owned by this task so the watch's sender side stays
     // alive for the loop; drop it explicitly when the task ends.

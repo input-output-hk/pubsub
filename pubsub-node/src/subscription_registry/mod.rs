@@ -53,6 +53,14 @@ pub enum MembershipEvent {
     },
     /// `node` left the registry entirely.
     Left { node: PeerId },
+    /// Terminates a watch's cold-start membership burst: the node's own entry
+    /// and the current members of its topics have all been replayed, so the
+    /// node's subscription + candidate view has converged. The node uses this as
+    /// the trigger to establish its connections (run the connection strategy and
+    /// dial), replacing a wall-clock setup timer with an event-driven readiness
+    /// signal. The in-memory registry emits it once per watch; live deltas
+    /// follow.
+    SnapshotComplete,
 }
 
 /// Single-consumer membership stream handle. Mirrors `NetworkHandle`: it owns

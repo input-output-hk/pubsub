@@ -186,7 +186,6 @@ pub async fn two_node_fixture_with_subscriptions(
         a_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
-            connection_setup_delay: None,
         },
         network.clone(),
         alias_signer(&a_id.to_string()),
@@ -202,7 +201,6 @@ pub async fn two_node_fixture_with_subscriptions(
         b_id.clone(),
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
-            connection_setup_delay: None,
         },
         network.clone(),
         alias_signer(&b_id.to_string()),
@@ -278,10 +276,7 @@ pub async fn node_with(
     let signer = alias_signer(&id.to_string());
     let node = Node::new(
         id,
-        NodeConfig {
-            peers,
-            connection_setup_delay: None,
-        },
+        NodeConfig { peers },
         network.clone(),
         signer,
         shared_test_verifier(),
@@ -321,10 +316,7 @@ pub async fn node_sharing(
         .collect();
     Node::new(
         PeerId::from_str(id).expect("valid id"),
-        NodeConfig {
-            peers,
-            connection_setup_delay: None,
-        },
+        NodeConfig { peers },
         network.clone(),
         alias_signer(id),
         shared_test_verifier(),

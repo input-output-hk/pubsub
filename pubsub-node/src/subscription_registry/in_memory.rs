@@ -143,6 +143,10 @@ impl SubscriptionRegistry for InMemorySubscriptionRegistry {
                 });
             }
         }
+        //   3. a readiness marker terminating the cold-start burst — the node's
+        //      subscription + candidate view has converged, so it can establish
+        //      its connections (the dial trigger; crate::node).
+        let _ = tx.send(MembershipEvent::SnapshotComplete);
         // Live deltas are fanned out scoped to the node's topics. (Re-scoping
         // when the node's *own* entry changes at runtime is deferred to 012;
         // the watched set is the node's topics at watch time.)
@@ -291,7 +295,10 @@ mod tests {
         let mut watch = reg.watch(peer("a")).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::joined("a", ["t1", "t2"])]
+            vec![
+                MembershipEvent::joined("a", ["t1", "t2"]),
+                MembershipEvent::SnapshotComplete,
+            ]
         );
     }
 
@@ -334,7 +341,10 @@ mod tests {
         let mut watch = reg.watch(peer("ghost")).await.unwrap();
         assert_eq!(
             drain(&mut watch),
-            vec![MembershipEvent::joined("ghost", [])]
+            vec![
+                MembershipEvent::joined("ghost", []),
+                MembershipEvent::SnapshotComplete,
+            ]
         );
     }
 
@@ -351,7 +361,10 @@ mod tests {
         let mut watch_d = reg.watch(peer("node-d")).await.unwrap();
         assert_eq!(
             drain(&mut watch_d),
-            vec![MembershipEvent::joined("node-d", [])]
+            vec![
+                MembershipEvent::joined("node-d", []),
+                MembershipEvent::SnapshotComplete,
+            ]
         );
     }
 

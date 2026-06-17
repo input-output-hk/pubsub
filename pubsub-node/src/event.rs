@@ -39,12 +39,11 @@ pub enum Event {
     /// removed), drained from a `TopicRegistryWatch` by the node-owned
     /// topic-registry reader.
     TopicRegistryUpdate(TopicRegistryEvent),
-    /// The connection-establishment trigger. Produced either by the optional
-    /// one-shot setup timer (the node-owned `setup_timer_producer`, spawned
-    /// only when a setup delay is configured) or pushed externally through the
-    /// public event intake. The node consults its connection-selection
-    /// strategy and dials the expected upstreams it does not already hold
-    /// (ADR 0018).
+    /// The connection-establishment trigger: the node consults its
+    /// connection-selection strategy and dials the expected upstreams it does
+    /// not already hold (ADR 0018). Produced when the membership view converges
+    /// — folded from `MembershipEvent::SnapshotComplete` (ADR 0020) — or pushed
+    /// externally through the public event intake (tests, operator injection).
     ConnectionSetup,
     /// The graceful-teardown trigger, pushed by
     /// [`Node::shutdown`](crate::Node::shutdown). The node notifies every

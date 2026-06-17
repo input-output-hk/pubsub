@@ -28,10 +28,12 @@ use crate::topic::TopicId;
 mod in_memory;
 #[cfg(test)]
 mod test_support;
+mod topic_entry;
 
 pub use in_memory::InMemoryTopicRegistry;
 #[cfg(test)]
 pub(crate) use test_support::TopicRegistryScript;
+pub(crate) use topic_entry::TopicEntry;
 
 /// One topic-registry delta delivered on a [`TopicRegistryWatch`].
 ///
@@ -56,6 +58,14 @@ pub enum TopicRegistryEvent {
     },
     /// `topic` is no longer a registered topic.
     Removed { topic: TopicId },
+    /// Terminates a watch's cold-start `Registered` burst: every currently-
+    /// registered topic has now been replayed, and live deltas follow. A node
+    /// uses this as a readiness boundary — it seeds its registered-topics
+    /// projection from the burst and only then begins folding the membership
+    /// stream (which is validated against it). The in-memory registry emits it
+    /// once per watch; the on-chain reader (012) emits it after initial
+    /// chain-sync.
+    SnapshotComplete,
 }
 
 /// Single-consumer topic-registry stream handle. Mirrors `MembershipWatch` /

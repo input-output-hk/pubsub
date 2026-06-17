@@ -146,6 +146,11 @@ impl TopicRegistry for InMemoryTopicRegistry {
                 publishers: publishers.clone(),
             });
         }
+        // Terminate the cold-start burst with a readiness marker, then register
+        // the subscriber so live deltas follow it. A fresh watch thus observes a
+        // gap-free `Registered`* → `SnapshotComplete` → live-delta* sequence; the
+        // node drains to the marker before folding membership (crate::node).
+        let _ = tx.send(TopicRegistryEvent::SnapshotComplete);
         inner.subscribers.push(tx);
 
         Ok(TopicRegistryWatch::new(rx))
@@ -348,16 +353,20 @@ mod tests {
         let mut w1 = reg.watch().await.unwrap();
         assert_eq!(
             drain(&mut w1),
-            vec![TopicRegistryEvent::Registered {
-                topic: topic("t"),
-                publishers: pubs([]),
-            }]
+            vec![
+                TopicRegistryEvent::Registered {
+                    topic: topic("t"),
+                    publishers: pubs([]),
+                },
+                TopicRegistryEvent::SnapshotComplete,
+            ]
         );
 
         reg.remove_topic(topic("t")).await.unwrap();
-        // A fresh watch now sees nothing for t.
+        // A fresh watch now sees nothing for t — just the readiness marker
+        // terminating an empty cold-start burst.
         let mut w2 = reg.watch().await.unwrap();
-        assert!(drain(&mut w2).is_empty());
+        assert_eq!(drain(&mut w2), vec![TopicRegistryEvent::SnapshotComplete]);
     }
 
     // ---- US1: burst/live atomicity (FR-007) ----
@@ -369,13 +378,18 @@ mod tests {
         reg.set_topic(topic("weather"), pubs([b"k1"]))
             .await
             .unwrap();
-        // The write appears exactly once (no gap, no duplicate from the burst).
+        // Empty registry → the cold-start burst is just the readiness marker;
+        // the live write then appears exactly once after it (no gap, no
+        // duplicate at the burst/live boundary).
         assert_eq!(
             drain(&mut watch),
-            vec![TopicRegistryEvent::Registered {
-                topic: topic("weather"),
-                publishers: pubs([b"k1"]),
-            }]
+            vec![
+                TopicRegistryEvent::SnapshotComplete,
+                TopicRegistryEvent::Registered {
+                    topic: topic("weather"),
+                    publishers: pubs([b"k1"]),
+                },
+            ]
         );
     }
 

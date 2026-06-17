@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 
 use pubsub_node::{load_node_config, ConfigError, PeerId};
 use tempfile::tempdir;
@@ -153,52 +152,4 @@ id = "node-b"
         }
         other => panic!("expected ConfigError::Parse, got: {other:?}"),
     }
-}
-
-// US1 / FR-006: the optional one-shot setup delay parses from the TOML
-// `connection_setup_delay_ms` field into `Option<Duration>` (milliseconds).
-#[test]
-fn connection_setup_delay_parsed_from_ms() {
-    let dir = tempdir().expect("tempdir");
-    let path = dir.path().join("with-delay.toml");
-    fs::write(
-        &path,
-        r#"
-connection_setup_delay_ms = 500
-
-[[peers]]
-id = "node-b"
-"#,
-    )
-    .expect("write toml");
-
-    let cfg = load_node_config(&path).expect("load Ok");
-    assert_eq!(
-        cfg.connection_setup_delay,
-        Some(Duration::from_millis(500)),
-        "the ms field converts to a Duration",
-    );
-    assert_eq!(cfg.peers.len(), 1, "peers still parsed alongside the delay");
-}
-
-// FR-006: the setup delay is unset by default — an absent field yields `None`
-// (no autonomous establishment).
-#[test]
-fn connection_setup_delay_absent_is_none() {
-    let dir = tempdir().expect("tempdir");
-    let path = dir.path().join("no-delay.toml");
-    fs::write(
-        &path,
-        r#"
-[[peers]]
-id = "node-b"
-"#,
-    )
-    .expect("write toml");
-
-    let cfg = load_node_config(&path).expect("load Ok");
-    assert_eq!(
-        cfg.connection_setup_delay, None,
-        "absent field → no setup timer",
-    );
 }
