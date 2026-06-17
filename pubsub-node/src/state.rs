@@ -19,8 +19,9 @@ use std::sync::Arc;
 use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{Signer, Verifier};
 use crate::event::Event;
+use crate::fanout::FanoutStrategy;
 use crate::message::{
-    ConnectionAction, ConnectionMessage, Message, PlainConnection, SignedMessage,
+    ConnectionAction, ConnectionMessage, Message, PlainConnection, PlainMessage, SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::received::{Origin, ReceivedDelivery};
@@ -77,6 +78,10 @@ pub(crate) struct NodeState {
     /// verifier (the immutable service-handle slot). The transition reads it
     /// from the `ConnectionSetup` arm (ADR 0018).
     strategy: Arc<dyn ConnectionStrategy>,
+    /// The fan-out policy consulted at the record point to choose which
+    /// downstream peers receive a forward of a recorded message. The deliberate
+    /// twin of `strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
+    fanout: Arc<dyn FanoutStrategy>,
     /// Whether the node has **synced** — both registries' initial snapshots are
     /// applied, so the node is at/near the chain tip (ADR 0020). `false` while
     /// `Syncing`; set once by the `Synced` transition, which also establishes
@@ -92,6 +97,7 @@ impl NodeState {
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
         strategy: Arc<dyn ConnectionStrategy>,
+        fanout: Arc<dyn FanoutStrategy>,
     ) -> Self {
         Self {
             self_id,
@@ -104,6 +110,7 @@ impl NodeState {
             downstream: HashSet::new(),
             signer,
             strategy,
+            fanout,
             synced: false,
         }
     }
@@ -213,6 +220,7 @@ pub(crate) enum Effect {
 pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
     match event {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
+        Event::Publish(signed) => handle_publish(state, signed),
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
         Event::Synced => handle_synced(state),
@@ -648,6 +656,127 @@ fn handle_connection_terminated(
     Vec::new()
 }
 
+/// The shared dissemination check chain: subscribed → registered → authorized.
+///
+/// Returns the drop cause if a check fails, or `None` if the message passes all
+/// three. This is the middle that the publish and signed-receive paths share
+/// (R9). The path-specific bits stay in the callers — the connection gate
+/// (receive-only), the signature-failure *action* (sever vs plain drop), the
+/// `Origin` value, and the fan-out `exclude` — as does drop *logging*: this
+/// returns the cause and the caller logs it with path-appropriate fields.
+fn validate_dissemination(state: &NodeState, plain: &PlainMessage) -> Option<&'static str> {
+    if !state.subscriptions.contains(&plain.topic) {
+        return Some("topic_not_subscribed");
+    }
+    // Topic-validity: the topic must be a registered (legitimate) topic. Under
+    // 014's maintained invariant `subscriptions ⊆ registered_topics` this also
+    // holds at rest; the check stays as a defensive guard (ADR 0016 as amended
+    // by 0020).
+    if !state.registered_topics.contains_key(&plain.topic) {
+        return Some("topic_not_registered");
+    }
+    // Authorized-publisher: a non-open topic accepts only its authorized keys; an
+    // open topic accepts any publisher — both encoded by the declarative
+    // `TopicEntry` predicate. Checked before signature verification (a cheap
+    // lookup); the `registered?` check guarantees the entry exists.
+    if let Some(entry) = state.registered_topics.get(&plain.topic) {
+        if !entry.is_publisher_authorized(plain.publisher_id.as_public_key()) {
+            return Some("publisher_not_authorized");
+        }
+    }
+    None
+}
+
+/// Compute the verbatim fan-out effects for `message` on `topic`: one
+/// [`Effect::Send`] per target the strategy selects, each carrying a clone of
+/// the original [`SignedMessage`] (relays never re-sign — FR-007). `exclude` is
+/// the split-horizon peer — the deliverer on the receive path, `None` on the
+/// publish path.
+fn fanout(
+    state: &NodeState,
+    topic: &TopicId,
+    message: &SignedMessage,
+    exclude: Option<&PeerId>,
+) -> Vec<Effect> {
+    state
+        .fanout
+        .targets(topic, &state.downstream, exclude)
+        .into_iter()
+        .map(|to| Effect::Send {
+            to,
+            message: Message::Signed(message.clone()),
+        })
+        .collect()
+}
+
+/// Record a verified message and fan it out — the shared tail of both paths
+/// (R9). Records the delivery with the given `origin`, then forwards it to the
+/// strategy-selected downstream (split-horizon `exclude`). The caller has
+/// already run every check, including signature verification. (US3 adds the
+/// `seen` dedup gate inside here; there is none yet.)
+fn record_and_fanout(
+    state: &mut NodeState,
+    signed: SignedMessage,
+    origin: Origin,
+    exclude: Option<&PeerId>,
+) -> Vec<Effect> {
+    let topic = signed.plain.topic.clone();
+    let effects = fanout(state, &topic, &signed, exclude);
+    state.received.push(ReceivedDelivery {
+        origin,
+        message: Message::Signed(signed),
+    });
+    effects
+}
+
+/// Transition for a locally-originated publish (`Event::Publish`).
+///
+/// The receive-path checks **minus** the connection gate and severance: the
+/// topic must be subscribed, registered, and the publisher authorized (proxy
+/// allowed — `publisher_id` need not be the node itself), and the signature must
+/// verify. A failing check is a plain `message_dropped` and **never** a
+/// severance (there is no upstream to sever). A passing message is recorded with
+/// [`Origin::Local`] and fanned out to every downstream on the topic (no
+/// split-horizon exclusion).
+// FR-001..005,007,011,016; ADR 0020 §4; data-model §2.
+fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
+    if let Some(cause) = validate_dissemination(state, &signed.plain) {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause,
+            self_id = %state.self_id,
+            topic = %signed.plain.topic,
+            publisher_id = %signed.plain.publisher_id,
+        );
+        return Vec::new();
+    }
+
+    if state
+        .verifier
+        .verify(
+            signed.plain.publisher_id.as_public_key(),
+            &signed.plain.signed_bytes(),
+            &signed.signature,
+        )
+        .is_err()
+    {
+        // A publish has no upstream to sever — an invalid signature here is a
+        // plain drop, not misbehavior (FR-004).
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "invalid_signature",
+            self_id = %state.self_id,
+            topic = %signed.plain.topic,
+            publisher_id = %signed.plain.publisher_id,
+        );
+        return Vec::new();
+    }
+
+    record_and_fanout(state, signed, Origin::Local, None)
+}
+
 /// Transition for a signed dissemination message.
 ///
 /// Records the delivery when the **delivering peer holds an Active upstream**
@@ -684,52 +813,20 @@ fn handle_signed_message(
         return Vec::new();
     }
 
-    if !state.subscriptions.contains(&signed.plain.topic) {
+    // The shared subscribed → registered → authorized chain (R9); a failure is a
+    // plain drop logged with the receive-path `from=` field. The connection gate
+    // above and the signature-failure severance below stay path-specific.
+    if let Some(cause) = validate_dissemination(state, &signed.plain) {
         tracing::info!(
             target: "pubsub_node::node",
             event = "message_dropped",
-            cause = "topic_not_subscribed",
+            cause,
             self_id = %state.self_id,
             from = %from,
             topic = %signed.plain.topic,
+            publisher_id = %signed.plain.publisher_id,
         );
         return Vec::new();
-    }
-
-    // Topic-validity: the topic must be a registered (legitimate) topic. A
-    // subscribed-but-unregistered topic is dropped — the effective accept-filter
-    // is `subscriptions ∩ registered_topics` (ADR 0016, FR-014).
-    if !state.registered_topics.contains_key(&signed.plain.topic) {
-        tracing::info!(
-            target: "pubsub_node::node",
-            event = "message_dropped",
-            cause = "topic_not_registered",
-            self_id = %state.self_id,
-            from = %from,
-            topic = %signed.plain.topic,
-        );
-        return Vec::new();
-    }
-
-    // Authorized-publisher: on a non-open topic the message's publisher key must
-    // be authorized; an open topic accepts any publisher. Expressed via the
-    // declarative `TopicEntry` predicate. Checked before signature verification
-    // — a cheap lookup, so unauthorized-publisher traffic never pays the
-    // verification cost (FR-007; ADR 0020). The `registered?` check above
-    // guarantees the entry exists.
-    if let Some(entry) = state.registered_topics.get(&signed.plain.topic) {
-        if !entry.is_publisher_authorized(signed.plain.publisher_id.as_public_key()) {
-            tracing::info!(
-                target: "pubsub_node::node",
-                event = "message_dropped",
-                cause = "publisher_not_authorized",
-                self_id = %state.self_id,
-                from = %from,
-                topic = %signed.plain.topic,
-                publisher_id = %signed.plain.publisher_id,
-            );
-            return Vec::new();
-        }
     }
 
     let verify_outcome = state.verifier.verify(
@@ -786,6 +883,7 @@ mod tests {
     use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
     use crate::crypto::PublicKey;
     use crate::crypto::{Signer, Timestamp};
+    use crate::fanout::ForwardToAll;
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
     use crate::subscription_registry::MembershipScript;
     use crate::topic_registry::TopicRegistryScript;
@@ -830,6 +928,7 @@ mod tests {
             Arc::new(TestVerifier),
             alias_signer(self_id),
             strategy(),
+            Arc::new(ForwardToAll),
         );
         for t in subscriptions {
             state
@@ -2509,5 +2608,144 @@ mod tests {
         apply(&mut state, membership_joined("self", ["t"]));
         apply(&mut state, Event::ConnectionSetup);
         assert_eq!(upstream_state(&state, "self", "t"), None);
+    }
+
+    // ---- T003: publish + first-hop fan-out (US1, FR-001..005/007/011/016) -----
+
+    /// Sort a peer list for order-insensitive assertions (fan-out target order
+    /// is unspecified).
+    fn sorted_peers(mut v: Vec<PeerId>) -> Vec<PeerId> {
+        v.sort_by_key(ToString::to_string);
+        v
+    }
+
+    /// The `(to, signed)` of every signed-payload `Send` effect — the fan-out
+    /// forwards (distinct from the control-message sends `request_sends` etc.
+    /// pick out).
+    fn signed_sends(effects: &[Effect]) -> Vec<(PeerId, SignedMessage)> {
+        effects
+            .iter()
+            .filter_map(|effect| match effect {
+                Effect::Send {
+                    to,
+                    message: Message::Signed(sm),
+                } => Some((to.clone(), sm.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The inner [`SignedMessage`] of a `signed_ping`/`tampered_ping` build.
+    fn signed(message: Message) -> SignedMessage {
+        let Message::Signed(sm) = message else {
+            unreachable!("ping builders always yield Message::Signed");
+        };
+        sm
+    }
+
+    // US1-AS1 / FR-001..004,007,011,014,016: a valid publish records the message
+    // with `Origin::Local` and fans it out verbatim to every downstream on the
+    // topic (one `Effect::Send` each, order-insensitive).
+    #[test]
+    fn publish_records_local_and_fans_out_to_downstream() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        with_downstream(&mut state, "a", "t1");
+        with_downstream(&mut state, "b", "t1");
+        let sm = signed(signed_ping(&signer(), t1, 1));
+
+        let effects = handle_publish(&mut state, sm.clone());
+
+        let snap = state.received_snapshot();
+        assert_eq!(snap.len(), 1, "published message recorded");
+        assert_eq!(snap[0].origin, Origin::Local, "local origin");
+        assert_eq!(snap[0].message, Message::Signed(sm.clone()));
+
+        let sends = signed_sends(&effects);
+        assert_eq!(
+            sorted_peers(sends.iter().map(|(p, _)| p.clone()).collect()),
+            vec![peer("a"), peer("b")],
+            "one forward per downstream on the topic",
+        );
+        for (_, forwarded) in &sends {
+            assert_eq!(*forwarded, sm, "forward is verbatim (no re-sign)");
+        }
+    }
+
+    // US1 / FR-016: a publish with no downstream is recorded but produces no
+    // effects (recording still occurs).
+    #[test]
+    fn publish_with_no_downstream_records_without_effects() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        let sm = signed(signed_ping(&signer(), t1, 1));
+
+        let effects = handle_publish(&mut state, sm);
+
+        assert!(effects.is_empty(), "no downstream → no forwards");
+        let snap = state.received_snapshot();
+        assert_eq!(snap.len(), 1);
+        assert_eq!(snap[0].origin, Origin::Local);
+    }
+
+    // US1-AS? / FR-005: proxy/injection — a validly-signed, authorized message
+    // from a publisher other than the node itself is accepted (publisher_id need
+    // not be self).
+    #[test]
+    fn publish_accepts_proxy_publisher_not_self() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        // A publisher whose key is not the node's own ("self") identity.
+        let other = signer_seeded([42u8; 32]);
+        let sm = signed(signed_ping(&other, t1, 1));
+
+        let effects = handle_publish(&mut state, sm);
+
+        assert!(effects.is_empty(), "no downstream");
+        let snap = state.received_snapshot();
+        assert_eq!(snap.len(), 1, "proxy publish accepted (publisher != self)");
+        assert_eq!(snap[0].origin, Origin::Local);
+    }
+
+    // US1-AS2..4 / FR-002,003: each failed-check publish is a plain drop — no
+    // record, no effects, and (the publish-path invariant) NO severance, even
+    // with downstream present.
+    #[test]
+    fn publish_drops_failed_checks_without_record_effects_or_severance() {
+        let s = signer();
+
+        // (a) topic not subscribed — downstream on the topic to prove the drop
+        // precedes any fan-out.
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_downstream(&mut state, "a", "t2");
+        let effects = handle_publish(&mut state, signed(signed_ping(&s, topic("t2"), 1)));
+        assert!(effects.is_empty(), "not subscribed → no record, no fan-out");
+        assert!(state.received_snapshot().is_empty());
+
+        // (b) restricted topic, publisher not authorized.
+        let weather = topic("weather");
+        let mut state = node_state("self", HashSet::from([weather.clone()]));
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: weather.clone(),
+                publishers: BTreeSet::from([signer_seeded([9u8; 32]).public_key()]),
+            }),
+        );
+        let effects = handle_publish(&mut state, signed(signed_ping(&s, weather, 1)));
+        assert!(effects.is_empty(), "unauthorized → dropped");
+        assert!(state.received_snapshot().is_empty());
+
+        // (c) invalid signature — a plain drop on the publish path (no upstream
+        // to sever, and the publish path never severs).
+        let mut state = state_subscribed(vec![topic("t1")]);
+        with_downstream(&mut state, "a", "t1");
+        let effects = handle_publish(&mut state, signed(tampered_ping(&s, topic("t1"), 1)));
+        assert!(
+            misbehaved(&effects).is_empty(),
+            "invalid-signature publish never severs",
+        );
+        assert!(effects.is_empty(), "no record, no fan-out");
+        assert!(state.received_snapshot().is_empty());
     }
 }

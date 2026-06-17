@@ -11,9 +11,9 @@ use common::{
     node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
-    ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    NetworkError, Node, NodeConfig, NodeError, Origin, PeerId, SubscriptionRegistryControl,
-    TopicId, TopicRegistryControl, UpstreamState,
+    ConnectToAllCandidates, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, NetworkError, Node, NodeConfig, NodeError, Origin, PeerId,
+    SubscriptionRegistryControl, TopicId, TopicRegistryControl, UpstreamState,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -408,6 +408,7 @@ async fn readiness_establishes_autonomously() {
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("construct a");
@@ -420,6 +421,7 @@ async fn readiness_establishes_autonomously() {
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("construct b");
@@ -461,6 +463,7 @@ async fn construction_fails_on_duplicate_registration() {
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("first registration succeeds");
@@ -475,6 +478,7 @@ async fn construction_fails_on_duplicate_registration() {
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await;
 
@@ -506,6 +510,7 @@ async fn construction_fails_on_identity_mismatch() {
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await;
 
@@ -524,6 +529,7 @@ async fn construction_fails_on_identity_mismatch() {
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("the failed construction left the id free");

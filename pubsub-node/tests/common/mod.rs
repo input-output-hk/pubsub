@@ -9,7 +9,7 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    ConnectToAllCandidates, Event, InMemoryNetwork, InMemorySubscriptionRegistry,
+    ConnectToAllCandidates, Event, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
     InMemoryTopicRegistry, Message, MessageHash, MessagePayload, MockCryptoScheme, Node,
     NodeConfig, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
     SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
@@ -193,6 +193,7 @@ pub async fn two_node_fixture_with_subscriptions(
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("construct node A");
@@ -208,6 +209,7 @@ pub async fn two_node_fixture_with_subscriptions(
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("construct node B");
@@ -283,6 +285,7 @@ pub async fn node_with(
         registry.clone(),
         topic_registry,
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("construct node");
@@ -323,6 +326,7 @@ pub async fn node_sharing(
         registry.clone(),
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
+        Arc::new(ForwardToAll),
     )
     .await
     .expect("construct node")
