@@ -229,7 +229,9 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Trigger to revisit**: the **misbehavior/deny-path** package (blacklist that consumes `Effect::Misbehaved`; re-selection that avoids blacklisted peers; a `Rejected` control message when a deny path exists; any topic-scoped misbehavior model). Returns with dynamic transitions and the deny-path work.
 
-## N-015 — Acceptance validates membership only, not topic registration (cross-registry ordering)
+## N-015 — Acceptance validates membership only, not topic registration (cross-registry ordering) — **RESOLVED by 014-registry-consistency (2026-06-17)**
+
+**Resolution**: 014 adopts the cross-registry chain-order invariant as a **maintained `NodeState` property** with strict drop: the node enforces `subscriptions ⊆ registered_topics` (and the same for candidate topics) by dropping membership events for unregistered topics, gated by a construction-time readiness signal so the topic projection is warm before membership folds. Consequently an unregistered topic is **never** in the subscription/candidate sets, so a connection `Request` on it fails membership validation and is **rejected** — acceptance is now consistent with registration, closing the S7 connection-level exposure. A topic-registry `Removed` additionally **cascades** into the `upstream`/`downstream` structures (ADR 0020; 014 FR-002/FR-010). No standalone registration check was added to the acceptance path — strict drop makes the unregistered-topic case unreachable. The historical context is retained below.
 
 **Surfaced during**: 004-connections — data-model staleness catalog **S7**; spec Clarifications 2026-06-12 (post-013 reconciliation). Revisit-flagged at planning.
 
