@@ -12,8 +12,8 @@ use common::{
 };
 use pubsub_node::{
     ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    NetworkError, Node, NodeConfig, NodeError, PeerId, SubscriptionRegistryControl, TopicId,
-    TopicRegistryControl, UpstreamState,
+    NetworkError, Node, NodeConfig, NodeError, Origin, PeerId, SubscriptionRegistryControl,
+    TopicId, TopicRegistryControl, UpstreamState,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -204,9 +204,11 @@ async fn unconnected_sender_is_not_recorded() {
     tokio::time::sleep(Duration::from_millis(50)).await;
     let record = s.received_messages();
     assert_eq!(record.len(), 1, "only the connected source is recorded");
-    assert_eq!(record[0].from, *b.id());
+    assert_eq!(record[0].origin, Origin::Peer(b.id().clone()));
     assert!(
-        !record.iter().any(|d| d.from == *ghost.id()),
+        !record
+            .iter()
+            .any(|d| d.origin == Origin::Peer(ghost.id().clone())),
         "the unconnected sender's valid message is dropped (not_connected)",
     );
 }

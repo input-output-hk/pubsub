@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{await_delivery, establish_upstreams, node_with, test_topic};
-use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Node};
+use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Node, Origin};
 
 struct FourNodeStar {
     a: Node,
@@ -73,11 +73,11 @@ async fn four_node_star_isolates_addressed_pings() {
     assert_eq!(c_rec.len(), 1, "C receives exactly one ping");
     assert_eq!(d_rec.len(), 1, "D receives exactly one ping");
 
-    assert_eq!(b_rec[0].from, *fx.a.id());
+    assert_eq!(b_rec[0].origin, Origin::Peer(fx.a.id().clone()));
     assert_eq!(b_rec[0].message, m1);
-    assert_eq!(c_rec[0].from, *fx.a.id());
+    assert_eq!(c_rec[0].origin, Origin::Peer(fx.a.id().clone()));
     assert_eq!(c_rec[0].message, m2);
-    assert_eq!(d_rec[0].from, *fx.a.id());
+    assert_eq!(d_rec[0].origin, Origin::Peer(fx.a.id().clone()));
     assert_eq!(d_rec[0].message, m3);
 
     // A is not a recipient of anything in this scenario.
@@ -153,7 +153,9 @@ async fn four_node_star_100_send_isolation() {
             let expected_msg = common::ping(topic.clone(), expected_n);
             let count = record
                 .iter()
-                .filter(|d| d.from == *fx.a.id() && d.message == expected_msg)
+                .filter(|d| {
+                    d.origin == Origin::Peer(fx.a.id().clone()) && d.message == expected_msg
+                })
                 .count();
             assert_eq!(
                 count, 1,

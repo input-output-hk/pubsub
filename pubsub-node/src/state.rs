@@ -23,7 +23,7 @@ use crate::message::{
     ConnectionAction, ConnectionMessage, Message, PlainConnection, SignedMessage,
 };
 use crate::peer::PeerId;
-use crate::received::ReceivedDelivery;
+use crate::received::{Origin, ReceivedDelivery};
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
@@ -762,7 +762,7 @@ fn handle_signed_message(
     }
 
     state.received.push(ReceivedDelivery {
-        from,
+        origin: Origin::Peer(from),
         message: Message::Signed(signed),
     });
     Vec::new()
@@ -934,7 +934,7 @@ mod tests {
         assert!(effects.is_empty(), "recording produces no effects");
         let snap = state.received_snapshot();
         assert_eq!(snap.len(), 1);
-        assert_eq!(snap[0].from, peer("a"));
+        assert_eq!(snap[0].origin, Origin::Peer(peer("a")));
         assert_eq!(snap[0].message, m1);
 
         let effects = apply(
@@ -947,7 +947,7 @@ mod tests {
         assert!(effects.is_empty());
         let snap = state.received_snapshot();
         assert_eq!(snap.len(), 2, "second delivery appended");
-        assert_eq!(snap[1].from, peer("b"));
+        assert_eq!(snap[1].origin, Origin::Peer(peer("b")));
         assert_eq!(snap[1].message, m2);
     }
 

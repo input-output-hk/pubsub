@@ -11,7 +11,7 @@ use std::time::Duration;
 use pubsub_node::{
     ConnectToAllCandidates, Event, InMemoryNetwork, InMemorySubscriptionRegistry,
     InMemoryTopicRegistry, Message, MessageHash, MessagePayload, MockCryptoScheme, Node,
-    NodeConfig, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    NodeConfig, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
     SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
     TopicId, TopicRegistryControl, UpstreamState, Verifier,
 };
@@ -412,9 +412,9 @@ fn matches(
     expected_sender: &PeerId,
     expected_message: &Message,
 ) -> bool {
-    record
-        .iter()
-        .any(|d| &d.from == expected_sender && &d.message == expected_message)
+    record.iter().any(|d| {
+        d.origin == Origin::Peer(expected_sender.clone()) && &d.message == expected_message
+    })
 }
 
 /// Assert that `node.subscriptions()`, treated as a set, equals `expected`.

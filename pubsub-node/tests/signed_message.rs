@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use common::{await_delivery, build_signed_message_simple, two_node_fixture_with_subscriptions};
 use pubsub_node::{
-    Message, MessagePayload, MockCryptoScheme, PlainMessage, PublisherId, Signature, SignedMessage,
-    Signer, TestSigner, Timestamp, TopicId,
+    Message, MessagePayload, MockCryptoScheme, Origin, PlainMessage, PublisherId, Signature,
+    SignedMessage, Signer, TestSigner, Timestamp, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -41,7 +41,7 @@ async fn valid_signature_message_retained() {
 
     let record = fx.a.received_messages();
     assert_eq!(record.len(), 1, "exactly the one valid delivery");
-    assert_eq!(record[0].from, *fx.b.id());
+    assert_eq!(record[0].origin, Origin::Peer(fx.b.id().clone()));
     assert_eq!(record[0].message, msg);
 }
 

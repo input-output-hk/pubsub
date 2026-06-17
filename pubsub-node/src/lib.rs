@@ -40,6 +40,7 @@ mod connection;
 pub mod crypto;
 mod error;
 mod event;
+mod fanout;
 mod message;
 mod network;
 mod node;
@@ -58,6 +59,7 @@ pub use crypto::{
 };
 pub use error::{ConfigError, NetworkError, NodeError};
 pub use event::{Event, EventQueue};
+pub use fanout::{FanoutStrategy, ForwardToAll};
 pub use message::{
     ConnectionAction, ConnectionMessage, Message, MessagePayload, PlainConnection, PlainMessage,
     PublisherId, SignedMessage,
@@ -65,7 +67,7 @@ pub use message::{
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
-pub use received::ReceivedDelivery;
+pub use received::{Origin, ReceivedDelivery};
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
     SubscriptionRegistryControl, SubscriptionRegistryError,
