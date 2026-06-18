@@ -3,17 +3,17 @@
 // per-binary `dead_code` warnings here at the module level.
 #![allow(dead_code)]
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    ConnectToAllCandidates, Event, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, Message, MessageHash, MessagePayload, MockCryptoScheme, Node,
-    NodeConfig, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
-    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
-    TopicId, TopicRegistryControl, UpstreamState, Verifier,
+    ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll, InMemoryNetwork,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash, MessagePayload,
+    MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey,
+    PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner,
+    TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -254,6 +254,30 @@ pub async fn node_with(
     peers: &[&str],
     topics: &[TopicId],
 ) -> Node {
+    node_with_strategy(
+        registry,
+        network,
+        id,
+        peers,
+        topics,
+        Arc::new(ConnectToAllCandidates),
+    )
+    .await
+}
+
+/// Like [`node_with`], but with a caller-supplied connection strategy instead of
+/// the default all-candidates policy. Lets a test pin which edges a node dials
+/// (e.g. [`ConnectToExplicit`]) so an exact acyclic topology can be built on a
+/// shared topic — the all-candidates policy over one topic can only build a full
+/// mesh. Acceptance is unaffected (it still uses the real candidate set).
+pub async fn node_with_strategy(
+    registry: &Arc<InMemorySubscriptionRegistry>,
+    network: &Arc<InMemoryNetwork>,
+    id: &str,
+    peers: &[&str],
+    topics: &[TopicId],
+    strategy: Arc<dyn ConnectionStrategy>,
+) -> Node {
     let id = PeerId::from_str(id).expect("valid id");
     registry
         .set_topics(id.clone(), topics.iter().cloned().collect())
@@ -284,7 +308,7 @@ pub async fn node_with(
         shared_test_verifier(),
         registry.clone(),
         topic_registry,
-        Arc::new(ConnectToAllCandidates),
+        strategy,
         Arc::new(ForwardToAll),
     )
     .await
@@ -613,5 +637,131 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
         await_upstream_active(receiver, sender.id(), topic, ESTABLISH_TIMEOUT)
             .await
             .expect("receiver's upstream to the sender is Active");
+    }
+}
+
+// ---- Scripted acyclic topology (006 fan-out) ------------------------------
+
+/// A connection strategy that dials a fixed, **explicit** set of `(peer, topic)`
+/// edges, ignoring the discovered candidate set.
+///
+/// The default all-candidates policy ([`ConnectToAllCandidates`]) over a single
+/// shared topic dials every co-member, so it can only build a full mesh — and
+/// receive-path fan-out then circulates a payload around it (unbounded until
+/// dedup; a mesh also masks relay correctness, since every node gets a direct
+/// copy). Pinning each node's dialed edges lets a test build an exact **acyclic**
+/// topology (a star or a line) on one topic. Acceptance is unaffected — it still
+/// uses the real candidate set, so a dialed peer must still be a registry member
+/// for the edge to be accepted. Test-harness only (lives here, not in `src`):
+/// it is not a production strategy and never reaches the node's public surface.
+pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
+
+impl ConnectionStrategy for ConnectToExplicit {
+    fn expected_upstream(
+        &self,
+        _subscriptions: &HashSet<TopicId>,
+        _candidates: &HashMap<TopicId, HashSet<PeerId>>,
+    ) -> HashSet<(PeerId, TopicId)> {
+        self.0.iter().cloned().collect()
+    }
+}
+
+/// A fluent builder for a test node on a shared subscription registry + network
+/// — the declarative front end to [`node_with_strategy`] for scripting exact
+/// topologies. Defaults: no config peers, the all-candidates dial policy. The
+/// dial policy is overridden by [`dials`](NodeSpec::dials) (one explicit edge) or
+/// [`dials_nobody`](NodeSpec::dials_nobody) (accept-only), which is how an acyclic
+/// star/line is built on a single shared topic.
+///
+/// ```ignore
+/// let hub   = node(&registry, &network, "p").topic(&t).dials_nobody().build().await;
+/// let spoke = node(&registry, &network, "d1").topic(&t).dials(&[(&hub, &t)]).build().await;
+/// ```
+pub struct NodeSpec<'a> {
+    registry: &'a Arc<InMemorySubscriptionRegistry>,
+    network: &'a Arc<InMemoryNetwork>,
+    id: String,
+    peers: Vec<String>,
+    topics: Vec<TopicId>,
+    strategy: Arc<dyn ConnectionStrategy>,
+}
+
+/// Start building a node `id` sharing `registry` and `network`.
+pub fn node<'a>(
+    registry: &'a Arc<InMemorySubscriptionRegistry>,
+    network: &'a Arc<InMemoryNetwork>,
+    id: &str,
+) -> NodeSpec<'a> {
+    NodeSpec {
+        registry,
+        network,
+        id: id.to_string(),
+        peers: Vec::new(),
+        topics: Vec::new(),
+        strategy: Arc::new(ConnectToAllCandidates),
+    }
+}
+
+impl NodeSpec<'_> {
+    /// Subscribe the node to one `topic` (also registered open). Repeatable.
+    #[must_use]
+    pub fn topic(mut self, topic: &TopicId) -> Self {
+        self.topics.push(topic.clone());
+        self
+    }
+
+    /// Subscribe the node to `topics` (also registered open), replacing any set.
+    #[must_use]
+    pub fn topics(mut self, topics: &[TopicId]) -> Self {
+        self.topics = topics.to_vec();
+        self
+    }
+
+    /// Set the config peer list (rarely needed — candidates come from the
+    /// registry, not this list).
+    #[must_use]
+    pub fn peers(mut self, peers: &[&str]) -> Self {
+        self.peers = peers.iter().map(|p| (*p).to_string()).collect();
+        self
+    }
+
+    /// Dial exactly the given `(peer, topic)` edges and nothing else: on a setup
+    /// the node sends each listed peer a connection request — creating a pending
+    /// (`AwaitingAccept`) upstream and asking to receive from it. Acceptance is
+    /// not implied by the dial (the entry stays pending until the peer accepts);
+    /// once accepted, that peer is an upstream of this node and this node a
+    /// downstream of it, so the peer fans out here. Multiple edges request several
+    /// upstream sources (e.g. a diamond). Sets the dial policy to
+    /// [`ConnectToExplicit`].
+    #[must_use]
+    pub fn dials(mut self, edges: &[(&Node, &TopicId)]) -> Self {
+        self.strategy = Arc::new(ConnectToExplicit(
+            edges
+                .iter()
+                .map(|(peer, topic)| (peer.id().clone(), (*topic).clone()))
+                .collect(),
+        ));
+        self
+    }
+
+    /// Dial nobody — the node only accepts inbound connections (`dials(&[])`).
+    #[must_use]
+    pub fn dials_nobody(mut self) -> Self {
+        self.strategy = Arc::new(ConnectToExplicit(vec![]));
+        self
+    }
+
+    /// Construct the node and await its subscription convergence.
+    pub async fn build(self) -> Node {
+        let peers: Vec<&str> = self.peers.iter().map(String::as_str).collect();
+        node_with_strategy(
+            self.registry,
+            self.network,
+            &self.id,
+            &peers,
+            &self.topics,
+            self.strategy,
+        )
+        .await
     }
 }

@@ -4,7 +4,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, await_downstream, establish_upstreams, node_with, ping};
+use common::{
+    await_candidate_present, await_delivery, await_downstream, establish_upstreams, node, ping,
+};
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Message, Node, Origin, TopicId};
 
 fn topic(s: &str) -> TopicId {
@@ -38,19 +40,43 @@ async fn await_local_record(node: &Node, message: &Message, timeout: Duration) {
 // (`Origin::Local`) and fans it out verbatim to both downstream, each of which
 // records it (attributed to the publishing node). An off-topic publish records
 // nowhere — dropped at the publisher before any fan-out.
+//
+// The topology is a deliberate **star**: P holds d1 and d2 as downstream, but d1
+// and d2 are NOT connected to each other. Each spoke dials only P
+// (`ConnectToExplicit`); the all-candidates policy on a shared topic would
+// instead build a full mesh, and a d1↔d2 edge would have the spokes relay P's
+// message to one another. The star isolates first-hop fan-out from relay (US2).
 #[tokio::test]
 async fn publish_records_local_and_reaches_both_downstream() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t = topic("t");
 
-    // P (publisher) and its two subscribers, all members of t.
-    let p = node_with(&registry, &network, "p", &[], std::slice::from_ref(&t)).await;
-    let d1 = node_with(&registry, &network, "d1", &[], std::slice::from_ref(&t)).await;
-    let d2 = node_with(&registry, &network, "d2", &[], std::slice::from_ref(&t)).await;
+    // P dials nobody (it only accepts); each spoke dials only P.
+    let p = node(&registry, &network, "p")
+        .topic(&t)
+        .dials_nobody()
+        .build()
+        .await;
+    let d1 = node(&registry, &network, "d1")
+        .topic(&t)
+        .dials(&[(&p, &t)])
+        .build()
+        .await;
+    let d2 = node(&registry, &network, "d2")
+        .topic(&t)
+        .dials(&[(&p, &t)])
+        .build()
+        .await;
 
-    // Establish through the real path: d1 and d2 each dial P, so P accepts them
-    // and holds them as downstream (its fan-out destinations).
+    // P must know each spoke as a candidate to accept its dial; then each spoke
+    // dials P (and only P).
+    await_candidate_present(&p, &t, d1.id(), TIMEOUT)
+        .await
+        .expect("P knows d1");
+    await_candidate_present(&p, &t, d2.id(), TIMEOUT)
+        .await
+        .expect("P knows d2");
     establish_upstreams(&d1, &[&p], &t).await;
     establish_upstreams(&d2, &[&p], &t).await;
     await_downstream(&p, d1.id(), &t, TIMEOUT)
@@ -106,5 +132,89 @@ async fn publish_records_local_and_reaches_both_downstream() {
         d2.received_messages().len(),
         1,
         "off-topic publish is not forwarded to d2",
+    );
+}
+
+// US2 / SC-002 (partial), SC-004: a received message is relayed onward through
+// an **acyclic line** A→B→C. B dials A and C dials B (`ConnectToExplicit`), and
+// there is NO A–C edge. Publishing at A reaches C *only* via B's relay (its sole
+// delivery path), and B does not echo the message back to A (split-horizon). The
+// topology is acyclic (a line is a tree), so propagation terminates without dedup
+// — the cyclic-mesh "exactly once" case is asserted under US3 (T012).
+#[tokio::test]
+async fn relayed_message_traverses_acyclic_line() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t = topic("t");
+
+    // A dials nobody; B dials only A; C dials only B → A→B→C, no A–C edge.
+    let a = node(&registry, &network, "a")
+        .topic(&t)
+        .dials_nobody()
+        .build()
+        .await;
+    let b = node(&registry, &network, "b")
+        .topic(&t)
+        .dials(&[(&a, &t)])
+        .build()
+        .await;
+    let c = node(&registry, &network, "c")
+        .topic(&t)
+        .dials(&[(&b, &t)])
+        .build()
+        .await;
+
+    // A accepts B's dial; B accepts C's dial. Then establish each line edge.
+    await_candidate_present(&a, &t, b.id(), TIMEOUT)
+        .await
+        .expect("A knows B");
+    await_candidate_present(&b, &t, c.id(), TIMEOUT)
+        .await
+        .expect("B knows C");
+    establish_upstreams(&b, &[&a], &t).await; // A→B edge
+    establish_upstreams(&c, &[&b], &t).await; // B→C edge
+    await_downstream(&a, b.id(), &t, TIMEOUT)
+        .await
+        .expect("A holds B downstream");
+    await_downstream(&b, c.id(), &t, TIMEOUT)
+        .await
+        .expect("B holds C downstream");
+
+    // Publish at A (proxy-signed). It flows A → B → C.
+    let msg = ping(t.clone(), 1);
+    let Message::Signed(signed) = msg.clone() else {
+        unreachable!("ping yields Message::Signed");
+    };
+    a.publish(signed);
+
+    await_local_record(&a, &msg, TIMEOUT).await;
+    // B records the message delivered by A, then relays it to C; C records it
+    // delivered by B — its sole delivery path (no A–C edge).
+    await_delivery(&b, a.id(), &msg, TIMEOUT)
+        .await
+        .expect("B receives the message from A");
+    await_delivery(&c, b.id(), &msg, TIMEOUT)
+        .await
+        .expect("C receives the relayed message via B");
+
+    // Settle, then assert each node holds exactly one record and the line did not
+    // echo: A keeps only its local copy (no B→A echo — split-horizon), C's only
+    // copy is the one relayed by B (never a direct copy from A).
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let a_rec = a.received_messages();
+    assert_eq!(a_rec.len(), 1, "A holds only its own published copy");
+    assert_eq!(a_rec[0].origin, Origin::Local, "no echo back to A");
+
+    let b_rec = b.received_messages();
+    assert_eq!(b_rec.len(), 1, "B records the message once");
+    assert_eq!(b_rec[0].origin, Origin::Peer(a.id().clone()));
+
+    let c_rec = c.received_messages();
+    assert_eq!(c_rec.len(), 1, "C records the message once, via relay only");
+    assert_eq!(
+        c_rec[0].origin,
+        Origin::Peer(b.id().clone()),
+        "C's delivery path is B's relay, not a direct copy from A",
     );
 }

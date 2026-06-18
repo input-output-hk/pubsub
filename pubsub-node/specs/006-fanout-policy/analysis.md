@@ -114,3 +114,25 @@ US2 (T007–T009) and US3 (T010–T012) are unaffected: 014 changed the registry
 - IMPLEMENTATION_NOTES N-018 (D1) — name the publish path.
 
 Both are documentation-only; neither blocks Phase 3 on correctness. No CRITICAL/HIGH; Phase 3 (US2 relay) may proceed once A1/D1 are tidied.
+
+## Session 3 — 2026-06-18 (Phase 3 implementation: T007–T009, US2 relay)
+
+Implemented Phase 3 (T007 failing-first state tests → T008 wires `record_and_fanout(Origin::Peer(from), Some(&from))` into `handle_signed_message` → T009 acyclic-line integration). Full sweep green (fmt + clippy + 104 lib + integration suites). The one substantive finding is the T009 pre-existing-suite cycle verification, which **corrected a plan/tasks assumption**.
+
+### (F) Finding — the "star/2-node cycle-free" assumption was only half right
+
+| ID | Severity | Location | Summary | Resolution |
+|----|----------|----------|---------|------------|
+| F1 | MEDIUM | tasks.md header + plan / spec Assumptions vs code | The ordering-hazard note asserts "the 004 star and 2-node suites are cycle-free by split-horizon." **2-node is** (split-horizon empties the single back-edge), but the multi-node suites are **not stars** at the connection layer: `four_node_star_fixture` (`n_node_graph`) and the 3-node `topic_registry_network` subscribe every node to **one shared topic**, and `establish_upstreams`/`ConnectToAllCandidates` dials **every** co-member — so each builds a **full bidirectional mesh**, not a hub-and-spoke. Once T008 wires receive-path fan-out (no dedup until US3/T011), a payload circulates the mesh unbounded; the suites' per-node "exactly one" counts blow up (observed 25 / 915 / 25729 records before the assertions trip). | **Empirically verified** (each suite run under a watchdog). The genuinely cycle-free suites (`two_node_ping`, `topic_filter`, `topic_validity`, `connections`, `candidate_set`, `topic_runtime`) stay green. The two mesh suites are **`#[ignore]`-deferred** with a reason + tracking ref to **T015** (rework onto a controlled topology) and **T012** (the cyclic "exactly once" guarantee dedup provides) — exactly T009's "deferred to T012's note" branch. Reworking them now is T015 (Phase 5), out of Phase-3 scope. |
+
+### (G) US1 `dissemination` star reworked (in-scope, 006's own suite)
+
+T006's US1 test established its two downstream via `establish_upstreams` over a shared topic, which (same cause as F1) created a `d1↔d2` spoke edge; T008's receive fan-out then had d1/d2 relay P's message to each other (d1 recorded 2 copies). Reworked to a **controlled star**: each spoke is told only about the hub P, so it dials only P and no spoke-to-spoke edge forms. This is `dissemination.rs` (006's own suite, maintained across T006/T009/T012), not a T015 suite.
+
+### (H) Controlled-topology test machinery (T009 helpers)
+
+The all-candidates policy over one shared registry can only build a full mesh, so an **acyclic** line/star on a single topic is scripted by **pinning each node's dialed edges** rather than withholding candidates. New `tests/common` machinery: a test-harness `ConnectToExplicit(Vec<(PeerId, TopicId)>)` connection strategy (dials a fixed edge set, ignoring candidates; acceptance still uses the real candidate set) plus a fluent `node(registry, network, id).topic(t).dials(&[(&hub, &t)] | .dials_nobody()).build()` builder over `node_with_strategy`. Each node dials only its declared edges, so no unwanted mesh edge forms; readiness (`Synced`) is irrelevant — the node only ever dials its explicit set, and acceptance never consults `synced` (N-018), so the auto-readiness dial is harmless and no `is_synced` gymnastics are needed. Establishment reuses the existing `establish_upstreams` (re-dial after candidate convergence). **No production code is test-shaped**: `ConnectToExplicit` lives in `tests/common` (a strategy in `src` would risk shipping the node mis-wired, and a `#[cfg(test)]` one would be invisible to integration crates — the A2 lesson); `ConnectToAllCandidates`/`ForwardToAll` remain the only strategies on the node's public surface. (An earlier draft scripted this via empty-registry `bare_node` + event-queue injection; replaced by the declarative strategy on review.)
+
+### Outcome: GO — Phase 3 complete, green at the ⛳
+
+US2 relay (publish + first-hop + onward relay with split-horizon) is implemented and observable on an acyclic line. The cyclic-mesh "exactly once" case and the two deferred suites are correctly held for US3 (T010–T012). No CRITICAL/HIGH. Phase 4 (US3 dedup) not started, per scope.

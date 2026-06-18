@@ -783,12 +783,16 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 /// for the message's topic (the connection gate, FR-016), its topic is
 /// subscribed **and** a registered (legitimate) topic, its publisher is
 /// authorized, and its signature verifies; otherwise the message is dropped
-/// (with an info-level `message_dropped` event carrying the cause).
+/// (with an info-level `message_dropped` event carrying the cause). A recorded
+/// message is then fanned out to the node's other downstream on the topic,
+/// excluding the deliverer (split-horizon) — the same record-and-forward tail
+/// the publish path uses (FR-006/007/009).
 // FR-016: the connection gate is the FIRST check (keyed on the delivering
 // peer — a payload carries a publisher identity, not the sender's); the
 // pre-existing chain runs unchanged after it — subscribed?, registered?,
-// authorized?, signature? (ADR 0016). Severance on signature failure arrives
-// with US3; here a bad signature is still a plain drop.
+// authorized?, signature? (ADR 0016). A signature failure past every earlier
+// check, over an Active upstream, is misbehavior and severs (FR-017); the
+// fan-out happens only past the record point.
 fn handle_signed_message(
     state: &mut NodeState,
     from: PeerId,
@@ -858,11 +862,11 @@ fn handle_signed_message(
         }];
     }
 
-    state.received.push(ReceivedDelivery {
-        origin: Origin::Peer(from),
-        message: Message::Signed(signed),
-    });
-    Vec::new()
+    // Record the delivery (origin = the delivering peer) and fan it out to the
+    // node's other downstream on the topic, excluding the deliverer
+    // (split-horizon). The shared record-and-forward tail with the publish path
+    // (R9); the publish path passes `Origin::Local` and no exclusion.
+    record_and_fanout(state, signed, Origin::Peer(from.clone()), Some(&from))
 }
 
 // Synchronous state-machine tests: construct a NodeState, apply scripted
@@ -2747,5 +2751,79 @@ mod tests {
         );
         assert!(effects.is_empty(), "no record, no fan-out");
         assert!(state.received_snapshot().is_empty());
+    }
+
+    // ---- T007: receive-path fan-out + split-horizon (US2, FR-006/007/009) -----
+
+    // US2-AS1/AS2/AS5 / FR-006/007/009: a recorded received message is fanned out
+    // to every downstream on the topic EXCEPT the delivering peer (split-horizon),
+    // verbatim, and is recorded with `Origin::Peer(deliverer)`.
+    #[test]
+    fn received_message_fans_out_to_downstream_excluding_deliverer() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        // b delivers over an Active upstream (the gate). Downstream on t1: b (the
+        // deliverer — must be excluded), plus c and d (the forward targets).
+        with_active_upstream(&mut state, "b", "t1");
+        with_downstream(&mut state, "b", "t1");
+        with_downstream(&mut state, "c", "t1");
+        with_downstream(&mut state, "d", "t1");
+        let sm = signed(signed_ping(&signer(), t1.clone(), 1));
+
+        let effects = apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("b"),
+                message: Message::Signed(sm.clone()),
+            },
+        );
+
+        // Recorded once, attributed to the delivering peer (US2-AS1).
+        let snap = state.received_snapshot();
+        assert_eq!(snap.len(), 1, "received message recorded once");
+        assert_eq!(
+            snap[0].origin,
+            Origin::Peer(peer("b")),
+            "origin is the delivering peer",
+        );
+
+        // Fanned to c and d only — never back to the deliverer b (split-horizon).
+        let sends = signed_sends(&effects);
+        assert_eq!(
+            sorted_peers(sends.iter().map(|(p, _)| p.clone()).collect()),
+            vec![peer("c"), peer("d")],
+            "forwarded to the other downstream, never back to the deliverer",
+        );
+        // Verbatim — each forward equals the received message (US2-AS5).
+        for (_, forwarded) in &sends {
+            assert_eq!(*forwarded, sm, "forward is verbatim (signature unchanged)");
+        }
+    }
+
+    // US2-AS3 / FR-009: when the delivering peer is the node's ONLY downstream on
+    // the topic, split-horizon leaves no targets — recorded, no forwards.
+    #[test]
+    fn received_message_sole_downstream_is_deliverer_yields_no_forward() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        with_active_upstream(&mut state, "b", "t1");
+        with_downstream(&mut state, "b", "t1"); // b is the only downstream
+        let sm = signed(signed_ping(&signer(), t1.clone(), 1));
+
+        let effects = apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("b"),
+                message: Message::Signed(sm),
+            },
+        );
+
+        assert!(
+            signed_sends(&effects).is_empty(),
+            "sole downstream is the deliverer → no forward",
+        );
+        let snap = state.received_snapshot();
+        assert_eq!(snap.len(), 1, "still recorded");
+        assert_eq!(snap[0].origin, Origin::Peer(peer("b")));
     }
 }
