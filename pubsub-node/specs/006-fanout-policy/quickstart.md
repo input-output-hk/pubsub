@@ -74,4 +74,4 @@ The full mesh (the default 004 topology) means every member also receives a dire
 // publish at A → B relays to C → C records via B only.
 ```
 
-Connection-lifecycle integration suites pass the public `ForwardToAll`; fan-out does not perturb their assertions. The `#[cfg(test)]` `ForwardToNobody` no-op is invisible to integration crates (compiled out when the crate is a dependency), so it serves in-crate unit tests only.
+Connection-lifecycle integration suites pass the public `ForwardToAll`; fan-out does not perturb their assertions. (There is no test-only no-op strategy — a `#[cfg(test)]` one would be invisible to integration crates anyway; empty-downstream covers no-fan-out unit assertions.)

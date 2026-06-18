@@ -40,7 +40,7 @@ Technical approach per `research.md` R1–R8 and ADR 0021: all behavior lands in
 - **IV. Specifications as Ambiguity Detectors — ✅** The one ambiguity (relay/dedup test topology) was surfaced and resolved in the recorded clarify round; the round-2 story-independence fix was applied to the spec, not silently in this plan. No new protocol-doc ambiguity emerged.
 - **V. Specifications Are Read-Only — ✅** No edits to `pubsub/docs/` or `pubsub/formal_spec/`. Edits are confined to `specs/006-fanout-policy/`, `docs/decisions/`, and (at implement time) `pubsub-node/src` + `IMPLEMENTATION_NOTES.md`.
 
-Engineering Standards applied: logs-not-a-test-surface (drop/`duplicate` and `connection_severed` events are operator UX; assertions go through `received_messages()` and effect lists); neutral operator strings (snake_case causes, no FR citations); parse-at-the-edge (the caller builds and signs the `SignedMessage`; the node mints nothing and consults no clock); forward-compatible shapes justified by named consumers (`FanoutStrategy` → ROADMAP 006/007; `Event::Publish` rides the `#[non_exhaustive]` enum); declarative test construction (extend `ConnectionScript`; the `fanout::test_support` no-op strategy); reproducible tests (no wall-clock; set-deterministic fan-out, order sorted in assertions); property testing available for dedup idempotence / termination.
+Engineering Standards applied: logs-not-a-test-surface (drop/`duplicate` and `connection_severed` events are operator UX; assertions go through `received_messages()` and effect lists); neutral operator strings (snake_case causes, no FR citations); parse-at-the-edge (the caller builds and signs the `SignedMessage`; the node mints nothing and consults no clock); forward-compatible shapes justified by named consumers (`FanoutStrategy` → ROADMAP 006/007; `Event::Publish` rides the `#[non_exhaustive]` enum); declarative test construction (extend `ConnectionScript`); reproducible tests (no wall-clock; set-deterministic fan-out, order sorted in assertions); property testing available for dedup idempotence / termination.
 
 ## Plan input
 
@@ -71,8 +71,7 @@ docs/decisions/
 
 ```text
 src/
-├── fanout.rs            # NEW: FanoutStrategy trait, ForwardToAll, pub(crate) #[cfg(test)]
-│                        #      test_support no-op strategy
+├── fanout.rs            # NEW: FanoutStrategy trait, ForwardToAll
 ├── received.rs          # + Origin enum; ReceivedDelivery.from → origin: Origin
 ├── event.rs             # + Event::Publish(SignedMessage)
 ├── state.rs             # NodeState + seen: HashSet<MessageHash> + fanout handle;
@@ -103,7 +102,7 @@ tests/
 | 6 | `Node::publish(self, SignedMessage) -> ()` fire-and-forget | R4, contracts §1 |
 | 7 | `ReceivedDelivery.from` → `origin: Origin { Local, Peer(PeerId) }` (fixes doc drift) | R5, ADR 0021 §5, data-model §1.1 |
 | 8 | Drop causes: dedup `duplicate`; publish reuses receive causes; publish never severs | R3/R4, contracts §4 |
-| 9 | Tests: full-mesh + scripted partial/line; `fanout::test_support` no-op; not parity-preserving | R7/R8, contracts §6 |
+| 9 | Tests: full-mesh + scripted partial/line; connection-lifecycle suites use public `ForwardToAll`; not parity-preserving | R7/R8, contracts §6 |
 
 ## Post-plan obligations carried to /speckit-tasks (not done here)
 

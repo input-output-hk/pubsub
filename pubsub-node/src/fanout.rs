@@ -73,35 +73,6 @@ impl FanoutStrategy for ForwardToAll {
     }
 }
 
-/// Test-only fan-out strategies.
-///
-/// The no-op [`ForwardToNobody`] selects no targets regardless of input — the
-/// injection for connection-lifecycle suites where fan-out is irrelevant noise
-/// (R7). It is crate-internal and `cfg(test)`-gated so it can never reach the
-/// production surface (a production "forward to nobody" strategy was rejected:
-/// it would let the feature ship switched off). `dead_code` is allowed because
-/// different test binaries exercise different subsets.
-#[cfg(test)]
-#[allow(dead_code)]
-pub(crate) mod test_support {
-    use super::{FanoutStrategy, HashSet, PeerId, TopicId};
-
-    /// A fan-out strategy that selects no targets — recording occurs, nothing
-    /// is forwarded. Used where fan-out is incidental to what a test asserts.
-    pub(crate) struct ForwardToNobody;
-
-    impl FanoutStrategy for ForwardToNobody {
-        fn targets(
-            &self,
-            _topic: &TopicId,
-            _downstream: &HashSet<(PeerId, TopicId)>,
-            _exclude: Option<&PeerId>,
-        ) -> Vec<PeerId> {
-            Vec::new()
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{FanoutStrategy, ForwardToAll};

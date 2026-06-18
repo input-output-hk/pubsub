@@ -48,7 +48,6 @@ All under the existing `event = "message_dropped"` info-level convention. Severa
 |------|--------|------------|
 | `fanout::FanoutStrategy` | NEW trait | `pub`, re-exported from `lib.rs` |
 | `fanout::ForwardToAll` | NEW struct | `pub`, re-exported |
-| `fanout::test_support` no-op strategy | NEW | `pub(crate)`, `#[cfg(test)]` only — **not** re-exported |
 | `received::Origin` | NEW enum | `pub`, re-exported |
 | `ReceivedDelivery.from` | → `origin: Origin` (field reshape) | `pub` field |
 | `Event::Publish` | NEW variant | `pub` (enum is `#[non_exhaustive]`) |
