@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::connection::{ConnectionStrategy, UpstreamState};
-use crate::crypto::{Signer, Verifier};
+use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
 use crate::fanout::FanoutStrategy;
 use crate::message::{
@@ -82,6 +82,13 @@ pub(crate) struct NodeState {
     /// downstream peers receive a forward of a recorded message. The deliberate
     /// twin of `strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
     fanout: Arc<dyn FanoutStrategy>,
+    /// Content hashes of every message already accepted, keyed by
+    /// `MessageHash::of(&plain)`. The duplicate-suppression set checked at the
+    /// shared record point on both paths (after signature verification): an
+    /// already-present hash is dropped (`duplicate`), which bounds forwarding in
+    /// cyclic meshes and suppresses a re-published / relayed-back copy. Unbounded
+    /// in the in-memory model — bounding (LRU/TTL) is deferred (ADR 0021).
+    seen: HashSet<MessageHash>,
     /// Whether the node has **synced** — both registries' initial snapshots are
     /// applied, so the node is at/near the chain tip (ADR 0020). `false` while
     /// `Syncing`; set once by the `Synced` transition, which also establishes
@@ -111,6 +118,7 @@ impl NodeState {
             signer,
             strategy,
             fanout,
+            seen: HashSet::new(),
             synced: false,
         }
     }
@@ -710,16 +718,37 @@ fn fanout(
 }
 
 /// Record a verified message and fan it out — the shared tail of both paths
-/// (R9). Records the delivery with the given `origin`, then forwards it to the
-/// strategy-selected downstream (split-horizon `exclude`). The caller has
-/// already run every check, including signature verification. (US3 adds the
-/// `seen` dedup gate inside here; there is none yet.)
+/// (R9). The caller has already run every check, including signature
+/// verification, so this is the single record point.
+///
+/// The duplicate-suppression gate sits here (FR-012/013): keyed on the content
+/// hash and checked **after** verification, so a forged message that fails
+/// verification never enters `seen`. An already-seen hash is dropped
+/// (`duplicate`) — not recorded, not fanned out — which bounds forwarding in a
+/// cyclic mesh and suppresses a re-published / relayed-back copy (FR-015). A
+/// first-seen message is marked seen, recorded with the given `origin`, then
+/// forwarded to the strategy-selected downstream (split-horizon `exclude`).
+/// Both the publish and receive paths route through here, so they dedup
+/// identically.
 fn record_and_fanout(
     state: &mut NodeState,
     signed: SignedMessage,
     origin: Origin,
     exclude: Option<&PeerId>,
 ) -> Vec<Effect> {
+    // `insert` returns false if the hash was already present: that is the
+    // duplicate, dropped before any record or fan-out.
+    if !state.seen.insert(MessageHash::of(&signed.plain)) {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "duplicate",
+            self_id = %state.self_id,
+            topic = %signed.plain.topic,
+            publisher_id = %signed.plain.publisher_id,
+        );
+        return Vec::new();
+    }
     let topic = signed.plain.topic.clone();
     let effects = fanout(state, &topic, &signed, exclude);
     state.received.push(ReceivedDelivery {
@@ -2825,5 +2854,150 @@ mod tests {
         let snap = state.received_snapshot();
         assert_eq!(snap.len(), 1, "still recorded");
         assert_eq!(snap[0].origin, Origin::Peer(peer("b")));
+    }
+
+    // ---- T010: duplicate suppression (US3, FR-012/013/015) --------------------
+
+    // US3-AS1 / FR-012: an already-seen message redelivered over an Active
+    // upstream is dropped (`duplicate`) — not recorded a second time and not
+    // fanned out again.
+    #[test]
+    fn already_seen_received_message_is_dropped_not_refanned() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        with_active_upstream(&mut state, "b", "t1");
+        with_downstream(&mut state, "c", "t1"); // a downstream, to prove no re-fan
+        let sm = signed(signed_ping(&signer(), t1.clone(), 1));
+
+        // First delivery: recorded and fanned to c.
+        let first = apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("b"),
+                message: Message::Signed(sm.clone()),
+            },
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "first delivery recorded"
+        );
+        assert_eq!(signed_sends(&first).len(), 1, "first delivery fans to c");
+
+        // Identical redelivery over the same Active upstream: dropped duplicate.
+        let second = apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("b"),
+                message: Message::Signed(sm),
+            },
+        );
+        assert!(
+            second.is_empty(),
+            "duplicate produces no effects (no re-fan)"
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "duplicate not recorded a second time",
+        );
+    }
+
+    // US3 / FR-012, contracts §1.6: a second publish of identical content is
+    // dropped `duplicate` — confirming the publish path inserts into `seen`.
+    #[test]
+    fn republish_identical_content_is_dropped_duplicate() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        with_downstream(&mut state, "a", "t1");
+        let sm = signed(signed_ping(&signer(), t1.clone(), 1));
+
+        let first = handle_publish(&mut state, sm.clone());
+        assert_eq!(state.received_snapshot().len(), 1, "first publish recorded");
+        assert_eq!(signed_sends(&first).len(), 1, "first publish fans to a");
+
+        let second = handle_publish(&mut state, sm);
+        assert!(
+            second.is_empty(),
+            "re-publishing identical content is a duplicate drop",
+        );
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "duplicate publish not recorded again",
+        );
+    }
+
+    // US3-AS2 / FR-015: dedup spans both paths — a message the node published
+    // (and thereby seen-marked) is dropped if a peer later relays it back.
+    #[test]
+    fn published_message_relayed_back_is_dropped_duplicate() {
+        let t1 = topic("t1");
+        let mut state = state_subscribed(vec![t1.clone()]);
+        with_active_upstream(&mut state, "b", "t1"); // b can deliver to us
+        let sm = signed(signed_ping(&signer(), t1.clone(), 1));
+
+        // Publish: recorded locally and seen-marked.
+        handle_publish(&mut state, sm.clone());
+        assert_eq!(state.received_snapshot().len(), 1, "publish recorded");
+
+        // b relays the same content back over the Active upstream → duplicate.
+        let relayed = apply(
+            &mut state,
+            Event::MessageReceived {
+                from: peer("b"),
+                message: Message::Signed(sm),
+            },
+        );
+        assert!(relayed.is_empty(), "relayed-back copy produces no effects");
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "the relayed-back copy is suppressed (FR-015)",
+        );
+    }
+
+    // US3-AS4 / FR-013: no poisoning — an invalid-signature PUBLISH whose `plain`
+    // hashes identically to a genuine message is a plain drop at verification
+    // (the dedup gate sits *after* verification, so it is unreached and never
+    // seen-marks). The genuine message — same content hash — is still recorded.
+    #[test]
+    fn invalid_signature_publish_does_not_poison_seen() {
+        let t1 = topic("t1");
+        let s = signer();
+        let mut state = state_subscribed(vec![t1.clone()]);
+
+        let genuine = signed(signed_ping(&s, t1.clone(), 1));
+        // Same `plain` (so the same content hash) but a signature that does not
+        // verify under the publisher's key — produced by a different signer.
+        let impostor = signer_seeded([99u8; 32]);
+        let forged = SignedMessage {
+            plain: genuine.plain.clone(),
+            signature: impostor.sign(&genuine.plain.signed_bytes()),
+        };
+        assert_eq!(
+            MessageHash::of(&forged.plain),
+            MessageHash::of(&genuine.plain),
+            "the forged copy hashes identically to the genuine message",
+        );
+
+        // The forged publish drops at verification (publish never severs) and
+        // must NOT seen-mark the shared hash.
+        let dropped = handle_publish(&mut state, forged);
+        assert!(dropped.is_empty(), "forged publish produces no effects");
+        assert!(
+            state.received_snapshot().is_empty(),
+            "forged publish not recorded",
+        );
+
+        // The genuine message — identical content hash — is still recorded: the
+        // failed verification did not pre-seed `seen`.
+        handle_publish(&mut state, genuine);
+        assert_eq!(
+            state.received_snapshot().len(),
+            1,
+            "genuine message recorded; the seen-set was not poisoned",
+        );
+        assert_eq!(state.received_snapshot()[0].origin, Origin::Local);
     }
 }

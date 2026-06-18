@@ -136,3 +136,22 @@ The all-candidates policy over one shared registry can only build a full mesh, s
 ### Outcome: GO — Phase 3 complete, green at the ⛳
 
 US2 relay (publish + first-hop + onward relay with split-horizon) is implemented and observable on an acyclic line. The cyclic-mesh "exactly once" case and the two deferred suites are correctly held for US3 (T010–T012). No CRITICAL/HIGH. Phase 4 (US3 dedup) not started, per scope.
+
+## Session 4 — 2026-06-18 (Phase 4 implementation: T010–T012, US3 dedup)
+
+Implemented Phase 4 (T010 failing-first state tests → T011 `seen: HashSet<MessageHash>` + dedup gate inside `record_and_fanout` → T012 cyclic triangle integration). Full sweep green (fmt + clippy + 108 lib + integration suites; the cyclic test terminates in ~0.1s).
+
+### Dedup design as built
+- The gate is the single line `if !state.seen.insert(MessageHash::of(&signed.plain)) { …drop "duplicate"… }` at the top of `record_and_fanout` — `insert` returning false-if-present is the combined check-and-insert. Because both `handle_publish` and `handle_signed_message` route through `record_and_fanout` **after** their verification step, both paths dedup identically and a verification failure (publish plain-drop or receive severance) never reaches the gate, so it cannot poison `seen` (FR-013). The `duplicate` drop log lives at this shared point and is path-agnostic (self_id/topic/publisher_id; no `from`) — consistent with logs-not-a-test-surface.
+- `seen` is unbounded (in-memory); bounding is deferred (D1, a Phase-5/T013 IMPLEMENTATION_NOTES entry).
+
+### Sanity-check of the deferred suites under dedup (per Phase-4 input)
+Ran the two `#[ignore]`-deferred suites via `cargo test --test … -- --ignored` (no source change, so nothing to restore) under a watchdog, to confirm dedup eliminated the unbounded circulation:
+- **`n_node_graph`** — **terminates** (exit 101, ~0.24s; pre-dedup it ran away to 25729 records). Now bounded: every node records each distinct message exactly once. The count assertions still fail because they assumed a hub-and-spoke star, but the real topology is a full mesh where every node receives every message — that reframing is the **T015** rework, not a dedup gap.
+- **`topic_registry_network`** — **terminates and now passes** (exit 0): each node records the authorized message once and drops the unauthorized one. Could simply be **un-ignored at T015**.
+
+Both left `#[ignore]`d (T015 owns the rework); no commit touched them. The loop hazard the F1 finding flagged (Session 3) is confirmed closed by dedup.
+
+### Outcome: GO — Phase 4 complete, green at the ⛳
+
+US3 dedup spans both paths, suppresses cyclic circulation (triangle records-once + terminates), and does not poison on failed verification. No CRITICAL/HIGH. Phase 5 (polish — T013–T017, incl. the deferred-suite rework T015 and the D1–D5 IMPLEMENTATION_NOTES entries) not started, per scope.

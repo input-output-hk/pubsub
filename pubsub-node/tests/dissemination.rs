@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    await_candidate_present, await_delivery, await_downstream, establish_upstreams, node, ping,
+    await_candidate_present, await_delivery, await_downstream, establish_mutual,
+    establish_upstreams, node, ping,
 };
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Message, Node, Origin, TopicId};
 
@@ -30,6 +31,27 @@ async fn await_local_record(node: &Node, message: &Message, timeout: Duration) {
         assert!(
             start.elapsed() < timeout,
             "timed out waiting for the local record",
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll `node`'s record until it holds a delivery of `message` from any origin,
+/// or `timeout` elapses. Used where the delivering peer is not deterministic (a
+/// full mesh — the first copy to arrive is recorded, the rest deduped).
+async fn await_recorded(node: &Node, message: &Message, timeout: Duration) {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node
+            .received_messages()
+            .iter()
+            .any(|d| &d.message == message)
+        {
+            return;
+        }
+        assert!(
+            start.elapsed() < timeout,
+            "timed out waiting for the record",
         );
         tokio::time::sleep(Duration::from_millis(1)).await;
     }
@@ -216,5 +238,58 @@ async fn relayed_message_traverses_acyclic_line() {
         c_rec[0].origin,
         Origin::Peer(b.id().clone()),
         "C's delivery path is B's relay, not a direct copy from A",
+    );
+}
+
+// US3 / SC-002 (full), SC-003, SC-005: the FIRST cyclic test — a triangle of
+// three mutually-connected members on one topic (the natural full mesh built by
+// the all-candidates policy). One publishes; every member records the message
+// exactly once and propagation terminates in a bounded number of forwards. This
+// is safe only because dedup now suppresses the redundant relayed copies that
+// circulate the cycle — the cyclic counterpart to US2's acyclic line.
+#[tokio::test]
+async fn triangle_mesh_records_once_and_terminates() {
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let t = topic("t");
+
+    // Three members, the default all-candidates policy → each dials the others.
+    let a = node(&registry, &network, "a").topic(&t).build().await;
+    let b = node(&registry, &network, "b").topic(&t).build().await;
+    let c = node(&registry, &network, "c").topic(&t).build().await;
+
+    // Mutually connect all three pairs → a full bidirectional mesh (a cycle).
+    establish_mutual(&a, &b, std::slice::from_ref(&t)).await;
+    establish_mutual(&b, &c, std::slice::from_ref(&t)).await;
+    establish_mutual(&a, &c, std::slice::from_ref(&t)).await;
+
+    // A publishes (proxy-signed). In the mesh, redundant copies circulate every
+    // cycle; dedup is what bounds it.
+    let msg = ping(t.clone(), 1);
+    let Message::Signed(signed) = msg.clone() else {
+        unreachable!("ping yields Message::Signed");
+    };
+    a.publish(signed);
+
+    // Every member records the message (the delivering peer is nondeterministic
+    // in a mesh — assert presence, not origin).
+    await_local_record(&a, &msg, TIMEOUT).await;
+    await_recorded(&b, &msg, TIMEOUT).await;
+    await_recorded(&c, &msg, TIMEOUT).await;
+
+    // Settle well past propagation, then assert each node holds EXACTLY one copy
+    // — duplicate suppression bounded the cyclic circulation (had it not, the
+    // counts would keep growing / the test would hang under the watchdog).
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    for (node, who) in [(&a, "A"), (&b, "B"), (&c, "C")] {
+        let rec = node.received_messages();
+        assert_eq!(rec.len(), 1, "{who} records the message exactly once");
+        assert_eq!(rec[0].message, msg, "{who} records the published message");
+    }
+    assert_eq!(
+        a.received_messages()[0].origin,
+        Origin::Local,
+        "the publisher's copy is local-origin",
     );
 }
