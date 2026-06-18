@@ -422,14 +422,24 @@ async fn readiness_establishes_autonomously() {
     .await
     .expect("construct b");
 
-    // No trigger_setup, no timer — each node dials when its membership view
-    // converges (the readiness boundary).
+    // No trigger_setup, no timer — each node dials once synced (the indexer
+    // folds both registry snapshots, then pushes `Event::Synced`).
     await_upstream_active(&a, &peer("b"), &t, TIMEOUT)
         .await
-        .expect("a dials b on membership readiness");
+        .expect("a dials b on sync");
     await_upstream_active(&b, &peer("a"), &t, TIMEOUT)
         .await
-        .expect("b dials a on membership readiness");
+        .expect("b dials a on sync");
+    // The `Syncing → Synced` lifecycle is observable: having established
+    // connections, both nodes report synced through the public getter.
+    assert!(
+        a.is_synced(),
+        "a is synced once it has established connections"
+    );
+    assert!(
+        b.is_synced(),
+        "b is synced once it has established connections"
+    );
 }
 
 // FR-024 / N-006: a duplicate registration on the same network surfaces the

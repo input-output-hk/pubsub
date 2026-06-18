@@ -2,6 +2,8 @@
 
 **Date**: 2026-06-10 | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md)
 
+> **Superseded by 014 (2026-06-18):** `SubscriptionRegistry::watch(node)` no longer streams a cold-start `Joined` **burst**; it now returns a `(MembershipSnapshot, MembershipWatch)` pair (current state up front, then live deltas). The "cold-start burst" wording throughout this doc reflects 008's original as-built. See ADR 0020 (Amendment 2026-06-18) and `specs/014-registry-consistency/contracts/registry-consistency.md` §A for the current contract.
+
 New **public** types live in module `src/subscription_registry/`. New node-side state is **crate-internal** (`pub(crate)`, `src/state.rs`). Existing public types (`PeerId`, `TopicId`, `Event`, `EventQueue`, `Node`, `NodeConfig`, `NodeError`) are reused; deltas to them are noted.
 
 ## SubscriptionRegistry (new, public trait — `src/subscription_registry/mod.rs`)
