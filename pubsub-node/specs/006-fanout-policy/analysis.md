@@ -4,7 +4,7 @@
 
 ## Session 1 — 2026-06-16 (post-tasks, pre-implementation)
 
-Cross-artifact pass over spec.md, plan.md, tasks.md with research.md, data-model.md, contracts/fanout-protocol.md, ADR 0020 as supporting artifacts. No code yet → cross-artifact consistency + coverage is the whole job.
+Cross-artifact pass over spec.md, plan.md, tasks.md with research.md, data-model.md, contracts/fanout-protocol.md, ADR 0021 as supporting artifacts. No code yet → cross-artifact consistency + coverage is the whole job.
 
 ### Outcome: GO — 0 CRITICAL, 0 HIGH, 0 MEDIUM, 3 LOW (none blocking)
 
@@ -30,14 +30,14 @@ Full requirement→task coverage; no orphan requirement; no task lacking an arti
 | US2 AS1–5 (incl. AS5 verbatim) | 5 | T007/T008/T009 | ✅ |
 | US3 AS1–4 (incl. AS4 no-poisoning) | 4 | T010/T012 | ✅ |
 
-All 17 tasks trace to an artifact (plan rows, R1–R9, data-model, contracts, ADR 0020). No unmapped tasks.
+All 17 tasks trace to an artifact (plan rows, R1–R9, data-model, contracts, ADR 0021). No unmapped tasks.
 
 ### Focus-area verdicts (per the analyze input)
 
 1. **Task coverage incl. late scenarios** — US2 AS5 (verbatim) → T007; US3 AS4 (publish-path no-poisoning) → T010. Both pinned. ✅
 2. **R9 shared-helper coherence** — `validate_dissemination` / `record_and_fanout` consistent across research R9, data-model §2/§4, T004/T008/T011. The incremental layering is coherent and **explicitly flagged**: T004 builds `record_and_fanout` *without* dedup ("NO dedup yet"), T011 adds the dedup gate "inside `record_and_fanout`"; R9/data-model describe the final (with-dedup) form. No contradiction — the end-state artifacts and the incremental tasks agree. ✅
 3. **Cyclic-ordering hazard** — present as a binding header note + dependencies in tasks.md; consistent with spec US3 "why this priority" (US1/US2 acyclic before dedup). US2 tasks/scenarios are acyclic (T007/T009); the triangle/full-mesh payload test is in US3 (T012); T009 carries the cycle-verification of pre-existing suites. No contradiction. ✅
-4. **Constitution alignment** — TDD test-first explicit (T003→T004, T007→T008, T010→T011); two recorded compile-coupled exceptions (T001 pure helper, T002 reshape); not-parity rework chartered (T015); ADR 0020 covers the structural decisions (seam + dedup + Origin); logs-not-a-test-surface + parse-at-edge + declarative-test-construction honored in the header/conventions. ✅
+4. **Constitution alignment** — TDD test-first explicit (T003→T004, T007→T008, T010→T011); two recorded compile-coupled exceptions (T001 pure helper, T002 reshape); not-parity rework chartered (T015); ADR 0021 covers the structural decisions (seam + dedup + Origin); logs-not-a-test-surface + parse-at-edge + declarative-test-construction honored in the header/conventions. ✅
 
 ### Findings
 

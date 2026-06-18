@@ -738,7 +738,7 @@ fn record_and_fanout(
 /// severance (there is no upstream to sever). A passing message is recorded with
 /// [`Origin::Local`] and fanned out to every downstream on the topic (no
 /// split-horizon exclusion).
-// FR-001..005,007,011,016; ADR 0020 §4; data-model §2.
+// FR-001..005,007,011,016; ADR 0021 §4; data-model §2.
 fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
     if let Some(cause) = validate_dissemination(state, &signed.plain) {
         tracing::info!(

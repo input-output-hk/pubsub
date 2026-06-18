@@ -30,7 +30,7 @@ The v1 implementor `ForwardToAll` returns every `peer` for which `(peer, topic) 
 
 **Decision**: `seen: HashSet<MessageHash>` on `NodeState`, keyed on `MessageHash::of(&signed.plain)` (the content-anchored hash, already `#[derive(Hash, Eq, PartialEq)]`). Unbounded.
 
-**Rationale**: Content hashing is the honest loop-prevention key — it dedups *identical* messages without conflating distinct messages that an equivocating publisher emits under the same `(publisher, sequence)` (those have different content → different hash → both propagate, which is the documented out-of-scope stance). `MessageHash::of` already exists and is content-anchored (N-005), so no new hashing surface. Unbounded is correct for the in-memory PoC; bounding is a real-impl concern (deferred, see ADR 0020 + N-new).
+**Rationale**: Content hashing is the honest loop-prevention key — it dedups *identical* messages without conflating distinct messages that an equivocating publisher emits under the same `(publisher, sequence)` (those have different content → different hash → both propagate, which is the documented out-of-scope stance). `MessageHash::of` already exists and is content-anchored (N-005), so no new hashing surface. Unbounded is correct for the in-memory PoC; bounding is a real-impl concern (deferred, see ADR 0021 + N-new).
 
 **Alternatives**: (a) `(publisher_id, sequence)` key — rejected: silently collapses equivocation to first-seen-wins, hiding a conflict the project tracks separately (N-003/012). (b) `LruCache` now — rejected: premature; an eviction policy is a deployment tuning concern with no PoC consumer, and an unbounded set keeps tests deterministic.
 

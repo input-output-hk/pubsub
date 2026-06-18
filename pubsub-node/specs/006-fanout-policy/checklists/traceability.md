@@ -38,7 +38,7 @@
 - [x] CHK019 Does the spec's "no new effect variant" claim match the contract and data-model (fan-out reuses `Effect::Send`)? [Consistency, FR-011 / contracts §2.4]
 - [x] CHK020 Is the **severance-vs-plain-drop** distinction consistent (receive path severs on bad signature; publish path is a plain drop, no upstream)? [Consistency, FR-005 / data-model §2,§3]
 - [x] CHK021 Is **dedup placement relative to severance** non-conflicting (severance fires before dedup; a tampered message never marks seen)? [Consistency, data-model §3]
-- [x] CHK022 Does the determinism claim (set-deterministic targets, unspecified order) align with the out-of-scope pick-k rationale across spec, research, and ADR? [Consistency, research R1 / ADR 0020]
+- [x] CHK022 Does the determinism claim (set-deterministic targets, unspecified order) align with the out-of-scope pick-k rationale across spec, research, and ADR? [Consistency, research R1 / ADR 0021]
 
 ## Acceptance Criteria Quality (objectively verifiable)
 
@@ -57,7 +57,7 @@
 ## Structural Requirements (validated by contract, not behavioral scenario)
 
 - [x] CHK031 Is the **`FanoutStrategy` seam** (injected at construction, like `ConnectionStrategy`) specified in the public-surface delta even though it has no behavioral scenario? [Completeness, FR-010 / contracts §5 — acceptable: structural, exercised by the `ForwardToAll` unit test + construction]
-- [x] CHK032 Is the **unbounded `seen` set** documented as a deliberate deferral with a follow-up home? [Assumption, data-model §7 D1 / ADR 0020]
+- [x] CHK032 Is the **unbounded `seen` set** documented as a deliberate deferral with a follow-up home? [Assumption, data-model §7 D1 / ADR 0021]
 
 ## Notes
 

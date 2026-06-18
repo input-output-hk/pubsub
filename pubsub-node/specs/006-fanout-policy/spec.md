@@ -140,7 +140,7 @@ In a mesh with cycles (the full bidirectional per-topic graph 004 builds is cycl
 
 ## Out of Scope
 
-- The epochal / periodic re-dialer (a connections concern: re-firing the setup event on an interval). The existing one-shot setup machinery is unchanged; periodic re-selection is deferred to its own slice.
+- The epochal / periodic re-dialer (a connections concern: re-firing the dial on an interval). 014 replaced 004's one-shot `connection_setup_delay` timer with an `Event::Synced` readiness trigger that runs `handle_connection_setup` once both registry snapshots are folded; `Event::ConnectionSetup` remains the reusable dial **action** (which this feature's relay tests inject directly). Periodic re-selection is deferred to its own slice.
 - Pick-k fan-out subsets (e.g. forward to a random k of the downstream set); these would require a seeded RNG in node state to preserve deterministic `apply` and are deferred. `ForwardToAll` is the sole v1 strategy.
 - Renaming `Message::Signed` to `Message::Dissemination` (and the `SignedMessage`/`PlainMessage` types) — a separate mechanical refactor, recorded for a future pass.
 - Equivocation / conflicting-message detection (publisher chain-integrity, parent-hash, sequence monotonicity, deposits) — unchanged and deferred to later features.

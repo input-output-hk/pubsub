@@ -2,7 +2,7 @@
 
 **Input**: Design documents from `/specs/006-fanout-policy/`
 
-**Prerequisites**: plan.md (binding decision table rows 1–9), spec.md (US1–US3, FR-001..016, SC-001..006), research.md (R1–R9), data-model.md (decision flows + deferral catalogue D1–D5), contracts/fanout-protocol.md, ADR 0020
+**Prerequisites**: plan.md (binding decision table rows 1–9), spec.md (US1–US3, FR-001..016, SC-001..006), research.md (R1–R9), data-model.md (decision flows + deferral catalogue D1–D5), contracts/fanout-protocol.md, ADR 0021
 
 **Tests**: MANDATORY — the feature is designated critical (plan.md Constitution Check II). Within every story, the state-machine test task precedes the implementation it drives and must fail first. Two recorded exceptions, both compile-coupled changes with no red-green possible: T001 (pure `ForwardToAll`, tested in the same increment) and T002 (the `ReceivedDelivery` field reshape — behavior-preserving, existing assertions updated mechanically).
 

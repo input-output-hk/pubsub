@@ -75,6 +75,8 @@ Dispatched by `apply` to `handle_publish`. Pushed by `Node::publish`.
 - `Node::new` gains a final parameter `fanout_strategy: Arc<dyn FanoutStrategy>` (after `strategy`), threaded into `NodeState::new`.
 - `Node::publish(&self, message: SignedMessage)` → `()`: `self.events.push(Event::Publish(message))`. Fire-and-forget.
 
+> **Reconciliation with 014 (rebased 2026-06-18).** `registered_topics` is `HashMap<TopicId, TopicEntry>` (014), so the `authorized?` step below is the `TopicEntry::is_publisher_authorized` / `is_open` predicate rather than a raw `BTreeSet` check — the open/authorized *semantics* are unchanged. 014 also makes `subscriptions ⊆ registered_topics` a **maintained invariant** (strict-drop folds), so the `registered?` step is, on the subscribed path, a *defensive* guard that the invariant already satisfies (kept, matching 014's own receive path). Test setup reflects this: the `node_state` helper registers each subscription topic open, and a "subscribed-but-unregistered" state is only reachable by constructing it directly.
+
 ## 2. Publish decision flow (`handle_publish`)
 
 ```text

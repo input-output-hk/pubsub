@@ -1,4 +1,4 @@
-# ADR 0020: Fan-out strategy seam, content-hash dedup, and message origin
+# ADR 0021: Fan-out strategy seam, content-hash dedup, and message origin
 
 **Status**: Accepted
 **Date**: 2026-06-16
