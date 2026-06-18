@@ -39,12 +39,18 @@ pub enum Event {
     /// removed), drained from a `TopicRegistryWatch` by the node-owned
     /// topic-registry reader.
     TopicRegistryUpdate(TopicRegistryEvent),
-    /// The connection-establishment trigger. Produced either by the optional
-    /// one-shot setup timer (the node-owned `setup_timer_producer`, spawned
-    /// only when a setup delay is configured) or pushed externally through the
-    /// public event intake. The node consults its connection-selection
-    /// strategy and dials the expected upstreams it does not already hold
-    /// (ADR 0018).
+    /// The node has **synced**: both registries' initial snapshots have been
+    /// applied, so the node is at/near the chain tip (ADR 0020). Folding it
+    /// transitions the node from `Syncing` to `Synced` and establishes
+    /// connections. Pushed once by the registry indexer after it has folded both
+    /// snapshots; it is the single readiness signal (the per-registry markers are
+    /// gone). Idempotent — a redundant `Synced` after the transition is a no-op.
+    Synced,
+    /// The connection-establishment **action**: the node consults its
+    /// connection-selection strategy and dials the expected upstreams it does
+    /// not already hold (ADR 0018). Invoked by the [`Synced`](Event::Synced)
+    /// transition, and also available directly through the public event intake
+    /// (tests, operator injection, a future epochal re-dial).
     ConnectionSetup,
     /// The graceful-teardown trigger, pushed by
     /// [`Node::shutdown`](crate::Node::shutdown). The node notifies every

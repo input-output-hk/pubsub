@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
@@ -17,9 +16,9 @@ use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
 use crate::peer::{BasicPeerDescriptor, PeerId};
 use crate::received::ReceivedDelivery;
 use crate::state::{apply, Effect, NodeState};
-use crate::subscription_registry::SubscriptionRegistry;
+use crate::subscription_registry::{MembershipEvent, SubscriptionRegistry};
 use crate::topic::TopicId;
-use crate::topic_registry::TopicRegistry;
+use crate::topic_registry::{TopicRegistry, TopicRegistryEvent};
 
 /// A network participant.
 ///
@@ -138,8 +137,6 @@ impl Node {
             return Err(NodeError::IdentityMismatch(self_id));
         }
 
-        let connection_setup_delay = config.connection_setup_delay;
-
         let mut handle = network.register(self_id).await?;
         let node_id = handle.id().clone();
         let rx = handle.take_receiver();
@@ -209,26 +206,28 @@ impl Node {
             producers: Vec::new(),
         };
 
-        // Three node-owned producers, all named async fns handed to
-        // `spawn_producer` and aborted on drop: the network mailbox, the
-        // subscription-registry reader (node-keyed `watch`), and the
-        // topic-registry reader (global `watch`). Each reader owns its registry
-        // `Arc` so its watch stays live for the node's lifetime.
+        // Two node-owned producers, both named async fns handed to
+        // `spawn_producer` and aborted on drop: the network mailbox and the
+        // registry indexer. The indexer is a *single* reader that follows both
+        // registry watches — the one chain follower a realistic deployment runs
+        // (ADR 0020, 2026-06-18). Owning both registry `Arc`s, it keeps the
+        // watches live for the node's lifetime.
+        //
+        // Cold-start ordering is intrinsic to the single reader (ADR 0020): it
+        // folds the topic snapshot before the membership snapshot, so a
+        // membership topic is evaluated against an already-warm registered set
+        // (strict drop is correct with no cross-stream ordering primitive). Once
+        // both snapshots are folded it pushes one `Synced` — the single
+        // readiness signal that transitions the node to `Synced` and dials.
         node.spawn_producer(move |queue| network_mailbox_loop(queue, rx));
         node.spawn_producer(move |queue| {
-            subscription_registry_reader_loop(queue, subscription_registry, node_id)
+            registry_indexer_loop(queue, subscription_registry, topic_registry, node_id)
         });
-        node.spawn_producer(move |queue| topic_registry_reader_loop(queue, topic_registry));
 
-        // The optional fourth producer: the one-shot setup timer, spawned only
-        // when a delay is configured. It fires a single `ConnectionSetup` event
-        // after the delay (giving the registry view time to converge), then
-        // returns; it is drop-aborted like every producer (ADR 0018). Unset by
-        // default, so autonomy is opt-in and scripted tests never race a timer.
-        if let Some(delay) = connection_setup_delay {
-            node.spawn_producer(move |queue| setup_timer_producer(queue, delay));
-        }
-
+        // Autonomous establishment is **event-driven**, not timer-driven: the
+        // indexer pushes `Synced` once both registry snapshots are folded, so the
+        // node dials when its membership view has converged. No wall-clock setup
+        // timer is armed (ADR 0020 supersedes 0018's timer).
         Ok(node)
     }
 
@@ -334,6 +333,18 @@ impl Node {
             .subscriptions_snapshot()
     }
 
+    /// Whether the node has **synced** — both registry snapshots have been
+    /// applied, so it is at/near the chain tip and has begun establishing
+    /// connections (ADR 0020). `false` while still replaying the registries at
+    /// startup. The observable `Syncing`/`Synced` lifecycle mode.
+    #[must_use]
+    pub fn is_synced(&self) -> bool {
+        self.state
+            .lock()
+            .expect("is_synced: state mutex poisoned")
+            .is_synced()
+    }
+
     /// Return a snapshot of this node's **upstream** connections — the
     /// `(peer, topic, state)` triples it requested as message sources, each
     /// either [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
@@ -433,19 +444,6 @@ async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect
     }
 }
 
-/// The optional one-shot setup-timer producer: sleeps for the configured
-/// delay, pushes a single [`Event::ConnectionSetup`], and returns.
-///
-/// Spawned via [`spawn_producer`](Node::spawn_producer) only when a delay is
-/// configured (so it is node-owned and drop-aborted); the delay lets the
-/// node's registry view converge before it dials (ADR 0018). It fires at most
-/// once per node lifetime — the autonomous topology is the single setup
-/// event's diff.
-async fn setup_timer_producer(queue: EventQueue, delay: Duration) {
-    tokio::time::sleep(delay).await;
-    queue.push(Event::ConnectionSetup);
-}
-
 /// The network mailbox producer: forwards each inbound frame from the
 /// network receiver onto the node's event queue.
 ///
@@ -462,58 +460,99 @@ async fn network_mailbox_loop(queue: EventQueue, mut rx: UnboundedReceiver<Routi
     }
 }
 
-/// The subscription-registry reader producer: opens the node-keyed
-/// [`watch`](SubscriptionRegistry::watch) and drains its [`MembershipWatch`]
-/// onto the node's event queue as `MembershipUpdate` events (the node folds
-/// them into its subscriptions + candidate sets). Holds the registry `Arc` so
-/// the watch's sender side stays alive — and thus the subscription stays live —
-/// for the node's lifetime; the task is aborted on drop.
-async fn subscription_registry_reader_loop<R: SubscriptionRegistry>(
+/// The registry indexer producer: the node's single follower of both registry
+/// watches, modelling the one chain indexer a realistic deployment runs (ADR
+/// 0020, 2026-06-18). A real indexer reads the chain once and has a single
+/// "caught up to tip" moment covering both the topic registry and the
+/// subscription list; this reader is its in-memory analogue over the two mock
+/// watches.
+///
+/// Each `watch()` returns a current-state **snapshot** plus a live-delta stream.
+/// The indexer folds the topic snapshot first (so a membership topic is
+/// evaluated against an already-warm registered set — strict drop, ADR 0020),
+/// then the membership snapshot, then pushes a single [`Event::Synced`]: the one
+/// readiness signal, which transitions the node to `Synced` and establishes
+/// connections. Thereafter it forwards live deltas from both watches until both
+/// close. There are no per-registry readiness markers — the snapshot/live split
+/// replaces them.
+///
+/// Owns both registry `Arc`s so the watches stay live for the node's lifetime;
+/// aborted on drop.
+async fn registry_indexer_loop<R: SubscriptionRegistry, T: TopicRegistry>(
     queue: EventQueue,
     subscription_registry: Arc<R>,
+    topic_registry: Arc<T>,
     node_id: PeerId,
 ) {
-    let mut watch = match subscription_registry.watch(node_id).await {
-        Ok(watch) => watch,
-        Err(error) => {
-            tracing::error!(
-                target: "pubsub_node::node",
-                %error,
-                "subscription-registry watch failed; node has no topics",
-            );
-            return;
+    // Topic snapshot first — warms the registered set before any membership
+    // event is folded (strict-drop ordering, intrinsic to this single reader).
+    // A watch-open failure degrades to an empty snapshot + no live stream; the
+    // node still reaches `Synced` (against whatever state exists).
+    let mut topic_watch = match topic_registry.watch().await {
+        Ok((snapshot, watch)) => {
+            for (topic, publishers) in snapshot {
+                queue.push(Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                    topic,
+                    publishers,
+                }));
+            }
+            Some(watch)
         }
-    };
-    while let Some(event) = watch.recv().await {
-        queue.push(Event::MembershipUpdate(event));
-    }
-    // `subscription_registry` is owned by this task so the watch's sender side
-    // stays alive for the loop; drop it explicitly when the task ends.
-    drop(subscription_registry);
-}
-
-/// The topic-registry reader producer: opens the global
-/// [`watch`](TopicRegistry::watch) and drains its [`TopicRegistryWatch`] onto
-/// the node's event queue as `TopicRegistryUpdate` events (the node folds them
-/// into its registered-topics projection, which gates the message accept-path).
-/// Holds the topic-registry `Arc` so the watch's sender side stays alive for the
-/// node's lifetime; the task is aborted on drop.
-async fn topic_registry_reader_loop<T: TopicRegistry>(queue: EventQueue, topic_registry: Arc<T>) {
-    let mut watch = match topic_registry.watch().await {
-        Ok(watch) => watch,
         Err(error) => {
             tracing::error!(
                 target: "pubsub_node::node",
                 %error,
                 "topic-registry watch failed; node has no registered topics",
             );
-            return;
+            None
         }
     };
-    while let Some(event) = watch.recv().await {
-        queue.push(Event::TopicRegistryUpdate(event));
+    let mut sub_watch = match subscription_registry.watch(node_id).await {
+        Ok((snapshot, watch)) => {
+            for (node, topics) in snapshot {
+                queue.push(Event::MembershipUpdate(MembershipEvent::Joined {
+                    node,
+                    topics,
+                }));
+            }
+            Some(watch)
+        }
+        Err(error) => {
+            tracing::error!(
+                target: "pubsub_node::node",
+                %error,
+                "subscription-registry watch failed; node has no topics",
+            );
+            None
+        }
+    };
+
+    // Both snapshots are folded → the node is synced. One readiness signal,
+    // which transitions to `Synced` and establishes connections (ADR 0020).
+    queue.push(Event::Synced);
+
+    // Live deltas: forward both streams until both close. The `if` guards keep a
+    // closed watch from being polled (no busy-loop).
+    let mut topic_open = topic_watch.is_some();
+    let mut sub_open = sub_watch.is_some();
+    while topic_open || sub_open {
+        tokio::select! {
+            event = topic_watch.as_mut().expect("topic_open implies Some").recv(), if topic_open => {
+                match event {
+                    Some(event) => queue.push(Event::TopicRegistryUpdate(event)),
+                    None => topic_open = false,
+                }
+            }
+            event = sub_watch.as_mut().expect("sub_open implies Some").recv(), if sub_open => {
+                match event {
+                    Some(event) => queue.push(Event::MembershipUpdate(event)),
+                    None => sub_open = false,
+                }
+            }
+        }
     }
-    // `topic_registry` is owned by this task so the watch's sender side stays
-    // alive for the loop; drop it explicitly when the task ends.
+    // Both registries are owned by this task so the watches' sender sides stay
+    // alive for the loop; drop them explicitly when the task ends.
     drop(topic_registry);
+    drop(subscription_registry);
 }

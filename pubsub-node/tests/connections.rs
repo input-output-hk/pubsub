@@ -374,10 +374,12 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
     );
 }
 
-// US1 / FR-006: the autonomous path — nodes constructed with a configured setup
-// delay dial on their own when the one-shot timer fires (no manual trigger).
+// The autonomous path (ADR 0020): nodes dial on their own once synced — the
+// registry indexer folds both registry snapshots, then pushes `Event::Synced`,
+// which transitions the node to `Synced` and establishes connections. No setup
+// timer, no manual trigger; the readiness signal is the trigger.
 #[tokio::test]
-async fn configured_timer_establishes_autonomously() {
+async fn readiness_establishes_autonomously() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let topic_registry = Arc::new(InMemoryTopicRegistry::new());
@@ -395,13 +397,9 @@ async fn configured_timer_establishes_autonomously() {
         .await
         .unwrap();
 
-    let with_delay = || NodeConfig {
-        peers: vec![],
-        connection_setup_delay: Some(Duration::from_millis(100)),
-    };
     let a = Node::new(
         peer("a"),
-        with_delay(),
+        NodeConfig::default(),
         network.clone(),
         alias_signer("a"),
         shared_test_verifier(),
@@ -413,7 +411,7 @@ async fn configured_timer_establishes_autonomously() {
     .expect("construct a");
     let b = Node::new(
         peer("b"),
-        with_delay(),
+        NodeConfig::default(),
         network.clone(),
         alias_signer("b"),
         shared_test_verifier(),
@@ -424,13 +422,24 @@ async fn configured_timer_establishes_autonomously() {
     .await
     .expect("construct b");
 
-    // No trigger_setup — the timers fire after the configured delay.
+    // No trigger_setup, no timer — each node dials once synced (the indexer
+    // folds both registry snapshots, then pushes `Event::Synced`).
     await_upstream_active(&a, &peer("b"), &t, TIMEOUT)
         .await
-        .expect("a dials b on its timer");
+        .expect("a dials b on sync");
     await_upstream_active(&b, &peer("a"), &t, TIMEOUT)
         .await
-        .expect("b dials a on its timer");
+        .expect("b dials a on sync");
+    // The `Syncing → Synced` lifecycle is observable: having established
+    // connections, both nodes report synced through the public getter.
+    assert!(
+        a.is_synced(),
+        "a is synced once it has established connections"
+    );
+    assert!(
+        b.is_synced(),
+        "b is synced once it has established connections"
+    );
 }
 
 // FR-024 / N-006: a duplicate registration on the same network surfaces the

@@ -10,7 +10,8 @@ use crate::error::ConfigError;
 use crate::topic::TopicId;
 
 use super::{
-    TopicRegistry, TopicRegistryControl, TopicRegistryError, TopicRegistryEvent, TopicRegistryWatch,
+    TopicRegistry, TopicRegistryControl, TopicRegistryError, TopicRegistryEvent,
+    TopicRegistryWatch, TopicSnapshot,
 };
 
 /// In-process topic registry: the mock source of truth for which topics
@@ -132,23 +133,23 @@ fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
 }
 
 impl TopicRegistry for InMemoryTopicRegistry {
-    async fn watch(&self) -> Result<TopicRegistryWatch, TopicRegistryError> {
+    async fn watch(&self) -> Result<(TopicSnapshot, TopicRegistryWatch), TopicRegistryError> {
         let (tx, rx) = unbounded_channel();
         let mut inner = self.inner.lock().unwrap_or_else(|_| lock_poisoned());
 
-        // Cold start, atomically under the lock (so no write is missed or
-        // double-delivered at the burst/live boundary): replay every currently
-        // registered topic as a `Registered` event, then register the
-        // subscriber so it receives subsequent live deltas.
-        for (topic, publishers) in &inner.topics {
-            let _ = tx.send(TopicRegistryEvent::Registered {
-                topic: topic.clone(),
-                publishers: publishers.clone(),
-            });
-        }
+        // Snapshot + live, atomically under the lock (so no write is missed or
+        // double-delivered at the snapshot/live boundary): capture every
+        // currently-registered topic as the snapshot, then register the
+        // subscriber so it receives only subsequent live deltas. The snapshot
+        // and the live stream do not overlap.
+        let snapshot: TopicSnapshot = inner
+            .topics
+            .iter()
+            .map(|(topic, publishers)| (topic.clone(), publishers.clone()))
+            .collect();
         inner.subscribers.push(tx);
 
-        Ok(TopicRegistryWatch::new(rx))
+        Ok((snapshot, TopicRegistryWatch::new(rx)))
     }
 }
 
@@ -230,20 +231,14 @@ mod tests {
         out
     }
 
-    fn registered_topics(events: &[TopicRegistryEvent]) -> BTreeSet<String> {
-        events
-            .iter()
-            .filter_map(|e| match e {
-                TopicRegistryEvent::Registered { topic, .. } => Some(topic.to_string()),
-                _ => None,
-            })
-            .collect()
+    fn snapshot_topics(snapshot: &TopicSnapshot) -> BTreeSet<String> {
+        snapshot.iter().map(|(t, _)| t.to_string()).collect()
     }
 
-    // ---- US1: cold-start burst ----
+    // ---- US1: cold-start snapshot ----
 
     #[tokio::test]
-    async fn cold_start_replays_all_registered_topics_with_publishers() {
+    async fn cold_start_snapshot_has_all_registered_topics_with_publishers() {
         let reg = InMemoryTopicRegistry::new();
         reg.set_topic(topic("weather"), pubs([b"k1"]))
             .await
@@ -253,31 +248,22 @@ mod tests {
             .unwrap();
         reg.set_topic(topic("chat"), pubs([])).await.unwrap(); // open
 
-        let mut watch = reg.watch().await.unwrap();
-        let burst = drain(&mut watch);
+        let (snapshot, _watch) = reg.watch().await.unwrap();
 
         let expected: BTreeSet<String> = ["weather", "sports", "chat"]
             .iter()
             .map(|s| (*s).to_string())
             .collect();
-        assert_eq!(registered_topics(&burst), expected);
+        assert_eq!(snapshot_topics(&snapshot), expected);
         // chat is present with an empty (open) publisher set — not absent.
-        let chat = burst.iter().find_map(|e| match e {
-            TopicRegistryEvent::Registered {
-                topic: t,
-                publishers,
-            } if t == &topic("chat") => Some(publishers),
-            _ => None,
-        });
+        let chat = snapshot
+            .iter()
+            .find_map(|(t, p)| (t == &topic("chat")).then_some(p));
         assert_eq!(chat, Some(&pubs([])));
         // weather carries exactly its one publisher.
-        let weather = burst.iter().find_map(|e| match e {
-            TopicRegistryEvent::Registered {
-                topic: t,
-                publishers,
-            } if t == &topic("weather") => Some(publishers.clone()),
-            _ => None,
-        });
+        let weather = snapshot
+            .iter()
+            .find_map(|(t, p)| (t == &topic("weather")).then(|| p.clone()));
         assert_eq!(weather, Some(pubs([b"k1"])));
     }
 
@@ -286,8 +272,8 @@ mod tests {
     #[tokio::test]
     async fn live_register_change_remove() {
         let reg = InMemoryTopicRegistry::new();
-        let mut watch = reg.watch().await.unwrap();
-        let _ = drain(&mut watch); // empty registry → empty burst
+        let (snapshot, mut watch) = reg.watch().await.unwrap();
+        assert!(snapshot.is_empty()); // empty registry → empty snapshot
 
         reg.set_topic(topic("news"), pubs([b"k3"])).await.unwrap();
         assert_eq!(
@@ -328,8 +314,7 @@ mod tests {
             .await
             .unwrap();
         reg.set_topic(topic("open"), pubs([])).await.unwrap();
-        let mut watch = reg.watch().await.unwrap();
-        let _ = drain(&mut watch); // burst
+        let (_snapshot, mut watch) = reg.watch().await.unwrap();
 
         reg.set_topic(topic("weather"), pubs([b"k1"]))
             .await
@@ -344,32 +329,28 @@ mod tests {
     async fn empty_publishers_is_distinct_from_removed() {
         let reg = InMemoryTopicRegistry::new();
         reg.set_topic(topic("t"), pubs([])).await.unwrap(); // registered open
-                                                            // A fresh watch sees t present (open).
-        let mut w1 = reg.watch().await.unwrap();
-        assert_eq!(
-            drain(&mut w1),
-            vec![TopicRegistryEvent::Registered {
-                topic: topic("t"),
-                publishers: pubs([]),
-            }]
-        );
+                                                            // A fresh watch's snapshot has t present (open).
+        let (s1, _w1) = reg.watch().await.unwrap();
+        assert_eq!(s1, vec![(topic("t"), pubs([]))]);
 
         reg.remove_topic(topic("t")).await.unwrap();
-        // A fresh watch now sees nothing for t.
-        let mut w2 = reg.watch().await.unwrap();
-        assert!(drain(&mut w2).is_empty());
+        // A fresh watch's snapshot now omits t entirely (empty snapshot).
+        let (s2, _w2) = reg.watch().await.unwrap();
+        assert!(s2.is_empty());
     }
 
-    // ---- US1: burst/live atomicity (FR-007) ----
+    // ---- US1: snapshot/live atomicity (FR-007) ----
 
     #[tokio::test]
     async fn watch_then_immediate_write_delivers_exactly_once() {
         let reg = InMemoryTopicRegistry::new();
-        let mut watch = reg.watch().await.unwrap(); // opened on empty registry
+        let (snapshot, mut watch) = reg.watch().await.unwrap(); // opened on empty registry
         reg.set_topic(topic("weather"), pubs([b"k1"]))
             .await
             .unwrap();
-        // The write appears exactly once (no gap, no duplicate from the burst).
+        // Empty registry → empty snapshot; the live write then appears exactly
+        // once on the watch (no gap, no duplicate at the snapshot/live boundary).
+        assert!(snapshot.is_empty());
         assert_eq!(
             drain(&mut watch),
             vec![TopicRegistryEvent::Registered {
@@ -384,8 +365,7 @@ mod tests {
     #[tokio::test]
     async fn dropping_a_watch_does_not_disturb_others() {
         let reg = InMemoryTopicRegistry::new();
-        let mut keep = reg.watch().await.unwrap();
-        let _ = drain(&mut keep);
+        let (_snapshot, mut keep) = reg.watch().await.unwrap();
         {
             let _ephemeral = reg.watch().await.unwrap();
         } // dropped here
@@ -408,25 +388,18 @@ mod tests {
     async fn from_file_loads_topics_and_publishers() {
         let reg = InMemoryTopicRegistry::from_file(Path::new("tests/fixtures/topic-registry.toml"))
             .expect("fixture loads");
-        let mut watch = reg.watch().await.unwrap();
-        let burst = drain(&mut watch);
+        let (snapshot, _watch) = reg.watch().await.unwrap();
         let expected: BTreeSet<String> = ["weather", "sports", "chat"]
             .iter()
             .map(|s| (*s).to_string())
             .collect();
-        assert_eq!(registered_topics(&burst), expected);
+        assert_eq!(snapshot_topics(&snapshot), expected);
         // weather has two publishers; sports + chat are open (empty).
-        for e in &burst {
-            if let TopicRegistryEvent::Registered {
-                topic: t,
-                publishers,
-            } = e
-            {
-                match t.as_str() {
-                    "weather" => assert_eq!(publishers.len(), 2),
-                    "sports" | "chat" => assert!(publishers.is_empty()),
-                    other => panic!("unexpected topic {other}"),
-                }
+        for (t, publishers) in &snapshot {
+            match t.as_str() {
+                "weather" => assert_eq!(publishers.len(), 2),
+                "sports" | "chat" => assert!(publishers.is_empty()),
+                other => panic!("unexpected topic {other}"),
             }
         }
     }

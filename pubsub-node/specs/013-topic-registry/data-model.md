@@ -2,6 +2,8 @@
 
 **Date**: 2026-06-11 | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md)
 
+> **Superseded by 014 (2026-06-18):** `TopicRegistry::watch()` no longer streams a cold-start `Registered` **burst**; it now returns a `(TopicSnapshot, TopicRegistryWatch)` pair (current state up front, then live deltas). The "cold-start burst" wording throughout this doc reflects 013's original as-built. See ADR 0020 (Amendment 2026-06-18) and `specs/014-registry-consistency/contracts/registry-consistency.md` §A for the current contract.
+
 New **public** types live in module `src/topic_registry/`. New node-side state is **crate-internal** (`pub(crate)`, `src/state.rs`). Existing public types (`TopicId`, `PublicKey`, `PublisherId`, `Event`, `Node`, `NodeError`) are reused; deltas are noted. The shape parallels 008's `src/subscription_registry/` data model.
 
 ## Formal-model grounding (`formal_spec/topic_registry/`)

@@ -33,10 +33,7 @@ async fn node_with_no_registry_entry_derives_empty_state() {
     let topic_registry = Arc::new(InMemoryTopicRegistry::new()); // empty — no registered topics
     let node = Node::new(
         peer("ghost"),
-        NodeConfig {
-            peers: vec![],
-            connection_setup_delay: None,
-        },
+        NodeConfig { peers: vec![] },
         network,
         alias_signer("ghost"),
         shared_test_verifier(),

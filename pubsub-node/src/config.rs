@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::str::FromStr;
-use std::time::Duration;
 
 use crate::error::ConfigError;
 use crate::peer::PeerId;
@@ -28,13 +27,6 @@ pub struct NodeConfig {
     /// The peer descriptors loaded from the TOML file, in declaration order.
     #[serde(default)]
     pub peers: Vec<PeerEntry>,
-    /// The optional one-shot connection-setup delay (already parsed from the
-    /// TOML `connection_setup_delay_ms` field by the loader). `None` — the
-    /// default — means no setup timer is armed and the node performs no
-    /// autonomous establishment. This is an in-memory value built at the loader
-    /// edge, not deserialized directly, so it is `#[serde(skip)]`.
-    #[serde(skip)]
-    pub connection_setup_delay: Option<Duration>,
 }
 
 // Shadow types used only by `load_node_config`. They let the loader
@@ -56,11 +48,6 @@ struct RawPeerEntry {
 struct RawNodeConfig {
     #[serde(default)]
     peers: Vec<RawPeerEntry>,
-    /// The one-shot connection-setup delay in milliseconds; absent ⇒ no timer
-    /// (the node performs no autonomous establishment). Converted to a
-    /// `Duration` by the loader.
-    #[serde(default)]
-    connection_setup_delay_ms: Option<u64>,
 }
 
 /// Load and validate a TOML node-config file.
@@ -98,8 +85,5 @@ pub fn load_node_config(path: &Path) -> Result<NodeConfig, ConfigError> {
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(NodeConfig {
-        peers,
-        connection_setup_delay: raw.connection_setup_delay_ms.map(Duration::from_millis),
-    })
+    Ok(NodeConfig { peers })
 }

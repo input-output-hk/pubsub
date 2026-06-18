@@ -26,20 +26,17 @@ fn peer(s: &str) -> PeerId {
     PeerId::from_str(s).expect("valid peer id")
 }
 
-// SC-003 + SC-004 + SC-010: a node subscribed to {weather, ghosttopic} with only
-// `weather` registered effectively subscribes to `weather` alone; a `weather`
-// message is accepted (no regression) and a `ghosttopic` one dropped. Registering
-// `ghosttopic` later makes it effective with no restart.
+// 014 SC-001/003/008/010: a node subscribed to {weather, ghosttopic} with only
+// `weather` registered **strict-drops** `ghosttopic` — it is not subscribed, not
+// a candidate, and cannot be connected. A `weather` message is accepted (no
+// regression). Registering `ghosttopic` alone does **not** auto-promote it (013
+// SC-004 retired); a fresh membership event after registration is required.
 #[tokio::test]
-async fn unregistered_subscription_topic_is_ignored_until_registered() {
+async fn unregistered_subscription_topic_is_strict_dropped() {
     let network = Arc::new(InMemoryNetwork::new());
     let subs = Arc::new(InMemorySubscriptionRegistry::new());
     let topics = Arc::new(InMemoryTopicRegistry::new());
 
-    // node-s subscribes both topics; node-b (the sender) is a member of both
-    // too, so s can connect to it on each — establishment uses the
-    // membership-derived set, not topic registration (the S7 rule), so s dials
-    // b on ghosttopic even while it is unregistered.
     subs.set_topics(
         peer("node-s"),
         [topic("weather"), topic("ghosttopic")]
@@ -65,58 +62,70 @@ async fn unregistered_subscription_topic_is_ignored_until_registered() {
     let s = node_sharing(&subs, &topics, &network, "node-s", &[]).await;
     let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
 
-    // ghosttopic is subscribed but not registered → excluded from the effective set.
+    // Strict drop: only the registered topic is effective.
     await_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
         .await
         .expect("only the registered topic is effective");
-    // Membership still folds into candidates regardless of the topic registry
-    // (SC-009: the projections are independent): s sees b as a weather candidate.
+    // Candidate gating: b is a candidate on weather only — never on the
+    // unregistered ghosttopic (the cross-registry invariant, 014).
     await_candidates(&s, &topic("weather"), &["node-b"], Duration::from_secs(1))
         .await
-        .expect("candidate set is unaffected by the topic registry");
+        .expect("weather candidate recorded");
+    assert!(
+        s.candidates(&topic("ghosttopic")).is_empty(),
+        "no candidate on an unregistered topic",
+    );
 
-    // Establishment preamble: s dials b on both topics it is a member of
-    // (ghosttopic establishes despite being unregistered — registration gates
-    // delivery, not the connection).
+    // Establish + deliver on weather; ghosttopic cannot establish (not
+    // subscribed) and a ghosttopic message is dropped.
     establish_upstreams(&s, &[&b], &topic("weather")).await;
-    establish_upstreams(&s, &[&b], &topic("ghosttopic")).await;
-
     let on = ping(topic("weather"), 1);
-    let off = ping(topic("ghosttopic"), 2);
     b.send(s.id(), on.clone()).await.expect("send weather");
-    b.send(s.id(), off).await.expect("send ghosttopic");
-
+    b.send(s.id(), ping(topic("ghosttopic"), 2))
+        .await
+        .expect("send ghosttopic");
     await_delivery(&s, b.id(), &on, Duration::from_secs(1))
         .await
-        .expect("registered weather message accepted (no regression, SC-010)");
-    tokio::time::sleep(Duration::from_millis(50)).await; // settle for any ghosttopic processing
+        .expect("registered weather message accepted (no regression)");
+    tokio::time::sleep(Duration::from_millis(50)).await; // settle
     assert_eq!(
         s.received_messages().len(),
         1,
         "ghosttopic is unregistered → dropped; only weather accepted",
     );
 
-    // Register ghosttopic → it becomes effective without restart, and a
-    // subsequent ghosttopic message is accepted.
+    // 014: registering ghosttopic ALONE does not auto-promote it (no SC-004).
     topics
         .set_topic(topic("ghosttopic"), BTreeSet::new())
         .await
         .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(
+        s.subscriptions().len(),
+        1,
+        "registration alone does not promote a previously-dropped subscription",
+    );
+
+    // A fresh membership event after registration brings it in (the chain
+    // follower's ordering, modelled here by re-emitting the entry).
+    subs.set_topics(peer("node-s"), [topic("weather")].into_iter().collect())
+        .await
+        .unwrap();
+    subs.set_topics(
+        peer("node-s"),
+        [topic("weather"), topic("ghosttopic")]
+            .into_iter()
+            .collect(),
+    )
+    .await
+    .unwrap();
     await_subscriptions(
         &s,
         &[topic("ghosttopic"), topic("weather")],
         Duration::from_secs(1),
     )
     .await
-    .expect("ghosttopic becomes effective once registered (SC-004)");
-
-    let now_ok = ping(topic("ghosttopic"), 3);
-    b.send(s.id(), now_ok.clone())
-        .await
-        .expect("send ghosttopic");
-    await_delivery(&s, b.id(), &now_ok, Duration::from_secs(1))
-        .await
-        .expect("ghosttopic message accepted once registered");
+    .expect("a fresh membership event after registration makes ghosttopic effective");
 }
 
 // SC-004 (remove direction): removing a topic from the registry stops the node

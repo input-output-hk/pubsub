@@ -1,10 +1,11 @@
 //! The topic registry — which topics legitimately exist and who may publish.
 //!
-//! A node derives its topic-registry state from a single **global** push stream
-//! opened with [`TopicRegistry::watch`]: the current set of registered topics
-//! replays first as a cold-start burst of [`TopicRegistryEvent::Registered`]
-//! (each carrying the topic's authorized publisher keys — an empty set meaning
-//! the topic is *open* to any publisher), then live deltas follow.
+//! A node derives its topic-registry state from a single **global**
+//! snapshot-plus-live stream opened with [`TopicRegistry::watch`]: the current
+//! set of registered topics is returned as a [`TopicSnapshot`] (each topic with
+//! its authorized publisher keys — an empty set meaning the topic is *open* to
+//! any publisher), and live deltas then follow on the returned
+//! [`TopicRegistryWatch`].
 //!
 //! The read trait [`TopicRegistry`] is what the node depends on, and is
 //! deliberately just `watch` — no point-read, and (unlike the subscription
@@ -28,10 +29,12 @@ use crate::topic::TopicId;
 mod in_memory;
 #[cfg(test)]
 mod test_support;
+mod topic_entry;
 
 pub use in_memory::InMemoryTopicRegistry;
 #[cfg(test)]
 pub(crate) use test_support::TopicRegistryScript;
+pub(crate) use topic_entry::TopicEntry;
 
 /// One topic-registry delta delivered on a [`TopicRegistryWatch`].
 ///
@@ -41,9 +44,9 @@ pub(crate) use test_support::TopicRegistryScript;
 #[non_exhaustive]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TopicRegistryEvent {
-    /// `topic` is a legitimately-registered topic; `publishers` are its
-    /// authorized keys (empty ⇒ open). Emitted during the cold-start replay
-    /// and for live registrations.
+    /// `topic` became a legitimately-registered topic; `publishers` are its
+    /// authorized keys (empty ⇒ open). A **live** registration after the
+    /// watch's snapshot (the snapshot carries already-registered topics).
     Registered {
         topic: TopicId,
         publishers: BTreeSet<PublicKey>,
@@ -57,6 +60,13 @@ pub enum TopicRegistryEvent {
     /// `topic` is no longer a registered topic.
     Removed { topic: TopicId },
 }
+
+/// A point-in-time snapshot of the registered topics, returned by
+/// [`TopicRegistry::watch`] ahead of the live delta stream: each registered
+/// topic paired with its authorized publisher keys (empty ⇒ open). Folding the
+/// snapshot warms the node's registered-topics projection before any live delta
+/// or membership event is applied.
+pub type TopicSnapshot = Vec<(TopicId, BTreeSet<PublicKey>)>;
 
 /// Single-consumer topic-registry stream handle. Mirrors `MembershipWatch` /
 /// `NetworkHandle`: it owns the receive half, is not `Clone`, and ends its
@@ -105,23 +115,25 @@ pub enum TopicRegistryError {
 /// real on-chain reader (feature 012) is a second generic impl of exactly this
 /// surface. The write surface is the separate [`TopicRegistryControl`].
 pub trait TopicRegistry: Send + Sync + 'static {
-    /// Open the **global** topic-registry watch through which a node derives its
-    /// topic-registry state from a single event stream.
+    /// Open the **global** topic-registry watch: returns a [`TopicSnapshot`] of
+    /// every currently-registered topic (with its authorized publishers) plus a
+    /// [`TopicRegistryWatch`] streaming subsequent live deltas
+    /// (`Registered`/`PublishersChanged`/`Removed`). The snapshot reflects the
+    /// registry at watch time; the live stream carries every change after it,
+    /// gap-free and duplicate-free (no overlap between the two).
     ///
     /// Unlike the subscription registry's node-keyed `watch(node)`, this takes
     /// no scoping argument: topic legitimacy is global, so the node folds the
-    /// whole registry. On open it replays a cold-start burst of
-    /// [`Registered`](TopicRegistryEvent::Registered) — one per currently-
-    /// registered topic, carrying its authorized publishers — then streams live
-    /// deltas (`Registered`/`PublishersChanged`/`Removed`). The burst and live
-    /// deltas form one gap-free, duplicate-free sequence.
+    /// whole registry.
     ///
     /// Returns a `Send` future (RPITIT, the `Send`-bounded shape ADR 0007 flags
     /// as the follow-up to `async fn` in traits) because the node-owned reader
     /// awaits it inside a spawned task.
     fn watch(
         &self,
-    ) -> impl std::future::Future<Output = Result<TopicRegistryWatch, TopicRegistryError>> + Send;
+    ) -> impl std::future::Future<
+        Output = Result<(TopicSnapshot, TopicRegistryWatch), TopicRegistryError>,
+    > + Send;
 }
 
 /// The operator/test write surface, extending [`TopicRegistry`].

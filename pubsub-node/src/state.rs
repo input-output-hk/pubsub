@@ -13,11 +13,11 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::connection::{ConnectionStrategy, UpstreamState};
-use crate::crypto::{PublicKey, Signer, Verifier};
+use crate::crypto::{Signer, Verifier};
 use crate::event::Event;
 use crate::message::{
     ConnectionAction, ConnectionMessage, Message, PlainConnection, SignedMessage,
@@ -26,7 +26,7 @@ use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
-use crate::topic_registry::TopicRegistryEvent;
+use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
 
 /// The node's full mutable state as one explicit value.
 ///
@@ -59,7 +59,7 @@ pub(crate) struct NodeState {
     /// subscription set — its message accept-filter — is `subscriptions`
     /// intersected with the keys here; a subscribed topic absent here is not yet
     /// (or no longer) a legitimate topic, so its traffic is dropped.
-    registered_topics: HashMap<TopicId, BTreeSet<PublicKey>>,
+    registered_topics: HashMap<TopicId, TopicEntry>,
     /// Upstream connections — those this node requested, serving as its message
     /// sources — keyed by `(peer, topic)`, each in an explicit
     /// [`UpstreamState`]. Written by the connection transitions (FR-001).
@@ -77,6 +77,11 @@ pub(crate) struct NodeState {
     /// verifier (the immutable service-handle slot). The transition reads it
     /// from the `ConnectionSetup` arm (ADR 0018).
     strategy: Arc<dyn ConnectionStrategy>,
+    /// Whether the node has **synced** — both registries' initial snapshots are
+    /// applied, so the node is at/near the chain tip (ADR 0020). `false` while
+    /// `Syncing`; set once by the `Synced` transition, which also establishes
+    /// connections. The behavioural mode marker the dial waits on.
+    synced: bool,
 }
 
 impl NodeState {
@@ -99,7 +104,15 @@ impl NodeState {
             downstream: HashSet::new(),
             signer,
             strategy,
+            synced: false,
         }
+    }
+
+    /// Whether the node has synced (both registry snapshots applied). `false`
+    /// while still replaying the registries at startup.
+    #[must_use]
+    pub(crate) fn is_synced(&self) -> bool {
+        self.synced
     }
 
     /// Snapshot of every recorded delivery, in processing order.
@@ -109,20 +122,26 @@ impl NodeState {
     }
 
     /// Snapshot of the node's subscription set — the actual message
-    /// accept-filter (unspecified order): the topics the node both declared
-    /// (its subscription-list entry) **and** that are registered (legitimate)
-    /// in the topic registry, i.e. `subscriptions ∩ registered_topics`. A
-    /// declared topic that is not a registered topic is excluded (it has no
-    /// effect — traffic on it is dropped). The declared set and the
-    /// registered-topics projection remain separate internal fields; only this
-    /// intersection is observable.
+    /// accept-filter (unspecified order). This is a **maintained** set: the
+    /// folds keep it a subset of the registered topics (strict drop on the
+    /// membership side, atomic cascade on a topic removal), so it is returned
+    /// directly — no read-time intersection. A topic here is always a
+    /// registered, legitimate topic.
     #[must_use]
     pub(crate) fn subscriptions_snapshot(&self) -> Vec<TopicId> {
-        self.subscriptions
-            .iter()
-            .filter(|topic| self.registered_topics.contains_key(*topic))
-            .cloned()
-            .collect()
+        self.subscriptions.iter().cloned().collect()
+    }
+
+    /// Whether `topic` is currently a registered (legitimate) topic.
+    #[cfg(test)]
+    pub(crate) fn is_registered(&self, topic: &TopicId) -> bool {
+        self.registered_topics.contains_key(topic)
+    }
+
+    /// The topics for which a candidate set is held (the candidate map's keys).
+    #[cfg(test)]
+    pub(crate) fn candidate_topics(&self) -> Vec<TopicId> {
+        self.candidates.keys().cloned().collect()
     }
 
     /// Snapshot of the candidate peers for `topic` (unspecified order; the
@@ -196,6 +215,7 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
+        Event::Synced => handle_synced(state),
         Event::ConnectionSetup => handle_connection_setup(state),
         Event::Shutdown => handle_shutdown(state),
     }
@@ -242,6 +262,21 @@ fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
     effects
 }
 
+/// Transition for the `Synced` signal — the node has replayed both registries'
+/// initial snapshots and is at/near the chain tip (ADR 0020).
+///
+/// Flips the node from `Syncing` to `Synced` (the behavioural-mode marker the
+/// dial waits on) and establishes connections once, on that rising edge. The
+/// registry indexer pushes `Synced` exactly once after folding both snapshots;
+/// the edge guard makes a redundant `Synced` a harmless no-op.
+fn handle_synced(state: &mut NodeState) -> Vec<Effect> {
+    if state.synced {
+        return Vec::new();
+    }
+    state.synced = true;
+    handle_connection_setup(state)
+}
+
 /// Build a control message signed by the node's own signer, with the node's
 /// own id as the carried emitter (FR-011 — the signature binds emitter, kind,
 /// and topic).
@@ -285,61 +320,109 @@ fn handle_shutdown(state: &mut NodeState) -> Vec<Effect> {
     effects
 }
 
-/// Transition for a topic-registry delta.
+/// Transition for a topic-registry delta — the **defensive** fold.
 ///
-/// Folds only the `registered_topics` projection (topic → authorized
-/// publishers): which topics are legitimate and who may publish to each. It does
-/// not touch `subscriptions` or `candidates` — each registry's handler owns its
-/// own field; the node's effective accept-filter is the intersection, read at
-/// message-acceptance time. Pure; returns no effects.
-// FR-011/FR-013; ADR 0016.
+/// Maintains the `registered_topics` projection (topic → authorized publishers,
+/// empty ⇒ open) as the source of truth for which topics legitimately exist. The
+/// fold validates rather than assumes: only `Registered` creates a topic; a
+/// `PublishersChanged` for a topic that is not currently registered is dropped
+/// (logged), not auto-created; a `Removed` **cascades atomically** — within this
+/// one fold it drops the topic from `subscriptions`, `candidates`, and both
+/// connection structures (`upstream`/`downstream`) too, so the maintained
+/// invariant `subscriptions/candidates ⊆ registered_topics` holds at rest with
+/// no inconsistent intermediate state and no connection survives for a topic
+/// that no longer legitimately exists. Pure; returns no effects.
+// ADR 0020 (amends 0016); FR-002/FR-008.
 fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent) -> Vec<Effect> {
     match event {
         TopicRegistryEvent::Registered { topic, publishers } => {
-            state.registered_topics.insert(topic, publishers);
+            state
+                .registered_topics
+                .insert(topic, TopicEntry::from_publishers(publishers));
         }
         TopicRegistryEvent::PublishersChanged {
             topic,
             added,
             removed,
         } => {
-            let entry = state.registered_topics.entry(topic).or_default();
-            for key in added {
-                entry.insert(key);
-            }
-            for key in &removed {
-                entry.remove(key);
+            // Defensive: only a Registered topic can have its publishers changed.
+            // A PublishersChanged for an unknown topic is an ordering anomaly —
+            // dropped, not auto-created (no `or_default`).
+            if let Some(entry) = state.registered_topics.get_mut(&topic) {
+                entry.apply_publishers_diff(added, &removed);
+            } else {
+                log_topic_not_registered(&state.self_id, &topic);
             }
         }
         TopicRegistryEvent::Removed { topic } => {
+            // Atomic cascade: the topic leaves the projection AND every structure
+            // keyed on it — subscriptions, candidates, and both connection roles
+            // — together, in this one fold under the lock. No partial state is
+            // observable, and no connection outlives the topic's legitimacy.
             state.registered_topics.remove(&topic);
+            state.subscriptions.remove(&topic);
+            state.candidates.remove(&topic);
+            state.upstream.retain(|(_, t), _| t != &topic);
+            state.downstream.retain(|(_, t)| t != &topic);
         }
     }
     Vec::new()
 }
 
-/// Transition for a subscription-registry membership delta.
+/// Operator-visibility log for a membership topic dropped because it is not a
+/// registered (legitimate) topic — the defensive enforcement of the cross-
+/// registry invariant. Logs are operator UX, never a test surface.
+// ADR 0020; FR-003b.
+fn log_topic_not_registered(self_id: &PeerId, topic: &TopicId) {
+    tracing::info!(
+        target: "pubsub_node::node",
+        event = "message_dropped",
+        cause = "topic_not_registered",
+        self_id = %self_id,
+        topic = %topic,
+    );
+}
+
+/// Transition for a subscription-registry membership delta — **strict drop**.
 ///
-/// The node derives **all** its registry state from this single stream: an
-/// event about the node's **own** id updates its subscription set (what it
-/// accepts on receive); an event about **any other** node updates the per-topic
-/// candidate set. The node starts with empty subscriptions and folds the
-/// `watch` stream (cold-start own entry + members, then live deltas) from
-/// empty. Pure; returns no effects.
-// FR-013/FR-015/FR-016/FR-018; ADR 0014.
+/// The node derives its membership-side state from this single stream: an event
+/// about the node's **own** id updates its subscription set; an event about
+/// **any other** node updates the per-topic candidate set. Both sides are gated
+/// on the registered-topics projection (the cross-registry invariant): a topic
+/// not currently registered is **dropped** — not admitted to `subscriptions`,
+/// not recorded as a `candidate` — and logged. There is no declared/pending
+/// buffer and no auto-promotion; under the chain follower's ordering (and the
+/// registry indexer folding the topic snapshot before the membership snapshot,
+/// see `crate::node`) a topic is registered before any membership event
+/// references it. The dial is triggered separately by `Event::Synced` once both
+/// snapshots are applied. Every arm returns no effects.
+// ADR 0020 (amends 0014); FR-001/FR-003/FR-003a.
 fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Vec<Effect> {
     match event {
         MembershipEvent::Joined { node, topics } => {
             if node == state.self_id {
-                // The node's own entry: this *is* its subscription set.
-                state.subscriptions = topics.into_iter().collect();
+                // The node's own entry *is* its subscription set — but only the
+                // registered topics (strict drop of unregistered ones).
+                let mut subscriptions = HashSet::new();
+                for topic in topics {
+                    if state.registered_topics.contains_key(&topic) {
+                        subscriptions.insert(topic);
+                    } else {
+                        log_topic_not_registered(&state.self_id, &topic);
+                    }
+                }
+                state.subscriptions = subscriptions;
             } else {
                 for topic in topics {
-                    state
-                        .candidates
-                        .entry(topic)
-                        .or_default()
-                        .insert(node.clone());
+                    if state.registered_topics.contains_key(&topic) {
+                        state
+                            .candidates
+                            .entry(topic)
+                            .or_default()
+                            .insert(node.clone());
+                    } else {
+                        log_topic_not_registered(&state.self_id, &topic);
+                    }
                 }
             }
         }
@@ -350,7 +433,11 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
         } => {
             if node == state.self_id {
                 for topic in added {
-                    state.subscriptions.insert(topic);
+                    if state.registered_topics.contains_key(&topic) {
+                        state.subscriptions.insert(topic);
+                    } else {
+                        log_topic_not_registered(&state.self_id, &topic);
+                    }
                 }
                 for topic in &removed {
                     state.subscriptions.remove(topic);
@@ -359,11 +446,15 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
                 }
             } else {
                 for topic in added {
-                    state
-                        .candidates
-                        .entry(topic)
-                        .or_default()
-                        .insert(node.clone());
+                    if state.registered_topics.contains_key(&topic) {
+                        state
+                            .candidates
+                            .entry(topic)
+                            .or_default()
+                            .insert(node.clone());
+                    } else {
+                        log_topic_not_registered(&state.self_id, &topic);
+                    }
                 }
                 for topic in &removed {
                     if let Some(peers) = state.candidates.get_mut(topic) {
@@ -621,13 +712,13 @@ fn handle_signed_message(
     }
 
     // Authorized-publisher: on a non-open topic the message's publisher key must
-    // be in the topic's authorized set; an open topic (empty set) accepts any
-    // publisher. Checked before signature verification — a cheap set lookup, so
-    // unauthorized-publisher traffic never pays the verification cost (FR-015,
-    // ADR 0016). The `registered?` check above guarantees the entry exists.
-    if let Some(authorized) = state.registered_topics.get(&signed.plain.topic) {
-        if !authorized.is_empty() && !authorized.contains(signed.plain.publisher_id.as_public_key())
-        {
+    // be authorized; an open topic accepts any publisher. Expressed via the
+    // declarative `TopicEntry` predicate. Checked before signature verification
+    // — a cheap lookup, so unauthorized-publisher traffic never pays the
+    // verification cost (FR-007; ADR 0020). The `registered?` check above
+    // guarantees the entry exists.
+    if let Some(entry) = state.registered_topics.get(&signed.plain.topic) {
+        if !entry.is_publisher_authorized(signed.plain.publisher_id.as_public_key()) {
             tracing::info!(
                 target: "pubsub_node::node",
                 event = "message_dropped",
@@ -693,10 +784,12 @@ mod tests {
     };
     use crate::connection::ConnectToAllCandidates;
     use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
+    use crate::crypto::PublicKey;
     use crate::crypto::{Signer, Timestamp};
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
     use crate::subscription_registry::MembershipScript;
     use crate::topic_registry::TopicRegistryScript;
+    use std::collections::BTreeSet;
 
     fn topic(s: &str) -> TopicId {
         TopicId::from_str(s).expect("valid topic id")
@@ -723,15 +816,27 @@ mod tests {
     }
 
     /// Construct a `NodeState` for `self_id`, seeding the verifier, the node's
-    /// own coherent signer, and the v1 strategy — the common test setup.
+    /// own coherent signer, and the v1 strategy — the common test setup. Each
+    /// `subscriptions` topic is also registered **open**, so it is a legitimate
+    /// topic: under the 014 cross-registry invariant, membership/candidate
+    /// gating and dialing only admit registered topics, so a connection or
+    /// delivery test that names a topic must have it registered. Tests that
+    /// specifically exercise *unregistered* topics build state explicitly and
+    /// register (or omit) topics themselves.
     fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
-        NodeState::new(
+        let mut state = NodeState::new(
             peer(self_id),
-            subscriptions,
+            subscriptions.clone(),
             Arc::new(TestVerifier),
             alias_signer(self_id),
             strategy(),
-        )
+        );
+        for t in subscriptions {
+            state
+                .registered_topics
+                .insert(t, TopicEntry::from_publishers(BTreeSet::new()));
+        }
+        state
     }
 
     fn sorted(mut v: Vec<TopicId>) -> Vec<TopicId> {
@@ -1032,18 +1137,13 @@ mod tests {
         );
         assert!(state.received_snapshot().is_empty(), "not subscribed yet");
 
-        // The node's own entry arrives on the membership stream → subscribes t1,
-        // and the topic registry registers t1 (legitimate) → t1 is now effective.
+        // Chain order (strict drop): t1 is registered FIRST, then the node's own
+        // entry arrives on the membership stream → admitted → t1 is now
+        // effective and subsequent messages are accepted.
+        apply(&mut state, reg_open("t1"));
         apply(
             &mut state,
             Event::MembershipUpdate(MembershipEvent::joined("self", ["t1"])),
-        );
-        apply(
-            &mut state,
-            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
-                topic: t1.clone(),
-                publishers: BTreeSet::new(),
-            }),
         );
         apply(
             &mut state,
@@ -1092,63 +1192,125 @@ mod tests {
         );
     }
 
-    // US2 / FR-014, SC-003/SC-004: a message on a subscribed-but-unregistered
-    // topic is dropped (topic_not_registered); registering the topic later makes
-    // it effective and the next message is accepted — no restart.
+    // ── 014: maintained invariant + strict drop + candidate gating + defensive
+    // fold + atomic cascade + the membership-readiness dial trigger. These
+    // assert the maintained-state model (not a read-time intersection). ──
+
+    /// Assert both subset invariants hold for the current state.
+    fn assert_invariants(state: &NodeState) {
+        for t in state.subscriptions_snapshot() {
+            assert!(
+                state.is_registered(&t),
+                "INV-1: subscription {t} not registered"
+            );
+        }
+        for t in state.candidate_topics() {
+            assert!(
+                state.is_registered(&t),
+                "INV-2: candidate topic {t} not registered"
+            );
+        }
+    }
+
+    // SC-001/SC-008/FR-003: a self-subscription naming an unregistered topic is
+    // strict-dropped (never enters the set); registering it later does NOT
+    // promote it — a fresh membership event is required.
     #[test]
-    fn unregistered_subscribed_topic_drops_then_accepts_after_registration() {
+    fn strict_drop_self_no_auto_promotion() {
         let mut state = node_state("self", HashSet::new());
-        // a is an Active upstream on ghosttopic — the gate is open; the topic
-        // registration is what gates delivery here.
-        with_active_upstream(&mut state, "a", "ghosttopic");
-        let s = signer();
+        apply(&mut state, reg_open("weather"));
         apply(
             &mut state,
-            Event::MembershipUpdate(MembershipEvent::joined("self", ["ghosttopic"])),
-        );
-        // Subscribed but not registered → dropped.
-        assert!(apply(
-            &mut state,
-            Event::MessageReceived {
-                from: peer("a"),
-                message: signed_ping(&s, topic("ghosttopic"), 1),
-            },
-        )
-        .is_empty());
-        assert!(
-            state.received_snapshot().is_empty(),
-            "unregistered topic → message dropped",
-        );
-        // Register it → now effective → accepted.
-        apply(&mut state, reg_open("ghosttopic"));
-        apply(
-            &mut state,
-            Event::MessageReceived {
-                from: peer("a"),
-                message: signed_ping(&s, topic("ghosttopic"), 2),
-            },
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["weather", "ghost"])),
         );
         assert_eq!(
-            state.received_snapshot().len(),
-            1,
-            "registered now → accepted"
+            sorted(state.subscriptions_snapshot()),
+            vec![topic("weather")],
+            "ghost is unregistered → strict-dropped, never in the set",
+        );
+        assert_invariants(&state);
+
+        apply(&mut state, reg_open("ghost"));
+        assert_eq!(
+            sorted(state.subscriptions_snapshot()),
+            vec![topic("weather")],
+            "registering ghost later must NOT auto-promote the dropped subscription",
+        );
+
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::topics_changed("self", ["ghost"], [])),
+        );
+        assert_eq!(
+            sorted(state.subscriptions_snapshot()),
+            vec![topic("ghost"), topic("weather")],
+        );
+        assert_invariants(&state);
+    }
+
+    // SC-008/FR-003a: candidate gating — a candidate (other node) on an
+    // unregistered topic is not recorded; candidate topics ⊆ registered.
+    #[test]
+    fn candidate_gating_drops_unregistered() {
+        let mut state = node_state("self", HashSet::new());
+        apply(&mut state, reg_open("weather"));
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("b", ["weather", "ghost"])),
+        );
+        assert_eq!(
+            state.candidates_snapshot(&topic("weather")),
+            vec![peer("b")]
+        );
+        assert!(
+            state.candidates_snapshot(&topic("ghost")).is_empty(),
+            "candidate on an unregistered topic is not recorded",
+        );
+        assert_invariants(&state);
+    }
+
+    // SC-010/FR-008: defensive fold — PublishersChanged for an unregistered
+    // topic does NOT create it (no or_default); only Registered creates.
+    #[test]
+    fn defensive_fold_publishers_changed_does_not_create() {
+        let mut state = node_state("self", HashSet::new());
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::PublishersChanged {
+                topic: topic("ghost"),
+                added: BTreeSet::from([pk(b"k1")]),
+                removed: BTreeSet::new(),
+            }),
+        );
+        assert!(
+            !state.is_registered(&topic("ghost")),
+            "PublishersChanged on an unknown topic must not create it",
         );
     }
 
-    // US2 / SC-004: removing a topic from the registry makes it ineffective.
+    // SC-002/SC-003/FR-002: atomic cascade — a Removed clears the topic from
+    // subscriptions, candidates, AND both connection structures together.
     #[test]
-    fn removing_a_topic_makes_it_ineffective() {
+    fn removed_cascades_to_subscriptions_candidates_and_connections() {
         let mut state = node_state("self", HashSet::new());
+        apply(&mut state, reg_open("weather"));
         apply(
             &mut state,
             Event::MembershipUpdate(MembershipEvent::joined("self", ["weather"])),
         );
-        assert!(
-            state.subscriptions_snapshot().is_empty(),
-            "not registered yet",
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("b", ["weather"])),
         );
-        apply(&mut state, reg_open("weather"));
-        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")],);
+        // Hold a connection in each role on weather.
+        with_active_upstream(&mut state, "b", "weather");
+        state.downstream.insert((peer("c"), topic("weather")));
+        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")]);
+        assert_eq!(
+            state.candidates_snapshot(&topic("weather")),
+            vec![peer("b")]
+        );
+
         apply(
             &mut state,
             Event::TopicRegistryUpdate(TopicRegistryEvent::Removed {
@@ -1157,7 +1319,96 @@ mod tests {
         );
         assert!(
             state.subscriptions_snapshot().is_empty(),
-            "removed → no longer effective",
+            "cascade: subscription cleared"
+        );
+        assert!(
+            state.candidates_snapshot(&topic("weather")).is_empty(),
+            "cascade: candidates cleared",
+        );
+        assert_eq!(
+            upstream_state(&state, "b", "weather"),
+            None,
+            "cascade: upstream cleared"
+        );
+        assert!(
+            !has_downstream(&state, "c", "weather"),
+            "cascade: downstream cleared",
+        );
+        assert!(
+            !state.is_registered(&topic("weather")),
+            "cascade: projection cleared"
+        );
+        assert_invariants(&state);
+    }
+
+    // ADR 0020 (2026-06-18 snapshot-reshape): `Event::Synced` is the single
+    // readiness signal — the registry indexer pushes it once both registry
+    // snapshots are folded. Folding it flips the node to `Synced` and dials, on
+    // the rising edge only.
+    #[test]
+    fn synced_transitions_and_dials_idempotently() {
+        let mut state = node_state("self", HashSet::new());
+        apply(&mut state, reg_open("t1"));
+        apply(&mut state, membership_joined("self", ["t1"]));
+        apply(&mut state, membership_joined("a", ["t1"]));
+
+        // Before sync: not synced, no dial.
+        assert!(!state.is_synced(), "node starts in Syncing");
+        assert_eq!(
+            upstream_state(&state, "a", "t1"),
+            None,
+            "no dial before sync"
+        );
+
+        // Synced flips the mode and dials the candidate once.
+        let effects = apply(&mut state, Event::Synced);
+        assert!(state.is_synced(), "Synced transitions the node to Synced");
+        assert_eq!(
+            upstream_state(&state, "a", "t1"),
+            Some(UpstreamState::AwaitingAccept),
+            "Synced dials the candidate",
+        );
+        assert_eq!(
+            request_sends(&effects, "self"),
+            vec![(peer("a"), topic("t1"))],
+            "Synced returns the dial Request",
+        );
+
+        // Idempotent: a redundant Synced after the transition is a no-op.
+        let effects = apply(&mut state, Event::Synced);
+        assert!(
+            effects.is_empty(),
+            "a redundant Synced re-emits nothing (edge-guarded)",
+        );
+    }
+
+    // (The 013 subscribe-before-register-then-promote test is retired with 013
+    // SC-004: under 014 strict drop there is no promotion. Strict drop +
+    // no-promotion is covered by `strict_drop_self_no_auto_promotion`, and the
+    // removal cascade by `removed_cascades_to_subscriptions_and_candidates`.)
+
+    // US2 / SC-004 (014): a topic removed from the registry cascades out of the
+    // subscription set (register-first, then remove).
+    #[test]
+    fn removing_a_topic_makes_it_ineffective() {
+        let mut state = node_state("self", HashSet::new());
+        // Chain order: register weather, then the node subscribes to it.
+        apply(&mut state, reg_open("weather"));
+        apply(
+            &mut state,
+            Event::MembershipUpdate(MembershipEvent::joined("self", ["weather"])),
+        );
+        assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")]);
+        // Removal cascades it out of the subscription set.
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Removed {
+                topic: topic("weather"),
+            }),
+        );
+        assert!(
+            state.subscriptions_snapshot().is_empty(),
+            "removed → cascaded out of the subscription set",
         );
     }
 
@@ -1405,6 +1656,7 @@ mod tests {
     #[test]
     fn self_is_never_dialed() {
         let mut state = node_state("self", HashSet::new());
+        apply(&mut state, reg_open("t1")); // legitimate topic (registered first)
         apply(&mut state, membership_joined("self", ["t1"])); // own entry → subscriptions
         apply(&mut state, membership_joined("a", ["t1"])); // real candidate
 
@@ -1540,29 +1792,30 @@ mod tests {
         assert!(effects.is_empty(), "no reply when requester not a member");
     }
 
-    // S7 PIN (mandatory): acceptance validates the membership-derived subscription
-    // set only — a Request for a topic the node is a member of but that is absent
-    // from the topic registry is accepted. Registration gates delivery, not
-    // acceptance (revisit-flagged).
+    // 014 closes the 004 S7 gap (N-015): under strict drop a topic the node has
+    // not registered is never admitted to its subscription/candidate sets, so a
+    // connection Request on an unregistered topic fails membership validation —
+    // acceptance is now consistent with registration (no connection establishes
+    // on a topic that does not legitimately exist). This supersedes 004's
+    // "accept on the membership-derived set despite no registration" pin.
     #[test]
-    fn request_accepted_for_membership_valid_but_unregistered_topic() {
-        let mut state = node_state("self", HashSet::from([topic("t1")]));
-        apply(&mut state, membership_joined("a", ["t1"]));
-        // Deliberately NO TopicRegistryUpdate for t1 — it is not a registered topic.
+    fn request_for_unregistered_topic_is_rejected() {
+        let mut state = node_state("self", HashSet::new()); // t1 deliberately unregistered
+        apply(&mut state, membership_joined("a", ["t1"])); // candidate-gated out
         assert!(
             state.subscriptions_snapshot().is_empty(),
-            "t1 is membership-declared but not registered → not in the effective filter",
+            "t1 unregistered → strict-dropped, not in the subscription set",
         );
 
         let effects = apply(&mut state, request_from("a", "t1"));
 
         assert!(
-            has_downstream(&state, "a", "t1"),
-            "acceptance succeeds on the membership-derived set despite no registration",
+            !has_downstream(&state, "a", "t1"),
+            "no connection established on an unregistered topic",
         );
-        assert_eq!(
-            accepted_sends(&effects, "self"),
-            vec![(peer("a"), topic("t1"))]
+        assert!(
+            accepted_sends(&effects, "self").is_empty(),
+            "request on an unregistered topic is not accepted",
         );
     }
 
@@ -1921,8 +2174,12 @@ mod tests {
             "entry intact",
         );
 
-        // (b) topic not registered — subscribed (membership) but unregistered.
-        let mut state = node_state("self", HashSet::from([topic("t1")]));
+        // (b) topic not registered — a subscribed-but-unregistered topic, which
+        // 014's invariant normally makes unreachable (strict drop); constructed
+        // directly here to confirm the receive-path registration guard still
+        // drops (no severance) defensively if the invariant is ever violated.
+        let mut state = node_state("self", HashSet::new());
+        state.subscriptions.insert(topic("t1")); // bypass strict drop; t1 left unregistered
         with_active_upstream(&mut state, "b", "t1");
         let effects = apply(&mut state, tampered_payload_from("b", "t1", 1));
         assert!(

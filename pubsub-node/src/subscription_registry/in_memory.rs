@@ -10,8 +10,8 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 use super::{
-    MembershipEvent, MembershipWatch, SubscriptionRegistry, SubscriptionRegistryControl,
-    SubscriptionRegistryError,
+    MembershipEvent, MembershipSnapshot, MembershipWatch, SubscriptionRegistry,
+    SubscriptionRegistryControl, SubscriptionRegistryError,
 };
 
 /// In-process subscription list: the mock source of truth for node membership.
@@ -113,7 +113,10 @@ fn lock_poisoned() -> ! {
 }
 
 impl SubscriptionRegistry for InMemorySubscriptionRegistry {
-    async fn watch(&self, node: PeerId) -> Result<MembershipWatch, SubscriptionRegistryError> {
+    async fn watch(
+        &self,
+        node: PeerId,
+    ) -> Result<(MembershipSnapshot, MembershipWatch), SubscriptionRegistryError> {
         let (tx, rx) = unbounded_channel();
         let mut inner = self.inner.lock().unwrap_or_else(|_| lock_poisoned());
 
@@ -121,14 +124,12 @@ impl SubscriptionRegistry for InMemorySubscriptionRegistry {
         // the node then derives an empty subscription set and no candidates.)
         let own_topics = inner.membership.get(&node).cloned().unwrap_or_default();
 
-        // Cold start, atomically under the lock (so no write is missed or
-        // double-delivered at the burst/live boundary):
+        // Snapshot + live, atomically under the lock (so no write is missed or
+        // double-delivered at the snapshot/live boundary):
         //   1. the node's own entry first — the node folds this into its
-        //      subscription set;
-        let _ = tx.send(MembershipEvent::Joined {
-            node: node.clone(),
-            topics: own_topics.clone(),
-        });
+        //      subscription set (present even when empty, so it derives an empty
+        //      set rather than nothing);
+        let mut snapshot: MembershipSnapshot = vec![(node.clone(), own_topics.clone())];
         //   2. then the current members of those topics (scoped) — candidates.
         for (member, member_topics) in &inner.membership {
             if *member == node {
@@ -137,21 +138,19 @@ impl SubscriptionRegistry for InMemorySubscriptionRegistry {
             let scoped: BTreeSet<TopicId> =
                 member_topics.intersection(&own_topics).cloned().collect();
             if !scoped.is_empty() {
-                let _ = tx.send(MembershipEvent::Joined {
-                    node: member.clone(),
-                    topics: scoped,
-                });
+                snapshot.push((member.clone(), scoped));
             }
         }
         // Live deltas are fanned out scoped to the node's topics. (Re-scoping
         // when the node's *own* entry changes at runtime is deferred to 012;
-        // the watched set is the node's topics at watch time.)
+        // the watched set is the node's topics at watch time.) The subscriber is
+        // registered after the snapshot is captured, so the two do not overlap.
         inner.subscribers.push(Subscriber {
             topics: own_topics,
             tx,
         });
 
-        Ok(MembershipWatch::new(rx))
+        Ok((snapshot, MembershipWatch::new(rx)))
     }
 }
 
@@ -254,14 +253,8 @@ mod tests {
             .collect()
     }
 
-    fn joined_nodes(events: &[MembershipEvent]) -> BTreeSet<String> {
-        events
-            .iter()
-            .filter_map(|e| match e {
-                MembershipEvent::Joined { node, .. } => Some(node.to_string()),
-                _ => None,
-            })
-            .collect()
+    fn snapshot_nodes(snapshot: &MembershipSnapshot) -> BTreeSet<String> {
+        snapshot.iter().map(|(n, _)| n.to_string()).collect()
     }
 
     fn drain(watch: &mut MembershipWatch) -> Vec<MembershipEvent> {
@@ -286,13 +279,10 @@ mod tests {
         reg.set_topics(peer("a"), topics(["t1", "t2"]))
             .await
             .unwrap();
-        // Watching as `a`, the cold-start head is a's own entry — its id and its
+        // Watching as `a`, the snapshot head is a's own entry — its id and its
         // (upserted) topics, exactly what a node folds into its subscription set.
-        let mut watch = reg.watch(peer("a")).await.unwrap();
-        assert_eq!(
-            drain(&mut watch),
-            vec![MembershipEvent::joined("a", ["t1", "t2"])]
-        );
+        let (snapshot, _watch) = reg.watch(peer("a")).await.unwrap();
+        assert_eq!(snapshot, vec![(peer("a"), topics(["t1", "t2"]))]);
     }
 
     #[tokio::test]
@@ -302,8 +292,7 @@ mod tests {
         // absent (unregistered) entry is a *first registration* (Joined).
         let reg = InMemorySubscriptionRegistry::new();
         reg.set_topics(peer("w"), topics(["t1"])).await.unwrap();
-        let mut watch = reg.watch(peer("w")).await.unwrap();
-        let _ = drain(&mut watch); // w's own entry; no members of t1 yet
+        let (_snapshot, mut watch) = reg.watch(peer("w")).await.unwrap(); // w's own entry; no members of t1 yet
 
         // Registered on t1, then emptied — the entry is retained.
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
@@ -327,15 +316,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn watch_of_unregistered_node_replays_only_empty_self() {
-        // No entry ⇒ the cold-start burst is just the node's own empty `Joined`
-        // (so it derives an empty subscription set and no candidates).
+    async fn watch_of_unregistered_node_snapshots_only_empty_self() {
+        // No entry ⇒ the snapshot is just the node's own empty entry (so it
+        // derives an empty subscription set and no candidates).
         let reg = InMemorySubscriptionRegistry::new();
-        let mut watch = reg.watch(peer("ghost")).await.unwrap();
-        assert_eq!(
-            drain(&mut watch),
-            vec![MembershipEvent::joined("ghost", [])]
-        );
+        let (snapshot, _watch) = reg.watch(peer("ghost")).await.unwrap();
+        assert_eq!(snapshot, vec![(peer("ghost"), topics([]))]);
     }
 
     #[tokio::test]
@@ -344,15 +330,12 @@ mod tests {
             "tests/fixtures/subscription-list.toml",
         ))
         .expect("fixture loads");
-        // node-b loaded with {t1, t2}: its own watch head reports them.
-        let mut watch_b = reg.watch(peer("node-b")).await.unwrap();
-        assert!(drain(&mut watch_b).contains(&MembershipEvent::joined("node-b", ["t1", "t2"])));
-        // node-d absent from the file: its head is an empty self `Joined`.
-        let mut watch_d = reg.watch(peer("node-d")).await.unwrap();
-        assert_eq!(
-            drain(&mut watch_d),
-            vec![MembershipEvent::joined("node-d", [])]
-        );
+        // node-b loaded with {t1, t2}: its own snapshot head reports them.
+        let (snapshot_b, _wb) = reg.watch(peer("node-b")).await.unwrap();
+        assert!(snapshot_b.contains(&(peer("node-b"), topics(["t1", "t2"]))));
+        // node-d absent from the file: its snapshot is an empty self entry.
+        let (snapshot_d, _wd) = reg.watch(peer("node-d")).await.unwrap();
+        assert_eq!(snapshot_d, vec![(peer("node-d"), topics([]))]);
     }
 
     #[test]
@@ -398,17 +381,14 @@ mod tests {
             .unwrap();
         reg.set_topics(peer("c"), topics(["t2"])).await.unwrap();
 
-        // Watch as `a` (own topics {t1}): cold start is a's own entry first,
+        // Watch as `a` (own topics {t1}): snapshot is a's own entry first,
         // then members of {t1} (b); c (t2-only) is absent.
-        let mut watch = reg.watch(peer("a")).await.unwrap();
-        let burst = drain(&mut watch);
+        let (snapshot, _watch) = reg.watch(peer("a")).await.unwrap();
         let expected: BTreeSet<String> = ["a", "b"].iter().map(|s| (*s).to_string()).collect();
-        assert_eq!(joined_nodes(&burst), expected);
+        assert_eq!(snapshot_nodes(&snapshot), expected);
         // a's own entry reports its topics; the member b is scoped to {t1}.
-        for e in &burst {
-            if let MembershipEvent::Joined { topics: t, .. } = e {
-                assert_eq!(t, &topics(["t1"]));
-            }
+        for (_, t) in &snapshot {
+            assert_eq!(t, &topics(["t1"]));
         }
     }
 
@@ -419,8 +399,7 @@ mod tests {
         reg.set_topics(peer("w"), topics(["t1", "t2"]))
             .await
             .unwrap();
-        let mut watch = reg.watch(peer("w")).await.unwrap();
-        let _ = drain(&mut watch); // cold start: w's own entry, no members yet
+        let (_snapshot, mut watch) = reg.watch(peer("w")).await.unwrap(); // snapshot: w's own entry, no members yet
 
         reg.set_topics(peer("d"), topics(["t1"])).await.unwrap();
         assert_eq!(
@@ -443,8 +422,7 @@ mod tests {
     async fn changes_outside_watched_topics_are_not_delivered() {
         let reg = InMemorySubscriptionRegistry::new();
         reg.set_topics(peer("w"), topics(["t1"])).await.unwrap();
-        let mut watch = reg.watch(peer("w")).await.unwrap();
-        let _ = drain(&mut watch); // w's own entry
+        let (_snapshot, mut watch) = reg.watch(peer("w")).await.unwrap(); // w's own entry
 
         // c is only on t2; a watcher of {t1} sees nothing.
         reg.set_topics(peer("c"), topics(["t2"])).await.unwrap();
@@ -460,8 +438,7 @@ mod tests {
         let reg = InMemorySubscriptionRegistry::new();
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap();
         reg.set_topics(peer("w"), topics(["t1"])).await.unwrap();
-        let mut watch = reg.watch(peer("w")).await.unwrap();
-        let _ = drain(&mut watch); // w's own entry + member a
+        let (_snapshot, mut watch) = reg.watch(peer("w")).await.unwrap(); // snapshot: w's own entry + member a
 
         reg.set_topics(peer("a"), topics(["t1"])).await.unwrap(); // identical → no event
         assert!(drain(&mut watch).is_empty());
