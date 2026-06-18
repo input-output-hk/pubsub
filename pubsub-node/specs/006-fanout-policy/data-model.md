@@ -45,7 +45,7 @@ pub struct ForwardToAll;
 
 `ForwardToAll::targets` returns every `peer` where `(peer, topic) ∈ downstream` and `Some(peer.clone()) != exclude.cloned()`. Order unspecified (set iteration). Pure, synchronous, no state. Mirrors `connection::{ConnectionStrategy, ConnectToAllCandidates}`.
 
-A `#[cfg(test)]` `fanout::test_support` module holds a no-op strategy (`targets` returns `vec![]`) for suites where fan-out is irrelevant noise — never compiled into the production surface.
+A `#[cfg(test)]` `fanout::test_support` module holds a no-op strategy (`ForwardToNobody`, `targets` returns `vec![]`) — never compiled into the production surface. Being `cfg(test)`, it is **invisible to integration crates** in `tests/` (compiled out when the crate is a dependency), so it is usable only by **in-crate unit tests**; integration connection-lifecycle suites use the public `ForwardToAll` (fan-out does not perturb their assertions).
 
 ### 1.3 `NodeState` new fields (`src/state.rs`)
 

@@ -86,7 +86,7 @@ tests/
 ├── common/mod.rs        # + fanout-strategy arg in the shared node constructor;
 │                        #   partial-topology (scripted handshake) + await-relay helpers
 ├── <dissemination suites>   # reworked: assert forwarding — full-mesh dedup + scripted line relay
-└── connections.rs       # touched only for the constructor's new arg (no-op fanout strategy)
+└── connections.rs       # touched only for the constructor's new arg (public ForwardToAll; the cfg(test) no-op is invisible to integration crates)
 ```
 
 **Structure Decision**: single-crate layout unchanged; one new module (`src/fanout.rs`) for the fan-out domain + strategy + test no-op, keeping `state.rs` focused on transition arms — mirrors how `src/connection.rs` hosts the connection seam.

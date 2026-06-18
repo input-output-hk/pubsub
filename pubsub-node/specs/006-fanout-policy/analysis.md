@@ -61,7 +61,9 @@ Single pass reached zero blocking findings. This follows three converged checkli
 
 Deep pass after Phases 1–2 (T001–T006) were implemented and the branch rebased onto merged 014. Verified the **reconciled artifacts against the actual code** (`src/{state,fanout,received,event,node,lib}.rs`, `tests/dissemination.rs`) and confirmed the 014-interaction deferrals (N-011/N-017/N-018/N-019) are uncontradicted.
 
-### Outcome: GO / **CONTINUE** — 0 CRITICAL, 0 HIGH, 1 MEDIUM, 1 LOW
+### Outcome: GO / **CONTINUE** — 0 CRITICAL, 0 HIGH, 2 MEDIUM, 1 LOW
+
+> **Addendum (2026-06-18, from the implementing session's closing notes):** A2 below was surfaced by the session that implemented Phases 1–2 and missed by this analyze pass's first read — recorded and resolved here.
 
 The feature is self-consistent across spec/plan/tasks/code on the implemented surface; two documentation tidy-ups (below) and no behavior change. The continue-vs-revert evidence (part E) strongly favors **continuing** from the reconciled code.
 
@@ -90,7 +92,8 @@ US2 (T007–T009) and US3 (T010–T012) are unaffected: 014 changed the registry
 | ID | Severity | Location | Summary | Recommendation |
 |----|----------|----------|---------|----------------|
 | A1 | MEDIUM | tasks.md T003 vs spec US1-AS4 + code | T003 enumerates **four** publish-drop scenarios incl. "not-registered", but the implemented test has **three** (the not-registered case was deleted as unreachable under 014's invariant) and spec US1-AS4 also lists only three (not-subscribed / unauthorized / signature). Tasks wording is stale. | Update T003 to three scenarios; note the `topic_not_registered` guard is defensive-under-014 (unreachable on the publish path, not unit-tested there). |
-| D1 | LOW | IMPLEMENTATION_NOTES N-018 | N-018 names acceptance + receive as the `synced`-ungated paths but not the **publish** path; `publish` while `!synced` is the same class (drops `topic_not_subscribed` against cold `subscriptions`). | Extend N-018's scope to name the publish path (benign, same rationale) — one line. |
+| A2 | MEDIUM | spec/research/data-model/quickstart/plan/tasks T015 vs code | Six artifacts said connection-lifecycle **integration** suites inject the `fanout::test_support` no-op (`ForwardToNobody`), but it is `#[cfg(test)] pub(crate)` — compiled out when the crate is a dependency, so **invisible to `tests/` crates**. The intended injection is impossible (and unnecessary: `connections.rs` is green with the public `ForwardToAll`). `ForwardToNobody` is also currently **unused**. | **Resolved**: corrected all six artifacts — integration suites use public `ForwardToAll`; the cfg(test) no-op is an in-crate unit-test affordance only, remove if unused by end of Phase 5. Verbatim spec Input flagged as superseded. |
+| D1 | LOW | IMPLEMENTATION_NOTES N-018 | N-018 names acceptance + receive as the `synced`-ungated paths but not the **publish** path; `publish` while `!synced` is the same class (drops `topic_not_subscribed` against cold `subscriptions`). | **Resolved**: N-018 scope extended to name the publish path. |
 
 ### (E) Continue-vs-revert evidence
 
