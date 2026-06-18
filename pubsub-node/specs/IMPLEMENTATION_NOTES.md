@@ -259,3 +259,23 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Why deferred**: domain separation is a **canonical-encoding** concern and belongs with the same decision as the CBOR-canonical swap, i.e. the first real serialization / cross-language consumer — exactly N-004's milestone. Introducing a hand-rolled tag now would be re-specified under the CBOR scheme anyway and would amend the protocol layout docs (ADR 0010, contracts §1.1) for a property that is not load-bearing at PoC.
 
 **Trigger to revisit**: with **N-004** (canonical encoding swap) — feature **009** (TCP transport) or the first cross-language publisher/verifier, and/or **011** (real crypto). At that point the domain tag rides on the canonical scheme: the signed bytes for each message kind must be unambiguously self-describing so cross-protocol signature reuse fails by construction, not by layout coincidence.
+
+## N-017 — Topic-removal cascade tears down connections without notifying peers
+
+**Surfaced during**: 014-registry-consistency PR review (2026-06-18). Relates to ADR 0020's atomic cascade (014 FR-002/FR-010).
+
+**Question**: `handle_topic_registry_update`'s `Removed` arm clears the topic from `subscriptions`, `candidates`, `upstream`, and `downstream` in one fold, but returns no `Effect` — no `ConnectionAction::Terminated` is sent to the affected peers. A downstream peer keeps believing it holds a live connection and may keep forwarding on the topic; an upstream peer is never told this node has stopped consuming. This is asymmetric with `handle_shutdown`, which emits `Terminated` for every entry.
+
+**Working answer (014 scope)**: **Silent local teardown.** No delivery-correctness impact — now-unregistered traffic is dropped at the receive path's `topic_not_registered` gate — but peer state goes stale. Consistent with 004-connections' accepted "abrupt path sends nothing" stance ([[N-012]]); v1 carries no liveness/notification obligation on removal.
+
+**Trigger to revisit**: the **dynamic connection lifecycle** work — when a re-establish / garbage-collect mechanism (a timer or other) is added. Decide whether topic-removal teardown should emit `Terminated` to downstream (and cancel pending upstream `Request`s), reusing the shutdown notice path, or whether peer-side GC makes notification unnecessary.
+
+## N-018 — Readiness (`synced`) gates dialing but not acceptance / receive
+
+**Surfaced during**: 014-registry-consistency PR review (2026-06-18). Relates to ADR 0020's `Syncing → Synced` readiness lifecycle.
+
+**Question**: the `synced` flag gates the node's **own dialing** (`handle_synced` → `handle_connection_setup`) but is not consulted by `handle_connection_request` (acceptance) or the message receive path. Because the registry indexer and the network mailbox are independent producers on the single FIFO queue, an inbound `Request` that lands before the registry snapshots are folded is evaluated against cold `subscriptions`/`candidates` and silently rejected (`membership_validation_failed`), with no retry hint or deferral. The node knows it is still syncing but applies that knowledge only to dialing.
+
+**Working answer (014 scope)**: **Readiness scoped to dialing only.** Invisible in the test suite (registries are populated before `Node::new` and triggers are deterministic, so snapshots always fold first). Not a regression — pre-014 there was no readiness notion and the same cold-state race existed. Accepted v1 state.
+
+**Trigger to revisit**: the **dynamic connection lifecycle** work (re-establish / GC). When peers re-dial on a timer an early rejection self-heals; decide at that point whether acceptance (and the receive path) should also gate on `synced` — defer or reject-with-retry while `!synced` — or whether peer re-dial makes it moot.
