@@ -289,3 +289,13 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Working answer (006 / current scope)**: **No teardown** — connections on a self-unsubscribed topic are retained. No delivery-correctness impact: inbound payload on the topic is dropped at the receive path's `topic_not_subscribed` gate, and the node will not publish on it (publish requires subscription), so a retained downstream is never fanned to. Consistent with the add-only, no-removal stance of [[N-011]] (selection only adds; removal is dynamic-connection work) and the stale-entry posture of [[N-012]]. The asymmetry with the topic-`Removed` cascade is deliberate-by-omission — documented here rather than reconciled now, to avoid touching the established connection structures outside the dynamic-connections feature.
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]]). When selection gains a remove side, decide whether a self-unsubscribe should cascade into `upstream`/`downstream` (matching the topic-`Removed` cascade) and whether it emits `Terminated`, so the two membership-loss paths converge on one teardown rule.
+
+## N-020 — `Synced` atomically triggers dialing (readiness coupled to establishment)
+
+**Surfaced during**: 006-fanout-policy (US2 fan-out relay). Relates to ADR 0020's `Syncing → Synced` lifecycle and [[N-018]] (readiness gates dialing, not acceptance/receive).
+
+**Question**: the `Synced` readiness transition runs `handle_connection_setup` atomically, so reaching readiness and dialing the connection policy's full expected-upstream set are a single, inseparable step — a node cannot become ready without immediately dialing. Should readiness and establishment be separable?
+
+**Working answer (current scope)**: **Keep coupled.** Autonomous startup wants readiness to trigger the dial, and `Event::ConnectionSetup` remains separately injectable for any caller that needs to dial deliberately, so nothing is blocked. No change.
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]] / [[N-018]] / [[N-019]] — the connection-lifecycle cluster). Reconsider whether `Synced` should only flip the readiness flag and emit `Event::ConnectionSetup` as a separate queued event, decoupling readiness from automatic dialing.
