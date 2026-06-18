@@ -56,3 +56,58 @@ All 17 tasks trace to an artifact (plan rows, R1–R9, data-model, contracts, AD
 ### Convergence
 
 Single pass reached zero blocking findings. This follows three converged checklist passes (traceability 4→0, then 1→0) that had already tightened the acceptance scenarios, so the cross-artifact surface entered analyze clean. No second analyze session required pre-implementation; the constitution-valued **post-implementation** analyze pass (verify artifact claims against code — lib.rs re-exports vs contracts §5) is chartered as task T016 during `/speckit-implement`.
+
+## Session 2 — 2026-06-18 (post-implementation of Phases 1–2, post-014 rebase)
+
+Deep pass after Phases 1–2 (T001–T006) were implemented and the branch rebased onto merged 014. Verified the **reconciled artifacts against the actual code** (`src/{state,fanout,received,event,node,lib}.rs`, `tests/dissemination.rs`) and confirmed the 014-interaction deferrals (N-011/N-017/N-018/N-019) are uncontradicted.
+
+### Outcome: GO / **CONTINUE** — 0 CRITICAL, 0 HIGH, 1 MEDIUM, 1 LOW
+
+The feature is self-consistent across spec/plan/tasks/code on the implemented surface; two documentation tidy-ups (below) and no behavior change. The continue-vs-revert evidence (part E) strongly favors **continuing** from the reconciled code.
+
+### (A) Artifact ↔ code fidelity — PASS
+
+- `fanout.rs` (`FanoutStrategy` trait + `ForwardToAll`) matches data-model §1.2 / contracts §2.2; the `cfg(test)` no-op (`ForwardToNobody`) is crate-internal and **not** re-exported (R7 / contracts §5). ✅
+- `received.rs` (`Origin { Local, Peer }`, `ReceivedDelivery.origin`) matches §1.1 / §5; `event.rs` `Event::Publish(SignedMessage)`; `node.rs` `publish` (fire-and-forget) + `Node::new` `fanout_strategy` param + `received_messages` getter; `lib.rs` re-exports `FanoutStrategy`/`ForwardToAll`/`Origin`/`ReceivedDelivery`. All match contracts §5. ✅
+- Rebase-reconciliation items: `validate_dissemination` authorization now uses `TopicEntry::is_publisher_authorized` (014) — consistent and noted in data-model; `node_state` auto-registers subscription topics — noted; deleted publish-drop "subscribed-but-unregistered" case — see A1.
+
+### (B) DONE stories under 014 — HOLD
+
+US1 (publish + first-hop fan-out) and the Phase-1 scaffold are sound under 014. `Origin`/`FanoutStrategy`/`Event::Publish`/dedup-seam are orthogonal to the registry rework. No US1 acceptance scenario assumed subscribe-without-register — US1 AS4 lists exactly three drop causes (not-subscribed / unauthorized / signature), already consistent with 014 and with the code. The defensive `topic_not_registered` guard is unreachable on the subscribed path under the invariant but harmless (matches 014's own receive path).
+
+### (C) PENDING stories under 014 — HOLD
+
+US2 (T007–T009) and US3 (T010–T012) are unaffected: 014 changed the registry/connection substrate, not fan-out or dedup. The cyclic-ordering hazard still applies (receive fan-out without dedup loops; US2 stays acyclic, cyclic test waits for US3). Test establishment is viable post-014 — the green US1 integration test builds downstream through the real path via `node_with` (registries populated before `Node::new` → indexer folds → `Event::Synced` → dial) + `establish_upstreams`; `Event::ConnectionSetup` is retained as the dial action, so the scripted partial/line topology for T009 remains constructible. No blocker.
+
+### (D) 014-interaction coverage — uncontradicted (1 new LOW)
+
+- **N-017** (topic-`Removed` cascade clears `upstream`/`downstream`): `fanout()` reads `state.downstream` at the record point, so a cascade before fan-out simply removes targets — consistent, no contradiction. ✅
+- **N-011/N-019** (membership-loss retains connections): delivery on an unsubscribed topic is gated (`topic_not_subscribed`) and publish requires subscription, so a retained-stale downstream is never fanned to — consistent. ✅
+- **N-018** (`synced` gates dialing, not acceptance/receive): see D1 — N-018 enumerates acceptance + receive but not the **publish** path; `publish` while `!synced` is benign (empty `subscriptions` → `topic_not_subscribed` drop) but unnamed by the note.
+
+### Findings
+
+| ID | Severity | Location | Summary | Recommendation |
+|----|----------|----------|---------|----------------|
+| A1 | MEDIUM | tasks.md T003 vs spec US1-AS4 + code | T003 enumerates **four** publish-drop scenarios incl. "not-registered", but the implemented test has **three** (the not-registered case was deleted as unreachable under 014's invariant) and spec US1-AS4 also lists only three (not-subscribed / unauthorized / signature). Tasks wording is stale. | Update T003 to three scenarios; note the `topic_not_registered` guard is defensive-under-014 (unreachable on the publish path, not unit-tested there). |
+| D1 | LOW | IMPLEMENTATION_NOTES N-018 | N-018 names acceptance + receive as the `synced`-ungated paths but not the **publish** path; `publish` while `!synced` is the same class (drops `topic_not_subscribed` against cold `subscriptions`). | Extend N-018's scope to name the publish path (benign, same rationale) — one line. |
+
+### (E) Continue-vs-revert evidence
+
+**Extent of 014's impact on the implemented Phase-1/2 surface — small and localized:**
+
+- `fanout.rs`, `received.rs` (`Origin`), `event.rs` (`Event::Publish`): **zero** 014 impact (orthogonal new surface).
+- `node.rs`: `Node::new` gained the `fanout_strategy` param alongside 014's params; `publish` untouched. Clean.
+- `state.rs`: the **only** real touch point — `validate_dissemination`'s authorization swapped from a raw `BTreeSet` check to `TopicEntry::is_publisher_authorized` (one call), plus removing the now-duplicated inline receive-path checks (014's version subsumed by the helper). `handle_publish` / `record_and_fanout` / `fanout` are unchanged by 014.
+- tests: one publish-drop case deleted (unreachable under the invariant); `node_state` seeds registered topics (one loop). Full suite green.
+
+**Architectural soundness:** the reconciled code is **sound, not merely patched**. 014 changed the *substrate* `validate_dissemination` reads; 006's fan-out/publish/dedup design sits cleanly on top and needed only the one authorization-call swap. The R9 shared-helper factoring made the reconciliation a one-line change — evidence the seam was well-placed. **No 006 design decision was invalidated.**
+
+**Evidence verdict (decision deferred to maintainer):** the cost of reverting Phases 1–2 and re-implementing would discard correct, green, minimally-adapted code for no architectural gain; the impact surface is one authorization call + a dedup of redundant checks + test-setup seeding. The evidence favors **continue**.
+
+### Artifacts to update before Phase 3
+
+- tasks.md T003 (A1) — three publish-drop scenarios.
+- IMPLEMENTATION_NOTES N-018 (D1) — name the publish path.
+
+Both are documentation-only; neither blocks Phase 3 on correctness. No CRITICAL/HIGH; Phase 3 (US2 relay) may proceed once A1/D1 are tidied.
