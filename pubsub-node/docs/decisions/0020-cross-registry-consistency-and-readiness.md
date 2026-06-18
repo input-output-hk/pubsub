@@ -92,3 +92,20 @@ The first as-built used **two** readiness events: `TopicRegistryEvent::SnapshotC
 4. **Scope: readiness signal only — registries stay separate.** Only the *readiness* signal collapses; the topic registry and subscription list remain distinct data artifacts with distinct watches (013/014's deliberate keep-separate; distinct on-chain contracts). No registry-data merge.
 
 5. **Behaviour preserved.** The dial still fires exactly once, after both registries are warm; cold-start ordering and strict drop are unchanged. The reworked unit test asserts the membership marker is a fold no-op and that `Event::ConnectionSetup` is the dial trigger; the autonomous-establishment integration test is unchanged (the node still dials on its own after cold start).
+
+## Amendment 2026-06-18 — snapshot-reshaped watch + single `Synced` lifecycle (supersedes the 2026-06-17 (b) markers/dial)
+
+(b) kept two `SnapshotComplete` markers as stream-replay delimiters and reused `Event::ConnectionSetup` as the readiness-driven dial. Maintainer review then asked the next question: *why two markers at all?* The node only cares about **one** thing — that it is **synced** (both registries up to date). The two markers existed only because each watch streamed its initial state as a **burst** that needed an in-band end delimiter. Removing the markers means moving the snapshot out of the stream. Decision (2026-06-18): reshape the watch contract to deliver a current-state snapshot up front, and model node readiness as an explicit `Syncing → Synced` lifecycle.
+
+1. **Snapshot-plus-live watch contract.** Both `watch()` methods now return `(snapshot, live-watch)` instead of a burst-then-marker stream:
+   - `TopicRegistry::watch() -> (TopicSnapshot, TopicRegistryWatch)`, `TopicSnapshot = Vec<(TopicId, BTreeSet<PublicKey>)>`.
+   - `SubscriptionRegistry::watch(node) -> (MembershipSnapshot, MembershipWatch)`, `MembershipSnapshot = Vec<(PeerId, BTreeSet<TopicId>)>` (own entry first, then scoped members).
+   The snapshot reflects the registry at watch time; the live watch carries only subsequent deltas (no overlap). This is **more faithful to a real chain indexer** (query state at tip, then subscribe) than the burst-with-marker model, and it makes the strict-drop ordering trivially a matter of folding the topic snapshot before the membership snapshot.
+
+2. **Both `SnapshotComplete` variants are removed.** With the snapshot delivered out-of-band there is no burst to delimit, so `TopicRegistryEvent::SnapshotComplete` and `MembershipEvent::SnapshotComplete` are deleted entirely (and the `snapshot_complete()` test constructor with them). The remaining `*RegistryEvent`/`MembershipEvent` variants are purely live deltas.
+
+3. **One readiness signal: `Event::Synced`.** The indexer folds the topic snapshot (as `Registered` events), then the membership snapshot (as `Joined` events), then pushes a single new `Event::Synced`. There are no per-registry markers and no manual `ConnectionSetup` orchestration in the reader.
+
+4. **Explicit `Syncing → Synced` lifecycle in the pure core.** `NodeState` gains `synced: bool` (exposed via `NodeState::is_synced()` / `Node::is_synced()`). `handle_synced` flips it to `Synced` on the rising edge and establishes connections (delegating to `handle_connection_setup`); a redundant `Synced` is an idempotent no-op. `Event::ConnectionSetup` is retained as the dial **action** (tests, operator injection, future epochal re-dial); `Synced` is the lifecycle **transition** that invokes it. The node's "two behaviours depending on proximity to the tip" are now first-class and observable — the abstraction generalises to a real indexer where a node can fall behind and re-enter `Syncing`.
+
+5. **Scope unchanged from (b).** Still readiness-signal-only: the two registries remain distinct data artifacts with distinct watches; no data merge. 012's single indexer emits the one `Synced` directly. Full gate green (`fmt`, `clippy -D warnings`, all test binaries + doctests).

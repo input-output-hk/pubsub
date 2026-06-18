@@ -39,12 +39,18 @@ pub enum Event {
     /// removed), drained from a `TopicRegistryWatch` by the node-owned
     /// topic-registry reader.
     TopicRegistryUpdate(TopicRegistryEvent),
-    /// The connection-establishment trigger: the node consults its
+    /// The node has **synced**: both registries' initial snapshots have been
+    /// applied, so the node is at/near the chain tip (ADR 0020). Folding it
+    /// transitions the node from `Syncing` to `Synced` and establishes
+    /// connections. Pushed once by the registry indexer after it has folded both
+    /// snapshots; it is the single readiness signal (the per-registry markers are
+    /// gone). Idempotent — a redundant `Synced` after the transition is a no-op.
+    Synced,
+    /// The connection-establishment **action**: the node consults its
     /// connection-selection strategy and dials the expected upstreams it does
-    /// not already hold (ADR 0018). Pushed by the registry indexer once both
-    /// registry cold-start bursts have drained (the node's membership view has
-    /// converged; ADR 0020) — or pushed externally through the public event
-    /// intake (tests, operator injection).
+    /// not already hold (ADR 0018). Invoked by the [`Synced`](Event::Synced)
+    /// transition, and also available directly through the public event intake
+    /// (tests, operator injection, a future epochal re-dial).
     ConnectionSetup,
     /// The graceful-teardown trigger, pushed by
     /// [`Node::shutdown`](crate::Node::shutdown). The node notifies every

@@ -374,10 +374,10 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
     );
 }
 
-// The autonomous path (ADR 0020): nodes dial on their own when their membership
-// view converges — the subscription registry's cold-start `SnapshotComplete`
-// folds into the connection-setup diff. No setup timer, no manual trigger; the
-// readiness signal is the trigger.
+// The autonomous path (ADR 0020): nodes dial on their own once synced — the
+// registry indexer folds both registry snapshots, then pushes `Event::Synced`,
+// which transitions the node to `Synced` and establishes connections. No setup
+// timer, no manual trigger; the readiness signal is the trigger.
 #[tokio::test]
 async fn readiness_establishes_autonomously() {
     let network = Arc::new(InMemoryNetwork::new());

@@ -77,6 +77,11 @@ pub(crate) struct NodeState {
     /// verifier (the immutable service-handle slot). The transition reads it
     /// from the `ConnectionSetup` arm (ADR 0018).
     strategy: Arc<dyn ConnectionStrategy>,
+    /// Whether the node has **synced** — both registries' initial snapshots are
+    /// applied, so the node is at/near the chain tip (ADR 0020). `false` while
+    /// `Syncing`; set once by the `Synced` transition, which also establishes
+    /// connections. The behavioural mode marker the dial waits on.
+    synced: bool,
 }
 
 impl NodeState {
@@ -99,7 +104,15 @@ impl NodeState {
             downstream: HashSet::new(),
             signer,
             strategy,
+            synced: false,
         }
+    }
+
+    /// Whether the node has synced (both registry snapshots applied). `false`
+    /// while still replaying the registries at startup.
+    #[must_use]
+    pub(crate) fn is_synced(&self) -> bool {
+        self.synced
     }
 
     /// Snapshot of every recorded delivery, in processing order.
@@ -202,6 +215,7 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
         Event::MessageReceived { from, message } => handle_message_received(state, from, message),
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
+        Event::Synced => handle_synced(state),
         Event::ConnectionSetup => handle_connection_setup(state),
         Event::Shutdown => handle_shutdown(state),
     }
@@ -246,6 +260,21 @@ fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
         effects.push(Effect::Send { to: peer, message });
     }
     effects
+}
+
+/// Transition for the `Synced` signal — the node has replayed both registries'
+/// initial snapshots and is at/near the chain tip (ADR 0020).
+///
+/// Flips the node from `Syncing` to `Synced` (the behavioural-mode marker the
+/// dial waits on) and establishes connections once, on that rising edge. The
+/// registry indexer pushes `Synced` exactly once after folding both snapshots;
+/// the edge guard makes a redundant `Synced` a harmless no-op.
+fn handle_synced(state: &mut NodeState) -> Vec<Effect> {
+    if state.synced {
+        return Vec::new();
+    }
+    state.synced = true;
+    handle_connection_setup(state)
 }
 
 /// Build a control message signed by the node's own signer, with the node's
@@ -336,10 +365,6 @@ fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent
             state.upstream.retain(|(_, t), _| t != &topic);
             state.downstream.retain(|(_, t)| t != &topic);
         }
-        // Stream-replay delimiter: the registry indexer consumes it to find the
-        // topic burst's end and never enqueues it (see crate::node). The fold
-        // treats a stray one as a no-op so a re-delivered marker is harmless.
-        TopicRegistryEvent::SnapshotComplete => {}
     }
     Vec::new()
 }
@@ -367,11 +392,10 @@ fn log_topic_not_registered(self_id: &PeerId, topic: &TopicId) {
 /// not currently registered is **dropped** — not admitted to `subscriptions`,
 /// not recorded as a `candidate` — and logged. There is no declared/pending
 /// buffer and no auto-promotion; under the chain follower's ordering (and the
-/// registry indexer draining the topic burst before the membership burst, see
-/// `crate::node`) a topic is registered before any membership event references
-/// it. The `SnapshotComplete` arm is a no-op stream delimiter consumed by the
-/// indexer; the dial is triggered separately by `Event::ConnectionSetup`. Every
-/// arm returns no effects.
+/// registry indexer folding the topic snapshot before the membership snapshot,
+/// see `crate::node`) a topic is registered before any membership event
+/// references it. The dial is triggered separately by `Event::Synced` once both
+/// snapshots are applied. Every arm returns no effects.
 // ADR 0020 (amends 0014); FR-001/FR-003/FR-003a.
 fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Vec<Effect> {
     match event {
@@ -450,11 +474,6 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
                 }
             }
         }
-        // Stream-replay delimiter: the registry indexer consumes it to find the
-        // membership burst's end and never enqueues it (see crate::node). It is
-        // a no-op in the fold; the dial is triggered by `Event::ConnectionSetup`,
-        // which the indexer pushes once both registries are warm (ADR 0020).
-        MembershipEvent::SnapshotComplete => {}
     }
     Vec::new()
 }
@@ -1202,10 +1221,6 @@ mod tests {
         apply(&mut state, reg_open("weather"));
         apply(
             &mut state,
-            Event::TopicRegistryUpdate(TopicRegistryEvent::SnapshotComplete),
-        );
-        apply(
-            &mut state,
             Event::MembershipUpdate(MembershipEvent::joined("self", ["weather", "ghost"])),
         );
         assert_eq!(
@@ -1326,42 +1341,44 @@ mod tests {
         assert_invariants(&state);
     }
 
-    // ADR 0020 (2026-06-17 single-indexer revision): the per-stream
-    // `SnapshotComplete` markers are stream-replay delimiters the registry
-    // indexer consumes — they are no-ops in the fold. The single dial trigger is
-    // `Event::ConnectionSetup`, which the indexer pushes once both cold-start
-    // bursts have drained.
+    // ADR 0020 (2026-06-18 snapshot-reshape): `Event::Synced` is the single
+    // readiness signal — the registry indexer pushes it once both registry
+    // snapshots are folded. Folding it flips the node to `Synced` and dials, on
+    // the rising edge only.
     #[test]
-    fn snapshot_complete_is_noop_connection_setup_dials() {
+    fn synced_transitions_and_dials_idempotently() {
         let mut state = node_state("self", HashSet::new());
         apply(&mut state, reg_open("t1"));
         apply(&mut state, membership_joined("self", ["t1"]));
         apply(&mut state, membership_joined("a", ["t1"]));
 
-        // The membership delimiter is a no-op: folding it neither dials nor emits.
-        let effects = apply(
-            &mut state,
-            Event::MembershipUpdate(MembershipEvent::snapshot_complete()),
-        );
-        assert!(effects.is_empty(), "the delimiter is a no-op in the fold");
+        // Before sync: not synced, no dial.
+        assert!(!state.is_synced(), "node starts in Syncing");
         assert_eq!(
             upstream_state(&state, "a", "t1"),
             None,
-            "the delimiter does not dial",
+            "no dial before sync"
         );
 
-        // ConnectionSetup — pushed by the indexer once both registries are warm
-        // — is the single dial trigger.
-        let effects = apply(&mut state, Event::ConnectionSetup);
+        // Synced flips the mode and dials the candidate once.
+        let effects = apply(&mut state, Event::Synced);
+        assert!(state.is_synced(), "Synced transitions the node to Synced");
         assert_eq!(
             upstream_state(&state, "a", "t1"),
             Some(UpstreamState::AwaitingAccept),
-            "ConnectionSetup dials the candidate",
+            "Synced dials the candidate",
         );
         assert_eq!(
             request_sends(&effects, "self"),
             vec![(peer("a"), topic("t1"))],
-            "ConnectionSetup returns the dial Request",
+            "Synced returns the dial Request",
+        );
+
+        // Idempotent: a redundant Synced after the transition is a no-op.
+        let effects = apply(&mut state, Event::Synced);
+        assert!(
+            effects.is_empty(),
+            "a redundant Synced re-emits nothing (edge-guarded)",
         );
     }
 

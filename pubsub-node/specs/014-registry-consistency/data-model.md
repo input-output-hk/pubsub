@@ -2,7 +2,7 @@
 
 **Date**: 2026-06-15 | **Plan**: [plan.md](./plan.md)
 
-Crate-internal `NodeState` and topic-domain types. Reshapes 013's projection; no public surface change beyond the additive `TopicRegistryEvent::SnapshotComplete`.
+Crate-internal `NodeState` and topic-domain types. Reshapes 013's projection. Public surface deltas (2026-06-18): both `watch()` methods return `(snapshot, live-watch)`; both `SnapshotComplete` event variants are removed; a new `Event::Synced` + `Node::is_synced()` model the readiness lifecycle (see §4, §6, contract §A).
 
 ## 1. The maintained invariant
 
@@ -22,8 +22,9 @@ Both hold **at rest** (between folds), not only when read. Each fold either pres
 | `subscriptions: HashSet<TopicId>` | declared set; may name unregistered topics; intersected at read | **maintained ⊆ registered**; never names an unregistered topic |
 | `candidates: HashMap<TopicId, HashSet<PeerId>>` | per-topic, ungated by registration | **gated**: keys ⊆ registered |
 | `registered_topics: HashMap<TopicId, BTreeSet<PublicKey>>` | bare publisher set | **`HashMap<TopicId, TopicEntry>`** |
+| `synced: bool` | — | **NEW** (2026-06-18) — the `Syncing → Synced` lifecycle flag; set by `Event::Synced` once both registry snapshots are folded; exposed via `is_synced()` |
 
-Unchanged structurally: `self_id`, `received`, other 008/013 fields. Post-rebase (2026-06-17), 004's `upstream`/`downstream` connection fields are present and are **cleared by the `Removed` cascade** (FR-002/FR-010); no new persistent fields are added by this feature.
+Unchanged structurally: `self_id`, `received`, other 008/013 fields. Post-rebase (2026-06-17), 004's `upstream`/`downstream` connection fields are present and are **cleared by the `Removed` cascade** (FR-002/FR-010).
 
 ## 3. `TopicEntry` (NEW, `pub(crate)`)
 
@@ -42,16 +43,20 @@ TopicEntry {
 - **Forward shape**: owners/admins/etc. attach here later (012) without touching call sites — the ROADMAP-justified seam.
 - **Replaces**: the inline `authorized.is_empty() || authorized.contains(key)` in `handle_signed_message`.
 
-## 4. `TopicRegistryEvent` (delta — additive)
+## 4. Registry events + the watch snapshot (2026-06-18 snapshot reshape)
 
-| Variant | Status |
+`TopicRegistryEvent` and `MembershipEvent` are now **purely live deltas**; the cold-start state is delivered out-of-band as a snapshot returned by `watch()`.
+
+| `TopicRegistryEvent` variant | Status |
 |---|---|
-| `Registered { topic, publishers }` | unchanged |
-| `PublishersChanged { topic, added, removed }` | unchanged payload; **fold now defensive** (§5) |
-| `Removed { topic }` | unchanged payload; **fold now cascades** (§5) |
-| `SnapshotComplete` | **NEW** — terminates the cold-start `Registered` burst; carries no payload |
+| `Registered { topic, publishers }` | live registration (the snapshot carries already-registered topics); folds as create/replace |
+| `PublishersChanged { topic, added, removed }` | unchanged payload; **fold defensive** (§5) |
+| `Removed { topic }` | unchanged payload; **fold cascades** (§5) |
+| ~~`SnapshotComplete`~~ | **removed** — no burst to delimit |
 
-`#[non_exhaustive]` already; `SnapshotComplete` is additive. `InMemoryTopicRegistry::watch()` emits it once after the burst, before live deltas. The 012 reader emits it after initial chain-sync.
+- `TopicRegistry::watch() -> (TopicSnapshot, TopicRegistryWatch)`, `TopicSnapshot = Vec<(TopicId, BTreeSet<PublicKey>)>`.
+- `SubscriptionRegistry::watch(node) -> (MembershipSnapshot, MembershipWatch)`, `MembershipSnapshot = Vec<(PeerId, BTreeSet<TopicId>)>` (own entry first, then scoped members). `MembershipEvent::SnapshotComplete` is likewise **removed**.
+- The indexer folds the snapshot (as `Registered`/`Joined` events) then forwards the live watch. The 012 reader returns its at-tip snapshot the same way.
 
 ## 5. Fold transitions (the three folds, defensive)
 
@@ -61,8 +66,9 @@ TopicEntry {
 |---|---|
 | `Registered { topic, publishers }` | `registered_topics.insert(topic, TopicEntry::from_publishers(publishers))` (create/replace). |
 | `PublishersChanged { topic, added, removed }` | **if `topic` is registered**: `entry.apply_publishers_diff(added, removed)`. **else**: drop + log (`cause = topic_not_registered`); **no `or_default` create**. |
-| `Removed { topic }` | **Atomic cascade**: `registered_topics.remove(topic)`; `subscriptions.remove(topic)`; `candidates.remove(topic)`. No-op if `topic` absent. |
-| `SnapshotComplete` | no-op stream delimiter (consumed by the registry indexer to find the burst end; never enqueued — a stray one folds harmlessly). |
+| `Removed { topic }` | **Atomic cascade**: `registered_topics.remove(topic)`; `subscriptions.remove(topic)`; `candidates.remove(topic)`; `upstream`/`downstream` entries on the topic dropped. No-op if `topic` absent. |
+
+`Event::Synced` (node-`Event`, separate from the registry streams) folds via `handle_synced`: on the rising edge it sets `NodeState.synced = true` and returns `handle_connection_setup` effects; idempotent thereafter.
 
 Returns `Vec::new()` (`Effect` uninhabited).
 
@@ -93,29 +99,29 @@ after:   if !entry.is_publisher_authorized(key) { drop }     // entry = register
 
 Every accept/drop outcome identical to 013 (SC-004 behaviour-preservation matrix).
 
-## 6. Readiness / construction ordering (as built — single registry indexer)
+## 6. Readiness / construction ordering (as built — single registry indexer, snapshot watch)
 
-`Node::new` does **not** block: it spawns its producers and returns. Readiness is owned by a **single** reader — the registry indexer — modelling the one chain follower a realistic deployment runs (ADR 0020, 2026-06-17 (b)). It drains the two cold-start bursts in chain order, then triggers the dial.
+`Node::new` does **not** block: it spawns its producers and returns. Readiness is owned by a **single** reader — the registry indexer — modelling the one chain follower a realistic deployment runs (ADR 0020, 2026-06-18). It folds each registry's current-state **snapshot** in order, then pushes one `Synced`.
 
 ```
 Node::new (async, non-blocking):
   spawn network mailbox
   spawn registry_indexer(subscription_registry, topic_registry, node_id)
-  return                                // construction does not await readiness
+  return                                       // construction does not await readiness
 
 registry_indexer:
-  topic_watch = topic_registry.watch()          // opened up front so no event is missed
-  sub_watch   = subscription_registry.watch(node)
-  for ev in topic_watch until SnapshotComplete: // TOPIC burst first → registered set warm
-    queue.push(TopicRegistryUpdate(ev))         // (delimiter consumed, not enqueued)
-  for ev in sub_watch until SnapshotComplete:   // then MEMBERSHIP burst
-    queue.push(MembershipUpdate(ev))            // (delimiter consumed, not enqueued)
-  queue.push(ConnectionSetup)                   // single dial trigger: both registries warm
-  loop select { topic_watch | sub_watch }:      // live deltas; stray delimiters ignored
+  (topic_snapshot, topic_watch) = topic_registry.watch()        // TOPIC snapshot first
+  for (topic, publishers) in topic_snapshot:                    //   → registered set warm
+    queue.push(TopicRegistryUpdate(Registered{topic,publishers}))
+  (sub_snapshot, sub_watch) = subscription_registry.watch(node) // then MEMBERSHIP snapshot
+  for (node, topics) in sub_snapshot:
+    queue.push(MembershipUpdate(Joined{node,topics}))
+  queue.push(Synced)                           // single readiness signal → Synced + dial
+  loop select { topic_watch | sub_watch }:     // live deltas
     queue.push(TopicRegistryUpdate / MembershipUpdate)
 ```
 
-Because one reader drains topics before membership, the topic burst is folded before any membership event ⇒ strict drop / candidate gating are correct at cold start (no spurious drop), with **no cross-stream ordering primitive** — the oneshot of the first as-built is gone, the ordering is intrinsic to the reader's sequence. Empty registry ⇒ the `SnapshotComplete` delimiter arrives immediately and the burst loop exits at once. A watch-open error degrades gracefully (that burst is skipped; `ConnectionSetup` still fires). The per-stream `SnapshotComplete` markers are stream-replay delimiters consumed here and never enqueued; both fold arms are symmetric no-ops.
+One reader folds the topic snapshot before the membership snapshot ⇒ strict drop / candidate gating are correct at cold start (no spurious drop), with **no cross-stream ordering primitive** — ordering is intrinsic to the reader's sequence. The snapshot and the live watch do not overlap, so there is no burst to delimit — both `SnapshotComplete` markers are gone. Empty registry ⇒ empty snapshot, `Synced` fires immediately. A watch-open error degrades gracefully (that snapshot is empty; `Synced` still fires). `Synced` folds into `NodeState.synced` (the `Syncing → Synced` lifecycle) and establishes connections once.
 
 ## 7. State invariants (test targets)
 

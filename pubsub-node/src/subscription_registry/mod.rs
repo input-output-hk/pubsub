@@ -1,11 +1,11 @@
 //! The subscription registry — the node-membership "subscription list".
 //!
-//! A node derives **all** of its registry state from a single node-keyed push
-//! stream opened with [`SubscriptionRegistry::watch`]: the current state replays
-//! first as a cold-start burst of [`MembershipEvent::Joined`] — the node's own
-//! entry (from which it derives its subscription set, the source of truth for
-//! its topics) followed by the members of those topics (its candidate sets) —
-//! then live deltas follow.
+//! A node derives **all** of its registry state from a single node-keyed
+//! snapshot-plus-live stream opened with [`SubscriptionRegistry::watch`]: the
+//! current state is returned as a [`MembershipSnapshot`] — the node's own entry
+//! (from which it derives its subscription set, the source of truth for its
+//! topics) followed by the members of those topics (its candidate sets) — and
+//! live deltas then follow on the returned [`MembershipWatch`].
 //!
 //! The read trait [`SubscriptionRegistry`] is what the node depends on, and is
 //! deliberately just `watch` — no point-read method, since no consumer needs
@@ -38,8 +38,8 @@ pub(crate) use test_support::MembershipScript;
 #[non_exhaustive]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MembershipEvent {
-    /// `node` is present in `topics` (a subset of the watched set). Emitted
-    /// during the cold-start replay and for live joins.
+    /// `node` joined `topics` (a subset of the watched set). A **live** join
+    /// after the watch's snapshot (the snapshot carries existing members).
     Joined {
         node: PeerId,
         topics: BTreeSet<TopicId>,
@@ -53,15 +53,16 @@ pub enum MembershipEvent {
     },
     /// `node` left the registry entirely.
     Left { node: PeerId },
-    /// Terminates a watch's cold-start membership burst: the node's own entry
-    /// and the current members of its topics have all been replayed, so the
-    /// node's subscription + candidate view has converged. The node uses this as
-    /// the trigger to establish its connections (run the connection strategy and
-    /// dial), replacing a wall-clock setup timer with an event-driven readiness
-    /// signal. The in-memory registry emits it once per watch; live deltas
-    /// follow.
-    SnapshotComplete,
 }
+
+/// A point-in-time snapshot of the node-scoped membership, returned by
+/// [`SubscriptionRegistry::watch`] ahead of the live delta stream: the node's
+/// **own** entry first (its id and topics — its subscription set), then the
+/// current members of those topics (its candidate sets), each as
+/// `(node, topics)`. Folding the snapshot warms the node's subscription and
+/// candidate view; the node distinguishes its own id (→ subscriptions) from
+/// others (→ candidates).
+pub type MembershipSnapshot = Vec<(PeerId, BTreeSet<TopicId>)>;
 
 /// Single-consumer membership stream handle. Mirrors `NetworkHandle`: it owns
 /// the receive half, is not `Clone`, and ends its subscription when dropped.
@@ -110,21 +111,19 @@ pub enum SubscriptionRegistryError {
 /// surface. The write surface is the separate [`SubscriptionRegistryControl`].
 #[allow(async_fn_in_trait)] // mirrors the `Network` trait's v1 allowance (ADR 0007)
 pub trait SubscriptionRegistry: Send + Sync + 'static {
-    /// Open the node-keyed membership watch through which a node derives **all**
-    /// of its registry state from a single event stream.
+    /// Open the node-keyed membership watch: returns a [`MembershipSnapshot`]
+    /// scoped to `node`'s own subscription-list entry, plus a [`MembershipWatch`]
+    /// streaming subsequent live deltas. The snapshot carries:
+    /// - the node's **own** entry — `(node, topics)` — from which the node
+    ///   derives its subscription set; then
+    /// - the current **members** of those topics — `(other, topics)` (scoped to
+    ///   the node's topics) — from which it derives candidate sets.
     ///
-    /// The watch is scoped to `node`'s own subscription-list entry. On open it
-    /// replays, as a cold-start burst:
-    /// - the node's **own** entry — `Joined { node, topics }` — from which the
-    ///   node derives its subscription set; then
-    /// - the current **members** of those topics — `Joined { other, topics }`
-    ///   (scoped to the node's topics) — from which it derives candidate sets.
-    ///
-    /// Live deltas follow (members joining/leaving/changing within the node's
-    /// topics, and changes to the node's own entry). The node folds the whole
-    /// stream from empty initial state, distinguishing its own id (→ its
-    /// subscriptions) from others (→ candidates). The burst and live deltas form
-    /// one gap-free, duplicate-free sequence.
+    /// Live deltas follow on the watch (members joining/leaving/changing within
+    /// the node's topics, and changes to the node's own entry). The node folds
+    /// the snapshot then the deltas from empty initial state, distinguishing its
+    /// own id (→ subscriptions) from others (→ candidates). The snapshot and the
+    /// live stream do not overlap (gap-free, duplicate-free).
     ///
     /// Returns a `Send` future (RPITIT, the `Send`-bounded shape ADR 0007 flags
     /// as the follow-up to `async fn` in traits) because the node-owned reader
@@ -132,7 +131,9 @@ pub trait SubscriptionRegistry: Send + Sync + 'static {
     fn watch(
         &self,
         node: PeerId,
-    ) -> impl std::future::Future<Output = Result<MembershipWatch, SubscriptionRegistryError>> + Send;
+    ) -> impl std::future::Future<
+        Output = Result<(MembershipSnapshot, MembershipWatch), SubscriptionRegistryError>,
+    > + Send;
 }
 
 /// The operator/test write surface, extending [`SubscriptionRegistry`].

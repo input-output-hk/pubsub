@@ -9,11 +9,11 @@ Three vignettes — the maintained invariant + strict drop, the atomic cascade +
 ```rust
 let mut state = node_state(peer("S"));
 
-// Topic registry warms first (readiness gate): only `weather` registered (open).
+// Topic registry warms first (indexer folds the topic snapshot ahead of
+// membership): only `weather` registered (open).
 apply(&mut state, Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
     topic: topic("weather"), publishers: BTreeSet::new(),
 }));
-apply(&mut state, Event::TopicRegistryUpdate(TopicRegistryEvent::SnapshotComplete)); // boundary
 
 // Self subscribes to {weather, ghost}; `ghost` is NOT registered → strict-dropped.
 apply(&mut state, Event::MembershipUpdate(MembershipEvent::joined("S", ["weather", "ghost"])));
@@ -57,7 +57,7 @@ apply(&mut state, Event::MembershipUpdate(MembershipEvent::joined("B", ["ghost"]
 assert!(state.candidates_snapshot(&topic("ghost")).is_empty());
 ```
 
-## 3. Cold-start multi-node convergence (the readiness gate)
+## 3. Cold-start multi-node convergence (the registry indexer)
 
 ```rust
 // Shared mocked chain: one subscription registry + one topic registry, both pre-populated.
@@ -66,10 +66,10 @@ let topics_reg = Arc::new(InMemoryTopicRegistry::from_file(/* topic → publishe
 //   topics:  weather → {k1}, sports → {} (open)         // ghost NOT registered
 //   subs:    node-a → {weather}, node-b → {weather, sports}, node-c → {weather, ghost}
 
-// Node::new is non-blocking: a single registry indexer drains the topic burst
-// before the membership burst (registered_topics warm first), so strict drop never
-// fires spuriously on a cold-start race, then pushes one ConnectionSetup to dial.
-// (Signatures illustrative.)
+// Node::new is non-blocking: a single registry indexer folds the topic snapshot
+// before the membership snapshot (registered_topics warm first), so strict drop
+// never fires spuriously on a cold-start race, then pushes one Event::Synced —
+// transitioning each node to Synced (is_synced()) and dialing. (Signatures illustrative.)
 let a = Node::new(peer("node-a"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;
 let b = Node::new(peer("node-b"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;
 let c = Node::new(peer("node-c"), cfg(), net.clone(), verifier(), subs.clone(), topics_reg.clone()).await?;

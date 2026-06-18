@@ -4,11 +4,16 @@
 
 Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `lib.rs`); "internal" = `pub(crate)`/private.
 
-## A. Public surface delta (additive, minimal)
+## A. Public surface delta (snapshot-reshaped watch; 2026-06-18)
 
-- **`TopicRegistryEvent`** (public, `#[non_exhaustive]`) gains one variant:
-  - `SnapshotComplete` — terminates the cold-start `Registered` burst on a watch; carries no payload. Every `TopicRegistry` implementor MUST emit it once after the initial burst and before any live delta. `InMemoryTopicRegistry::watch()` emits it; the 012 on-chain reader emits it after initial chain-sync. Re-exported via the existing `TopicRegistryEvent` re-export.
-- **No other public type changes.** `TopicRegistry` / `TopicRegistryControl` traits, `TopicRegistryWatch`, `InMemoryTopicRegistry`, `Node::new`'s **signature**, and the `subscriptions()` getter's **signature** are unchanged. `TopicEntry` is **internal** (`pub(crate)`), not re-exported.
+- **`watch()` returns a snapshot + live stream** on both registries (was a burst-then-marker stream):
+  - `TopicRegistry::watch() -> Result<(TopicSnapshot, TopicRegistryWatch), _>`, where `TopicSnapshot = Vec<(TopicId, BTreeSet<PublicKey>)>` is the current registered topics.
+  - `SubscriptionRegistry::watch(node) -> Result<(MembershipSnapshot, MembershipWatch), _>`, where `MembershipSnapshot = Vec<(PeerId, BTreeSet<TopicId>)>` is the node's own entry first, then its topics' scoped members.
+  The snapshot reflects watch-time state; the live watch carries only subsequent deltas (no overlap). Every implementor (incl. the 012 reader) follows this shape.
+- **Both `SnapshotComplete` variants are removed** — `TopicRegistryEvent::SnapshotComplete` and `MembershipEvent::SnapshotComplete` no longer exist; the remaining variants are purely live deltas. The snapshot is delivered out-of-band, so there is no burst to delimit.
+- **`Event::Synced`** (new, node-`Event`) — the single readiness signal, pushed once by the registry indexer after both snapshots are folded; folding it transitions the node to `Synced` and establishes connections.
+- **`Node::is_synced() -> bool`** (new getter) — the observable `Syncing`/`Synced` lifecycle.
+- **Unchanged**: `Node::new`'s signature, the `subscriptions()` getter, `TopicEntry` (internal `pub(crate)`), and the `Control` write traits.
 
 ## B. Behavioural contract — `subscriptions()` getter
 
@@ -20,7 +25,7 @@ Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `
 - **Candidate gating (membership, others)**: a `(peer, topic)` candidate is recorded **only if** `topic` is registered; else dropped + logged. `candidates.keys() ⊆ registered_topics.keys()` (INV-2).
 - **Defensive registry fold**: only `Registered` creates a topic; `PublishersChanged` for an unregistered topic is dropped + logged (no `or_default` create); `Removed` of an unknown topic is a no-op.
 - **Atomic cascade**: `Removed { topic }` clears `topic` from `subscriptions`, `candidates`, and `registered_topics` within the one `apply` fold (synchronous under the state lock — no partial state observable).
-- **`SnapshotComplete`** (both `TopicRegistryEvent` and `MembershipEvent`): no-op in the fold — a stream-replay delimiter the registry indexer consumes and never enqueues; a stray one folds harmlessly.
+- **`Synced`**: flips `NodeState.synced` to `true` on the rising edge and returns the establishment effects (`handle_connection_setup`); idempotent thereafter. It is the single readiness/lifecycle transition; the dial **action** `ConnectionSetup` remains available directly.
 - Every `apply` returns an empty `Vec<Effect>` (`Effect` uninhabited).
 
 ## D. Behavioural contract — receive path (`handle_signed_message`)
@@ -30,7 +35,7 @@ Surfaces this feature touches. "Public" = crate-public (`pub` re-exported from `
 
 ## E. Construction-ordering contract — `Node::new`
 
-- `Node::new` is **non-blocking**: it spawns its producers and returns. A **single registry indexer** reader owns both watches (the one chain follower a realistic deployment runs; ADR 0020, 2026-06-17 (b)). It drains the **topic** cold-start burst first, then the **membership** burst, so the topic projection is warm before any membership event is folded — cold-start ordering is **intrinsic to the single reader's sequence**, with no cross-stream primitive (the earlier in-node oneshot is removed). Once both bursts have drained it pushes one `Event::ConnectionSetup` (the single dial trigger), then forwards live deltas from both watches. The two registries remain separate streams (no data merge); only the readiness signal is unified. A watch-open error degrades gracefully (that burst is skipped; `ConnectionSetup` still fires). The per-stream `SnapshotComplete` markers are stream-replay delimiters consumed by the indexer and never enqueued.
+- `Node::new` is **non-blocking**: it spawns its producers and returns. A **single registry indexer** reader owns both watches (the one chain follower a realistic deployment runs; ADR 0020, 2026-06-18). It folds the **topic snapshot** first, then the **membership snapshot**, so the topic projection is warm before any membership event is folded — cold-start ordering is **intrinsic to the single reader's sequence**, with no cross-stream primitive. Once both snapshots are folded it pushes one `Event::Synced` (the single readiness signal → `Synced` transition + dial), then forwards live deltas from both watches. The two registries remain separate streams (no data merge); only the readiness signal is unified. A watch-open error degrades gracefully (that snapshot is empty; `Synced` still fires). There are no per-registry readiness markers — the snapshot/live split replaces them.
 
 ## F. Internal surface — `TopicEntry` (`pub(crate)`)
 

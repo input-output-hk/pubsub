@@ -57,12 +57,6 @@ impl MembershipEvent {
     pub(crate) fn left(node: &str) -> Self {
         Self::Left { node: peer(node) }
     }
-
-    /// A [`MembershipEvent::SnapshotComplete`] readiness boundary (the dial
-    /// trigger).
-    pub(crate) fn snapshot_complete() -> Self {
-        Self::SnapshotComplete
-    }
 }
 
 /// An ordered membership-event script, built one step per line.
