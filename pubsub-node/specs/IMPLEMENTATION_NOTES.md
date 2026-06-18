@@ -195,7 +195,7 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Question**: when do connection entries that selection no longer expects get **removed**? A request to an absent peer pins an `AwaitingAccept` upstream indefinitely (S1); candidates that shrink between setups leave held pairs (upstream and downstream) for ex-members untouched (S5).
 
-**Working answer (004-connections scope)**: **No removal.** Selection only ever *adds* (FR-007: "expected-set membership never removes anything"); a recurring setup re-dials pending pairs but prunes nothing. Stuck/`AwaitingAccept` entries stay visible diagnostics (admit nothing); drifted entries persist (their payload is still gated by subscription/registration/severance). Removal is the connection set becoming **dynamic**, explicitly out of scope (FR-027).
+**Working answer (004-connections scope)**: **No removal.** Selection only ever *adds* (FR-007: "expected-set membership never removes anything"); a recurring setup re-dials pending pairs but prunes nothing. Stuck/`AwaitingAccept` entries stay visible diagnostics (admit nothing); drifted entries persist (their payload is still gated by subscription/registration/severance). Removal is the connection set becoming **dynamic**, explicitly out of scope (FR-027). This is the **peer-side** of membership-loss-retains-connections; the **self-side** (the node's *own* unsubscribe likewise retaining its connections) is [[N-019]]. Both contrast with the topic-`Removed` **cascade** ([[N-017]]), which does tear connections down — the three should converge on one teardown rule when dynamic transitions land.
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature (re-selection on membership change, GC of stale `AwaitingAccept`, removal of no-longer-expected pairs). At that point selection gains a remove side and the diff stops being add-only.
 
@@ -279,3 +279,13 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Working answer (014 scope)**: **Readiness scoped to dialing only.** Invisible in the test suite (registries are populated before `Node::new` and triggers are deterministic, so snapshots always fold first). Not a regression — pre-014 there was no readiness notion and the same cold-state race existed. Accepted v1 state.
 
 **Trigger to revisit**: the **dynamic connection lifecycle** work (re-establish / GC). When peers re-dial on a timer an early rejection self-heals; decide at that point whether acceptance (and the receive path) should also gate on `synced` — defer or reject-with-retry while `!synced` — or whether peer re-dial makes it moot.
+
+## N-019 — Own-membership unsubscribe retains established connections (asymmetric with the topic-removal cascade)
+
+**Surfaced during**: 006-fanout-policy rebase onto merged 014 (2026-06-18) — review of `handle_membership_update` against the topic-`Removed` cascade ([[N-017]]).
+
+**Question**: when the node's **own** membership drops a topic — `MembershipEvent::TopicsChanged { removed }` or `Left` — the fold removes the topic from `subscriptions` (and `candidates`) but does **not** touch `upstream`/`downstream`, so connections already established on that topic persist as stale entries. This is asymmetric with `handle_topic_registry_update`'s `Removed`, which **does** cascade into `upstream`/`downstream` ([[N-017]]). Should a self-unsubscribe also tear down (and/or notify) connections on the dropped topic?
+
+**Working answer (006 / current scope)**: **No teardown** — connections on a self-unsubscribed topic are retained. No delivery-correctness impact: inbound payload on the topic is dropped at the receive path's `topic_not_subscribed` gate, and the node will not publish on it (publish requires subscription), so a retained downstream is never fanned to. Consistent with the add-only, no-removal stance of [[N-011]] (selection only adds; removal is dynamic-connection work) and the stale-entry posture of [[N-012]]. The asymmetry with the topic-`Removed` cascade is deliberate-by-omission — documented here rather than reconciled now, to avoid touching the established connection structures outside the dynamic-connections feature.
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]]). When selection gains a remove side, decide whether a self-unsubscribe should cascade into `upstream`/`downstream` (matching the topic-`Removed` cascade) and whether it emits `Terminated`, so the two membership-loss paths converge on one teardown rule.
