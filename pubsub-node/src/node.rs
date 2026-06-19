@@ -9,7 +9,8 @@ use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
-use crate::message::Message;
+use crate::fanout::FanoutStrategy;
+use crate::message::{Message, SignedMessage};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
@@ -106,7 +107,9 @@ impl Node {
     /// identity — it signs the connection-control messages the node emits
     /// (`Request`/`Accepted`/`Terminated`); `strategy` is the
     /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
-    /// a setup event.
+    /// a setup event; `fanout_strategy` is the fan-out policy (v1:
+    /// `ForwardToAll`) consulted at the record point to choose which downstream
+    /// peers a recorded message is forwarded to.
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -117,9 +120,10 @@ impl Node {
     /// Returns [`NodeError`] if the identity/signer check fails or network
     /// registration fails.
     // The parameter list is the feature's specified construction contract
-    // (contracts §4): network + signer + verifier + two registries + strategy
-    // are each a distinct collaborator, not incidental sprawl. A config/builder
-    // struct is the natural future refactor if it grows further.
+    // (contracts §4): network + signer + verifier + two registries + connection
+    // strategy + fan-out strategy are each a distinct collaborator, not
+    // incidental sprawl. A config/builder struct is the natural future refactor
+    // if it grows further.
     #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
@@ -130,6 +134,7 @@ impl Node {
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
         strategy: Arc<dyn ConnectionStrategy>,
+        fanout_strategy: Arc<dyn FanoutStrategy>,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
         // leaks nothing — no handle, no tasks (FR-024).
@@ -155,6 +160,7 @@ impl Node {
             verifier,
             signer,
             strategy,
+            fanout_strategy,
         )));
         let state_for_task = Arc::clone(&state);
 
@@ -271,6 +277,29 @@ impl Node {
         self.handle.send(to, message).await.map_err(NodeError::from)
     }
 
+    /// Publish a message that originates on this node — fire-and-forget.
+    ///
+    /// Enqueues the message for the node's event loop and returns immediately;
+    /// validation and fan-out happen later in the loop, so there is no
+    /// synchronous verdict. An accepted publish is recorded with a local origin
+    /// (observable via [`received_messages`](Self::received_messages)) and
+    /// forwarded to the node's downstream peers on the message's topic; a
+    /// publish that fails a check (the topic is not in the node's subscriptions,
+    /// is not registered, the publisher is not authorized, or the signature does
+    /// not verify) is silently dropped (an info-level `message_dropped` event).
+    ///
+    /// The publisher carried in `message` need not be this node — a validly
+    /// signed, authorized message from any publisher is accepted (proxy /
+    /// injection). The message must already be signed; the node mints nothing.
+    ///
+    /// Duplicate suppression spans both the publish and receive paths: a message
+    /// whose content this node has already accepted — including one it published
+    /// itself, then had relayed back — is dropped with no second record and no
+    /// re-forward, so forwarding terminates in cyclic topologies.
+    pub fn publish(&self, message: SignedMessage) {
+        self.events.push(Event::Publish(message));
+    }
+
     /// Return this node's identifier.
     #[must_use]
     pub fn id(&self) -> &PeerId {
@@ -306,7 +335,11 @@ impl Node {
     ///
     /// The returned `Vec` is a clone of the node's internal record — it is
     /// stable for the caller and unaffected by subsequent receptions. This
-    /// is the observability surface acceptance tests assert against.
+    /// is the observability surface acceptance tests assert against. Each
+    /// [`ReceivedDelivery`] carries an [`Origin`](crate::Origin) distinguishing a
+    /// message this node published ([`Local`](crate::Origin::Local)) from one a
+    /// peer forwarded ([`Peer`](crate::Origin::Peer)); the publisher identity is
+    /// inside the message itself, independent of origin.
     #[must_use]
     pub fn received_messages(&self) -> Vec<ReceivedDelivery> {
         self.state
@@ -416,9 +449,9 @@ impl Drop for Node {
 /// `Send` failures are logged and otherwise ignored — the network drops sends
 /// to unregistered ids without surfacing an error, mirroring [`Node::send`].
 /// `Misbehaved` becomes the operator-facing `connection_severed` warn event
-/// and nothing else at this stage. No `apply` arm produces effects yet, so
-/// this executor is wired but not exercised until the connection transitions
-/// land.
+/// and nothing else at this stage. The connection transitions (004) emit both
+/// variants, and fan-out (006) makes `Send` the primary path — one per
+/// forwarded message at the record point.
 async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect) {
     match effect {
         Effect::Send { to, message } => {

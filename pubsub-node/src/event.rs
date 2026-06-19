@@ -10,7 +10,7 @@
 
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::message::Message;
+use crate::message::{Message, SignedMessage};
 use crate::peer::PeerId;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic_registry::TopicRegistryEvent;
@@ -32,6 +32,13 @@ pub enum Event {
         /// The delivered message.
         message: Message,
     },
+    /// A request to publish a message originated on this node, pushed by
+    /// [`Node::publish`](crate::Node::publish). The node validates it (the
+    /// receive-path checks minus the connection gate and severance; the
+    /// publisher need not be the node itself), records it with a local origin,
+    /// and fans it out to its downstream peers on the message's topic (ADR
+    /// 0021).
+    Publish(SignedMessage),
     /// A membership delta from the subscription registry, drained from a
     /// `MembershipWatch` by the node-owned registry reader.
     MembershipUpdate(MembershipEvent),

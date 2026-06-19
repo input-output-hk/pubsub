@@ -195,7 +195,7 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Question**: when do connection entries that selection no longer expects get **removed**? A request to an absent peer pins an `AwaitingAccept` upstream indefinitely (S1); candidates that shrink between setups leave held pairs (upstream and downstream) for ex-members untouched (S5).
 
-**Working answer (004-connections scope)**: **No removal.** Selection only ever *adds* (FR-007: "expected-set membership never removes anything"); a recurring setup re-dials pending pairs but prunes nothing. Stuck/`AwaitingAccept` entries stay visible diagnostics (admit nothing); drifted entries persist (their payload is still gated by subscription/registration/severance). Removal is the connection set becoming **dynamic**, explicitly out of scope (FR-027).
+**Working answer (004-connections scope)**: **No removal.** Selection only ever *adds* (FR-007: "expected-set membership never removes anything"); a recurring setup re-dials pending pairs but prunes nothing. Stuck/`AwaitingAccept` entries stay visible diagnostics (admit nothing); drifted entries persist (their payload is still gated by subscription/registration/severance). Removal is the connection set becoming **dynamic**, explicitly out of scope (FR-027). This is the **peer-side** of membership-loss-retains-connections; the **self-side** (the node's *own* unsubscribe likewise retaining its connections) is [[N-019]]. Both contrast with the topic-`Removed` **cascade** ([[N-017]]), which does tear connections down — the three should converge on one teardown rule when dynamic transitions land.
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature (re-selection on membership change, GC of stale `AwaitingAccept`, removal of no-longer-expected pairs). At that point selection gains a remove side and the diff stops being add-only.
 
@@ -274,8 +274,88 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Surfaced during**: 014-registry-consistency PR review (2026-06-18). Relates to ADR 0020's `Syncing → Synced` readiness lifecycle.
 
-**Question**: the `synced` flag gates the node's **own dialing** (`handle_synced` → `handle_connection_setup`) but is not consulted by `handle_connection_request` (acceptance) or the message receive path. Because the registry indexer and the network mailbox are independent producers on the single FIFO queue, an inbound `Request` that lands before the registry snapshots are folded is evaluated against cold `subscriptions`/`candidates` and silently rejected (`membership_validation_failed`), with no retry hint or deferral. The node knows it is still syncing but applies that knowledge only to dialing.
+**Question**: the `synced` flag gates the node's **own dialing** (`handle_synced` → `handle_connection_setup`) but is not consulted by `handle_connection_request` (acceptance), the message receive path, or the publish path (`handle_publish` — a `publish` while `!synced` validates against the cold `subscriptions` set and drops `topic_not_subscribed`, benign and the same class as the receive case; 006-fanout-policy). Because the registry indexer and the network mailbox are independent producers on the single FIFO queue, an inbound `Request` that lands before the registry snapshots are folded is evaluated against cold `subscriptions`/`candidates` and silently rejected (`membership_validation_failed`), with no retry hint or deferral. The node knows it is still syncing but applies that knowledge only to dialing.
 
 **Working answer (014 scope)**: **Readiness scoped to dialing only.** Invisible in the test suite (registries are populated before `Node::new` and triggers are deterministic, so snapshots always fold first). Not a regression — pre-014 there was no readiness notion and the same cold-state race existed. Accepted v1 state.
 
 **Trigger to revisit**: the **dynamic connection lifecycle** work (re-establish / GC). When peers re-dial on a timer an early rejection self-heals; decide at that point whether acceptance (and the receive path) should also gate on `synced` — defer or reject-with-retry while `!synced` — or whether peer re-dial makes it moot.
+
+## N-019 — Own-membership unsubscribe retains established connections (asymmetric with the topic-removal cascade)
+
+**Surfaced during**: 006-fanout-policy rebase onto merged 014 (2026-06-18) — review of `handle_membership_update` against the topic-`Removed` cascade ([[N-017]]).
+
+**Question**: when the node's **own** membership drops a topic — `MembershipEvent::TopicsChanged { removed }` or `Left` — the fold removes the topic from `subscriptions` (and `candidates`) but does **not** touch `upstream`/`downstream`, so connections already established on that topic persist as stale entries. This is asymmetric with `handle_topic_registry_update`'s `Removed`, which **does** cascade into `upstream`/`downstream` ([[N-017]]). Should a self-unsubscribe also tear down (and/or notify) connections on the dropped topic?
+
+**Working answer (006 / current scope)**: **No teardown** — connections on a self-unsubscribed topic are retained. No delivery-correctness impact: inbound payload on the topic is dropped at the receive path's `topic_not_subscribed` gate, and the node will not publish on it (publish requires subscription), so a retained downstream is never fanned to. Consistent with the add-only, no-removal stance of [[N-011]] (selection only adds; removal is dynamic-connection work) and the stale-entry posture of [[N-012]]. The asymmetry with the topic-`Removed` cascade is deliberate-by-omission — documented here rather than reconciled now, to avoid touching the established connection structures outside the dynamic-connections feature.
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]]). When selection gains a remove side, decide whether a self-unsubscribe should cascade into `upstream`/`downstream` (matching the topic-`Removed` cascade) and whether it emits `Terminated`, so the two membership-loss paths converge on one teardown rule.
+
+## N-020 — `Synced` atomically triggers dialing (readiness coupled to establishment)
+
+**Surfaced during**: 006-fanout-policy (US2 fan-out relay). Relates to ADR 0020's `Syncing → Synced` lifecycle and [[N-018]] (readiness gates dialing, not acceptance/receive).
+
+**Question**: the `Synced` readiness transition runs `handle_connection_setup` atomically, so reaching readiness and dialing the connection policy's full expected-upstream set are a single, inseparable step — a node cannot become ready without immediately dialing. Should readiness and establishment be separable?
+
+**Working answer (current scope)**: **Keep coupled.** Autonomous startup wants readiness to trigger the dial, and `Event::ConnectionSetup` remains separately injectable for any caller that needs to dial deliberately, so nothing is blocked. No change.
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]] / [[N-018]] / [[N-019]] — the connection-lifecycle cluster). Reconsider whether `Synced` should only flip the readiness flag and emit `Event::ConnectionSetup` as a separate queued event, decoupling readiness from automatic dialing.
+
+## N-021 — Bounded `seen` store (eviction) for duplicate suppression
+
+**Surfaced during**: 006-fanout-policy (US3 dedup; data-model §7 D1).
+
+**Question**: the `seen: HashSet<MessageHash>` that suppresses forwarding loops grows without bound — every accepted message's content hash is retained forever. A long-running node accumulates unbounded memory. Should it be a bounded store (LRU / TTL)?
+
+**Working answer (current scope)**: **Unbounded.** Correct for the in-memory PoC — it keeps `apply` deterministic and the tests reproducible, and there is no PoC consumer that runs long enough to matter. An eviction policy is a deployment-tuning concern (window size, TTL) with its own correctness trade-off (an evicted hash re-admits a late duplicate).
+
+**Trigger to revisit**: the **real-implementation** milestone (persistent / long-running node). At that point choose an eviction policy — likely TTL keyed on the message timestamp or an LRU sized to the dissemination window — and document the re-admission window it implies.
+
+## N-022 — Pick-k / sampling fan-out strategy (deterministic RNG in state)
+
+**Surfaced during**: 006-fanout-policy (US2 fan-out seam; data-model §7 D2).
+
+**Question**: the v1 `ForwardToAll` forwards to every downstream peer on the topic. A scalable dissemination policy forwards to a random *k*-subset (degree cap), which needs a source of randomness. How is that introduced without breaking the deterministic `apply`?
+
+**Working answer (current scope)**: **`ForwardToAll` only.** Pick-k would require a seeded RNG held in `NodeState` (so `apply` stays a pure, reproducible function of state + event), which is state shape this feature does not add. The `FanoutStrategy` trait is the insertion point — a future `PickK`/degree-cap strategy slots in behind it without reshaping the transition.
+
+**Trigger to revisit**: **ROADMAP 006/007** (pick-k / golden-mode fan-out). Add a seeded RNG to `NodeState` (threaded deterministically, like any other state), implement the sampling `FanoutStrategy`, and keep the order-insensitive test convention (sort targets).
+
+## N-023 — Equivocation / conflicting-message detection
+
+**Surfaced during**: 006-fanout-policy (US3 dedup keys on content hash; data-model §7 D3).
+
+**Question**: content-hash dedup suppresses *identical* copies, but an equivocating publisher emitting two **distinct** messages under the same `(publisher, sequence)` produces two different hashes — so both propagate and both are recorded. Should the node detect and act on the conflict?
+
+**Working answer (current scope)**: **Not detected.** Distinct content ⇒ distinct hash ⇒ both disseminate; this is the documented out-of-scope stance (dedup is loop-prevention, not chain-integrity). Detecting `(publisher, sequence)` collisions with differing content is a separate validation concern.
+
+**Trigger to revisit**: **feature 012** (chain-integrity / equivocation), with [[N-003]] (arrival-time chain validation). Decide the detection key (`(publisher_id, sequence)` or `(publisher_id, parent_hash)`) and the response (drop / slash / blacklist).
+
+## N-024 — `Message::Signed` → `Message::Dissemination` rename
+
+**Surfaced during**: 006-fanout-policy (data-model §7 D4).
+
+**Question**: the dissemination payload variant is still named `Message::Signed` (with `SignedMessage` / `PlainMessage`), a name from before connection-control messages were also signed. It now reads as if it were the only signed kind. Rename to `Message::Dissemination`?
+
+**Working answer (current scope)**: **Deferred.** A purely mechanical rename touching every dissemination call site; bundling it into a behavioural feature would inflate the diff and obscure the functional change. Left for a dedicated rename pass.
+
+**Trigger to revisit**: any time a low-risk mechanical-refactor pass is scheduled (or opportunistically alongside the next change that already touches the message type hierarchy — ADR 0010).
+
+## N-025 — Epochal / periodic re-dialer
+
+**Surfaced during**: 006-fanout-policy (out of scope; data-model §7 D5).
+
+**Question**: connection establishment fires once (the `Synced` readiness dial, or an injected `Event::ConnectionSetup`). Nothing re-selects or re-dials on an interval, so a node that missed a peer (absent at sync, or a dropped request) never retries autonomously. Should there be a periodic re-dial?
+
+**Working answer (current scope)**: **No periodic re-dial.** `Event::ConnectionSetup` is idempotent and re-injectable (a recurring setup re-dials pending pairs, skips Active ones — [[N-011]]), so the *mechanism* exists; only the periodic *trigger* is absent. Adding a timer is connection-dynamics work, out of this feature.
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature, together with [[N-020]] (decoupling readiness from the dial) — the re-dialer is the periodic counterpart of that one-shot trigger. Decide the interval/backoff and whether re-selection also prunes (the remove-side of [[N-011]]).
+
+## N-026 — Retire settle-`sleep`s across the pre-existing suites (adopt the async-test synchronization strategy)
+
+**Surfaced during**: 006-fanout-policy PR review (PR #67). Codifies ADR 0022 (barriers vs. bounded-negative checks).
+
+**Question**: 006-fanout-policy's dissemination suite removed every wall-clock settle-`sleep` (positive outcomes await a real event or a FIFO real-event barrier; genuine non-events use `tests/common::assert_no_new_deliveries`). Pre-existing suites still synchronize on raw `tokio::time::sleep(…)` settles — `tests/connections.rs`, `candidate_set.rs`, `topic_validity.rs`, `topic_registry_network.rs`, `topic_filter.rs`, and the `SETTLE`-const ones in `signed_message.rs` / `filter_composition.rs` / `multi_publisher.rs`. Should they migrate to the ADR 0022 strategy?
+
+**Working answer (current scope)**: **Left as-is.** Those are the 002/003/004/013 suites, outside 006-fanout-policy's charter; converting them now would be an unrelated cross-feature churn on an approved PR. They are green and the sleeps are not incorrect, only non-idiomatic.
+
+**Trigger to revisit**: a dedicated **test-hygiene sweep** (its own small PR). For each settle: a **positive** outcome → switch to an `await_*` barrier (or a later-real-event barrier for a processed no-op); a genuine **non-event** → `assert_no_new_deliveries(&[…], window)`. Follow ADR 0022's selection rule, and back any no-event property with a deterministic state-machine test rather than the window alone.

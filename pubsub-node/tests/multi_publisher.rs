@@ -5,7 +5,9 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use common::{await_delivery, build_signed_message_simple, two_node_fixture_with_subscriptions};
-use pubsub_node::{Message, MessagePayload, MockCryptoScheme, PublisherId, TestSigner, TopicId};
+use pubsub_node::{
+    Message, MessagePayload, MockCryptoScheme, Origin, PublisherId, TestSigner, TopicId,
+};
 
 fn topic(s: &str) -> TopicId {
     TopicId::from_str(s).expect("valid topic id")
@@ -57,7 +59,12 @@ async fn three_publishers_all_accepted() {
         vec![m_alice, m_bob, m_carol],
         "all three deliveries land in arrival order",
     );
-    assert!(record.iter().all(|d| d.from == *fx.b.id()), "all from B");
+    assert!(
+        record
+            .iter()
+            .all(|d| d.origin == Origin::Peer(fx.b.id().clone())),
+        "all from B"
+    );
 
     // Each delivery carries its own distinct publisher id.
     let p_alice = publisher_of(&record[0].message);

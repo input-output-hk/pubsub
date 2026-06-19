@@ -8,7 +8,7 @@ use common::{
     assert_subscriptions, await_delivery, await_subscriptions, two_node_fixture_with_subscriptions,
     TwoNodeFixture,
 };
-use pubsub_node::{SubscriptionRegistryControl, TopicId};
+use pubsub_node::{Origin, SubscriptionRegistryControl, TopicId};
 
 // ---------------------------------------------------------------------------
 // Runtime subscription behaviour.
@@ -60,7 +60,7 @@ async fn initial_set_filters_inbound() {
 
     let record = fx.a.received_messages();
     assert_eq!(record.len(), 1, "A retains exactly the T2 delivery");
-    assert_eq!(record[0].from, *fx.b.id());
+    assert_eq!(record[0].origin, Origin::Peer(fx.b.id().clone()));
     assert_eq!(record[0].message, common::ping(t2(), 2));
 
     assert_subscriptions(&fx.a, &[t2()]);

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{await_delivery, establish_upstreams, node_with, two_node_fixture_with_subscriptions};
-use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, TopicId};
+use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Origin, TopicId};
 
 fn topic(s: &str) -> TopicId {
     TopicId::from_str(s).expect("valid topic id")
@@ -32,7 +32,7 @@ async fn on_topic_message_retained() {
 
     let record = fx.a.received_messages();
     assert_eq!(record.len(), 1, "A retains the on-topic delivery");
-    assert_eq!(record[0].from, *fx.b.id());
+    assert_eq!(record[0].origin, Origin::Peer(fx.b.id().clone()));
     assert_eq!(record[0].message, msg);
 }
 

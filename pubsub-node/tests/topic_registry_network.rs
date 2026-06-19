@@ -32,6 +32,12 @@ fn peer(s: &str) -> PeerId {
 // dropped); a `weather` message from the authorized publisher is accepted by
 // every weather subscriber, while one from an unauthorized publisher is dropped
 // by all.
+//
+// Under 006 fan-out the three weather members form a mesh and relay the payload
+// among themselves; dedup (US3) bounds it so each node records the authorized
+// message exactly once — the "exactly one record" assertions below verify that
+// post-fan-out behavior, and the unauthorized message is dropped at every node
+// before any fan-out.
 #[tokio::test]
 async fn network_enforces_legitimacy_and_authorization_uniformly() {
     let network = Arc::new(InMemoryNetwork::new());

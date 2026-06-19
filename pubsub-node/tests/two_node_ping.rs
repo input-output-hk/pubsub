@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{await_delivery, node_with, test_topic, two_node_fixture};
-use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, PeerId};
+use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Origin, PeerId};
 
 // US1 AS-1: A's peer set contains B; A sends Ping(42); B's record contains it.
 #[tokio::test]
@@ -21,7 +21,7 @@ async fn ping_delivered_when_a_lists_b() {
 
     let record = fx.b.received_messages();
     assert_eq!(record.len(), 1);
-    assert_eq!(record[0].from, *fx.a.id());
+    assert_eq!(record[0].origin, Origin::Peer(fx.a.id().clone()));
     assert_eq!(record[0].message, msg);
 }
 
@@ -92,7 +92,7 @@ async fn ping_n_intact_across_100_sends() {
         let expected = common::ping(topic.clone(), i);
         let count = record
             .iter()
-            .filter(|d| d.from == *fx.a.id() && d.message == expected)
+            .filter(|d| d.origin == Origin::Peer(fx.a.id().clone()) && d.message == expected)
             .count();
         assert_eq!(
             count, 1,
