@@ -37,7 +37,7 @@ pub enum Event {
     /// receive-path checks minus the connection gate and severance; the
     /// publisher need not be the node itself), records it with a local origin,
     /// and fans it out to its downstream peers on the message's topic (ADR
-    /// 0020).
+    /// 0021).
     Publish(SignedMessage),
     /// A membership delta from the subscription registry, drained from a
     /// `MembershipWatch` by the node-owned registry reader.

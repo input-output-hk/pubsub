@@ -181,3 +181,88 @@ Final phase. Full sweep green (fmt + clippy + 108 lib + all integration suites; 
 ### Outcome: GO — feature complete, green at the final ⛳
 
 All five Spec Kit phases (Foundational, US1, US2, US3, Polish; T001–T017) are implemented and green. The feature delivers publish + verbatim fan-out + split-horizon relay + content-hash dedup + explicit `Origin`, with every deferral catalogued (N-020..N-025) and the public surface reconciled to contracts §5. No CRITICAL/HIGH outstanding. Ready for PR.
+
+## Session 6 — 2026-06-18 (final independent pre-PR gate)
+
+Independent post-implementation analysis by a reviewer who did **not** write the code, against the committed reality at `0d0097c` plus the two doc fixes this session applies (S6-1/S6-2 below). Read every artifact (spec/plan/tasks/data-model/research/quickstart/contracts) + this ledger (Sessions 1–5 ingested as author context, verdicts **re-derived, not trusted**) and the full implementation (`src/{state,fanout,received,event,node,lib}.rs`, every file under `tests/`). The five focus areas below mirror the pre-PR-gate input (A)–(E).
+
+### (A) Gate — LIVE run, all PASS
+
+- `cargo fmt --check` → clean (exit 0).
+- `cargo clippy --all-targets` → clean, **zero warnings/errors** (exit 0).
+- `cargo test` → **162 passed; 0 failed; 0 ignored** across 17 binaries (lib unit suite = 108; integration = 54). Per-binary breakdown all `ok`.
+- `#[ignore]` scan over `src/` + `tests/` → **none** (confirms Session 5's claim; the two F1-deferred suites were un-ignored / reworked at T015).
+- The cyclic triangle (`dissemination::triangle_mesh_records_once_and_terminates`) completes in ~0.1s — termination is demonstrated by the suite finishing (an unbounded impl would hang or blow the record counts under the watchdog).
+
+### (B) Requirement → test reality (each mapping re-derived by opening the test)
+
+Every FR/SC/scenario has a real test that **asserts the guarantee**, not merely exercises the path. Locations are the asserting test, opened and read.
+
+| Item | Asserting test (opened + verified) |
+|------|-----------------------------------|
+| FR-001 fire-and-forget publish enqueues, no verdict | `node.rs::publish` pushes `Event::Publish`; behavior in `state::publish_records_local_and_fans_out_to_downstream` |
+| FR-002 publish checks = receive minus connection gate | `state::publish_drops_failed_checks_without_record_effects_or_severance` (not-subscribed / unauthorized / invalid-sig) |
+| FR-003 publisher need not be self | `state::publish_accepts_proxy_publisher_not_self`; `dissemination::publish_records_local_and_reaches_both_downstream` (proxy-signed) |
+| FR-004 accepted publish recorded `Local` + fanned | `state::publish_records_local_and_fans_out_to_downstream` |
+| FR-005 failed publish dropped, no record/fan, never severs | `state::publish_drops_failed_checks…` asserts `misbehaved(&effects).is_empty()` |
+| FR-006 receive: recorded → fanned out | `state::received_message_fans_out_to_downstream_excluding_deliverer` |
+| FR-007 verbatim, no re-sign | both publish + receive tests assert `*forwarded == sm` |
+| FR-008 targets = downstream-on-topic via injected strategy | `fanout::forwards_to_every_downstream_on_the_topic` |
+| FR-009 split-horizon (publish: none) | `state::received_message_fans_out_…_excluding_deliverer` + `fanout::exclude_removes_that_peer` |
+| FR-010 strategy injected at construction, single trait | structural: `Node::new` `fanout_strategy` param, `NodeState.fanout`; `fanout` unit suite |
+| FR-011 `Effect::Send` reused, no new variant | `fanout()` emits `Effect::Send`; `Effect` enum holds only `Send`/`Misbehaved` (no 006 variant) |
+| FR-012 track `seen`, drop dup, first-seen record+insert+fan | `state::already_seen_received_message_is_dropped_not_refanned` |
+| FR-013 dedup after sig verify, no poisoning | `state::invalid_signature_publish_does_not_poison_seen` (asserts equal hashes, forged drop, genuine recorded) |
+| FR-014 `Origin` Local vs Peer | publish tests (`Origin::Local`) + receive tests (`Origin::Peer`) |
+| FR-015 dedup spans both paths | `state::published_message_relayed_back_is_dropped_duplicate` |
+| FR-016 empty downstream unchanged | `state::publish_with_no_downstream_records_without_effects` + receive baseline `payload_over_active_upstream_is_recorded` (empty downstream) |
+| US1 AS1–4 | `publish_records_local_and_fans_out…` / `publish_with_no_downstream…` / `publish_accepts_proxy_publisher_not_self` / `publish_drops_failed_checks…` |
+| US2 AS1–3 | `received_message_fans_out_…_excluding_deliverer` (AS1 origin+forward, AS2 split-horizon) / `received_message_sole_downstream_is_deliverer_yields_no_forward` (AS3) |
+| US2 AS4 acyclic relay | `dissemination::relayed_message_traverses_acyclic_line`; `n_node_graph::four_node_star_publish_reaches_every_spoke_once` (tree) |
+| US2 AS5 verbatim | receive test asserts `*forwarded == sm` |
+| US3 AS1–4 | `already_seen_received_message_is_dropped_not_refanned` / `published_message_relayed_back_is_dropped_duplicate` / `triangle_mesh_records_once_and_terminates` / `invalid_signature_publish_does_not_poison_seen` |
+| SC-001 | `dissemination::publish_records_local_and_reaches_both_downstream`; `n_node_graph` star |
+| SC-002 | `dissemination::triangle…` (full mesh) + `relayed_…_acyclic_line` + `n_node_graph` N=4 star |
+| SC-003 | `triangle…`; state `already_seen…` / `republish_identical_content_is_dropped_duplicate` |
+| SC-004 | `relayed_…_acyclic_line` (no B→A echo); `received_message_fans_out_…_excluding_deliverer` |
+| SC-005 | `triangle…` (terminates ~0.1s) — *indirect but valid*: termination shown by suite completion, not a forward counter |
+| SC-006 | `publish_drops_failed_checks…`; `dissemination` off-topic publish (records nowhere) |
+
+**No FR/SC/scenario lacks a real asserting test.** Session 5's SC→test mapping is accurate as re-derived; the only nuance is SC-005, where "bounded forwards" is demonstrated by termination rather than counting forwards — acceptable, and consistent with how the spec frames SC-005 (no unbounded circulation).
+
+### (C) Artifact ↔ code fidelity — PASS (broader than T016 §5)
+
+- `handle_publish` (state.rs:771) ↔ data-model §2 / contracts §1: subscribed→registered→authorized→signature→dedup; invalid-sig is a plain drop, **no** severance (FR-005); no self-publisher check (FR-003). ✅
+- `handle_signed_message` (state.rs:825) ↔ data-model §3: connection-gate first, then the shared chain, severance **before** the dedup gate (so a tampered message over an Active upstream severs and never seen-marks), split-horizon `Some(&from)`. ✅
+- `validate_dissemination` (state.rs:675) ↔ §2/§3 + 014: subscribed → registered (defensive guard under the maintained invariant) → `TopicEntry::is_publisher_authorized`. ✅
+- `record_and_fanout` (state.rs:733) ↔ data-model §4 + contracts §3: `seen.insert` check-and-insert as the single dedup gate; first-seen order insert → fan-out → record keeps `seen`/`received` consistent. ✅
+- `fanout` (state.rs:703) ↔ §4 + contracts §2.4: clones `SignedMessage` into `Message::Signed` (verbatim), `Effect::Send` only. ✅
+- `seen: HashSet<MessageHash>` (state.rs:91) keyed on `MessageHash::of(&plain)`, unbounded — matches contracts §3.1/§3.6 + data-model §1.3. ✅
+- Drop vocabulary (contracts §4): grep of the `tracing::info!`/`warn!` sites confirms exactly `topic_not_subscribed` / `topic_not_registered` / `publisher_not_authorized` / `invalid_signature` / `duplicate` (info, `message_dropped`) + `connection_severed` (warn, receive-only). No FR citations in any operator string. ✅
+- Public surface (contracts §5) — independent grep of `lib.rs` re-exports + module visibility: `FanoutStrategy`/`ForwardToAll`/`Origin` `pub` + re-exported; `ReceivedDelivery.origin` `pub` field; `Event::Publish` / `Node::publish` / `Node::new` `fanout_strategy` public; `seen`/`fanout`/`validate_dissemination`/`record_and_fanout`/`handle_publish` crate-internal; the only `#[cfg(test)]` in `fanout.rs` is its unit module. **No drift.** ✅
+
+### (D) F1 mesh rework + scope cleanup — confirmed landed
+
+- `topic_registry_network.rs` — un-ignored; asserts each weather member records the authorized message **exactly once** (mesh relay deduped) and the unauthorized-publisher message is dropped at every node. Real assertions, not stubs. ✅
+- `n_node_graph.rs` — the obsolete addressed-`send` isolation suites are **gone** (retirement documented in-file at the comment block lines 114–125); replaced by a single controlled **star** (`four_node_star_publish_reaches_every_spoke_once`) that asserts N=4 fan-out coverage with exactly-one per spoke and `Origin::Peer(a)`. ✅
+- `ConnectToExplicit` is **test-only**: defined in `tests/common/mod.rs`, absent from `src/` (grep confirms zero hits in `src/`). The `test_support` modules that *do* live in `src/` (`connection`, `subscription_registry`, `topic_registry`) are all `#[cfg(test)]`-gated and unrelated to fan-out. `ForwardToNobody` is fully removed (A2). ✅
+
+### (E) Deferrals + 014 interactions + constitution — PASS
+
+- Deferral catalogue present with triggers: **N-021** (bounded `seen`), **N-022** (pick-k / seeded-RNG fan-out), **N-023** (equivocation, links N-003/012), **N-024** (`Signed`→`Dissemination` rename), **N-025** (epochal re-dialer, links N-020). Plus the 014-interaction notes **N-011/N-017/N-018/N-019** and **N-020** (Synced-dialing). No behavior is silently deferred without a note — the publish-path `synced` gap was added to N-018 (Session 2 D1), and the topic-removal/membership-loss/cascade interactions are all covered (Session 2 D). ✅
+- Constitution standards in the final code: green checkpoints (fmt+clippy+test all pass, 0 ignored); **logs never asserted** (every test asserts via `received_messages()` / effect lists, never log capture); **no FR citations in operator strings** (grep clean); **no leftover test scaffolding in production** (D above); parse-at-the-edge preserved (`publish` takes an already-signed `SignedMessage`; the node mints nothing). ✅
+
+### Findings — 0 CRITICAL, 0 HIGH, 0 MEDIUM, 2 LOW (both found **and fixed** this session)
+
+| ID | Severity | Location | Summary | Status |
+|----|----------|----------|---------|--------|
+| S6-1 | LOW | `src/event.rs:40` | The `Event::Publish` rustdoc cited "(ADR 0020)" for the publish/fan-out behavior; the correct ADR is **0021** (0020 is 014's readiness ADR). The only mis-attributed ADR ref 006 added; missed by Sessions 1–5. | **FIXED** — changed to `(ADR 0021)`. |
+| S6-2 | LOW | `src/node.rs:451-454` | `execute_effect`'s doc claimed "No `apply` arm produces effects yet … not exercised until the connection transitions land" — stale/false (004 emits `Send`/`Misbehaved`; 006 makes `Send` the primary path). Pre-existing drift from 004, surfaced here because `node.rs` is edited by 006. | **FIXED** — rewritten to state 004 emits both variants and 006 makes `Send` the primary path. |
+
+Both fixes are doc-comment-only — zero behavior/API/test impact. Post-fix gate re-run: fmt clean, clippy clean, **162 passed / 0 failed / 0 ignored**.
+
+### Outcome: GO — PR-ready, no blockers
+
+The implementation faithfully realizes spec + contracts: every FR-001..016, SC-001..006, and acceptance scenario (US1 AS1–4, US2 AS1–5, US3 AS1–4) maps to a real, green, independently-verified asserting test; artifact↔code fidelity holds across all six transition helpers and the public surface; the F1 rework and scope cleanup landed as claimed; deferrals and 014 interactions are fully noted; constitution standards hold. The only findings were two LOW doc-citation nits, **both fixed this session**.
+
+**Verdict: ready to open the PR / force-push.** No CRITICAL/HIGH/MEDIUM blockers. Live counts: **162 passed, 0 failed, 0 ignored, clippy clean, fmt clean.** Recommend committing the S6-1/S6-2 doc fixes (a `git commit --amend` into the Phase-5 commit `0d0097c` per the single-commit-phase convention, or a standalone `docs(pubsub-node): 006 fix ADR-0021 citation + stale executor doc` commit) before pushing.

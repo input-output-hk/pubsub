@@ -449,9 +449,9 @@ impl Drop for Node {
 /// `Send` failures are logged and otherwise ignored — the network drops sends
 /// to unregistered ids without surfacing an error, mirroring [`Node::send`].
 /// `Misbehaved` becomes the operator-facing `connection_severed` warn event
-/// and nothing else at this stage. No `apply` arm produces effects yet, so
-/// this executor is wired but not exercised until the connection transitions
-/// land.
+/// and nothing else at this stage. The connection transitions (004) emit both
+/// variants, and fan-out (006) makes `Send` the primary path — one per
+/// forwarded message at the record point.
 async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect) {
     match effect {
         Effect::Send { to, message } => {
