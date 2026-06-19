@@ -299,3 +299,53 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Working answer (current scope)**: **Keep coupled.** Autonomous startup wants readiness to trigger the dial, and `Event::ConnectionSetup` remains separately injectable for any caller that needs to dial deliberately, so nothing is blocked. No change.
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]] / [[N-018]] / [[N-019]] — the connection-lifecycle cluster). Reconsider whether `Synced` should only flip the readiness flag and emit `Event::ConnectionSetup` as a separate queued event, decoupling readiness from automatic dialing.
+
+## N-021 — Bounded `seen` store (eviction) for duplicate suppression
+
+**Surfaced during**: 006-fanout-policy (US3 dedup; data-model §7 D1).
+
+**Question**: the `seen: HashSet<MessageHash>` that suppresses forwarding loops grows without bound — every accepted message's content hash is retained forever. A long-running node accumulates unbounded memory. Should it be a bounded store (LRU / TTL)?
+
+**Working answer (current scope)**: **Unbounded.** Correct for the in-memory PoC — it keeps `apply` deterministic and the tests reproducible, and there is no PoC consumer that runs long enough to matter. An eviction policy is a deployment-tuning concern (window size, TTL) with its own correctness trade-off (an evicted hash re-admits a late duplicate).
+
+**Trigger to revisit**: the **real-implementation** milestone (persistent / long-running node). At that point choose an eviction policy — likely TTL keyed on the message timestamp or an LRU sized to the dissemination window — and document the re-admission window it implies.
+
+## N-022 — Pick-k / sampling fan-out strategy (deterministic RNG in state)
+
+**Surfaced during**: 006-fanout-policy (US2 fan-out seam; data-model §7 D2).
+
+**Question**: the v1 `ForwardToAll` forwards to every downstream peer on the topic. A scalable dissemination policy forwards to a random *k*-subset (degree cap), which needs a source of randomness. How is that introduced without breaking the deterministic `apply`?
+
+**Working answer (current scope)**: **`ForwardToAll` only.** Pick-k would require a seeded RNG held in `NodeState` (so `apply` stays a pure, reproducible function of state + event), which is state shape this feature does not add. The `FanoutStrategy` trait is the insertion point — a future `PickK`/degree-cap strategy slots in behind it without reshaping the transition.
+
+**Trigger to revisit**: **ROADMAP 006/007** (pick-k / golden-mode fan-out). Add a seeded RNG to `NodeState` (threaded deterministically, like any other state), implement the sampling `FanoutStrategy`, and keep the order-insensitive test convention (sort targets).
+
+## N-023 — Equivocation / conflicting-message detection
+
+**Surfaced during**: 006-fanout-policy (US3 dedup keys on content hash; data-model §7 D3).
+
+**Question**: content-hash dedup suppresses *identical* copies, but an equivocating publisher emitting two **distinct** messages under the same `(publisher, sequence)` produces two different hashes — so both propagate and both are recorded. Should the node detect and act on the conflict?
+
+**Working answer (current scope)**: **Not detected.** Distinct content ⇒ distinct hash ⇒ both disseminate; this is the documented out-of-scope stance (dedup is loop-prevention, not chain-integrity). Detecting `(publisher, sequence)` collisions with differing content is a separate validation concern.
+
+**Trigger to revisit**: **feature 012** (chain-integrity / equivocation), with [[N-003]] (arrival-time chain validation). Decide the detection key (`(publisher_id, sequence)` or `(publisher_id, parent_hash)`) and the response (drop / slash / blacklist).
+
+## N-024 — `Message::Signed` → `Message::Dissemination` rename
+
+**Surfaced during**: 006-fanout-policy (data-model §7 D4).
+
+**Question**: the dissemination payload variant is still named `Message::Signed` (with `SignedMessage` / `PlainMessage`), a name from before connection-control messages were also signed. It now reads as if it were the only signed kind. Rename to `Message::Dissemination`?
+
+**Working answer (current scope)**: **Deferred.** A purely mechanical rename touching every dissemination call site; bundling it into a behavioural feature would inflate the diff and obscure the functional change. Left for a dedicated rename pass.
+
+**Trigger to revisit**: any time a low-risk mechanical-refactor pass is scheduled (or opportunistically alongside the next change that already touches the message type hierarchy — ADR 0010).
+
+## N-025 — Epochal / periodic re-dialer
+
+**Surfaced during**: 006-fanout-policy (out of scope; data-model §7 D5).
+
+**Question**: connection establishment fires once (the `Synced` readiness dial, or an injected `Event::ConnectionSetup`). Nothing re-selects or re-dials on an interval, so a node that missed a peer (absent at sync, or a dropped request) never retries autonomously. Should there be a periodic re-dial?
+
+**Working answer (current scope)**: **No periodic re-dial.** `Event::ConnectionSetup` is idempotent and re-injectable (a recurring setup re-dials pending pairs, skips Active ones — [[N-011]]), so the *mechanism* exists; only the periodic *trigger* is absent. Adding a timer is connection-dynamics work, out of this feature.
+
+**Trigger to revisit**: the **dynamic-connection-transitions** feature, together with [[N-020]] (decoupling readiness from the dial) — the re-dialer is the periodic counterpart of that one-shot trigger. Decide the interval/backoff and whether re-selection also prunes (the remove-side of [[N-011]]).

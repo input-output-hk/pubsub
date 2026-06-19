@@ -32,14 +32,12 @@ fn peer(s: &str) -> PeerId {
 // dropped); a `weather` message from the authorized publisher is accepted by
 // every weather subscriber, while one from an unauthorized publisher is dropped
 // by all.
-// Deferred (006-fanout-policy T015): this suite establishes a, b, c on `weather`
-// via the all-candidates policy, which builds a full bidirectional mesh. With
-// 006's receive-path fan-out wired (T008) but dedup not yet present (US3/T011),
-// a payload circulates the mesh unbounded, so the per-node record counts no
-// longer hold. The rework to assert post-fan-out behavior on a controlled
-// topology lands in T015; the cyclic "exactly once" guarantee it depends on
-// lands with dedup in T012. Re-enable then.
-#[ignore = "006 T015: full-mesh establishment loops under receive fan-out until dedup (T011/T012); rework deferred to T015"]
+//
+// Under 006 fan-out the three weather members form a mesh and relay the payload
+// among themselves; dedup (US3) bounds it so each node records the authorized
+// message exactly once — the "exactly one record" assertions below verify that
+// post-fan-out behavior, and the unauthorized message is dropped at every node
+// before any fan-out.
 #[tokio::test]
 async fn network_enforces_legitimacy_and_authorization_uniformly() {
     let network = Arc::new(InMemoryNetwork::new());

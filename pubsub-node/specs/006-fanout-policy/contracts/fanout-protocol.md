@@ -54,7 +54,11 @@ All under the existing `event = "message_dropped"` info-level convention. Severa
 | `Node::publish` | NEW method | `pub` |
 | `Node::new` | + `fanout_strategy: Arc<dyn FanoutStrategy>` param | `pub` |
 
-Internal-only (not re-exported): `NodeState.seen`, `NodeState.fanout`, the `fanout` helper, `handle_publish`.
+Internal-only (not re-exported): `NodeState.seen`, `NodeState.fanout`, the `validate_dissemination` / `fanout` / `record_and_fanout` helpers, `handle_publish`.
+
+There is no test-only **fan-out** strategy on the production surface (the scaffolded `ForwardToNobody` was removed — analysis.md Session 2 A2; the only `#[cfg(test)]` in `fanout.rs` is its unit-test module). The `tests/common::ConnectToExplicit` added for the controlled-topology suites is a **connection** strategy living in the test harness, not the production crate, so it is outside this fan-out public-surface contract.
+
+*Verified against code at T016 (Session 5): every row above matches `src/lib.rs` re-exports and module visibility; no drift.*
 
 ## 6. Acceptance traceability
 

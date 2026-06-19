@@ -291,6 +291,11 @@ impl Node {
     /// The publisher carried in `message` need not be this node — a validly
     /// signed, authorized message from any publisher is accepted (proxy /
     /// injection). The message must already be signed; the node mints nothing.
+    ///
+    /// Duplicate suppression spans both the publish and receive paths: a message
+    /// whose content this node has already accepted — including one it published
+    /// itself, then had relayed back — is dropped with no second record and no
+    /// re-forward, so forwarding terminates in cyclic topologies.
     pub fn publish(&self, message: SignedMessage) {
         self.events.push(Event::Publish(message));
     }
@@ -330,7 +335,11 @@ impl Node {
     ///
     /// The returned `Vec` is a clone of the node's internal record — it is
     /// stable for the caller and unaffected by subsequent receptions. This
-    /// is the observability surface acceptance tests assert against.
+    /// is the observability surface acceptance tests assert against. Each
+    /// [`ReceivedDelivery`] carries an [`Origin`](crate::Origin) distinguishing a
+    /// message this node published ([`Local`](crate::Origin::Local)) from one a
+    /// peer forwarded ([`Peer`](crate::Origin::Peer)); the publisher identity is
+    /// inside the message itself, independent of origin.
     #[must_use]
     pub fn received_messages(&self) -> Vec<ReceivedDelivery> {
         self.state

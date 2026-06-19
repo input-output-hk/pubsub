@@ -155,3 +155,29 @@ Both left `#[ignore]`d (T015 owns the rework); no commit touched them. The loop 
 ### Outcome: GO — Phase 4 complete, green at the ⛳
 
 US3 dedup spans both paths, suppresses cyclic circulation (triangle records-once + terminates), and does not poison on failed verification. No CRITICAL/HIGH. Phase 5 (polish — T013–T017, incl. the deferred-suite rework T015 and the D1–D5 IMPLEMENTATION_NOTES entries) not started, per scope.
+
+## Session 5 — 2026-06-18 (Phase 5 implementation: T013–T017, polish — feature complete)
+
+Final phase. Full sweep green (fmt + clippy + 108 lib + all integration suites; **0 ignored** — every 006 `#[ignore]` is gone).
+
+### Work
+- **T013** — deferral catalogue D1–D5 added to IMPLEMENTATION_NOTES as **N-021..N-025** (N-020 was the Synced-dialing note): D1 bounded `seen`, D2 pick-k/seeded-RNG fan-out (FanoutStrategy seam), D3 equivocation (links N-003 / 012), D4 `Message::Signed`→`Dissemination` rename, D5 epochal re-dialer (links N-020). Each cross-references data-model §7.
+- **T014** — the seam/`Origin` rustdoc was already authored in Phases 1–2; added the dedup/duplicate-suppression behavior to the library surface (`Node::publish`) and the `Origin` (Local vs Peer) distinction to `received_messages`. No FR citations.
+- **T015** — suite rework (not-parity-preserving charter). `topic_registry_network` un-ignored (passes under dedup — mesh relay deduped to one record per node, unauthorized dropped). `n_node_graph` reworked from the obsolete addressed-`send` isolation suites (fan-out relays a received message onward, so "directed send reaches only its addressee" is no longer a property) into a single **controlled star** via the `ConnectToExplicit` builder — hub dials nobody, spokes dial only the hub — asserting publish fan-out coverage at N=4 (SC-001/SC-002), acyclic so no dedup needed. `connections.rs` green under public `ForwardToAll`; `two_node_ping`/`topic_filter`/`topic_validity` unchanged. No 006 `#[ignore]`s remain.
+- **T016** — contracts §5 verified against `src/lib.rs` re-exports + module visibility: **no drift**. `FanoutStrategy`/`ForwardToAll`/`Origin` pub+re-exported; `ReceivedDelivery.origin` pub field; `Event::Publish`/`Node::publish`/`Node::new` `fanout_strategy` public; `seen`/`fanout`/`validate_dissemination`/`record_and_fanout`/`handle_publish` crate-internal; no test-only fan-out strategy in production (the only `#[cfg(test)]` in `fanout.rs` is its unit-test module). Added a §5 note that the claim is fan-out-scoped — the harness `ConnectToExplicit` is a *connection* strategy in `tests/common`, out of scope.
+- **T017** — quickstart.md walked against the real API: every code block is compile-accurate (`Node::new` 9-arg order, `publish` signature, the `Origin` match, `PlainMessage`/`SignedMessage` construction). SC mapping below.
+
+### SC-001..006 → demonstrating tests
+
+| SC | Demonstrated by |
+|----|-----------------|
+| SC-001 (publisher's downstream all record; publisher records one) | `dissemination::publish_records_local_and_reaches_both_downstream`; `n_node_graph::four_node_star_publish_reaches_every_spoke_once` |
+| SC-002 (connected mesh, one publish → all members record) | `dissemination::triangle_mesh_records_once_and_terminates` (full mesh); `n_node_graph` star (N=4); `dissemination::relayed_message_traverses_acyclic_line` (multi-hop) |
+| SC-003 (no node records/forwards the same message twice, incl. cyclic) | `dissemination::triangle_mesh_records_once_and_terminates`; state `already_seen_received_message_is_dropped_not_refanned`, `republish_identical_content_is_dropped_duplicate` |
+| SC-004 (no echo to the delivering peer) | `dissemination::relayed_message_traverses_acyclic_line` (no B→A echo); state `received_message_fans_out_to_downstream_excluding_deliverer` |
+| SC-005 (propagation terminates in bounded forwards) | `dissemination::triangle_mesh_records_once_and_terminates` (terminates under dedup); state dedup tests |
+| SC-006 (failed-check publish never recorded/forwarded) | state `publish_drops_failed_checks_without_record_effects_or_severance`; `dissemination` off-topic publish |
+
+### Outcome: GO — feature complete, green at the final ⛳
+
+All five Spec Kit phases (Foundational, US1, US2, US3, Polish; T001–T017) are implemented and green. The feature delivers publish + verbatim fan-out + split-horizon relay + content-hash dedup + explicit `Origin`, with every deferral catalogued (N-020..N-025) and the public surface reconciled to contracts §5. No CRITICAL/HIGH outstanding. Ready for PR.
