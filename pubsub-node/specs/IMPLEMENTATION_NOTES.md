@@ -349,3 +349,13 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Working answer (current scope)**: **No periodic re-dial.** `Event::ConnectionSetup` is idempotent and re-injectable (a recurring setup re-dials pending pairs, skips Active ones — [[N-011]]), so the *mechanism* exists; only the periodic *trigger* is absent. Adding a timer is connection-dynamics work, out of this feature.
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature, together with [[N-020]] (decoupling readiness from the dial) — the re-dialer is the periodic counterpart of that one-shot trigger. Decide the interval/backoff and whether re-selection also prunes (the remove-side of [[N-011]]).
+
+## N-026 — Retire settle-`sleep`s across the pre-existing suites (adopt the async-test synchronization strategy)
+
+**Surfaced during**: 006-fanout-policy PR review (PR #67). Codifies ADR 0022 (barriers vs. bounded-negative checks).
+
+**Question**: 006-fanout-policy's dissemination suite removed every wall-clock settle-`sleep` (positive outcomes await a real event or a FIFO real-event barrier; genuine non-events use `tests/common::assert_no_new_deliveries`). Pre-existing suites still synchronize on raw `tokio::time::sleep(…)` settles — `tests/connections.rs`, `candidate_set.rs`, `topic_validity.rs`, `topic_registry_network.rs`, `topic_filter.rs`, and the `SETTLE`-const ones in `signed_message.rs` / `filter_composition.rs` / `multi_publisher.rs`. Should they migrate to the ADR 0022 strategy?
+
+**Working answer (current scope)**: **Left as-is.** Those are the 002/003/004/013 suites, outside 006-fanout-policy's charter; converting them now would be an unrelated cross-feature churn on an approved PR. They are green and the sleeps are not incorrect, only non-idiomatic.
+
+**Trigger to revisit**: a dedicated **test-hygiene sweep** (its own small PR). For each settle: a **positive** outcome → switch to an `await_*` barrier (or a later-real-event barrier for a processed no-op); a genuine **non-event** → `assert_no_new_deliveries(&[…], window)`. Follow ADR 0022's selection rule, and back any no-event property with a deterministic state-machine test rather than the window alone.

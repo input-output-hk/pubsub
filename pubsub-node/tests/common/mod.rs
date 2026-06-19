@@ -435,6 +435,33 @@ pub async fn await_delivery(
     }
 }
 
+/// Assert none of `nodes` records a NEW delivery within `window` — the
+/// bounded-negative counterpart to the `await_*` positives. Snapshots each
+/// node's record count, then polls all of them across one window: a new delivery
+/// on any node fails immediately (fast, naming the node and the count delta); if
+/// `window` elapses with no growth, they are treated as quiescent.
+///
+/// Like any time-bounded negative it cannot prove "never" (a straggler after
+/// `window` is missed), so prefer a positive barrier — await a real downstream
+/// event — where the topology provides one; use this only for genuinely
+/// unobservable non-events (e.g. duplicate copies that are deduped and dropped).
+pub async fn assert_no_new_deliveries(nodes: &[&Node], window: Duration) {
+    let baselines: Vec<usize> = nodes.iter().map(|n| n.received_messages().len()).collect();
+    let start = tokio::time::Instant::now();
+    while start.elapsed() < window {
+        for (node, &baseline) in nodes.iter().zip(&baselines) {
+            let now = node.received_messages().len();
+            assert_eq!(
+                now,
+                baseline,
+                "{} recorded a new delivery within {window:?}: count {baseline} → {now}",
+                node.id(),
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 fn matches(
     record: &[ReceivedDelivery],
     expected_sender: &PeerId,

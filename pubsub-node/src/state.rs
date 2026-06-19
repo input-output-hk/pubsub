@@ -87,7 +87,8 @@ pub(crate) struct NodeState {
     /// shared record point on both paths (after signature verification): an
     /// already-present hash is dropped (`duplicate`), which bounds forwarding in
     /// cyclic meshes and suppresses a re-published / relayed-back copy. Unbounded
-    /// in the in-memory model — bounding (LRU/TTL) is deferred (ADR 0021).
+    /// in the in-memory model — bounding (LRU/TTL) is deferred (ADR 0021;
+    /// `IMPLEMENTATION_NOTES` N-021), needed before larger / longer multi-node runs.
     seen: HashSet<MessageHash>,
     /// Whether the node has **synced** — both registries' initial snapshots are
     /// applied, so the node is at/near the chain tip (ADR 0020). `false` while
@@ -676,23 +677,32 @@ fn validate_dissemination(state: &NodeState, plain: &PlainMessage) -> Option<&'s
     if !state.subscriptions.contains(&plain.topic) {
         return Some("topic_not_subscribed");
     }
-    // Topic-validity: the topic must be a registered (legitimate) topic. Under
-    // 014's maintained invariant `subscriptions ⊆ registered_topics` this also
-    // holds at rest; the check stays as a defensive guard (ADR 0016 as amended
-    // by 0020).
-    if !state.registered_topics.contains_key(&plain.topic) {
-        return Some("topic_not_registered");
-    }
-    // Authorized-publisher: a non-open topic accepts only its authorized keys; an
-    // open topic accepts any publisher — both encoded by the declarative
-    // `TopicEntry` predicate. Checked before signature verification (a cheap
-    // lookup); the `registered?` check guarantees the entry exists.
-    if let Some(entry) = state.registered_topics.get(&plain.topic) {
-        if !entry.is_publisher_authorized(plain.publisher_id.as_public_key()) {
-            return Some("publisher_not_authorized");
+    // Topic-validity then authorized-publisher, in a single registry lookup:
+    //  - absent ⇒ subscribed (checked above) but NOT registered, i.e. 014's
+    //    cross-registry invariant `subscriptions ⊆ registered_topics` is breached.
+    //    The strict-drop folds maintain that invariant, so this is unreachable in
+    //    normal operation; it stays as a defensive guard (ADR 0016 as amended by
+    //    0020) and warns so a breach is visible (the caller still emits the routine
+    //    `message_dropped` info record with the returned cause).
+    //  - present ⇒ a non-open topic accepts only its authorized keys, an open
+    //    topic accepts any publisher (both encoded by the declarative `TopicEntry`
+    //    predicate). Checked before signature verification (a cheap lookup).
+    match state.registered_topics.get(&plain.topic) {
+        None => {
+            tracing::warn!(
+                target: "pubsub_node::node",
+                event = "invariant_violation",
+                invariant = "subscriptions_subset_of_registered_topics",
+                self_id = %state.self_id,
+                topic = %plain.topic,
+            );
+            Some("topic_not_registered")
         }
+        Some(entry) if !entry.is_publisher_authorized(plain.publisher_id.as_public_key()) => {
+            Some("publisher_not_authorized")
+        }
+        Some(_) => None,
     }
-    None
 }
 
 /// Compute the verbatim fan-out effects for `message` on `topic`: one

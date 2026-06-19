@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    await_candidate_present, await_delivery, await_downstream, establish_mutual,
-    establish_upstreams, node, ping,
+    assert_no_new_deliveries, await_candidate_present, await_delivery, await_downstream,
+    establish_mutual, establish_upstreams, node, ping,
 };
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Message, Node, Origin, TopicId};
 
@@ -108,16 +108,27 @@ async fn publish_records_local_and_reaches_both_downstream() {
         .await
         .expect("P holds d2 downstream");
 
-    // The published message is authored by the shared test signer, not by P —
-    // proxy/injection: P publishes a message whose publisher is not itself.
+    // SC-006: an off-topic publish (P is not a member of "other") must be dropped
+    // at P — not recorded, not fanned out. Publish it FIRST, then the valid
+    // message: the node drains its queue in FIFO order through one consumer, so
+    // observing the valid publish everywhere proves the off-topic one (queued
+    // before it, and dropped at P with no forward) has already been processed —
+    // no wall-clock settle needed.
+    let Message::Signed(off_topic) = ping(topic("other"), 2) else {
+        unreachable!("ping yields Message::Signed");
+    };
+    p.publish(off_topic);
+
+    // The valid, proxy-signed publish — both the US1 happy path AND the barrier
+    // (authored by the shared test signer, not P: proxy/injection).
     let msg = ping(t.clone(), 1);
     let Message::Signed(signed) = msg.clone() else {
         unreachable!("ping yields Message::Signed");
     };
     p.publish(signed);
 
-    // P records it locally; both downstream receive the verbatim forward,
-    // attributed to P (the delivering peer).
+    // P records the valid message locally; both downstream receive the verbatim
+    // forward, attributed to P (the delivering peer).
     await_local_record(&p, &msg, TIMEOUT).await;
     await_delivery(&d1, p.id(), &msg, TIMEOUT)
         .await
@@ -126,35 +137,19 @@ async fn publish_records_local_and_reaches_both_downstream() {
         .await
         .expect("d2 receives the published message");
 
+    // Exactly one record per node — the valid message, attributed correctly. The
+    // off-topic publish, drained before it, left no trace: an off-topic record (or
+    // any forward of it) would push a count to 2.
     let p_rec = p.received_messages();
-    assert_eq!(p_rec.len(), 1, "P records the publish exactly once");
+    assert_eq!(p_rec.len(), 1, "P records exactly the valid publish");
     assert_eq!(p_rec[0].origin, Origin::Local);
     assert_eq!(p_rec[0].message, msg);
-
-    // An off-topic publish (P is not a member of "other") is dropped at P — not
-    // recorded, and not fanned out to either downstream.
-    let Message::Signed(off_topic) = ping(topic("other"), 2) else {
-        unreachable!("ping yields Message::Signed");
-    };
-    p.publish(off_topic);
-    // Let the event loop drain the (dropped) publish before asserting nothing
-    // changed anywhere.
-    tokio::time::sleep(Duration::from_millis(50)).await;
-    assert_eq!(
-        p.received_messages().len(),
-        1,
-        "off-topic publish is not recorded at P",
-    );
-    assert_eq!(
-        d1.received_messages().len(),
-        1,
-        "off-topic publish is not forwarded to d1",
-    );
-    assert_eq!(
-        d2.received_messages().len(),
-        1,
-        "off-topic publish is not forwarded to d2",
-    );
+    for (spoke, who) in [(&d1, "d1"), (&d2, "d2")] {
+        let recs = spoke.received_messages();
+        assert_eq!(recs.len(), 1, "{who} records exactly the valid message");
+        assert_eq!(recs[0].origin, Origin::Peer(p.id().clone()));
+        assert_eq!(recs[0].message, msg);
+    }
 }
 
 // US2 / SC-002 (partial), SC-004: a received message is relayed onward through
@@ -219,11 +214,10 @@ async fn relayed_message_traverses_acyclic_line() {
         .await
         .expect("C receives the relayed message via B");
 
-    // Settle, then assert each node holds exactly one record and the line did not
-    // echo: A keeps only its local copy (no B→A echo — split-horizon), C's only
-    // copy is the one relayed by B (never a direct copy from A).
-    tokio::time::sleep(Duration::from_millis(50)).await;
-
+    // The line is acyclic and A has no upstream (nobody dials A), so once C has
+    // recorded via B the propagation has quiesced and A can never receive an echo
+    // — no settle needed. Each node holds exactly one record; A keeps only its
+    // local copy (no B→A echo — split-horizon), and C's only copy is B's relay.
     let a_rec = a.received_messages();
     assert_eq!(a_rec.len(), 1, "A holds only its own published copy");
     assert_eq!(a_rec[0].origin, Origin::Local, "no echo back to A");
@@ -277,10 +271,11 @@ async fn triangle_mesh_records_once_and_terminates() {
     await_recorded(&b, &msg, TIMEOUT).await;
     await_recorded(&c, &msg, TIMEOUT).await;
 
-    // Settle well past propagation, then assert each node holds EXACTLY one copy
-    // — duplicate suppression bounded the cyclic circulation (had it not, the
-    // counts would keep growing / the test would hang under the watchdog).
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // The redundant relays (b→c, c→b) must be deduped, not recorded — no node's
+    // count grows as they circulate. (Exactly-once is proven deterministically by
+    // the T010 state tests; this is the integration-level regression window: a
+    // dedup regression would record a second copy and fail this fast.)
+    assert_no_new_deliveries(&[&a, &b, &c], Duration::from_millis(100)).await;
 
     for (node, who) in [(&a, "A"), (&b, "B"), (&c, "C")] {
         let rec = node.received_messages();
