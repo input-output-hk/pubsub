@@ -144,7 +144,7 @@ impl NetworkHandle {
 /// ```no_run
 /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 /// # use std::sync::Arc;
-/// # use pubsub_node::{ConnectToAllCandidates, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node, NodeConfig, PeerId, Signer, TestVerifier, Verifier};
+/// # use pubsub_node::{AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node, NodeConfig, PeerId, Signer, TestVerifier, Verifier};
 /// # let self_id: PeerId = "node-a".parse()?;
 /// # let config = NodeConfig::default();
 /// let network = Arc::new(InMemoryNetwork::new());
@@ -155,7 +155,8 @@ impl NetworkHandle {
 /// let topic_registry = Arc::new(InMemoryTopicRegistry::new());
 /// let strategy = Arc::new(ConnectToAllCandidates);
 /// let fanout = Arc::new(ForwardToAll);
-/// let node = Node::new(self_id, config, network.clone(), signer, verifier, registry, topic_registry, strategy, fanout).await?;
+/// let acceptance = Arc::new(AcceptFromAllCandidates);
+/// let node = Node::new(self_id, config, network.clone(), signer, verifier, registry, topic_registry, strategy, fanout, acceptance).await?;
 /// # Ok(())
 /// # }
 /// ```

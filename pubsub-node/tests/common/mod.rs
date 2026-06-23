@@ -9,11 +9,11 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash, MessagePayload,
-    MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey,
-    PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner,
-    TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
+    MessagePayload, MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage,
+    PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl,
+    TestSigner, TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -194,6 +194,7 @@ pub async fn two_node_fixture_with_subscriptions(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node A");
@@ -210,6 +211,7 @@ pub async fn two_node_fixture_with_subscriptions(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node B");
@@ -310,6 +312,7 @@ pub async fn node_with_strategy(
         topic_registry,
         strategy,
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node");
@@ -351,6 +354,7 @@ pub async fn node_sharing(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node")

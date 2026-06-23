@@ -11,9 +11,9 @@ use common::{
     node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
-    ConnectToAllCandidates, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, NetworkError, Node, NodeConfig, NodeError, Origin, PeerId,
-    SubscriptionRegistryControl, TopicId, TopicRegistryControl, UpstreamState,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, NetworkError, Node, NodeConfig, NodeError,
+    Origin, PeerId, SubscriptionRegistryControl, TopicId, TopicRegistryControl, UpstreamState,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -409,6 +409,7 @@ async fn readiness_establishes_autonomously() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct a");
@@ -422,6 +423,7 @@ async fn readiness_establishes_autonomously() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct b");
@@ -464,6 +466,7 @@ async fn construction_fails_on_duplicate_registration() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("first registration succeeds");
@@ -479,6 +482,7 @@ async fn construction_fails_on_duplicate_registration() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await;
 
@@ -511,6 +515,7 @@ async fn construction_fails_on_identity_mismatch() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await;
 
@@ -530,6 +535,7 @@ async fn construction_fails_on_identity_mismatch() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("the failed construction left the id free");

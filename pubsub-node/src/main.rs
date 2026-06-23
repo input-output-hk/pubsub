@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node, PeerId, Signer,
-    TestVerifier, Verifier,
+    load_node_config, AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node,
+    PeerId, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -88,6 +88,7 @@ async fn main() {
         topic_registry,
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .unwrap_or_else(|e| {

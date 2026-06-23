@@ -16,6 +16,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use crate::acceptance::ConnectionAcceptanceStrategy;
 use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
@@ -82,6 +83,11 @@ pub(crate) struct NodeState {
     /// downstream peers receive a forward of a recorded message. The deliberate
     /// twin of `connection_strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
     fanout_strategy: Arc<dyn FanoutStrategy>,
+    /// The inbound-acceptance policy consulted on a verified `Request` to decide
+    /// whether to accept the emitter as downstream on the topic. The inbound
+    /// mirror of `connection_strategy`; the v1 implementor is
+    /// `AcceptFromAllCandidates` (ADR 0023).
+    acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     /// Content hashes of every message already accepted, keyed by
     /// `MessageHash::of(&plain)`. The duplicate-suppression set checked at the
     /// shared record point on both paths (after signature verification): an
@@ -106,6 +112,7 @@ impl NodeState {
         signer: Arc<dyn Signer>,
         connection_strategy: Arc<dyn ConnectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
+        acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Self {
         Self {
             self_id,
@@ -119,6 +126,7 @@ impl NodeState {
             signer,
             connection_strategy,
             fanout_strategy,
+            acceptance_strategy,
             seen: HashSet::new(),
             synced: false,
         }
@@ -571,23 +579,23 @@ fn handle_connection_message(
 
 /// Transition for a verified `Request` from `emitter` on `topic` (FR-012).
 ///
-/// Membership-validates against the **membership-derived** subscription set
-/// (registration gates delivery, not acceptance — the S7 pin): the topic must
-/// be among the node's own topics AND the emitter a known member of it. A valid
-/// request records the downstream entry (idempotently) and replies `Accepted`
-/// to the carried emitter; a failing one is dropped with no state change and no
-/// reply.
+/// The accept/reject *policy* is the injected [`ConnectionAcceptanceStrategy`]
+/// (the inbound mirror of the dial-side `connection_strategy`); the handler owns
+/// the mechanics. The v1 `AcceptFromAllCandidates` membership-validates against
+/// the **membership-derived** view (registration gates delivery, not acceptance
+/// — the S7 pin): the topic must be among the node's own topics AND the emitter
+/// a known member of it. An accepted request records the downstream entry
+/// (idempotently) and replies `Accepted` to the carried emitter; a rejected one
+/// is dropped with no state change and no reply.
 fn handle_connection_request(
     state: &mut NodeState,
     emitter: PeerId,
     topic: TopicId,
 ) -> Vec<Effect> {
-    let topic_is_own = state.subscriptions.contains(&topic);
-    let emitter_is_member = state
-        .candidates
-        .get(&topic)
-        .is_some_and(|peers| peers.contains(&emitter));
-    if !(topic_is_own && emitter_is_member) {
+    if !state
+        .acceptance_strategy
+        .accepts(&emitter, &topic, &state.subscriptions, &state.candidates)
+    {
         tracing::info!(
             target: "pubsub_node::node",
             event = "message_dropped",
@@ -914,6 +922,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use crate::acceptance::AcceptFromAllCandidates;
     use crate::connection::test_support::{
         accepted_from, membership_joined, misattributed_request, payload_from, request_from,
         tampered_payload_from, terminated_from, ConnectionScript,
@@ -968,6 +977,7 @@ mod tests {
             alias_signer(self_id),
             strategy(),
             Arc::new(ForwardToAll),
+            Arc::new(AcceptFromAllCandidates),
         );
         for t in subscriptions {
             state

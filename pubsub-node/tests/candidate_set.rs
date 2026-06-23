@@ -9,8 +9,9 @@ use common::{
     shared_test_verifier,
 };
 use pubsub_node::{
-    ConnectToAllCandidates, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, Node, NodeConfig, PeerId, SubscriptionRegistryControl, TopicId,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId,
+    SubscriptionRegistryControl, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -41,6 +42,7 @@ async fn node_with_no_registry_entry_derives_empty_state() {
         topic_registry,
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construction succeeds even with no registry entry");
