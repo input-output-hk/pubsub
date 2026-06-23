@@ -119,12 +119,14 @@ pub fn tampered_ping(topic: TopicId, n: u64) -> Message {
     Message::Dissemination(signed)
 }
 
-/// Borrow the topic of a [`Message`] regardless of variant.
+/// Borrow the topic of a dissemination [`Message`].
 pub fn message_topic(message: &Message) -> &TopicId {
     match message {
         Message::Dissemination(signed) => &signed.plain.topic,
-        // `Message` is #[non_exhaustive]; 003 defines only the Signed variant.
-        _ => unreachable!("Message has only the Signed variant in 003"),
+        // Test fixtures only build dissemination messages; `Message` is also
+        // `#[non_exhaustive]` (the `Connection` variant + future kinds), hence
+        // the catch-all.
+        _ => unreachable!("message_topic is only called on dissemination messages"),
     }
 }
 

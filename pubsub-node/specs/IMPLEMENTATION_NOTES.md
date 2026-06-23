@@ -330,7 +330,9 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Trigger to revisit**: **feature 012** (chain-integrity / equivocation), with [[N-003]] (arrival-time chain validation). Decide the detection key (`(publisher_id, sequence)` or `(publisher_id, parent_hash)`) and the response (drop / slash / blacklist).
 
-## N-024 — `Message::Signed` → `Message::Dissemination` rename
+## N-024 — `Message::Signed` → `Message::Dissemination` rename — **RESOLVED by the connection-acceptance-strategy refactor (2026-06-23)**
+
+**Resolution**: the dissemination variant is renamed `Message::Signed` → `Message::Dissemination` (and its named handler `handle_signed_message` → `handle_dissemination`) in the dedicated low-risk refactor pass anticipated below. The inner `SignedMessage` / `PlainMessage` types are **unchanged** — the rename is variant-only, and `SignedMessage` remains accurate (it is the signed dissemination message). ADR 0010 carries an amendment recording the rename (body examples kept as the point-in-time record). Behavior-preserving. The historical context is retained below.
 
 **Surfaced during**: 006-fanout-policy (data-model §7 D4).
 
