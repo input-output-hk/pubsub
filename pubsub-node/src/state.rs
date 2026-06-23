@@ -77,11 +77,11 @@ pub(crate) struct NodeState {
     /// The connection-selection policy consulted on a setup event, beside the
     /// verifier (the immutable service-handle slot). The transition reads it
     /// from the `ConnectionSetup` arm (ADR 0018).
-    strategy: Arc<dyn ConnectionStrategy>,
+    connection_strategy: Arc<dyn ConnectionStrategy>,
     /// The fan-out policy consulted at the record point to choose which
     /// downstream peers receive a forward of a recorded message. The deliberate
-    /// twin of `strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
-    fanout: Arc<dyn FanoutStrategy>,
+    /// twin of `connection_strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
+    fanout_strategy: Arc<dyn FanoutStrategy>,
     /// Content hashes of every message already accepted, keyed by
     /// `MessageHash::of(&plain)`. The duplicate-suppression set checked at the
     /// shared record point on both paths (after signature verification): an
@@ -104,8 +104,8 @@ impl NodeState {
         subscriptions: HashSet<TopicId>,
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
-        strategy: Arc<dyn ConnectionStrategy>,
-        fanout: Arc<dyn FanoutStrategy>,
+        connection_strategy: Arc<dyn ConnectionStrategy>,
+        fanout_strategy: Arc<dyn FanoutStrategy>,
     ) -> Self {
         Self {
             self_id,
@@ -117,8 +117,8 @@ impl NodeState {
             upstream: HashMap::new(),
             downstream: HashSet::new(),
             signer,
-            strategy,
-            fanout,
+            connection_strategy,
+            fanout_strategy,
             seen: HashSet::new(),
             synced: false,
         }
@@ -251,7 +251,7 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// rule (FR-008/009; data-model §1.4).
 fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
     let expected = state
-        .strategy
+        .connection_strategy
         .expected_upstream(&state.subscriptions, &state.candidates);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
@@ -717,7 +717,7 @@ fn fanout(
     exclude: Option<&PeerId>,
 ) -> Vec<Effect> {
     state
-        .fanout
+        .fanout_strategy
         .targets(topic, &state.downstream, exclude)
         .into_iter()
         .map(|to| Effect::Send {

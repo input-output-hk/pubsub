@@ -105,7 +105,7 @@ impl Node {
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. `signer` is the node's signing
     /// identity — it signs the connection-control messages the node emits
-    /// (`Request`/`Accepted`/`Terminated`); `strategy` is the
+    /// (`Request`/`Accepted`/`Terminated`); `connection_strategy` is the
     /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
     /// a setup event; `fanout_strategy` is the fan-out policy (v1:
     /// `ForwardToAll`) consulted at the record point to choose which downstream
@@ -133,7 +133,7 @@ impl Node {
         verifier: Arc<dyn Verifier>,
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
-        strategy: Arc<dyn ConnectionStrategy>,
+        connection_strategy: Arc<dyn ConnectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
@@ -159,7 +159,7 @@ impl Node {
             HashSet::new(),
             verifier,
             signer,
-            strategy,
+            connection_strategy,
             fanout_strategy,
         )));
         let state_for_task = Arc::clone(&state);
