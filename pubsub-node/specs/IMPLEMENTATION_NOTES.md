@@ -361,3 +361,18 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 **Working answer (current scope)**: **Left as-is.** Those are the 002/003/004/013 suites, outside 006-fanout-policy's charter; converting them now would be an unrelated cross-feature churn on an approved PR. They are green and the sleeps are not incorrect, only non-idiomatic.
 
 **Trigger to revisit**: a dedicated **test-hygiene sweep** (its own small PR). For each settle: a **positive** outcome → switch to an `await_*` barrier (or a later-real-event barrier for a processed no-op); a genuine **non-event** → `assert_no_new_deliveries(&[…], window)`. Follow ADR 0022's selection rule, and back any no-event property with a deterministic state-machine test rather than the window alone.
+
+## N-027 — `state.rs` unit-test module dominates the file; split into per-concern test files
+
+**Surfaced during**: the connection-acceptance-strategy refactor (2026-06-23), reviewing module sizes.
+
+**Question**: `src/state.rs` is ~3019 lines, of which only ~919 is production code (the pure core: `apply` + the `handle_*` chain + `NodeState`); the other ~2100 lines (70%) are the single inline `#[cfg(test)] mod tests` with ~60 tests. The core itself is reasonably sized — the bloat is that `apply` funnels *every* handler's tests into one module. Should those tests be restructured?
+
+**Working answer (current scope)**: **Left inline.** These are genuine unit tests of the pure core — they call `apply`/`handle_*` directly and assert on private `NodeState` fields and the returned `Vec<Effect>` synchronously, which is their value (fast, deterministic, no event loop). They **cannot** move to `tests/` without going through the async public `Node` API, which would change their nature and lose the direct-state assertions. So the fix is reorganization within the crate, not relocation — a large, different-axis mechanical move that would bury a focused refactor's diff, so it is deferred to its own PR.
+
+**Trigger to revisit**: a dedicated **test-structure PR**. Keep `src/state.rs` as the production core with `#[cfg(test)] mod tests;`, and split the test module into per-concern files under `src/state/tests/` (Rust 2018 form, no rename of `state.rs`):
+
+- `src/state/tests/mod.rs` — shared helpers (`node_state`, `strategy`, `alias_signer`, script imports) + `mod` declarations;
+- per-concern files grouped by handler: `dissemination` (receive path), `publish`, `connection` (request/accepted/terminated), `membership` (membership + topic-registry folds), `lifecycle` (synced/setup/shutdown), `fanout` (fan-out + dedup).
+
+The grouping mirrors the handler chain the existing test comments already key off, so the partition is mostly mechanical. **Crux to validate**: descendant test modules must still reach `state`'s private items — they can, since a private item is visible to its module and all descendants, so a file under `src/state/tests/` reaches `handle_*`/private fields via `super::super::*` (and `crate::state` for the `pub(crate)` surface). Pure move, zero test-logic changes, behavior-preserving. **Trade-off**: breaks the inline-`#[cfg(test)] mod tests` uniformity that `connection`/`fanout`/`acceptance` follow — a deliberate exception justified by `state` being 7–20× their size. **Explicitly not** the deeper alternative of splitting the production handlers across domain modules: that touches the pure-core cohesion (ADR 0011 keeps `apply` + handlers together) and is an architectural change, not a test reorg.
