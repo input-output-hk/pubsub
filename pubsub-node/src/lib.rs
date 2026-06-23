@@ -12,7 +12,7 @@
 //!   parallel to [`PeerId`].
 //! - [`Message`], [`SignedMessage`], [`PlainMessage`], [`MessagePayload`] —
 //!   the protocol-message hierarchy. [`Message`] is a `#[non_exhaustive]` enum;
-//!   [`Message::Signed`] carries a [`SignedMessage`] (signed-over
+//!   [`Message::Dissemination`] carries a [`SignedMessage`] (signed-over
 //!   [`PlainMessage`] content plus a signature, with a [`TopicId`], a
 //!   [`PublisherId`], and a [`MessagePayload`] body — currently only
 //!   [`MessagePayload::Ping`]), and [`Message::Connection`] carries a

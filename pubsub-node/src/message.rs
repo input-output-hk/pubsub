@@ -70,8 +70,9 @@ pub enum MessagePayload {
 
 /// A protocol message exchanged between nodes.
 ///
-/// Two variants exist: [`Message::Signed`], a signed dissemination message,
-/// and [`Message::Connection`], a signed connection-control message. The enum
+/// Two variants exist: [`Message::Dissemination`], a signed dissemination
+/// message, and [`Message::Connection`], a signed connection-control message.
+/// Both are signed; the variant axis is dissemination-vs-control. The enum
 /// is `#[non_exhaustive]` so future protocol-message kinds (peer sampling,
 /// registry lookups, …) can be added as sibling variants without breaking
 /// external consumers — pattern-matches outside this crate must include a
@@ -80,7 +81,7 @@ pub enum MessagePayload {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Message {
     /// A signed dissemination message: signed-over content plus a signature.
-    Signed(SignedMessage),
+    Dissemination(SignedMessage),
     /// A signed connection-control message: a handshake action
     /// (`Request`/`Accepted`/`Terminated`) plus a signature over its content.
     Connection(ConnectionMessage),

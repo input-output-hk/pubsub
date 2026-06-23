@@ -231,7 +231,7 @@ pub(crate) mod test_support {
         if tampered {
             msg.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
         }
-        Message::Signed(msg)
+        Message::Dissemination(msg)
     }
 
     /// A validly-signed payload `Ping(n)` event from `publisher` on `topic`

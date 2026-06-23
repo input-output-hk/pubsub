@@ -504,7 +504,7 @@ fn handle_message_received(state: &mut NodeState, from: PeerId, message: Message
     );
 
     match message {
-        Message::Signed(signed) => handle_signed_message(state, from, signed),
+        Message::Dissemination(signed) => handle_dissemination(state, from, signed),
         Message::Connection(connection) => handle_connection_message(state, from, connection),
     }
 }
@@ -722,7 +722,7 @@ fn fanout(
         .into_iter()
         .map(|to| Effect::Send {
             to,
-            message: Message::Signed(message.clone()),
+            message: Message::Dissemination(message.clone()),
         })
         .collect()
 }
@@ -763,7 +763,7 @@ fn record_and_fanout(
     let effects = fanout(state, &topic, &signed, exclude);
     state.received.push(ReceivedDelivery {
         origin,
-        message: Message::Signed(signed),
+        message: Message::Dissemination(signed),
     });
     effects
 }
@@ -832,11 +832,7 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 // authorized?, signature? (ADR 0016). A signature failure past every earlier
 // check, over an Active upstream, is misbehavior and severs (FR-017); the
 // fan-out happens only past the record point.
-fn handle_signed_message(
-    state: &mut NodeState,
-    from: PeerId,
-    signed: SignedMessage,
-) -> Vec<Effect> {
+fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessage) -> Vec<Effect> {
     // FR-016: admit only from an Active upstream for this topic.
     let connected = matches!(
         state
@@ -1039,17 +1035,17 @@ mod tests {
             payload: MessagePayload::Ping(n),
         };
         let signature = signer.sign(&plain.signed_bytes());
-        Message::Signed(SignedMessage { plain, signature })
+        Message::Dissemination(SignedMessage { plain, signature })
     }
 
     /// Same as [`signed_ping`] but with the payload altered after signing,
     /// so the signature no longer verifies (the suite's mismatch pattern).
     fn tampered_ping(signer: &TestSigner, topic: TopicId, n: u64) -> Message {
-        let Message::Signed(mut sm) = signed_ping(signer, topic, n) else {
-            unreachable!("signed_ping always builds a Message::Signed");
+        let Message::Dissemination(mut sm) = signed_ping(signer, topic, n) else {
+            unreachable!("signed_ping always builds a Message::Dissemination");
         };
         sm.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
-        Message::Signed(sm)
+        Message::Dissemination(sm)
     }
 
     // FR-001 / US2-AS1: subscribed topic + valid signature => recorded, in
@@ -2671,7 +2667,7 @@ mod tests {
             .filter_map(|effect| match effect {
                 Effect::Send {
                     to,
-                    message: Message::Signed(sm),
+                    message: Message::Dissemination(sm),
                 } => Some((to.clone(), sm.clone())),
                 _ => None,
             })
@@ -2680,8 +2676,8 @@ mod tests {
 
     /// The inner [`SignedMessage`] of a `signed_ping`/`tampered_ping` build.
     fn signed(message: Message) -> SignedMessage {
-        let Message::Signed(sm) = message else {
-            unreachable!("ping builders always yield Message::Signed");
+        let Message::Dissemination(sm) = message else {
+            unreachable!("ping builders always yield Message::Dissemination");
         };
         sm
     }
@@ -2702,7 +2698,7 @@ mod tests {
         let snap = state.received_snapshot();
         assert_eq!(snap.len(), 1, "published message recorded");
         assert_eq!(snap[0].origin, Origin::Local, "local origin");
-        assert_eq!(snap[0].message, Message::Signed(sm.clone()));
+        assert_eq!(snap[0].message, Message::Dissemination(sm.clone()));
 
         let sends = signed_sends(&effects);
         assert_eq!(
@@ -2813,7 +2809,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm.clone()),
+                message: Message::Dissemination(sm.clone()),
             },
         );
 
@@ -2853,7 +2849,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm),
+                message: Message::Dissemination(sm),
             },
         );
 
@@ -2884,7 +2880,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm.clone()),
+                message: Message::Dissemination(sm.clone()),
             },
         );
         assert_eq!(
@@ -2899,7 +2895,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm),
+                message: Message::Dissemination(sm),
             },
         );
         assert!(
@@ -2956,7 +2952,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm),
+                message: Message::Dissemination(sm),
             },
         );
         assert!(relayed.is_empty(), "relayed-back copy produces no effects");

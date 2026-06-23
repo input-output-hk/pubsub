@@ -17,7 +17,7 @@ const SETTLE: Duration = Duration::from_millis(100);
 
 // Borrow the publisher id of a signed message.
 fn publisher_of(message: &Message) -> &PublisherId {
-    let Message::Signed(signed) = message else {
+    let Message::Dissemination(signed) = message else {
         unreachable!("only the Signed variant exists in 003")
     };
     &signed.plain.publisher_id
@@ -94,13 +94,13 @@ async fn mismatched_publisher_id_rejected() {
 
     // Alice signs, then we relabel the message as Bob's — the signature no
     // longer matches the declared publisher's key.
-    let Message::Signed(mut alice_signed) =
+    let Message::Dissemination(mut alice_signed) =
         build_signed_message_simple(&alice, t1.clone(), MessagePayload::Ping(1))
     else {
         unreachable!("Signed variant")
     };
     alice_signed.plain.publisher_id = PublisherId::from(kp_bob.public);
-    let m_alice_mislabeled = Message::Signed(alice_signed);
+    let m_alice_mislabeled = Message::Dissemination(alice_signed);
 
     let m_bob = build_signed_message_simple(&bob, t1.clone(), MessagePayload::Ping(2));
     let m_carol = build_signed_message_simple(&carol, t1.clone(), MessagePayload::Ping(3));

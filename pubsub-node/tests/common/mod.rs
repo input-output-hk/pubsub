@@ -70,7 +70,7 @@ pub fn alias_signer(alias: &str) -> Arc<dyn Signer> {
 ///
 /// Constructs the [`PlainMessage`] (deriving `publisher_id` from the signer's
 /// public key), signs its canonical bytes, and wraps the result in
-/// `Message::Signed`.
+/// `Message::Dissemination`.
 pub fn build_signed_message(
     signer: &impl Signer,
     topic: TopicId,
@@ -88,7 +88,7 @@ pub fn build_signed_message(
         payload,
     };
     let signature = signer.sign(&plain.signed_bytes());
-    Message::Signed(SignedMessage { plain, signature })
+    Message::Dissemination(SignedMessage { plain, signature })
 }
 
 /// Build a signed [`Message`] with default chain fields (`sequence = 0`,
@@ -112,17 +112,17 @@ pub fn ping(topic: TopicId, n: u64) -> Message {
 /// Build a `Ping(n)` whose payload is mutated after signing, so its signature
 /// no longer verifies — a tampered message for the misbehavior-severance path.
 pub fn tampered_ping(topic: TopicId, n: u64) -> Message {
-    let Message::Signed(mut signed) = ping(topic, n) else {
-        unreachable!("ping yields Message::Signed")
+    let Message::Dissemination(mut signed) = ping(topic, n) else {
+        unreachable!("ping yields Message::Dissemination")
     };
     signed.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
-    Message::Signed(signed)
+    Message::Dissemination(signed)
 }
 
 /// Borrow the topic of a [`Message`] regardless of variant.
 pub fn message_topic(message: &Message) -> &TopicId {
     match message {
-        Message::Signed(signed) => &signed.plain.topic,
+        Message::Dissemination(signed) => &signed.plain.topic,
         // `Message` is #[non_exhaustive]; 003 defines only the Signed variant.
         _ => unreachable!("Message has only the Signed variant in 003"),
     }

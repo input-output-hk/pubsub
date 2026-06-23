@@ -29,7 +29,7 @@ fn bogus_signature_message(t: TopicId, n: u64) -> Message {
         timestamp: Timestamp::from_millis(0),
         payload: MessagePayload::Ping(n),
     };
-    Message::Signed(SignedMessage {
+    Message::Dissemination(SignedMessage {
         plain,
         signature: Signature::new(vec![0u8; 32]),
     })

@@ -60,14 +60,14 @@ async fn payload_tampered_after_signing_dropped() {
     let kp = scheme.generate_keypair();
     let signer = TestSigner::new(kp.private);
 
-    let Message::Signed(mut signed_msg) =
+    let Message::Dissemination(mut signed_msg) =
         build_signed_message_simple(&signer, t1.clone(), MessagePayload::Ping(42))
     else {
-        unreachable!("build_signed_message_simple yields Message::Signed")
+        unreachable!("build_signed_message_simple yields Message::Dissemination")
     };
     // Mutate the payload without re-signing — the signature no longer matches.
     signed_msg.plain.payload = MessagePayload::Ping(43);
-    let tampered = Message::Signed(signed_msg);
+    let tampered = Message::Dissemination(signed_msg);
 
     fx.b.send(fx.a.id(), tampered).await.expect("send Ok");
     tokio::time::sleep(SETTLE).await;
@@ -100,7 +100,7 @@ async fn bogus_signature_dropped() {
         timestamp: Timestamp::from_millis(0),
         payload: MessagePayload::Ping(7),
     };
-    let bogus = Message::Signed(SignedMessage {
+    let bogus = Message::Dissemination(SignedMessage {
         plain,
         signature: Signature::new(vec![0u8; 32]),
     });
@@ -140,7 +140,7 @@ async fn publisher_id_mismatched_with_signing_key_dropped() {
         payload: MessagePayload::Ping(99),
     };
     let signature = signer_x.sign(&plain.signed_bytes());
-    let mismatched = Message::Signed(SignedMessage { plain, signature });
+    let mismatched = Message::Dissemination(SignedMessage { plain, signature });
 
     fx.b.send(fx.a.id(), mismatched).await.expect("send Ok");
     tokio::time::sleep(SETTLE).await;

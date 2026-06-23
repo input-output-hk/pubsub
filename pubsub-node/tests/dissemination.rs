@@ -114,16 +114,16 @@ async fn publish_records_local_and_reaches_both_downstream() {
     // observing the valid publish everywhere proves the off-topic one (queued
     // before it, and dropped at P with no forward) has already been processed —
     // no wall-clock settle needed.
-    let Message::Signed(off_topic) = ping(topic("other"), 2) else {
-        unreachable!("ping yields Message::Signed");
+    let Message::Dissemination(off_topic) = ping(topic("other"), 2) else {
+        unreachable!("ping yields Message::Dissemination");
     };
     p.publish(off_topic);
 
     // The valid, proxy-signed publish — both the US1 happy path AND the barrier
     // (authored by the shared test signer, not P: proxy/injection).
     let msg = ping(t.clone(), 1);
-    let Message::Signed(signed) = msg.clone() else {
-        unreachable!("ping yields Message::Signed");
+    let Message::Dissemination(signed) = msg.clone() else {
+        unreachable!("ping yields Message::Dissemination");
     };
     p.publish(signed);
 
@@ -199,8 +199,8 @@ async fn relayed_message_traverses_acyclic_line() {
 
     // Publish at A (proxy-signed). It flows A → B → C.
     let msg = ping(t.clone(), 1);
-    let Message::Signed(signed) = msg.clone() else {
-        unreachable!("ping yields Message::Signed");
+    let Message::Dissemination(signed) = msg.clone() else {
+        unreachable!("ping yields Message::Dissemination");
     };
     a.publish(signed);
 
@@ -260,8 +260,8 @@ async fn triangle_mesh_records_once_and_terminates() {
     // A publishes (proxy-signed). In the mesh, redundant copies circulate every
     // cycle; dedup is what bounds it.
     let msg = ping(t.clone(), 1);
-    let Message::Signed(signed) = msg.clone() else {
-        unreachable!("ping yields Message::Signed");
+    let Message::Dissemination(signed) = msg.clone() else {
+        unreachable!("ping yields Message::Dissemination");
     };
     a.publish(signed);
 

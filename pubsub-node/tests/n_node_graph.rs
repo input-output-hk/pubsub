@@ -85,8 +85,8 @@ async fn four_node_star_publish_reaches_every_spoke_once() {
 
     // A publishes once → fan-out reaches every spoke.
     let msg = ping(topic.clone(), 1);
-    let Message::Signed(signed) = msg.clone() else {
-        unreachable!("ping yields Message::Signed");
+    let Message::Dissemination(signed) = msg.clone() else {
+        unreachable!("ping yields Message::Dissemination");
     };
     a.publish(signed);
 

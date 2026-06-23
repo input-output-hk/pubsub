@@ -161,3 +161,9 @@ The 003 receive-task pipeline is unchanged in behaviour: topic filter first (002
 - ADR 0006 — receive-task model that the new pattern-match shape extends.
 - ADR 0007 — network handle / routing-wrapper structural shape; the 001 `Envelope` → `RoutingFrame` rename happens at this boundary.
 - Saved feedback memory `feedback_message_dropped_event_convention.md` — drop-event shape, unaffected by this ADR but referenced because FR-014 / FR-015 carry the same shape after the restructure.
+
+## Amendments
+
+### 2026-06-23 — `Message::Signed` variant renamed to `Message::Dissemination`
+
+The dissemination variant of `Message` is renamed `Signed` → `Dissemination` (the named handler `handle_signed_message` follows to `handle_dissemination`). The original name dates from when this was the only signed variant; once `Message::Connection` landed (004-connections, ADR 0017) both variants are signed, so "Signed" no longer distinguishes them — the meaningful axis is dissemination-vs-control, which the new name names directly. The inner type `SignedMessage` (and `PlainMessage`) are **unchanged**: this is a variant-only rename, and `SignedMessage` remains accurate (it is the signed dissemination message). The body examples above retain the original `Message::Signed` spelling as the point-in-time record. Behavior-preserving; the rename was earmarked out-of-scope in 006-fanout-policy and carried out in the connection-acceptance-strategy refactor.
