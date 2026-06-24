@@ -12,16 +12,18 @@
 //!   parallel to [`PeerId`].
 //! - [`Message`], [`SignedMessage`], [`PlainMessage`], [`MessagePayload`] —
 //!   the protocol-message hierarchy. [`Message`] is a `#[non_exhaustive]` enum;
-//!   [`Message::Signed`] carries a [`SignedMessage`] (signed-over
+//!   [`Message::Dissemination`] carries a [`SignedMessage`] (signed-over
 //!   [`PlainMessage`] content plus a signature, with a [`TopicId`], a
 //!   [`PublisherId`], and a [`MessagePayload`] body — currently only
 //!   [`MessagePayload::Ping`]), and [`Message::Connection`] carries a
 //!   [`ConnectionMessage`] (a signed [`PlainConnection`] — the carried emitter
 //!   plus a [`ConnectionAction`]).
-//! - [`UpstreamState`], [`ConnectionStrategy`], [`ConnectToAllCandidates`] —
+//! - [`UpstreamState`], [`ConnectionStrategy`], [`ConnectToAllCandidates`],
+//!   [`ConnectionAcceptanceStrategy`], [`AcceptFromAllCandidates`] —
 //!   the logical-connection vocabulary: a node's upstream connections carry an
-//!   explicit state, and an injected strategy selects which upstreams to dial
-//!   on a setup event. Read the topology via
+//!   explicit state, an injected strategy selects which upstreams to dial on a
+//!   setup event, and an injected acceptance strategy decides which inbound
+//!   requests to accept as downstream. Read the topology via
 //!   [`Node::upstream_connections`]/[`Node::downstream_connections`].
 //! - [`crypto`] — the [`Signer`]/[`Verifier`] trait pair and the byte-newtype
 //!   types they operate over ([`PublicKey`], [`PrivateKey`], [`Signature`],
@@ -35,6 +37,7 @@
 //! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`],
 //!   [`TopicIdError`] — typed failure modes.
 
+mod acceptance;
 mod config;
 mod connection;
 pub mod crypto;
@@ -51,6 +54,7 @@ mod subscription_registry;
 mod topic;
 mod topic_registry;
 
+pub use acceptance::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy};
 pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use connection::{ConnectToAllCandidates, ConnectionStrategy, UpstreamState};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};

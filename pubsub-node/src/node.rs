@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::task::JoinHandle;
 
+use crate::acceptance::ConnectionAcceptanceStrategy;
 use crate::config::NodeConfig;
 use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{Signer, Verifier};
@@ -105,11 +106,14 @@ impl Node {
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. `signer` is the node's signing
     /// identity — it signs the connection-control messages the node emits
-    /// (`Request`/`Accepted`/`Terminated`); `strategy` is the
+    /// (`Request`/`Accepted`/`Terminated`); `connection_strategy` is the
     /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
     /// a setup event; `fanout_strategy` is the fan-out policy (v1:
     /// `ForwardToAll`) consulted at the record point to choose which downstream
-    /// peers a recorded message is forwarded to.
+    /// peers a recorded message is forwarded to; `acceptance_strategy` is the
+    /// inbound-acceptance policy (v1: `AcceptFromAllCandidates`) consulted on a
+    /// verified connection `Request` to decide whether to accept the emitter as
+    /// downstream.
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -121,9 +125,9 @@ impl Node {
     /// registration fails.
     // The parameter list is the feature's specified construction contract
     // (contracts §4): network + signer + verifier + two registries + connection
-    // strategy + fan-out strategy are each a distinct collaborator, not
-    // incidental sprawl. A config/builder struct is the natural future refactor
-    // if it grows further.
+    // strategy + fan-out strategy + acceptance strategy are each a distinct
+    // collaborator, not incidental sprawl. A config/builder struct is the natural
+    // future refactor if it grows further.
     #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
@@ -133,8 +137,9 @@ impl Node {
         verifier: Arc<dyn Verifier>,
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
-        strategy: Arc<dyn ConnectionStrategy>,
+        connection_strategy: Arc<dyn ConnectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
+        acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
         // leaks nothing — no handle, no tasks (FR-024).
@@ -159,8 +164,9 @@ impl Node {
             HashSet::new(),
             verifier,
             signer,
-            strategy,
+            connection_strategy,
             fanout_strategy,
+            acceptance_strategy,
         )));
         let state_for_task = Arc::clone(&state);
 

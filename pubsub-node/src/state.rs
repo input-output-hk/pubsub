@@ -16,6 +16,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use crate::acceptance::ConnectionAcceptanceStrategy;
 use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
@@ -77,11 +78,16 @@ pub(crate) struct NodeState {
     /// The connection-selection policy consulted on a setup event, beside the
     /// verifier (the immutable service-handle slot). The transition reads it
     /// from the `ConnectionSetup` arm (ADR 0018).
-    strategy: Arc<dyn ConnectionStrategy>,
+    connection_strategy: Arc<dyn ConnectionStrategy>,
     /// The fan-out policy consulted at the record point to choose which
     /// downstream peers receive a forward of a recorded message. The deliberate
-    /// twin of `strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
-    fanout: Arc<dyn FanoutStrategy>,
+    /// twin of `connection_strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
+    fanout_strategy: Arc<dyn FanoutStrategy>,
+    /// The inbound-acceptance policy consulted on a verified `Request` to decide
+    /// whether to accept the emitter as downstream on the topic. The inbound
+    /// mirror of `connection_strategy`; the v1 implementor is
+    /// `AcceptFromAllCandidates` (ADR 0023).
+    acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     /// Content hashes of every message already accepted, keyed by
     /// `MessageHash::of(&plain)`. The duplicate-suppression set checked at the
     /// shared record point on both paths (after signature verification): an
@@ -104,8 +110,9 @@ impl NodeState {
         subscriptions: HashSet<TopicId>,
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
-        strategy: Arc<dyn ConnectionStrategy>,
-        fanout: Arc<dyn FanoutStrategy>,
+        connection_strategy: Arc<dyn ConnectionStrategy>,
+        fanout_strategy: Arc<dyn FanoutStrategy>,
+        acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Self {
         Self {
             self_id,
@@ -117,8 +124,9 @@ impl NodeState {
             upstream: HashMap::new(),
             downstream: HashSet::new(),
             signer,
-            strategy,
-            fanout,
+            connection_strategy,
+            fanout_strategy,
+            acceptance_strategy,
             seen: HashSet::new(),
             synced: false,
         }
@@ -251,7 +259,7 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// rule (FR-008/009; data-model §1.4).
 fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
     let expected = state
-        .strategy
+        .connection_strategy
         .expected_upstream(&state.subscriptions, &state.candidates);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
@@ -504,7 +512,7 @@ fn handle_message_received(state: &mut NodeState, from: PeerId, message: Message
     );
 
     match message {
-        Message::Signed(signed) => handle_signed_message(state, from, signed),
+        Message::Dissemination(signed) => handle_dissemination(state, from, signed),
         Message::Connection(connection) => handle_connection_message(state, from, connection),
     }
 }
@@ -571,23 +579,23 @@ fn handle_connection_message(
 
 /// Transition for a verified `Request` from `emitter` on `topic` (FR-012).
 ///
-/// Membership-validates against the **membership-derived** subscription set
-/// (registration gates delivery, not acceptance — the S7 pin): the topic must
-/// be among the node's own topics AND the emitter a known member of it. A valid
-/// request records the downstream entry (idempotently) and replies `Accepted`
-/// to the carried emitter; a failing one is dropped with no state change and no
-/// reply.
+/// The accept/reject *policy* is the injected [`ConnectionAcceptanceStrategy`]
+/// (the inbound mirror of the dial-side `connection_strategy`); the handler owns
+/// the mechanics. The v1 `AcceptFromAllCandidates` membership-validates against
+/// the **membership-derived** view (registration gates delivery, not acceptance
+/// — the S7 pin): the topic must be among the node's own topics AND the emitter
+/// a known member of it. An accepted request records the downstream entry
+/// (idempotently) and replies `Accepted` to the carried emitter; a rejected one
+/// is dropped with no state change and no reply.
 fn handle_connection_request(
     state: &mut NodeState,
     emitter: PeerId,
     topic: TopicId,
 ) -> Vec<Effect> {
-    let topic_is_own = state.subscriptions.contains(&topic);
-    let emitter_is_member = state
-        .candidates
-        .get(&topic)
-        .is_some_and(|peers| peers.contains(&emitter));
-    if !(topic_is_own && emitter_is_member) {
+    if !state
+        .acceptance_strategy
+        .accepts(&emitter, &topic, &state.subscriptions, &state.candidates)
+    {
         tracing::info!(
             target: "pubsub_node::node",
             event = "message_dropped",
@@ -717,12 +725,12 @@ fn fanout(
     exclude: Option<&PeerId>,
 ) -> Vec<Effect> {
     state
-        .fanout
+        .fanout_strategy
         .targets(topic, &state.downstream, exclude)
         .into_iter()
         .map(|to| Effect::Send {
             to,
-            message: Message::Signed(message.clone()),
+            message: Message::Dissemination(message.clone()),
         })
         .collect()
 }
@@ -763,7 +771,7 @@ fn record_and_fanout(
     let effects = fanout(state, &topic, &signed, exclude);
     state.received.push(ReceivedDelivery {
         origin,
-        message: Message::Signed(signed),
+        message: Message::Dissemination(signed),
     });
     effects
 }
@@ -832,11 +840,7 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 // authorized?, signature? (ADR 0016). A signature failure past every earlier
 // check, over an Active upstream, is misbehavior and severs (FR-017); the
 // fan-out happens only past the record point.
-fn handle_signed_message(
-    state: &mut NodeState,
-    from: PeerId,
-    signed: SignedMessage,
-) -> Vec<Effect> {
+fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessage) -> Vec<Effect> {
     // FR-016: admit only from an Active upstream for this topic.
     let connected = matches!(
         state
@@ -918,6 +922,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use crate::acceptance::AcceptFromAllCandidates;
     use crate::connection::test_support::{
         accepted_from, membership_joined, misattributed_request, payload_from, request_from,
         tampered_payload_from, terminated_from, ConnectionScript,
@@ -972,6 +977,7 @@ mod tests {
             alias_signer(self_id),
             strategy(),
             Arc::new(ForwardToAll),
+            Arc::new(AcceptFromAllCandidates),
         );
         for t in subscriptions {
             state
@@ -1039,17 +1045,17 @@ mod tests {
             payload: MessagePayload::Ping(n),
         };
         let signature = signer.sign(&plain.signed_bytes());
-        Message::Signed(SignedMessage { plain, signature })
+        Message::Dissemination(SignedMessage { plain, signature })
     }
 
     /// Same as [`signed_ping`] but with the payload altered after signing,
     /// so the signature no longer verifies (the suite's mismatch pattern).
     fn tampered_ping(signer: &TestSigner, topic: TopicId, n: u64) -> Message {
-        let Message::Signed(mut sm) = signed_ping(signer, topic, n) else {
-            unreachable!("signed_ping always builds a Message::Signed");
+        let Message::Dissemination(mut sm) = signed_ping(signer, topic, n) else {
+            unreachable!("signed_ping always builds a Message::Dissemination");
         };
         sm.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
-        Message::Signed(sm)
+        Message::Dissemination(sm)
     }
 
     // FR-001 / US2-AS1: subscribed topic + valid signature => recorded, in
@@ -2671,7 +2677,7 @@ mod tests {
             .filter_map(|effect| match effect {
                 Effect::Send {
                     to,
-                    message: Message::Signed(sm),
+                    message: Message::Dissemination(sm),
                 } => Some((to.clone(), sm.clone())),
                 _ => None,
             })
@@ -2680,8 +2686,8 @@ mod tests {
 
     /// The inner [`SignedMessage`] of a `signed_ping`/`tampered_ping` build.
     fn signed(message: Message) -> SignedMessage {
-        let Message::Signed(sm) = message else {
-            unreachable!("ping builders always yield Message::Signed");
+        let Message::Dissemination(sm) = message else {
+            unreachable!("ping builders always yield Message::Dissemination");
         };
         sm
     }
@@ -2702,7 +2708,7 @@ mod tests {
         let snap = state.received_snapshot();
         assert_eq!(snap.len(), 1, "published message recorded");
         assert_eq!(snap[0].origin, Origin::Local, "local origin");
-        assert_eq!(snap[0].message, Message::Signed(sm.clone()));
+        assert_eq!(snap[0].message, Message::Dissemination(sm.clone()));
 
         let sends = signed_sends(&effects);
         assert_eq!(
@@ -2813,7 +2819,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm.clone()),
+                message: Message::Dissemination(sm.clone()),
             },
         );
 
@@ -2853,7 +2859,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm),
+                message: Message::Dissemination(sm),
             },
         );
 
@@ -2884,7 +2890,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm.clone()),
+                message: Message::Dissemination(sm.clone()),
             },
         );
         assert_eq!(
@@ -2899,7 +2905,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm),
+                message: Message::Dissemination(sm),
             },
         );
         assert!(
@@ -2956,7 +2962,7 @@ mod tests {
             &mut state,
             Event::MessageReceived {
                 from: peer("b"),
-                message: Message::Signed(sm),
+                message: Message::Dissemination(sm),
             },
         );
         assert!(relayed.is_empty(), "relayed-back copy produces no effects");

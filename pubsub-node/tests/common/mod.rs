@@ -9,11 +9,11 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash, MessagePayload,
-    MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey,
-    PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner,
-    TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
+    MessagePayload, MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage,
+    PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl,
+    TestSigner, TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -70,7 +70,7 @@ pub fn alias_signer(alias: &str) -> Arc<dyn Signer> {
 ///
 /// Constructs the [`PlainMessage`] (deriving `publisher_id` from the signer's
 /// public key), signs its canonical bytes, and wraps the result in
-/// `Message::Signed`.
+/// `Message::Dissemination`.
 pub fn build_signed_message(
     signer: &impl Signer,
     topic: TopicId,
@@ -88,7 +88,7 @@ pub fn build_signed_message(
         payload,
     };
     let signature = signer.sign(&plain.signed_bytes());
-    Message::Signed(SignedMessage { plain, signature })
+    Message::Dissemination(SignedMessage { plain, signature })
 }
 
 /// Build a signed [`Message`] with default chain fields (`sequence = 0`,
@@ -112,19 +112,21 @@ pub fn ping(topic: TopicId, n: u64) -> Message {
 /// Build a `Ping(n)` whose payload is mutated after signing, so its signature
 /// no longer verifies — a tampered message for the misbehavior-severance path.
 pub fn tampered_ping(topic: TopicId, n: u64) -> Message {
-    let Message::Signed(mut signed) = ping(topic, n) else {
-        unreachable!("ping yields Message::Signed")
+    let Message::Dissemination(mut signed) = ping(topic, n) else {
+        unreachable!("ping yields Message::Dissemination")
     };
     signed.plain.payload = MessagePayload::Ping(n.wrapping_add(1));
-    Message::Signed(signed)
+    Message::Dissemination(signed)
 }
 
-/// Borrow the topic of a [`Message`] regardless of variant.
+/// Borrow the topic of a dissemination [`Message`].
 pub fn message_topic(message: &Message) -> &TopicId {
     match message {
-        Message::Signed(signed) => &signed.plain.topic,
-        // `Message` is #[non_exhaustive]; 003 defines only the Signed variant.
-        _ => unreachable!("Message has only the Signed variant in 003"),
+        Message::Dissemination(signed) => &signed.plain.topic,
+        // Test fixtures only build dissemination messages; `Message` is also
+        // `#[non_exhaustive]` (the `Connection` variant + future kinds), hence
+        // the catch-all.
+        _ => unreachable!("message_topic is only called on dissemination messages"),
     }
 }
 
@@ -194,6 +196,7 @@ pub async fn two_node_fixture_with_subscriptions(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node A");
@@ -210,6 +213,7 @@ pub async fn two_node_fixture_with_subscriptions(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node B");
@@ -310,6 +314,7 @@ pub async fn node_with_strategy(
         topic_registry,
         strategy,
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node");
@@ -351,6 +356,7 @@ pub async fn node_sharing(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node")
