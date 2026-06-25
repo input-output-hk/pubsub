@@ -101,9 +101,16 @@ async fn network_enforces_legitimacy_and_authorization_uniformly() {
     establish_upstreams(&a, &[&b], &topic("weather")).await;
     establish_upstreams(&c, &[&b], &topic("weather")).await;
 
-    // A weather message from the authorized publisher (the shared test signer,
-    // which `ping` uses) is accepted by every weather subscriber.
+    // An authorized weather message (the shared test signer, which `ping` uses)
+    // is accepted by every weather subscriber; one from an UNauthorized publisher
+    // is dropped by all. Send the forged message first, then the authorized one
+    // as a FIFO barrier on each b→{a,c} channel: when the authorized delivery
+    // lands, the earlier forged message has already been processed and dropped.
+    let outsider = TestSigner::new(PrivateKey::new(b"unauthorized-publisher".to_vec()));
+    let forged = build_signed_message_simple(&outsider, topic("weather"), MessagePayload::Ping(2));
     let authorized = ping(topic("weather"), 1);
+    b.send(a.id(), forged.clone()).await.unwrap();
+    b.send(c.id(), forged).await.unwrap();
     b.send(a.id(), authorized.clone()).await.unwrap();
     b.send(c.id(), authorized.clone()).await.unwrap();
     await_delivery(&a, b.id(), &authorized, Duration::from_secs(1))
@@ -112,21 +119,14 @@ async fn network_enforces_legitimacy_and_authorization_uniformly() {
     await_delivery(&c, b.id(), &authorized, Duration::from_secs(1))
         .await
         .expect("c accepts the authorized weather message");
-
-    // A weather message from an UNauthorized publisher is dropped by all.
-    let outsider = TestSigner::new(PrivateKey::new(b"unauthorized-publisher".to_vec()));
-    let forged = build_signed_message_simple(&outsider, topic("weather"), MessagePayload::Ping(2));
-    b.send(a.id(), forged.clone()).await.unwrap();
-    b.send(c.id(), forged).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(50)).await; // settle window
     assert_eq!(
         a.received_messages().len(),
         1,
-        "a drops the unauthorized-publisher weather message",
+        "a drops the unauthorized-publisher message; only the authorized one lands",
     );
     assert_eq!(
         c.received_messages().len(),
         1,
-        "c drops the unauthorized-publisher weather message",
+        "c drops the unauthorized-publisher message; only the authorized one lands",
     );
 }

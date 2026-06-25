@@ -384,6 +384,21 @@ impl Node {
             .is_synced()
     }
 
+    /// Whether `topic` is **registered** (a legitimate topic) in the node's
+    /// folded view of the topic registry. The topic-governance counterpart to
+    /// [`subscriptions`](Self::subscriptions): a topic the node is a member of
+    /// is only *effective* once it is also registered here (the cross-registry
+    /// invariant), so this distinguishes "not a member" from "member of an
+    /// unregistered topic". Derived from the topic-registry `watch` stream; a
+    /// later update may supersede the answer.
+    #[must_use]
+    pub fn is_registered(&self, topic: &TopicId) -> bool {
+        self.state
+            .lock()
+            .expect("is_registered: state mutex poisoned")
+            .is_registered(topic)
+    }
+
     /// Return a snapshot of this node's **upstream** connections — the
     /// `(peer, topic, state)` triples it requested as message sources, each
     /// either [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or

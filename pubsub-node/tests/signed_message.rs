@@ -4,7 +4,10 @@ use std::collections::HashSet;
 use std::str::FromStr;
 use std::time::Duration;
 
-use common::{await_delivery, build_signed_message_simple, two_node_fixture_with_subscriptions};
+use common::{
+    assert_no_new_deliveries, await_delivery, build_signed_message_simple,
+    two_node_fixture_with_subscriptions,
+};
 use pubsub_node::{
     Message, MessagePayload, MockCryptoScheme, Origin, PlainMessage, PublisherId, Signature,
     SignedMessage, Signer, TestSigner, Timestamp, TopicId,
@@ -70,12 +73,11 @@ async fn payload_tampered_after_signing_dropped() {
     let tampered = Message::Dissemination(signed_msg);
 
     fx.b.send(fx.a.id(), tampered).await.expect("send Ok");
-    tokio::time::sleep(SETTLE).await;
 
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "A drops the tampered message",
-    );
+    // No-trace non-event: the tampered message is dropped, so A's record never
+    // grows. (The drop itself is proven by the state test
+    // `authorized_but_tampered_message_dropped_at_verification`.)
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 }
 
 // US1 AS-3: a message with a valid publisher id but a bogus (all-zero)
@@ -106,12 +108,9 @@ async fn bogus_signature_dropped() {
     });
 
     fx.b.send(fx.a.id(), bogus).await.expect("send Ok");
-    tokio::time::sleep(SETTLE).await;
 
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "A drops the bogus-signature message",
-    );
+    // No-trace non-event (drop proven by `invalid_signature_message_dropped`).
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 }
 
 // US1 AS-4: the declared publisher id does not match the key that signed the
@@ -143,10 +142,7 @@ async fn publisher_id_mismatched_with_signing_key_dropped() {
     let mismatched = Message::Dissemination(SignedMessage { plain, signature });
 
     fx.b.send(fx.a.id(), mismatched).await.expect("send Ok");
-    tokio::time::sleep(SETTLE).await;
 
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "A drops the publisher/key-mismatched message",
-    );
+    // No-trace non-event (drop proven by `invalid_signature_message_dropped`).
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 }

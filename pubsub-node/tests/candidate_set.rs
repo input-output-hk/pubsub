@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, await_candidates, await_delivery, establish_upstreams, node_with, ping,
-    shared_test_verifier,
+    alias_signer, await_candidates, await_delivery, await_synced, establish_upstreams, node_with,
+    ping, shared_test_verifier,
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
@@ -47,8 +47,13 @@ async fn node_with_no_registry_entry_derives_empty_state() {
     .await
     .expect("construction succeeds even with no registry entry");
 
-    // Give the reader loop a window to drain its (empty) cold-start replay.
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // With no registry entry the node never emits a populating event, so a
+    // populated set is not an observable to await. Sync readiness is: await
+    // `is_synced` (both empty registry snapshots folded) — that the cold-start
+    // replay has drained — then assert the state stayed empty.
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node syncs after folding both empty registry snapshots");
 
     assert!(
         node.subscriptions().is_empty(),
@@ -75,13 +80,15 @@ async fn effective_topics_come_from_registry_entry() {
 
     let on_topic = ping(topic("t1"), 1);
     let off_topic = ping(topic("t2"), 2);
-    b.send(s.id(), on_topic.clone()).await.expect("send t1");
+    // Send the off-topic message first, then the on-topic one as a FIFO barrier:
+    // both ride the single b→s channel, so when the on-topic delivery lands the
+    // earlier off-topic message has already been processed (and dropped).
     b.send(s.id(), off_topic).await.expect("send t2");
+    b.send(s.id(), on_topic.clone()).await.expect("send t1");
 
     await_delivery(&s, b.id(), &on_topic, Duration::from_secs(1))
         .await
         .expect("t1 message delivered");
-    tokio::time::sleep(Duration::from_millis(50)).await; // settle window for any t2 processing
 
     let record = s.received_messages();
     assert_eq!(

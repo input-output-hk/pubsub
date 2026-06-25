@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    await_candidate_present, await_delivery, await_downstream, establish_upstreams, node, ping,
-    test_topic,
+    assert_no_new_deliveries, await_candidate_present, await_delivery, await_downstream,
+    establish_upstreams, node, ping, test_topic,
 };
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Message, Node, Origin};
 
@@ -97,9 +97,11 @@ async fn four_node_star_publish_reaches_every_spoke_once() {
             .expect("spoke receives the published message");
     }
 
-    // Settle past propagation, then assert each spoke holds exactly one copy
-    // (no spoke-to-spoke relay) and A holds exactly its local copy.
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // Each spoke received A's publish (awaited above) and A recorded its local
+    // copy; no further deliveries should appear — a node relays only to its
+    // downstream, and the spokes have none, so there is no spoke-to-spoke relay.
+    // No-trace non-event, backed by the 006 fan-out/relay state tests.
+    assert_no_new_deliveries(&[&a, &b, &c, &d], Duration::from_millis(50)).await;
     for (spoke, who) in [(&b, "B"), (&c, "C"), (&d, "D")] {
         let rec = spoke.received_messages();
         assert_eq!(rec.len(), 1, "{who} records the message exactly once");

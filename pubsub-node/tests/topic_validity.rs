@@ -11,7 +11,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    await_candidates, await_delivery, await_subscriptions, establish_upstreams, node_sharing, ping,
+    assert_no_new_deliveries, await_candidates, await_delivery, await_subscriptions,
+    await_topic_registration, establish_upstreams, node_sharing, ping,
 };
 use pubsub_node::{
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, PeerId,
@@ -80,26 +81,39 @@ async fn unregistered_subscription_topic_is_strict_dropped() {
     // subscribed) and a ghosttopic message is dropped.
     establish_upstreams(&s, &[&b], &topic("weather")).await;
     let on = ping(topic("weather"), 1);
-    b.send(s.id(), on.clone()).await.expect("send weather");
+    // Send the unregistered-topic message first, then weather as a FIFO barrier:
+    // both ride the single b→s channel, so when weather lands the earlier
+    // ghosttopic message has already been processed and dropped.
     b.send(s.id(), ping(topic("ghosttopic"), 2))
         .await
         .expect("send ghosttopic");
+    b.send(s.id(), on.clone()).await.expect("send weather");
     await_delivery(&s, b.id(), &on, Duration::from_secs(1))
         .await
         .expect("registered weather message accepted (no regression)");
-    tokio::time::sleep(Duration::from_millis(50)).await; // settle
     assert_eq!(
         s.received_messages().len(),
         1,
         "ghosttopic is unregistered → dropped; only weather accepted",
     );
 
-    // 014: registering ghosttopic ALONE does not auto-promote it (no SC-004).
+    // 014: registering ghosttopic ALONE does not auto-promote it (013 SC-004
+    // retired); a fresh membership event after registration is required.
     topics
         .set_topic(topic("ghosttopic"), BTreeSet::new())
         .await
         .unwrap();
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // Order the registration ahead of the fresh membership re-emit below. The
+    // topic and subscription registries are independent producers with no
+    // happens-after between them, so await the node folding the registration (an
+    // observable) before emitting the membership event — otherwise a membership
+    // folded first strict-drops ghosttopic, which 014's no-auto-promotion then
+    // makes permanent, and the final await would hang. With the registration
+    // confirmed folded, the count assertion below is a deterministic check that
+    // registration alone does not promote a previously-dropped subscription.
+    await_topic_registration(&s, &topic("ghosttopic"), Duration::from_secs(1))
+        .await
+        .expect("node folds the ghosttopic registration");
     assert_eq!(
         s.subscriptions().len(),
         1,
@@ -171,7 +185,10 @@ async fn removing_a_topic_stops_acceptance() {
 
     let after = ping(topic("weather"), 2);
     b.send(s.id(), after).await.expect("send");
-    tokio::time::sleep(Duration::from_millis(50)).await; // settle window
+    // Post-removal weather is no longer a legitimate topic → dropped. No-trace
+    // non-event (proven by the state test `removing_a_topic_makes_it_ineffective`);
+    // the snapshot must not grow past the one delivery received while registered.
+    assert_no_new_deliveries(&[&s], Duration::from_millis(50)).await;
     assert_eq!(
         s.received_messages().len(),
         1,

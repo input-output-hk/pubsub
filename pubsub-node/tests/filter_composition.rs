@@ -4,7 +4,10 @@ use std::collections::HashSet;
 use std::str::FromStr;
 use std::time::Duration;
 
-use common::{await_delivery, build_signed_message_simple, two_node_fixture_with_subscriptions};
+use common::{
+    assert_no_new_deliveries, await_delivery, build_signed_message_simple,
+    two_node_fixture_with_subscriptions,
+};
 use pubsub_node::{
     Message, MessagePayload, MockCryptoScheme, PlainMessage, PublisherId, Signature, SignedMessage,
     TestSigner, Timestamp, TopicId,
@@ -72,12 +75,10 @@ async fn valid_off_topic_message_dropped_with_cause_not_connected() {
     let msg = build_signed_message_simple(&signer, topic("t2"), MessagePayload::Ping(2));
 
     fx.b.send(fx.a.id(), msg).await.expect("send");
-    tokio::time::sleep(SETTLE).await;
 
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "off-topic message does not reach the snapshot",
-    );
+    // No-trace non-event: off-topic → not_connected drop (proven by the state
+    // test `off_topic_message_leaves_state_unchanged`).
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 }
 
 // US3 AS-3: invalid + on-topic (T1) → dropped (cause invalid_signature).
@@ -87,12 +88,9 @@ async fn invalid_on_topic_message_dropped_with_cause_invalid_signature() {
     let msg = bogus_signature_message(topic("t1"), 3);
 
     fx.b.send(fx.a.id(), msg).await.expect("send");
-    tokio::time::sleep(SETTLE).await;
 
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "invalid-signature on-topic message does not reach the snapshot",
-    );
+    // No-trace non-event (drop proven by `invalid_signature_message_dropped`).
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 }
 
 // US3 AS-4 (post-004 ordering): off-topic AND invalid → dropped. The connection
@@ -106,10 +104,8 @@ async fn invalid_off_topic_message_dropped_with_cause_not_connected() {
     let msg = bogus_signature_message(topic("t2"), 4);
 
     fx.b.send(fx.a.id(), msg).await.expect("send");
-    tokio::time::sleep(SETTLE).await;
 
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "off-topic + invalid message does not reach the snapshot",
-    );
+    // No-trace non-event: connection gate drops it first (proven by the
+    // gate-first state tests).
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 }

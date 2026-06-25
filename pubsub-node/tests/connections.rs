@@ -6,9 +6,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, await_candidates, await_delivery, await_downstream, await_peer_forgotten,
-    await_upstream_active, await_upstream_present, establish_mutual, establish_upstreams,
-    node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
+    alias_signer, assert_no_connection_change, assert_no_new_deliveries, await_candidates,
+    await_delivery, await_downstream, await_peer_forgotten, await_upstream_active,
+    await_upstream_present, establish_mutual, establish_upstreams, node_with, ping,
+    shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
@@ -200,8 +201,11 @@ async fn unconnected_sender_is_not_recorded() {
     await_delivery(&s, b.id(), &from_b, TIMEOUT)
         .await
         .expect("connected source recorded");
-    // Settle, then confirm the unconnected source's message never landed.
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // ghost→s is an independent channel from b→s, so awaiting b's delivery can't
+    // order ghost's send (ADR 0022's cross-channel caveat) — use a bounded
+    // negative instead. The not_connected drop is proven by the state test
+    // `payload_without_connection_is_dropped`.
+    assert_no_new_deliveries(&[&s], Duration::from_millis(50)).await;
     let record = s.received_messages();
     assert_eq!(record.len(), 1, "only the connected source is recorded");
     assert_eq!(record[0].origin, Origin::Peer(b.id().clone()));
@@ -254,10 +258,19 @@ async fn misbehavior_severs_one_connection_silently() {
         "the offender's t2 connection is untouched",
     );
 
-    // A subsequent valid t1 message from b is now excluded (not_connected).
+    // A subsequent valid t1 message from b is now excluded (not_connected). Send
+    // a fresh valid t2 after it as a FIFO barrier on the b→s channel: when the t2
+    // delivery lands, the earlier t1 message has already been processed — and
+    // dropped, the t1 connection being severed.
     let good_t1 = ping(t1.clone(), 3);
     b.send(s.id(), good_t1.clone()).await.expect("valid t1");
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    let good_t2_again = ping(t2.clone(), 4);
+    b.send(s.id(), good_t2_again.clone())
+        .await
+        .expect("valid t2");
+    await_delivery(&s, b.id(), &good_t2_again, TIMEOUT)
+        .await
+        .expect("the surviving t2 connection still delivers");
     assert!(
         !s.received_messages().iter().any(|d| d.message == good_t1),
         "the severed connection drops the offender's later valid t1 message",
@@ -302,7 +315,11 @@ async fn abrupt_drop_leaves_stale_entries() {
 
     // Abrupt teardown — no shutdown call, no notices.
     drop(b);
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // No-trace non-event: an abrupt drop sends no Terminated, so a's connection
+    // entries about b must not change. Bounded confidence — Drop is shell-level
+    // with no pure-core state test — but the window fails fast if any entry is
+    // cleared (which would mean a notice was wrongly sent).
+    assert_no_connection_change(&a, Duration::from_millis(50)).await;
 
     // a still holds its (now stale) entries about b.
     assert!(
@@ -363,7 +380,11 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
     // The snapshot is an owned clone — subsequent events don't mutate it, and a
     // re-read is consistent (the entry stays pending; nothing auto-heals it).
     trigger_setup(&s); // re-dials the pending pair
-    tokio::time::sleep(Duration::from_millis(50)).await;
+                       // No-trace non-event: the re-dial does not change the pending entry (no
+                       // auto-heal — ghost never answers). Proven by the state test
+                       // `repeated_setup_redials_pending_skips_active_never_removes`; the window
+                       // fails fast if the connection set deviates.
+    assert_no_connection_change(&s, Duration::from_millis(50)).await;
     assert_eq!(
         snapshot,
         vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
