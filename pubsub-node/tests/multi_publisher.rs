@@ -4,7 +4,10 @@ use std::collections::HashSet;
 use std::str::FromStr;
 use std::time::Duration;
 
-use common::{await_delivery, build_signed_message_simple, two_node_fixture_with_subscriptions};
+use common::{
+    assert_no_new_deliveries, await_delivery, build_signed_message_simple,
+    two_node_fixture_with_subscriptions,
+};
 use pubsub_node::{
     Message, MessagePayload, MockCryptoScheme, Origin, PublisherId, TestSigner, TopicId,
 };
@@ -119,8 +122,10 @@ async fn mismatched_publisher_id_rejected() {
     await_delivery(&fx.a, fx.b.id(), &m_carol, Duration::from_secs(1))
         .await
         .expect("A observes Carol's delivery");
-    // Settle so the mislabeled message has been processed (rejected + severs).
-    tokio::time::sleep(SETTLE).await;
+    // The mislabeled message (sent last) is rejected and severs A↔B — a no-trace
+    // non-event; the snapshot must not grow past Bob's and Carol's deliveries.
+    // (The mismatch drop + severance are proven by the state tests.)
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 
     let messages: Vec<Message> =
         fx.a.received_messages()
@@ -166,8 +171,8 @@ async fn interleaved_50_messages_5_publishers() {
     )
     .await
     .expect("A observes the final delivery");
-    // Negative barrier: no further messages should appear beyond the 50.
-    tokio::time::sleep(SETTLE).await;
+    // No further deliveries beyond the 50 — fails fast if a phantom appears.
+    assert_no_new_deliveries(&[&fx.a], SETTLE).await;
 
     let got: Vec<Message> =
         fx.a.received_messages()

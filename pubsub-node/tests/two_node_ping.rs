@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, node_with, test_topic, two_node_fixture};
+use common::{assert_no_new_deliveries, await_delivery, node_with, test_topic, two_node_fixture};
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Origin, PeerId};
 
 // US1 AS-1: A's peer set contains B; A sends Ping(42); B's record contains it.
@@ -46,12 +46,9 @@ async fn empty_peer_set_cannot_originate() {
     let outcome = a.send(&ghost, common::ping(test_topic(), 0)).await;
     assert!(outcome.is_ok(), "send to unregistered id is Ok per FR-010");
 
-    // Briefly yield so any spurious recv processing would settle.
-    tokio::time::sleep(Duration::from_millis(10)).await;
-    assert!(
-        a.received_messages().is_empty(),
-        "A should observe no deliveries",
-    );
+    // A's send to an unregistered id goes nowhere, so A observes no delivery —
+    // a no-trace non-event; the window fails fast if anything lands.
+    assert_no_new_deliveries(&[&a], Duration::from_millis(10)).await;
 }
 
 // SC-005 / FR-013 falsifiability: 100 sequential sends from A to B with a

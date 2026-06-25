@@ -156,8 +156,8 @@ impl NodeState {
         self.subscriptions.iter().cloned().collect()
     }
 
-    /// Whether `topic` is currently a registered (legitimate) topic.
-    #[cfg(test)]
+    /// Whether `topic` is currently a registered (legitimate) topic. Read by the
+    /// shell's `Node::is_registered` getter (and the state tests).
     pub(crate) fn is_registered(&self, topic: &TopicId) -> bool {
         self.registered_topics.contains_key(topic)
     }

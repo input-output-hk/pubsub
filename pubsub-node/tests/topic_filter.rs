@@ -5,7 +5,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_delivery, establish_upstreams, node_with, two_node_fixture_with_subscriptions};
+use common::{
+    assert_no_new_deliveries, await_delivery, establish_upstreams, node_with,
+    two_node_fixture_with_subscriptions,
+};
 use pubsub_node::{InMemoryNetwork, InMemorySubscriptionRegistry, Origin, TopicId};
 
 fn topic(s: &str) -> TopicId {
@@ -51,15 +54,10 @@ async fn off_topic_message_dropped_silently() {
 
     fx.b.send(fx.a.id(), off_topic_msg).await.expect("send Ok");
 
-    // Settle window: matches the 001 poll-interval ceiling. The drop is a
-    // recv-task-side filter; if it were going to land in the snapshot it
-    // would do so within this window.
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    assert!(
-        fx.a.received_messages().is_empty(),
-        "A's record stays empty for off-topic deliveries",
-    );
+    // No-trace non-event: off-topic silent drop. The window fails fast if the
+    // message ever lands; the drop itself is proven by the state test
+    // `off_topic_message_leaves_state_unchanged`.
+    assert_no_new_deliveries(&[&fx.a], Duration::from_millis(100)).await;
 }
 
 // US1 AS-3 / FR-009: A subscribed to {T1}; A emits Ping(13, T1) to B

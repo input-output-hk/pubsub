@@ -352,7 +352,9 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature, together with [[N-020]] (decoupling readiness from the dial) — the re-dialer is the periodic counterpart of that one-shot trigger. Decide the interval/backoff and whether re-selection also prunes (the remove-side of [[N-011]]).
 
-## N-026 — Retire settle-`sleep`s across the pre-existing suites (adopt the async-test synchronization strategy)
+## N-026 — Retire settle-`sleep`s across the pre-existing suites (adopt the async-test synchronization strategy) — **RESOLVED by the settle-sleep sweep (2026-06-24)**
+
+**Resolution**: every settle-`sleep` in the pre-existing suites is retired per ADR 0022's selection rule. Outcome-positives that share a sender→receiver FIFO became **real-event barriers** (send the would-be-dropped message first, then a deliverable one, and `await_delivery` it — the delivery proves the earlier one was processed); no-trace non-events became **`assert_no_new_deliveries`** (delivery state) or the new **`assert_no_connection_change`** (connection state), each backed by a named state-machine test. Two non-delivery cases gained observable barriers instead of waits: the no-registry-entry case awaits `is_synced` (`await_synced`), and the registration-then-membership ordering awaits the registration fold (`await_topic_registration`, reading the new `Node::is_registered` getter) — eliminating a cross-stream race the old sleep had only masked. The catalogue below missed `n_node_graph.rs` and `two_node_ping.rs` (reworked after this note was drafted); their settles were swept too. The only `sleep`s left are the 1 ms poll-ticks inside hand-rolled `await_*` loops (an implementation detail of waiting, per ADR 0022). Behavior-preserving: the sorted multiset of leaf test names is unchanged (166) and the full suite stays 166 ok / 17 suites. The historical context is retained below.
 
 **Surfaced during**: 006-fanout-policy PR review (PR #67). Codifies ADR 0022 (barriers vs. bounded-negative checks).
 

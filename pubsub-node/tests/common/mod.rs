@@ -468,6 +468,45 @@ pub async fn assert_no_new_deliveries(nodes: &[&Node], window: Duration) {
     }
 }
 
+/// The connection-state analogue of [`assert_no_new_deliveries`]: snapshot
+/// `node`'s upstream and downstream connection sets, then poll across `window`,
+/// **failing fast** the instant either set changes (an establishment, severance,
+/// or teardown). It asserts a non-event on connection state. Like the delivery
+/// check it is bounded confidence, not a proof — the actual guarantee must be
+/// owned by a deterministic state-machine test (or, for shell-level Drop
+/// behaviour with no pure-core equivalent, it is the best available regression
+/// window).
+pub async fn assert_no_connection_change(node: &Node, window: Duration) {
+    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, UpstreamState)> {
+        let mut up = node.upstream_connections();
+        up.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
+        up
+    }
+    fn sorted_downstream(node: &Node) -> Vec<(PeerId, TopicId)> {
+        let mut down = node.downstream_connections();
+        down.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
+        down
+    }
+    let up0 = sorted_upstream(node);
+    let down0 = sorted_downstream(node);
+    let start = tokio::time::Instant::now();
+    while start.elapsed() < window {
+        assert_eq!(
+            sorted_upstream(node),
+            up0,
+            "{}: upstream connection set changed within {window:?}",
+            node.id(),
+        );
+        assert_eq!(
+            sorted_downstream(node),
+            down0,
+            "{}: downstream connection set changed within {window:?}",
+            node.id(),
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 fn matches(
     record: &[ReceivedDelivery],
     expected_sender: &PeerId,
@@ -646,6 +685,48 @@ pub async fn await_peer_forgotten(
             .any(|(p, _, _)| p == peer);
         let in_downstream = node.downstream_connections().iter().any(|(p, _)| p == peer);
         if !in_upstream && !in_downstream {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll until `node.is_synced()` — both registry snapshots folded (ADR 0020) —
+/// or `timeout` elapses. The readiness barrier for asserting a node's converged
+/// state: a node with no membership/registry entries never emits a populating
+/// event, so synced (not a populated set) is the observable that proves the
+/// cold-start replay has drained.
+pub async fn await_synced(node: &Node, timeout: Duration) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node.is_synced() {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Poll until `node` has folded the registration of `topic` (`is_registered`),
+/// or `timeout` elapses. The observable that orders a topic-registry update
+/// ahead of a later subscription-stream event: the two registries are
+/// independent producers with no happens-after between them, so awaiting the
+/// registration's fold before emitting a membership event that references
+/// `topic` prevents that membership from being strict-dropped against a
+/// not-yet-registered topic (which 014's no-auto-promotion would make permanent).
+pub async fn await_topic_registration(
+    node: &Node,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        if node.is_registered(topic) {
             return Ok(());
         }
         if start.elapsed() >= timeout {
