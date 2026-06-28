@@ -1,14 +1,9 @@
-# A silent view-bias attack on Cyclon / SecureCyclon
+# A silent view-bias attack on Cyclon 
 
 > An adversary that runs Cyclon's protocol externally with full fidelity can,
 > by privately deleting some honest entries from its own view and by
 > prioritising adversary-pointing entries when picking the random subset to
-> gossip, distort the network's view distribution . The attack commits no protocol violation, performs no
-> descriptor cloning, and triggers no frequency anomaly. **None of
-> SecureCyclon's nine deterministic mechanisms fire** — the attack is
-> silent. However statistical
-> signatures persist (in-degree asymmetry; mild batch-size shrinkage when
-> adversary views shrink).
+> gossip, distort the network's view distribution . 
 
 ## How to reproduce
 
@@ -78,64 +73,22 @@ A node `v ∈ M` runs Steps 1–5 of the protocol exactly as written, with the f
 
 i.e., pick all adversary-pointing entries first, fall back to honest-pointing entries only when there aren't enough adversary entries to fill the subset.
 
-> *Equivalence to a "View Violation":* SecureCyclon §II.C explicitly identifies the corresponding violation — "malicious nodes could selectively present descriptors of malicious nodes to their legitimate peers, rather than randomly chosen ones from their views" — but the paper's adversary model then assumes "they make such choices uniformly at random," explicitly excluding the attack from analysis.
-
 ### 2.3 What stays observable
 
 Every externally observable field of adversary is identical to an honest run.
 
 The only difference is **which** entries the adversary stores and **which** entries the adversary selects from that storage — both private to the adversary's process.
 
-## 3. Why SecureCyclon's defences do not apply
+## 3. Why SecureCyclon's defences do apply
 
-SecureCyclon (Antonov & Voulgaris 2023) introduces nine distinct mechanisms across §IV–V — two deterministic detectors (D3, D4), one consequence (D5), and six mitigations / sanity checks (D1, D2, D6, D7, D8, D9). We check each.
-
-| # | Mechanism | SC23 § | Trigger / purpose | Catches our attack? | Reason |
-|---|---|---|---|---|---|
-| D1 | Clock-skew rejection | §IV.A | Reject newly-created descriptors whose timestamp deviates from the receiver's clock | **No** | Adversary uses its real clock for its own self-pointer; no deviation. |
-| D2 | Partner-invitation certificate | §IV.A | Refuse a gossip invitation unless the inviter presents a valid descriptor of the invitee | **No** | The adversary's partner `Q` is the *oldest* entry in its view (per protocol); that entry is a real, signed `Q`-descriptor acquired via prior legitimate gossip. `Q` verifies its own signature; the invitation is accepted. |
-| D3 | Frequency check | §IV.B | Two descriptors from the same creator with timestamps closer than the gossiping period | **No** | The adversary creates exactly one fresh descriptor per cycle (its own self-pointer when initiating). It never produces extra fresh descriptors — it only forwards descriptors it already holds. |
-| D4 | Ownership check (cloning) | §IV.B | Two descriptors with same creator+timestamp whose ownership chains are not in prefix-relation | **No** | The adversary forwards each acquired descriptor at most once (Cyclon's normal merge removes sent entries from view); no clone is ever produced. |
-| D5 | Blacklisting via flooding | §IV.C | A signed proof of D3 or D4 violation is flooded; correct nodes blacklist the offender | **No** | D3 and D4 do not fire, so no proof exists to flood. |
-| D6 | Non-swappable descriptors | §V.A | Empty-slot repair: a receiver with an empty slot retains a non-swappable copy of an out-transferred descriptor | **No** | The attack does not abuse the empty-slot repair flow. Adversary *receivers* may rationally repair their own slots; this only aids honest healing, not the attack. |
-| D7 | Non-swappable redemption limits | §V.A | Reject &gt;1 non-swappable redemption per descriptor, per cycle, etc. | **No** | The adversary does not redeem non-swappable descriptors. |
-| D8 | Tit-for-tat | §V.B | Per-descriptor round-trip ownership transfer; if peer goes silent, sender halts further transfers | **No** | The adversary completes round-trips. Its reply size `min(s, view.size)` from a shrunken view is the same behaviour SC23 §V.A scenario 3 permits for a newly-joined honest node. |
-| D9 | Redemption cache | §V.C | When redeeming, retain `r ≈ 5–6` copies for subsequent gossip-as-samples (boosts probability of clone detection on *old* descriptors) | **No** | The attack creates no clones, so the cache has nothing to match against. |
-
-This is consistent with SecureCyclon's own scoping. The paper is explicit about both its threat model and its defence scope:
-
-> *"View Violations: The most impactful protocol violation derives from a node's freedom to present any arbitrary set of descriptors as its view during a gossip exchange, and to arbitrarily select which descriptors to send to the other party. ... For example, malicious nodes could selectively present descriptors of malicious nodes to their legitimate peers, rather than randomly chosen ones from their views, leading to the hub attack."*  — §II.C
-
-This identifies the attack class exactly. The paper then restricts the threat model in the next paragraph:
-
-> *"malicious nodes in our model do not endeavor to predict the contents of legitimate nodes' views, when choosing which of their peers they will communicate with, or when selecting which nodes from their party the supplementary descriptors will point to. Instead, they make such choices uniformly at random."*  — §II.C
-
-And the defence scope is explicit in §IV:
-
-> *"Through this novel concept, adversaries that attempt to increase their share of overlay participation **by either generating descriptors faster than allowed, or by cloning existing descriptors**, can be discovered by correct nodes."* 
-
-These are SecureCyclon's only two detectable violations. The paper's evaluation methodology in §VI.B then specifically uses cloning to mount the attack:
-
-> *"In this attack, malicious nodes maintain a **central pool of descriptors, comprising copies** of all the descriptors generated by malicious nodes in recent cycles. When gossiping with a legitimate peer, a malicious node presents a fake view consisting exclusively of descriptors to other malicious nodes, selected out of this central pool."*  — §VI.B (emphasis ours)
-
-The cloning is what triggers detection, which is why Fig 5 shows the attack decaying after cycle 50. Our attack uses no central pool, no copies — every descriptor is forwarded once and removed from view per the standard Cyclon merge. So no detection ever fires.
-
-The paper also acknowledges, in the related-work discussion, that another peer-sampling protocol *does* address view violations:
-
-> *"In PuppetCast, each node possesses a static view that is issued by a trusted authority ... This approach effectively addresses the view violations described in Section III, as nodes exchange only the static views that are certified by the central authority. On the other hand, the adoption of central nodes opens a new vector of attacks and could introduce performance bottlenecks. Our approach, on the contrary, is completely decentralized."*  — §VII
+SecureCyclon (Antonov & Voulgaris 2023) introduces nine distinct mechanisms across §IV–V — two deterministic detectors (D3, D4), one consequence (D5), and six mitigations / sanity checks (D1, D2, D6, D7, D8, D9). In Cyclon when the node has insufficient number of descriptors then it is allowed to keep some of the descriptors in their view to keep the view well-populated. These descriptors have no restriction on how they are used. In case of SecureCyclon this mechanism is extended with the notion of non-swappable descriptors which means that a node can use non-swappable descriptor to initiate the exchange but if it swaps it then it eventually leads to violation of no-cloning policy. 
 
 
-Finally, the paper acknowledges that profile-based statistical defences for hub attacks leave residual pollution:
-
-> *"In the aforementioned approaches, it is not possible to deterministically establish the malicious nature of nodes ... a malicious node is never completely held accountable for its actions. ... because in the aforementioned approaches malicious nodes are continuously presented with a second chance, the pollution in the overlay never declines to zero."*  — §VII
-
-Our attack is precisely the kind of "residual pollution that never declines to zero" attack — except SecureCyclon does not deploy these statistical defences either (it chose deterministic detection of frequency/cloning instead), so the pollution does not even probabilistically decline in SecureCyclon. It persists indefinitely (§5.2).
 
 ## 4. Implementation and validation
 
 The simulator `cyclon_sim_biased.py` encodes Cyclon Enhanced Shuffling in §2.1's seven steps faithfully. All `N` nodes — honest and adversarial — initiate exactly once per cycle. The adversary's protocol externally is byte-for-byte identical to honest; the only differences are `apply_drop` (attack a) and the `biased=True` branch of `pick_indices` (attack b).
 
-**Scope of the simulator.** The simulator models *Cyclon Enhanced Shuffling* (VGS05 §2.2), not *SecureCyclon's* enhanced gossip mechanics (SC23 §§IV–V). SecureCyclon transfers ownership of only `s` descriptors per exchange (the paper uses `s = 3`) and sends the remaining `ℓ − s` entries plus an `r`-element redemption cache as *samples* — cached by the receiver for violation discovery but not entered into its view. The simulator instead routes all `ℓ` entries into the receiver's view. 
 
 **Baseline check.** With `(p_drop=0, bias_on=False)`, adversaries behave honestly. The simulator reproduces the canonical Cyclon property `A(t) ≈ μ`. This is the *uniform sample* property the paper credits to enhanced shuffling.
 
@@ -175,8 +128,6 @@ Extending the run to `T = 300` shows the attack reaches a stable equilibrium wit
 | 0.20 | 0.997 | 0.995 | 0.997 | 0.996 |
 
 
-
-
 ### 5.3 Sweep with μ
 
 Sweeping `μ ∈ {0.02, 0.04, …, 0.34}` at `(N=200, c=20, ℓ=10, T=120, seeds=8)`
@@ -210,12 +161,4 @@ Sweeping `μ ∈ {0.02, 0.04, …, 0.34}` at `(N=200, c=20, ℓ=10, T=120, seeds
 
 
 
-
-## 6. Mitigation idea (sketch)
-
-The attack has two independent components; they require different defences.
-
-**Attack (b) — biased subset: VRF-bound subset selection.** Each gossip exchange uses a VRF seed (derived from public state — e.g., `H(P_pubkey ‖ Q_pubkey ‖ cycle)`) that deterministically and verifiably selects which `ℓ−1` entries of `view_P` to send. Both parties can verify the selection corresponded to the seed. This forces uniform sampling, neutralising attack (b). *Cost:* per-entry VRF evaluation + verification per exchange; substantial.
-
-**Attack (a) — silent link drop: open.** 
 
