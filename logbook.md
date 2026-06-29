@@ -4,6 +4,50 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-06-25 — Brainstorm: peer sampling dropped for on-chain list, experimentation framework prioritised
+
+**Is a peer-sampling layer needed at all?** With the prototype now caught up to the architecture, Denis questioned whether a dedicated peer-sampling protocol is still warranted given the design already carries an on-chain registry of deposited participants. Ezequiel noted that several earlier choices — keeping the participant list on-chain among them — were made to unblock prototyping rather than as deliberate protocol design, so the assumption was worth re-testing now.
+
+**Offline nodes as the deciding factor.** The pivot point is whether the protocol must actively accommodate offline nodes. If it does not, the design simplifies sharply; if it does, a sampling layer reappears. The group settled on treating offline behaviour as a *form of misbehaviour* with an established tolerance metric, rather than a first-class protocol feature — adversarial/offline nodes fold into the existing tolerance formulas. Sybil resistance continues to rest on deposits, which already imply a full on-chain node list.
+
+**Rejection sampling over a sampling protocol.** Denis argued that adding a peer-sampling layer introduces a fresh attack surface and *reduces* overall security. Since the full list is available, a node that draws an offline peer simply re-samples — rejection sampling gives the needed online/offline handling without a new infrastructure layer. Online/offline status can be surfaced via IP-discovery and gossip heartbeats flagging peers each cycle. Scale focus reaffirmed at realistic sizes (below ~100k nodes), with the security argument expected to scale with network size. On-chain registry scalability was judged bounded by transaction-processing throughput rather than storage, with data-availability layers or indexers (e.g. DB Sync) serving peer-status queries.
+
+**Dissemination-layer flooding surface.** A node can request to be the downstream of an unbounded number of participants. Mitigations discussed: sequence numbers on requests, bucketing via hashes or VRFs, and deposit tuning to bound the impact of any single identity.
+
+**Misbehaviour and punishment.** Proving *non-delivery* of a message is hard; observable misbehaviour (e.g. exceeding agreed connection parameters) can be signed and proven, opening a path to slashing or reputation loss. The team favours quantifying measurable misbehaviour over building delivery proofs.
+
+**Verdict — stop researching peer sampling.** The list-based approach is sufficient for current needs; the peer-sampling investigation is closed out of the immediate roadmap. Focus shifts to an experimentation framework — message-propagation paths, maximum hop counts, configurable scenarios, and performance metrics — and to representing **golden nodes** in the prototype via connection-acceptance and discovery policies. The next phase quantifies attack budgets (e.g. eclipse cost) against deposit values, capturing simulation data to average performance and surface adversaries.
+
+**Decisions.** *Aligned:* exclude a dedicated peer-sampling protocol in favour of the on-chain list with rejection sampling for offline peers; prioritise building the experimentation framework and golden-node representation over further peer-sampling research. *Open:* the precise misbehaviour-proof / slashing surface, and the downstream-flooding mitigation (sequence numbers vs hash/VRF bucketing vs deposit tuning).
+
+**Next.** Will and the team to define which experiments to explore with the prototype; Ezequiel to build the framework that describes, configures, and runs them, plus golden-node configuration, sharing alternative plans on Slack. Denis to finalise the gossip and broadcast documentation, removing peer sampling from the active roadmap, and to bring a fuller plan to next week's session.
+
+---
+
+## 2026-06-23 — Weekly session: SecureCyclon dynamics diverge from Cyclon, view-violation eclipsing, dual-repo split
+
+**SecureCyclon is not Cyclon-plus-defences.** Denis reported that the team's working assumption — that SecureCyclon behaves like Cyclon with added defence mechanisms — is wrong. SecureCyclon prevents certain descriptor reuse to block silent cloning, and those non-swappable descriptors change the protocol's internal dynamics. Treating it as standard Cyclon therefore yields unintended dynamics and missed vulnerabilities; prior Cyclon analysis does not carry over (issue [#43](https://github.com/input-output-hk/pubsub/issues/43)).
+
+**View-violation eclipsing quantified.** While the descriptor rules mitigate simple silent attacks, *view-violation* attacks remain a significant risk. Concentration-based attacks let an adversary bias views or eclipse nodes: roughly **15% view bias with 5% of the network adversarial, rising to a full node eclipse at 20%**. The results were verified against a simulator built in coordination with Spyros (issue [#72](https://github.com/input-output-hk/pubsub/issues/72)). Denis proposed **commitments on the view** as a candidate defence to neutralise these attacks, to be evaluated for feasibility.
+
+**Related-work survey.** Five protocols meet the inclusion criteria (Byzantine-resilient, broker-free). Fireflies was singled out for its clever node arrangement but criticised for linear scaling, which makes it impractical beyond hundreds of thousands of nodes (issue [#65](https://github.com/input-output-hk/pubsub/issues/65)). Target: a final report per protocol ahead of the 6 July phase boundary, with the analysis kept current in the repository.
+
+**Light/edge clients stay out of the topology.** The current strategy relies on mobile apps and wallet providers acting as proxies for push notifications, rather than integrating light clients directly into the network topology.
+
+**Sybil resistance via registration deposit.** The working plan is a registration cost framed as a deposit/collateral (not staking) to deter misbehaviour. Jesus noted that while a deposit is the universal approach, alternatives — registering keys, or reusing existing certificates for specific entities — may be more efficient per use case. All participants must register their keys regardless of which Sybil-resistance mechanism is chosen. Whether nodes deregister when going offline was left for the follow-up brainstorm, since it bears on whether pure sampling is needed.
+
+**Dual-repository strategy.** To keep sensitive security analysis private while still publishing progress, the team adopted a dual-repo split: prototype code and documentation public; security analysis, issues, and pull requests private, with periodic sanitised snapshots to the public side.
+
+**Incentives anchored on applications.** dApps and B2B/B2C use cases (e.g. embedded intents for mobile and web apps) are prioritised as the primary driver for network incentives, rather than relying on governance or emergency alerts alone, with application revenue potentially subsidising those public-good channels. Persistence/data-availability requirements should sit at the application layer rather than being baked into the core protocol, keeping the protocol focused on dissemination.
+
+**Prototype and a practical sanity check.** Ezequiel reported ongoing work refactoring connection logic and encapsulating message handling, including abstracting the sampling module so the node queries a peer view rather than a raw registry list. Ezequiel pushed for a practical sanity check on the value of Byzantine resistance — using Cardano SPOs as an example, a simple "leave and rejoin on detecting an issue" response may beat over-engineering — and Denis noted the difficulty of quantifying that without a detection algorithm. This fed a broader concern that SecureCyclon's growing complexity may not be justified versus simpler protocols such as Basalt with a smaller attack surface.
+
+**Decisions.** *Aligned:* edge/light clients excluded from the protocol topology (wallet providers and proxies instead); mandatory key registration for all participants, independent of the Sybil-resistance mechanism; dual-repository strategy (public prototype + docs, private analysis/issues/PRs); dApps and B2B/B2C prioritised as the primary incentive driver; incorporate practical sanity checks into the protocol analysis to avoid unnecessary complexity. *Open:* feasibility and cost of view commitments as a mitigation; whether offline nodes deregister, and the resulting need for pure sampling.
+
+**Next.** Team to update the protocol analysis in the repository and prepare a final report per protocol ahead of the 6 July phase boundary. Denis to evaluate the feasibility of view commitments. Offline-node / pure-sampling questions carried into the Thursday brainstorm.
+
+---
+
 ## 2026-06-16 — Weekly session: monetisation pivot, node strategy modules, GossipSub findings, CSM framing
 
 **Monetisation pivot — from public goods toward revenue.** Dana reported on the incentive-model investigation, shifting focus from a public-goods framing (SPOs, DReps, ecosystem entities) toward identifying customers and revenue-generating use cases, as requested by management. Push Protocol served as the primary case study: a decentralised push-notification system on Ethereum whose low 50-token channel-creation fee is a Sybil-resistance measure rather than a revenue lever, since expanded to multi-chain with fees routed to stakers — suggesting the original Ethereum revenue model proved insufficient. Dana proposed monetising around trading influencers (à la Telegram/Discord), integrated into wallets such as Lace to enable direct trading and transaction fees. Will pushed for a use case requiring reliable, trustless information distribution, not necessarily blockchain-bound. Group leaned toward building pub-sub messaging directly into wallets — not Cardano-restricted, allowing fee collection across cryptocurrencies.
