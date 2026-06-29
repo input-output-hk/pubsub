@@ -13,7 +13,7 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::acceptance::ConnectionAcceptanceStrategy;
@@ -70,6 +70,15 @@ pub(crate) struct NodeState {
     /// fan-out destinations — as a set of `(peer, topic)` entries with no
     /// per-entry state (FR-002).
     downstream: HashSet<(PeerId, TopicId)>,
+    /// Upstream `(peer, topic)` pairs a dial was rejected by (explicit
+    /// over-capacity rejections only). Excluded from the viable candidate view
+    /// before selection, so re-invoking `ConnectionSetup` back-fills the
+    /// next-ranked candidate (feature 005, ADR 0024). **Sticky** — once added, a
+    /// peer is never re-dialed for that topic this run. An ordered `BTreeSet` for
+    /// reproducibility (FR-017). Empty until the rejection transition populates
+    /// it; while empty the viable view equals `candidates`, so selection is
+    /// unchanged.
+    failed_upstream: BTreeSet<(PeerId, TopicId)>,
     /// The node's signing identity: signs the control messages it emits
     /// (`Request`/`Accepted`/`Terminated`). Rides along as an immutable service
     /// handle beside the verifier; the transition signs inside the pure core so
@@ -123,6 +132,7 @@ impl NodeState {
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
+            failed_upstream: BTreeSet::new(),
             signer,
             connection_strategy,
             fanout_strategy,
@@ -258,9 +268,34 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// registration-gated effective filter) — the dial side mirrors the acceptance
 /// rule (FR-008/009; data-model §1.4).
 fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
+    // Select over the *viable* candidate view: discovered candidates minus peers
+    // a dial was rejected by. While `failed_upstream` is empty this is exactly
+    // `candidates`; once the rejection transition populates it, dropping a failed
+    // peer shifts a bounded strategy's pick to the next-ranked candidate, so
+    // back-fill falls out of re-invoking this transition (feature 005, ADR 0024).
+    let viable: HashMap<TopicId, HashSet<PeerId>> = if state.failed_upstream.is_empty() {
+        state.candidates.clone()
+    } else {
+        state
+            .candidates
+            .iter()
+            .map(|(topic, peers)| {
+                let kept = peers
+                    .iter()
+                    .filter(|peer| {
+                        !state
+                            .failed_upstream
+                            .contains(&((*peer).clone(), topic.clone()))
+                    })
+                    .cloned()
+                    .collect();
+                (topic.clone(), kept)
+            })
+            .collect()
+    };
     let expected = state
         .connection_strategy
-        .expected_upstream(&state.subscriptions, &state.candidates);
+        .expected_upstream(&state.subscriptions, &viable);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
     let self_id = state.self_id.clone();

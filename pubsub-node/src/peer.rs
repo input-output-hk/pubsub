@@ -33,7 +33,7 @@ pub enum PeerIdError {
 /// Uniqueness is enforced per [`Network`](crate::Network) instance — two nodes
 /// cannot register the same id on the same network — not globally across all
 /// networks.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PeerId(PublicKey);
 
 impl PeerId {
