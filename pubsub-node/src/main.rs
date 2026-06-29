@@ -4,8 +4,9 @@ use std::sync::Arc;
 use clap::Parser;
 use pubsub_node::{
     load_node_config, AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy,
-    ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    MockCryptoScheme, Node, PeerId, SeededBoundedSelection, Signer, TestVerifier, Verifier,
+    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, MockCryptoScheme, Node, PeerId, SeededBoundedSelection, Signer,
+    TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -31,16 +32,20 @@ struct Args {
     #[arg(long)]
     topic_registry: PathBuf,
 
-    /// Optional per-topic upstream bound (out-degree). When set, the node uses
-    /// the seeded bounded connection-selection policy (selecting at most this
-    /// many upstream peers per topic); when absent, it connects to every
-    /// candidate (full mesh).
+    /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
+    /// mesh, the default) or `seeded-bounded` (selects at most --out-degree
+    /// upstream peers per topic, seeded by --seed).
+    #[arg(long, default_value = "connect-to-all")]
+    connection_strategy: ConnectionStrategyKind,
+
+    /// Per-topic upstream bound (out-degree). Required for the `seeded-bounded`
+    /// strategy; ignored otherwise.
     #[arg(long)]
     out_degree: Option<usize>,
 
     /// Network seed for deterministic bounded selection (default 0). Only has an
-    /// effect when --out-degree is set; the same seed reproduces the same
-    /// topology.
+    /// effect for the `seeded-bounded` strategy; the same seed reproduces the
+    /// same topology.
     #[arg(long, default_value_t = 0)]
     seed: u64,
 
@@ -92,15 +97,23 @@ async fn main() {
     let signer: Arc<dyn Signer> =
         Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
 
-    // Bounded selection when an out-degree is configured (seeded, reproducible);
-    // otherwise the full-mesh default (feature 005, FR-012/FR-013).
-    let connection_strategy: Arc<dyn ConnectionStrategy> = match args.out_degree {
-        Some(out_degree) => Arc::new(SeededBoundedSelection::new(
-            args.seed,
-            args.self_id.clone(),
-            out_degree,
-        )),
-        None => Arc::new(ConnectToAllCandidates),
+    // Map the named strategy + its parameters to a concrete policy (feature 005,
+    // FR-012/FR-013). The full-mesh default is unchanged behaviour.
+    let connection_strategy: Arc<dyn ConnectionStrategy> = match args.connection_strategy {
+        ConnectionStrategyKind::ConnectToAll => Arc::new(ConnectToAllCandidates),
+        ConnectionStrategyKind::SeededBounded => {
+            let out_degree = args.out_degree.unwrap_or_else(|| {
+                eprintln!(
+                    "pubsub-node: --out-degree is required for --connection-strategy seeded-bounded"
+                );
+                std::process::exit(2);
+            });
+            Arc::new(SeededBoundedSelection::new(
+                args.seed,
+                args.self_id.clone(),
+                out_degree,
+            ))
+        }
     };
 
     let node = Node::new(

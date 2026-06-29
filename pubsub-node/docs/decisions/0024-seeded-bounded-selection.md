@@ -9,6 +9,7 @@
 Select by **deterministic keyed-hash ranking**, not a stateful PRNG. For each joined topic, rank candidate peers by a SHA-256 digest of a canonical, length-prefixed encoding of `(domain-tag, seed, self_id, topic, candidate_id)` and take the lowest `out_degree`, breaking ties on `candidate_id`. The strategy struct `SeededBoundedSelection { seed, self_id, out_degree }` carries the seed and identity as fixed fields set at construction, so `expected_upstream` stays a pure function of its inputs.
 
 - **Digest**: SHA-256 (reusing the in-tree `sha2` dependency that `MessageHash` already uses) — explicitly **not** `std::hash::DefaultHasher`, which is unspecified and not stable across platforms/compiler versions (a cross-machine-reproducibility defect, Principle I).
+- **Domain tag**: the hash is domain-separated by the strategy's own unique byte-string, `ConnectionStrategyKind::SeededBounded.tag()`, so distinct strategies never share a hash domain. Strategy selection is a readable, case-insensitive **`ConnectionStrategyKind`** enum (`connect-to-all` / `seeded-bounded`) parsed at the edge — not an implicit "params present ⇒ bounded" rule — and each variant carries that predefined unique tag.
 - **Seed scope**: one **network** seed, folded with `self_id` for per-node diversity (FR-005). A `u64` supplied at startup; **default 0** when absent (FR-004).
 - **Tie-break**: secondary order on `candidate_id` so equal-ranked candidates resolve identically every run (FR-008), never on incidental iteration order.
 

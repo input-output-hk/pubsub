@@ -54,7 +54,12 @@ fn rank_key(seed: u64, self_id: &PeerId, topic: &TopicId, candidate: &PeerId) ->
     }
 
     let mut hasher = Sha256::new();
-    feed(&mut hasher, b"005-peer-view/upstream-selection");
+    // Domain-separate by the strategy's own unique byte-string tag, so distinct
+    // strategies never share a hash domain (ADR 0024).
+    feed(
+        &mut hasher,
+        super::ConnectionStrategyKind::SeededBounded.tag(),
+    );
     hasher.update(seed.to_le_bytes());
     feed(&mut hasher, self_id.to_string().as_bytes());
     feed(&mut hasher, topic.to_string().as_bytes());

@@ -57,7 +57,8 @@ mod topic_registry;
 pub use acceptance::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy};
 pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use connection::{
-    ConnectToAllCandidates, ConnectionStrategy, SeededBoundedSelection, UpstreamState,
+    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, SeededBoundedSelection,
+    UnknownConnectionStrategy, UpstreamState,
 };
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{

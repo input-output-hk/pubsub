@@ -20,9 +20,11 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 mod connect_to_all;
+mod kind;
 mod seeded_bounded;
 
 pub use connect_to_all::ConnectToAllCandidates;
+pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
 pub use seeded_bounded::SeededBoundedSelection;
 
 /// The state of an upstream (dialer-side) connection for one `(peer, topic)`.
