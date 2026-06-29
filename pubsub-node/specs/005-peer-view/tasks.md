@@ -57,7 +57,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 ### Tests for User Story 1 (write first; MUST fail) ⚠️
 
 - [X] T007 [P] [US1] Unit tests for `SeededBoundedSelection` in `pubsub-node/src/connection.rs`: exactly `out_degree` when candidates exceed it (FR-001), all when ≤ bound (FR-002), identical output across iteration orders / repeated calls (FR-003), deterministic `candidate_id` tie-break (FR-008), per-node variety by `self_id` (FR-005), and the **default seed 0** path produces a deterministic, repeatable selection when no seed is supplied (FR-004)
-- [ ] T008 [P] [US1] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an N-node network under seed s forms a partial topology; rebuilt under s it is identical; upstream ≤ out-degree (SC-001, SC-002)
+- [X] T008 [P] [US1] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an N-node network under seed s forms a partial topology; rebuilt under s it is identical; upstream ≤ out-degree (SC-001, SC-002)
 
 ### Implementation for User Story 1
 
