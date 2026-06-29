@@ -62,8 +62,8 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 ### Implementation for User Story 1
 
 - [X] T009 [US1] Implement `SeededBoundedSelection { seed, self_id, out_degree }` (impl `ConnectionStrategy`, using the T005 helper) and re-export it from `pubsub-node/src/lib.rs` — in `pubsub-node/src/connection.rs` — refactor-agnostic
-- [ ] T010 [US1] Parse seed + out-degree at the edge and select the bounded vs unbounded selection strategy in `pubsub-node/src/config.rs` and `pubsub-node/src/main.rs`
-- [ ] T011 [US1] **[coordinate]** Supply the selection strategy (with `self_id`) at node construction (current injection; align with the refactor's eventual argument shape) in `pubsub-node/src/node.rs`
+- [X] T010 [US1] Parse seed + out-degree at the edge and select the bounded vs unbounded selection strategy in `pubsub-node/src/config.rs` and `pubsub-node/src/main.rs`
+- [X] T011 [US1] **[coordinate]** Supply the selection strategy (with `self_id`) at node construction (current injection; align with the refactor's eventual argument shape) in `pubsub-node/src/node.rs`
 
 **Checkpoint**: US1 functional — bounded, reproducible selection with accept-all acceptance.
 

@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node,
-    PeerId, Signer, TestVerifier, Verifier,
+    load_node_config, AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy,
+    ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    MockCryptoScheme, Node, PeerId, SeededBoundedSelection, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -30,6 +30,19 @@ struct Args {
     /// topics legitimately exist and their authorized publishers).
     #[arg(long)]
     topic_registry: PathBuf,
+
+    /// Optional per-topic upstream bound (out-degree). When set, the node uses
+    /// the seeded bounded connection-selection policy (selecting at most this
+    /// many upstream peers per topic); when absent, it connects to every
+    /// candidate (full mesh).
+    #[arg(long)]
+    out_degree: Option<usize>,
+
+    /// Network seed for deterministic bounded selection (default 0). Only has an
+    /// effect when --out-degree is set; the same seed reproduces the same
+    /// topology.
+    #[arg(long, default_value_t = 0)]
+    seed: u64,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -78,6 +91,18 @@ async fn main() {
     let scheme = MockCryptoScheme::with_seed([0u8; 32]);
     let signer: Arc<dyn Signer> =
         Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
+
+    // Bounded selection when an out-degree is configured (seeded, reproducible);
+    // otherwise the full-mesh default (feature 005, FR-012/FR-013).
+    let connection_strategy: Arc<dyn ConnectionStrategy> = match args.out_degree {
+        Some(out_degree) => Arc::new(SeededBoundedSelection::new(
+            args.seed,
+            args.self_id.clone(),
+            out_degree,
+        )),
+        None => Arc::new(ConnectToAllCandidates),
+    };
+
     let node = Node::new(
         args.self_id,
         cfg,
@@ -86,7 +111,7 @@ async fn main() {
         verifier,
         registry,
         topic_registry,
-        Arc::new(ConnectToAllCandidates),
+        connection_strategy,
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
     )
