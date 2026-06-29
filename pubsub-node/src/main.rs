@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy,
+    load_node_config, AcceptFromAllCandidates, AcceptanceStrategyKind, BoundedAcceptance,
+    ConnectToAllCandidates, ConnectionAcceptanceStrategy, ConnectionStrategy,
     ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
     InMemoryTopicRegistry, MockCryptoScheme, Node, PeerId, SeededBoundedSelection, Signer,
     TestVerifier, Verifier,
@@ -48,6 +49,17 @@ struct Args {
     /// same topology.
     #[arg(long, default_value_t = 0)]
     seed: u64,
+
+    /// Inbound-acceptance strategy (case-insensitive): `accept-from-all` (the
+    /// default) or `bounded` (accepts at most --in-degree downstream peers per
+    /// topic, refusing the rest with an explicit rejection).
+    #[arg(long, default_value = "accept-from-all")]
+    acceptance_strategy: AcceptanceStrategyKind,
+
+    /// Per-topic downstream bound (in-degree). Required for the `bounded`
+    /// acceptance strategy; ignored otherwise.
+    #[arg(long)]
+    in_degree: Option<usize>,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -116,6 +128,19 @@ async fn main() {
         }
     };
 
+    // Map the named acceptance strategy + its parameter to a concrete policy.
+    let acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy> = match args.acceptance_strategy
+    {
+        AcceptanceStrategyKind::AcceptFromAll => Arc::new(AcceptFromAllCandidates),
+        AcceptanceStrategyKind::Bounded => {
+            let in_degree = args.in_degree.unwrap_or_else(|| {
+                eprintln!("pubsub-node: --in-degree is required for --acceptance-strategy bounded");
+                std::process::exit(2);
+            });
+            Arc::new(BoundedAcceptance::new(in_degree))
+        }
+    };
+
     let node = Node::new(
         args.self_id,
         cfg,
@@ -126,7 +151,7 @@ async fn main() {
         topic_registry,
         connection_strategy,
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        acceptance_strategy,
     )
     .await
     .unwrap_or_else(|e| {

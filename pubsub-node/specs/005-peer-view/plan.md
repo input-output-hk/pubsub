@@ -47,7 +47,7 @@ This is strategies-only. The **experiment/testing framework** that drives these 
 ### Planned ADRs (numbers provisional — next free after 0023; coordinate with the refactor branch)
 
 - **ADR 0024** — Seeded deterministic bounded selection: keyed-hash ranking over `(seed, self_id, topic, candidate)`, stable SHA-256 digest (not `DefaultHasher`), per-network seed / per-node derivation, sticky failed-set + `ConnectionSetup`-driven back-fill.
-- **ADR 0025** — Acceptance-seam evolution + `ConnectionAction::Rejected`: acceptance return `bool → AcceptanceDecision { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; the explicit `Rejected` action (acceptor → dialer, not misbehaviour) and the dialer's failed-mark on receipt.
+- **ADR 0025** — Acceptance-seam evolution + `ConnectionAction::Rejected`: acceptance return `bool → Admission { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; the explicit `Rejected` action (acceptor → dialer, not misbehaviour) and the dialer's failed-mark on receipt.
 
 > The **strategies-as-arguments** relocation and **ordered-structure** swap are owned by the prerequisite refactor (its own ADRs on that branch); 005 consumes them.
 
@@ -73,7 +73,7 @@ specs/005-peer-view/
 pubsub-node/
 ├── src/
 │   ├── connection.rs   # ConnectionStrategy + ConnectToAllCandidates + NEW SeededBoundedSelection + ranking helper
-│   ├── acceptance.rs   # ConnectionAcceptanceStrategy (bool → AcceptanceDecision + downstream view) + AcceptFromAllCandidates + NEW BoundedAcceptance
+│   ├── acceptance.rs   # ConnectionAcceptanceStrategy (bool → Admission + downstream view) + AcceptFromAllCandidates + NEW BoundedAcceptance
 │   ├── message.rs      # ConnectionAction::Rejected
 │   ├── state.rs        # failed-set (ordered); viable-candidate diff in connection-setup; request capacity branch (+ Rejected send); NEW rejected handler; rejection counter getter source
 │   ├── node.rs         # construction wiring (bounded strategies via args per refactor); dial-outcome getter

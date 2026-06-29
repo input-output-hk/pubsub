@@ -21,31 +21,56 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 mod accept_from_all;
+mod bounded;
+mod kind;
 
 pub use accept_from_all::AcceptFromAllCandidates;
+pub use bounded::BoundedAcceptance;
+pub use kind::{AcceptanceStrategyKind, UnknownAcceptanceStrategy};
+
+/// The outcome of an acceptance decision on a verified connection `Request`
+/// (feature 005, ADR 0025).
+///
+/// Replaces the earlier bare `bool` so the handler can distinguish a membership
+/// failure (a silent drop — does not leak membership to non-members) from an
+/// over-capacity refusal (which sends an explicit `Rejected` so the dialer can
+/// back-fill).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Admission {
+    /// Accept the emitter as a downstream on the topic (record it; reply `Accepted`).
+    Accept,
+    /// Refuse: the request is not membership-valid. A silent drop, no reply.
+    RejectMembership,
+    /// Refuse: the node is at its inbound bound on the topic. Dropped with a
+    /// distinct cause and an explicit `Rejected` reply (not misbehaviour).
+    RejectOverCapacity,
+}
 
 /// The inbound connection-acceptance policy a node consults on a verified
 /// `Request`.
 ///
-/// `accepts` is **pure and synchronous**: given the requesting `emitter`, the
-/// requested `topic`, the node's membership-derived `subscriptions` (the topics
-/// it has joined) and per-topic `candidates` (the peers it has discovered, its
-/// own id never present), it returns whether the request should be accepted.
+/// `admit` is **pure and synchronous**: given the requesting `emitter`, the
+/// requested `topic`, the node's membership-derived `subscriptions` and per-topic
+/// `candidates`, and its current `downstream` set, it returns an [`Admission`].
 ///
 /// `subscriptions`/`candidates` are the **membership-derived** view, not the
 /// registration-gated effective filter — the accept side mirrors the dial side,
 /// where topic registration gates delivery rather than establishment (the S7
-/// pin). The v1 implementor is [`AcceptFromAllCandidates`].
+/// pin). The v1 implementor is [`AcceptFromAllCandidates`]; the bounded policy is
+/// [`BoundedAcceptance`].
 pub trait ConnectionAcceptanceStrategy: Send + Sync {
-    /// Whether to accept a verified `Request` from `emitter` on `topic`.
+    /// The admission decision for a verified `Request` from `emitter` on `topic`.
     ///
     /// `subscriptions` is the node's membership-derived topic set; `candidates`
-    /// maps each topic to the peers discovered on it (self never present).
-    fn accepts(
+    /// maps each topic to the peers discovered on it (self never present);
+    /// `downstream` is the node's current accepted-inbound set, so a policy can
+    /// enforce an in-degree bound.
+    fn admit(
         &self,
         emitter: &PeerId,
         topic: &TopicId,
         subscriptions: &HashSet<TopicId>,
         candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> bool;
+        downstream: &HashSet<(PeerId, TopicId)>,
+    ) -> Admission;
 }

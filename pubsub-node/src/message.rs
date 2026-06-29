@@ -227,6 +227,15 @@ pub enum ConnectionAction {
         /// The topic the connection was for.
         topic: TopicId,
     },
+    /// Acceptor → dialer: the requested connection on `topic` was refused for
+    /// over-capacity (the acceptor is at its inbound bound). Distinct from
+    /// `Terminated` (which tears down an *established* link) and from a
+    /// misbehaviour severance — a rejection is a normal capacity outcome
+    /// (feature 005, ADR 0025).
+    Rejected {
+        /// The topic the refused connection was for.
+        topic: TopicId,
+    },
 }
 
 impl PlainConnection {
@@ -240,7 +249,7 @@ impl PlainConnection {
     /// 2. action — a 1-byte tag, then the topic as `u32` byte length + UTF-8
     ///    bytes. Tags are assigned explicitly so future variants append new
     ///    values without disturbing the existing ones: `0x00` Request,
-    ///    `0x01` Accepted, `0x02` Terminated.
+    ///    `0x01` Accepted, `0x02` Terminated, `0x03` Rejected.
     ///
     /// The signature is produced over exactly these bytes, binding emitter
     /// identity, action kind, and topic together. Any layout change is a
@@ -251,6 +260,7 @@ impl PlainConnection {
             ConnectionAction::Request { topic } => (0x00u8, topic),
             ConnectionAction::Accepted { topic } => (0x01u8, topic),
             ConnectionAction::Terminated { topic } => (0x02u8, topic),
+            ConnectionAction::Rejected { topic } => (0x03u8, topic),
         };
 
         let mut out = Vec::new();

@@ -31,7 +31,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 ## Phase 1: Setup
 
 - [X] T001 ADR 0024 (seeded bounded selection: keyed-hash ranking, stable SHA-256 digest vs `DefaultHasher`, per-network seed / per-node derivation, sticky failed-set + `ConnectionSetup` back-fill) in `pubsub-node/docs/decisions/0024-seeded-bounded-selection.md`
-- [ ] T002 ADR 0025 (acceptance-seam evolution `bool → AcceptanceDecision` + current-downstream input; `ConnectionAction::Rejected` + dialer failed-mark) in `pubsub-node/docs/decisions/0025-acceptance-seam-and-rejected-action.md`
+- [X] T002 ADR 0025 (acceptance-seam evolution `bool → Admission` + current-downstream input; `ConnectionAction::Rejected` + dialer failed-mark) in `pubsub-node/docs/decisions/0025-acceptance-seam-and-rejected-action.md`
 - [ ] T003 [P] Coordinate with the co-developing architect to avoid conflicting edits on shared files (strategy injection sites, `NodeState`) and align ordered-structure type choices; record the agreed types in `specs/005-peer-view/research.md` (R6). Not a gate — 005 proceeds with its own ordered structures and current strategy injection.
 - [ ] T004 [P] Test scaffolding: extend `ConnectionScript` with a `rejected` step and add bounded-node builder helpers (construct with `SeededBoundedSelection`/`BoundedAcceptance` + seed/out-degree/in-degree) in `pubsub-node/tests/common/mod.rs`
 
@@ -77,17 +77,17 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ### Tests for User Story 2 (write first; MUST fail) ⚠️
 
-- [ ] T012 [P] [US2] Unit tests for `BoundedAcceptance`/`AcceptanceDecision` in `pubsub-node/src/acceptance.rs`: `RejectMembership` when not membership-valid, `RejectOverCapacity` at/above in-degree, `Accept` below (FR-010)
-- [ ] T013 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: node at in-degree drops the extra request with the over-capacity cause, sends `Rejected`, records no downstream entry, emits no `Misbehaved`/`Terminated` (FR-011)
-- [ ] T014 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an explicit `Rejected` marks the peer failed (sticky — never re-dialed this run); the next `ConnectionSetup` re-selects the next-ranked candidate over the viable set; candidate exhaustion settles at under-fill; the rejection counter increments (FR-014, FR-015, FR-016)
+- [X] T012 [P] [US2] Unit tests for `BoundedAcceptance`/`Admission` in `pubsub-node/src/acceptance.rs`: `RejectMembership` when not membership-valid, `RejectOverCapacity` at/above in-degree, `Accept` below (FR-010)
+- [X] T013 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: node at in-degree drops the extra request with the over-capacity cause, sends `Rejected`, records no downstream entry, emits no `Misbehaved`/`Terminated` (FR-011)
+- [X] T014 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an explicit `Rejected` marks the peer failed (sticky — never re-dialed this run); the next `ConnectionSetup` re-selects the next-ranked candidate over the viable set; candidate exhaustion settles at under-fill; the rejection counter increments (FR-014, FR-015, FR-016)
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Evolve `ConnectionAcceptanceStrategy`: `accepts -> bool` → `decide(...) -> AcceptanceDecision { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; map `AcceptFromAllCandidates`; re-export `AcceptanceDecision` from `lib.rs` — in `pubsub-node/src/acceptance.rs`
-- [ ] T016 [US2] Implement `BoundedAcceptance { in_degree }` (re-export from `lib.rs`); parse in-degree at the edge and select bounded vs unbounded in `pubsub-node/src/acceptance.rs`, `config.rs`, `main.rs`
-- [ ] T017 [US2] Add `ConnectionAction::Rejected { topic }` in `pubsub-node/src/message.rs`; amend `handle_connection_request` so `RejectOverCapacity` logs `downstream_capacity_reached` + sends `Rejected`, `RejectMembership` stays a silent drop, in `pubsub-node/src/state.rs`
-- [ ] T018 [US2] **[coordinate]** Add `handle_connection_rejected` (remove `AwaitingAccept`, insert into `failed_upstream` sticky, increment the rejection counter; `unsolicited_reject` drop otherwise) in `pubsub-node/src/state.rs`
-- [ ] T019 [US2] Add the explicit-rejection-count getter in `pubsub-node/src/node.rs`
+- [X] T015 [US2] Evolve `ConnectionAcceptanceStrategy`: `accepts -> bool` → `admit(...) -> Admission { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; map `AcceptFromAllCandidates`; re-export `Admission` from `lib.rs` — in `pubsub-node/src/acceptance.rs`
+- [X] T016 [US2] Implement `BoundedAcceptance { in_degree }` (re-export from `lib.rs`); parse in-degree at the edge and select bounded vs unbounded in `pubsub-node/src/acceptance.rs`, `config.rs`, `main.rs`
+- [X] T017 [US2] Add `ConnectionAction::Rejected { topic }` in `pubsub-node/src/message.rs`; amend `handle_connection_request` so `RejectOverCapacity` logs `downstream_capacity_reached` + sends `Rejected`, `RejectMembership` stays a silent drop, in `pubsub-node/src/state.rs`
+- [X] T018 [US2] **[coordinate]** Add `handle_connection_rejected` (remove `AwaitingAccept`, insert into `failed_upstream` sticky, increment the rejection counter; `unsolicited_reject` drop otherwise) in `pubsub-node/src/state.rs`
+- [X] T019 [US2] Add the explicit-rejection-count getter in `pubsub-node/src/node.rs`
 
 **Checkpoint**: US1 + US2 work independently; bounded acceptance, explicit rejection, sticky back-fill observable.
 
@@ -148,7 +148,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 ## Parallel Example: User Story 2 tests
 
 ```bash
-Task: "Unit test BoundedAcceptance/AcceptanceDecision in src/acceptance.rs"   # T012
+Task: "Unit test BoundedAcceptance/Admission in src/acceptance.rs"   # T012
 Task: "Integration test over-capacity → Rejected, no severance"               # T013
 Task: "Integration test sticky back-fill via ConnectionSetup re-invocation"   # T014
 ```
@@ -163,7 +163,7 @@ Setup → Foundational → US1 → validate: bounded, reproducible selection wit
 
 ### Incremental Delivery
 
-1. Self-contained core (ranking + `SeededBoundedSelection` + `BoundedAcceptance`/`AcceptanceDecision` + `Rejected` type + their unit tests) — no coordination needed.
+1. Self-contained core (ranking + `SeededBoundedSelection` + `BoundedAcceptance`/`Admission` + `Rejected` type + their unit tests) — no coordination needed.
 2. The wiring + integration tests (**[coordinate]**) — land independently using 005's ordered structures + current injection, syncing with the parallel refactor to avoid conflicts. Completes US1 then US2.
 3. US3 seed-sweep validation.
 

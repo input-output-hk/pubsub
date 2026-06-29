@@ -176,6 +176,17 @@ pub(crate) mod test_support {
         )
     }
 
+    /// A `Rejected{topic}` control event from `emitter` (acceptor → dialer,
+    /// over-capacity refusal; feature 005).
+    pub(crate) fn rejected_from(emitter: &str, topic_id: &str) -> Event {
+        control_event(
+            emitter,
+            ConnectionAction::Rejected {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
     /// A control message signed by `signing_alias` but claiming a different
     /// `emitter_alias` — its signature does not verify under the carried
     /// emitter's key (the control invalid-signature case).
@@ -272,6 +283,12 @@ pub(crate) mod test_support {
         /// Append an inbound `Terminated` step.
         pub(crate) fn terminated_from(mut self, emitter: &str, topic_id: &str) -> Self {
             self.0.push(terminated_from(emitter, topic_id));
+            self
+        }
+
+        /// Append an inbound `Rejected` step (over-capacity refusal of a dial).
+        pub(crate) fn rejected_from(mut self, emitter: &str, topic_id: &str) -> Self {
+            self.0.push(rejected_from(emitter, topic_id));
             self
         }
 

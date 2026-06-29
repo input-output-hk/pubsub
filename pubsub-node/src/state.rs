@@ -16,7 +16,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::acceptance::ConnectionAcceptanceStrategy;
+use crate::acceptance::{Admission, ConnectionAcceptanceStrategy};
 use crate::connection::{ConnectionStrategy, UpstreamState};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
@@ -79,6 +79,10 @@ pub(crate) struct NodeState {
     /// it; while empty the viable view equals `candidates`, so selection is
     /// unchanged.
     failed_upstream: BTreeSet<(PeerId, TopicId)>,
+    /// Count of explicit over-capacity `Rejected` signals this node has received
+    /// for its dials (feature 005). Observability for the rejection rate
+    /// (exposed via a getter, asserted in tests — not via logs).
+    rejections_received: usize,
     /// The node's signing identity: signs the control messages it emits
     /// (`Request`/`Accepted`/`Terminated`). Rides along as an immutable service
     /// handle beside the verifier; the transition signs inside the pure core so
@@ -133,6 +137,7 @@ impl NodeState {
             upstream: HashMap::new(),
             downstream: HashSet::new(),
             failed_upstream: BTreeSet::new(),
+            rejections_received: 0,
             signer,
             connection_strategy,
             fanout_strategy,
@@ -147,6 +152,13 @@ impl NodeState {
     #[must_use]
     pub(crate) fn is_synced(&self) -> bool {
         self.synced
+    }
+
+    /// Count of explicit over-capacity rejections this node has received for its
+    /// dials (feature 005). The observability surface for the rejection rate.
+    #[must_use]
+    pub(crate) fn rejections_received(&self) -> usize {
+        self.rejections_received
     }
 
     /// Snapshot of every recorded delivery, in processing order.
@@ -609,6 +621,9 @@ fn handle_connection_message(
         ConnectionAction::Terminated { topic } => {
             handle_connection_terminated(state, &plain.emitter, &topic)
         }
+        ConnectionAction::Rejected { topic } => {
+            handle_connection_rejected(state, &plain.emitter, &topic)
+        }
     }
 }
 
@@ -627,32 +642,62 @@ fn handle_connection_request(
     emitter: PeerId,
     topic: TopicId,
 ) -> Vec<Effect> {
-    if !state
-        .acceptance_strategy
-        .accepts(&emitter, &topic, &state.subscriptions, &state.candidates)
-    {
-        tracing::info!(
-            target: "pubsub_node::node",
-            event = "message_dropped",
-            cause = "membership_validation_failed",
-            self_id = %state.self_id,
-            emitter = %emitter,
-            topic = %topic,
-        );
-        return Vec::new();
-    }
-
-    // Idempotent: the set absorbs a duplicate; a re-dial re-sends Accepted.
-    state.downstream.insert((emitter.clone(), topic.clone()));
-    let message = signed_connection(
-        &state.self_id,
-        state.signer.as_ref(),
-        ConnectionAction::Accepted { topic },
+    let admission = state.acceptance_strategy.admit(
+        &emitter,
+        &topic,
+        &state.subscriptions,
+        &state.candidates,
+        &state.downstream,
     );
-    vec![Effect::Send {
-        to: emitter,
-        message,
-    }]
+    match admission {
+        Admission::Accept => {
+            // Idempotent: the set absorbs a duplicate; a re-dial re-sends Accepted.
+            state.downstream.insert((emitter.clone(), topic.clone()));
+            let message = signed_connection(
+                &state.self_id,
+                state.signer.as_ref(),
+                ConnectionAction::Accepted { topic },
+            );
+            vec![Effect::Send {
+                to: emitter,
+                message,
+            }]
+        }
+        Admission::RejectMembership => {
+            // Silent drop, no reply — does not leak membership to a non-member.
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "membership_validation_failed",
+                self_id = %state.self_id,
+                emitter = %emitter,
+                topic = %topic,
+            );
+            Vec::new()
+        }
+        Admission::RejectOverCapacity => {
+            // Over the inbound bound: drop without recording downstream, but
+            // send an explicit `Rejected` so the dialer can back-fill (ADR 0025).
+            // Not misbehaviour — no severance.
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "downstream_capacity_reached",
+                self_id = %state.self_id,
+                emitter = %emitter,
+                topic = %topic,
+            );
+            let message = signed_connection(
+                &state.self_id,
+                state.signer.as_ref(),
+                ConnectionAction::Rejected { topic },
+            );
+            vec![Effect::Send {
+                to: emitter,
+                message,
+            }]
+        }
+    }
 }
 
 /// Transition for a verified `Accepted` from `emitter` on `topic` (FR-013).
@@ -705,6 +750,41 @@ fn handle_connection_terminated(
             topic = %topic,
         );
     }
+    Vec::new()
+}
+
+/// Transition for a verified `Rejected` from `emitter` on `topic` — the peer
+/// refused this node's dial for over-capacity (feature 005, ADR 0025).
+///
+/// Removes the matching `AwaitingAccept` upstream, marks the peer **failed**
+/// (sticky for the run, so it is excluded from re-selection — the next
+/// `ConnectionSetup` re-invocation back-fills the next-ranked candidate), and
+/// counts the rejection. A `Rejected` with no matching pending entry (absent, or
+/// already `Active`) is dropped and changes nothing. A rejection is never
+/// treated as misbehaviour.
+fn handle_connection_rejected(
+    state: &mut NodeState,
+    emitter: &PeerId,
+    topic: &TopicId,
+) -> Vec<Effect> {
+    let key = (emitter.clone(), topic.clone());
+    if matches!(
+        state.upstream.get(&key),
+        Some(UpstreamState::AwaitingAccept)
+    ) {
+        state.upstream.remove(&key);
+        state.failed_upstream.insert(key);
+        state.rejections_received += 1;
+        return Vec::new();
+    }
+    tracing::info!(
+        target: "pubsub_node::node",
+        event = "message_dropped",
+        cause = "unsolicited_reject",
+        self_id = %state.self_id,
+        emitter = %emitter,
+        topic = %topic,
+    );
     Vec::new()
 }
 
@@ -957,16 +1037,17 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::acceptance::AcceptFromAllCandidates;
+    use crate::acceptance::{AcceptFromAllCandidates, BoundedAcceptance};
     use crate::connection::test_support::{
-        accepted_from, membership_joined, misattributed_request, payload_from, request_from,
-        tampered_payload_from, terminated_from, ConnectionScript,
+        accepted_from, membership_joined, misattributed_request, payload_from, rejected_from,
+        request_from, tampered_payload_from, terminated_from, ConnectionScript,
     };
-    use crate::connection::ConnectToAllCandidates;
+    use crate::connection::{ConnectToAllCandidates, SeededBoundedSelection};
     use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
     use crate::crypto::PublicKey;
     use crate::crypto::{Signer, Timestamp};
     use crate::fanout::ForwardToAll;
+    use crate::message::{ConnectionAction, Message};
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
     use crate::subscription_registry::MembershipScript;
     use crate::topic_registry::TopicRegistryScript;
@@ -1067,6 +1148,112 @@ mod tests {
     /// The standard deterministic signer (fixed scheme seed).
     fn signer() -> TestSigner {
         signer_seeded([7u8; 32])
+    }
+
+    /// The destination and connection action of a `Send` effect carrying a
+    /// connection-control message, if any.
+    fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
+        match effect {
+            Effect::Send {
+                to,
+                message: Message::Connection(cm),
+            } => Some((to, &cm.plain.action)),
+            _ => None,
+        }
+    }
+
+    // FR-010/FR-011 / US2: BoundedAcceptance accepts up to the in-degree, then
+    // refuses further requests with an explicit `Rejected` (not a severance) and
+    // records no downstream entry for the refused peer.
+    #[test]
+    fn over_capacity_request_is_rejected_with_signal_not_severance() {
+        let t = topic("t1");
+        let mut state = NodeState::new(
+            peer("self"),
+            HashSet::from([t.clone()]),
+            Arc::new(TestVerifier),
+            alias_signer("self"),
+            strategy(),
+            Arc::new(ForwardToAll),
+            Arc::new(BoundedAcceptance::new(1)),
+        );
+        apply(&mut state, reg_open("t1"));
+        apply(&mut state, membership_joined("self", ["t1"]));
+        apply(&mut state, membership_joined("a", ["t1"]));
+        apply(&mut state, membership_joined("b", ["t1"]));
+
+        // First request: below the in-degree bound ⇒ accepted.
+        let accept = apply(&mut state, request_from("a", "t1"));
+        assert!(state.downstream.contains(&(peer("a"), t.clone())));
+        assert!(matches!(
+            sent_action(&accept[0]),
+            Some((to, ConnectionAction::Accepted { .. })) if to == &peer("a")
+        ));
+
+        // Second request: at the bound ⇒ refused with an explicit Rejected, no
+        // downstream entry, no Misbehaved severance.
+        let reject = apply(&mut state, request_from("b", "t1"));
+        assert!(!state.downstream.contains(&(peer("b"), t.clone())));
+        assert_eq!(
+            state.downstream.len(),
+            1,
+            "the over-capacity peer is not recorded",
+        );
+        assert_eq!(reject.len(), 1);
+        assert!(matches!(
+            sent_action(&reject[0]),
+            Some((to, ConnectionAction::Rejected { .. })) if to == &peer("b")
+        ));
+        assert!(!reject
+            .iter()
+            .any(|e| matches!(e, Effect::Misbehaved { .. })));
+    }
+
+    // FR-014 / US2: a Rejected dial is marked failed (sticky) and the next
+    // ConnectionSetup back-fills the next-ranked candidate; the failed peer is
+    // not re-dialed, and the rejection is counted.
+    #[test]
+    fn rejected_dial_is_marked_failed_and_backfilled() {
+        let t = topic("t1");
+        let mut state = NodeState::new(
+            peer("self"),
+            HashSet::from([t.clone()]),
+            Arc::new(TestVerifier),
+            alias_signer("self"),
+            Arc::new(SeededBoundedSelection::new(7, peer("self"), 1)),
+            Arc::new(ForwardToAll),
+            Arc::new(AcceptFromAllCandidates),
+        );
+        apply(&mut state, reg_open("t1"));
+        apply(&mut state, membership_joined("self", ["t1"]));
+        for c in ["a", "b", "c"] {
+            apply(&mut state, membership_joined(c, ["t1"]));
+        }
+
+        // Initial selection dials exactly one upstream (out-degree 1).
+        apply(&mut state, Event::Synced);
+        let initial: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
+        assert_eq!(initial.len(), 1);
+        let rejected_peer = initial[0].0.clone();
+
+        // That peer rejects the dial.
+        apply(&mut state, rejected_from(&rejected_peer.to_string(), "t1"));
+        assert!(!state
+            .upstream
+            .contains_key(&(rejected_peer.clone(), t.clone())));
+        assert!(state
+            .failed_upstream
+            .contains(&(rejected_peer.clone(), t.clone())));
+        assert_eq!(state.rejections_received, 1);
+
+        // Re-invoking setup back-fills the next-ranked candidate (failed excluded).
+        apply(&mut state, Event::ConnectionSetup);
+        let after: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
+        assert_eq!(after.len(), 1, "back-filled to a single new upstream");
+        assert_ne!(
+            after[0].0, rejected_peer,
+            "the failed peer is not re-dialed"
+        );
     }
 
     /// Build a validly-signed message on `topic` carrying `Ping(n)`.

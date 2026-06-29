@@ -54,7 +54,10 @@ mod subscription_registry;
 mod topic;
 mod topic_registry;
 
-pub use acceptance::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy};
+pub use acceptance::{
+    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, BoundedAcceptance,
+    ConnectionAcceptanceStrategy, UnknownAcceptanceStrategy,
+};
 pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use connection::{
     ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, SeededBoundedSelection,

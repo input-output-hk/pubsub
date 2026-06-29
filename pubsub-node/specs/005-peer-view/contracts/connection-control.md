@@ -5,7 +5,7 @@ Extends `ConnectionAction` (`Request` / `Accepted` / `Terminated`). The new acti
 ## New action: `Rejected { topic }` (ADR 0025)
 
 - **Direction**: acceptor → dialer.
-- **Emitted when**: a verified `Request` is refused for over-capacity (`AcceptanceDecision::RejectOverCapacity`). NOT emitted for membership failure (stays a silent drop — does not leak membership to non-members).
+- **Emitted when**: a verified `Request` is refused for over-capacity (`Admission::RejectOverCapacity`). NOT emitted for membership failure (stays a silent drop — does not leak membership to non-members).
 - **Distinct from**: `Terminated` (tears down an *established* link) and `Effect::Misbehaved` (severance on signature failure). A rejection is a normal capacity outcome — **not** misbehaviour (FR-011). "Rejected" is always this active signal — there is no timeout/no-response notion in this feature.
 
 ## Acceptor handling — `handle_connection_request` (amended)

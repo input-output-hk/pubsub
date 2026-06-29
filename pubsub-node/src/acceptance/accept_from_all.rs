@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::ConnectionAcceptanceStrategy;
+use super::{Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
@@ -11,30 +11,36 @@ use crate::topic::TopicId;
 /// member of it.
 ///
 /// The exact inbound mirror of `ConnectToAllCandidates`: the "all" is
-/// membership-scoped, not unconditional. Discretionary restrictions (degree
-/// caps, allowlists) are deferred to later strategies.
+/// membership-scoped, not unconditional. It never refuses for over-capacity
+/// (it ignores the `downstream` set); the bounded counterpart is
+/// [`BoundedAcceptance`](super::BoundedAcceptance).
 pub struct AcceptFromAllCandidates;
 
 impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
-    fn accepts(
+    fn admit(
         &self,
         emitter: &PeerId,
         topic: &TopicId,
         subscriptions: &HashSet<TopicId>,
         candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> bool {
+        _downstream: &HashSet<(PeerId, TopicId)>,
+    ) -> Admission {
         let topic_is_own = subscriptions.contains(topic);
         let emitter_is_member = candidates
             .get(topic)
             .is_some_and(|peers| peers.contains(emitter));
-        topic_is_own && emitter_is_member
+        if topic_is_own && emitter_is_member {
+            Admission::Accept
+        } else {
+            Admission::RejectMembership
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::AcceptFromAllCandidates;
-    use crate::acceptance::ConnectionAcceptanceStrategy;
+    use crate::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::peer::PeerId;
     use crate::topic::TopicId;
     use std::collections::{HashMap, HashSet};
@@ -59,35 +65,46 @@ mod tests {
             .collect()
     }
 
+    fn admit(emitter: &str, topic_id: &str, subs: &[&str], cands: &[(&str, &[&str])]) -> Admission {
+        AcceptFromAllCandidates.admit(
+            &peer(emitter),
+            &topic(topic_id),
+            &subscriptions(subs),
+            &candidates(cands),
+            &HashSet::new(),
+        )
+    }
+
     // Accept: the topic is the node's own and the emitter is a known member.
     #[test]
     fn accepts_a_member_on_an_own_topic() {
-        let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t1", &["a", "b"])]);
-        assert!(AcceptFromAllCandidates.accepts(&peer("a"), &topic("t1"), &subs, &cands));
+        assert_eq!(
+            admit("a", "t1", &["t1"], &[("t1", &["a", "b"])]),
+            Admission::Accept
+        );
     }
 
-    // Reject: the topic is not one the node is a member of.
+    // RejectMembership: the topic is not one the node is a member of.
     #[test]
     fn rejects_a_topic_the_node_is_not_a_member_of() {
-        let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t2", &["a"])]);
-        assert!(!AcceptFromAllCandidates.accepts(&peer("a"), &topic("t2"), &subs, &cands));
+        assert_eq!(
+            admit("a", "t2", &["t1"], &[("t2", &["a"])]),
+            Admission::RejectMembership,
+        );
     }
 
-    // Reject: own topic, but the emitter is not a known member of it.
+    // RejectMembership: own topic, but the emitter is not a known member of it.
     #[test]
     fn rejects_a_non_member_emitter() {
-        let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t1", &["b"])]);
-        assert!(!AcceptFromAllCandidates.accepts(&peer("a"), &topic("t1"), &subs, &cands));
+        assert_eq!(
+            admit("a", "t1", &["t1"], &[("t1", &["b"])]),
+            Admission::RejectMembership,
+        );
     }
 
-    // Reject: own topic with no discovered candidates at all.
+    // RejectMembership: own topic with no discovered candidates at all.
     #[test]
     fn rejects_when_no_candidates_on_the_topic() {
-        let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[]);
-        assert!(!AcceptFromAllCandidates.accepts(&peer("a"), &topic("t1"), &subs, &cands));
+        assert_eq!(admit("a", "t1", &["t1"], &[]), Admission::RejectMembership);
     }
 }

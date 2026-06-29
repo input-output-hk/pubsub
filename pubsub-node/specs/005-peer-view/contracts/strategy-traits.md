@@ -18,8 +18,8 @@ expected_upstream(subscriptions: &Set<TopicId>,
 ## Inbound side — `ConnectionAcceptanceStrategy` (evolved, ADR 0025)
 
 ```
-decide(emitter, topic, subscriptions, candidates, downstream) -> AcceptanceDecision
-enum AcceptanceDecision { Accept, RejectMembership, RejectOverCapacity }
+admit(emitter, topic, subscriptions, candidates, downstream) -> Admission
+enum Admission { Accept, RejectMembership, RejectOverCapacity }
 ```
 
 - Change vs today: return was `bool`; now reason-bearing, and the decision sees the current `downstream` so the in-degree can be enforced.

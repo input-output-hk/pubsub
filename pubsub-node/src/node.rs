@@ -428,6 +428,17 @@ impl Node {
             .downstream_snapshot()
     }
 
+    /// Return the count of explicit over-capacity `Rejected` signals this node
+    /// has received for its dials (feature 005) — the observability surface for
+    /// the rejection rate.
+    #[must_use]
+    pub fn rejections_received(&self) -> usize {
+        self.state
+            .lock()
+            .expect("rejections_received: state mutex poisoned")
+            .rejections_received()
+    }
+
     /// Gracefully shut the node down: drain any already-queued events, send one
     /// `Terminated` notice per held connection (both roles, any state), then
     /// release the node. Consuming `self` makes use-after-shutdown

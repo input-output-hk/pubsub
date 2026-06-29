@@ -12,8 +12,8 @@ Grounded in current types: `ConnectionStrategy`/`ConnectToAllCandidates` (`conne
 
 ### 1.2 `ConnectionAcceptanceStrategy` (inbound) — reason-bearing return (ADR 0025)
 
-- `accepts -> bool` becomes `decide(emitter, topic, subscriptions, candidates, downstream) -> AcceptanceDecision`.
-- `enum AcceptanceDecision { Accept, RejectMembership, RejectOverCapacity }`.
+- `accepts -> bool` becomes `admit(emitter, topic, subscriptions, candidates, downstream) -> Admission`.
+- `enum Admission { Accept, RejectMembership, RejectOverCapacity }`.
 - `BoundedAcceptance { in_degree: usize }`: `RejectMembership` if not membership-valid; else `RejectOverCapacity` if the topic's downstream count ≥ `in_degree`; else `Accept`.
 - `AcceptFromAllCandidates` maps onto `Accept`/`RejectMembership`; default (FR-013).
 
@@ -40,7 +40,7 @@ Existing `upstream`/`downstream`/`candidates`/`subscriptions` reused (migrated t
 
 ### 3.2 `handle_connection_request` — capacity + `Rejected`
 
-1. `decide(emitter, topic, subscriptions, candidates, downstream_on_topic)`.
+1. `admit(emitter, topic, subscriptions, candidates, downstream_on_topic)`.
 2. `Accept` → idempotent `downstream` insert + reply `Accepted` (unchanged).
 3. `RejectMembership` → silent logged drop `membership_validation_failed` (unchanged).
 4. `RejectOverCapacity` → logged drop `downstream_capacity_reached` + `Effect::Send(Rejected)`; no downstream entry; `rejections_received` is a dialer-side counter, so nothing incremented here.
