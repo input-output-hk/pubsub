@@ -136,8 +136,8 @@ mod tests {
     #[test]
     fn bounded_selects_all_when_at_or_below_bound() {
         let policy = SeededBoundedSelection::new(7, peer("self"), 5);
-        let expected = policy
-            .expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &["a", "b"])]));
+        let expected =
+            policy.expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &["a", "b"])]));
         assert_eq!(
             expected,
             HashSet::from([(peer("a"), topic("t1")), (peer("b"), topic("t1"))]),
