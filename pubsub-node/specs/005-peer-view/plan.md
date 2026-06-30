@@ -8,7 +8,7 @@
 
 Replace the full-mesh dial/accept policies with **bounded** ones so a node forms a reproducible partial topology. The dial side (`SeededBoundedSelection`) picks at most a uniform out-degree of upstream peers per topic by deterministic keyed-hash ranking of `(seed, self_id, topic, candidate)`; randomness is encapsulated in the strategy object (the seed is a field), so the transition stays pure. The inbound side (`BoundedAcceptance`) admits up to a uniform in-degree and, over capacity, sends an explicit `Rejected` (not a severance). A rejected dial marks the peer **failed (sticky for the run)** and is back-filled by re-invoking the existing `ConnectionSetup` event over the viable candidate view (candidates minus failed) — no new round/timer. The existing unbounded policies remain the default; bounded behaviour is opt-in via three startup parameters (seed, out-degree, in-degree). Tests ship with the feature (TDD).
 
-This is strategies-only. The **experiment/testing framework** that drives these strategies is a separate later feature. The feature is built on a **prerequisite determinism/purity refactor** (separate workstream, co-developing architect): strategies passed as `apply` arguments, ordered structures replacing `HashSet`/`HashMap`, deterministic scheduling, and a flag decoupling `ConnectionSetup` from `Synced`.
+This is strategies-only. The **experiment/testing framework** that drives these strategies is a separate later feature. The feature is **coordinated with — not built on** — the co-developing architect's determinism/purity refactor (strategies-as-`apply`-arguments, deterministic scheduling, a flag decoupling `ConnectionSetup` from `Synced`): 005 keeps the current strategy injection (`Arc<dyn …>` at `Node::new`) and applies ordered structures (`BTreeSet`) to its own new state, so it does not block on that refactor (see research R6).
 
 ## Technical Context
 
@@ -72,20 +72,22 @@ specs/005-peer-view/
 ```text
 pubsub-node/
 ├── src/
-│   ├── connection.rs   # ConnectionStrategy + ConnectToAllCandidates + NEW SeededBoundedSelection + ranking helper
-│   ├── acceptance.rs   # ConnectionAcceptanceStrategy (bool → Admission + downstream view) + AcceptFromAllCandidates + NEW BoundedAcceptance
-│   ├── message.rs      # ConnectionAction::Rejected
-│   ├── state.rs        # failed-set (ordered); viable-candidate diff in connection-setup; request capacity branch (+ Rejected send); NEW rejected handler; rejection counter getter source
-│   ├── node.rs         # construction wiring (bounded strategies via args per refactor); dial-outcome getter
-│   ├── config.rs/main.rs  # parse seed + out-degree + in-degree at the edge; select bounded vs unbounded
-│   └── lib.rs          # re-export the new public strategy types
+│   ├── connection/        # per-seam module: mod.rs (trait + UpstreamState + test_support),
+│   │                      #   connect_to_all.rs, seeded_bounded.rs (NEW + ranking helper), kind.rs (ConnectionStrategyKind)
+│   ├── acceptance/        # mod.rs (trait + NEW Admission), accept_from_all.rs (admit), bounded.rs (NEW BoundedAcceptance), kind.rs
+│   ├── fanout/            # mod.rs (trait), forward_to_all.rs (unchanged)
+│   ├── message.rs         # ConnectionAction::Rejected (tag 0x03)
+│   ├── state.rs           # failed_upstream (BTreeSet); viable-candidate diff in connection-setup; request capacity branch (+ Rejected send); NEW rejected handler; rejections_received counter + getter
+│   ├── node.rs            # current-injection construction; rejections_received getter
+│   ├── main.rs/config.rs  # parse seed/out-degree/in-degree + named strategy kinds at the edge; select bounded vs unbounded
+│   └── lib.rs             # re-export the new public strategy types
 └── tests/
-    ├── connections.rs  # bounded selection, acceptance + rejection, sticky back-fill
-    ├── common/mod.rs   # ConnectionScript: rejected step; bounded-node builders; outcome/convergence helpers
-    └── ...             # seed-sweep uniformity (proptest)
+    ├── bounded_selection.rs  # US1 integration: capped + reproducible topology
+    ├── common/mod.rs         # ConnectionScript `rejected` step; node_with_strategy reused for bounded nodes
+    └── ...                   # (seed-sweep uniformity is a unit test in connection/seeded_bounded.rs)
 ```
 
-**Structure Decision**: Single Rust project; extends existing modules. New strategy impls live beside their traits. No new crate. **Sequencing**: 005 lands on top of the prerequisite refactor; `Node`/`apply` wiring follows the refactor's strategies-as-arguments shape rather than today's strategies-in-`NodeState`.
+**Structure Decision**: Single Rust project. Each strategy seam is its own module (`connection/`, `acceptance/`, `fanout/`) — trait in `mod.rs`, one file per implementation — refactored for separation as more impls land. Strategies stay injected as `Arc<dyn …>` at `Node::new` (the **current injection**, not the refactor's strategies-as-arguments shape); 005 applies ordered structures to its own new state and coordinates with the parallel refactor rather than depending on it (research R6).
 
 ## Complexity Tracking
 
