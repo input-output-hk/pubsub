@@ -101,12 +101,12 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ### Tests for User Story 3 (write first; MUST fail) ⚠️
 
-- [ ] T020 [P] [US3] Distinct-seed divergence test in `pubsub-node/src/connection.rs` (or `tests/`): two seeds → differing selections for candidates > out-degree (SC-003)
-- [ ] T021 [P] [US3] Seed-sweep uniformity test (≥1,000 fixed seeds; per-candidate frequency within tolerance / chi-square gate p < 0.001 per research R5) using `proptest` (existing dev-dep) in `pubsub-node/tests/`
+- [X] T020 [P] [US3] Distinct-seed divergence test in `pubsub-node/src/connection.rs` (or `tests/`): two seeds → differing selections for candidates > out-degree (SC-003)
+- [X] T021 [P] [US3] Seed-sweep uniformity test (≥1,000 fixed seeds; per-candidate frequency within tolerance / chi-square gate p < 0.001 per research R5) using `proptest` (existing dev-dep) in `pubsub-node/tests/`
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] If the sweep reveals bias, adjust the ranking-key composition (T005 helper) so selection is unbiased (FR-007); otherwise record that the digest choice already satisfies SC-004 — in `pubsub-node/src/connection.rs`
+- [X] T022 [US3] If the sweep reveals bias, adjust the ranking-key composition (T005 helper) so selection is unbiased (FR-007); otherwise record that the digest choice already satisfies SC-004 — in `pubsub-node/src/connection.rs`
 
 **Checkpoint**: all three stories validated.
 
@@ -114,9 +114,9 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T023 [P] Record deferred items in `pubsub-node/specs/IMPLEMENTATION_NOTES.md`: the experiment/testing framework, dynamic re-selection on membership change + epochal rotation, golden nodes (push-based M2), bounded/seeded fan-out, any timeout/no-response re-dial; and resolve the N-007 "revisit at 005 (PeerView)" pointer — note candidates serve as the peer view (no `PeerView` abstraction added)
-- [ ] T024 [P] Regression check for SC-005: with bounded params absent, the existing full-mesh dissemination/connection suites stay green (no new code path engaged)
-- [ ] T025 Run the `specs/005-peer-view/quickstart.md` validation end-to-end
+- [X] T023 [P] Record deferred items in `pubsub-node/specs/IMPLEMENTATION_NOTES.md`: the experiment/testing framework, dynamic re-selection on membership change + epochal rotation, golden nodes (push-based M2), bounded/seeded fan-out, any timeout/no-response re-dial; and resolve the N-007 "revisit at 005 (PeerView)" pointer — note candidates serve as the peer view (no `PeerView` abstraction added)
+- [X] T024 [P] Regression check for SC-005: with bounded params absent, the existing full-mesh dissemination/connection suites stay green (no new code path engaged)
+- [X] T025 Run the `specs/005-peer-view/quickstart.md` validation end-to-end
 - [ ] T026 `/speckit-analyze` consistency pass; record findings in `specs/005-peer-view/analysis.md`
 
 ---

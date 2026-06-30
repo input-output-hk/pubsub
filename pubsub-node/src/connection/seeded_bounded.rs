@@ -203,4 +203,65 @@ mod tests {
         );
         assert_eq!(expected, HashSet::from([(peer("a"), topic("t1"))]));
     }
+
+    // SC-003 / US3: distinct seeds explore distinct selections (the topology
+    // varies with the seed). Over a handful of seeds on a set larger than the
+    // bound, more than one distinct selection appears.
+    #[test]
+    fn distinct_seeds_produce_distinct_selections() {
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["c0", "c1", "c2", "c3", "c4", "c5"])]);
+        let mut distinct = HashSet::new();
+        for seed in 0..16u64 {
+            let sel =
+                SeededBoundedSelection::new(seed, peer("self"), 3).expected_upstream(&subs, &cands);
+            let mut ids: Vec<String> = sel.iter().map(|(p, _)| p.to_string()).collect();
+            ids.sort();
+            distinct.insert(ids.join(","));
+        }
+        assert!(
+            distinct.len() > 1,
+            "distinct seeds should explore more than one selection (saw {})",
+            distinct.len(),
+        );
+    }
+
+    // FR-007 / SC-004 / US3: over a fixed sweep of seeds, selection is unbiased
+    // with respect to candidate identity. A chi-square goodness-of-fit against
+    // the uniform expectation (10 candidates, choose 3) must not reject at
+    // p < 0.001 (df = 9 ⇒ critical value 27.88). The sweep is a fixed seed range,
+    // so the test is reproducible. (T022: the SHA-256 ranking already satisfies
+    // this — no ranking-key adjustment needed.)
+    #[test]
+    #[allow(clippy::cast_precision_loss)]
+    fn selection_is_unbiased_over_a_seed_sweep() {
+        let ids = ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &ids)]);
+        let out_degree = 3usize;
+        let sweeps = 2000u64;
+
+        let mut counts: HashMap<String, u64> = HashMap::new();
+        for seed in 0..sweeps {
+            let sel = SeededBoundedSelection::new(seed, peer("self"), out_degree)
+                .expected_upstream(&subs, &cands);
+            assert_eq!(sel.len(), out_degree);
+            for (p, _) in sel {
+                *counts.entry(p.to_string()).or_insert(0) += 1;
+            }
+        }
+
+        let expected = (sweeps as f64) * (out_degree as f64) / (ids.len() as f64);
+        let chi2: f64 = ids
+            .iter()
+            .map(|id| {
+                let observed = *counts.get(*id).unwrap_or(&0) as f64;
+                (observed - expected).powi(2) / expected
+            })
+            .sum();
+        assert!(
+            chi2 < 27.88,
+            "selection biased: chi^2 = {chi2:.2} exceeds the p<0.001 critical value (df=9)",
+        );
+    }
 }

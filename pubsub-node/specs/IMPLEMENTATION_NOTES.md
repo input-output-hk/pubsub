@@ -378,3 +378,14 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 - per-concern files grouped by handler: `dissemination` (receive path), `publish`, `connection` (request/accepted/terminated), `membership` (membership + topic-registry folds), `lifecycle` (synced/setup/shutdown), `fanout` (fan-out + dedup).
 
 The grouping mirrors the handler chain the existing test comments already key off, so the partition is mostly mechanical. **Crux to validate**: descendant test modules must still reach `state`'s private items — they can, since a private item is visible to its module and all descendants, so a file under `src/state/tests/` reaches `handle_*`/private fields via `super::super::*` (and `crate::state` for the `pub(crate)` surface). Pure move, zero test-logic changes, behavior-preserving. **Trade-off**: breaks the inline-`#[cfg(test)] mod tests` uniformity that `connection`/`fanout`/`acceptance` follow — a deliberate exception justified by `state` being 7–20× their size. **Explicitly not** the deeper alternative of splitting the production handlers across domain modules: that touches the pure-core cohesion (ADR 0011 keeps `apply` + handlers together) and is an architectural change, not a test reorg.
+
+## N-028 — Feature 005 (seeded bounded strategies) deferrals
+
+Recorded on completing 005 (seeded bounded connection-selection + bounded acceptance):
+
+- **Experiment/testing framework** — the topology builder (network-default + per-node-override strategy assignment) and the delivery-percentile / propagation-depth / convergence metrics are a **separate later feature**. 005 ships only the strategies + their tests.
+- **Determinism/purity refactor** — strategies-as-`apply`-arguments + deterministic event-loop scheduling are the co-developing architect's parallel workstream; 005 applied ordered structures (`BTreeSet`) to its own new state and kept the current strategy injection (coordinate, not blocked).
+- **Dynamic re-selection / epochal rotation** — selection (and back-fill) operate over the candidate set fixed at readiness; re-selection on membership *change* and periodic epochal rotation are deferred.
+- **Golden nodes (push-based M2)** + edge/golden mode flag + adversarial/Byzantine node behaviour — later features.
+- **Bounded/seeded fan-out** — `ForwardToAll` is unchanged; a degree-capped/seeded fan-out variant arrives with the propagation/replication experiments that need it.
+- **N-007 (`PeerView`) pointer resolved** — 005 uses the existing subscription-registry candidate view as the peer view; no separate `PeerView`/`PeerSource` abstraction was introduced.
