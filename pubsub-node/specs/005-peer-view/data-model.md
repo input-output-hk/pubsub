@@ -7,14 +7,14 @@ Grounded in current types: `ConnectionStrategy`/`ConnectToAllCandidates` (`conne
 ### 1.1 `ConnectionStrategy` (dial) — bounded impl, signature stable (ADR 0024)
 
 - Trait `expected_upstream(subscriptions, candidates) -> Set<(PeerId, TopicId)>` unchanged in shape; the node hands in the **viable** candidate view (candidates minus failed).
-- New `SeededBoundedSelection { seed: u64, self_id: PeerId, out_degree: usize }`: per joined topic, rank candidates by stable SHA-256 of `(seed, self_id, topic, candidate_id)`, take lowest `out_degree`, tie-break on `candidate_id`. Selects all when candidates ≤ `out_degree`. Pure; deterministic; no RNG.
+- New `SeededBoundedSelection { seed: u64, self_id: PeerId, upstream_degree: usize }`: per joined topic, rank candidates by stable SHA-256 of `(seed, self_id, topic, candidate_id)`, take lowest `upstream_degree`, tie-break on `candidate_id`. Selects all when candidates ≤ `upstream_degree`. Pure; deterministic; no RNG.
 - `ConnectToAllCandidates` unchanged; default (FR-013).
 
 ### 1.2 `ConnectionAcceptanceStrategy` (inbound) — reason-bearing return (ADR 0025)
 
 - `accepts -> bool` becomes `admit(emitter, topic, subscriptions, candidates, downstream) -> Admission`.
 - `enum Admission { Accept, RejectMembership, RejectOverCapacity }`.
-- `BoundedAcceptance { in_degree: usize }`: `RejectMembership` if not membership-valid; else `RejectOverCapacity` if the topic's downstream count ≥ `in_degree`; else `Accept`.
+- `BoundedAcceptance { downstream_degree: usize }`: `RejectMembership` if not membership-valid; else `RejectOverCapacity` if the topic's downstream count ≥ `downstream_degree`; else `Accept`.
 - `AcceptFromAllCandidates` maps onto `Accept`/`RejectMembership`; default (FR-013).
 
 ### 1.3 `ConnectionAction::Rejected { topic }` (ADR 0025)
@@ -35,7 +35,7 @@ Existing `upstream`/`downstream`/`candidates`/`subscriptions` reused (migrated t
 ### 3.1 `handle_connection_setup` — bounded + back-fill aware
 
 1. viable = `candidates` minus `failed_upstream`.
-2. `expected = selection.expected_upstream(subscriptions, viable)` (bounded → top-`out_degree`/topic).
+2. `expected = selection.expected_upstream(subscriptions, viable)` (bounded → top-`upstream_degree`/topic).
 3. Diff vs `upstream`: dial each expected pair not already held (insert `AwaitingAccept`, emit `Request`); never remove. Re-invocation after a rejection back-fills the freed slot with the next-ranked candidate.
 
 ### 3.2 `handle_connection_request` — capacity + `Rejected`

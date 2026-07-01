@@ -1162,7 +1162,7 @@ mod tests {
         }
     }
 
-    // FR-010/FR-011 / US2: BoundedAcceptance accepts up to the in-degree, then
+    // FR-010/FR-011 / US2: BoundedAcceptance accepts up to the downstream degree, then
     // refuses further requests with an explicit `Rejected` (not a severance) and
     // records no downstream entry for the refused peer.
     #[test]
@@ -1182,7 +1182,7 @@ mod tests {
         apply(&mut state, membership_joined("a", ["t1"]));
         apply(&mut state, membership_joined("b", ["t1"]));
 
-        // First request: below the in-degree bound ⇒ accepted.
+        // First request: below the downstream degree bound ⇒ accepted.
         let accept = apply(&mut state, request_from("a", "t1"));
         assert!(state.downstream.contains(&(peer("a"), t.clone())));
         assert!(matches!(
@@ -1230,7 +1230,7 @@ mod tests {
             apply(&mut state, membership_joined(c, ["t1"]));
         }
 
-        // Initial selection dials exactly one upstream (out-degree 1).
+        // Initial selection dials exactly one upstream (upstream degree 1).
         apply(&mut state, Event::Synced);
         let initial: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
         assert_eq!(initial.len(), 1);

@@ -6,13 +6,13 @@
 
 **Status**: Draft
 
-**Input**: User description: "Add seeded, bounded connection-selection and acceptance strategies to the pubsub node, replacing the full-mesh connect-to-all / accept-from-all so a node forms a bounded partial topology. A node selects at most a configured out-degree of upstream peers per topic, chosen by deterministic seed-based key-hashing (randomness encapsulated inside the strategy object so the state-transition stays deterministic and reproducible from a seed), and accepts inbound requests up to a configured in-degree, sending an explicit rejection when over capacity. A rejected dial is back-filled by re-invoking the existing ConnectionSetup event (no new round or timer event). Includes the tests for these strategies. Builds on a separate prerequisite determinism/purity refactor (strategies moved to apply arguments, ordered data structures replacing HashSet, deterministic scheduling, and a flag decoupling ConnectionSetup from Synced) owned by the co-developing architect. The experiment/testing framework that drives these strategies to measure delivery percentiles, propagation depth, and convergence is a SEPARATE feature added on top later — out of scope here."
+**Input**: User description: "Add seeded, bounded connection-selection and acceptance strategies to the pubsub node, replacing the full-mesh connect-to-all / accept-from-all so a node forms a bounded partial topology. A node selects at most a configured upstream degree of upstream peers per topic, chosen by deterministic seed-based key-hashing (randomness encapsulated inside the strategy object so the state-transition stays deterministic and reproducible from a seed), and accepts inbound requests up to a configured downstream degree, sending an explicit rejection when over capacity. A rejected dial is back-filled by re-invoking the existing ConnectionSetup event (no new round or timer event). Includes the tests for these strategies. Builds on a separate prerequisite determinism/purity refactor (strategies moved to apply arguments, ordered data structures replacing HashSet, deterministic scheduling, and a flag decoupling ConnectionSetup from Synced) owned by the co-developing architect. The experiment/testing framework that drives these strategies to measure delivery percentiles, propagation depth, and convergence is a SEPARATE feature added on top later — out of scope here."
 
 ## Context
 
 The node today connects to **every** discovered candidate on every joined topic (the `ConnectToAllCandidates` selection policy) and accepts **every** membership-valid inbound request (`AcceptFromAllCandidates`). The result is a complete per-topic mesh: a published message reaches all subscribers in one hop, so dissemination behaves trivially and there is no partial topology to study.
 
-This feature replaces those with **bounded** policies: a node selects at most a configured out-degree of upstream peers per topic and accepts at most a configured in-degree of inbound connections, forming a partial topology. Selection is **seed-reproducible** (the randomness is encapsulated in the strategy object and derived by key-hashing, so it is repeatable from a recorded seed) and **variable** (different seeds explore different topologies). When a dial is rejected for over-capacity, the dialer back-fills by re-selecting the next-ranked candidate on the next re-invocation of the existing `ConnectionSetup` event — no new round or timer.
+This feature replaces those with **bounded** policies: a node selects at most a configured upstream degree of upstream peers per topic and accepts at most a configured downstream degree of inbound connections, forming a partial topology. Selection is **seed-reproducible** (the randomness is encapsulated in the strategy object and derived by key-hashing, so it is repeatable from a recorded seed) and **variable** (different seeds explore different topologies). When a dial is rejected for over-capacity, the dialer back-fills by re-selecting the next-ranked candidate on the next re-invocation of the existing `ConnectionSetup` event — no new round or timer.
 
 **Scope**: only the bounded selection/acceptance strategies and their tests. The experiment/testing framework that *drives* these strategies to measure delivery percentiles, propagation depth, and convergence is a **separate feature, added on top later** — out of scope here. The broader **determinism/purity refactor** (moving strategies to `apply` arguments, deterministic scheduling, and a flag decoupling `ConnectionSetup` from `Synced`) is a separate workstream owned by the co-developing architect; this feature does **not** hard-depend on it — it applies ordered data structures to the state it introduces/touches itself, keeps its strategy objects pure, and coordinates with that workstream to avoid conflicting edits.
 
@@ -21,7 +21,7 @@ This feature replaces those with **bounded** policies: a node selects at most a 
 ### Session 2026-06-29
 
 - Q: For how long does a peer rejected by a dial stay excluded from re-selection? → A: Sticky for the run — once rejected, a peer is never re-dialed for that topic this run; back-fill only moves to lower-ranked untried candidates, and under-fill is terminal when untried candidates run out. No reset on membership change or per-`ConnectionSetup`.
-- Q: What does "rejected" mean — a timeout, or an active rejection by the peer candidate? → A: An **active, explicit over-capacity rejection** sent by the peer candidate (an acceptee already at its in-degree). There is **no timeout / no-response path** in this feature: the round/timer mechanism is deliberately excluded, and in the controlled, lossless, manually-stepped substrate every dial is answered with `Accepted` or the explicit rejection. The failed set is populated only by explicit rejections. (Timeout/no-response would only arise with loss or offline peers — a later feature.)
+- Q: What does "rejected" mean — a timeout, or an active rejection by the peer candidate? → A: An **active, explicit over-capacity rejection** sent by the peer candidate (an acceptee already at its downstream degree). There is **no timeout / no-response path** in this feature: the round/timer mechanism is deliberately excluded, and in the controlled, lossless, manually-stepped substrate every dial is answered with `Accepted` or the explicit rejection. The failed set is populated only by explicit rejections. (Timeout/no-response would only arise with loss or offline peers — a later feature.)
 - Q: What is the default seed when none is supplied? → A: **0** (fixed), keeping behaviour deterministic.
 - Q: Does this feature hard-depend on the separate determinism/purity refactor, or apply ordered structures itself? → A: It applies **ordered structures (`BTreeSet`/`BTreeMap`) to the state it introduces/touches within this PR** and keeps its strategy objects pure, so it does **not** hard-depend on the strategies-as-arguments relocation (that stays the co-developing architect's workstream; the two coordinate to avoid conflicts). SC-004's uniformity tolerance is pinned to a chi-square gate at p < 0.001.
 
@@ -29,15 +29,15 @@ This feature replaces those with **bounded** policies: a node selects at most a 
 
 ### User Story 1 - Reproducible bounded upstream selection (Priority: P1)
 
-A node configured with an out-degree bound and a seed selects at most that many upstream peers per topic from its candidate set, forming a partial topology rather than a full mesh. Re-running with the same seed and membership reproduces an identical selection.
+A node configured with an upstream degree bound and a seed selects at most that many upstream peers per topic from its candidate set, forming a partial topology rather than a full mesh. Re-running with the same seed and membership reproduces an identical selection.
 
 **Why this priority**: This is the core capability — without a bounded, reproducible partial topology there is nothing for the later experiment framework to measure, and results would be either degenerate (full mesh) or irreproducible. Everything else builds on it.
 
-**Independent Test**: Construct a node (or a small set of nodes) with candidate sets larger than the out-degree bound, under seed s; capture the selected upstream set. Rebuild identically under s; the selection is identical, and no node selects more than the bound per topic.
+**Independent Test**: Construct a node (or a small set of nodes) with candidate sets larger than the upstream degree bound, under seed s; capture the selected upstream set. Rebuild identically under s; the selection is identical, and no node selects more than the bound per topic.
 
 **Acceptance Scenarios**:
 
-1. **Given** a topic with more candidates than the out-degree bound, **When** a node selects, **Then** it selects exactly the bound's worth of upstream peers on that topic.
+1. **Given** a topic with more candidates than the upstream degree bound, **When** a node selects, **Then** it selects exactly the bound's worth of upstream peers on that topic.
 2. **Given** a topic with candidates at or below the bound, **When** a node selects, **Then** it selects all of them (the bound is a ceiling, not a quota).
 3. **Given** the same seed, node identity, topic, and candidate set, **When** selection runs in two separate runs (including on different machines), **Then** the selected sets are identical.
 4. **Given** no seed supplied at startup, **When** selection runs, **Then** a fixed default seed is used and behaviour stays deterministic.
@@ -46,18 +46,18 @@ A node configured with an out-degree bound and a seed selects at most that many 
 
 ### User Story 2 - Bounded inbound acceptance with explicit rejection and back-fill (Priority: P2)
 
-A node accepts verified, membership-valid inbound requests only up to a configured in-degree per topic. Beyond the bound it sends an explicit rejection (distinct from a termination/misbehaviour severance). A dialer whose request is rejected marks that peer failed and, on the next `ConnectionSetup` re-invocation, re-selects the next-ranked untried candidate — backfilling toward its out-degree until the bound is met or candidates are exhausted.
+A node accepts verified, membership-valid inbound requests only up to a configured downstream degree per topic. Beyond the bound it sends an explicit rejection (distinct from a termination/misbehaviour severance). A dialer whose request is rejected marks that peer failed and, on the next `ConnectionSetup` re-invocation, re-selects the next-ranked untried candidate — backfilling toward its upstream degree until the bound is met or candidates are exhausted.
 
-**Why this priority**: Bounding inbound degree gives a second topology lever and is the inbound mirror of the dial-side bound; back-fill keeps realized out-degree close to target despite rejections. P2 because the dial-side bound (US1) alone already yields a partial topology.
+**Why this priority**: Bounding inbound degree gives a second topology lever and is the inbound mirror of the dial-side bound; back-fill keeps realized upstream degree close to target despite rejections. P2 because the dial-side bound (US1) alone already yields a partial topology.
 
-**Independent Test**: Drive a node more inbound requests than its in-degree on a topic — exactly the bound's worth are accepted, the rest dropped with the over-capacity cause and an explicit rejection sent, with no severance. Separately, reject a dialer's request and re-invoke `ConnectionSetup` — the dialer re-selects the next-ranked candidate; with candidates exhausted it settles at under-fill.
+**Independent Test**: Drive a node more inbound requests than its downstream degree on a topic — exactly the bound's worth are accepted, the rest dropped with the over-capacity cause and an explicit rejection sent, with no severance. Separately, reject a dialer's request and re-invoke `ConnectionSetup` — the dialer re-selects the next-ranked candidate; with candidates exhausted it settles at under-fill.
 
 **Acceptance Scenarios**:
 
-1. **Given** a node below its in-degree on a topic, **When** a verified membership-valid request arrives, **Then** it is accepted.
-2. **Given** a node at its in-degree on a topic, **When** a further verified request arrives, **Then** it is dropped with the over-capacity cause, an explicit rejection is sent, and no downstream entry is added.
+1. **Given** a node below its downstream degree on a topic, **When** a verified membership-valid request arrives, **Then** it is accepted.
+2. **Given** a node at its downstream degree on a topic, **When** a further verified request arrives, **Then** it is dropped with the over-capacity cause, an explicit rejection is sent, and no downstream entry is added.
 3. **Given** a dial rejected for over-capacity, **When** `ConnectionSetup` is re-invoked, **Then** the dialer re-selects the next-ranked untried candidate over the viable set (candidates minus failed peers).
-4. **Given** the viable candidates are exhausted below the out-degree, **When** selection re-runs, **Then** the node settles at under-fill (realized out-degree below the bound), observably and without error.
+4. **Given** the viable candidates are exhausted below the upstream degree, **When** selection re-runs, **Then** the node settles at under-fill (realized upstream degree below the bound), observably and without error.
 
 ---
 
@@ -71,7 +71,7 @@ Across a sweep of distinct seeds, selections differ from one another, and no can
 
 **Acceptance Scenarios**:
 
-1. **Given** a candidate set larger than the out-degree, **When** selection runs under two distinct seeds, **Then** the selected sets differ.
+1. **Given** a candidate set larger than the upstream degree, **When** selection runs under two distinct seeds, **Then** the selected sets differ.
 2. **Given** a large sweep of seeds, **When** per-candidate selection frequencies are aggregated, **Then** they are approximately equal across candidates.
 3. **Given** equally-ranked candidates under a seed, **When** the bound forces a choice, **Then** the tie is broken deterministically so the run stays reproducible.
 
@@ -80,7 +80,7 @@ Across a sweep of distinct seeds, selections differ from one another, and no can
 ### Edge Cases
 
 - **Fewer candidates than the bound**: select all; the bound is an upper limit.
-- **Bound of zero**: out-degree zero ⇒ no upstream connections on that topic (valid for a receive-only configuration); in-degree zero ⇒ accept no downstream.
+- **Bound of zero**: upstream degree zero ⇒ no upstream connections on that topic (valid for a receive-only configuration); downstream degree zero ⇒ accept no downstream.
 - **Equal-ranked candidates**: resolved by a deterministic, stable tie-break on candidate identity — never by incidental data-structure iteration order.
 - **Rejected dial**: "rejected" means an **active, explicit over-capacity rejection** from the peer candidate — never a timeout (there is no no-response path). The peer is marked failed and excluded from the viable set **for the rest of the run** (sticky — never re-dialed for that topic this run); the next `ConnectionSetup` re-selects the next-ranked untried candidate. Every dial in the controlled, lossless substrate is answered with `Accepted` or the explicit rejection.
 - **Candidates exhausted below the bound**: settle at under-fill — a measurable outcome, not an error.
@@ -90,21 +90,21 @@ Across a sweep of distinct seeds, selections differ from one another, and no can
 
 ### Functional Requirements
 
-- **FR-001**: The dial-side selection policy MUST select at most a configured out-degree of upstream peers per topic, instead of all candidates.
-- **FR-002**: When a topic has candidates at or below the out-degree, the policy MUST select all of them.
+- **FR-001**: The dial-side selection policy MUST select at most a configured upstream degree of upstream peers per topic, instead of all candidates.
+- **FR-002**: When a topic has candidates at or below the upstream degree, the policy MUST select all of them.
 - **FR-003**: Selection MUST be deterministic: given the same seed, node identity, topic, and candidate set, the selected set MUST be identical across repeated runs and across machines, independent of data-structure iteration order.
 - **FR-004**: The system MUST accept an optional seed at startup; absent a seed, a fixed default seed of **0** MUST be used so behaviour stays deterministic.
 - **FR-005**: A single network seed MUST govern the run; each node MUST derive its own selection from that seed combined with its own identity (and topic), so distinct nodes select differently while the whole topology is reproducible from the one seed.
-- **FR-006**: Distinct seeds MUST be able to produce distinct selections for candidate sets larger than the out-degree.
+- **FR-006**: Distinct seeds MUST be able to produce distinct selections for candidate sets larger than the upstream degree.
 - **FR-007**: Selection MUST be unbiased with respect to candidate identity: aggregated over many seeds, every candidate has an equal probability of selection.
 - **FR-008**: Tie-breaking between equally-ranked candidates MUST be deterministic and stable (resolved on candidate identity).
 - **FR-009**: The state-transition function MUST draw no randomness and depend on no wall-clock; the selection randomness MUST be encapsulated within the strategy object (the seed as a field), keeping the transition deterministic.
-- **FR-010**: The inbound acceptance policy MUST accept verified, membership-valid requests up to a configured in-degree per topic, and MUST reject further requests once the bound is reached.
+- **FR-010**: The inbound acceptance policy MUST accept verified, membership-valid requests up to a configured downstream degree per topic, and MUST reject further requests once the bound is reached.
 - **FR-011**: An over-capacity rejection MUST be recorded with a distinct cause and MUST send an explicit rejection signal to the requester — distinct from a termination/misbehaviour severance and NOT treated as misbehaviour. A membership-invalid request remains a silent drop (unchanged).
-- **FR-012**: The out-degree and in-degree MUST each be configurable as a single uniform value, applied identically across all nodes and topics for the run, supplied at startup alongside the seed.
+- **FR-012**: The upstream degree and downstream degree MUST each be configurable as a single uniform value, applied identically across all nodes and topics for the run, supplied at startup alongside the seed.
 - **FR-013**: The bounded policies MUST be additive: the existing unbounded connect-to-all and accept-from-all behaviours MUST remain available and selectable, so non-bounded runs are unaffected.
-- **FR-014**: On a dial rejected for over-capacity (an active, explicit rejection from the peer — there is no timeout/no-response path), the node MUST mark that peer failed for the topic and MUST NOT re-dial it for that topic for the remainder of the run (the failed set is sticky — no reset on membership change or per-`ConnectionSetup`). A subsequent `ConnectionSetup` re-invocation MUST re-select the next-ranked untried candidate over the viable set (candidates minus failed peers), working toward the out-degree until the bound is met or candidates are exhausted. Re-dial MUST be driven by re-invoking the existing `ConnectionSetup` event — NO new round/tick event and NO wall-clock timer.
-- **FR-015**: When the viable candidates are exhausted before the out-degree is met, the node MUST settle at under-fill (realized out-degree below the bound) rather than erroring; the under-filled outcome MUST be observable.
+- **FR-014**: On a dial rejected for over-capacity (an active, explicit rejection from the peer — there is no timeout/no-response path), the node MUST mark that peer failed for the topic and MUST NOT re-dial it for that topic for the remainder of the run (the failed set is sticky — no reset on membership change or per-`ConnectionSetup`). A subsequent `ConnectionSetup` re-invocation MUST re-select the next-ranked untried candidate over the viable set (candidates minus failed peers), working toward the upstream degree until the bound is met or candidates are exhausted. Re-dial MUST be driven by re-invoking the existing `ConnectionSetup` event — NO new round/tick event and NO wall-clock timer.
+- **FR-015**: When the viable candidates are exhausted before the upstream degree is met, the node MUST settle at under-fill (realized upstream degree below the bound) rather than erroring; the under-filled outcome MUST be observable.
 - **FR-016**: Dial outcomes MUST be observable through state getters/snapshots (not logs) — at minimum the count of explicit rejections and each node's current upstream set — so behaviour can be asserted and (later) measured.
 - **FR-017**: Selection and any new connection state introduced or touched by this feature MUST use deterministic, ordered structures (e.g. `BTreeSet`/`BTreeMap`) so a given seed reproduces identical results across runs and machines. This feature applies ordered structures to its own state within this PR rather than depending on a separate global refactor to do so.
 - **FR-018**: The strategy objects MUST be pure and free of hidden state — their only configuration is the seed/bounds set at construction — keeping them compatible with the planned strategies-as-arguments refactor. This feature does NOT itself depend on that relocation: it MAY retain the current strategy injection and migrate when the refactor lands.
@@ -115,7 +115,7 @@ Across a sweep of distinct seeds, selections differ from one another, and no can
 - **Out-degree bound**: a single run-level value — the maximum upstream peers a node selects per topic, uniform across nodes.
 - **In-degree bound**: a single run-level value — the maximum inbound connections a node accepts per topic, uniform across nodes.
 - **Bounded selection policy**: the dial-side strategy object yielding the bounded upstream set from (seed, identity, topic, candidates).
-- **Bounded acceptance policy**: the inbound strategy object admitting requests up to the in-degree and rejecting the rest.
+- **Bounded acceptance policy**: the inbound strategy object admitting requests up to the downstream degree and rejecting the rest.
 - **Rejection signal**: an explicit connection-control action sent by an over-capacity acceptee, distinct from termination/misbehaviour; it marks the peer failed so the next `ConnectionSetup` back-fills.
 - **Failed-peer set**: per-node, per-topic record of peers a dial was rejected by (explicit over-capacity rejections only), excluded from the viable candidate view before selection and sticky for the run (never reset within a run).
 
@@ -124,8 +124,8 @@ Across a sweep of distinct seeds, selections differ from one another, and no can
 ### Measurable Outcomes
 
 - **SC-001**: Re-running with the same seed and membership reproduces an identical selection 100% of the time.
-- **SC-002**: No node holds more than the configured out-degree upstream per topic, nor more than the in-degree downstream per topic, in 100% of runs.
-- **SC-003**: For a candidate set larger than the out-degree, distinct seeds produce distinct selections.
+- **SC-002**: No node holds more than the configured upstream degree upstream per topic, nor more than the downstream degree downstream per topic, in 100% of runs.
+- **SC-003**: For a candidate set larger than the upstream degree, distinct seeds produce distinct selections.
 - **SC-004**: Over a sweep of at least 1,000 seeds on a fixed candidate set, per-candidate selection frequency is uniform within sampling tolerance — a chi-square goodness-of-fit against the uniform expectation does not reject at p < 0.001 (a deliberately strict, low-flake threshold).
 - **SC-005**: Selecting the existing unbounded policies reproduces today's full-mesh behaviour exactly; enabling the bounded policies changes no other code path.
 - **SC-006**: A dial rejected for over-capacity is back-filled to the next-ranked candidate on the next `ConnectionSetup` re-invocation; under-fill on exhaustion is observable.

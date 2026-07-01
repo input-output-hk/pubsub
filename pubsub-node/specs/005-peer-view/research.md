@@ -28,7 +28,7 @@ Decisions resolving the Technical Context unknowns. Per item: **Decision / Ratio
 
 ## R4 — Acceptance seam: reason-bearing decision over current downstream
 
-**Decision**: Evolve `ConnectionAcceptanceStrategy` from `accepts -> bool` to a reason-bearing `admit(...) -> Admission { Accept, RejectMembership, RejectOverCapacity }`, taking the current downstream view so the in-degree can be enforced. Add `ConnectionAction::Rejected { topic }` (acceptor → dialer). Handler: `Accept` → record downstream + `Accepted` (unchanged); `RejectMembership` → silent drop (today's behaviour); `RejectOverCapacity` → drop with a distinct cause + send `Rejected` (no severance). `BoundedAcceptance { in_degree }` implements the cap; `AcceptFromAllCandidates` maps onto `Accept`/`RejectMembership`, never `RejectOverCapacity`.
+**Decision**: Evolve `ConnectionAcceptanceStrategy` from `accepts -> bool` to a reason-bearing `admit(...) -> Admission { Accept, RejectMembership, RejectOverCapacity }`, taking the current downstream view so the downstream degree can be enforced. Add `ConnectionAction::Rejected { topic }` (acceptor → dialer). Handler: `Accept` → record downstream + `Accepted` (unchanged); `RejectMembership` → silent drop (today's behaviour); `RejectOverCapacity` → drop with a distinct cause + send `Rejected` (no severance). `BoundedAcceptance { downstream_degree }` implements the cap; `AcceptFromAllCandidates` maps onto `Accept`/`RejectMembership`, never `RejectOverCapacity`.
 
 **Rationale**: a bare `bool` can't distinguish membership failure (silent drop) from capacity rejection (explicit signal, FR-011). The Principle-IV ambiguity (the seam note's "no signature change") is surfaced in ADR 0025. `Rejected` is a normal capacity outcome, not misbehaviour.
 

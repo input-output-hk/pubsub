@@ -34,15 +34,15 @@ struct Args {
     topic_registry: PathBuf,
 
     /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `seeded-bounded` (selects at most --out-degree
+    /// mesh, the default) or `seeded-bounded` (selects at most --upstream-degree
     /// upstream peers per topic, seeded by --seed).
     #[arg(long, default_value = "connect-to-all")]
     connection_strategy: ConnectionStrategyKind,
 
-    /// Per-topic upstream bound (out-degree). Required for the `seeded-bounded`
-    /// strategy; ignored otherwise.
+    /// Max upstream peers selected (dialed) per topic. Required for the
+    /// `seeded-bounded` connection strategy; ignored otherwise.
     #[arg(long)]
-    out_degree: Option<usize>,
+    upstream_degree: Option<usize>,
 
     /// Network seed for deterministic bounded selection (default 0). Only has an
     /// effect for the `seeded-bounded` strategy; the same seed reproduces the
@@ -51,15 +51,15 @@ struct Args {
     seed: u64,
 
     /// Inbound-acceptance strategy (case-insensitive): `accept-from-all` (the
-    /// default) or `bounded` (accepts at most --in-degree downstream peers per
+    /// default) or `bounded` (accepts at most --downstream-degree downstream peers per
     /// topic, refusing the rest with an explicit rejection).
     #[arg(long, default_value = "accept-from-all")]
     acceptance_strategy: AcceptanceStrategyKind,
 
-    /// Per-topic downstream bound (in-degree). Required for the `bounded`
-    /// acceptance strategy; ignored otherwise.
+    /// Max downstream peers accepted per topic (inbound connections this node
+    /// admits). Required for the `bounded` acceptance strategy; ignored otherwise.
     #[arg(long)]
-    in_degree: Option<usize>,
+    downstream_degree: Option<usize>,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -114,16 +114,16 @@ async fn main() {
     let connection_strategy: Arc<dyn ConnectionStrategy> = match args.connection_strategy {
         ConnectionStrategyKind::ConnectToAll => Arc::new(ConnectToAllCandidates),
         ConnectionStrategyKind::SeededBounded => {
-            let out_degree = args.out_degree.unwrap_or_else(|| {
+            let upstream_degree = args.upstream_degree.unwrap_or_else(|| {
                 eprintln!(
-                    "pubsub-node: --out-degree is required for --connection-strategy seeded-bounded"
+                    "pubsub-node: --upstream-degree is required for --connection-strategy seeded-bounded"
                 );
                 std::process::exit(2);
             });
             Arc::new(SeededBoundedSelection::new(
                 args.seed,
                 args.self_id.clone(),
-                out_degree,
+                upstream_degree,
             ))
         }
     };
@@ -133,11 +133,11 @@ async fn main() {
     {
         AcceptanceStrategyKind::AcceptFromAll => Arc::new(AcceptFromAllCandidates),
         AcceptanceStrategyKind::Bounded => {
-            let in_degree = args.in_degree.unwrap_or_else(|| {
-                eprintln!("pubsub-node: --in-degree is required for --acceptance-strategy bounded");
+            let downstream_degree = args.downstream_degree.unwrap_or_else(|| {
+                eprintln!("pubsub-node: --downstream-degree is required for --acceptance-strategy bounded");
                 std::process::exit(2);
             });
-            Arc::new(BoundedAcceptance::new(in_degree))
+            Arc::new(BoundedAcceptance::new(downstream_degree))
         }
     };
 

@@ -10,7 +10,7 @@ use crate::topic::TopicId;
 /// The seeded, bounded connection-selection policy (feature 005, ADR 0024).
 ///
 /// For each joined topic, ranks the candidate peers by a stable keyed hash of
-/// `(seed, self_id, topic, candidate_id)` and keeps the lowest `out_degree`,
+/// `(seed, self_id, topic, candidate_id)` and keeps the lowest `upstream_degree`,
 /// breaking ties on `candidate_id`. Selection is a pure function of its inputs:
 /// the seed and identity are fixed fields, no randomness is drawn at decision
 /// time, and the result is independent of candidate-set iteration order — so the
@@ -22,17 +22,17 @@ use crate::topic::TopicId;
 pub struct SeededBoundedSelection {
     seed: u64,
     self_id: PeerId,
-    out_degree: usize,
+    upstream_degree: usize,
 }
 
 impl SeededBoundedSelection {
     /// Build the policy for one node from already-parsed inputs.
     #[must_use]
-    pub fn new(seed: u64, self_id: PeerId, out_degree: usize) -> Self {
+    pub fn new(seed: u64, self_id: PeerId, upstream_degree: usize) -> Self {
         Self {
             seed,
             self_id,
-            out_degree,
+            upstream_degree,
         }
     }
 }
@@ -79,14 +79,14 @@ impl ConnectionStrategy for SeededBoundedSelection {
                 continue;
             };
             // Rank by (hash key, candidate id) so the order is total and
-            // independent of set iteration order; keep the lowest `out_degree`.
+            // independent of set iteration order; keep the lowest `upstream_degree`.
             let mut ranked: Vec<&PeerId> = peers.iter().collect();
             ranked.sort_by(|a, b| {
                 rank_key(self.seed, &self.self_id, topic, a)
                     .cmp(&rank_key(self.seed, &self.self_id, topic, b))
                     .then_with(|| a.to_string().cmp(&b.to_string()))
             });
-            for peer in ranked.into_iter().take(self.out_degree) {
+            for peer in ranked.into_iter().take(self.upstream_degree) {
                 expected.insert((peer.clone(), topic.clone()));
             }
         }
@@ -122,15 +122,19 @@ mod tests {
             .collect()
     }
 
-    // FR-001: more candidates than the bound ⇒ exactly `out_degree` selected.
+    // FR-001: more candidates than the bound ⇒ exactly `upstream_degree` selected.
     #[test]
-    fn bounded_selects_exactly_out_degree() {
+    fn bounded_selects_exactly_upstream_degree() {
         let policy = SeededBoundedSelection::new(7, peer("self"), 2);
         let expected = policy.expected_upstream(
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a", "b", "c", "d"])]),
         );
-        assert_eq!(expected.len(), 2, "the out-degree bound is the upper limit");
+        assert_eq!(
+            expected.len(),
+            2,
+            "the upstream degree bound is the upper limit"
+        );
         for (p, t) in &expected {
             assert_eq!(t, &topic("t1"));
             assert!(["a", "b", "c", "d"].contains(&p.to_string().as_str()));
@@ -238,20 +242,20 @@ mod tests {
         let ids = ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &ids)]);
-        let out_degree = 3usize;
+        let upstream_degree = 3usize;
         let sweeps = 2000u64;
 
         let mut counts: HashMap<String, u64> = HashMap::new();
         for seed in 0..sweeps {
-            let sel = SeededBoundedSelection::new(seed, peer("self"), out_degree)
+            let sel = SeededBoundedSelection::new(seed, peer("self"), upstream_degree)
                 .expected_upstream(&subs, &cands);
-            assert_eq!(sel.len(), out_degree);
+            assert_eq!(sel.len(), upstream_degree);
             for (p, _) in sel {
                 *counts.entry(p.to_string()).or_insert(0) += 1;
             }
         }
 
-        let expected = (sweeps as f64) * (out_degree as f64) / (ids.len() as f64);
+        let expected = (sweeps as f64) * (upstream_degree as f64) / (ids.len() as f64);
         let chi2: f64 = ids
             .iter()
             .map(|id| {

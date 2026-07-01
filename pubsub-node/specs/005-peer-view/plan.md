@@ -6,7 +6,7 @@
 
 ## Summary
 
-Replace the full-mesh dial/accept policies with **bounded** ones so a node forms a reproducible partial topology. The dial side (`SeededBoundedSelection`) picks at most a uniform out-degree of upstream peers per topic by deterministic keyed-hash ranking of `(seed, self_id, topic, candidate)`; randomness is encapsulated in the strategy object (the seed is a field), so the transition stays pure. The inbound side (`BoundedAcceptance`) admits up to a uniform in-degree and, over capacity, sends an explicit `Rejected` (not a severance). A rejected dial marks the peer **failed (sticky for the run)** and is back-filled by re-invoking the existing `ConnectionSetup` event over the viable candidate view (candidates minus failed) — no new round/timer. The existing unbounded policies remain the default; bounded behaviour is opt-in via three startup parameters (seed, out-degree, in-degree). Tests ship with the feature (TDD).
+Replace the full-mesh dial/accept policies with **bounded** ones so a node forms a reproducible partial topology. The dial side (`SeededBoundedSelection`) picks at most a uniform upstream degree of upstream peers per topic by deterministic keyed-hash ranking of `(seed, self_id, topic, candidate)`; randomness is encapsulated in the strategy object (the seed is a field), so the transition stays pure. The inbound side (`BoundedAcceptance`) admits up to a uniform downstream degree and, over capacity, sends an explicit `Rejected` (not a severance). A rejected dial marks the peer **failed (sticky for the run)** and is back-filled by re-invoking the existing `ConnectionSetup` event over the viable candidate view (candidates minus failed) — no new round/timer. The existing unbounded policies remain the default; bounded behaviour is opt-in via three startup parameters (seed, upstream degree, downstream degree). Tests ship with the feature (TDD).
 
 This is strategies-only. The **experiment/testing framework** that drives these strategies is a separate later feature. The feature is **coordinated with — not built on** — the co-developing architect's determinism/purity refactor (strategies-as-`apply`-arguments, deterministic scheduling, a flag decoupling `ConnectionSetup` from `Synced`): 005 keeps the current strategy injection (`Arc<dyn …>` at `Node::new`) and applies ordered structures (`BTreeSet`) to its own new state, so it does not block on that refactor (see research R6).
 
@@ -24,7 +24,7 @@ This is strategies-only. The **experiment/testing framework** that drives these 
 
 **Project Type**: single Rust project.
 
-**Performance Goals**: selection O(candidates · log out_degree) per topic; no hot path.
+**Performance Goals**: selection O(candidates · log upstream_degree) per topic; no hot path.
 
 **Constraints**: the state-transition stays pure/deterministic — no wall-clock, no randomness drawn at decision time (FR-009); reproducible from a recorded seed; ordered structures so results are iteration-order-independent (FR-017).
 
@@ -42,7 +42,7 @@ This is strategies-only. The **experiment/testing framework** that drives these 
 - **IV. Specifications as Ambiguity Detectors** — ✅ The seam note claims degree caps "slot in without a signature change"; false for the acceptance side (needs current-downstream input + a reason-bearing return) — surfaced as ADR 0025, not silently reshaped.
 - **V. Specifications Are Read-Only** — ✅ Only `pubsub-node/` code-side artifacts; no edits to `pubsub/docs/` or `pubsub/formal_spec/`.
 
-**Engineering Standards** — ✅ reproducible-from-seed is core; ✅ no wall-clock in the transition (re-dial = `ConnectionSetup` re-invocation, externally driven); ✅ rejection/under-fill asserted via getters/snapshots, not log strings; ✅ parse-at-the-edge (seed/out-degree/in-degree parsed in CLI/loader, passed as values into strategy construction); ✅ forward-compatible (`ConnectionAction::Rejected`) justified by this feature; ✅ declarative test construction (`ConnectionScript`).
+**Engineering Standards** — ✅ reproducible-from-seed is core; ✅ no wall-clock in the transition (re-dial = `ConnectionSetup` re-invocation, externally driven); ✅ rejection/under-fill asserted via getters/snapshots, not log strings; ✅ parse-at-the-edge (seed/upstream degree/downstream degree parsed in CLI/loader, passed as values into strategy construction); ✅ forward-compatible (`ConnectionAction::Rejected`) justified by this feature; ✅ declarative test construction (`ConnectionScript`).
 
 ### Planned ADRs (numbers provisional — next free after 0023; coordinate with the refactor branch)
 
@@ -79,7 +79,7 @@ pubsub-node/
 │   ├── message.rs         # ConnectionAction::Rejected (tag 0x03)
 │   ├── state.rs           # failed_upstream (BTreeSet); viable-candidate diff in connection-setup; request capacity branch (+ Rejected send); NEW rejected handler; rejections_received counter + getter
 │   ├── node.rs            # current-injection construction; rejections_received getter
-│   ├── main.rs/config.rs  # parse seed/out-degree/in-degree + named strategy kinds at the edge; select bounded vs unbounded
+│   ├── main.rs/config.rs  # parse seed/upstream degree/downstream degree + named strategy kinds at the edge; select bounded vs unbounded
 │   └── lib.rs             # re-export the new public strategy types
 └── tests/
     ├── bounded_selection.rs  # US1 integration: capped + reproducible topology

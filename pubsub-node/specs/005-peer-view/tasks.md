@@ -33,7 +33,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - [X] T001 ADR 0024 (seeded bounded selection: keyed-hash ranking, stable SHA-256 digest vs `DefaultHasher`, per-network seed / per-node derivation, sticky failed-set + `ConnectionSetup` back-fill) in `pubsub-node/docs/decisions/0024-seeded-bounded-selection.md`
 - [X] T002 ADR 0025 (acceptance-seam evolution `bool → Admission` + current-downstream input; `ConnectionAction::Rejected` + dialer failed-mark) in `pubsub-node/docs/decisions/0025-acceptance-seam-and-rejected-action.md`
 - [ ] T003 [P] Coordinate with the co-developing architect to avoid conflicting edits on shared files (strategy injection sites, `NodeState`) and align ordered-structure type choices; record the agreed types in `specs/005-peer-view/research.md` (R6). Not a gate — 005 proceeds with its own ordered structures and current strategy injection.
-- [X] T004 [P] Test scaffolding: extend `ConnectionScript` with a `rejected` step and add bounded-node builder helpers (construct with `SeededBoundedSelection`/`BoundedAcceptance` + seed/out-degree/in-degree) in `pubsub-node/tests/common/mod.rs`
+- [X] T004 [P] Test scaffolding: extend `ConnectionScript` with a `rejected` step and add bounded-node builder helpers (construct with `SeededBoundedSelection`/`BoundedAcceptance` + seed/upstream degree/downstream degree) in `pubsub-node/tests/common/mod.rs`
 
 ---
 
@@ -50,19 +50,19 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ## Phase 3: User Story 1 — Reproducible bounded upstream selection (Priority: P1) 🎯 MVP
 
-**Goal**: a node selects ≤ out-degree upstream peers per topic by seeded deterministic ranking; same seed + membership reproduces an identical selection.
+**Goal**: a node selects ≤ upstream degree upstream peers per topic by seeded deterministic ranking; same seed + membership reproduces an identical selection.
 
-**Independent Test**: candidates > out-degree under seed s; rebuilt under s the selection is identical and ≤ out-degree per topic. (Acceptance still accept-all here.)
+**Independent Test**: candidates > upstream degree under seed s; rebuilt under s the selection is identical and ≤ upstream degree per topic. (Acceptance still accept-all here.)
 
 ### Tests for User Story 1 (write first; MUST fail) ⚠️
 
-- [X] T007 [P] [US1] Unit tests for `SeededBoundedSelection` in `pubsub-node/src/connection/seeded_bounded.rs`: exactly `out_degree` when candidates exceed it (FR-001), all when ≤ bound (FR-002), identical output across iteration orders / repeated calls (FR-003), deterministic `candidate_id` tie-break (FR-008), per-node variety by `self_id` (FR-005), and the **default seed 0** path produces a deterministic, repeatable selection when no seed is supplied (FR-004)
-- [X] T008 [P] [US1] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an N-node network under seed s forms a partial topology; rebuilt under s it is identical; upstream ≤ out-degree (SC-001, SC-002)
+- [X] T007 [P] [US1] Unit tests for `SeededBoundedSelection` in `pubsub-node/src/connection/seeded_bounded.rs`: exactly `upstream_degree` when candidates exceed it (FR-001), all when ≤ bound (FR-002), identical output across iteration orders / repeated calls (FR-003), deterministic `candidate_id` tie-break (FR-008), per-node variety by `self_id` (FR-005), and the **default seed 0** path produces a deterministic, repeatable selection when no seed is supplied (FR-004)
+- [X] T008 [P] [US1] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an N-node network under seed s forms a partial topology; rebuilt under s it is identical; upstream ≤ upstream degree (SC-001, SC-002)
 
 ### Implementation for User Story 1
 
-- [X] T009 [US1] Implement `SeededBoundedSelection { seed, self_id, out_degree }` (impl `ConnectionStrategy`, using the T005 helper) and re-export it from `pubsub-node/src/lib.rs` — in `pubsub-node/src/connection/seeded_bounded.rs` — refactor-agnostic
-- [X] T010 [US1] Parse seed + out-degree at the edge and select the bounded vs unbounded selection strategy in `pubsub-node/src/config.rs` and `pubsub-node/src/main.rs`
+- [X] T009 [US1] Implement `SeededBoundedSelection { seed, self_id, upstream_degree }` (impl `ConnectionStrategy`, using the T005 helper) and re-export it from `pubsub-node/src/lib.rs` — in `pubsub-node/src/connection/seeded_bounded.rs` — refactor-agnostic
+- [X] T010 [US1] Parse seed + upstream degree at the edge and select the bounded vs unbounded selection strategy in `pubsub-node/src/config.rs` and `pubsub-node/src/main.rs`
 - [X] T011 [US1] **[coordinate]** Supply the selection strategy (with `self_id`) at node construction (current injection; align with the refactor's eventual argument shape) in `pubsub-node/src/node.rs`
 
 **Checkpoint**: US1 functional — bounded, reproducible selection with accept-all acceptance.
@@ -71,20 +71,20 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ## Phase 4: User Story 2 — Bounded acceptance, explicit rejection, sticky back-fill (Priority: P2)
 
-**Goal**: accept inbound up to in-degree; over capacity send an explicit `Rejected` (not misbehaviour); a rejected dial marks the peer failed (sticky) and the next `ConnectionSetup` back-fills the next-ranked candidate.
+**Goal**: accept inbound up to downstream degree; over capacity send an explicit `Rejected` (not misbehaviour); a rejected dial marks the peer failed (sticky) and the next `ConnectionSetup` back-fills the next-ranked candidate.
 
-**Independent Test**: drive a node past its in-degree → exactly in-degree accepted, the rest dropped with the over-capacity cause + `Rejected`, no severance. On the dialer, after a `Rejected`, re-invoke `ConnectionSetup` → next-ranked candidate dialed; exhaustion → under-fill.
+**Independent Test**: drive a node past its downstream degree → exactly downstream degree accepted, the rest dropped with the over-capacity cause + `Rejected`, no severance. On the dialer, after a `Rejected`, re-invoke `ConnectionSetup` → next-ranked candidate dialed; exhaustion → under-fill.
 
 ### Tests for User Story 2 (write first; MUST fail) ⚠️
 
-- [X] T012 [P] [US2] Unit tests for `BoundedAcceptance`/`Admission` in `pubsub-node/src/acceptance/bounded.rs`: `RejectMembership` when not membership-valid, `RejectOverCapacity` at/above in-degree, `Accept` below (FR-010)
-- [X] T013 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: node at in-degree drops the extra request with the over-capacity cause, sends `Rejected`, records no downstream entry, emits no `Misbehaved`/`Terminated` (FR-011)
+- [X] T012 [P] [US2] Unit tests for `BoundedAcceptance`/`Admission` in `pubsub-node/src/acceptance/bounded.rs`: `RejectMembership` when not membership-valid, `RejectOverCapacity` at/above downstream degree, `Accept` below (FR-010)
+- [X] T013 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: node at downstream degree drops the extra request with the over-capacity cause, sends `Rejected`, records no downstream entry, emits no `Misbehaved`/`Terminated` (FR-011)
 - [X] T014 [P] [US2] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an explicit `Rejected` marks the peer failed (sticky — never re-dialed this run); the next `ConnectionSetup` re-selects the next-ranked candidate over the viable set; candidate exhaustion settles at under-fill; the rejection counter increments (FR-014, FR-015, FR-016)
 
 ### Implementation for User Story 2
 
 - [X] T015 [US2] Evolve `ConnectionAcceptanceStrategy`: `accepts -> bool` → `admit(...) -> Admission { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; map `AcceptFromAllCandidates`; re-export `Admission` from `lib.rs` — in `pubsub-node/src/acceptance/mod.rs` (+ `accept_from_all.rs`)
-- [X] T016 [US2] Implement `BoundedAcceptance { in_degree }` (re-export from `lib.rs`); parse in-degree at the edge and select bounded vs unbounded in `pubsub-node/src/acceptance/bounded.rs`, `config.rs`, `main.rs`
+- [X] T016 [US2] Implement `BoundedAcceptance { downstream_degree }` (re-export from `lib.rs`); parse downstream degree at the edge and select bounded vs unbounded in `pubsub-node/src/acceptance/bounded.rs`, `config.rs`, `main.rs`
 - [X] T017 [US2] Add `ConnectionAction::Rejected { topic }` in `pubsub-node/src/message.rs`; amend `handle_connection_request` so `RejectOverCapacity` logs `downstream_capacity_reached` + sends `Rejected`, `RejectMembership` stays a silent drop, in `pubsub-node/src/state.rs`
 - [X] T018 [US2] **[coordinate]** Add `handle_connection_rejected` (remove `AwaitingAccept`, insert into `failed_upstream` sticky, increment the rejection counter; `unsolicited_reject` drop otherwise) in `pubsub-node/src/state.rs`
 - [X] T019 [US2] Add the explicit-rejection-count getter in `pubsub-node/src/node.rs`
@@ -97,11 +97,11 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 **Goal**: distinct seeds yield differing selections; over a seed sweep no candidate is systematically preferred.
 
-**Independent Test**: two seeds → differing selections for candidates > out-degree; per-candidate frequency over ≥1,000 seeds uniform within tolerance.
+**Independent Test**: two seeds → differing selections for candidates > upstream degree; per-candidate frequency over ≥1,000 seeds uniform within tolerance.
 
 ### Tests for User Story 3 (write first; MUST fail) ⚠️
 
-- [X] T020 [P] [US3] Distinct-seed divergence test in `pubsub-node/src/connection/seeded_bounded.rs` (or `tests/`): two seeds → differing selections for candidates > out-degree (SC-003)
+- [X] T020 [P] [US3] Distinct-seed divergence test in `pubsub-node/src/connection/seeded_bounded.rs` (or `tests/`): two seeds → differing selections for candidates > upstream degree (SC-003)
 - [X] T021 [P] [US3] Seed-sweep uniformity test (≥1,000 fixed seeds; per-candidate frequency within tolerance / chi-square gate p < 0.001 per research R5) as a fixed seeded loop (research R5: proptest or seeded loop) in `pubsub-node/src/connection/seeded_bounded.rs`
 
 ### Implementation for User Story 3

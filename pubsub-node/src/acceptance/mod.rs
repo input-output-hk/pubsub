@@ -64,7 +64,7 @@ pub trait ConnectionAcceptanceStrategy: Send + Sync {
     /// `subscriptions` is the node's membership-derived topic set; `candidates`
     /// maps each topic to the peers discovered on it (self never present);
     /// `downstream` is the node's current accepted-inbound set, so a policy can
-    /// enforce an in-degree bound.
+    /// enforce an downstream degree bound.
     fn admit(
         &self,
         emitter: &PeerId,

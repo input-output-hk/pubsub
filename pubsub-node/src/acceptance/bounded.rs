@@ -7,23 +7,23 @@ use super::{is_membership_valid, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
-/// Accept membership-valid requests up to a per-topic in-degree bound; refuse
+/// Accept membership-valid requests up to a per-topic downstream degree bound; refuse
 /// further ones for over-capacity.
 ///
 /// Membership validity is the same gate as [`AcceptFromAllCandidates`](super::AcceptFromAllCandidates)
 /// (the topic is the node's own and the emitter is a known member); beyond that,
-/// a request is accepted only while the node holds fewer than `in_degree`
+/// a request is accepted only while the node holds fewer than `downstream_degree`
 /// downstream peers on the topic, and refused (`RejectOverCapacity`) once the
 /// bound is reached.
 pub struct BoundedAcceptance {
-    in_degree: usize,
+    downstream_degree: usize,
 }
 
 impl BoundedAcceptance {
     /// Build the policy with the given per-topic inbound bound.
     #[must_use]
-    pub fn new(in_degree: usize) -> Self {
-        Self { in_degree }
+    pub fn new(downstream_degree: usize) -> Self {
+        Self { downstream_degree }
     }
 }
 
@@ -40,7 +40,7 @@ impl ConnectionAcceptanceStrategy for BoundedAcceptance {
             return Admission::RejectMembership;
         }
         let downstream_on_topic = downstream.iter().filter(|(_, t)| t == topic).count();
-        if downstream_on_topic >= self.in_degree {
+        if downstream_on_topic >= self.downstream_degree {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept
@@ -80,7 +80,7 @@ mod tests {
         entries.iter().map(|(p, t)| (peer(p), topic(t))).collect()
     }
 
-    // FR-010: below the in-degree bound on the topic ⇒ Accept.
+    // FR-010: below the downstream degree bound on the topic ⇒ Accept.
     #[test]
     fn accepts_below_the_bound() {
         let got = BoundedAcceptance::new(2).admit(
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(got, Admission::Accept);
     }
 
-    // FR-010/FR-011: at the in-degree bound on the topic ⇒ RejectOverCapacity.
+    // FR-010/FR-011: at the downstream degree bound on the topic ⇒ RejectOverCapacity.
     #[test]
     fn rejects_over_capacity_at_the_bound() {
         let got = BoundedAcceptance::new(2).admit(
@@ -132,9 +132,9 @@ mod tests {
         assert_eq!(got, Admission::RejectMembership);
     }
 
-    // An in-degree of zero refuses every membership-valid request.
+    // An downstream degree of zero refuses every membership-valid request.
     #[test]
-    fn zero_in_degree_refuses_all() {
+    fn zero_downstream_degree_refuses_all() {
         let got = BoundedAcceptance::new(0).admit(
             &peer("a"),
             &topic("t1"),
