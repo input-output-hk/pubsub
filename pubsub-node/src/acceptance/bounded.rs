@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::{Admission, ConnectionAcceptanceStrategy};
+use super::{is_membership_valid, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
@@ -36,15 +36,11 @@ impl ConnectionAcceptanceStrategy for BoundedAcceptance {
         candidates: &HashMap<TopicId, HashSet<PeerId>>,
         downstream: &HashSet<(PeerId, TopicId)>,
     ) -> Admission {
-        let membership_valid = subscriptions.contains(topic)
-            && candidates
-                .get(topic)
-                .is_some_and(|peers| peers.contains(emitter));
-        if !membership_valid {
+        if !is_membership_valid(emitter, topic, subscriptions, candidates) {
             return Admission::RejectMembership;
         }
-        let held_on_topic = downstream.iter().filter(|(_, t)| t == topic).count();
-        if held_on_topic >= self.in_degree {
+        let downstream_on_topic = downstream.iter().filter(|(_, t)| t == topic).count();
+        if downstream_on_topic >= self.in_degree {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept

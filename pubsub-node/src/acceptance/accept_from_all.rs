@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::{Admission, ConnectionAcceptanceStrategy};
+use super::{is_membership_valid, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
@@ -25,11 +25,7 @@ impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
         candidates: &HashMap<TopicId, HashSet<PeerId>>,
         _downstream: &HashSet<(PeerId, TopicId)>,
     ) -> Admission {
-        let topic_is_own = subscriptions.contains(topic);
-        let emitter_is_member = candidates
-            .get(topic)
-            .is_some_and(|peers| peers.contains(emitter));
-        if topic_is_own && emitter_is_member {
+        if is_membership_valid(emitter, topic, subscriptions, candidates) {
             Admission::Accept
         } else {
             Admission::RejectMembership

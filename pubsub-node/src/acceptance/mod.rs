@@ -74,3 +74,25 @@ pub trait ConnectionAcceptanceStrategy: Send + Sync {
         downstream: &HashSet<(PeerId, TopicId)>,
     ) -> Admission;
 }
+
+/// Whether a verified `Request` from `emitter` on `topic` is membership-valid:
+/// the node is subscribed to the topic **and** the emitter is a known candidate
+/// (member) of it. Shared by the acceptance policies (the S7 pin: membership
+/// gates *acceptance*).
+///
+/// This is a **subscription-registry** check (topic membership), distinct from
+/// **publisher authorization** — the topic-registry concern checked on the
+/// dissemination path (`topic_registry::TopicEntry::is_publisher_authorized`).
+/// The emitter here is a topic member/subscriber, not a publisher.
+pub(crate) fn is_membership_valid(
+    emitter: &PeerId,
+    topic: &TopicId,
+    subscriptions: &HashSet<TopicId>,
+    candidates: &HashMap<TopicId, HashSet<PeerId>>,
+) -> bool {
+    let is_subscribed = subscriptions.contains(topic);
+    let is_candidate = candidates
+        .get(topic)
+        .is_some_and(|peers| peers.contains(emitter));
+    is_subscribed && is_candidate
+}
