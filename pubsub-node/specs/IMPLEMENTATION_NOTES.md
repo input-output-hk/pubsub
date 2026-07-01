@@ -389,3 +389,13 @@ Recorded on completing 005 (seeded bounded connection-selection + bounded accept
 - **Golden nodes (push-based M2)** + edge/golden mode flag + adversarial/Byzantine node behaviour — later features.
 - **Bounded/seeded fan-out** — `ForwardToAll` is unchanged; a degree-capped/seeded fan-out variant arrives with the propagation/replication experiments that need it.
 - **N-007 (`PeerView`) pointer resolved** — 005 uses the existing subscription-registry candidate view as the peer view; no separate `PeerView`/`PeerSource` abstraction was introduced.
+
+## N-029 — `Rejected` as a liveness signal; sticky-failed vs. heartbeat churn
+
+**Surfaced during**: 005-peer-view (PR #73, closing discussion on the acceptance-seam rejection). Relates to ADR 0025 and [[N-025]] (epochal re-dialer), [[N-020]] (decoupling readiness from the dial).
+
+**Question**: an over-capacity `ConnectionAction::Rejected` tells the dialer a candidate is *alive but at its per-topic out-degree cap* — a positive liveness + capacity signal. Should the node use that to filter/re-rank candidates across heartbeat intervals (keep alive-but-full peers as retryable future candidates; hard-filter genuinely offline ones)?
+
+**Working answer (current scope)**: **Not in 005.** The rejection primitive is built and correct, but its cross-interval value is unrealized here for two reasons: (a) the in-memory substrate answers every dial, so *offline* is unmodelled — there is no timeout, hence no way to distinguish alive-but-full from unreachable (ADR 0025 Consequences); (b) the sticky `failed_upstream` set is a **within-formation-episode convergence device** (deterministic ranking would otherwise re-pick the just-rejected candidate and spin), **not** a churn policy — it encodes no long-lived judgement about the peer.
+
+**Trigger to revisit**: the **dynamic-connection-transitions / experiment** feature (with [[N-025]] and [[N-020]]). There, `Rejected` should become a **soft, re-rankable** signal — alive-but-full → deprioritized/retryable next interval, not permanently dropped — and **offline detection** (a dial timeout over a real/faulty transport) becomes the thing that hard-filters unreachable candidates. That layer owns the cross-interval decay/reset of the failed set.

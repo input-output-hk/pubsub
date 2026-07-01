@@ -20,6 +20,14 @@ The connection-seam doc note claimed degree caps would "slot in behind this trai
 - "Rejected" is always an explicit over-capacity signal; there is no timeout/no-response notion (Clarifications: the controlled, lossless substrate answers every dial).
 - `rejections_received` gives the rejection-rate observability (FR-016/SC-007); back-fill keeps realized upstream degree near target despite refusals (FR-014).
 
+## Semantics of `Rejected` and the sticky failed set (scope boundary)
+
+A `Rejected` is a **positive liveness + capacity signal**: it means the candidate is *alive and at its per-topic out-degree cap* (its downstream count reached `downstream_degree`), not that it is unreachable. In the in-memory substrate every dial is answered, so today `Rejected` is the *only* non-accept outcome a dialer observes; a true offline/unreachable candidate is unmodelled (there is no timeout — see Consequences).
+
+The sticky `failed_upstream` set is a **within-formation-episode convergence device**, not a churn policy: because selection ranking is deterministic, re-invoking `ConnectionSetup` without excluding the just-rejected candidate would re-pick it and spin. Excluding it lets back-fill advance to the next-ranked candidate and terminate within the episode. It deliberately does **not** encode a long-lived judgement about the peer.
+
+Cross-interval churn stays the heartbeat's responsibility (the future dynamic-connection-transitions / experiment layer). That layer should treat `Rejected` as a **soft, re-rankable** signal — an alive-but-full peer is a valid *future* candidate (it may churn and free a slot), so it is deprioritized/retryable across intervals rather than permanently dropped — and is where **offline detection** (a timeout that hard-filters genuinely unreachable candidates) belongs. Realizing the candidate-filtering payoff of an explicit rejection therefore depends on both a transport that can drop/time out and heartbeat re-selection; neither is in 005's scope. See [[N-029]].
+
 ## Alternatives rejected
 
 - **Keep `bool`, move the capacity check into the handler** — splits the acceptance *policy* across the strategy and the handler, defeating the seam.
