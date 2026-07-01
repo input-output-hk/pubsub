@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy};
-use crate::strategy_config::{StrategyConfigError, StrategyParams};
+use crate::strategy_config::{AcceptanceParams, StrategyConfigError};
 
 /// A selectable inbound-acceptance strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -40,12 +40,13 @@ impl AcceptanceStrategyKind {
         }
     }
 
-    /// Build the concrete inbound-acceptance strategy from parsed params,
-    /// validating the parameters this kind requires (ADR 0028). The edge maps a
-    /// returned [`StrategyConfigError`] once — it holds no per-strategy logic.
+    /// Build the concrete inbound-acceptance strategy from the acceptance seam's
+    /// params, validating the parameters this kind requires (ADR 0028). The edge
+    /// maps a returned [`StrategyConfigError`] once — it holds no per-strategy
+    /// logic.
     pub fn build(
         self,
-        params: &StrategyParams,
+        params: &AcceptanceParams,
     ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
@@ -85,17 +86,11 @@ impl FromStr for AcceptanceStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::AcceptanceStrategyKind;
-    use crate::peer::PeerId;
-    use crate::strategy_config::{StrategyConfigError, StrategyParams};
+    use crate::strategy_config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(downstream_degree: Option<usize>) -> StrategyParams {
-        StrategyParams {
-            self_id: PeerId::from_str("self").expect("valid peer id"),
-            seed: 0,
-            upstream_degree: None,
-            downstream_degree,
-        }
+    fn params(downstream_degree: Option<usize>) -> AcceptanceParams {
+        AcceptanceParams { downstream_degree }
     }
 
     // ADR 0028: accept-from-all needs no params; build succeeds regardless.

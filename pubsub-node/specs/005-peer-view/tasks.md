@@ -118,7 +118,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - [X] T024 [P] Regression check for SC-005: with bounded params absent, the existing full-mesh dissemination/connection suites stay green (no new code path engaged)
 - [X] T025 Run the `specs/005-peer-view/quickstart.md` validation end-to-end
 - [X] T026 `/speckit-analyze` consistency pass; record findings in `specs/005-peer-view/analysis.md`
-- [X] T027 Strategy self-construction (ADR 0028, FR-019): add `StrategyParams` + `StrategyConfigError` (`src/strategy_config.rs`) and a fallible `build(&StrategyParams)` on `ConnectionStrategyKind`/`AcceptanceStrategyKind` that validates required params; refactor `main.rs` to build params once and map the error once (no per-strategy validation at the edge). Unit tests for each kind's build.
+- [X] T027 Two-phase strategy construction (ADR 0028, FR-019): in `src/strategy_config.rs` add per-seam params (`ConnectionParams`, `AcceptanceParams`) + `StrategyConfigError` + the aggregate two-phase builder (`NodeStrategies` / `NodeStrategiesBuilder` — phase 1 holds the resolved kinds, phase 2 `build(&ConnectionParams, &AcceptanceParams)`); give `ConnectionStrategyKind`/`AcceptanceStrategyKind` a fallible `build(&SeamParams)` that validates only its seam's required params; refactor `main.rs` to one aggregate build that maps the error once (no per-strategy validation, repetition, or branching at the edge). Unit tests for each kind's build.
 
 ---
 

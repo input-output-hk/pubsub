@@ -79,7 +79,9 @@ pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
-pub use strategy_config::{StrategyConfigError, StrategyParams};
+pub use strategy_config::{
+    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
+};
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
     SubscriptionRegistryControl, SubscriptionRegistryError,

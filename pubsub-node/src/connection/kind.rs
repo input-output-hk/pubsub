@@ -13,7 +13,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{ConnectToAllCandidates, ConnectionStrategy, SeededBoundedSelection};
-use crate::strategy_config::{StrategyConfigError, StrategyParams};
+use crate::strategy_config::{ConnectionParams, StrategyConfigError};
 
 /// A selectable connection-selection strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,12 +45,13 @@ impl ConnectionStrategyKind {
         }
     }
 
-    /// Build the concrete connection-selection strategy from parsed params,
-    /// validating the parameters this kind requires (ADR 0028). The edge maps a
-    /// returned [`StrategyConfigError`] once — it holds no per-strategy logic.
+    /// Build the concrete connection-selection strategy from the connection
+    /// seam's params, validating the parameters this kind requires (ADR 0028).
+    /// The edge maps a returned [`StrategyConfigError`] once — it holds no
+    /// per-strategy logic.
     pub fn build(
         self,
-        params: &StrategyParams,
+        params: &ConnectionParams,
     ) -> Result<Arc<dyn ConnectionStrategy>, StrategyConfigError> {
         match self {
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
@@ -95,15 +96,14 @@ impl FromStr for ConnectionStrategyKind {
 mod tests {
     use super::ConnectionStrategyKind;
     use crate::peer::PeerId;
-    use crate::strategy_config::{StrategyConfigError, StrategyParams};
+    use crate::strategy_config::{ConnectionParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(upstream_degree: Option<usize>) -> StrategyParams {
-        StrategyParams {
+    fn params(upstream_degree: Option<usize>) -> ConnectionParams {
+        ConnectionParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
             seed: 0,
             upstream_degree,
-            downstream_degree: None,
         }
     }
 

@@ -1,28 +1,44 @@
-//! Parsed strategy-construction parameters and the error a strategy kind raises
-//! when a required one is missing (ADR 0028).
+//! Two-phase strategy construction (ADR 0028).
 //!
-//! Parse-at-the-edge: the CLI/loader parses raw arguments into [`StrategyParams`]
-//! (already-typed values — no `clap` in the core), and each strategy kind's
-//! `build` consumes only the params it needs, validating the required ones. So
+//! **Phase 1 — key → builder.** The edge parses each seam's strategy *key* into
+//! its `*StrategyKind` (clap: absent → the seam default, unknown key → rejected
+//! at CLI parse). [`NodeStrategies::builder`] holds the resolved kinds; nothing
+//! is constructed yet.
+//!
+//! **Phase 2 — params → strategy.** [`NodeStrategiesBuilder::build`] takes one
+//! per-seam params struct each ([`ConnectionParams`], [`AcceptanceParams`]) —
+//! already-typed values, no `clap` in the core — and constructs every seam,
+//! validating the parameters each chosen strategy requires. A required param
+//! left `None` yields a [`StrategyConfigError`]; the edge maps it **once**.
+//!
+//! Each kind reads only the params for its own seam (no shared grab-bag), so
 //! construction *and* required-parameter validation live with the strategy, not
-//! scattered across the edge; the edge just maps a [`StrategyConfigError`] once.
+//! scattered across the edge. The fan-out seam joins the same builder at feature
+//! 015 (`FanoutStrategyKind` + `FanoutParams`).
 
+use std::sync::Arc;
+
+use crate::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
+use crate::connection::{ConnectionStrategy, ConnectionStrategyKind};
 use crate::peer::PeerId;
 
-/// Already-parsed parameters a strategy kind may draw on to build its concrete
-/// strategy. Each kind reads only the fields relevant to it; a field left
-/// `None` that a chosen kind requires yields a [`StrategyConfigError`].
+/// Already-parsed parameters for the connection (dial/upstream) seam. A field a
+/// chosen kind requires but that is left `None` yields a [`StrategyConfigError`]
+/// at build time.
 #[derive(Clone, Debug)]
-pub struct StrategyParams {
+pub struct ConnectionParams {
     /// The node's own identity (folded into seeded selection).
     pub self_id: PeerId,
     /// Network seed for the deterministic seeded strategies.
     pub seed: u64,
-    /// Max upstream peers dialed per topic — required by the seeded-bounded
-    /// connection-selection strategy.
+    /// Max upstream peers dialed per topic — required by `seeded-bounded`.
     pub upstream_degree: Option<usize>,
-    /// Max downstream peers accepted per topic — required by the bounded
-    /// acceptance strategy.
+}
+
+/// Already-parsed parameters for the acceptance (inbound/downstream) seam.
+#[derive(Clone, Debug)]
+pub struct AcceptanceParams {
+    /// Max downstream peers accepted per topic — required by `bounded`.
     pub downstream_degree: Option<usize>,
 }
 
@@ -38,4 +54,52 @@ pub enum StrategyConfigError {
         /// The missing parameter, in operator-facing terms.
         parameter: &'static str,
     },
+}
+
+/// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
+/// by [`NodeStrategiesBuilder::build`]. (Fan-out is injected separately until
+/// feature 015 folds it into this builder.)
+pub struct NodeStrategies {
+    /// The connection (dial/upstream) strategy.
+    pub connection: Arc<dyn ConnectionStrategy>,
+    /// The inbound-acceptance (downstream) strategy.
+    pub acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+}
+
+/// Phase 1 of construction: the resolved per-seam strategy *kinds*, awaiting
+/// their parameters. Create it with [`NodeStrategies::builder`].
+pub struct NodeStrategiesBuilder {
+    connection: ConnectionStrategyKind,
+    acceptance: AcceptanceStrategyKind,
+}
+
+impl NodeStrategies {
+    /// Phase 1: capture the resolved strategy keys for each seam. Nothing is
+    /// constructed until [`NodeStrategiesBuilder::build`].
+    #[must_use]
+    pub fn builder(
+        connection: ConnectionStrategyKind,
+        acceptance: AcceptanceStrategyKind,
+    ) -> NodeStrategiesBuilder {
+        NodeStrategiesBuilder {
+            connection,
+            acceptance,
+        }
+    }
+}
+
+impl NodeStrategiesBuilder {
+    /// Phase 2: bind each seam's params, validate the parameters each chosen
+    /// strategy requires, and construct the whole set — surfacing the first
+    /// [`StrategyConfigError`] so the edge maps it once.
+    pub fn build(
+        self,
+        connection: &ConnectionParams,
+        acceptance: &AcceptanceParams,
+    ) -> Result<NodeStrategies, StrategyConfigError> {
+        Ok(NodeStrategies {
+            connection: self.connection.build(connection)?,
+            acceptance: self.acceptance.build(acceptance)?,
+        })
+    }
 }

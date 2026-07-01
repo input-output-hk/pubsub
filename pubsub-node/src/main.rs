@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptanceStrategyKind, ConnectionStrategyKind, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node,
-    PeerId, Signer, StrategyParams, TestVerifier, Verifier,
+    load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
+    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, Signer, TestVerifier,
+    Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -107,23 +108,27 @@ async fn main() {
     let signer: Arc<dyn Signer> =
         Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
 
-    // Each strategy kind builds itself from the parsed params, validating the
-    // parameters it requires; the edge stays lean and maps a StrategyConfigError
-    // once (ADR 0028). The full-mesh / accept-from-all defaults are unchanged.
-    let params = StrategyParams {
-        self_id: args.self_id.clone(),
-        seed: args.seed,
-        upstream_degree: args.upstream_degree,
-        downstream_degree: args.downstream_degree,
-    };
-    let connection_strategy = args.connection_strategy.build(&params).unwrap_or_else(|e| {
-        eprintln!("pubsub-node: {e}");
-        std::process::exit(2);
-    });
-    let acceptance_strategy = args.acceptance_strategy.build(&params).unwrap_or_else(|e| {
-        eprintln!("pubsub-node: {e}");
-        std::process::exit(2);
-    });
+    // Two-phase strategy construction (ADR 0028): phase 1 captures the resolved
+    // strategy keys (clap already applied the seam defaults and rejected unknown
+    // keys); phase 2 binds each seam's own params and builds them all, validating
+    // the parameters each chosen strategy requires. The edge stays lean — it maps
+    // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
+    // unchanged, and fan-out joins this builder at feature 015.
+    let strategies = NodeStrategies::builder(args.connection_strategy, args.acceptance_strategy)
+        .build(
+            &ConnectionParams {
+                self_id: args.self_id.clone(),
+                seed: args.seed,
+                upstream_degree: args.upstream_degree,
+            },
+            &AcceptanceParams {
+                downstream_degree: args.downstream_degree,
+            },
+        )
+        .unwrap_or_else(|e| {
+            eprintln!("pubsub-node: {e}");
+            std::process::exit(2);
+        });
 
     let node = Node::new(
         args.self_id,
@@ -133,9 +138,9 @@ async fn main() {
         verifier,
         registry,
         topic_registry,
-        connection_strategy,
+        strategies.connection,
         Arc::new(ForwardToAll),
-        acceptance_strategy,
+        strategies.acceptance,
     )
     .await
     .unwrap_or_else(|e| {
