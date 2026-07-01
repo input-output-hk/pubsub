@@ -118,6 +118,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - [X] T024 [P] Regression check for SC-005: with bounded params absent, the existing full-mesh dissemination/connection suites stay green (no new code path engaged)
 - [X] T025 Run the `specs/005-peer-view/quickstart.md` validation end-to-end
 - [X] T026 `/speckit-analyze` consistency pass; record findings in `specs/005-peer-view/analysis.md`
+- [X] T027 Strategy self-construction (ADR 0028, FR-019): add `StrategyParams` + `StrategyConfigError` (`src/strategy_config.rs`) and a fallible `build(&StrategyParams)` on `ConnectionStrategyKind`/`AcceptanceStrategyKind` that validates required params; refactor `main.rs` to build params once and map the error once (no per-strategy validation at the edge). Unit tests for each kind's build.
 
 ---
 

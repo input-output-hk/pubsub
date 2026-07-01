@@ -10,6 +10,10 @@
 //! constructs nothing.
 
 use std::str::FromStr;
+use std::sync::Arc;
+
+use super::{ConnectToAllCandidates, ConnectionStrategy, SeededBoundedSelection};
+use crate::strategy_config::{StrategyConfigError, StrategyParams};
 
 /// A selectable connection-selection strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -40,6 +44,32 @@ impl ConnectionStrategyKind {
             Self::SeededBounded => b"pubsub/connection-strategy/seeded-bounded",
         }
     }
+
+    /// Build the concrete connection-selection strategy from parsed params,
+    /// validating the parameters this kind requires (ADR 0028). The edge maps a
+    /// returned [`StrategyConfigError`] once — it holds no per-strategy logic.
+    pub fn build(
+        self,
+        params: &StrategyParams,
+    ) -> Result<Arc<dyn ConnectionStrategy>, StrategyConfigError> {
+        match self {
+            Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
+            Self::SeededBounded => {
+                let upstream_degree =
+                    params
+                        .upstream_degree
+                        .ok_or(StrategyConfigError::MissingParameter {
+                            strategy: self.name(),
+                            parameter: "an upstream degree (--upstream-degree)",
+                        })?;
+                Ok(Arc::new(SeededBoundedSelection::new(
+                    params.seed,
+                    params.self_id.clone(),
+                    upstream_degree,
+                )))
+            }
+        }
+    }
 }
 
 /// The error returned when a configuration string names no known connection
@@ -64,7 +94,39 @@ impl FromStr for ConnectionStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::ConnectionStrategyKind;
+    use crate::peer::PeerId;
+    use crate::strategy_config::{StrategyConfigError, StrategyParams};
     use std::str::FromStr;
+
+    fn params(upstream_degree: Option<usize>) -> StrategyParams {
+        StrategyParams {
+            self_id: PeerId::from_str("self").expect("valid peer id"),
+            seed: 0,
+            upstream_degree,
+            downstream_degree: None,
+        }
+    }
+
+    // ADR 0028: connect-to-all needs no params; build succeeds regardless.
+    #[test]
+    fn connect_to_all_builds_without_params() {
+        assert!(ConnectionStrategyKind::ConnectToAll
+            .build(&params(None))
+            .is_ok());
+    }
+
+    // ADR 0028: seeded-bounded validates its required upstream degree in build —
+    // missing → typed error, present → Ok.
+    #[test]
+    fn seeded_bounded_requires_upstream_degree() {
+        assert!(matches!(
+            ConnectionStrategyKind::SeededBounded.build(&params(None)),
+            Err(StrategyConfigError::MissingParameter { .. }),
+        ));
+        assert!(ConnectionStrategyKind::SeededBounded
+            .build(&params(Some(3)))
+            .is_ok());
+    }
 
     #[test]
     fn parses_case_insensitively() {

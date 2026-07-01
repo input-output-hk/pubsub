@@ -7,6 +7,10 @@
 //! [`ConnectionAcceptanceStrategy`](super::ConnectionAcceptanceStrategy).
 
 use std::str::FromStr;
+use std::sync::Arc;
+
+use super::{AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy};
+use crate::strategy_config::{StrategyConfigError, StrategyParams};
 
 /// A selectable inbound-acceptance strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -35,6 +39,28 @@ impl AcceptanceStrategyKind {
             Self::Bounded => b"pubsub/acceptance-strategy/bounded",
         }
     }
+
+    /// Build the concrete inbound-acceptance strategy from parsed params,
+    /// validating the parameters this kind requires (ADR 0028). The edge maps a
+    /// returned [`StrategyConfigError`] once — it holds no per-strategy logic.
+    pub fn build(
+        self,
+        params: &StrategyParams,
+    ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
+        match self {
+            Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
+            Self::Bounded => {
+                let downstream_degree =
+                    params
+                        .downstream_degree
+                        .ok_or(StrategyConfigError::MissingParameter {
+                            strategy: self.name(),
+                            parameter: "a downstream degree (--downstream-degree)",
+                        })?;
+                Ok(Arc::new(BoundedAcceptance::new(downstream_degree)))
+            }
+        }
+    }
 }
 
 /// The error returned when a configuration string names no known acceptance
@@ -59,7 +85,38 @@ impl FromStr for AcceptanceStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::AcceptanceStrategyKind;
+    use crate::peer::PeerId;
+    use crate::strategy_config::{StrategyConfigError, StrategyParams};
     use std::str::FromStr;
+
+    fn params(downstream_degree: Option<usize>) -> StrategyParams {
+        StrategyParams {
+            self_id: PeerId::from_str("self").expect("valid peer id"),
+            seed: 0,
+            upstream_degree: None,
+            downstream_degree,
+        }
+    }
+
+    // ADR 0028: accept-from-all needs no params; build succeeds regardless.
+    #[test]
+    fn accept_from_all_builds_without_params() {
+        assert!(AcceptanceStrategyKind::AcceptFromAll
+            .build(&params(None))
+            .is_ok());
+    }
+
+    // ADR 0028: bounded validates its required downstream degree in build.
+    #[test]
+    fn bounded_requires_downstream_degree() {
+        assert!(matches!(
+            AcceptanceStrategyKind::Bounded.build(&params(None)),
+            Err(StrategyConfigError::MissingParameter { .. }),
+        ));
+        assert!(AcceptanceStrategyKind::Bounded
+            .build(&params(Some(2)))
+            .is_ok());
+    }
 
     #[test]
     fn parses_case_insensitively() {

@@ -108,6 +108,7 @@ Across a sweep of distinct seeds, selections differ from one another, and no can
 - **FR-016**: Dial outcomes MUST be observable through state getters/snapshots (not logs) — at minimum the count of explicit rejections and each node's current upstream set — so behaviour can be asserted and (later) measured.
 - **FR-017**: Selection and any new connection state introduced or touched by this feature MUST use deterministic, ordered structures (e.g. `BTreeSet`/`BTreeMap`) so a given seed reproduces identical results across runs and machines. This feature applies ordered structures to its own state within this PR rather than depending on a separate global refactor to do so.
 - **FR-018**: The strategy objects MUST be pure and free of hidden state — their only configuration is the seed/bounds set at construction — keeping them compatible with the planned strategies-as-arguments refactor. This feature does NOT itself depend on that relocation: it MAY retain the current strategy injection and migrate when the refactor lands.
+- **FR-019**: Each strategy kind MUST construct its concrete strategy from parsed configuration and validate the parameters it requires (a fallible build returning a typed error when a required parameter is absent). The CLI/edge layer MUST stay lean — parse arguments into a parameter struct, delegate construction to the kind, and map the typed error once — with no per-strategy validation at the edge (ADR 0028).
 
 ### Key Entities *(include if feature involves data)*
 

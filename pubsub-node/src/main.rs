@@ -3,11 +3,9 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptFromAllCandidates, AcceptanceStrategyKind, BoundedAcceptance,
-    ConnectToAllCandidates, ConnectionAcceptanceStrategy, ConnectionStrategy,
-    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, MockCryptoScheme, Node, PeerId, SeededBoundedSelection, Signer,
-    TestVerifier, Verifier,
+    load_node_config, AcceptanceStrategyKind, ConnectionStrategyKind, ForwardToAll,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node,
+    PeerId, Signer, StrategyParams, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -109,37 +107,23 @@ async fn main() {
     let signer: Arc<dyn Signer> =
         Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
 
-    // Map the named strategy + its parameters to a concrete policy (feature 005,
-    // FR-012/FR-013). The full-mesh default is unchanged behaviour.
-    let connection_strategy: Arc<dyn ConnectionStrategy> = match args.connection_strategy {
-        ConnectionStrategyKind::ConnectToAll => Arc::new(ConnectToAllCandidates),
-        ConnectionStrategyKind::SeededBounded => {
-            let upstream_degree = args.upstream_degree.unwrap_or_else(|| {
-                eprintln!(
-                    "pubsub-node: --upstream-degree is required for --connection-strategy seeded-bounded"
-                );
-                std::process::exit(2);
-            });
-            Arc::new(SeededBoundedSelection::new(
-                args.seed,
-                args.self_id.clone(),
-                upstream_degree,
-            ))
-        }
+    // Each strategy kind builds itself from the parsed params, validating the
+    // parameters it requires; the edge stays lean and maps a StrategyConfigError
+    // once (ADR 0028). The full-mesh / accept-from-all defaults are unchanged.
+    let params = StrategyParams {
+        self_id: args.self_id.clone(),
+        seed: args.seed,
+        upstream_degree: args.upstream_degree,
+        downstream_degree: args.downstream_degree,
     };
-
-    // Map the named acceptance strategy + its parameter to a concrete policy.
-    let acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy> = match args.acceptance_strategy
-    {
-        AcceptanceStrategyKind::AcceptFromAll => Arc::new(AcceptFromAllCandidates),
-        AcceptanceStrategyKind::Bounded => {
-            let downstream_degree = args.downstream_degree.unwrap_or_else(|| {
-                eprintln!("pubsub-node: --downstream-degree is required for --acceptance-strategy bounded");
-                std::process::exit(2);
-            });
-            Arc::new(BoundedAcceptance::new(downstream_degree))
-        }
-    };
+    let connection_strategy = args.connection_strategy.build(&params).unwrap_or_else(|e| {
+        eprintln!("pubsub-node: {e}");
+        std::process::exit(2);
+    });
+    let acceptance_strategy = args.acceptance_strategy.build(&params).unwrap_or_else(|e| {
+        eprintln!("pubsub-node: {e}");
+        std::process::exit(2);
+    });
 
     let node = Node::new(
         args.self_id,

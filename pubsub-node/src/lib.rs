@@ -50,6 +50,7 @@ mod node;
 mod peer;
 mod received;
 mod state;
+mod strategy_config;
 mod subscription_registry;
 mod topic;
 mod topic_registry;
@@ -78,6 +79,7 @@ pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
+pub use strategy_config::{StrategyConfigError, StrategyParams};
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
     SubscriptionRegistryControl, SubscriptionRegistryError,
