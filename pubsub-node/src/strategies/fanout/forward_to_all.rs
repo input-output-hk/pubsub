@@ -34,8 +34,8 @@ impl FanoutStrategy for ForwardToAll {
 #[cfg(test)]
 mod tests {
     use super::ForwardToAll;
-    use crate::fanout::FanoutStrategy;
     use crate::peer::PeerId;
+    use crate::strategies::fanout::FanoutStrategy;
     use crate::topic::TopicId;
     use std::collections::HashSet;
     use std::str::FromStr;

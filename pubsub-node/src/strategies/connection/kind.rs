@@ -13,7 +13,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{ConnectToAllCandidates, ConnectionStrategy, SeededBoundedSelection};
-use crate::strategy_config::{ConnectionParams, StrategyConfigError};
+use crate::strategies::config::{ConnectionParams, StrategyConfigError};
 
 /// A selectable connection-selection strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -96,7 +96,7 @@ impl FromStr for ConnectionStrategyKind {
 mod tests {
     use super::ConnectionStrategyKind;
     use crate::peer::PeerId;
-    use crate::strategy_config::{ConnectionParams, StrategyConfigError};
+    use crate::strategies::config::{ConnectionParams, StrategyConfigError};
     use std::str::FromStr;
 
     fn params(upstream_degree: Option<usize>) -> ConnectionParams {

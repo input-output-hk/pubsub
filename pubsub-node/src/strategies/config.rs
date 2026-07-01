@@ -18,9 +18,9 @@
 
 use std::sync::Arc;
 
-use crate::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
-use crate::connection::{ConnectionStrategy, ConnectionStrategyKind};
 use crate::peer::PeerId;
+use crate::strategies::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
+use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 
 /// Already-parsed parameters for the connection (dial/upstream) seam. A field a
 /// chosen kind requires but that is left `None` yields a [`StrategyConfigError`]

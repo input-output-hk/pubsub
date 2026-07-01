@@ -4,14 +4,15 @@ use std::sync::{Arc, Mutex};
 
 use tokio::task::JoinHandle;
 
-use crate::acceptance::ConnectionAcceptanceStrategy;
 use crate::config::NodeConfig;
-use crate::connection::{ConnectionStrategy, UpstreamState};
+use crate::connection_state::UpstreamState;
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
-use crate::fanout::FanoutStrategy;
 use crate::message::{Message, SignedMessage};
+use crate::strategies::acceptance::ConnectionAcceptanceStrategy;
+use crate::strategies::connection::ConnectionStrategy;
+use crate::strategies::fanout::FanoutStrategy;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};

@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy};
-use crate::strategy_config::{AcceptanceParams, StrategyConfigError};
+use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
 
 /// A selectable inbound-acceptance strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -86,7 +86,7 @@ impl FromStr for AcceptanceStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::AcceptanceStrategyKind;
-    use crate::strategy_config::{AcceptanceParams, StrategyConfigError};
+    use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
 
     fn params(downstream_degree: Option<usize>) -> AcceptanceParams {

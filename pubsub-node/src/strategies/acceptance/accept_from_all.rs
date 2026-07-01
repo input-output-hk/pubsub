@@ -36,8 +36,8 @@ impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
 #[cfg(test)]
 mod tests {
     use super::AcceptFromAllCandidates;
-    use crate::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::peer::PeerId;
+    use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::topic::TopicId;
     use std::collections::{HashMap, HashSet};
     use std::str::FromStr;

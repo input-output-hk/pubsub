@@ -36,8 +36,8 @@ impl ConnectionStrategy for ConnectToAllCandidates {
 #[cfg(test)]
 mod tests {
     use super::ConnectToAllCandidates;
-    use crate::connection::ConnectionStrategy;
     use crate::peer::PeerId;
+    use crate::strategies::connection::ConnectionStrategy;
     use crate::topic::TopicId;
     use std::collections::{HashMap, HashSet};
     use std::str::FromStr;

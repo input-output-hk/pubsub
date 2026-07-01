@@ -16,16 +16,17 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::acceptance::{Admission, ConnectionAcceptanceStrategy};
-use crate::connection::{ConnectionStrategy, UpstreamState};
+use crate::connection_state::UpstreamState;
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
-use crate::fanout::FanoutStrategy;
 use crate::message::{
     ConnectionAction, ConnectionMessage, Message, PlainConnection, PlainMessage, SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::received::{Origin, ReceivedDelivery};
+use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
+use crate::strategies::connection::ConnectionStrategy;
+use crate::strategies::fanout::FanoutStrategy;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
@@ -1037,18 +1038,18 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::acceptance::{AcceptFromAllCandidates, BoundedAcceptance};
-    use crate::connection::test_support::{
+    use crate::connection_state::test_support::{
         accepted_from, membership_joined, misattributed_request, payload_from, rejected_from,
         request_from, tampered_payload_from, terminated_from, ConnectionScript,
     };
-    use crate::connection::{ConnectToAllCandidates, SeededBoundedSelection};
     use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
     use crate::crypto::PublicKey;
     use crate::crypto::{Signer, Timestamp};
-    use crate::fanout::ForwardToAll;
     use crate::message::{ConnectionAction, Message};
     use crate::message::{MessagePayload, PlainMessage, SignedMessage};
+    use crate::strategies::acceptance::{AcceptFromAllCandidates, BoundedAcceptance};
+    use crate::strategies::connection::{ConnectToAllCandidates, SeededBoundedSelection};
+    use crate::strategies::fanout::ForwardToAll;
     use crate::subscription_registry::MembershipScript;
     use crate::topic_registry::TopicRegistryScript;
     use std::collections::BTreeSet;
