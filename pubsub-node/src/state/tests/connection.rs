@@ -1,0 +1,305 @@
+use super::super::*;
+use super::*;
+
+// ---- T010: acceptor + activation side (FR-011..015, US1-AS5..7) -----------
+
+// US1-AS5 / FR-012: a membership-valid Request is accepted — downstream entry
+// recorded and Accepted sent to the carried emitter.
+#[test]
+fn membership_valid_request_is_accepted() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+
+    let effects = apply(&mut state, request_from("a", "t1"));
+
+    assert!(has_downstream(&state, "a", "t1"), "downstream recorded");
+    assert_eq!(
+        accepted_sends(&effects, "self"),
+        vec![(peer("a"), topic("t1"))],
+        "Accepted sent to the carried emitter",
+    );
+}
+
+// US1-AS7 / FR-012: a Request fails validation when the topic is not among the
+// node's own topics, or the requester is not a known member — silent drop,
+// no downstream, no reply.
+#[test]
+fn request_dropped_when_membership_validation_fails() {
+    // (a) topic not among own topics.
+    let mut state = node_state("self", HashSet::new());
+    apply(&mut state, membership_joined("a", ["t1"]));
+    let effects = apply(&mut state, request_from("a", "t1"));
+    assert!(!has_downstream(&state, "a", "t1"));
+    assert!(effects.is_empty(), "no reply when topic not own");
+
+    // (b) requester not a known member.
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    let effects = apply(&mut state, request_from("a", "t1"));
+    assert!(!has_downstream(&state, "a", "t1"));
+    assert!(effects.is_empty(), "no reply when requester not a member");
+}
+
+// 014 closes the 004 S7 gap (N-015): under strict drop a topic the node has
+// not registered is never admitted to its subscription/candidate sets, so a
+// connection Request on an unregistered topic fails membership validation —
+// acceptance is now consistent with registration (no connection establishes
+// on a topic that does not legitimately exist). This supersedes 004's
+// "accept on the membership-derived set despite no registration" pin.
+#[test]
+fn request_for_unregistered_topic_is_rejected() {
+    let mut state = node_state("self", HashSet::new()); // t1 deliberately unregistered
+    apply(&mut state, membership_joined("a", ["t1"])); // candidate-gated out
+    assert!(
+        state.subscriptions_snapshot().is_empty(),
+        "t1 unregistered → strict-dropped, not in the subscription set",
+    );
+
+    let effects = apply(&mut state, request_from("a", "t1"));
+
+    assert!(
+        !has_downstream(&state, "a", "t1"),
+        "no connection established on an unregistered topic",
+    );
+    assert!(
+        accepted_sends(&effects, "self").is_empty(),
+        "request on an unregistered topic is not accepted",
+    );
+}
+
+// FR-012 / US4-AS4: a duplicate Request from a still-valid member is an
+// idempotent re-accept (entry kept, Accepted re-sent); a re-dial that no
+// longer passes validation is dropped and the entry is left as-is.
+#[test]
+fn duplicate_request_idempotent_then_stale_on_failed_revalidation() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+    apply(&mut state, request_from("a", "t1"));
+    assert!(has_downstream(&state, "a", "t1"));
+
+    // Duplicate while still a member → re-accepted, single entry.
+    let effects = apply(&mut state, request_from("a", "t1"));
+    assert_eq!(
+        accepted_sends(&effects, "self"),
+        vec![(peer("a"), topic("t1"))]
+    );
+    assert_eq!(state.downstream_snapshot().len(), 1, "still one entry");
+
+    // a leaves the topic, then re-dials → validation fails, entry left as-is.
+    apply(
+        &mut state,
+        Event::MembershipUpdate(MembershipEvent::left("a")),
+    );
+    let effects = apply(&mut state, request_from("a", "t1"));
+    assert!(effects.is_empty(), "failed re-validation → no reply");
+    assert!(
+        has_downstream(&state, "a", "t1"),
+        "existing entry left as-is"
+    );
+}
+
+// FR-015 self-emitter EC: a control message whose carried emitter is the node
+// itself is dropped, no state change (even with a valid signature).
+#[test]
+fn self_emitter_control_message_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("self", ["t1"]));
+    let effects = apply(&mut state, request_from("self", "t1"));
+    assert!(effects.is_empty());
+    assert!(state.downstream_snapshot().is_empty(), "no self-connection");
+}
+
+// FR-015 invalid-signature EC: a control message failing verification is
+// dropped, no state change (here: emitter a but signed by b).
+#[test]
+fn control_invalid_signature_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+    let effects = apply(&mut state, misattributed_request("a", "b", "t1"));
+    assert!(effects.is_empty());
+    assert!(
+        !has_downstream(&state, "a", "t1"),
+        "a request with a bad signature is dropped before acceptance",
+    );
+}
+
+// US1-AS6 / FR-013: an Accepted matching an AwaitingAccept entry activates it.
+#[test]
+fn accepted_activates_awaiting_entry() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+    apply(&mut state, Event::ConnectionSetup);
+    assert_eq!(
+        upstream_state(&state, "a", "t1"),
+        Some(UpstreamState::AwaitingAccept),
+    );
+
+    let effects = apply(&mut state, accepted_from("a", "t1"));
+    assert!(effects.is_empty(), "activation sends nothing");
+    assert_eq!(
+        upstream_state(&state, "a", "t1"),
+        Some(UpstreamState::Active)
+    );
+}
+
+// FR-013: an Accepted with no matching pending entry is dropped, no entry
+// created or modified (also covers an Accepted for an already-Active pair).
+#[test]
+fn unsolicited_accepted_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    let effects = apply(&mut state, accepted_from("a", "t1"));
+    assert!(effects.is_empty());
+    assert_eq!(upstream_state(&state, "a", "t1"), None, "no entry created");
+}
+
+// FR-014: a Terminated for a held entry removes it (either role); a Terminated
+// for a connection not held is dropped, no state change. Never replied to.
+#[test]
+fn terminated_removes_held_entry_else_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+    // Establish both roles with a: upstream via setup+accept, downstream via request.
+    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, accepted_from("a", "t1"));
+    apply(&mut state, request_from("a", "t1"));
+    assert_eq!(
+        upstream_state(&state, "a", "t1"),
+        Some(UpstreamState::Active)
+    );
+    assert!(has_downstream(&state, "a", "t1"));
+
+    // Terminated removes the matching entry in both roles, sends nothing.
+    let effects = apply(&mut state, terminated_from("a", "t1"));
+    assert!(effects.is_empty(), "Terminated is never replied to");
+    assert_eq!(upstream_state(&state, "a", "t1"), None);
+    assert!(!has_downstream(&state, "a", "t1"));
+
+    // A second (now-unknown) Terminated is a plain drop.
+    let effects = apply(&mut state, terminated_from("a", "t1"));
+    assert!(effects.is_empty());
+}
+
+// SC-006: the full establishment lifecycle is reachable by feeding events
+// alone via a declarative ConnectionScript (no timers).
+#[test]
+fn scripted_establishment_reaches_active() {
+    let mut state = node_state("self", HashSet::from([topic("t")]));
+    let script = ConnectionScript::new()
+        .member_joined("b", ["t"])
+        .setup()
+        .accepted_from("b", "t");
+    for event in script {
+        apply(&mut state, event);
+    }
+    assert_eq!(
+        upstream_state(&state, "b", "t"),
+        Some(UpstreamState::Active)
+    );
+}
+
+// ---- feature 005 (US2): bounded acceptance + rejected-dial back-fill --------
+
+/// The destination and connection action of a `Send` effect carrying a
+/// connection-control message, if any.
+fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
+    match effect {
+        Effect::Send {
+            to,
+            message: Message::Connection(cm),
+        } => Some((to, &cm.plain.action)),
+        _ => None,
+    }
+}
+
+// FR-010/FR-011 / US2: BoundedAcceptance accepts up to the downstream degree, then
+// refuses further requests with an explicit `Rejected` (not a severance) and
+// records no downstream entry for the refused peer.
+#[test]
+fn over_capacity_request_is_rejected_with_signal_not_severance() {
+    let t = topic("t1");
+    let mut state = NodeState::new(
+        peer("self"),
+        HashSet::from([t.clone()]),
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        strategy(),
+        Arc::new(ForwardToAll),
+        Arc::new(BoundedAcceptance::new(1)),
+    );
+    apply(&mut state, reg_open("t1"));
+    apply(&mut state, membership_joined("self", ["t1"]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+    apply(&mut state, membership_joined("b", ["t1"]));
+
+    // First request: below the downstream degree bound ⇒ accepted.
+    let accept = apply(&mut state, request_from("a", "t1"));
+    assert!(state.downstream.contains(&(peer("a"), t.clone())));
+    assert!(matches!(
+        sent_action(&accept[0]),
+        Some((to, ConnectionAction::Accepted { .. })) if to == &peer("a")
+    ));
+
+    // Second request: at the bound ⇒ refused with an explicit Rejected, no
+    // downstream entry, no Misbehaved severance.
+    let reject = apply(&mut state, request_from("b", "t1"));
+    assert!(!state.downstream.contains(&(peer("b"), t.clone())));
+    assert_eq!(
+        state.downstream.len(),
+        1,
+        "the over-capacity peer is not recorded",
+    );
+    assert_eq!(reject.len(), 1);
+    assert!(matches!(
+        sent_action(&reject[0]),
+        Some((to, ConnectionAction::Rejected { .. })) if to == &peer("b")
+    ));
+    assert!(!reject
+        .iter()
+        .any(|e| matches!(e, Effect::Misbehaved { .. })));
+}
+
+// FR-014 / US2: a Rejected dial is marked failed (sticky) and the next
+// ConnectionSetup back-fills the next-ranked candidate; the failed peer is
+// not re-dialed, and the rejection is counted.
+#[test]
+fn rejected_dial_is_marked_failed_and_backfilled() {
+    let t = topic("t1");
+    let mut state = NodeState::new(
+        peer("self"),
+        HashSet::from([t.clone()]),
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        Arc::new(SeededBoundedSelection::new(7, peer("self"), 1)),
+        Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+    );
+    apply(&mut state, reg_open("t1"));
+    apply(&mut state, membership_joined("self", ["t1"]));
+    for c in ["a", "b", "c"] {
+        apply(&mut state, membership_joined(c, ["t1"]));
+    }
+
+    // Initial selection dials exactly one upstream (upstream degree 1).
+    apply(&mut state, Event::Synced);
+    let initial: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
+    assert_eq!(initial.len(), 1);
+    let rejected_peer = initial[0].0.clone();
+
+    // That peer rejects the dial.
+    apply(&mut state, rejected_from(&rejected_peer.to_string(), "t1"));
+    assert!(!state
+        .upstream
+        .contains_key(&(rejected_peer.clone(), t.clone())));
+    assert!(state
+        .failed_upstream
+        .contains(&(rejected_peer.clone(), t.clone())));
+    assert_eq!(state.rejections_received, 1);
+
+    // Re-invoking setup back-fills the next-ranked candidate (failed excluded).
+    apply(&mut state, Event::ConnectionSetup);
+    let after: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
+    assert_eq!(after.len(), 1, "back-filled to a single new upstream");
+    assert_ne!(
+        after[0].0, rejected_peer,
+        "the failed peer is not re-dialed"
+    );
+}

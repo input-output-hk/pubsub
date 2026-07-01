@@ -364,7 +364,9 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Trigger to revisit**: a dedicated **test-hygiene sweep** (its own small PR). For each settle: a **positive** outcome → switch to an `await_*` barrier (or a later-real-event barrier for a processed no-op); a genuine **non-event** → `assert_no_new_deliveries(&[…], window)`. Follow ADR 0022's selection rule, and back any no-event property with a deterministic state-machine test rather than the window alone.
 
-## N-027 — `state.rs` unit-test module dominates the file; split into per-concern test files
+## N-027 — `state.rs` unit-test module dominates the file; split into per-concern test files — **RESOLVED by the state-tests-split refactor (2026-06-24)**
+
+**Resolution**: done in two verified steps. (1) The whole `#[cfg(test)] mod tests` moved verbatim out of `src/state.rs` into the Rust-2018 file form (`mod tests;`), leaving the pure core at ~921 lines. (2) That file split into `src/state/tests/` — `mod.rs` holding the shared imports (`pub(crate)`-re-exported for submodules) and all ~28 helpers, with the 60 tests routed by concern into 8 files: `apply_basics`, `membership`, `setup`, `connection`, `gated_receive`, `severance`, `shutdown`, `fanout`. Submodules reach the pure core's private items (`handle_*`, `NodeState` fields) as descendants via `use super::super::*`, and the helpers/re-exports via `use super::*` — the visibility crux below held. Behavior-preserving and externally verified: the sorted multiset of leaf test names is byte-identical pre/post (166), each test landed in its intended group module, and the full suite stays 166 ok / 17 suites. The historical context is retained below.
 
 **Surfaced during**: the connection-acceptance-strategy refactor (2026-06-23), reviewing module sizes.
 

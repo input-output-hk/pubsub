@@ -4,6 +4,24 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-06-30 — Weekly session: phase 1 → phase 2, deterministic simulation framework, delivery-completeness metric
+
+**Phase 1 → phase 2.** Phase 1 wraps up this week; everyone closes their open tickets and drafts phase-2 tickets/topics for next week's review. With the prototype's core build essentially done, phase 2 pivots from building to **experiments** — empirical trade-offs and adversarial cases — and a more end-to-end setup than today's in-memory prototype.
+
+**Deterministic simulation framework.** Ezequiel's phase-2 design removes the async/Tokio non-determinism by driving communication and events directly against the node's **pure core** — calling `NodeState`/`apply`, feeding seeds, and dispatching the returned effects itself in place of the network. It covers the M2 golden-node model and a candidate experiment set — the pay-off of the pure-transition / side-effects-at-the-edges design: reproducible runs and clearer data.
+
+**Delivery-completeness metric.** The phase-2 headline: does every subscriber to a topic receive all published messages given the formed topology (percentiles of any misses)? Runs will compare topologies with vs without **golden nodes** to test whether they improve delivery — which Denis noted also admits a precise analytical treatment alongside the simulations.
+
+**Persistence out of scope.** Alerts/notifications need no long-term storage, so the design stays strictly in-memory; a short (~≤24 h) history a joining node can pull directly from peers is an easy in-memory add if a use case ever needs one — no storage server.
+
+**Related-work leads.** Three protocols to revisit later: GossipSub (scoring function), Drum (application-level DoS resistance), and Murmur (layered; its dissemination layer mirrors ours but on an **undirected** rather than directed graph). Whether any become prototype strategies to trial is a separate call.
+
+**Decisions** *(aligned)*: pure/deterministic simulation framework (no async/Tokio); retention servers excluded (in-memory only); delivery completeness (± golden nodes) as the primary phase-2 metric.
+
+**Next.** All: draft phase-2 tickets for next week. Ezequiel: build the framework. Will + Denis: define the delivery-completeness measurement. Team: weigh the GossipSub/Drum/Murmur leads on Thursday.
+
+---
+
 ## 2026-06-25 — Brainstorm: peer sampling dropped for on-chain list, experimentation framework prioritised
 
 **Is a peer-sampling layer needed at all?** With the prototype now caught up to the architecture, Denis questioned whether a dedicated peer-sampling protocol is still warranted given the design already carries an on-chain registry of deposited participants. Ezequiel noted that several earlier choices — keeping the participant list on-chain among them — were made to unblock prototyping rather than as deliberate protocol design, so the assumption was worth re-testing now.
