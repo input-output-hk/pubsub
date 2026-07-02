@@ -218,7 +218,7 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
     let t = topic("t1");
     let mut state = NodeState::new(
         peer("self"),
-        HashSet::from([t.clone()]),
+        BTreeSet::from([t.clone()]),
         Arc::new(TestVerifier),
         alias_signer("self"),
         strategy(),
@@ -266,7 +266,7 @@ fn rejected_dial_removes_pending_upstream() {
     let t = topic("t1");
     let mut state = NodeState::new(
         peer("self"),
-        HashSet::from([t.clone()]),
+        BTreeSet::from([t.clone()]),
         Arc::new(TestVerifier),
         alias_signer("self"),
         Arc::new(SeededBoundedConnection::new(7, peer("self"), 1)),

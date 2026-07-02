@@ -24,8 +24,8 @@ No CRITICAL or HIGH findings. No constitution MUST violations.
 | FR-005 per-node derivation | ✅ | T007 (`varies_by_self_id`) | |
 | FR-006 distinct seeds | ✅ | T020 | |
 | FR-007 unbiased | ✅ | T021 (chi-square sweep) | |
-| FR-008 tie-break | ✅ | T005, T007 | deterministic ranking |
-| FR-009 pure transition | ✅ | T009 | no RNG/clock |
+| FR-008 tie-break | ✅ | T005, T007 | deterministic PRNG sample (partial Fisher–Yates) over ordered inputs — order-independent; no candidate_id tie-break needed |
+| FR-009 pure transition | ✅ | T009 | no clock / no entropy at decision time; PRNG re-seeded per call from fixed inputs |
 | FR-010 acceptance bound | ✅ | T012, T016 | |
 | FR-011 explicit rejection | ✅ | T013, T017 | + no severance |
 | FR-012 configurable bounds | ✅ | T010, T016 | CLI edge |

@@ -1,6 +1,6 @@
 //! The v1 connection-selection policy: [`ConnectToAllCandidates`].
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::ConnectionStrategy;
 use crate::peer::PeerId;
@@ -18,10 +18,10 @@ pub struct ConnectToAllCandidates;
 impl ConnectionStrategy for ConnectToAllCandidates {
     fn expected_upstream(
         &self,
-        subscriptions: &HashSet<TopicId>,
-        candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> HashSet<(PeerId, TopicId)> {
-        let mut expected = HashSet::new();
+        subscriptions: &BTreeSet<TopicId>,
+        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+    ) -> BTreeSet<(PeerId, TopicId)> {
+        let mut expected = BTreeSet::new();
         for topic in subscriptions {
             if let Some(peers) = candidates.get(topic) {
                 for peer in peers {
@@ -39,7 +39,7 @@ mod tests {
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
     use crate::topic::TopicId;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeMap, BTreeSet};
     use std::str::FromStr;
 
     fn peer(s: &str) -> PeerId {
@@ -50,11 +50,11 @@ mod tests {
         TopicId::from_str(s).expect("valid topic id")
     }
 
-    fn subscriptions(topics: &[&str]) -> HashSet<TopicId> {
+    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
         topics.iter().map(|t| topic(t)).collect()
     }
 
-    fn candidates(entries: &[(&str, &[&str])]) -> HashMap<TopicId, HashSet<PeerId>> {
+    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
         entries
             .iter()
             .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
@@ -70,7 +70,7 @@ mod tests {
         );
         assert_eq!(
             expected,
-            HashSet::from([
+            BTreeSet::from([
                 (peer("a"), topic("t1")),
                 (peer("b"), topic("t1")),
                 (peer("c"), topic("t2")),
@@ -86,17 +86,17 @@ mod tests {
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a"]), ("t2", &["b"])]),
         );
-        assert_eq!(expected, HashSet::from([(peer("a"), topic("t1"))]));
+        assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
     // Empty view → empty expected set (no membership, or no candidates).
     #[test]
     fn empty_view_expects_nothing() {
         assert!(ConnectToAllCandidates
-            .expected_upstream(&HashSet::new(), &HashMap::new())
+            .expected_upstream(&BTreeSet::new(), &BTreeMap::new())
             .is_empty());
         assert!(ConnectToAllCandidates
-            .expected_upstream(&subscriptions(&["t1"]), &HashMap::new())
+            .expected_upstream(&subscriptions(&["t1"]), &BTreeMap::new())
             .is_empty());
     }
 

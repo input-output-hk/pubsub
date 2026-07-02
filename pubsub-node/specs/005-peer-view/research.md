@@ -2,21 +2,21 @@
 
 Decisions resolving the Technical Context unknowns. Per item: **Decision / Rationale / Alternatives**.
 
-## R1 — Randomness mechanism: deterministic keyed-hash ranking
+## R1 — Randomness mechanism: seeded PRNG sampling over canonically-ordered candidates
 
-**Decision**: Select the bounded upstream set by ranking candidates on a stable keyed hash of `(seed, self_id, topic, candidate_id)` and taking the lowest-k. No RNG is instantiated; selection is a pure function of inputs. The seed is a field of the strategy object (encapsulated randomness, FR-009).
+**Decision**: Select the bounded upstream set by **seeded pseudo-random sampling over a canonically-ordered candidate set**. For each joined topic, take a uniform `upstream_degree`-subset of the candidates via a partial Fisher–Yates shuffle (`rand::seq::SliceRandom::partial_shuffle`) driven by `rand_chacha::ChaCha20Rng`. The PRNG is **re-seeded per call** from `(seed, self_id, topic)`, so no state is carried across calls and selection stays a pure function of inputs. The seed is a field of the strategy object (encapsulated randomness, FR-009).
 
-**Rationale**: keeps the transition deterministic and reproducible across runs/machines (FR-003); a single network seed folded with `self_id` gives per-node diversity (FR-005) and uniformity over a seed sweep (FR-007). Matches the epoch-nonce/ring idea from the SecureCyclon work.
+**Rationale**: determinism now rests on two things — a **fixed PRNG algorithm** (ChaCha20Rng, stable across platforms/versions, unlike `rand`'s `StdRng`) and **canonically ordered inputs** (`BTreeSet`/`BTreeMap`), so the sample is independent of iteration order (FR-003). A single network seed folded with `self_id` gives per-node diversity (FR-005), and partial Fisher–Yates yields a uniform subset over a seed sweep (FR-007). Matches the epoch-nonce/ring idea from the SecureCyclon work.
 
-**Alternatives**: stateful seeded PRNG in the strategy — rejected (non-deterministic across calls on an evolving candidate set; hidden state). Wall-clock/entropy seed — rejected (not reproducible).
+**Alternatives**: keyed-hash *ranking* of candidates (lowest-k by digest) — rejected (a PRNG shuffle needs no ranking or tie-break and samples uniformly by construction). A stateful seeded PRNG carried across calls — rejected (non-deterministic on an evolving candidate set; hidden state); re-seeding per call keeps the strategy a pure `&self` function. Wall-clock/entropy seed — rejected (not reproducible).
 
-## R2 — Stable digest choice
+## R2 — PRNG and seed derivation
 
-**Decision**: Use the in-tree `sha2` (`Sha256`, already used by `crypto::MessageHash`) over a length-prefixed canonical encoding of the ranking tuple. Explicitly NOT `std::hash::DefaultHasher`.
+**Decision**: Reuse the in-tree `rand_chacha::ChaCha20Rng` (already a dependency, used by `crypto::mock`) as the sampler. Its 32-byte seed is derived with `sha2` (`Sha256`, already used by `crypto::MessageHash`) as a **key-derivation step** over a length-prefixed canonical encoding of `(tag, seed, self_id, topic)`; peers are then picked by the PRNG, not ranked by the digest. Explicitly NOT `std::hash::DefaultHasher` as the KDF.
 
-**Rationale**: FR-003 requires identical selection across machines; `DefaultHasher` is unspecified and not stable across platforms/compiler versions — a correctness defect (Principle I), not a perf concern. No new dependency.
+**Rationale**: FR-003 requires identical selection across machines. `ChaCha20Rng` is a fixed, cross-version-stable algorithm (unlike `StdRng`, whose backing generator is unspecified); the SHA-256 KDF gives a well-distributed 32-byte seed from the tuple. `DefaultHasher` is unspecified and not stable across platforms/compiler versions — a correctness defect (Principle I) if used as the KDF. The canonical order comes from the ordered (`BTree`) inputs, not the digest. No new dependency: both `rand`/`rand_chacha` and `sha2` are already in tree.
 
-**Alternatives**: a dedicated keyed-hash crate (e.g. `siphasher`) — viable but needs a justified-dependency ADR; deferred unless the in-tree digest is unsuitable.
+**Alternatives**: a dedicated keyed-hash crate (e.g. `siphasher`) as the KDF — viable but needs a justified-dependency ADR; deferred unless the in-tree digest is unsuitable.
 
 ## R3 — Rejection handling: drop the pending upstream only (no retry/back-fill in 005)
 

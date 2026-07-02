@@ -3,7 +3,7 @@
 // per-binary `dead_code` warnings here at the module level.
 #![allow(dead_code)]
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, Once};
 use std::time::Duration;
@@ -773,9 +773,9 @@ pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 impl ConnectionStrategy for ConnectToExplicit {
     fn expected_upstream(
         &self,
-        _subscriptions: &HashSet<TopicId>,
-        _candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> HashSet<(PeerId, TopicId)> {
+        _subscriptions: &BTreeSet<TopicId>,
+        _candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+    ) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }

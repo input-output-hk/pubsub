@@ -69,7 +69,7 @@ fn alias_signer(alias: &str) -> Arc<dyn Signer> {
 fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
     let mut state = NodeState::new(
         peer(self_id),
-        subscriptions.clone(),
+        subscriptions.iter().cloned().collect(),
         Arc::new(TestVerifier),
         alias_signer(self_id),
         strategy(),

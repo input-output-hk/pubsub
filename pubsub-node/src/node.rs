@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 
@@ -162,7 +162,7 @@ impl Node {
         // error path (FR-016).
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
             node_id.clone(),
-            HashSet::new(),
+            BTreeSet::new(),
             verifier,
             signer,
             connection_strategy,

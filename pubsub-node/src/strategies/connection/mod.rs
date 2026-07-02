@@ -10,7 +10,7 @@
 //! and [`SeededBoundedConnection`] (the seeded, bounded policy, feature 005) in
 //! [`seeded_bounded`].
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -45,7 +45,7 @@ pub trait ConnectionStrategy: Send + Sync {
     /// to the peers discovered on it (the node's own id is never present).
     fn expected_upstream(
         &self,
-        subscriptions: &HashSet<TopicId>,
-        candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> HashSet<(PeerId, TopicId)>;
+        subscriptions: &BTreeSet<TopicId>,
+        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+    ) -> BTreeSet<(PeerId, TopicId)>;
 }

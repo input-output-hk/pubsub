@@ -1,7 +1,7 @@
 //! The bounded inbound-acceptance policy: [`BoundedAcceptance`] (feature 005,
 //! ADR 0025).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use super::{is_membership_valid, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
@@ -32,8 +32,8 @@ impl ConnectionAcceptanceStrategy for BoundedAcceptance {
         &self,
         emitter: &PeerId,
         topic: &TopicId,
-        subscriptions: &HashSet<TopicId>,
-        candidates: &HashMap<TopicId, HashSet<PeerId>>,
+        subscriptions: &BTreeSet<TopicId>,
+        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
         downstream: &HashSet<(PeerId, TopicId)>,
     ) -> Admission {
         if !is_membership_valid(emitter, topic, subscriptions, candidates) {
@@ -54,7 +54,7 @@ mod tests {
     use crate::peer::PeerId;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::topic::TopicId;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
     use std::str::FromStr;
 
     fn peer(s: &str) -> PeerId {
@@ -65,11 +65,11 @@ mod tests {
         TopicId::from_str(s).expect("valid topic id")
     }
 
-    fn subscriptions(topics: &[&str]) -> HashSet<TopicId> {
+    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
         topics.iter().map(|t| topic(t)).collect()
     }
 
-    fn candidates(entries: &[(&str, &[&str])]) -> HashMap<TopicId, HashSet<PeerId>> {
+    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
         entries
             .iter()
             .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))

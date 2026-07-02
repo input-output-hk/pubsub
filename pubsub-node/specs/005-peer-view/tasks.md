@@ -11,7 +11,7 @@ description: "Task list for feature 005 — seeded bounded connection-selection 
 
 **Tests**: MANDATORY. Correctness/protocol-behaviour claims (determinism FR-003/SC-001, bound FR-001/SC-002, unbiasedness FR-007/SC-004, acceptance + explicit rejection FR-010/FR-011, rejection dropping the pending upstream FR-014) — designated **critical** in plan.md, so test tasks precede implementation and MUST fail first (Constitution II).
 
-**ADRs**: 0024 (seeded bounded selection + stable digest), 0025 (acceptance-seam return evolution + `ConnectionAction::Rejected`). Numbers provisional (next free after 0023) — coordinate with the refactor branch.
+**ADRs**: 0024 (seeded PRNG bounded selection over ordered inputs; SHA-256 only as the PRNG-seed KDF), 0025 (acceptance-seam return evolution + `ConnectionAction::Rejected`). Numbers provisional (next free after 0023) — coordinate with the refactor branch.
 
 **Note (PR-73 simplification)**: the earlier sticky-failed-set / rejection-counter / candidates-minus-failed / `ConnectionSetup`-driven back-fill machinery was dropped. The dialer's reaction to a `Rejected` is now minimal — remove the matching pending `AwaitingAccept` upstream only. Retry-to-a-minimum (back-fill) is deferred to a future strategy family (`BackfillingSeededBoundedConnection` / `RetryingSeededBoundedConnection`), out of scope for 005. Completed tasks below keep their `[X]` and IDs but describe what actually shipped.
 
@@ -32,7 +32,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ## Phase 1: Setup
 
-- [X] T001 ADR 0024 (seeded bounded selection: keyed-hash ranking, stable SHA-256 digest vs `DefaultHasher`, per-network seed / per-node derivation) in `pubsub-node/docs/decisions/0024-seeded-bounded-selection.md`. (The sticky-failed-set + `ConnectionSetup` back-fill originally captured here was dropped in the PR-73 simplification; retry-to-a-minimum is deferred to a future strategy family.)
+- [X] T001 ADR 0024 (seeded bounded selection: seeded PRNG sampling over ordered inputs — `ChaCha20Rng` partial Fisher–Yates, SHA-256 only as the PRNG-seed KDF vs `DefaultHasher`, per-network seed / per-node derivation) in `pubsub-node/docs/decisions/0024-seeded-bounded-selection.md`. (The sticky-failed-set + `ConnectionSetup` back-fill originally captured here was dropped in the PR-73 simplification; retry-to-a-minimum is deferred to a future strategy family.)
 - [X] T002 ADR 0025 (acceptance-seam evolution `bool → Admission` + current-downstream input; `ConnectionAction::Rejected` + minimal dialer handling) in `pubsub-node/docs/decisions/0025-acceptance-seam-and-rejected-action.md`
 - [ ] T003 [P] Coordinate with the co-developing architect to avoid conflicting edits on shared files (strategy injection sites, `NodeState`) and align ordered-structure type choices; record the agreed types in `specs/005-peer-view/research.md` (R6). Not a gate — 005 proceeds with its own ordered structures and current strategy injection.
 - [X] T004 [P] Test scaffolding: extend `ConnectionScript` with a `rejected` step and add bounded-node builder helpers (construct with `SeededBoundedConnection`/`BoundedAcceptance` + seed/upstream degree/downstream degree) in `pubsub-node/tests/common/mod.rs`
@@ -43,22 +43,22 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 **⚠️ CRITICAL**: must complete before US1/US2.
 
-- [X] T005 Add the deterministic keyed-hash ranking helper (stable SHA-256 over length-prefixed `(seed, self_id, topic, candidate_id)`, lowest-k, `candidate_id` tie-break) in `pubsub-node/src/strategies/connection/seeded_bounded.rs` — refactor-agnostic
+- [X] T005 Add the seeded PRNG sampler (`ChaCha20Rng` partial Fisher–Yates via `partial_shuffle` over the ordered candidate set; the 32-byte seed derived by SHA-256 as a KDF over length-prefixed `(tag, seed, self_id, topic)`, re-seeded per call) in `pubsub-node/src/strategies/connection/seeded_bounded.rs` — refactor-agnostic
 - [X] T006 **[coordinate]** `handle_connection_setup` selects straight over `candidates` in `pubsub-node/src/state.rs`. (The originally planned `failed_upstream` `BTreeSet` + rejection counter and the candidates-minus-failed diff were dropped in the PR-73 simplification — no new `NodeState` state was added.)
 
-**Checkpoint**: ranking helper + `handle_connection_setup` selecting over `candidates` in place.
+**Checkpoint**: PRNG sampler + `handle_connection_setup` selecting over `candidates` in place.
 
 ---
 
 ## Phase 3: User Story 1 — Reproducible bounded upstream selection (Priority: P1) 🎯 MVP
 
-**Goal**: a node selects ≤ upstream degree upstream peers per topic by seeded deterministic ranking; same seed + membership reproduces an identical selection.
+**Goal**: a node selects ≤ upstream degree upstream peers per topic by seeded PRNG sampling; same seed + membership reproduces an identical selection.
 
 **Independent Test**: candidates > upstream degree under seed s; rebuilt under s the selection is identical and ≤ upstream degree per topic. (Acceptance still accept-all here.)
 
 ### Tests for User Story 1 (write first; MUST fail) ⚠️
 
-- [X] T007 [P] [US1] Unit tests for `SeededBoundedConnection` in `pubsub-node/src/strategies/connection/seeded_bounded.rs`: exactly `upstream_degree` when candidates exceed it (FR-001), all when ≤ bound (FR-002), identical output across iteration orders / repeated calls (FR-003), deterministic `candidate_id` tie-break (FR-008), per-node variety by `self_id` (FR-005), and the **default seed 0** path produces a deterministic, repeatable selection when no seed is supplied (FR-004)
+- [X] T007 [P] [US1] Unit tests for `SeededBoundedConnection` in `pubsub-node/src/strategies/connection/seeded_bounded.rs`: exactly `upstream_degree` when candidates exceed it (FR-001), all when ≤ bound (FR-002), identical output across iteration orders / repeated calls (FR-003), order-independent determinism from the fixed PRNG over the ordered candidate set (FR-008), per-node variety by `self_id` (FR-005), and the **default seed 0** path produces a deterministic, repeatable selection when no seed is supplied (FR-004)
 - [X] T008 [P] [US1] **[coordinate]** Integration test in `pubsub-node/tests/connections.rs`: an N-node network under seed s forms a partial topology; rebuilt under s it is identical; upstream ≤ upstream degree (SC-001, SC-002)
 
 ### Implementation for User Story 1
@@ -108,7 +108,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 
 ### Implementation for User Story 3
 
-- [X] T022 [US3] If the sweep reveals bias, adjust the ranking-key composition (T005 helper) so selection is unbiased (FR-007); otherwise record that the digest choice already satisfies SC-004 — in `pubsub-node/src/strategies/connection/seeded_bounded.rs`
+- [X] T022 [US3] If the sweep reveals bias, adjust the sampling (T005 PRNG sampler) so selection is unbiased (FR-007); otherwise record that the PRNG (partial Fisher–Yates) already satisfies SC-004 — in `pubsub-node/src/strategies/connection/seeded_bounded.rs`
 
 **Checkpoint**: all three stories validated.
 
@@ -132,7 +132,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - **Setup (Phase 1)**: no code dependencies. T003 is coordination only — it does **not** gate the **[coordinate]** tasks; they proceed with 005's own ordered structures and current strategy injection.
 - **Foundational (Phase 2)**: T005 self-contained; T006 **[coordinate]** (touches `NodeState`). Blocks US1/US2.
 - **US1 (Phase 3)**: depends on Foundational. MVP. T009/T010 self-contained; T008/T011 **[coordinate]** (touch shared files).
-- **US2 (Phase 4)**: depends on Foundational; shares the ranking helper. T015/T016/T017 author the types; T018 **[coordinate]** wires the dialer transition (drop the matching pending upstream), which needs `Rejected` (T017) first.
+- **US2 (Phase 4)**: depends on Foundational; shares the PRNG sampler. T015/T016/T017 author the types; T018 **[coordinate]** wires the dialer transition (drop the matching pending upstream), which needs `Rejected` (T017) first.
 - **US3 (Phase 5)**: depends on US1's selection (T009). Independent of US2.
 - **Polish (Phase 6)**: after the desired stories.
 
@@ -167,7 +167,7 @@ Setup → Foundational → US1 → validate: bounded, reproducible selection wit
 
 ### Incremental Delivery
 
-1. Self-contained core (ranking + `SeededBoundedConnection` + `BoundedAcceptance`/`Admission` + `Rejected` type + their unit tests) — no coordination needed.
+1. Self-contained core (PRNG sampler + `SeededBoundedConnection` + `BoundedAcceptance`/`Admission` + `Rejected` type + their unit tests) — no coordination needed.
 2. The wiring + integration tests (**[coordinate]**) — land independently using 005's ordered structures + current injection, syncing with the parallel refactor to avoid conflicts. Completes US1 then US2.
 3. US3 seed-sweep validation.
 

@@ -1,7 +1,11 @@
 //! The seeded, bounded connection-selection policy: [`SeededBoundedConnection`]
 //! (feature 005, ADR 0024).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
+
+use rand::seq::SliceRandom;
+use rand::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 
 use super::ConnectionStrategy;
 use crate::peer::PeerId;
@@ -9,16 +13,14 @@ use crate::topic::TopicId;
 
 /// The seeded, bounded connection-selection policy (feature 005, ADR 0024).
 ///
-/// For each joined topic, ranks the candidate peers by a stable keyed hash of
-/// `(seed, self_id, topic, candidate_id)` and keeps the lowest `upstream_degree`,
-/// breaking ties on `candidate_id`. Selection is a pure function of its inputs:
-/// the seed and identity are fixed fields, no randomness is drawn at decision
-/// time, and the result is independent of candidate-set iteration order — so the
-/// topology is reproducible from the single network seed (the node folds its own
-/// `self_id` in, giving per-node diversity). The node hands in the **viable**
-/// candidate view (candidates minus peers a dial already failed with), so
-/// back-fill of the next-ranked candidate falls out of recomputation without any
-/// extra input to this policy.
+/// For each joined topic, this **randomly samples** at most `upstream_degree`
+/// of the candidate peers using a seeded pseudo-random generator. Selection is a
+/// pure function of its inputs: the seed and identity are fixed fields, the PRNG
+/// is re-seeded from `(seed, self_id, topic)` per call (no state carried across
+/// calls), and it samples over the candidates in their **canonical sorted
+/// order** (the caller supplies an ordered `BTreeSet`), so the result is
+/// reproducible from the single network seed and independent of any hashing of
+/// peers. Folding `self_id` into the seed gives per-node diversity.
 pub struct SeededBoundedConnection {
     seed: u64,
     self_id: PeerId,
@@ -37,12 +39,15 @@ impl SeededBoundedConnection {
     }
 }
 
-/// The stable ranking key for one candidate: SHA-256 over a canonical,
-/// length-prefixed encoding of `(domain, seed, self_id, topic, candidate)`.
-/// SHA-256 (the in-tree digest) is chosen over `DefaultHasher` for
-/// cross-platform stability — selection must reproduce identically on any
-/// machine (ADR 0024).
-fn rank_key(seed: u64, self_id: &PeerId, topic: &TopicId, candidate: &PeerId) -> [u8; 32] {
+/// A deterministic PRNG seeded for one `(seed, self_id, topic)` context.
+///
+/// The 32-byte `ChaCha20Rng` seed is derived once with SHA-256 over a canonical,
+/// length-prefixed encoding of `(domain-tag, seed, self_id, topic)`. The hash is
+/// used **only as a key-derivation step for the PRNG seed** — peers are then
+/// picked by the PRNG, not ranked by hash. `ChaCha20Rng` is a fixed algorithm
+/// (unlike `rand`'s `StdRng`), so the stream is identical across platforms and
+/// versions — the cross-machine reproducibility guarantee (ADR 0024).
+fn topic_rng(seed: u64, self_id: &PeerId, topic: &TopicId) -> ChaCha20Rng {
     use sha2::{Digest, Sha256};
 
     // Length-prefix each variable-width component so distinct tuples cannot
@@ -55,7 +60,7 @@ fn rank_key(seed: u64, self_id: &PeerId, topic: &TopicId, candidate: &PeerId) ->
 
     let mut hasher = Sha256::new();
     // Domain-separate by the strategy's own unique byte-string tag, so distinct
-    // strategies never share a hash domain (ADR 0024).
+    // strategies never share a seed domain (ADR 0024).
     feed(
         &mut hasher,
         super::ConnectionStrategyKind::SeededBounded.tag(),
@@ -63,30 +68,30 @@ fn rank_key(seed: u64, self_id: &PeerId, topic: &TopicId, candidate: &PeerId) ->
     hasher.update(seed.to_le_bytes());
     feed(&mut hasher, self_id.to_string().as_bytes());
     feed(&mut hasher, topic.to_string().as_bytes());
-    feed(&mut hasher, candidate.to_string().as_bytes());
-    hasher.finalize().into()
+    let seed32: [u8; 32] = hasher.finalize().into();
+    ChaCha20Rng::from_seed(seed32)
 }
 
 impl ConnectionStrategy for SeededBoundedConnection {
     fn expected_upstream(
         &self,
-        subscriptions: &HashSet<TopicId>,
-        candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> HashSet<(PeerId, TopicId)> {
-        let mut expected = HashSet::new();
+        subscriptions: &BTreeSet<TopicId>,
+        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+    ) -> BTreeSet<(PeerId, TopicId)> {
+        let mut expected = BTreeSet::new();
         for topic in subscriptions {
             let Some(peers) = candidates.get(topic) else {
                 continue;
             };
-            // Rank by (hash key, candidate id) so the order is total and
-            // independent of set iteration order; keep the lowest `upstream_degree`.
-            let mut ranked: Vec<&PeerId> = peers.iter().collect();
-            ranked.sort_by(|a, b| {
-                rank_key(self.seed, &self.self_id, topic, a)
-                    .cmp(&rank_key(self.seed, &self.self_id, topic, b))
-                    .then_with(|| a.to_string().cmp(&b.to_string()))
-            });
-            for peer in ranked.into_iter().take(self.upstream_degree) {
+            // The candidates arrive already in canonical (sorted) order from the
+            // `BTreeSet`, so the sample is a pure function of the set — not of any
+            // iteration order. `partial_shuffle` is a partial Fisher–Yates: it
+            // places a uniform `upstream_degree`-subset at the front (or the whole
+            // set when there are fewer candidates than the bound, FR-002).
+            let mut ids: Vec<PeerId> = peers.iter().cloned().collect();
+            let mut rng = topic_rng(self.seed, &self.self_id, topic);
+            let (chosen, _) = ids.partial_shuffle(&mut rng, self.upstream_degree);
+            for peer in chosen.iter() {
                 expected.insert((peer.clone(), topic.clone()));
             }
         }
@@ -100,7 +105,7 @@ mod tests {
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
     use crate::topic::TopicId;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeMap, BTreeSet};
     use std::str::FromStr;
 
     fn peer(s: &str) -> PeerId {
@@ -111,11 +116,11 @@ mod tests {
         TopicId::from_str(s).expect("valid topic id")
     }
 
-    fn subscriptions(topics: &[&str]) -> HashSet<TopicId> {
+    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
         topics.iter().map(|t| topic(t)).collect()
     }
 
-    fn candidates(entries: &[(&str, &[&str])]) -> HashMap<TopicId, HashSet<PeerId>> {
+    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
         entries
             .iter()
             .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
@@ -149,7 +154,7 @@ mod tests {
             policy.expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &["a", "b"])]));
         assert_eq!(
             expected,
-            HashSet::from([(peer("a"), topic("t1")), (peer("b"), topic("t1"))]),
+            BTreeSet::from([(peer("a"), topic("t1")), (peer("b"), topic("t1"))]),
         );
     }
 
@@ -182,8 +187,8 @@ mod tests {
         assert_eq!(first.len(), 2);
     }
 
-    // FR-005: the node's own id is folded into the ranking, so two nodes with the
-    // same seed and candidate set can select different subsets.
+    // FR-005: the node's own id is folded into the seed, so two nodes with the
+    // same seed and candidate set can sample different subsets.
     #[test]
     fn bounded_selection_varies_by_self_id() {
         let cands = candidates(&[("t1", &["a", "b", "c", "d", "e", "f"])]);
@@ -205,7 +210,7 @@ mod tests {
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]),
         );
-        assert_eq!(expected, HashSet::from([(peer("a"), topic("t1"))]));
+        assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
     // SC-003 / US3: distinct seeds explore distinct selections (the topology
@@ -215,12 +220,11 @@ mod tests {
     fn distinct_seeds_produce_distinct_selections() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["c0", "c1", "c2", "c3", "c4", "c5"])]);
-        let mut distinct = HashSet::new();
+        let mut distinct = BTreeSet::new();
         for seed in 0..16u64 {
             let sel = SeededBoundedConnection::new(seed, peer("self"), 3)
                 .expected_upstream(&subs, &cands);
-            let mut ids: Vec<String> = sel.iter().map(|(p, _)| p.to_string()).collect();
-            ids.sort();
+            let ids: Vec<String> = sel.iter().map(|(p, _)| p.to_string()).collect();
             distinct.insert(ids.join(","));
         }
         assert!(
@@ -234,8 +238,7 @@ mod tests {
     // with respect to candidate identity. A chi-square goodness-of-fit against
     // the uniform expectation (10 candidates, choose 3) must not reject at
     // p < 0.001 (df = 9 ⇒ critical value 27.88). The sweep is a fixed seed range,
-    // so the test is reproducible. (T022: the SHA-256 ranking already satisfies
-    // this — no ranking-key adjustment needed.)
+    // so the test is reproducible.
     #[test]
     #[allow(clippy::cast_precision_loss)]
     fn selection_is_unbiased_over_a_seed_sweep() {
@@ -245,7 +248,7 @@ mod tests {
         let upstream_degree = 3usize;
         let sweeps = 2000u64;
 
-        let mut counts: HashMap<String, u64> = HashMap::new();
+        let mut counts: BTreeMap<String, u64> = BTreeMap::new();
         for seed in 0..sweeps {
             let sel = SeededBoundedConnection::new(seed, peer("self"), upstream_degree)
                 .expected_upstream(&subs, &cands);

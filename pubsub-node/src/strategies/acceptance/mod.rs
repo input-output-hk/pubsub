@@ -15,7 +15,7 @@
 //! `ConnectToAllCandidates`. Registration gates delivery, not acceptance (the S7
 //! pin), so this seam reads the membership-derived view only.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -34,7 +34,7 @@ pub use kind::{AcceptanceStrategyKind, UnknownAcceptanceStrategy};
 /// Replaces the earlier bare `bool` so the handler can distinguish a membership
 /// failure (a silent drop — does not leak membership to non-members) from an
 /// over-capacity refusal (which sends an explicit `Rejected` so the dialer can
-/// back-fill).
+/// drop its pending upstream).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Admission {
     /// Accept the emitter as a downstream on the topic (record it; reply `Accepted`).
@@ -69,8 +69,8 @@ pub trait ConnectionAcceptanceStrategy: Send + Sync {
         &self,
         emitter: &PeerId,
         topic: &TopicId,
-        subscriptions: &HashSet<TopicId>,
-        candidates: &HashMap<TopicId, HashSet<PeerId>>,
+        subscriptions: &BTreeSet<TopicId>,
+        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
         downstream: &HashSet<(PeerId, TopicId)>,
     ) -> Admission;
 }
@@ -87,8 +87,8 @@ pub trait ConnectionAcceptanceStrategy: Send + Sync {
 pub(crate) fn is_membership_valid(
     emitter: &PeerId,
     topic: &TopicId,
-    subscriptions: &HashSet<TopicId>,
-    candidates: &HashMap<TopicId, HashSet<PeerId>>,
+    subscriptions: &BTreeSet<TopicId>,
+    candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
 ) -> bool {
     let is_subscribed = subscriptions.contains(topic);
     let is_candidate = candidates

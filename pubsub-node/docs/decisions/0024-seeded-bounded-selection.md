@@ -2,20 +2,20 @@
 
 **Status**: Accepted
 
-**Context**: Feature 005 (`specs/005-peer-view/`) replaces the full-mesh `ConnectToAllCandidates` dial policy with a bounded one so dissemination experiments have a non-trivial topology. Selection must be (a) bounded to a uniform upstream degree, (b) reproducible from a recorded seed across runs and machines (FR-003), (c) a pure decision drawing no randomness during a state transition (FR-009), (d) per-node diverse from a single network seed (FR-005), and (e) unbiased across candidate identities over a seed sweep (FR-007).
+**Context**: Feature 005 (`specs/005-peer-view/`) replaces the full-mesh `ConnectToAllCandidates` dial policy with a bounded one so dissemination experiments have a non-trivial topology. Selection must be (a) bounded to a uniform upstream degree, (b) reproducible from a recorded seed across runs and machines (FR-003), (c) a pure decision drawing no ambient randomness during a state transition (FR-009), (d) per-node diverse from a single network seed (FR-005), and (e) unbiased across candidate identities over a seed sweep (FR-007).
 
 ## Decision
 
-Select by **deterministic keyed-hash ranking**, not a stateful PRNG. For each joined topic, rank candidate peers by a SHA-256 digest of a canonical, length-prefixed encoding of `(domain-tag, seed, self_id, topic, candidate_id)` and take the lowest `upstream_degree`, breaking ties on `candidate_id`. The strategy struct `SeededBoundedConnection { seed, self_id, upstream_degree }` carries the seed and identity as fixed fields set at construction, so `expected_upstream` stays a pure function of its inputs.
+Select by **seeded pseudo-random sampling over a canonically-ordered candidate set** — not by keyed-hash ranking of peers, and not with a persistent/stateful generator.
 
-- **Digest**: SHA-256 (reusing the in-tree `sha2` dependency that `MessageHash` already uses) — explicitly **not** `std::hash::DefaultHasher`, which is unspecified and not stable across platforms/compiler versions (a cross-machine-reproducibility defect, Principle I).
-- **Domain tag**: the hash is domain-separated by the strategy's own unique byte-string, `ConnectionStrategyKind::SeededBounded.tag()`, so distinct strategies never share a hash domain. Strategy selection is a readable, case-insensitive **`ConnectionStrategyKind`** enum (`connect-to-all` / `seeded-bounded`) parsed at the edge — not an implicit "params present ⇒ bounded" rule — and each variant carries that predefined unique tag.
-- **Seed scope**: one **network** seed, folded with `self_id` for per-node diversity (FR-005). A `u64` supplied at startup; **default 0** when absent (FR-004).
-- **Tie-break**: secondary order on `candidate_id` so equal-ranked candidates resolve identically every run (FR-008), never on incidental iteration order.
+- **PRNG**: `rand_chacha::ChaCha20Rng` (reusing the in-tree `rand` + `rand_chacha` that `crypto::mock` already depends on — no new dependency). ChaCha20 is a **fixed algorithm**, so its stream is identical across platforms and library versions — explicitly **not** `rand`'s `StdRng`, whose algorithm is unspecified and not reproducible across versions (the cross-machine-reproducibility requirement, Principle I).
+- **Sampling**: for each joined topic, collect the candidates into a `Vec` and take a uniform `upstream_degree`-subset with a partial Fisher–Yates (`rand::seq::SliceRandom::partial_shuffle`). When there are fewer candidates than the bound, all are selected (FR-002).
+- **Determinism via ordered inputs**: the candidates arrive in **canonical sorted order** because `NodeState` and the `ConnectionStrategy` trait carry them as `BTreeMap<TopicId, BTreeSet<PeerId>>` / `BTreeSet<TopicId>` (FR-017). The sampled set is therefore a pure function of the *set*, independent of any iteration order — no per-peer hashing is needed to impose order.
+- **Per-call seeding**: the PRNG is re-seeded per `(seed, self_id, topic)` — no cursor is carried across calls, so `expected_upstream` stays a pure `&self` function with no hidden state (FR-009/FR-018). The 32-byte `ChaCha20Rng` seed is derived with **SHA-256** over a canonical, length-prefixed encoding of `(domain-tag, seed, self_id, topic)`. SHA-256 (the in-tree `sha2`, already used by `MessageHash`) is used **only as a key-derivation step for the PRNG seed** — peers are picked by the PRNG, not ranked by hash. Folding `self_id` in gives per-node diversity from the single network seed (FR-005); the domain tag (`ConnectionStrategyKind::SeededBounded.tag()`) keeps distinct strategies in distinct seed domains.
 
-## Reproducibility without new ordered state (FR-017)
+## Ordered structures (FR-017)
 
-This feature adds **no new persistent connection state** (the earlier `failed_upstream` set was removed together with back-fill — see below). Reproducibility does not depend on any container's iteration order: `expected_upstream` ranks each candidate by *its own* keyed hash, so the selected **membership** is a pure function of the candidate set regardless of order, and the return type stays `HashSet<(PeerId, TopicId)>`. (`PeerId` keeps the `Ord`/`PartialOrd` derive added earlier — harmless, though no longer required by this feature.)
+Reproducibility now depends on ordered inputs: `subscriptions` and `candidates` are `BTreeSet`/`BTreeMap` on `NodeState` and in the trait signature, and the strategy returns `BTreeSet<(PeerId, TopicId)>`. A `BTreeSet` iterates in sorted order, so the sampler collects it to a `Vec` and shuffles — the canonical order is structural, not re-derived. (`downstream` stays a `HashSet` — the acceptance policy *counts* it, order-independent; it converts to `BTreeSet` when 015's fan-out samples over it.)
 
 ## Rejection handling (no back-fill)
 
@@ -25,12 +25,14 @@ A dial rejected for over-capacity causes the dialer to remove the matching pendi
 
 ## Consequences
 
-- Reproducible by construction: same `(seed, self_id, topic, candidates)` → identical selection (FR-003, SC-001).
-- `apply` stays pure (no RNG state, no clock) — FR-009.
-- Selection is pseudo-uniform, validated statistically over a seed sweep (FR-007/SC-004) rather than asserted exactly.
+- Reproducible by construction: same `(seed, self_id, topic, candidates)` → identical sample (FR-003, SC-001), because the algorithm is fixed and the inputs are canonically ordered.
+- `apply` stays pure (the PRNG is local to the call, re-seeded from the strategy's `seed` field; no ambient RNG, no clock) — FR-009.
+- Sampling is exactly uniform over `upstream_degree`-subsets (partial Fisher–Yates), validated statistically over a seed sweep (FR-007/SC-004).
+- FR-017's ordered structures become load-bearing (they carry the canonical order the sampler consumes), not merely a reproducibility nicety.
 
 ## Alternatives rejected
 
-- **Stateful seeded PRNG** in the strategy — non-deterministic across calls on an evolving candidate set; hidden state in the transition.
-- **`DefaultHasher`** — not portable/stable; would silently break FR-003 cross-machine.
+- **Keyed-hash ranking of peers** (rank each candidate by `hash(seed, self_id, topic, candidate)`, take lowest-k) — the previous revision of this decision. Replaced (this PR) with seeded PRNG sampling: the selection is genuinely random rather than an artefact of a digest ordering, and determinism is instead guaranteed by fixing the PRNG algorithm and ordering the inputs. SHA-256 is retained only to derive the PRNG seed.
+- **A persistent/stateful PRNG** carried on the strategy — hidden mutable state in the transition; non-idempotent across calls on an evolving set. Rejected in favour of per-call re-seeding.
+- **`rand`'s `StdRng`** — not reproducible across versions; `ChaCha20Rng` is the fixed-algorithm choice. **`DefaultHasher`** for the seed KDF — not portable/stable; SHA-256 is used instead.
 - **In-feature back-fill / sticky failed-set** — an earlier revision added it; removed for simplicity so the no-retry baseline is observed first. Retry/back-fill is a separate future strategy family.

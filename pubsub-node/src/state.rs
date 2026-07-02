@@ -13,7 +13,7 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::connection_state::UpstreamState;
@@ -48,14 +48,14 @@ use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
 // peers-placement boundary is IMPLEMENTATION_NOTES N-007 (revisit at 008/005).
 pub(crate) struct NodeState {
     self_id: PeerId,
-    subscriptions: HashSet<TopicId>,
+    subscriptions: BTreeSet<TopicId>,
     received: Vec<ReceivedDelivery>,
     verifier: Arc<dyn Verifier>,
     /// Per-topic candidate peers, folded from the subscription-registry stream
     /// (`Event::MembershipUpdate`). The node's own id is never present. This is
     /// the topic-derived peer set, distinct from the shell's static config
     /// `peers` bootstrap list (`IMPLEMENTATION_NOTES` N-007).
-    candidates: HashMap<TopicId, HashSet<PeerId>>,
+    candidates: BTreeMap<TopicId, BTreeSet<PeerId>>,
     /// Registered topics → their authorized publisher keys (empty ⇒ open),
     /// folded from the topic-registry stream (`Event::TopicRegistryUpdate`).
     /// Written only by `handle_topic_registry_update`. The node's **effective**
@@ -108,7 +108,7 @@ impl NodeState {
     /// Construct the state value from already-parsed inputs.
     pub(crate) fn new(
         self_id: PeerId,
-        subscriptions: HashSet<TopicId>,
+        subscriptions: BTreeSet<TopicId>,
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
         connection_strategy: Arc<dyn ConnectionStrategy>,
@@ -120,7 +120,7 @@ impl NodeState {
             subscriptions,
             received: Vec::new(),
             verifier,
-            candidates: HashMap::new(),
+            candidates: BTreeMap::new(),
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
@@ -429,7 +429,7 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             if node == state.self_id {
                 // The node's own entry *is* its subscription set — but only the
                 // registered topics (strict drop of unregistered ones).
-                let mut subscriptions = HashSet::new();
+                let mut subscriptions = BTreeSet::new();
                 for topic in topics {
                     if state.registered_topics.contains_key(&topic) {
                         subscriptions.insert(topic);

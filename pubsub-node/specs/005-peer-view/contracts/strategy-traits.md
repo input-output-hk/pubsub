@@ -5,14 +5,14 @@ Two injected policies. This feature adds bounded impls and evolves the **accepta
 ## Dial side — `ConnectionStrategy` (shape unchanged)
 
 ```
-expected_upstream(subscriptions: &Set<TopicId>,
-                  candidates:    &Map<TopicId, Set<PeerId>>) -> Set<(PeerId, TopicId)>
+expected_upstream(subscriptions: &BTreeSet<TopicId>,
+                  candidates:    &BTreeMap<TopicId, BTreeSet<PeerId>>) -> BTreeSet<(PeerId, TopicId)>
 ```
 
 - Node hands in the current `candidates` view directly (no failed-set pre-filter; the earlier candidates-minus-failed diff was removed in the PR-73 simplification).
 - Impls:
   - `ConnectToAllCandidates` (existing, default) — all candidates per joined topic.
-  - `SeededBoundedConnection { seed, self_id, upstream_degree }` (new) — lowest-`upstream_degree` candidates per topic by stable SHA-256 of `(seed, self_id, topic, candidate_id)`, tie-broken on `candidate_id`; all when candidates ≤ `upstream_degree`. Pure; deterministic; no RNG.
+  - `SeededBoundedConnection { seed, self_id, upstream_degree }` (new) — a PRNG-sampled `upstream_degree`-subset of the candidates per topic (partial Fisher–Yates via `ChaCha20Rng`, re-seeded per call from `(seed, self_id, topic)`) over the ordered candidate set; all when candidates ≤ `upstream_degree`. Pure; deterministic (fixed algorithm + ordered inputs); no state carried across calls.
 - Guarantees: identical inputs → identical output regardless of iteration order (FR-003); uniform over a seed sweep (FR-007); |output per topic| ≤ `upstream_degree` (FR-001/FR-002).
 
 ## Inbound side — `ConnectionAcceptanceStrategy` (evolved, ADR 0025)
