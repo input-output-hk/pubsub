@@ -14,30 +14,30 @@ use crate::topic::TopicId;
 /// any other SHA-256 use in the crate (e.g. `MessageHash`).
 const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 
-/// Per-topic bucket count for a fixed fanout `rf`: `max(1, round(candidates / rf))`.
+/// Per-topic bucket count for a fixed target connection degree `target_degree`: `max(1, round(candidates / target_degree))`.
 ///
-/// Expected valid edges per topic = `candidates / B ≈ rf`. When there are `≤ ~rf`
+/// Expected valid edges per topic = `candidates / B ≈ target_degree`. When there are `≤ ~target_degree`
 /// candidates, `B` floors to **1** and [`is_valid_edge`] always holds — the
 /// connect-to-all small-topic fallback, with no threshold and no `ln` degeneracy
 /// (ADR 0024).
 #[must_use]
-pub fn bucket_count(candidates_len: usize, rf: usize) -> usize {
-    if rf == 0 {
+pub fn bucket_count(candidates_len: usize, target_degree: usize) -> usize {
+    if target_degree == 0 {
         return 1;
     }
     #[allow(clippy::cast_precision_loss)]
-    let ratio = candidates_len as f64 / rf as f64;
+    let ratio = candidates_len as f64 / target_degree as f64;
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let buckets = ratio.round() as usize;
     buckets.max(1)
 }
 
-/// The per-topic downstream accept cap for a fixed fanout `rf`: `⌈rf + c·√rf⌉`
+/// The per-topic downstream accept cap for a fixed target connection degree `target_degree`: `⌈target_degree + c·√target_degree⌉`
 /// (the `OC` variance buffer of `docs/extensions/bucketed-pull.md`; `c` default 3).
 #[must_use]
-pub fn accept_cap(rf: usize, c: usize) -> usize {
+pub fn accept_cap(target_degree: usize, c: usize) -> usize {
     #[allow(clippy::cast_precision_loss)]
-    let cap = rf as f64 + (c as f64) * (rf as f64).sqrt();
+    let cap = target_degree as f64 + (c as f64) * (target_degree as f64).sqrt();
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let cap = cap.ceil() as usize;
     cap
@@ -102,15 +102,15 @@ mod tests {
     fn bucket_count_floors_at_one_for_small_topics() {
         assert_eq!(bucket_count(0, 8), 1);
         assert_eq!(bucket_count(4, 8), 1); // 4/8 rounds to 0 -> floored to 1
-        assert_eq!(bucket_count(8, 8), 1); // exactly rf -> 1
+        assert_eq!(bucket_count(8, 8), 1); // exactly target_degree -> 1
         assert_eq!(bucket_count(80, 8), 10); // 80/8 = 10
     }
 
     #[test]
-    fn accept_cap_is_rf_plus_buffer() {
-        // rf=8, c=3 -> 8 + 3*sqrt(8) = 8 + 8.485... = 16.48 -> 17
+    fn accept_cap_is_degree_plus_buffer() {
+        // target_degree=8, c=3 -> 8 + 3*sqrt(8) = 8 + 8.485... = 16.48 -> 17
         assert_eq!(accept_cap(8, 3), 17);
-        // rf=3, c=3 -> 3 + 3*sqrt(3) = 8.196 -> 9 (doc example ~8)
+        // target_degree=3, c=3 -> 3 + 3*sqrt(3) = 8.196 -> 9 (doc example ~8)
         assert_eq!(accept_cap(3, 3), 9);
     }
 

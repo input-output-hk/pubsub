@@ -1,9 +1,8 @@
 //! The v1 inbound-acceptance policy: [`AcceptFromAllCandidates`].
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
-
 use super::{is_membership_valid, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
+use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 /// The v1 acceptance policy: accept every **membership-valid** request — the
@@ -11,22 +10,14 @@ use crate::topic::TopicId;
 /// member of it.
 ///
 /// The exact inbound mirror of `ConnectToAllCandidates`: the "all" is
-/// membership-scoped, not unconditional. It never refuses for over-capacity
-/// (it ignores the `downstream` set); the bounded counterpart is
+/// membership-scoped, not unconditional. It never refuses for over-capacity or
+/// the edge predicate; the bounded counterpart is
 /// [`VerifiableBoundedAcceptance`](super::VerifiableBoundedAcceptance).
 pub struct AcceptFromAllCandidates;
 
 impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
-    fn admit(
-        &self,
-        emitter: &PeerId,
-        topic: &TopicId,
-        subscriptions: &BTreeSet<TopicId>,
-        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-        _downstream: &HashSet<(PeerId, TopicId)>,
-        _interval: u64,
-    ) -> Admission {
-        if is_membership_valid(emitter, topic, subscriptions, candidates) {
+    fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
+        if is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
             Admission::Accept
         } else {
             Admission::RejectMembership
@@ -39,6 +30,7 @@ mod tests {
     use super::AcceptFromAllCandidates;
     use crate::peer::PeerId;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
+    use crate::strategies::view::NodeView;
     use crate::topic::TopicId;
     use std::collections::{BTreeMap, BTreeSet, HashSet};
     use std::str::FromStr;
@@ -63,14 +55,16 @@ mod tests {
     }
 
     fn admit(emitter: &str, topic_id: &str, subs: &[&str], cands: &[(&str, &[&str])]) -> Admission {
-        AcceptFromAllCandidates.admit(
-            &peer(emitter),
-            &topic(topic_id),
-            &subscriptions(subs),
-            &candidates(cands),
-            &HashSet::new(),
-            0,
-        )
+        let subs = subscriptions(subs);
+        let cands = candidates(cands);
+        let down = HashSet::new();
+        let view = NodeView {
+            subscriptions: &subs,
+            candidates: &cands,
+            downstream: &down,
+            interval: 0,
+        };
+        AcceptFromAllCandidates.admit(&peer(emitter), &topic(topic_id), &view)
     }
 
     // Accept: the topic is the node's own and the emitter is a known member.

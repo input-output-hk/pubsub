@@ -82,6 +82,7 @@ pub use strategies::connection::{
 };
 pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge};
 pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
+pub use strategies::view::NodeView;
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
     SubscriptionRegistryControl, SubscriptionRegistryError,

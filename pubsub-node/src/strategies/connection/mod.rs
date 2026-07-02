@@ -10,9 +10,10 @@
 //! and [`HashGatedConnection`] (the verifiable hash-gated policy, feature 005) in
 //! [`hash_gated`].
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use crate::peer::PeerId;
+use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 mod connect_to_all;
@@ -36,17 +37,11 @@ pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
 /// topology policies); the v1 implementor is [`ConnectToAllCandidates`], and the
 /// verifiable hash-gated policy is [`HashGatedConnection`].
 pub trait ConnectionStrategy: Send + Sync {
-    /// The expected upstream set given the node's view.
+    /// The expected upstream set given the node's read-only [`NodeView`].
     ///
-    /// `subscriptions` is the node's **membership-derived** topic set (the
-    /// topics it has joined), not the registration-gated effective filter —
-    /// the dial side mirrors the acceptance rule, where topic registration
-    /// gates delivery rather than establishment. `candidates` maps each topic
-    /// to the peers discovered on it (the node's own id is never present).
-    fn expected_upstream(
-        &self,
-        subscriptions: &BTreeSet<TopicId>,
-        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-        interval: u64,
-    ) -> BTreeSet<(PeerId, TopicId)>;
+    /// Reads `view.subscriptions` (the membership-derived topic set — not the
+    /// registration-gated effective filter, mirroring the acceptance rule),
+    /// `view.candidates` (per-topic discovered peers, self never present), and
+    /// `view.interval` (the current heartbeat round for the edge predicate).
+    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
 }

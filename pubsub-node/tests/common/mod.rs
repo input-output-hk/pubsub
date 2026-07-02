@@ -3,7 +3,7 @@
 // per-binary `dead_code` warnings here at the module level.
 #![allow(dead_code)]
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, Once};
 use std::time::Duration;
@@ -11,9 +11,10 @@ use std::time::Duration;
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage,
-    PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl,
-    TestSigner, TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
+    MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeView, Origin, PeerEntry, PeerId,
+    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer,
+    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
+    TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -771,12 +772,7 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 
 impl ConnectionStrategy for ConnectToExplicit {
-    fn expected_upstream(
-        &self,
-        _subscriptions: &BTreeSet<TopicId>,
-        _candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-        _interval: u64,
-    ) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_upstream(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }

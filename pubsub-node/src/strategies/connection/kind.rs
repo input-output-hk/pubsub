@@ -51,14 +51,17 @@ impl ConnectionStrategyKind {
         match self {
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
             Self::HashGated => {
-                let rf = params.rf.ok_or(StrategyConfigError::MissingParameter {
-                    strategy: self.name(),
-                    parameter: "a fanout (--rf)",
-                })?;
+                let target_degree =
+                    params
+                        .target_degree
+                        .ok_or(StrategyConfigError::MissingParameter {
+                            strategy: self.name(),
+                            parameter: "a target degree (--target-degree)",
+                        })?;
                 Ok(Arc::new(HashGatedConnection::new(
                     params.genesis,
                     params.self_id.clone(),
-                    rf,
+                    target_degree,
                 )))
             }
         }
@@ -91,11 +94,11 @@ mod tests {
     use crate::strategies::config::{ConnectionParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(rf: Option<usize>) -> ConnectionParams {
+    fn params(target_degree: Option<usize>) -> ConnectionParams {
         ConnectionParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
             genesis: 0,
-            rf,
+            target_degree,
         }
     }
 
@@ -107,7 +110,7 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: hash-gated validates its required fanout in build.
+    // ADR 0028: hash-gated validates its required target degree in build.
     #[test]
     fn hash_gated_requires_rf() {
         assert!(matches!(

@@ -1,61 +1,58 @@
 //! The verifiable hash-gated connection-selection policy: [`HashGatedConnection`]
 //! (bucketed-pull, ADR 0024).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use super::ConnectionStrategy;
 use crate::peer::PeerId;
 use crate::strategies::edge::{bucket_count, is_valid_edge};
+use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 /// The verifiable, bucketed connection-selection policy (ADR 0024).
 ///
-/// For each joined topic `T` at the current `interval`, dial candidate `U` iff
-/// the shared edge predicate `H(genesis, T, self, U, interval) mod B == 0` holds,
-/// where `B = max(1, round(|candidates_T| / rf))`. Expected out-degree per topic
-/// ≈ `rf`; a topic with `≤ ~rf` candidates has `B = 1` and connects to **all** of
-/// them (small-topic fallback). Selection is pure and reproducible: `genesis` and
-/// `rf` are fixed fields, the interval is an input, the hash and modulus are
-/// fixed, and the result is a function of the *set* (order-independent). The
-/// acceptor recomputes the same predicate to **verify** the request (ADR 0025).
+/// For each joined topic `T` at the current interval, dial candidate `U` iff the
+/// shared edge predicate `H(genesis, T, self, U, interval) mod B == 0` holds,
+/// where `B = max(1, round(|candidates_T| / target_degree))`. Expected out-degree
+/// per topic ≈ `target_degree`; a topic with `≤ ~target_degree` candidates has
+/// `B = 1` and connects to **all** of them (small-topic fallback). Selection is
+/// pure and reproducible: `genesis` and `target_degree` are fixed fields, the
+/// interval comes from the [`NodeView`], the hash and modulus are fixed, and the
+/// result is a function of the *set* (order-independent). The acceptor recomputes
+/// the same predicate to **verify** the request (ADR 0025).
 pub struct HashGatedConnection {
     genesis: u64,
     self_id: PeerId,
-    rf: usize,
+    target_degree: usize,
 }
 
 impl HashGatedConnection {
     /// Build the policy for one node from already-parsed inputs.
     #[must_use]
-    pub fn new(genesis: u64, self_id: PeerId, rf: usize) -> Self {
+    pub fn new(genesis: u64, self_id: PeerId, target_degree: usize) -> Self {
         Self {
             genesis,
             self_id,
-            rf,
+            target_degree,
         }
     }
 }
 
 impl ConnectionStrategy for HashGatedConnection {
-    fn expected_upstream(
-        &self,
-        subscriptions: &BTreeSet<TopicId>,
-        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-        interval: u64,
-    ) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
-        for topic in subscriptions {
-            let Some(peers) = candidates.get(topic) else {
+        for topic in view.subscriptions {
+            let Some(peers) = view.candidates.get(topic) else {
                 continue;
             };
-            let buckets = bucket_count(peers.len(), self.rf);
+            let buckets = bucket_count(peers.len(), self.target_degree);
             for candidate in peers {
                 if is_valid_edge(
                     self.genesis,
                     topic,
                     &self.self_id,
                     candidate,
-                    interval,
+                    view.interval,
                     buckets,
                 ) {
                     expected.insert((candidate.clone(), topic.clone()));
@@ -71,8 +68,9 @@ mod tests {
     use super::HashGatedConnection;
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
+    use crate::strategies::view::NodeView;
     use crate::topic::TopicId;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
     use std::str::FromStr;
 
     fn peer(s: &str) -> PeerId {
@@ -93,16 +91,27 @@ mod tests {
     fn ids(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("c{i:03}")).collect()
     }
+    fn view<'a>(
+        subs: &'a BTreeSet<TopicId>,
+        cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+        down: &'a HashSet<(PeerId, TopicId)>,
+    ) -> NodeView<'a> {
+        NodeView {
+            subscriptions: subs,
+            candidates: cands,
+            downstream: down,
+            interval: 0,
+        }
+    }
 
-    // FR-001 small-topic (≤ rf candidates ⇒ B=1 ⇒ connect-to-all).
+    // FR-001 small-topic (≤ target_degree candidates ⇒ B=1 ⇒ connect-to-all).
     #[test]
     fn small_topic_connects_to_all() {
-        let policy = HashGatedConnection::new(7, peer("self"), 8);
-        let expected = policy.expected_upstream(
-            &subscriptions(&["t1"]),
-            &candidates(&[("t1", &["a", "b", "c"])]),
-            0,
-        );
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["a", "b", "c"])]);
+        let down = HashSet::new();
+        let expected = HashGatedConnection::new(7, peer("self"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
             BTreeSet::from([
@@ -110,7 +119,7 @@ mod tests {
                 (peer("b"), topic("t1")),
                 (peer("c"), topic("t1")),
             ]),
-            "with ≤ rf candidates B=1, so every candidate is a valid edge",
+            "with ≤ target_degree candidates B=1, so every candidate is a valid edge",
         );
     }
 
@@ -119,31 +128,30 @@ mod tests {
     fn selection_is_deterministic_and_order_independent() {
         let ids = ids(80);
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-        let policy = HashGatedConnection::new(42, peer("self"), 8);
-        let one =
-            policy.expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &refs)]), 0);
         let mut rev = refs.clone();
         rev.reverse();
-        let two =
-            policy.expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &rev)]), 0);
+        let subs = subscriptions(&["t1"]);
+        let down = HashSet::new();
+        let policy = HashGatedConnection::new(42, peer("self"), 8);
+        let one = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &refs)]), &down));
+        let two = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &rev)]), &down));
         assert_eq!(one, two, "selection must not depend on iteration order");
     }
 
-    // FR-003/SC-004: expected out-degree tracks rf on a large candidate set.
+    // FR-003/SC-004: expected out-degree tracks target_degree on a large set.
     #[test]
-    fn out_degree_tracks_rf() {
+    fn out_degree_tracks_target_degree() {
         let ids = ids(80);
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-        let rf = 8usize;
-        let expected = HashGatedConnection::new(1, peer("self"), rf).expected_upstream(
-            &subscriptions(&["t1"]),
-            &candidates(&[("t1", &refs)]),
-            0,
-        );
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &refs)]);
+        let down = HashSet::new();
+        let expected = HashGatedConnection::new(1, peer("self"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
         // 80 candidates, B = round(80/8) = 10 ⇒ expected ≈ 8. Lenient bound.
         assert!(
             (3..=18).contains(&expected.len()),
-            "degree {} should be near rf={rf}",
+            "degree {} should be near target_degree=8",
             expected.len(),
         );
     }
@@ -153,29 +161,24 @@ mod tests {
     fn selection_varies_by_self_id() {
         let ids = ids(60);
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let by_x = HashGatedConnection::new(1, peer("x"), 8).expected_upstream(
-            &subscriptions(&["t1"]),
-            &cands,
-            0,
-        );
-        let by_y = HashGatedConnection::new(1, peer("y"), 8).expected_upstream(
-            &subscriptions(&["t1"]),
-            &cands,
-            0,
-        );
+        let down = HashSet::new();
+        let by_x = HashGatedConnection::new(1, peer("x"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
+        let by_y = HashGatedConnection::new(1, peer("y"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
         assert_ne!(by_x, by_y, "per-node derivation should diverge");
     }
 
     // A candidate on an unjoined topic is never selected (membership-scoped).
     #[test]
     fn ignores_unjoined_topics() {
-        let policy = HashGatedConnection::new(7, peer("self"), 8);
-        let expected = policy.expected_upstream(
-            &subscriptions(&["t1"]),
-            &candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]),
-            0,
-        );
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]);
+        let down = HashSet::new();
+        let expected = HashGatedConnection::new(7, peer("self"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
@@ -184,17 +187,13 @@ mod tests {
     fn default_genesis_zero_is_deterministic() {
         let ids = ids(40);
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let first = HashGatedConnection::new(0, peer("self"), 8).expected_upstream(
-            &subscriptions(&["t1"]),
-            &cands,
-            0,
-        );
-        let again = HashGatedConnection::new(0, peer("self"), 8).expected_upstream(
-            &subscriptions(&["t1"]),
-            &cands,
-            0,
-        );
+        let down = HashSet::new();
+        let first = HashGatedConnection::new(0, peer("self"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
+        let again = HashGatedConnection::new(0, peer("self"), 8)
+            .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(first, again, "genesis 0 must reproduce identically");
     }
 }

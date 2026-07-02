@@ -13,8 +13,8 @@
 //!
 //! Each kind reads only the params for its own seam (no shared grab-bag), so
 //! construction *and* required-parameter validation live with the strategy, not
-//! scattered across the edge. The fan-out seam joins the same builder at feature
-//! 015 (`FanoutStrategyKind` + `FanoutParams`).
+//! scattered across the edge. (Fan-out stays `ForwardToAll`, injected separately;
+//! it is not built through this two-phase seam.)
 
 use std::sync::Arc;
 
@@ -31,8 +31,8 @@ pub struct ConnectionParams {
     pub self_id: PeerId,
     /// Public genesis nonce for the edge predicate (default 0).
     pub genesis: u64,
-    /// Fixed fanout `RF` — required by `hash-gated` (bucket count derives from it).
-    pub rf: Option<usize>,
+    /// The fixed target connection degree `target_degree` — required by `hash-gated` (bucket count derives from it).
+    pub target_degree: Option<usize>,
 }
 
 /// Already-parsed parameters for the acceptance (inbound/downstream) seam.
@@ -42,9 +42,9 @@ pub struct AcceptanceParams {
     pub self_id: PeerId,
     /// Public genesis nonce for the edge predicate (default 0).
     pub genesis: u64,
-    /// Fixed fanout `RF` — required by `verifiable-bounded`.
-    pub rf: Option<usize>,
-    /// Accept-cap buffer `c` in `OC = ⌈rf + c·√rf⌉` (default 3).
+    /// The fixed target connection degree `target_degree` — required by `verifiable-bounded`.
+    pub target_degree: Option<usize>,
+    /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3).
     pub cap_buffer: usize,
 }
 
@@ -63,8 +63,8 @@ pub enum StrategyConfigError {
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
-/// by [`NodeStrategiesBuilder::build`]. (Fan-out is injected separately until
-/// feature 015 folds it into this builder.)
+/// by [`NodeStrategiesBuilder::build`]. (Fan-out stays `ForwardToAll`, injected
+/// separately — it is not built through this two-phase seam.)
 pub struct NodeStrategies {
     /// The connection (dial/upstream) strategy.
     pub connection: Arc<dyn ConnectionStrategy>,

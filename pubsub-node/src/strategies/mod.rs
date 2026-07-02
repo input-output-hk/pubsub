@@ -14,3 +14,4 @@ pub mod config;
 pub mod connection;
 pub mod edge;
 pub mod fanout;
+pub mod view;

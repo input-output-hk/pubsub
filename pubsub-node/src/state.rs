@@ -27,6 +27,7 @@ use crate::received::{Origin, ReceivedDelivery};
 use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
 use crate::strategies::connection::ConnectionStrategy;
 use crate::strategies::fanout::FanoutStrategy;
+use crate::strategies::view::NodeView;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
@@ -266,11 +267,13 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// `subscriptions` field and the current interval (FR-006).
 fn handle_heartbeat(state: &mut NodeState, interval: u64) -> Vec<Effect> {
     state.interval = interval;
-    let expected = state.connection_strategy.expected_upstream(
-        &state.subscriptions,
-        &state.candidates,
+    let view = NodeView {
+        subscriptions: &state.subscriptions,
+        candidates: &state.candidates,
+        downstream: &state.downstream,
         interval,
-    );
+    };
+    let expected = state.connection_strategy.expected_upstream(&view);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
     let self_id = state.self_id.clone();
@@ -607,14 +610,13 @@ fn handle_connection_request(
     emitter: PeerId,
     topic: TopicId,
 ) -> Vec<Effect> {
-    let admission = state.acceptance_strategy.admit(
-        &emitter,
-        &topic,
-        &state.subscriptions,
-        &state.candidates,
-        &state.downstream,
-        state.interval,
-    );
+    let view = NodeView {
+        subscriptions: &state.subscriptions,
+        candidates: &state.candidates,
+        downstream: &state.downstream,
+        interval: state.interval,
+    };
+    let admission = state.acceptance_strategy.admit(&emitter, &topic, &view);
     match admission {
         Admission::Accept => {
             // Idempotent: the set absorbs a duplicate; a re-dial re-sends Accepted.

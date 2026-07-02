@@ -1,9 +1,10 @@
 //! The v1 connection-selection policy: [`ConnectToAllCandidates`].
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use super::ConnectionStrategy;
 use crate::peer::PeerId;
+use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 /// The v1 connection-selection policy: connect to **every** candidate on
@@ -16,15 +17,10 @@ use crate::topic::TopicId;
 pub struct ConnectToAllCandidates;
 
 impl ConnectionStrategy for ConnectToAllCandidates {
-    fn expected_upstream(
-        &self,
-        subscriptions: &BTreeSet<TopicId>,
-        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-        _interval: u64,
-    ) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
-        for topic in subscriptions {
-            if let Some(peers) = candidates.get(topic) {
+        for topic in view.subscriptions {
+            if let Some(peers) = view.candidates.get(topic) {
                 for peer in peers {
                     expected.insert((peer.clone(), topic.clone()));
                 }
@@ -39,8 +35,9 @@ mod tests {
     use super::ConnectToAllCandidates;
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
+    use crate::strategies::view::NodeView;
     use crate::topic::TopicId;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
     use std::str::FromStr;
 
     fn peer(s: &str) -> PeerId {
@@ -62,14 +59,28 @@ mod tests {
             .collect()
     }
 
-    // FR-006..009: v1 policy expects every candidate on every joined topic.
+    /// A connection-selection view over `subs`/`cands` (downstream irrelevant to
+    /// selection; interval 0).
+    fn view<'a>(
+        subs: &'a BTreeSet<TopicId>,
+        cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+        down: &'a HashSet<(PeerId, TopicId)>,
+    ) -> NodeView<'a> {
+        NodeView {
+            subscriptions: subs,
+            candidates: cands,
+            downstream: down,
+            interval: 0,
+        }
+    }
+
+    // FR-010: v1 policy expects every candidate on every joined topic.
     #[test]
     fn expects_every_candidate_across_joined_topics() {
-        let expected = ConnectToAllCandidates.expected_upstream(
-            &subscriptions(&["t1", "t2"]),
-            &candidates(&[("t1", &["a", "b"]), ("t2", &["c"])]),
-            0,
-        );
+        let subs = subscriptions(&["t1", "t2"]);
+        let cands = candidates(&[("t1", &["a", "b"]), ("t2", &["c"])]);
+        let down = HashSet::new();
+        let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
             BTreeSet::from([
@@ -84,37 +95,36 @@ mod tests {
     // is scoped to the node's own membership.
     #[test]
     fn candidates_on_unjoined_topics_are_ignored() {
-        let expected = ConnectToAllCandidates.expected_upstream(
-            &subscriptions(&["t1"]),
-            &candidates(&[("t1", &["a"]), ("t2", &["b"])]),
-            0,
-        );
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["a"]), ("t2", &["b"])]);
+        let down = HashSet::new();
+        let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
     // Empty view → empty expected set (no membership, or no candidates).
     #[test]
     fn empty_view_expects_nothing() {
+        let empty_subs = BTreeSet::new();
+        let empty_cands = BTreeMap::new();
+        let down = HashSet::new();
         assert!(ConnectToAllCandidates
-            .expected_upstream(&BTreeSet::new(), &BTreeMap::new(), 0)
+            .expected_upstream(&view(&empty_subs, &empty_cands, &down))
             .is_empty());
+        let subs = subscriptions(&["t1"]);
         assert!(ConnectToAllCandidates
-            .expected_upstream(&subscriptions(&["t1"]), &BTreeMap::new(), 0)
+            .expected_upstream(&view(&subs, &empty_cands, &down))
             .is_empty());
     }
 
     // Self-exclusion is input-borne: the policy passes through whatever the
-    // candidate sets contain, so a self-excluded input yields a self-excluded
-    // expected set.
+    // candidate sets contain, so a self-excluded input yields a self-excluded set.
     #[test]
     fn self_exclusion_is_input_borne() {
-        // The real fold never inserts self; modelling that, "self" is absent
-        // from the candidate input and therefore absent from the output.
-        let expected = ConnectToAllCandidates.expected_upstream(
-            &subscriptions(&["t1"]),
-            &candidates(&[("t1", &["a", "b"])]),
-            0,
-        );
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["a", "b"])]);
+        let down = HashSet::new();
+        let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
         assert!(!expected.contains(&(peer("self"), topic("t1"))));
         assert_eq!(expected.len(), 2);
     }

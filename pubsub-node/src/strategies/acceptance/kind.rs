@@ -50,14 +50,17 @@ impl AcceptanceStrategyKind {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::VerifiableBounded => {
-                let rf = params.rf.ok_or(StrategyConfigError::MissingParameter {
-                    strategy: self.name(),
-                    parameter: "a fanout (--rf)",
-                })?;
+                let target_degree =
+                    params
+                        .target_degree
+                        .ok_or(StrategyConfigError::MissingParameter {
+                            strategy: self.name(),
+                            parameter: "a target degree (--target-degree)",
+                        })?;
                 Ok(Arc::new(VerifiableBoundedAcceptance::new(
                     params.genesis,
                     params.self_id.clone(),
-                    rf,
+                    target_degree,
                     params.cap_buffer,
                 )))
             }
@@ -91,11 +94,11 @@ mod tests {
     use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(rf: Option<usize>) -> AcceptanceParams {
+    fn params(target_degree: Option<usize>) -> AcceptanceParams {
         AcceptanceParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
             genesis: 0,
-            rf,
+            target_degree,
             cap_buffer: 3,
         }
     }
@@ -108,7 +111,7 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: verifiable-bounded validates its required fanout in build.
+    // ADR 0028: verifiable-bounded validates its required target degree in build.
     #[test]
     fn verifiable_bounded_requires_rf() {
         assert!(matches!(

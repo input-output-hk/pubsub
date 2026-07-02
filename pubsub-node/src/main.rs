@@ -33,16 +33,16 @@ struct Args {
     topic_registry: PathBuf,
 
     /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--rf
+    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--target-degree
     /// upstreams per topic, gated by the edge predicate over --genesis).
     #[arg(long, default_value = "connect-to-all")]
     connection_strategy: ConnectionStrategyKind,
 
-    /// Fixed fanout `RF` — the target expected upstream degree per topic. Required
+    /// The fixed target connection degree `target_degree` — the target expected upstream degree per topic. Required
     /// for the `hash-gated` / `verifiable-bounded` strategies; ignored otherwise.
     /// The per-topic bucket count derives from it; small topics connect to all.
     #[arg(long)]
-    rf: Option<usize>,
+    target_degree: Option<usize>,
 
     /// Public genesis nonce folded into the verifiable edge predicate (default 0).
     /// Both peers use it; the same genesis reproduces the same topology.
@@ -51,11 +51,11 @@ struct Args {
 
     /// Inbound-acceptance strategy (case-insensitive): `accept-from-all` (the
     /// default) or `verifiable-bounded` (verifies the edge predicate + caps
-    /// downstream at ⌈rf + c·√rf⌉ per topic, refusing over-capacity with `Rejected`).
+    /// downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing over-capacity with `Rejected`).
     #[arg(long, default_value = "accept-from-all")]
     acceptance_strategy: AcceptanceStrategyKind,
 
-    /// Accept-cap buffer `c` in `OC = ⌈rf + c·√rf⌉` (default 3). Only affects the
+    /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3). Only affects the
     /// `verifiable-bounded` acceptance strategy.
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
@@ -113,18 +113,18 @@ async fn main() {
     // keys); phase 2 binds each seam's own params and builds them all, validating
     // the parameters each chosen strategy requires. The edge stays lean — it maps
     // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
-    // unchanged, and fan-out joins this builder at feature 015.
+    // unchanged; fan-out stays `ForwardToAll`, injected separately below.
     let strategies = NodeStrategies::builder(args.connection_strategy, args.acceptance_strategy)
         .build(
             &ConnectionParams {
                 self_id: args.self_id.clone(),
                 genesis: args.genesis,
-                rf: args.rf,
+                target_degree: args.target_degree,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
                 genesis: args.genesis,
-                rf: args.rf,
+                target_degree: args.target_degree,
                 cap_buffer: args.cap_buffer,
             },
         )

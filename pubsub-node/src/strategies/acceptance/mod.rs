@@ -15,9 +15,10 @@
 //! `ConnectToAllCandidates`. Registration gates delivery, not acceptance (the S7
 //! pin), so this seam reads the membership-derived view only.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::peer::PeerId;
+use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 mod accept_from_all;
@@ -65,22 +66,14 @@ pub enum Admission {
 /// pin). The v1 implementor is [`AcceptFromAllCandidates`]; the verifiable bounded
 /// policy is [`VerifiableBoundedAcceptance`].
 pub trait ConnectionAcceptanceStrategy: Send + Sync {
-    /// The admission decision for a verified `Request` from `emitter` on `topic`
-    /// at the current `interval`.
+    /// The admission decision for a verified `Request` from `emitter` on `topic`,
+    /// given the node's read-only [`NodeView`].
     ///
-    /// `subscriptions` is the node's membership-derived topic set; `candidates`
-    /// maps each topic to the peers discovered on it (self never present);
-    /// `downstream` is the node's current accepted-inbound set (to count the
-    /// cap); `interval` lets a policy recompute the verifiable edge predicate.
-    fn admit(
-        &self,
-        emitter: &PeerId,
-        topic: &TopicId,
-        subscriptions: &BTreeSet<TopicId>,
-        candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-        downstream: &HashSet<(PeerId, TopicId)>,
-        interval: u64,
-    ) -> Admission;
+    /// `emitter`/`topic` are the request; the view supplies the node state a
+    /// policy reads — `subscriptions`/`candidates` (membership), `downstream`
+    /// (the current inbound set, to count the cap), and `interval` (to recompute
+    /// the verifiable edge predicate).
+    fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission;
 }
 
 /// Whether a verified `Request` from `emitter` on `topic` is membership-valid:
