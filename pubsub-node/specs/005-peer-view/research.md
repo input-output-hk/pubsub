@@ -18,13 +18,13 @@ Decisions resolving the Technical Context unknowns. Per item: **Decision / Ratio
 
 **Alternatives**: a dedicated keyed-hash crate (e.g. `siphasher`) — viable but needs a justified-dependency ADR; deferred unless the in-tree digest is unsuitable.
 
-## R3 — Failed-peer set: sticky for the run, `ConnectionSetup`-driven back-fill
+## R3 — Rejection handling: drop the pending upstream only (no retry/back-fill in 005)
 
-**Decision**: The node keeps a per-`(peer, topic)` **failed** set (ordered). Before selection, the node hands the strategy the viable view (candidates minus failed). On an explicit over-capacity `Rejected`, the node removes the dead `AwaitingAccept` entry, adds the peer to the failed set (**sticky — never reset within the run**, per Clarifications), and a subsequent `ConnectionSetup` re-invocation re-runs selection — back-fill falls out of recomputation (dropping a failed peer shifts the top-k to the next-ranked). Under-fill is terminal when the viable set is exhausted below the bound.
+**Decision**: On an explicit over-capacity `Rejected`, the dialer's **only** action is to remove the matching pending `AwaitingAccept` entry, so it stops waiting for an `Accepted` that will never arrive. There is no failed-peer set, no rejection counter, and no back-fill: the strategy selects straight over the current `candidates` view (no candidates-minus-failed diff), and the trait signature stays a pure top-k over that view. The realized upstream degree may therefore settle below target after rejections; re-forming connections is deferred to a future heartbeat/reshuffle layer. Retry-to-a-minimum (back-fill) is a **separate future strategy family** (working names `BackfillingSeededBoundedConnection` / `RetryingSeededBoundedConnection`), explicitly out of scope for 005.
 
-**Rationale**: simplest deterministic, monotone rule (Clarifications Q1=A); keeps the dial-trait signature stable (the strategy stays a pure top-k over the viable set); `ConnectionSetup` is already the re-triggerable re-dial hook, so no new event/timer is needed (Clarifications Q2 / FR-014).
+**Rationale**: the minimal reaction keeps the transition pure and deterministic while avoiding new persistent ordered state (FR-017). Back-fill semantics (which peers to exclude, when to reset, how to re-select) are policy choices better isolated in their own strategy family than baked into `SeededBoundedConnection`; deferring them keeps 005 focused on bounded selection + explicit rejection (FR-014).
 
-**Alternatives**: reset failed-set on membership change or per-`ConnectionSetup` — rejected (Clarifications: oscillation, lifecycle coupling). A new round/tick event — rejected (re-dial = `ConnectionSetup` re-invocation).
+**Alternatives**: a sticky failed-set + `ConnectionSetup`-driven back-fill (the earlier design) — dropped in the PR-73 simplification (added persistent state and re-dial policy that belong to a dedicated future strategy family). A new round/tick event — rejected (out of scope; a future heartbeat/reshuffle layer owns re-forming).
 
 ## R4 — Acceptance seam: reason-bearing decision over current downstream
 

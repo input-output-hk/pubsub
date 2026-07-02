@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use common::node_with_strategy;
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, PeerId, SeededBoundedSelection,
+    InMemoryNetwork, InMemorySubscriptionRegistry, PeerId, SeededBoundedConnection,
     SubscriptionRegistryControl, TopicId,
 };
 
@@ -42,7 +42,7 @@ async fn await_upstream_count(node: &pubsub_node::Node, n: usize, timeout: Durat
     }
 }
 
-/// Build a single node running `SeededBoundedSelection { seed, out_degree }` on
+/// Build a single node running `SeededBoundedConnection { seed, out_degree }` on
 /// one topic with `candidates` other members **pre-seeded** in the shared
 /// subscription registry (so the node's one readiness-driven selection sees the
 /// full candidate set), and return the set of peers it selected as upstreams.
@@ -65,7 +65,7 @@ async fn selected_upstreams(seed: u64, out_degree: usize, candidates: &[&str]) -
             .expect("seed candidate membership");
     }
 
-    let strategy = Arc::new(SeededBoundedSelection::new(seed, peer("self"), out_degree));
+    let strategy = Arc::new(SeededBoundedConnection::new(seed, peer("self"), out_degree));
     let node = node_with_strategy(
         &registry,
         &network,

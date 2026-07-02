@@ -12,7 +12,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{ConnectToAllCandidates, ConnectionStrategy, SeededBoundedSelection};
+use super::{ConnectToAllCandidates, ConnectionStrategy, SeededBoundedConnection};
 use crate::strategies::config::{ConnectionParams, StrategyConfigError};
 
 /// A selectable connection-selection strategy, identified by a readable name.
@@ -20,7 +20,7 @@ use crate::strategies::config::{ConnectionParams, StrategyConfigError};
 pub enum ConnectionStrategyKind {
     /// The full-mesh policy ([`ConnectToAllCandidates`](super::ConnectToAllCandidates)).
     ConnectToAll,
-    /// The seeded, bounded policy ([`SeededBoundedSelection`](super::SeededBoundedSelection)).
+    /// The seeded, bounded policy ([`SeededBoundedConnection`](super::SeededBoundedConnection)).
     SeededBounded,
 }
 
@@ -63,7 +63,7 @@ impl ConnectionStrategyKind {
                             strategy: self.name(),
                             parameter: "an upstream degree (--upstream-degree)",
                         })?;
-                Ok(Arc::new(SeededBoundedSelection::new(
+                Ok(Arc::new(SeededBoundedConnection::new(
                     params.seed,
                     params.self_id.clone(),
                     upstream_degree,

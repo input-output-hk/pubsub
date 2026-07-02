@@ -77,7 +77,7 @@ pub use strategies::config::{
     AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
 };
 pub use strategies::connection::{
-    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, SeededBoundedSelection,
+    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, SeededBoundedConnection,
     UnknownConnectionStrategy,
 };
 pub use strategies::fanout::{FanoutStrategy, ForwardToAll};

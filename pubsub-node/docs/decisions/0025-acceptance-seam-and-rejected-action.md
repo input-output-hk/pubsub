@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 
-**Context**: Feature 005 (US2) bounds a node's **inbound** degree. The v1 acceptance seam returned a bare `bool` (`accepts -> bool`) and the handler dropped a refused request silently. To bound the downstream degree and refuse over capacity, the handler must (a) see the node's current downstream so the policy can count, and (b) distinguish a *membership* failure (a silent drop — must not leak membership to a non-member) from an *over-capacity* refusal (which must tell the dialer so it can back-fill). A bare `bool` cannot carry that distinction.
+**Context**: Feature 005 (US2) bounds a node's **inbound** degree. The v1 acceptance seam returned a bare `bool` (`accepts -> bool`) and the handler dropped a refused request silently. To bound the downstream degree and refuse over capacity, the handler must (a) see the node's current downstream so the policy can count, and (b) distinguish a *membership* failure (a silent drop — must not leak membership to a non-member) from an *over-capacity* refusal (which must tell the dialer so it can stop awaiting an acceptance). A bare `bool` cannot carry that distinction.
 
 The connection-seam doc note claimed degree caps would "slot in behind this trait without a signature change." This feature finds that **false** for the acceptance side — surfaced here per Constitution Principle IV rather than worked around silently.
 
@@ -11,25 +11,25 @@ The connection-seam doc note claimed degree caps would "slot in behind this trai
 1. **Reason-bearing return.** Replace `accepts(...) -> bool` with `admit(...) -> Admission`, where `Admission { Accept, RejectMembership, RejectOverCapacity }`. The method also takes the node's current `downstream` set so a policy can enforce a per-topic downstream degree bound. (Type named `Admission` — admission control — chosen over `AcceptanceDecision`/`ConnectionResult`.)
 2. **New impl.** `BoundedAcceptance { downstream_degree }`: `RejectMembership` if not membership-valid; else `RejectOverCapacity` once the topic's downstream count reaches `downstream_degree`; else `Accept`. `AcceptFromAllCandidates` maps its old logic onto `Accept`/`RejectMembership` and never refuses for capacity.
 3. **New control action.** `ConnectionAction::Rejected { topic }` (acceptor → dialer, wire tag `0x03`), emitted on `RejectOverCapacity`. Distinct from `Terminated` (tears down an *established* link) and from a misbehaviour severance — a rejection is a normal capacity outcome and is **not** treated as misbehaviour. `RejectMembership` stays a silent drop (no reply).
-4. **Dialer back-fill.** `handle_connection_rejected` removes the matching `AwaitingAccept` upstream, inserts the peer into the **sticky** `failed_upstream` set (never re-dialed for that topic this run), and increments a `rejections_received` counter (exposed via a getter — the observability surface, asserted through state, not logs). A subsequent `ConnectionSetup` re-invocation selects over the viable view (candidates minus failed) and so back-fills the next-ranked candidate — no new round/timer event. A `Rejected` with no matching pending entry is a logged drop (`unsolicited_reject`).
+4. **Dialer handling (minimal, no back-fill).** `handle_connection_rejected` removes the matching `AwaitingAccept` upstream so the dialer stops awaiting an acceptance — that is the **only** handling. There is no failed-peer set, no rejection counter, and no back-fill: the realized upstream degree may settle below target, and re-forming connections is deferred to the future heartbeat/reshuffle layer (retry-to-a-minimum is a separate future strategy family). A `Rejected` with no matching pending entry is a logged drop (`unsolicited_reject`).
 5. **Config selector.** Acceptance strategy selection mirrors the connection side: a case-insensitive `AcceptanceStrategyKind` (`accept-from-all` / `bounded`) with a unique per-strategy byte-string tag, parsed at the edge (`--acceptance-strategy` + `--downstream-degree`).
 
 ## Consequences
 
 - The trait signature change ripples to `AcceptFromAllCandidates`, the `handle_connection_request` call site, and the test call sites — all updated in this change.
 - "Rejected" is always an explicit over-capacity signal; there is no timeout/no-response notion (Clarifications: the controlled, lossless substrate answers every dial).
-- `rejections_received` gives the rejection-rate observability (FR-016/SC-007); back-fill keeps realized upstream degree near target despite refusals (FR-014).
+- The dialer's reaction is minimal (drop the pending upstream); realized upstream degree may under-fill, which is the accepted no-retry baseline (FR-014/FR-015).
 
-## Semantics of `Rejected` and the sticky failed set (scope boundary)
+## Semantics of `Rejected` (scope boundary)
 
 A `Rejected` is a **positive liveness + capacity signal**: it means the candidate is *alive and at its per-topic out-degree cap* (its downstream count reached `downstream_degree`), not that it is unreachable. In the in-memory substrate every dial is answered, so today `Rejected` is the *only* non-accept outcome a dialer observes; a true offline/unreachable candidate is unmodelled (there is no timeout — see Consequences).
 
-The sticky `failed_upstream` set is a **within-formation-episode convergence device**, not a churn policy: because selection ranking is deterministic, re-invoking `ConnectionSetup` without excluding the just-rejected candidate would re-pick it and spin. Excluding it lets back-fill advance to the next-ranked candidate and terminate within the episode. It deliberately does **not** encode a long-lived judgement about the peer.
+This feature does **not** act on that signal beyond dropping the pending upstream. Using it to re-rank or filter candidates across intervals — treating an alive-but-full peer as a valid *future* candidate (deprioritized/retryable rather than dropped) — together with **offline detection** (a timeout that hard-filters genuinely unreachable candidates over a real/faulty transport), belongs to the future dynamic-connection-transitions / experiment layer and the retry/back-fill strategy family. Neither is in 005's scope. See [[N-029]].
 
-Cross-interval churn stays the heartbeat's responsibility (the future dynamic-connection-transitions / experiment layer). That layer should treat `Rejected` as a **soft, re-rankable** signal — an alive-but-full peer is a valid *future* candidate (it may churn and free a slot), so it is deprioritized/retryable across intervals rather than permanently dropped — and is where **offline detection** (a timeout that hard-filters genuinely unreachable candidates) belongs. Realizing the candidate-filtering payoff of an explicit rejection therefore depends on both a transport that can drop/time out and heartbeat re-selection; neither is in 005's scope. See [[N-029]].
+> An earlier revision of this feature added a sticky `failed_upstream` set + `ConnectionSetup`-driven back-fill on the dialer side; both were removed in the PR-73 simplification (spec Clarifications, Session 2026-07-02) to start from the no-retry baseline.
 
 ## Alternatives rejected
 
 - **Keep `bool`, move the capacity check into the handler** — splits the acceptance *policy* across the strategy and the handler, defeating the seam.
 - **Overload `Terminated` for rejection** — conflates a never-established refusal with tearing down a live link, and muddies metrics.
-- **A new round/tick event to drive back-fill** — rejected; re-dial is `ConnectionSetup` re-invocation (ADR 0024).
+- **In-feature back-fill (sticky failed-set + `ConnectionSetup`-driven re-dial)** — an earlier revision added it; removed for simplicity so the no-retry baseline is observed first. Retry/back-fill is a separate future strategy family (ADR 0024).

@@ -257,18 +257,19 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         .any(|e| matches!(e, Effect::Misbehaved { .. })));
 }
 
-// FR-014 / US2: a Rejected dial is marked failed (sticky) and the next
-// ConnectionSetup back-fills the next-ranked candidate; the failed peer is
-// not re-dialed, and the rejection is counted.
+// US2: a Rejected dial removes the pending upstream so the dialer stops waiting
+// on an Accepted that will never come — the *only* handling. There is no retry
+// and no back-fill state: the realized upstream degree simply settles below
+// target (re-forming is the future heartbeat/reshuffle layer's job).
 #[test]
-fn rejected_dial_is_marked_failed_and_backfilled() {
+fn rejected_dial_removes_pending_upstream() {
     let t = topic("t1");
     let mut state = NodeState::new(
         peer("self"),
         HashSet::from([t.clone()]),
         Arc::new(TestVerifier),
         alias_signer("self"),
-        Arc::new(SeededBoundedSelection::new(7, peer("self"), 1)),
+        Arc::new(SeededBoundedConnection::new(7, peer("self"), 1)),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
     );
@@ -284,22 +285,18 @@ fn rejected_dial_is_marked_failed_and_backfilled() {
     assert_eq!(initial.len(), 1);
     let rejected_peer = initial[0].0.clone();
 
-    // That peer rejects the dial.
-    apply(&mut state, rejected_from(&rejected_peer.to_string(), "t1"));
-    assert!(!state
-        .upstream
-        .contains_key(&(rejected_peer.clone(), t.clone())));
-    assert!(state
-        .failed_upstream
-        .contains(&(rejected_peer.clone(), t.clone())));
-    assert_eq!(state.rejections_received, 1);
-
-    // Re-invoking setup back-fills the next-ranked candidate (failed excluded).
-    apply(&mut state, Event::ConnectionSetup);
-    let after: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
-    assert_eq!(after.len(), 1, "back-filled to a single new upstream");
-    assert_ne!(
-        after[0].0, rejected_peer,
-        "the failed peer is not re-dialed"
+    // That peer rejects the dial: the pending upstream is dropped and nothing
+    // else happens — no effects, no back-fill.
+    let effects = apply(&mut state, rejected_from(&rejected_peer.to_string(), "t1"));
+    assert!(effects.is_empty(), "a rejection produces no effects");
+    assert!(
+        !state
+            .upstream
+            .contains_key(&(rejected_peer.clone(), t.clone())),
+        "the pending upstream is removed",
+    );
+    assert!(
+        state.upstream.is_empty(),
+        "no back-fill: the realized degree stays below target",
     );
 }

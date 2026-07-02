@@ -9,10 +9,10 @@ expected_upstream(subscriptions: &Set<TopicId>,
                   candidates:    &Map<TopicId, Set<PeerId>>) -> Set<(PeerId, TopicId)>
 ```
 
-- Node hands in the **viable** candidate view (candidates minus `failed_upstream`).
+- Node hands in the current `candidates` view directly (no failed-set pre-filter; the earlier candidates-minus-failed diff was removed in the PR-73 simplification).
 - Impls:
   - `ConnectToAllCandidates` (existing, default) — all candidates per joined topic.
-  - `SeededBoundedSelection { seed, self_id, upstream_degree }` (new) — lowest-`upstream_degree` candidates per topic by stable SHA-256 of `(seed, self_id, topic, candidate_id)`, tie-broken on `candidate_id`; all when candidates ≤ `upstream_degree`. Pure; deterministic; no RNG.
+  - `SeededBoundedConnection { seed, self_id, upstream_degree }` (new) — lowest-`upstream_degree` candidates per topic by stable SHA-256 of `(seed, self_id, topic, candidate_id)`, tie-broken on `candidate_id`; all when candidates ≤ `upstream_degree`. Pure; deterministic; no RNG.
 - Guarantees: identical inputs → identical output regardless of iteration order (FR-003); uniform over a seed sweep (FR-007); |output per topic| ≤ `upstream_degree` (FR-001/FR-002).
 
 ## Inbound side — `ConnectionAcceptanceStrategy` (evolved, ADR 0025)

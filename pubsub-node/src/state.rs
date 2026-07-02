@@ -13,7 +13,7 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::connection_state::UpstreamState;
@@ -71,19 +71,6 @@ pub(crate) struct NodeState {
     /// fan-out destinations — as a set of `(peer, topic)` entries with no
     /// per-entry state (FR-002).
     downstream: HashSet<(PeerId, TopicId)>,
-    /// Upstream `(peer, topic)` pairs a dial was rejected by (explicit
-    /// over-capacity rejections only). Excluded from the viable candidate view
-    /// before selection, so re-invoking `ConnectionSetup` back-fills the
-    /// next-ranked candidate (feature 005, ADR 0024). **Sticky** — once added, a
-    /// peer is never re-dialed for that topic this run. An ordered `BTreeSet` for
-    /// reproducibility (FR-017). Empty until the rejection transition populates
-    /// it; while empty the viable view equals `candidates`, so selection is
-    /// unchanged.
-    failed_upstream: BTreeSet<(PeerId, TopicId)>,
-    /// Count of explicit over-capacity `Rejected` signals this node has received
-    /// for its dials (feature 005). Observability for the rejection rate
-    /// (exposed via a getter, asserted in tests — not via logs).
-    rejections_received: usize,
     /// The node's signing identity: signs the control messages it emits
     /// (`Request`/`Accepted`/`Terminated`). Rides along as an immutable service
     /// handle beside the verifier; the transition signs inside the pure core so
@@ -137,8 +124,6 @@ impl NodeState {
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
-            failed_upstream: BTreeSet::new(),
-            rejections_received: 0,
             signer,
             connection_strategy,
             fanout_strategy,
@@ -153,13 +138,6 @@ impl NodeState {
     #[must_use]
     pub(crate) fn is_synced(&self) -> bool {
         self.synced
-    }
-
-    /// Count of explicit over-capacity rejections this node has received for its
-    /// dials (feature 005). The observability surface for the rejection rate.
-    #[must_use]
-    pub(crate) fn rejections_received(&self) -> usize {
-        self.rejections_received
     }
 
     /// Snapshot of every recorded delivery, in processing order.
@@ -281,34 +259,9 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// registration-gated effective filter) — the dial side mirrors the acceptance
 /// rule (FR-008/009; data-model §1.4).
 fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
-    // Select over the *viable* candidate view: discovered candidates minus peers
-    // a dial was rejected by. While `failed_upstream` is empty this is exactly
-    // `candidates`; once the rejection transition populates it, dropping a failed
-    // peer shifts a bounded strategy's pick to the next-ranked candidate, so
-    // back-fill falls out of re-invoking this transition (feature 005, ADR 0024).
-    let viable: HashMap<TopicId, HashSet<PeerId>> = if state.failed_upstream.is_empty() {
-        state.candidates.clone()
-    } else {
-        state
-            .candidates
-            .iter()
-            .map(|(topic, peers)| {
-                let kept = peers
-                    .iter()
-                    .filter(|peer| {
-                        !state
-                            .failed_upstream
-                            .contains(&((*peer).clone(), topic.clone()))
-                    })
-                    .cloned()
-                    .collect();
-                (topic.clone(), kept)
-            })
-            .collect()
-    };
     let expected = state
         .connection_strategy
-        .expected_upstream(&state.subscriptions, &viable);
+        .expected_upstream(&state.subscriptions, &state.candidates);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
     let self_id = state.self_id.clone();
@@ -757,12 +710,13 @@ fn handle_connection_terminated(
 /// Transition for a verified `Rejected` from `emitter` on `topic` — the peer
 /// refused this node's dial for over-capacity (feature 005, ADR 0025).
 ///
-/// Removes the matching `AwaitingAccept` upstream, marks the peer **failed**
-/// (sticky for the run, so it is excluded from re-selection — the next
-/// `ConnectionSetup` re-invocation back-fills the next-ranked candidate), and
-/// counts the rejection. A `Rejected` with no matching pending entry (absent, or
-/// already `Active`) is dropped and changes nothing. A rejection is never
-/// treated as misbehaviour.
+/// Removes the matching `AwaitingAccept` upstream so the dialer stops waiting on
+/// an `Accepted` that will never come; that is the **only** handling. There is no
+/// retry and no back-fill: the realized upstream degree may settle below target,
+/// and re-forming connections is left to the future heartbeat/reshuffle layer
+/// (retry/back-fill is a separate strategy family — see `IMPLEMENTATION_NOTES`).
+/// A `Rejected` with no matching pending entry (absent, or already `Active`) is
+/// dropped and changes nothing. A rejection is never treated as misbehaviour.
 fn handle_connection_rejected(
     state: &mut NodeState,
     emitter: &PeerId,
@@ -774,8 +728,6 @@ fn handle_connection_rejected(
         Some(UpstreamState::AwaitingAccept)
     ) {
         state.upstream.remove(&key);
-        state.failed_upstream.insert(key);
-        state.rejections_received += 1;
         return Vec::new();
     }
     tracing::info!(

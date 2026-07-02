@@ -1,4 +1,4 @@
-//! The seeded, bounded connection-selection policy: [`SeededBoundedSelection`]
+//! The seeded, bounded connection-selection policy: [`SeededBoundedConnection`]
 //! (feature 005, ADR 0024).
 
 use std::collections::{HashMap, HashSet};
@@ -19,13 +19,13 @@ use crate::topic::TopicId;
 /// candidate view (candidates minus peers a dial already failed with), so
 /// back-fill of the next-ranked candidate falls out of recomputation without any
 /// extra input to this policy.
-pub struct SeededBoundedSelection {
+pub struct SeededBoundedConnection {
     seed: u64,
     self_id: PeerId,
     upstream_degree: usize,
 }
 
-impl SeededBoundedSelection {
+impl SeededBoundedConnection {
     /// Build the policy for one node from already-parsed inputs.
     #[must_use]
     pub fn new(seed: u64, self_id: PeerId, upstream_degree: usize) -> Self {
@@ -67,7 +67,7 @@ fn rank_key(seed: u64, self_id: &PeerId, topic: &TopicId, candidate: &PeerId) ->
     hasher.finalize().into()
 }
 
-impl ConnectionStrategy for SeededBoundedSelection {
+impl ConnectionStrategy for SeededBoundedConnection {
     fn expected_upstream(
         &self,
         subscriptions: &HashSet<TopicId>,
@@ -96,7 +96,7 @@ impl ConnectionStrategy for SeededBoundedSelection {
 
 #[cfg(test)]
 mod tests {
-    use super::SeededBoundedSelection;
+    use super::SeededBoundedConnection;
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
     use crate::topic::TopicId;
@@ -125,7 +125,7 @@ mod tests {
     // FR-001: more candidates than the bound ⇒ exactly `upstream_degree` selected.
     #[test]
     fn bounded_selects_exactly_upstream_degree() {
-        let policy = SeededBoundedSelection::new(7, peer("self"), 2);
+        let policy = SeededBoundedConnection::new(7, peer("self"), 2);
         let expected = policy.expected_upstream(
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a", "b", "c", "d"])]),
@@ -144,7 +144,7 @@ mod tests {
     // FR-002: candidates at or below the bound ⇒ all selected (bound is a ceiling).
     #[test]
     fn bounded_selects_all_when_at_or_below_bound() {
-        let policy = SeededBoundedSelection::new(7, peer("self"), 5);
+        let policy = SeededBoundedConnection::new(7, peer("self"), 5);
         let expected =
             policy.expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &["a", "b"])]));
         assert_eq!(
@@ -157,7 +157,7 @@ mod tests {
     // independent of candidate-set construction/iteration order.
     #[test]
     fn bounded_selection_is_deterministic_and_order_independent() {
-        let policy = SeededBoundedSelection::new(42, peer("self"), 3);
+        let policy = SeededBoundedConnection::new(42, peer("self"), 3);
         let one = policy.expected_upstream(
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a", "b", "c", "d", "e"])]),
@@ -174,9 +174,9 @@ mod tests {
     #[test]
     fn default_seed_zero_is_deterministic() {
         let cands = candidates(&[("t1", &["a", "b", "c", "d"])]);
-        let first = SeededBoundedSelection::new(0, peer("self"), 2)
+        let first = SeededBoundedConnection::new(0, peer("self"), 2)
             .expected_upstream(&subscriptions(&["t1"]), &cands);
-        let again = SeededBoundedSelection::new(0, peer("self"), 2)
+        let again = SeededBoundedConnection::new(0, peer("self"), 2)
             .expected_upstream(&subscriptions(&["t1"]), &cands);
         assert_eq!(first, again, "seed 0 must reproduce identically");
         assert_eq!(first.len(), 2);
@@ -187,9 +187,9 @@ mod tests {
     #[test]
     fn bounded_selection_varies_by_self_id() {
         let cands = candidates(&[("t1", &["a", "b", "c", "d", "e", "f"])]);
-        let by_x = SeededBoundedSelection::new(1, peer("x"), 2)
+        let by_x = SeededBoundedConnection::new(1, peer("x"), 2)
             .expected_upstream(&subscriptions(&["t1"]), &cands);
-        let by_y = SeededBoundedSelection::new(1, peer("y"), 2)
+        let by_y = SeededBoundedConnection::new(1, peer("y"), 2)
             .expected_upstream(&subscriptions(&["t1"]), &cands);
         assert_ne!(
             by_x, by_y,
@@ -200,7 +200,7 @@ mod tests {
     // A candidate on an unjoined topic is never selected (membership-scoped).
     #[test]
     fn bounded_ignores_unjoined_topics() {
-        let policy = SeededBoundedSelection::new(7, peer("self"), 3);
+        let policy = SeededBoundedConnection::new(7, peer("self"), 3);
         let expected = policy.expected_upstream(
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]),
@@ -217,8 +217,8 @@ mod tests {
         let cands = candidates(&[("t1", &["c0", "c1", "c2", "c3", "c4", "c5"])]);
         let mut distinct = HashSet::new();
         for seed in 0..16u64 {
-            let sel =
-                SeededBoundedSelection::new(seed, peer("self"), 3).expected_upstream(&subs, &cands);
+            let sel = SeededBoundedConnection::new(seed, peer("self"), 3)
+                .expected_upstream(&subs, &cands);
             let mut ids: Vec<String> = sel.iter().map(|(p, _)| p.to_string()).collect();
             ids.sort();
             distinct.insert(ids.join(","));
@@ -247,7 +247,7 @@ mod tests {
 
         let mut counts: HashMap<String, u64> = HashMap::new();
         for seed in 0..sweeps {
-            let sel = SeededBoundedSelection::new(seed, peer("self"), upstream_degree)
+            let sel = SeededBoundedConnection::new(seed, peer("self"), upstream_degree)
                 .expected_upstream(&subs, &cands);
             assert_eq!(sel.len(), upstream_degree);
             for (p, _) in sel {

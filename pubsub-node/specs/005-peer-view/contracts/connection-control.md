@@ -20,11 +20,11 @@ Extends `ConnectionAction` (`Request` / `Accepted` / `Terminated`). The new acti
 
 | Precondition | Action |
 |--------------|--------|
-| `upstream[(emitter,topic)] == AwaitingAccept` | remove entry; insert `(emitter,topic)` into `failed_upstream` (sticky); `rejections_received += 1`; back-fill happens on the next `ConnectionSetup` |
+| `upstream[(emitter,topic)] == AwaitingAccept` | remove the entry (so the dialer stops waiting for an `Accepted`). This is the **only** action — no failed-set, no counter, no retry/back-fill. |
 | no matching pending entry | logged drop `unsolicited_reject`; no state change |
 
 ## Invariants
 
 - A `Rejected` never creates/mutates a `downstream` entry on the acceptor.
-- A peer in `failed_upstream` is never re-dialed for that topic for the rest of the run (sticky; no retry).
+- Handling a `Rejected` only removes the matching pending upstream; no other state changes, and the peer is neither marked nor re-dialed within 005. The realized upstream degree may consequently settle below target; re-forming connections (retry-to-a-minimum / back-fill) is deferred to a future strategy family (`BackfillingSeededBoundedConnection` / `RetryingSeededBoundedConnection`), out of scope here.
 - The exchange is signed/verified on the existing control path (signature failure handled as today, before action dispatch).

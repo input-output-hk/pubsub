@@ -6,7 +6,7 @@
 
 ```rust
 let upstream_degree = args.upstream_degree.unwrap_or_else(|| { eprintln!(…); exit(2) });
-Arc::new(SeededBoundedSelection::new(args.seed, args.self_id.clone(), upstream_degree))
+Arc::new(SeededBoundedConnection::new(args.seed, args.self_id.clone(), upstream_degree))
 ```
 
 That is strategy-specific knowledge ("seeded-bounded requires an upstream degree") living at the edge. Every new strategy adds another bespoke `unwrap_or_else(exit)` block, and the "which params are required" rule drifts away from the strategy it belongs to.

@@ -12,7 +12,7 @@ use crate::topic::TopicId;
 /// Self-exclusion is input-borne — the candidate sets the node folds from the
 /// subscription registry never contain its own id, so the expected set never
 /// does either. This policy maintains the full per-topic mesh; degree limits
-/// and sampling are the bounded policies' job ([`SeededBoundedSelection`](super::SeededBoundedSelection)).
+/// and sampling are the bounded policies' job ([`SeededBoundedConnection`](super::SeededBoundedConnection)).
 pub struct ConnectToAllCandidates;
 
 impl ConnectionStrategy for ConnectToAllCandidates {

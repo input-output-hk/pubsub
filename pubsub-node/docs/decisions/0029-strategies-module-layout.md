@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 
-**Context**: Feature 005 grew the strategy surface: three seams each became a directory (`connection/`, `acceptance/`, `fanout/` — a trait in `mod.rs`, one file per concrete policy, a `*StrategyKind` selector), and ADR 0028 added a construction module. That module sat at the crate root as a loose `strategy_config.rs` while the seams were top-level directories — an asymmetry — and the seeded keyed-hash ranking (`rank_key`) that connection's `SeededBoundedSelection` uses will be needed verbatim by 015's `SeededBoundedFanout`, with no shared home to avoid duplication.
+**Context**: Feature 005 grew the strategy surface: three seams each became a directory (`connection/`, `acceptance/`, `fanout/` — a trait in `mod.rs`, one file per concrete policy, a `*StrategyKind` selector), and ADR 0028 added a construction module. That module sat at the crate root as a loose `strategy_config.rs` while the seams were top-level directories — an asymmetry — and the seeded keyed-hash ranking (`rank_key`) that connection's `SeededBoundedConnection` uses will be needed verbatim by 015's `SeededBoundedFanout`, with no shared home to avoid duplication.
 
 Separately, `connection/mod.rs` conflated two different things: the connection-selection **strategy** (trait + impls + kind) and `UpstreamState` — the per-`(peer, topic)` upstream lifecycle enum (`AwaitingAccept`/`Active`). The latter is not a strategy: the strategy returns *which* upstreams to dial; the pure core (`crate::state`) assigns and stores the lifecycle state.
 

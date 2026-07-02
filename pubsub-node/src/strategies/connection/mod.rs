@@ -7,7 +7,7 @@
 //!
 //! The trait lives here; each concrete selection policy is its own submodule:
 //! [`ConnectToAllCandidates`] (the v1 full-mesh policy) in [`connect_to_all`],
-//! and [`SeededBoundedSelection`] (the seeded, bounded policy, feature 005) in
+//! and [`SeededBoundedConnection`] (the seeded, bounded policy, feature 005) in
 //! [`seeded_bounded`].
 
 use std::collections::{HashMap, HashSet};
@@ -21,7 +21,7 @@ mod seeded_bounded;
 
 pub use connect_to_all::ConnectToAllCandidates;
 pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
-pub use seeded_bounded::SeededBoundedSelection;
+pub use seeded_bounded::SeededBoundedConnection;
 
 /// The connection-selection policy a node consults on a setup event.
 ///
@@ -34,7 +34,7 @@ pub use seeded_bounded::SeededBoundedSelection;
 ///
 /// The trait is the seam future iterations vary (peer sampling, degree caps,
 /// topology policies); the v1 implementor is [`ConnectToAllCandidates`], and the
-/// seeded, bounded policy is [`SeededBoundedSelection`].
+/// seeded, bounded policy is [`SeededBoundedConnection`].
 pub trait ConnectionStrategy: Send + Sync {
     /// The expected upstream set given the node's view.
     ///

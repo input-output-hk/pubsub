@@ -6,7 +6,7 @@
 
 ## Summary
 
-Replace the full-mesh dial/accept policies with **bounded** ones so a node forms a reproducible partial topology. The dial side (`SeededBoundedSelection`) picks at most a uniform upstream degree of upstream peers per topic by deterministic keyed-hash ranking of `(seed, self_id, topic, candidate)`; randomness is encapsulated in the strategy object (the seed is a field), so the transition stays pure. The inbound side (`BoundedAcceptance`) admits up to a uniform downstream degree and, over capacity, sends an explicit `Rejected` (not a severance). A rejected dial marks the peer **failed (sticky for the run)** and is back-filled by re-invoking the existing `ConnectionSetup` event over the viable candidate view (candidates minus failed) — no new round/timer. The existing unbounded policies remain the default; bounded behaviour is opt-in via three startup parameters (seed, upstream degree, downstream degree). Tests ship with the feature (TDD).
+Replace the full-mesh dial/accept policies with **bounded** ones so a node forms a reproducible partial topology. The dial side (`SeededBoundedConnection`) picks at most a uniform upstream degree of upstream peers per topic by deterministic keyed-hash ranking of `(seed, self_id, topic, candidate)`; randomness is encapsulated in the strategy object (the seed is a field), so the transition stays pure. The inbound side (`BoundedAcceptance`) admits up to a uniform downstream degree and, over capacity, sends an explicit `Rejected` (not a severance). On receipt of a `Rejected`, the dialer **only** drops the matching pending `AwaitingAccept` upstream (so it stops waiting for an `Accepted` that will never come); there is **no** retry or back-fill — re-forming connections is deferred to a future heartbeat/reshuffle layer, and retry-to-a-minimum is a separate future strategy family (`BackfillingSeededBoundedConnection` / `RetryingSeededBoundedConnection`), out of scope for 005. As a consequence the realized upstream degree may settle below target after rejections. The existing unbounded policies remain the default; bounded behaviour is opt-in via three startup parameters (seed, upstream degree, downstream degree). Tests ship with the feature (TDD).
 
 This is strategies-only. The **experiment/testing framework** that drives these strategies is a separate later feature. The feature is **coordinated with — not built on** — the co-developing architect's determinism/purity refactor (strategies-as-`apply`-arguments, deterministic scheduling, a flag decoupling `ConnectionSetup` from `Synced`): 005 keeps the current strategy injection (`Arc<dyn …>` at `Node::new`) and applies ordered structures (`BTreeSet`) to its own new state, so it does not block on that refactor (see research R6).
 
@@ -37,17 +37,17 @@ This is strategies-only. The **experiment/testing framework** that drives these 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - **I. Correctness Over Optimization** — ✅ Every behaviour traces to an FR in `spec.md` or a decision in `research.md`. The keyed-hash ranking is the correctness mechanism for FR-003/FR-007.
-- **II. Test-Driven for Correctness Claims** — ✅ **Critical.** Determinism (FR-003/SC-001), bound (FR-001/SC-002), unbiasedness (FR-007/SC-004), acceptance + explicit rejection (FR-010/FR-011), sticky back-fill (FR-014) get tests before implementation.
+- **II. Test-Driven for Correctness Claims** — ✅ **Critical.** Determinism (FR-003/SC-001), bound (FR-001/SC-002), unbiasedness (FR-007/SC-004), acceptance + explicit rejection (FR-010/FR-011), rejection dropping the pending upstream (FR-014) get tests before implementation.
 - **III. Document Structural Decisions as ADRs** — ✅ ADRs planned (below).
 - **IV. Specifications as Ambiguity Detectors** — ✅ The seam note claims degree caps "slot in without a signature change"; false for the acceptance side (needs current-downstream input + a reason-bearing return) — surfaced as ADR 0025, not silently reshaped.
 - **V. Specifications Are Read-Only** — ✅ Only `pubsub-node/` code-side artifacts; no edits to `pubsub/docs/` or `pubsub/formal_spec/`.
 
-**Engineering Standards** — ✅ reproducible-from-seed is core; ✅ no wall-clock in the transition (re-dial = `ConnectionSetup` re-invocation, externally driven); ✅ rejection/under-fill asserted via getters/snapshots, not log strings; ✅ parse-at-the-edge (seed/upstream degree/downstream degree parsed in CLI/loader, passed as values into strategy construction); ✅ forward-compatible (`ConnectionAction::Rejected`) justified by this feature; ✅ declarative test construction (`ConnectionScript`).
+**Engineering Standards** — ✅ reproducible-from-seed is core; ✅ no wall-clock in the transition (dial = `ConnectionSetup` re-invocation, externally driven); ✅ under-fill asserted via getters/snapshots, not log strings; ✅ parse-at-the-edge (seed/upstream degree/downstream degree parsed in CLI/loader, passed as values into strategy construction); ✅ forward-compatible (`ConnectionAction::Rejected`) justified by this feature; ✅ declarative test construction (`ConnectionScript`).
 
 ### Planned ADRs (numbers provisional — next free after 0023; coordinate with the refactor branch)
 
-- **ADR 0024** — Seeded deterministic bounded selection: keyed-hash ranking over `(seed, self_id, topic, candidate)`, stable SHA-256 digest (not `DefaultHasher`), per-network seed / per-node derivation, sticky failed-set + `ConnectionSetup`-driven back-fill.
-- **ADR 0025** — Acceptance-seam evolution + `ConnectionAction::Rejected`: acceptance return `bool → Admission { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; the explicit `Rejected` action (acceptor → dialer, not misbehaviour) and the dialer's failed-mark on receipt.
+- **ADR 0024** — Seeded deterministic bounded selection: keyed-hash ranking over `(seed, self_id, topic, candidate)`, stable SHA-256 digest (not `DefaultHasher`), per-network seed / per-node derivation. (Retry-to-a-minimum / back-fill is deferred to a future strategy family — `BackfillingSeededBoundedConnection` / `RetryingSeededBoundedConnection` — out of scope for 005.)
+- **ADR 0025** — Acceptance-seam evolution + `ConnectionAction::Rejected`: acceptance return `bool → Admission { Accept, RejectMembership, RejectOverCapacity }` taking the current downstream view; the explicit `Rejected` action (acceptor → dialer, not misbehaviour) and the dialer dropping the matching pending upstream on receipt (no retry/back-fill).
 
 > The **strategies-as-arguments** relocation and **ordered-structure** swap are owned by the prerequisite refactor (its own ADRs on that branch); 005 consumes them.
 
@@ -77,8 +77,8 @@ pubsub-node/
 │   ├── acceptance/        # mod.rs (trait + NEW Admission), accept_from_all.rs (admit), bounded.rs (NEW BoundedAcceptance), kind.rs
 │   ├── fanout/            # mod.rs (trait), forward_to_all.rs (unchanged)
 │   ├── message.rs         # ConnectionAction::Rejected (tag 0x03)
-│   ├── state.rs           # failed_upstream (BTreeSet); viable-candidate diff in connection-setup; request capacity branch (+ Rejected send); NEW rejected handler; rejections_received counter + getter
-│   ├── node.rs            # current-injection construction; rejections_received getter
+│   ├── state.rs           # selection straight over candidates in connection-setup; request capacity branch (+ Rejected send); NEW rejected handler (drops matching pending upstream only)
+│   ├── node.rs            # current-injection construction
 │   ├── main.rs/config.rs  # parse seed/upstream degree/downstream degree + named strategy kinds at the edge; select bounded vs unbounded
 │   └── lib.rs             # re-export the new public strategy types
 └── tests/

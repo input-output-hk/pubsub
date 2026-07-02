@@ -30,7 +30,7 @@ No CRITICAL or HIGH findings. No constitution MUST violations.
 | FR-011 explicit rejection | ✅ | T013, T017 | + no severance |
 | FR-012 configurable bounds | ✅ | T010, T016 | CLI edge |
 | FR-013 additive defaults | ✅ | T024, main.rs default | |
-| FR-014 sticky back-fill | ✅ | T014, T018 | |
+| FR-014 rejection drops pending upstream (no retry/back-fill) | ✅ | T014, T018 | sticky back-fill removed in PR-73; retry deferred to a future strategy family |
 | FR-015 under-fill | ✅ | T008, T014 | |
 | FR-016 observable outcomes | ✅ | T019 (getter), upstream getter | |
 | FR-017 ordered structures | ✅ | T006 (`BTreeSet`) | |
@@ -40,10 +40,10 @@ No CRITICAL or HIGH findings. No constitution MUST violations.
 | SC-003 distinct seeds diverge | ✅ | T020 | |
 | SC-004 uniformity | ✅ | T021 | |
 | SC-005 unbounded = full mesh | ✅ | T024 (existing suite green w/ defaults) | |
-| SC-006 back-fill + under-fill observable | ✅ | T014, T008 | |
-| SC-007 rejection count observable | ✅ | T019, T014 | |
+| SC-006 rejection drops pending upstream; degree may under-fill | ✅ | T014, T008 | back-fill framing removed in PR-73 |
+| SC-007 rejection count observable | — | — | removed in PR-73 (no rejection-count getter) |
 
-**Coverage: 18/18 FR + 7/7 SC = 100%** have ≥1 task/test.
+**Coverage: 18/18 FR + 6/6 SC = 100%** have ≥1 task/test (SC-007 removed in the PR-73 simplification).
 
 ## Constitution Alignment
 
@@ -51,10 +51,10 @@ No violations. ✅ I (traceable), ✅ II (tests present + green for all correctn
 
 ## Implementation verification (claims vs code)
 
-Confirmed present: `Admission` enum + `admit` (acceptance/mod.rs); `ConnectionAction::Rejected` (message.rs, tag 0x03); `failed_upstream: BTreeSet` (state.rs); `rejections_received` getter (node.rs); `SeededBoundedSelection`/`BoundedAcceptance`/`ConnectionStrategyKind`/`AcceptanceStrategyKind` re-exported (lib.rs). Full suite green, clippy + fmt clean.
+Confirmed present: `Admission` enum + `admit` (acceptance/mod.rs); `ConnectionAction::Rejected` (message.rs, tag 0x03); `handle_connection_rejected` removes the matching pending `AwaitingAccept` upstream only (state.rs); `SeededBoundedConnection`/`BoundedAcceptance`/`ConnectionStrategyKind`/`AcceptanceStrategyKind` re-exported (lib.rs). Full suite green, clippy + fmt clean. (The `failed_upstream: BTreeSet` field and the `rejections_received` counter/getters were removed in the PR-73 simplification — no failed-set, no rejection-count getter.)
 
 ## Metrics
-- Requirements: 25 (18 FR + 7 SC) · Tasks: 26 (23 done; T003 = coordination sync, T026 = this pass)
+- Requirements: 24 (18 FR + 6 SC; SC-007 removed in the PR-73 simplification) · Tasks: 26 (23 done; T003 = coordination sync, T026 = this pass)
 - Coverage: 100% · Ambiguity: 0 · Duplication: 0 (FR↔SC pairing intended) · **Critical: 0**
 
 ## Resolutions
