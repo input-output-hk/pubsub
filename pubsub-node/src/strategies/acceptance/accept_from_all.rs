@@ -13,7 +13,7 @@ use crate::topic::TopicId;
 /// The exact inbound mirror of `ConnectToAllCandidates`: the "all" is
 /// membership-scoped, not unconditional. It never refuses for over-capacity
 /// (it ignores the `downstream` set); the bounded counterpart is
-/// [`BoundedAcceptance`](super::BoundedAcceptance).
+/// [`VerifiableBoundedAcceptance`](super::VerifiableBoundedAcceptance).
 pub struct AcceptFromAllCandidates;
 
 impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
@@ -24,6 +24,7 @@ impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
         subscriptions: &BTreeSet<TopicId>,
         candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
         _downstream: &HashSet<(PeerId, TopicId)>,
+        _interval: u64,
     ) -> Admission {
         if is_membership_valid(emitter, topic, subscriptions, candidates) {
             Admission::Accept
@@ -68,6 +69,7 @@ mod tests {
             &subscriptions(subs),
             &candidates(cands),
             &HashSet::new(),
+            0,
         )
     }
 

@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Seeded bounded connection-selection and acceptance strategies
+# Specification Quality Checklist: Verifiable hash-gated connection-selection and acceptance strategies
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-06-29
@@ -34,8 +34,8 @@
 - Scope deliberately narrowed (2026-06-29) to the bounded strategies + their tests; the experiment/testing
   framework is a separate later feature, recorded as out of scope.
 - Several decisions were settled before authoring (sync with the co-developing architect): re-dial via
-  `ConnectionSetup` re-invocation (no round/timer), strategies-as-arguments + ordered structures as a
+  `Heartbeat` re-invocation (no round/timer), strategies-as-arguments + ordered structures as a
   prerequisite refactor, per-network seed with per-node derivation, uniform-per-run bounds — so no
   [NEEDS CLARIFICATION] markers were needed.
-- A few requirements name concrete protocol vocabulary (`ConnectionSetup`, the existing strategy seams) as
+- A few requirements name concrete protocol vocabulary (`Heartbeat`, the existing strategy seams) as
   the surfaces being extended/depended-on, not as new implementation prescriptions.

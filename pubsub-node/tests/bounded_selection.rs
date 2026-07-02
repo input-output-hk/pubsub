@@ -1,19 +1,19 @@
-//! Feature 005 (US1) integration: the seeded bounded connection-selection
+//! Feature 005 (US1) integration: the verifiable hash-gated connection-selection
 //! policy, exercised through a real node + event loop, forms a partial topology
-//! that is capped at the out-degree (SC-002) and reproducible from the seed
-//! (SC-001).
+//! whose edges match the public edge predicate (SC-002, verifiable) and is
+//! reproducible from the genesis + interval (SC-001).
 
 mod common;
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use common::node_with_strategy;
 use pubsub_node::{
-    InMemoryNetwork, InMemorySubscriptionRegistry, PeerId, SeededBoundedConnection,
-    SubscriptionRegistryControl, TopicId,
+    bucket_count, is_valid_edge, HashGatedConnection, InMemoryNetwork,
+    InMemorySubscriptionRegistry, PeerId, SubscriptionRegistryControl, TopicId,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(2);
@@ -24,6 +24,58 @@ fn topic(s: &str) -> TopicId {
 
 fn peer(s: &str) -> PeerId {
     PeerId::from_str(s).expect("valid peer id")
+}
+
+/// The upstream set the hash-gated policy must produce for `self` on `topic`:
+/// exactly the candidates satisfying the edge predicate at interval 0 (the
+/// single v1 heartbeat), `B = max(1, round(candidates / rf))`. The strategy is
+/// deterministic, so this is the exact expected topology.
+fn expected_upstreams(genesis: u64, rf: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
+    let t = topic("topic");
+    let buckets = bucket_count(candidates.len(), rf);
+    candidates
+        .iter()
+        .map(|c| peer(c))
+        .filter(|c| is_valid_edge(genesis, &t, &peer("self"), c, 0, buckets))
+        .collect()
+}
+
+/// Build a single node running `HashGatedConnection { genesis, rf }` on one topic
+/// with `candidates` other members pre-seeded in the shared subscription registry
+/// (so the node's readiness heartbeat sees the full candidate set), await the
+/// node reaching its expected upstream count, and return the peers it selected.
+///
+/// The candidate ids are registry members only — not real network nodes — so the
+/// dials stay `AwaitingAccept`; the upstream *set* is exactly the selection.
+async fn selected_upstreams(genesis: u64, rf: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let network = Arc::new(InMemoryNetwork::new());
+    let t = topic("topic");
+
+    for c in candidates {
+        registry
+            .set_topics(peer(c), std::iter::once(t.clone()).collect())
+            .await
+            .expect("seed candidate membership");
+    }
+
+    let strategy = Arc::new(HashGatedConnection::new(genesis, peer("self"), rf));
+    let node = node_with_strategy(
+        &registry,
+        &network,
+        "self",
+        &[],
+        std::slice::from_ref(&t),
+        strategy,
+    )
+    .await;
+
+    let want = expected_upstreams(genesis, rf, candidates).len();
+    await_upstream_count(&node, want, TIMEOUT).await;
+    node.upstream_connections()
+        .into_iter()
+        .map(|(p, _, _)| p)
+        .collect()
 }
 
 /// Poll until the node holds exactly `n` upstream entries, or time out.
@@ -42,87 +94,43 @@ async fn await_upstream_count(node: &pubsub_node::Node, n: usize, timeout: Durat
     }
 }
 
-/// Build a single node running `SeededBoundedConnection { seed, out_degree }` on
-/// one topic with `candidates` other members **pre-seeded** in the shared
-/// subscription registry (so the node's one readiness-driven selection sees the
-/// full candidate set), and return the set of peers it selected as upstreams.
-///
-/// The candidate ids are registry members only — not real network nodes — so the
-/// node's dials stay `AwaitingAccept`; the upstream *set* is exactly the
-/// selection. Each call uses a fresh network + registry, so two calls with the
-/// same seed are independent runs.
-async fn selected_upstreams(seed: u64, out_degree: usize, candidates: &[&str]) -> HashSet<PeerId> {
-    let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    let network = Arc::new(InMemoryNetwork::new());
-    let t = topic("topic");
-
-    // Pre-seed the candidate memberships before constructing the node, so they
-    // are present in the registry snapshot the node folds at startup.
-    for c in candidates {
-        registry
-            .set_topics(peer(c), std::iter::once(t.clone()).collect())
-            .await
-            .expect("seed candidate membership");
-    }
-
-    let strategy = Arc::new(SeededBoundedConnection::new(seed, peer("self"), out_degree));
-    let node = node_with_strategy(
-        &registry,
-        &network,
-        "self",
-        &[],
-        std::slice::from_ref(&t),
-        strategy,
-    )
-    .await;
-
-    // The realized selection is capped at the out-degree but never exceeds the
-    // number of available candidates.
-    let expected = out_degree.min(candidates.len());
-    await_upstream_count(&node, expected, TIMEOUT).await;
-    node.upstream_connections()
-        .into_iter()
-        .map(|(p, _, _)| p)
-        .collect()
-}
-
-// US1 Independent Test / SC-001 + SC-002: with more candidates than the bound,
-// the node selects exactly `out_degree` upstreams, and the same seed reproduces
-// the identical selection across two independent runs.
+// US1 / SC-001 + SC-002: the node's realized upstream set is exactly the edge
+// predicate's — verifiable and bounded — and reproduces identically across two
+// independent runs with the same genesis + membership.
 #[tokio::test]
-async fn bounded_selection_is_capped_and_reproducible() {
+async fn hash_gated_selection_matches_predicate_and_reproduces() {
     let candidates = ["c0", "c1", "c2", "c3", "c4", "c5"];
-    let out_degree = 3;
+    let rf = 3;
+    let expected = expected_upstreams(7, rf, &candidates);
 
-    let first = selected_upstreams(7, out_degree, &candidates).await;
-    let second = selected_upstreams(7, out_degree, &candidates).await;
+    let first = selected_upstreams(7, rf, &candidates).await;
+    let second = selected_upstreams(7, rf, &candidates).await;
 
-    // SC-002: never more than the out-degree bound.
+    // SC-002: the realized set is exactly the verifiable edge set (never exceeds
+    // the candidate set; bounded around rf via the bucket count).
     assert_eq!(
-        first.len(),
-        out_degree,
-        "selection is capped at the out-degree"
+        first, expected,
+        "the realized upstreams must be exactly the edge-predicate set",
     );
-    // Every selected peer is one of the candidates (self never selects itself).
     assert!(first
         .iter()
         .all(|p| candidates.contains(&p.to_string().as_str())));
-    // SC-001: same seed + membership reproduces an identical selection.
+    // SC-001: same genesis + membership reproduces the identical selection.
     assert_eq!(
         first, second,
-        "the same seed must reproduce the identical upstream selection",
+        "the same genesis must reproduce the identical upstream selection",
     );
 }
 
-// FR-002 across the node boundary: candidates at or below the bound ⇒ all are
-// selected (the bound is a ceiling, not a quota).
+// Small-topic path across the node boundary: candidates ≤ rf ⇒ B=1 ⇒ every
+// candidate is a valid edge (connect-to-all fallback).
 #[tokio::test]
-async fn selects_all_candidates_when_at_or_below_bound() {
+async fn small_topic_selects_all_candidates() {
     let candidates = ["c0", "c1"];
     let selected = selected_upstreams(7, 5, &candidates).await;
     assert_eq!(
         selected,
-        HashSet::from([peer("c0"), peer("c1")]),
-        "with fewer candidates than the bound, all are selected",
+        BTreeSet::from([peer("c0"), peer("c1")]),
+        "with ≤ rf candidates B=1, so all are selected",
     );
 }

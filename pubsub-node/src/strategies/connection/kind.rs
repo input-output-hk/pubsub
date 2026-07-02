@@ -1,18 +1,16 @@
 //! The selectable connection-selection strategies, named for configuration.
 //!
 //! [`ConnectionStrategyKind`] is the config-facing enum: it parses
-//! case-insensitively from a readable name (`connect-to-all`, `seeded-bounded`)
-//! and carries a stable, unique byte-string [`tag`](ConnectionStrategyKind::tag)
-//! per variant, used as the domain separator in any keyed hashing the strategy
-//! performs (so distinct strategies never share a hash domain). The edge
-//! (CLI/loader) maps a kind plus its parameters to a concrete
+//! case-insensitively from a readable name (`connect-to-all`, `hash-gated`) and
+//! carries a stable, unique byte-string [`tag`](ConnectionStrategyKind::tag) per
+//! variant. The edge (CLI/loader) maps a kind plus its parameters to a concrete
 //! [`ConnectionStrategy`](super::ConnectionStrategy) instance — the kind itself
 //! constructs nothing.
 
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{ConnectToAllCandidates, ConnectionStrategy, SeededBoundedConnection};
+use super::{ConnectToAllCandidates, ConnectionStrategy, HashGatedConnection};
 use crate::strategies::config::{ConnectionParams, StrategyConfigError};
 
 /// A selectable connection-selection strategy, identified by a readable name.
@@ -20,8 +18,8 @@ use crate::strategies::config::{ConnectionParams, StrategyConfigError};
 pub enum ConnectionStrategyKind {
     /// The full-mesh policy ([`ConnectToAllCandidates`](super::ConnectToAllCandidates)).
     ConnectToAll,
-    /// The seeded, bounded policy ([`SeededBoundedConnection`](super::SeededBoundedConnection)).
-    SeededBounded,
+    /// The verifiable hash-gated policy ([`HashGatedConnection`](super::HashGatedConnection)).
+    HashGated,
 }
 
 impl ConnectionStrategyKind {
@@ -30,43 +28,37 @@ impl ConnectionStrategyKind {
     pub const fn name(self) -> &'static str {
         match self {
             Self::ConnectToAll => "connect-to-all",
-            Self::SeededBounded => "seeded-bounded",
+            Self::HashGated => "hash-gated",
         }
     }
 
-    /// A stable, unique byte-string identifying this strategy — used as the
-    /// domain-separation tag in keyed hashing so distinct strategies never share
-    /// a hash domain.
+    /// A stable, unique byte-string identifying this strategy.
     #[must_use]
     pub const fn tag(self) -> &'static [u8] {
         match self {
             Self::ConnectToAll => b"pubsub/connection-strategy/connect-to-all",
-            Self::SeededBounded => b"pubsub/connection-strategy/seeded-bounded",
+            Self::HashGated => b"pubsub/connection-strategy/hash-gated",
         }
     }
 
     /// Build the concrete connection-selection strategy from the connection
     /// seam's params, validating the parameters this kind requires (ADR 0028).
-    /// The edge maps a returned [`StrategyConfigError`] once — it holds no
-    /// per-strategy logic.
+    /// The edge maps a returned [`StrategyConfigError`] once.
     pub fn build(
         self,
         params: &ConnectionParams,
     ) -> Result<Arc<dyn ConnectionStrategy>, StrategyConfigError> {
         match self {
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
-            Self::SeededBounded => {
-                let upstream_degree =
-                    params
-                        .upstream_degree
-                        .ok_or(StrategyConfigError::MissingParameter {
-                            strategy: self.name(),
-                            parameter: "an upstream degree (--upstream-degree)",
-                        })?;
-                Ok(Arc::new(SeededBoundedConnection::new(
-                    params.seed,
+            Self::HashGated => {
+                let rf = params.rf.ok_or(StrategyConfigError::MissingParameter {
+                    strategy: self.name(),
+                    parameter: "a fanout (--rf)",
+                })?;
+                Ok(Arc::new(HashGatedConnection::new(
+                    params.genesis,
                     params.self_id.clone(),
-                    upstream_degree,
+                    rf,
                 )))
             }
         }
@@ -76,7 +68,7 @@ impl ConnectionStrategyKind {
 /// The error returned when a configuration string names no known connection
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown connection strategy '{0}' (expected one of: connect-to-all, seeded-bounded)")]
+#[error("unknown connection strategy '{0}' (expected one of: connect-to-all, hash-gated)")]
 pub struct UnknownConnectionStrategy(pub String);
 
 impl FromStr for ConnectionStrategyKind {
@@ -86,7 +78,7 @@ impl FromStr for ConnectionStrategyKind {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "connect-to-all" => Ok(Self::ConnectToAll),
-            "seeded-bounded" => Ok(Self::SeededBounded),
+            "hash-gated" => Ok(Self::HashGated),
             _ => Err(UnknownConnectionStrategy(s.to_string())),
         }
     }
@@ -99,11 +91,11 @@ mod tests {
     use crate::strategies::config::{ConnectionParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(upstream_degree: Option<usize>) -> ConnectionParams {
+    fn params(rf: Option<usize>) -> ConnectionParams {
         ConnectionParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
-            seed: 0,
-            upstream_degree,
+            genesis: 0,
+            rf,
         }
     }
 
@@ -115,16 +107,15 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: seeded-bounded validates its required upstream degree in build —
-    // missing → typed error, present → Ok.
+    // ADR 0028: hash-gated validates its required fanout in build.
     #[test]
-    fn seeded_bounded_requires_upstream_degree() {
+    fn hash_gated_requires_rf() {
         assert!(matches!(
-            ConnectionStrategyKind::SeededBounded.build(&params(None)),
+            ConnectionStrategyKind::HashGated.build(&params(None)),
             Err(StrategyConfigError::MissingParameter { .. }),
         ));
-        assert!(ConnectionStrategyKind::SeededBounded
-            .build(&params(Some(3)))
+        assert!(ConnectionStrategyKind::HashGated
+            .build(&params(Some(8)))
             .is_ok());
     }
 
@@ -135,12 +126,12 @@ mod tests {
             ConnectionStrategyKind::ConnectToAll,
         );
         assert_eq!(
-            ConnectionStrategyKind::from_str("Seeded-Bounded").unwrap(),
-            ConnectionStrategyKind::SeededBounded,
+            ConnectionStrategyKind::from_str("Hash-Gated").unwrap(),
+            ConnectionStrategyKind::HashGated,
         );
         assert_eq!(
-            ConnectionStrategyKind::from_str("SEEDED-BOUNDED").unwrap(),
-            ConnectionStrategyKind::SeededBounded,
+            ConnectionStrategyKind::from_str("HASH-GATED").unwrap(),
+            ConnectionStrategyKind::HashGated,
         );
     }
 
@@ -148,7 +139,7 @@ mod tests {
     fn every_name_round_trips() {
         for kind in [
             ConnectionStrategyKind::ConnectToAll,
-            ConnectionStrategyKind::SeededBounded,
+            ConnectionStrategyKind::HashGated,
         ] {
             assert_eq!(ConnectionStrategyKind::from_str(kind.name()).unwrap(), kind);
         }
@@ -163,7 +154,7 @@ mod tests {
     fn tags_are_unique_per_strategy() {
         assert_ne!(
             ConnectionStrategyKind::ConnectToAll.tag(),
-            ConnectionStrategyKind::SeededBounded.tag(),
+            ConnectionStrategyKind::HashGated.tag(),
         );
     }
 }

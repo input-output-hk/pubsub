@@ -539,7 +539,7 @@ pub fn assert_subscriptions(node: &Node, expected: &[TopicId]) {
 /// (timer-free) trigger for autonomous establishment. The node consults its
 /// strategy and dials on the next drain of its event loop.
 pub fn trigger_setup(node: &Node) {
-    node.events().push(Event::ConnectionSetup);
+    node.events().push(Event::Heartbeat { interval: 0 });
 }
 
 /// Poll `node.upstream_connections()` until it holds `(peer, topic)` as
@@ -775,6 +775,7 @@ impl ConnectionStrategy for ConnectToExplicit {
         &self,
         _subscriptions: &BTreeSet<TopicId>,
         _candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+        _interval: u64,
     ) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }

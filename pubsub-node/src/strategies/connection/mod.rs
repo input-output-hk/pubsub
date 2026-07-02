@@ -7,8 +7,8 @@
 //!
 //! The trait lives here; each concrete selection policy is its own submodule:
 //! [`ConnectToAllCandidates`] (the v1 full-mesh policy) in [`connect_to_all`],
-//! and [`SeededBoundedConnection`] (the seeded, bounded policy, feature 005) in
-//! [`seeded_bounded`].
+//! and [`HashGatedConnection`] (the verifiable hash-gated policy, feature 005) in
+//! [`hash_gated`].
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,12 +16,12 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 mod connect_to_all;
+mod hash_gated;
 mod kind;
-mod seeded_bounded;
 
 pub use connect_to_all::ConnectToAllCandidates;
+pub use hash_gated::HashGatedConnection;
 pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
-pub use seeded_bounded::SeededBoundedConnection;
 
 /// The connection-selection policy a node consults on a setup event.
 ///
@@ -34,7 +34,7 @@ pub use seeded_bounded::SeededBoundedConnection;
 ///
 /// The trait is the seam future iterations vary (peer sampling, degree caps,
 /// topology policies); the v1 implementor is [`ConnectToAllCandidates`], and the
-/// seeded, bounded policy is [`SeededBoundedConnection`].
+/// verifiable hash-gated policy is [`HashGatedConnection`].
 pub trait ConnectionStrategy: Send + Sync {
     /// The expected upstream set given the node's view.
     ///
@@ -47,5 +47,6 @@ pub trait ConnectionStrategy: Send + Sync {
         &self,
         subscriptions: &BTreeSet<TopicId>,
         candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+        interval: u64,
     ) -> BTreeSet<(PeerId, TopicId)>;
 }

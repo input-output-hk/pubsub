@@ -70,16 +70,17 @@ pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
 pub use strategies::acceptance::{
-    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, BoundedAcceptance,
-    ConnectionAcceptanceStrategy, UnknownAcceptanceStrategy,
+    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, ConnectionAcceptanceStrategy,
+    UnknownAcceptanceStrategy, VerifiableBoundedAcceptance,
 };
 pub use strategies::config::{
     AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
 };
 pub use strategies::connection::{
-    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, SeededBoundedConnection,
+    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, HashGatedConnection,
     UnknownConnectionStrategy,
 };
+pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge};
 pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,

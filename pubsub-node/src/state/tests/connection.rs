@@ -127,7 +127,7 @@ fn control_invalid_signature_dropped() {
 fn accepted_activates_awaiting_entry() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
     apply(&mut state, membership_joined("a", ["t1"]));
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat { interval: 0 });
     assert_eq!(
         upstream_state(&state, "a", "t1"),
         Some(UpstreamState::AwaitingAccept),
@@ -158,7 +158,7 @@ fn terminated_removes_held_entry_else_dropped() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
     apply(&mut state, membership_joined("a", ["t1"]));
     // Establish both roles with a: upstream via setup+accept, downstream via request.
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat { interval: 0 });
     apply(&mut state, accepted_from("a", "t1"));
     apply(&mut state, request_from("a", "t1"));
     assert_eq!(
@@ -210,12 +210,16 @@ fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
     }
 }
 
-// FR-010/FR-011 / US2: BoundedAcceptance accepts up to the downstream degree, then
-// refuses further requests with an explicit `Rejected` (not a severance) and
-// records no downstream entry for the refused peer.
+// FR-007/FR-008 / US2: at the per-topic cap, `VerifiableBoundedAcceptance`
+// refuses a further *legitimate* request with an explicit `Rejected` (not a
+// severance) and records no downstream entry. A small topic (a single candidate
+// ⇒ B=1) makes the edge predicate always hold, so this exercises the cap + the
+// handler wiring (the predicate/bucket math is covered by the strategy's own
+// unit tests).
 #[test]
 fn over_capacity_request_is_rejected_with_signal_not_severance() {
     let t = topic("t1");
+    // rf = 1 ⇒ cap = ⌈1 + 3·√1⌉ = 4.
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
@@ -223,53 +227,44 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         alias_signer("self"),
         strategy(),
         Arc::new(ForwardToAll),
-        Arc::new(BoundedAcceptance::new(1)),
+        Arc::new(VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3)),
     );
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));
-    apply(&mut state, membership_joined("a", ["t1"]));
-    apply(&mut state, membership_joined("b", ["t1"]));
+    apply(&mut state, membership_joined("a", ["t1"])); // sole candidate ⇒ B=1
+                                                       // Pre-seed downstream to the cap (4 already-accepted peers on t1).
+    for p in ["w", "x", "y", "z"] {
+        with_downstream(&mut state, p, "t1");
+    }
 
-    // First request: below the downstream degree bound ⇒ accepted.
-    let accept = apply(&mut state, request_from("a", "t1"));
-    assert!(state.downstream.contains(&(peer("a"), t.clone())));
-    assert!(matches!(
-        sent_action(&accept[0]),
-        Some((to, ConnectionAction::Accepted { .. })) if to == &peer("a")
-    ));
-
-    // Second request: at the bound ⇒ refused with an explicit Rejected, no
-    // downstream entry, no Misbehaved severance.
-    let reject = apply(&mut state, request_from("b", "t1"));
-    assert!(!state.downstream.contains(&(peer("b"), t.clone())));
-    assert_eq!(
-        state.downstream.len(),
-        1,
-        "the over-capacity peer is not recorded",
-    );
+    // `a` is a member and B=1 (predicate holds), but the topic is at its cap ⇒
+    // refused with an explicit Rejected, no downstream entry, no Misbehaved.
+    let reject = apply(&mut state, request_from("a", "t1"));
+    assert!(!state.downstream.contains(&(peer("a"), t.clone())));
     assert_eq!(reject.len(), 1);
     assert!(matches!(
         sent_action(&reject[0]),
-        Some((to, ConnectionAction::Rejected { .. })) if to == &peer("b")
+        Some((to, ConnectionAction::Rejected { .. })) if to == &peer("a")
     ));
     assert!(!reject
         .iter()
         .any(|e| matches!(e, Effect::Misbehaved { .. })));
 }
 
-// US2: a Rejected dial removes the pending upstream so the dialer stops waiting
-// on an Accepted that will never come — the *only* handling. There is no retry
-// and no back-fill state: the realized upstream degree simply settles below
-// target (re-forming is the future heartbeat/reshuffle layer's job).
+// US2: a Rejected dial removes only the matching pending upstream so the dialer
+// stops waiting on an Accepted that will never come — the *only* handling. No
+// retry, no back-fill: the other pending upstreams are untouched and the degree
+// simply settles lower (re-forming is the future heartbeat/rotation layer's job).
 #[test]
 fn rejected_dial_removes_pending_upstream() {
     let t = topic("t1");
+    // rf = 8 with 3 candidates ⇒ B = 1 ⇒ all three are dialed (small-topic path).
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
         Arc::new(TestVerifier),
         alias_signer("self"),
-        Arc::new(SeededBoundedConnection::new(7, peer("self"), 1)),
+        Arc::new(HashGatedConnection::new(0, peer("self"), 8)),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
     );
@@ -279,24 +274,24 @@ fn rejected_dial_removes_pending_upstream() {
         apply(&mut state, membership_joined(c, ["t1"]));
     }
 
-    // Initial selection dials exactly one upstream (upstream degree 1).
-    apply(&mut state, Event::Synced);
-    let initial: Vec<(PeerId, TopicId)> = state.upstream.keys().cloned().collect();
-    assert_eq!(initial.len(), 1);
-    let rejected_peer = initial[0].0.clone();
+    apply(&mut state, Event::Synced); // fires Heartbeat(0); B=1 dials all three
+    let dialed: Vec<PeerId> = state.upstream.keys().map(|(p, _)| p.clone()).collect();
+    assert_eq!(dialed.len(), 3, "B=1 dials every candidate");
+    let rejected_peer = dialed[0].clone();
 
-    // That peer rejects the dial: the pending upstream is dropped and nothing
-    // else happens — no effects, no back-fill.
+    // That peer rejects the dial: only its pending upstream is dropped; no
+    // effects, no back-fill; the others remain.
     let effects = apply(&mut state, rejected_from(&rejected_peer.to_string(), "t1"));
     assert!(effects.is_empty(), "a rejection produces no effects");
     assert!(
         !state
             .upstream
             .contains_key(&(rejected_peer.clone(), t.clone())),
-        "the pending upstream is removed",
+        "the rejected pending upstream is removed",
     );
-    assert!(
-        state.upstream.is_empty(),
-        "no back-fill: the realized degree stays below target",
+    assert_eq!(
+        state.upstream.len(),
+        2,
+        "no retry/back-fill; the other pending upstreams remain",
     );
 }

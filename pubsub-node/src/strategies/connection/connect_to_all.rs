@@ -11,8 +11,8 @@ use crate::topic::TopicId;
 ///
 /// Self-exclusion is input-borne — the candidate sets the node folds from the
 /// subscription registry never contain its own id, so the expected set never
-/// does either. This policy maintains the full per-topic mesh; degree limits
-/// and sampling are the bounded policies' job ([`SeededBoundedConnection`](super::SeededBoundedConnection)).
+/// does either. This policy maintains the full per-topic mesh; degree limits and
+/// the verifiable gate are the bounded policy's job ([`HashGatedConnection`](super::HashGatedConnection)).
 pub struct ConnectToAllCandidates;
 
 impl ConnectionStrategy for ConnectToAllCandidates {
@@ -20,6 +20,7 @@ impl ConnectionStrategy for ConnectToAllCandidates {
         &self,
         subscriptions: &BTreeSet<TopicId>,
         candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
+        _interval: u64,
     ) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
         for topic in subscriptions {
@@ -67,6 +68,7 @@ mod tests {
         let expected = ConnectToAllCandidates.expected_upstream(
             &subscriptions(&["t1", "t2"]),
             &candidates(&[("t1", &["a", "b"]), ("t2", &["c"])]),
+            0,
         );
         assert_eq!(
             expected,
@@ -85,6 +87,7 @@ mod tests {
         let expected = ConnectToAllCandidates.expected_upstream(
             &subscriptions(&["t1"]),
             &candidates(&[("t1", &["a"]), ("t2", &["b"])]),
+            0,
         );
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
@@ -93,10 +96,10 @@ mod tests {
     #[test]
     fn empty_view_expects_nothing() {
         assert!(ConnectToAllCandidates
-            .expected_upstream(&BTreeSet::new(), &BTreeMap::new())
+            .expected_upstream(&BTreeSet::new(), &BTreeMap::new(), 0)
             .is_empty());
         assert!(ConnectToAllCandidates
-            .expected_upstream(&subscriptions(&["t1"]), &BTreeMap::new())
+            .expected_upstream(&subscriptions(&["t1"]), &BTreeMap::new(), 0)
             .is_empty());
     }
 
@@ -107,8 +110,11 @@ mod tests {
     fn self_exclusion_is_input_borne() {
         // The real fold never inserts self; modelling that, "self" is absent
         // from the candidate input and therefore absent from the output.
-        let expected = ConnectToAllCandidates
-            .expected_upstream(&subscriptions(&["t1"]), &candidates(&[("t1", &["a", "b"])]));
+        let expected = ConnectToAllCandidates.expected_upstream(
+            &subscriptions(&["t1"]),
+            &candidates(&[("t1", &["a", "b"])]),
+            0,
+        );
         assert!(!expected.contains(&(peer("self"), topic("t1"))));
         assert_eq!(expected.len(), 2);
     }

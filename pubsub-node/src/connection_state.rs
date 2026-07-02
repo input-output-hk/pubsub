@@ -217,9 +217,9 @@ pub(crate) mod test_support {
             self
         }
 
-        /// Append a `ConnectionSetup` step.
+        /// Append a `Heartbeat` step (interval 0 — the single v1 heartbeat).
         pub(crate) fn setup(mut self) -> Self {
-            self.0.push(Event::ConnectionSetup);
+            self.0.push(Event::Heartbeat { interval: 0 });
             self
         }
 

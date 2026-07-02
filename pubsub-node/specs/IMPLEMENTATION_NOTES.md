@@ -274,7 +274,7 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Surfaced during**: 014-registry-consistency PR review (2026-06-18). Relates to ADR 0020's `Syncing → Synced` readiness lifecycle.
 
-**Question**: the `synced` flag gates the node's **own dialing** (`handle_synced` → `handle_connection_setup`) but is not consulted by `handle_connection_request` (acceptance), the message receive path, or the publish path (`handle_publish` — a `publish` while `!synced` validates against the cold `subscriptions` set and drops `topic_not_subscribed`, benign and the same class as the receive case; 006-fanout-policy). Because the registry indexer and the network mailbox are independent producers on the single FIFO queue, an inbound `Request` that lands before the registry snapshots are folded is evaluated against cold `subscriptions`/`candidates` and silently rejected (`membership_validation_failed`), with no retry hint or deferral. The node knows it is still syncing but applies that knowledge only to dialing.
+**Question**: the `synced` flag gates the node's **own dialing** (`handle_synced` → `handle_heartbeat`) but is not consulted by `handle_connection_request` (acceptance), the message receive path, or the publish path (`handle_publish` — a `publish` while `!synced` validates against the cold `subscriptions` set and drops `topic_not_subscribed`, benign and the same class as the receive case; 006-fanout-policy). Because the registry indexer and the network mailbox are independent producers on the single FIFO queue, an inbound `Request` that lands before the registry snapshots are folded is evaluated against cold `subscriptions`/`candidates` and silently rejected (`membership_validation_failed`), with no retry hint or deferral. The node knows it is still syncing but applies that knowledge only to dialing.
 
 **Working answer (014 scope)**: **Readiness scoped to dialing only.** Invisible in the test suite (registries are populated before `Node::new` and triggers are deterministic, so snapshots always fold first). Not a regression — pre-014 there was no readiness notion and the same cold-state race existed. Accepted v1 state.
 
@@ -294,11 +294,11 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Surfaced during**: 006-fanout-policy (US2 fan-out relay). Relates to ADR 0020's `Syncing → Synced` lifecycle and [[N-018]] (readiness gates dialing, not acceptance/receive).
 
-**Question**: the `Synced` readiness transition runs `handle_connection_setup` atomically, so reaching readiness and dialing the connection policy's full expected-upstream set are a single, inseparable step — a node cannot become ready without immediately dialing. Should readiness and establishment be separable?
+**Question**: the `Synced` readiness transition runs `handle_heartbeat` atomically, so reaching readiness and dialing the connection policy's full expected-upstream set are a single, inseparable step — a node cannot become ready without immediately dialing. Should readiness and establishment be separable?
 
-**Working answer (current scope)**: **Keep coupled.** Autonomous startup wants readiness to trigger the dial, and `Event::ConnectionSetup` remains separately injectable for any caller that needs to dial deliberately, so nothing is blocked. No change.
+**Working answer (current scope)**: **Keep coupled.** Autonomous startup wants readiness to trigger the dial, and `Event::Heartbeat` remains separately injectable for any caller that needs to dial deliberately, so nothing is blocked. No change.
 
-**Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]] / [[N-018]] / [[N-019]] — the connection-lifecycle cluster). Reconsider whether `Synced` should only flip the readiness flag and emit `Event::ConnectionSetup` as a separate queued event, decoupling readiness from automatic dialing.
+**Trigger to revisit**: the **dynamic-connection-transitions** feature (with [[N-011]] / [[N-017]] / [[N-018]] / [[N-019]] — the connection-lifecycle cluster). Reconsider whether `Synced` should only flip the readiness flag and emit `Event::Heartbeat` as a separate queued event, decoupling readiness from automatic dialing.
 
 ## N-021 — Bounded `seen` store (eviction) for duplicate suppression
 
@@ -346,9 +346,9 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Surfaced during**: 006-fanout-policy (out of scope; data-model §7 D5).
 
-**Question**: connection establishment fires once (the `Synced` readiness dial, or an injected `Event::ConnectionSetup`). Nothing re-selects or re-dials on an interval, so a node that missed a peer (absent at sync, or a dropped request) never retries autonomously. Should there be a periodic re-dial?
+**Question**: connection establishment fires once (the `Synced` readiness dial, or an injected `Event::Heartbeat`). Nothing re-selects or re-dials on an interval, so a node that missed a peer (absent at sync, or a dropped request) never retries autonomously. Should there be a periodic re-dial?
 
-**Working answer (current scope)**: **No periodic re-dial.** `Event::ConnectionSetup` is idempotent and re-injectable (a recurring setup re-dials pending pairs, skips Active ones — [[N-011]]), so the *mechanism* exists; only the periodic *trigger* is absent. Adding a timer is connection-dynamics work, out of this feature.
+**Working answer (current scope)**: **No periodic re-dial.** `Event::Heartbeat` is idempotent and re-injectable (a recurring setup re-dials pending pairs, skips Active ones — [[N-011]]), so the *mechanism* exists; only the periodic *trigger* is absent. Adding a timer is connection-dynamics work, out of this feature.
 
 **Trigger to revisit**: the **dynamic-connection-transitions** feature, together with [[N-020]] (decoupling readiness from the dial) — the re-dialer is the periodic counterpart of that one-shot trigger. Decide the interval/backoff and whether re-selection also prunes (the remove-side of [[N-011]]).
 
@@ -381,16 +381,19 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 The grouping mirrors the handler chain the existing test comments already key off, so the partition is mostly mechanical. **Crux to validate**: descendant test modules must still reach `state`'s private items — they can, since a private item is visible to its module and all descendants, so a file under `src/state/tests/` reaches `handle_*`/private fields via `super::super::*` (and `crate::state` for the `pub(crate)` surface). Pure move, zero test-logic changes, behavior-preserving. **Trade-off**: breaks the inline-`#[cfg(test)] mod tests` uniformity that `connection`/`fanout`/`acceptance` follow — a deliberate exception justified by `state` being 7–20× their size. **Explicitly not** the deeper alternative of splitting the production handlers across domain modules: that touches the pure-core cohesion (ADR 0011 keeps `apply` + handlers together) and is an architectural change, not a test reorg.
 
-## N-028 — Feature 005 (seeded bounded strategies) deferrals
+## N-028 — Feature 005 (verifiable hash-gated strategies) deferrals
 
-Recorded on completing 005 (seeded bounded connection-selection + bounded acceptance):
+Recorded on completing 005 (verifiable hash-gated connection-selection + verifiable bounded acceptance, per the bucketed-pull redesign 2026-07-02):
+
+- **Incentive / chain layer** — the deposits (`D`), sybil-count bound (`K`), on-chain identity, and over-capacity slashing reports of `docs/extensions/bucketed-pull.md` are the chain/incentive layer, **not** implemented by these overlay strategies. Deferred to the on-chain workstream.
+- **Real per-round beacon + discovery view** — `(genesis, interval)` stand in for the doc's unbiasable `nonce_R`; v1 uses `view = the full candidate set` (no `H_v` discovery sampling). Both arrive with the discovery/beacon layer; the seam (interval input, per-topic candidate view) already accommodates them.
 
 - **Experiment/testing framework** — the topology builder (network-default + per-node-override strategy assignment) and the delivery-percentile / propagation-depth / convergence metrics are a **separate later feature**. 005 ships only the strategies + their tests.
 - **Determinism/purity refactor** — strategies-as-`apply`-arguments + deterministic event-loop scheduling are the co-developing architect's parallel workstream; 005 kept its strategy objects pure and the current strategy injection (coordinate, not blocked).
-- **Retry / back-fill to a minimum degree** — 005 ships the *no-retry* baseline: on rejection the dialer only drops the pending upstream, realized degree may under-fill. A retry-to-a-minimum policy (with a sticky/decaying failed-set) is a **separate future strategy family** (`BackfillingSeededBoundedConnection`) — see [[N-029]].
+- **Retry / back-fill to a minimum degree** — 005 ships the *no-retry* baseline: on rejection the dialer only drops the pending upstream, realized degree may under-fill. A retry-to-a-minimum policy (with a sticky/decaying failed-set) is a **separate future strategy family** (`BackfillingHashGatedConnection`) — see [[N-029]].
 - **Dynamic re-selection / epochal rotation** — selection operates over the candidate set fixed at readiness; re-selection on membership *change* and periodic epochal rotation are deferred.
 - **Golden nodes (push-based M2)** + edge/golden mode flag + adversarial/Byzantine node behaviour — later features.
-- **Bounded/seeded fan-out** — `ForwardToAll` is unchanged; a degree-capped/seeded fan-out variant arrives with the propagation/replication experiments that need it.
+- **Bounded/seeded fan-out** — considered (former feature 015) and **dropped** in the bucketed-pull redesign; fan-out stays `ForwardToAll` (disseminate to all downstream on the topic). A degree-capped fan-out variant would return only with the propagation/replication experiments that need it.
 - **N-007 (`PeerView`) pointer resolved** — 005 uses the existing subscription-registry candidate view as the peer view; no separate `PeerView`/`PeerSource` abstraction was introduced.
 
 ## N-029 — Retry/back-fill strategy family; `Rejected` as a (currently unused) liveness signal
@@ -399,6 +402,6 @@ Recorded on completing 005 (seeded bounded connection-selection + bounded accept
 
 **Question**: an over-capacity `ConnectionAction::Rejected` tells the dialer a candidate is *alive but at its per-topic out-degree cap* — a positive liveness + capacity signal. Should the node use it to retry/back-fill toward a minimum degree, and to filter/re-rank candidates across heartbeat intervals (keep alive-but-full peers as retryable future candidates; hard-filter genuinely offline ones)?
 
-**Working answer (current scope)**: **Not in 005.** 005 ships the *no-retry* baseline: on `Rejected` the dialer only removes the pending `AwaitingAccept` upstream, and the realized degree may under-fill. An earlier revision added a sticky `failed_upstream` set + `ConnectionSetup`-driven back-fill; both were **removed** (spec Clarifications, Session 2026-07-02) so no persistent rejection state is carried — the node keeps no failed-set and no rejection counter. The signal's cross-interval value is also unrealized because the in-memory substrate answers every dial, so *offline* is unmodelled (no timeout to distinguish alive-but-full from unreachable — ADR 0025).
+**Working answer (current scope)**: **Not in 005.** 005 ships the *no-retry* baseline: on `Rejected` the dialer only removes the pending `AwaitingAccept` upstream, and the realized degree may under-fill. An earlier revision added a sticky `failed_upstream` set + `Heartbeat`-driven back-fill; both were **removed** (spec Clarifications, Session 2026-07-02) so no persistent rejection state is carried — the node keeps no failed-set and no rejection counter. The signal's cross-interval value is also unrealized because the in-memory substrate answers every dial, so *offline* is unmodelled (no timeout to distinguish alive-but-full from unreachable — ADR 0025).
 
-**Trigger to revisit**: the **dynamic-connection-transitions / experiment** feature (with [[N-025]] and [[N-020]]). It should introduce a **retry/back-fill strategy family** (`BackfillingSeededBoundedConnection` / `RetryingSeededBoundedConnection`) that retries toward a minimum degree, treating `Rejected` as a **soft, re-rankable** signal (alive-but-full → deprioritized/retryable next interval, not permanently dropped) with a sticky-or-decaying failed-set it owns; and **offline detection** (a dial timeout over a real/faulty transport) that hard-filters unreachable candidates. Comparing the no-retry baseline against the retry family is itself an experiment.
+**Trigger to revisit**: the **dynamic-connection-transitions / experiment** feature (with [[N-025]] and [[N-020]]). It should introduce a **retry/back-fill strategy family** (`BackfillingHashGatedConnection` / `RetryingHashGatedConnection`) that retries toward a minimum degree, treating `Rejected` as a **soft, re-rankable** signal (alive-but-full → deprioritized/retryable next interval, not permanently dropped) with a sticky-or-decaying failed-set it owns; and **offline detection** (a dial timeout over a real/faulty transport) that hard-filters unreachable candidates. Comparing the no-retry baseline against the retry family is itself an experiment.

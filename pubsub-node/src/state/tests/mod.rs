@@ -26,8 +26,10 @@ pub(crate) use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier}
 pub(crate) use crate::crypto::PublicKey;
 pub(crate) use crate::crypto::{Signer, Timestamp};
 pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
-pub(crate) use crate::strategies::acceptance::{AcceptFromAllCandidates, BoundedAcceptance};
-pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, SeededBoundedConnection};
+pub(crate) use crate::strategies::acceptance::{
+    AcceptFromAllCandidates, VerifiableBoundedAcceptance,
+};
+pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
 pub(crate) use crate::strategies::fanout::ForwardToAll;
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;

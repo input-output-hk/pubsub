@@ -71,14 +71,19 @@ pub(crate) struct NodeState {
     /// fan-out destinations — as a set of `(peer, topic)` entries with no
     /// per-entry state (FR-002).
     downstream: HashSet<(PeerId, TopicId)>,
+    /// The current heartbeat **interval** (offset from genesis, 0-based) — the
+    /// round counter that feeds the verifiable edge predicate (ADR 0030). Folded
+    /// from the last `Heartbeat` event (default 0); the acceptor verifies inbound
+    /// requests against it, so it is event-derived state, not a strategy field.
+    interval: u64,
     /// The node's signing identity: signs the control messages it emits
     /// (`Request`/`Accepted`/`Terminated`). Rides along as an immutable service
     /// handle beside the verifier; the transition signs inside the pure core so
     /// each `Effect::Send` carries a complete signed message (FR-011).
     signer: Arc<dyn Signer>,
-    /// The connection-selection policy consulted on a setup event, beside the
+    /// The connection-selection policy consulted on a `Heartbeat`, beside the
     /// verifier (the immutable service-handle slot). The transition reads it
-    /// from the `ConnectionSetup` arm (ADR 0018).
+    /// from the `Heartbeat` arm (ADR 0018/0030).
     connection_strategy: Arc<dyn ConnectionStrategy>,
     /// The fan-out policy consulted at the record point to choose which
     /// downstream peers receive a forward of a recorded message. The deliberate
@@ -124,6 +129,7 @@ impl NodeState {
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
+            interval: 0,
             signer,
             connection_strategy,
             fanout_strategy,
@@ -242,26 +248,29 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
         Event::Synced => handle_synced(state),
-        Event::ConnectionSetup => handle_connection_setup(state),
+        Event::Heartbeat { interval } => handle_heartbeat(state, interval),
         Event::Shutdown => handle_shutdown(state),
     }
 }
 
-/// Transition for the connection-establishment trigger.
+/// Transition for the connection **heartbeat** (ADR 0030).
 ///
-/// Consults the node's connection-selection strategy for the expected upstream
-/// set and applies it as the FR-007 diff: dial everything expected that is not
-/// already `Active`. A pair not held gains an `AwaitingAccept` entry and a
-/// `Request`; a pair still at `AwaitingAccept` keeps its entry and is
-/// re-requested (its earlier request may have been lost); an `Active` pair is
-/// left alone. Expected-set membership never removes anything. The strategy
-/// reads the **membership-derived** `subscriptions` field (not the
-/// registration-gated effective filter) — the dial side mirrors the acceptance
-/// rule (FR-008/009; data-model §1.4).
-fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
-    let expected = state
-        .connection_strategy
-        .expected_upstream(&state.subscriptions, &state.candidates);
+/// Stores the carried `interval` (so the acceptor verifies inbound requests
+/// against the current round), then consults the node's connection-selection
+/// strategy for the expected upstream set and applies it as the diff: dial
+/// everything expected that is not already `Active`. A pair not held gains an
+/// `AwaitingAccept` entry and a `Request`; a pair still at `AwaitingAccept` keeps
+/// its entry and is re-requested; an `Active` pair is left alone. Expected-set
+/// membership never removes anything (v1 is single-interval; cross-interval
+/// rotation/teardown is deferred). The strategy reads the membership-derived
+/// `subscriptions` field and the current interval (FR-006).
+fn handle_heartbeat(state: &mut NodeState, interval: u64) -> Vec<Effect> {
+    state.interval = interval;
+    let expected = state.connection_strategy.expected_upstream(
+        &state.subscriptions,
+        &state.candidates,
+        interval,
+    );
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
     let self_id = state.self_id.clone();
@@ -300,7 +309,9 @@ fn handle_synced(state: &mut NodeState) -> Vec<Effect> {
         return Vec::new();
     }
     state.synced = true;
-    handle_connection_setup(state)
+    // v1 fires a single heartbeat (interval 0) on the readiness edge; periodic
+    // heartbeats are a later feature (ADR 0030).
+    handle_heartbeat(state, 0)
 }
 
 /// Build a control message signed by the node's own signer, with the node's
@@ -602,6 +613,7 @@ fn handle_connection_request(
         &state.subscriptions,
         &state.candidates,
         &state.downstream,
+        state.interval,
     );
     match admission {
         Admission::Accept => {
@@ -617,12 +629,19 @@ fn handle_connection_request(
                 message,
             }]
         }
-        Admission::RejectMembership => {
-            // Silent drop, no reply — does not leak membership to a non-member.
+        // Both silent-drop refusals: no reply, leaking nothing to the requester
+        // (a non-member, or an adversary whose edge predicate does not hold this
+        // interval). Distinct log causes only (ADR 0025).
+        Admission::RejectMembership | Admission::RejectIllegitimate => {
+            let cause = if admission == Admission::RejectMembership {
+                "membership_validation_failed"
+            } else {
+                "illegitimate_request"
+            };
             tracing::info!(
                 target: "pubsub_node::node",
                 event = "message_dropped",
-                cause = "membership_validation_failed",
+                cause,
                 self_id = %state.self_id,
                 emitter = %emitter,
                 topic = %topic,
@@ -630,9 +649,9 @@ fn handle_connection_request(
             Vec::new()
         }
         Admission::RejectOverCapacity => {
-            // Over the inbound bound: drop without recording downstream, but
-            // send an explicit `Rejected` so the dialer can back-fill (ADR 0025).
-            // Not misbehaviour — no severance.
+            // Over the per-topic cap: drop without recording downstream, but send
+            // an explicit `Rejected` so the dialer drops its pending upstream
+            // (ADR 0025). Not misbehaviour — no severance.
             tracing::info!(
                 target: "pubsub_node::node",
                 event = "message_dropped",

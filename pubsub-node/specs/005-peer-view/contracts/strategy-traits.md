@@ -1,33 +1,46 @@
 # Contract: connection-strategy seams
 
-Two injected policies. This feature adds bounded impls and evolves the **acceptance** trait's return/inputs (ADR 0025); the **dial** trait shape is unchanged (R3). The strategy objects stay pure (seed/bounds as construction fields) and keep the current injection; they migrate unchanged if the parallel refactor later passes strategies as `apply` arguments (R6).
+Two injected policies plus the shared verifiable edge predicate they both consult, realising the overlay mechanics of `docs/extensions/bucketed-pull.md`. This feature adds verifiable bucketed impls (ADR 0024), evolves the **acceptance** trait's return/inputs (ADR 0025), and threads the current **interval** through both trait methods (ADR 0030). The strategy objects stay pure (genesis / `RF` / `c` as construction fields, interval an input) and keep the current injection (`Arc<dyn …>` at `Node::new`).
 
-## Dial side — `ConnectionStrategy` (shape unchanged)
+## Shared predicate — `strategies::edge` (ADR 0024/0030)
+
+```
+is_valid_edge(genesis: u64, topic: &TopicId, requester: &PeerId,
+              candidate: &PeerId, interval: u64, buckets: usize) -> bool
+bucket_count(candidates_len: usize, rf: usize) -> usize   // max(1, round(len / rf))
+accept_cap(rf: usize, c: usize) -> usize                  // ⌈rf + c·√rf⌉
+```
+
+- `is_valid_edge` = `H(genesis, topic, requester, candidate, interval) mod buckets == 0`, ordered `(requester, candidate)` so it is directional. `H` = SHA-256 over a canonical length-prefixed encoding (domain-separated; cross-machine stable — **not** `DefaultHasher`). `buckets <= 1` is always valid (the small-topic / connect-to-all floor).
+- Both seams call the *same* function over the *same* tuple, so they can never drift: the dial side uses it to *select* upstreams, the accept side to *verify* a request.
+
+## Dial side — `ConnectionStrategy` (interval threaded, ADR 0030)
 
 ```
 expected_upstream(subscriptions: &BTreeSet<TopicId>,
-                  candidates:    &BTreeMap<TopicId, BTreeSet<PeerId>>) -> BTreeSet<(PeerId, TopicId)>
+                  candidates:    &BTreeMap<TopicId, BTreeSet<PeerId>>,
+                  interval:      u64) -> BTreeSet<(PeerId, TopicId)>
 ```
 
-- Node hands in the current `candidates` view directly (no failed-set pre-filter; the earlier candidates-minus-failed diff was removed in the PR-73 simplification).
+- Node hands in the current `candidates` view and the current `interval` directly (no failed-set pre-filter).
 - Impls:
   - `ConnectToAllCandidates` (existing, default) — all candidates per joined topic.
-  - `SeededBoundedConnection { seed, self_id, upstream_degree }` (new) — a PRNG-sampled `upstream_degree`-subset of the candidates per topic (partial Fisher–Yates via `ChaCha20Rng`, re-seeded per call from `(seed, self_id, topic)`) over the ordered candidate set; all when candidates ≤ `upstream_degree`. Pure; deterministic (fixed algorithm + ordered inputs); no state carried across calls.
-- Guarantees: identical inputs → identical output regardless of iteration order (FR-003); uniform over a seed sweep (FR-007); |output per topic| ≤ `upstream_degree` (FR-001/FR-002).
+  - `HashGatedConnection { genesis, self_id, rf }` (new) — per joined topic `T`, compute `B = bucket_count(|candidates_T|, rf)` and select each candidate `U` with `is_valid_edge(genesis, T, self_id, U, interval, B)`. Expected out-degree per topic ≈ the **fixed** `RF`; a topic with `≤ ~RF` candidates has `B = 1` and connects to **all** of them (small-topic fallback — no threshold, no `ln`). Pure; deterministic (fixed hash + ordered inputs); the result is a function of the *set* (order-independent).
+- Guarantees: identical inputs → identical output regardless of iteration order (FR-002); pseudo-uniform per candidate over an interval/genesis sweep (SC-003); expected |output per topic| ≈ `RF` and `≤ ~RF` candidates ⇒ all selected (FR-001/FR-003).
 
-## Inbound side — `ConnectionAcceptanceStrategy` (evolved, ADR 0025)
+## Inbound side — `ConnectionAcceptanceStrategy` (evolved, ADR 0025/0030)
 
 ```
-admit(emitter, topic, subscriptions, candidates, downstream) -> Admission
-enum Admission { Accept, RejectMembership, RejectOverCapacity }
+admit(emitter, topic, subscriptions, candidates, downstream, interval) -> Admission
+enum Admission { Accept, RejectMembership, RejectIllegitimate, RejectOverCapacity }
 ```
 
-- Change vs today: return was `bool`; now reason-bearing, and the decision sees the current `downstream` so the downstream degree can be enforced.
+- Change vs today: return was `bool`; now reason-bearing, the decision sees the current `downstream` (to count the per-topic cap) and the current `interval` (to recompute the verifiable predicate).
 - Impls:
-  - `AcceptFromAllCandidates` (existing, default) — `Accept` when membership-valid, else `RejectMembership`; never `RejectOverCapacity`.
-  - `BoundedAcceptance { downstream_degree }` (new) — `RejectMembership` if not membership-valid; else `RejectOverCapacity` if downstream count ≥ `downstream_degree`; else `Accept`.
-- Handler mapping: `Accept` → downstream insert + `Accepted`; `RejectMembership` → silent drop; `RejectOverCapacity` → drop (distinct cause) + send `Rejected`.
+  - `AcceptFromAllCandidates` (existing, default) — `Accept` when membership-valid, else `RejectMembership`; never `RejectIllegitimate`/`RejectOverCapacity`.
+  - `VerifiableBoundedAcceptance { genesis, self_id, rf, cap_buffer }` (new) — `RejectMembership` if not membership-valid; else `RejectIllegitimate` if `is_valid_edge(genesis, topic, emitter, self_id, interval, B)` fails (the acceptor **verifies**, with the same `B = bucket_count(|candidates_T|, rf)` the dialer used); else `RejectOverCapacity` if downstream-on-topic `≥ OC = accept_cap(rf, cap_buffer)`; else `Accept`.
+- Handler mapping: `Accept` → downstream insert + `Accepted`; `RejectMembership` → silent drop (`membership_validation_failed`); `RejectIllegitimate` → silent drop (`illegitimate_request`); `RejectOverCapacity` → drop (`downstream_capacity_reached`) + send `Rejected`.
 
 ## Construction / wiring
 
-- Strategies are constructed at the edge from already-parsed values (seed, upstream degree, downstream degree) and injected at node construction (current shape; migrates to the argument shape with the parallel refactor). Bounded impls are wired only when the parameters are supplied; otherwise the unbounded defaults (FR-013, SC-005).
+- Strategies are constructed at the edge from already-parsed values (`genesis`, `rf`, `cap_buffer`) via the two-phase builder (ADR 0028): phase 1 resolves each seam key into its `*StrategyKind`; phase 2 `NodeStrategies::builder(conn, acc).build(&ConnectionParams, &AcceptanceParams)` binds each seam's own params and builds, validating that a chosen `hash-gated`/`verifiable-bounded` kind was given its required `rf`. Injected at `Node::new`. Bounded impls are wired only when the parameters are supplied; otherwise the unbounded defaults (FR-010, SC-006).

@@ -1,31 +1,34 @@
-# Quickstart: exercising the bounded strategies
+# Quickstart: exercising the verifiable strategies
 
-Illustrative — exact names settle at implementation. Strategies use the current injection shape (and migrate unchanged if the parallel refactor later passes them as `apply` arguments).
+Illustrative — exact names settle at implementation. Strategies use the current injection shape (and migrate unchanged if the parallel refactor later passes them as `apply` arguments). Realises the bucketed-pull overlay mechanics (`docs/extensions/bucketed-pull.md`, ADR 0024/0025/0030).
 
-## Construct a bounded node
+## Construct a verifiable node
 
 ```text
-let selection  = SeededBoundedConnection { seed, self_id, upstream_degree };   // dial side
-let acceptance = BoundedAcceptance { downstream_degree };                        // inbound side
-// strategies injected at node construction (migrate to apply-arguments with the parallel refactor)
+let selection  = HashGatedConnection::new(genesis, self_id, rf);              // dial side
+let acceptance = VerifiableBoundedAcceptance::new(genesis, self_id, rf, cap_buffer); // inbound side
+// strategies injected at node construction (via the two-phase builder, ADR 0028)
 ```
 
-Omit the bounded strategies (or the seed/degree params at the edge) → today's full-mesh behaviour, unchanged (SC-005).
+Omit the verifiable strategies (or the `--genesis`/`--rf`/`--cap-buffer` params at the edge) → today's full-mesh `connect-to-all` / `accept-from-all` behaviour, unchanged (SC-006).
 
 ## Exercise (test shape)
 
 1. Seed candidate membership (fixed before readiness).
-2. Drive a node (or small set) to readiness, then drive re-dial by re-invoking `ConnectionSetup` explicitly (decouple flag) — no timers.
-3. To exercise rejection: drive a node past its `downstream_degree` with inbound requests; observe the over-capacity `Rejected`. On the dialer, after a `Rejected`, observe that the matching pending upstream is dropped and nothing further happens — no retry/back-fill (deferred to a future strategy family); the realized upstream degree may settle below target.
+2. Drive a node (or small set) to readiness, then drive dialing by firing `Event::Heartbeat { interval }` (v1 fires interval 0 at readiness) — no timers.
+3. To exercise rejection: drive a node past its per-topic cap `OC = ⌈RF + c·√RF⌉` with legitimate (predicate-valid) inbound requests; observe the over-capacity `Rejected`. On the dialer, after a `Rejected`, observe that the matching pending upstream is dropped and nothing further happens — no retry/back-fill (deferred to a future strategy family); the realized upstream degree may settle below `RF`.
+4. To exercise the silent drop: send a membership-invalid request or one whose edge predicate fails this interval; observe it is dropped with no reply (distinct log causes `membership_validation_failed` / `illegitimate_request`).
 
 ## Assert via getters/snapshots (never logs)
 
-- **Bound** — `upstream_connections()` ≤ `upstream_degree`/topic; `downstream_connections()` ≤ `downstream_degree`/topic (SC-002).
-- **Reproducibility** — same seed + membership → identical upstream set on rebuild (SC-001).
-- **Variety** — two seeds → differing selections for candidates > upstream degree (SC-003).
-- **Rejection / under-fill** — a `Rejected` drops the matching pending upstream and produces no further effects; no retry/back-fill, so the realized degree may settle below the bound (FR-014/FR-015).
-- **Unbiasedness** — over ≥1,000 seeds on a fixed candidate set, per-candidate frequency within tolerance (FR-007/SC-004; research R5).
+- **Degree ≈ RF** — `upstream_connections()` per topic tracks the fixed `RF`; `downstream_connections()` ≤ `OC = ⌈RF + c·√RF⌉` per topic (SC-004).
+- **Reproducibility** — same genesis + membership + interval → identical upstream set on rebuild, incl. across machines (SC-001).
+- **Verifiability** — the acceptor's predicate result equals the dialer's for the same `(requester, candidate, topic, interval)` (SC-002).
+- **Small topic** — `≤ ~RF` candidates ⇒ `B = 1` ⇒ connect-to-all / accept-all (SC-006).
+- **Rejection / under-fill** — a `Rejected` drops the matching pending upstream and produces no further effects; no retry/back-fill, so the realized degree may settle below `RF` (FR-008/FR-009, SC-007).
+- **No amplification** — a single id spamming a victim has its accepted fraction bounded by the `1/B` density; predicate-failing requests are all dropped (SC-005).
+- **Uniformity** — over a sweep of ≥1,000 intervals (or genesis values) on a fixed candidate set with `B > 1`, per-candidate frequency within tolerance (SC-003; research R5).
 
 ## Out of scope here
 
-The topology builder, multi-node scale, and delivery-percentile/latency/propagation metrics are the separate experiment-framework feature; golden nodes, edge/golden mode, and adversarial behaviour are later features.
+The topology builder, multi-node scale, and delivery-percentile/latency/propagation metrics are the separate experiment-framework feature; discovery/view sampling (`H_v`), periodic heartbeats + rotation/teardown, the real unbiasable beacon, the incentive/chain layer (deposits, sybil bound, slashing), and golden/relay tiers are later features.

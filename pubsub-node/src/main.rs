@@ -33,32 +33,32 @@ struct Args {
     topic_registry: PathBuf,
 
     /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `seeded-bounded` (selects at most --upstream-degree
-    /// upstream peers per topic, seeded by --seed).
+    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--rf
+    /// upstreams per topic, gated by the edge predicate over --genesis).
     #[arg(long, default_value = "connect-to-all")]
     connection_strategy: ConnectionStrategyKind,
 
-    /// Max upstream peers selected (dialed) per topic. Required for the
-    /// `seeded-bounded` connection strategy; ignored otherwise.
+    /// Fixed fanout `RF` — the target expected upstream degree per topic. Required
+    /// for the `hash-gated` / `verifiable-bounded` strategies; ignored otherwise.
+    /// The per-topic bucket count derives from it; small topics connect to all.
     #[arg(long)]
-    upstream_degree: Option<usize>,
+    rf: Option<usize>,
 
-    /// Network seed for deterministic bounded selection (default 0). Only has an
-    /// effect for the `seeded-bounded` strategy; the same seed reproduces the
-    /// same topology.
+    /// Public genesis nonce folded into the verifiable edge predicate (default 0).
+    /// Both peers use it; the same genesis reproduces the same topology.
     #[arg(long, default_value_t = 0)]
-    seed: u64,
+    genesis: u64,
 
     /// Inbound-acceptance strategy (case-insensitive): `accept-from-all` (the
-    /// default) or `bounded` (accepts at most --downstream-degree downstream peers per
-    /// topic, refusing the rest with an explicit rejection).
+    /// default) or `verifiable-bounded` (verifies the edge predicate + caps
+    /// downstream at ⌈rf + c·√rf⌉ per topic, refusing over-capacity with `Rejected`).
     #[arg(long, default_value = "accept-from-all")]
     acceptance_strategy: AcceptanceStrategyKind,
 
-    /// Max downstream peers accepted per topic (inbound connections this node
-    /// admits). Required for the `bounded` acceptance strategy; ignored otherwise.
-    #[arg(long)]
-    downstream_degree: Option<usize>,
+    /// Accept-cap buffer `c` in `OC = ⌈rf + c·√rf⌉` (default 3). Only affects the
+    /// `verifiable-bounded` acceptance strategy.
+    #[arg(long, default_value_t = 3)]
+    cap_buffer: usize,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -118,11 +118,14 @@ async fn main() {
         .build(
             &ConnectionParams {
                 self_id: args.self_id.clone(),
-                seed: args.seed,
-                upstream_degree: args.upstream_degree,
+                genesis: args.genesis,
+                rf: args.rf,
             },
             &AcceptanceParams {
-                downstream_degree: args.downstream_degree,
+                self_id: args.self_id.clone(),
+                genesis: args.genesis,
+                rf: args.rf,
+                cap_buffer: args.cap_buffer,
             },
         )
         .unwrap_or_else(|e| {

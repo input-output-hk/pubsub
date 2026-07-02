@@ -52,7 +52,7 @@ fn setup_event_dials_all_candidates() {
     apply(&mut state, membership_joined("a", ["t1"]));
     apply(&mut state, membership_joined("b", ["t1"]));
 
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
 
     assert_eq!(
         upstream_state(&state, "a", "t1"),
@@ -79,7 +79,7 @@ fn setup_keys_connections_per_peer_topic() {
     let mut state = node_state("self", HashSet::from([topic("t1"), topic("t2")]));
     apply(&mut state, membership_joined("a", ["t1", "t2"]));
 
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
 
     assert_eq!(
         upstream_state(&state, "a", "t1"),
@@ -100,7 +100,7 @@ fn setup_keys_connections_per_peer_topic() {
 #[test]
 fn setup_with_empty_view_is_a_noop() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
     assert!(effects.is_empty(), "no candidates → no requests");
     assert!(state.upstream_snapshot().is_empty());
 }
@@ -114,7 +114,7 @@ fn self_is_never_dialed() {
     apply(&mut state, membership_joined("self", ["t1"])); // own entry → subscriptions
     apply(&mut state, membership_joined("a", ["t1"])); // real candidate
 
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
 
     assert_eq!(
         upstream_state(&state, "self", "t1"),
@@ -137,14 +137,14 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
     apply(&mut state, membership_joined("a", ["t1"]));
 
     // First setup → a pending.
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat { interval: 0 });
     assert_eq!(
         upstream_state(&state, "a", "t1"),
         Some(UpstreamState::AwaitingAccept),
     );
 
     // Repeat with a still pending → re-dialed (fresh Request), entry kept.
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
     assert_eq!(
         request_sends(&effects, "self"),
         vec![(peer("a"), topic("t1"))],
@@ -164,7 +164,7 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
     apply(&mut state, membership_joined("b", ["t1"]));
 
     // Repeat → b dialed, a (Active) left alone and still present.
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
     assert_eq!(
         request_sends(&effects, "self"),
         vec![(peer("b"), topic("t1"))],
@@ -186,7 +186,7 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
 fn membership_update_after_setup_folds_only_then_later_setup_dials() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
     apply(&mut state, membership_joined("a", ["t1"]));
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat { interval: 0 });
 
     // New member arrives by membership update — no establishment on its own.
     let effects = apply(&mut state, membership_joined("b", ["t1"]));
@@ -201,7 +201,7 @@ fn membership_update_after_setup_folds_only_then_later_setup_dials() {
     );
 
     // A subsequent setup event dials the new member.
-    let effects = apply(&mut state, Event::ConnectionSetup);
+    let effects = apply(&mut state, Event::Heartbeat { interval: 0 });
     assert!(
         request_sends(&effects, "self").contains(&(peer("b"), topic("t1"))),
         "later setup dials the newly-known member",

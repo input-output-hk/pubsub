@@ -27,19 +27,25 @@ use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 /// at build time.
 #[derive(Clone, Debug)]
 pub struct ConnectionParams {
-    /// The node's own identity (folded into seeded selection).
+    /// The node's own identity (folded into the verifiable edge predicate).
     pub self_id: PeerId,
-    /// Network seed for the deterministic seeded strategies.
-    pub seed: u64,
-    /// Max upstream peers dialed per topic — required by `seeded-bounded`.
-    pub upstream_degree: Option<usize>,
+    /// Public genesis nonce for the edge predicate (default 0).
+    pub genesis: u64,
+    /// Fixed fanout `RF` — required by `hash-gated` (bucket count derives from it).
+    pub rf: Option<usize>,
 }
 
 /// Already-parsed parameters for the acceptance (inbound/downstream) seam.
 #[derive(Clone, Debug)]
 pub struct AcceptanceParams {
-    /// Max downstream peers accepted per topic — required by `bounded`.
-    pub downstream_degree: Option<usize>,
+    /// The node's own identity (the candidate side of the verified edge).
+    pub self_id: PeerId,
+    /// Public genesis nonce for the edge predicate (default 0).
+    pub genesis: u64,
+    /// Fixed fanout `RF` — required by `verifiable-bounded`.
+    pub rf: Option<usize>,
+    /// Accept-cap buffer `c` in `OC = ⌈rf + c·√rf⌉` (default 3).
+    pub cap_buffer: usize,
 }
 
 /// The error a strategy kind raises when the configuration lacks a parameter

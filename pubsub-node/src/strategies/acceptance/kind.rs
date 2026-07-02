@@ -9,7 +9,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy};
+use super::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy, VerifiableBoundedAcceptance};
 use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
 
 /// A selectable inbound-acceptance strategy, identified by a readable name.
@@ -17,8 +17,8 @@ use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
 pub enum AcceptanceStrategyKind {
     /// Accept every membership-valid request ([`AcceptFromAllCandidates`](super::AcceptFromAllCandidates)).
     AcceptFromAll,
-    /// Bound the inbound degree per topic ([`BoundedAcceptance`](super::BoundedAcceptance)).
-    Bounded,
+    /// Verifiable, bucketed, bounded acceptance ([`VerifiableBoundedAcceptance`](super::VerifiableBoundedAcceptance)).
+    VerifiableBounded,
 }
 
 impl AcceptanceStrategyKind {
@@ -27,7 +27,7 @@ impl AcceptanceStrategyKind {
     pub const fn name(self) -> &'static str {
         match self {
             Self::AcceptFromAll => "accept-from-all",
-            Self::Bounded => "bounded",
+            Self::VerifiableBounded => "verifiable-bounded",
         }
     }
 
@@ -36,29 +36,30 @@ impl AcceptanceStrategyKind {
     pub const fn tag(self) -> &'static [u8] {
         match self {
             Self::AcceptFromAll => b"pubsub/acceptance-strategy/accept-from-all",
-            Self::Bounded => b"pubsub/acceptance-strategy/bounded",
+            Self::VerifiableBounded => b"pubsub/acceptance-strategy/verifiable-bounded",
         }
     }
 
     /// Build the concrete inbound-acceptance strategy from the acceptance seam's
     /// params, validating the parameters this kind requires (ADR 0028). The edge
-    /// maps a returned [`StrategyConfigError`] once — it holds no per-strategy
-    /// logic.
+    /// maps a returned [`StrategyConfigError`] once.
     pub fn build(
         self,
         params: &AcceptanceParams,
     ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
-            Self::Bounded => {
-                let downstream_degree =
-                    params
-                        .downstream_degree
-                        .ok_or(StrategyConfigError::MissingParameter {
-                            strategy: self.name(),
-                            parameter: "a downstream degree (--downstream-degree)",
-                        })?;
-                Ok(Arc::new(BoundedAcceptance::new(downstream_degree)))
+            Self::VerifiableBounded => {
+                let rf = params.rf.ok_or(StrategyConfigError::MissingParameter {
+                    strategy: self.name(),
+                    parameter: "a fanout (--rf)",
+                })?;
+                Ok(Arc::new(VerifiableBoundedAcceptance::new(
+                    params.genesis,
+                    params.self_id.clone(),
+                    rf,
+                    params.cap_buffer,
+                )))
             }
         }
     }
@@ -67,7 +68,7 @@ impl AcceptanceStrategyKind {
 /// The error returned when a configuration string names no known acceptance
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, bounded)")]
+#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, verifiable-bounded)")]
 pub struct UnknownAcceptanceStrategy(pub String);
 
 impl FromStr for AcceptanceStrategyKind {
@@ -77,7 +78,7 @@ impl FromStr for AcceptanceStrategyKind {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "accept-from-all" => Ok(Self::AcceptFromAll),
-            "bounded" => Ok(Self::Bounded),
+            "verifiable-bounded" => Ok(Self::VerifiableBounded),
             _ => Err(UnknownAcceptanceStrategy(s.to_string())),
         }
     }
@@ -86,11 +87,17 @@ impl FromStr for AcceptanceStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::AcceptanceStrategyKind;
+    use crate::peer::PeerId;
     use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(downstream_degree: Option<usize>) -> AcceptanceParams {
-        AcceptanceParams { downstream_degree }
+    fn params(rf: Option<usize>) -> AcceptanceParams {
+        AcceptanceParams {
+            self_id: PeerId::from_str("self").expect("valid peer id"),
+            genesis: 0,
+            rf,
+            cap_buffer: 3,
+        }
     }
 
     // ADR 0028: accept-from-all needs no params; build succeeds regardless.
@@ -101,15 +108,15 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: bounded validates its required downstream degree in build.
+    // ADR 0028: verifiable-bounded validates its required fanout in build.
     #[test]
-    fn bounded_requires_downstream_degree() {
+    fn verifiable_bounded_requires_rf() {
         assert!(matches!(
-            AcceptanceStrategyKind::Bounded.build(&params(None)),
+            AcceptanceStrategyKind::VerifiableBounded.build(&params(None)),
             Err(StrategyConfigError::MissingParameter { .. }),
         ));
-        assert!(AcceptanceStrategyKind::Bounded
-            .build(&params(Some(2)))
+        assert!(AcceptanceStrategyKind::VerifiableBounded
+            .build(&params(Some(8)))
             .is_ok());
     }
 
@@ -120,8 +127,8 @@ mod tests {
             AcceptanceStrategyKind::AcceptFromAll,
         );
         assert_eq!(
-            AcceptanceStrategyKind::from_str("BOUNDED").unwrap(),
-            AcceptanceStrategyKind::Bounded,
+            AcceptanceStrategyKind::from_str("VERIFIABLE-BOUNDED").unwrap(),
+            AcceptanceStrategyKind::VerifiableBounded,
         );
     }
 
@@ -129,7 +136,7 @@ mod tests {
     fn every_name_round_trips() {
         for kind in [
             AcceptanceStrategyKind::AcceptFromAll,
-            AcceptanceStrategyKind::Bounded,
+            AcceptanceStrategyKind::VerifiableBounded,
         ] {
             assert_eq!(AcceptanceStrategyKind::from_str(kind.name()).unwrap(), kind);
         }
@@ -144,7 +151,7 @@ mod tests {
     fn tags_are_unique_per_strategy() {
         assert_ne!(
             AcceptanceStrategyKind::AcceptFromAll.tag(),
-            AcceptanceStrategyKind::Bounded.tag(),
+            AcceptanceStrategyKind::VerifiableBounded.tag(),
         );
     }
 }

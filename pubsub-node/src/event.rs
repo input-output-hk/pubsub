@@ -53,12 +53,18 @@ pub enum Event {
     /// snapshots; it is the single readiness signal (the per-registry markers are
     /// gone). Idempotent — a redundant `Synced` after the transition is a no-op.
     Synced,
-    /// The connection-establishment **action**: the node consults its
-    /// connection-selection strategy and dials the expected upstreams it does
-    /// not already hold (ADR 0018). Invoked by the [`Synced`](Event::Synced)
-    /// transition, and also available directly through the public event intake
-    /// (tests, operator injection, a future epochal re-dial).
-    ConnectionSetup,
+    /// The per-interval connection **heartbeat** (ADR 0030): the node consults
+    /// its connection-selection strategy for the carried `interval` and dials the
+    /// expected upstreams it does not already hold. The `interval` (an advancing
+    /// 0-based counter, offset from genesis) feeds the verifiable edge predicate;
+    /// the node retains it so the acceptor verifies inbound requests against the
+    /// current interval. Invoked by the [`Synced`](Event::Synced) transition
+    /// (interval 0 in v1) and available directly through the public event intake
+    /// (tests, operator injection, the future periodic/rotating heartbeat).
+    Heartbeat {
+        /// The round counter feeding the edge predicate this heartbeat.
+        interval: u64,
+    },
     /// The graceful-teardown trigger, pushed by
     /// [`Node::shutdown`](crate::Node::shutdown). The node notifies every
     /// connection counterpart, and this event doubles as the event loop's

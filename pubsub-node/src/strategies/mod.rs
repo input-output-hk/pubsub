@@ -12,4 +12,5 @@
 pub mod acceptance;
 pub mod config;
 pub mod connection;
+pub mod edge;
 pub mod fanout;
