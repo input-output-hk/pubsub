@@ -4,6 +4,28 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-07-02 — Brainstorm: baseline strategies first, analytical/simulation cross-validation workflow
+
+**Baseline before complexity.** The session focused on simulation methodology for the phase-2 experiment set. Ezequiel has compared the Blink Labs Raven repository against the Orus network material and steered the discussion toward the experimental set and future metrics. Will flagged that the strategy space is not one-dimensional — it is three interconnected buckets (connection to upstream nodes, acceptance of requests, dissemination/fan-out policy), so the combinatorial solution space needs deliberate management. The group's answer: model the simplest foundational strategy first — connect to a fixed number of peers, accept all requests, forward to all connections — to establish a verification baseline before layering in dynamic metrics or adversarial mitigations.
+
+**Analytical/simulation cross-validation workflow.** Experiments will be analysed systematically, one by one, prioritising those with closed-form solutions or approximations so analytical models and independent simulations can cross-validate each other. Denis stressed a skeptical review posture: compare simulation results against the implementation to surface discrepancies. A specific risk was identified in using Claude for both the implementation and the simulation — correlated error patterns could leave inaccuracies undetected in both — which the independent analytical derivations are there to catch. Current analytical work targets end-state topologies; Ezequiel noted the simulation framework could later track dynamic behaviour (message request counts, node resource consumption) that analytical models cannot easily capture.
+
+**Hash-gated connection requests in scope.** Rather than accepting all incoming requests blindly, nodes will use deterministic hash-based verification — verifiably selecting upstream peers from local IDs and round numbers — to block the trivial adversarial attack of exhausting a node's degree slots by spamming connection requests. Bucketing does not eliminate adversarial impact but raises the resource cost of interfering with the network. Protocol event semantics were also sharpened: epoch transitions imply a complete network reshuffle, while heartbeat-driven retries handle smaller connection issues.
+
+**Idealisation acknowledged, deferred deliberately.** Denis and Will acknowledged the analytical models assume an idealised, converged state and ignore operational constraints such as handshake durations and node churn. Those real-world constraints are deferred to a later phase, after the foundational baseline and cross-validation loop are established.
+
+**Golden nodes deprioritised.** Will proposed postponing golden-node strategies — implementation is at least two weeks out — in favour of strategies that yield early results. Denis noted that including golden-node logic in the simulation would be simple and reduce duplication, but the group agreed to test the non-golden-node case first to keep progress moving.
+
+**Tooling: concise prompting.** To counter Claude's verbosity in formulas, tables, and simulation output, the team will adopt lean, task-based prompting (Will pointed to the "caveman mode" skill on GitHub) — the goal being precise, machine-like output that is easy to review. Extreme conciseness in the analytical documentation is an explicit requirement.
+
+**Roadmap and chain dependency.** Chris from Blink may attend the next weekly meeting; the team should prepare GitHub issues and roadmap planning in advance. Will raised the robustness question of a chain-halting bug on Cardano if the architecture stays fully dependent on chain state; Ezequiel confirmed registry and latency issues are already identified, with the current focus remaining on the prototype phase.
+
+**Decisions.** *Aligned:* systematic one-by-one experiment analysis, closed-form/approximable cases first, cross-validated against independent simulations; hash-based verification of connection requests instead of blind acceptance; foundational strategies and experiment analysis prioritised, real-world constraints (e.g. handshake timings) deferred; sequential workflow of analytical sketch → simulation per strategy, with concise, readable documentation; golden-node strategies deprioritised in favour of early results.
+
+**Next.** Group: define experiments individually with metrics and analytical approximations per strategy; run independent simulations and cross-check against the analytical formulas; review GitHub issues and prepare roadmap planning for the next meeting. Ezequiel: document the discussed strategies and plans and share via the GitHub repository; provide detailed experiment tables with metrics and expected behaviour. Denis: sketch concise analytical approximations for each identified item (every parameter explained) and run the corresponding simulations with lean output.
+
+---
+
 ## 2026-06-30 — Weekly session: phase 1 → phase 2, deterministic simulation framework, delivery-completeness metric
 
 **Phase 1 → phase 2.** Phase 1 wraps up this week; everyone closes their open tickets and drafts phase-2 tickets/topics for next week's review. With the prototype's core build essentially done, phase 2 pivots from building to **experiments** — empirical trade-offs and adversarial cases — and a more end-to-end setup than today's in-memory prototype.
