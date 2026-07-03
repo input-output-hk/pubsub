@@ -20,6 +20,15 @@ const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 /// candidates, `B` floors to **1** and [`is_valid_edge`] always holds — the
 /// connect-to-all small-topic fallback, with no threshold and no `ln` degeneracy
 /// (ADR 0024).
+///
+/// **Verifiability caveat (matters once a discovery layer lands).** The dialer
+/// and acceptor must compute the *same* `B` for the predicate to be verifiable.
+/// Today they do because v1 uses the **full candidate set** — every node's
+/// `candidates_len` for a topic is `S_T − 1` (all members minus itself), so `B`
+/// is uniform. Once per-node view sampling (`H_v`) is introduced, two nodes will
+/// see different subsets and this local count will diverge — `B` must then derive
+/// from a **globally-agreed** per-topic count (the registry's `S_T`, or a fixed
+/// `H_v` parameter), *not* the sampled view size, or verification silently breaks.
 #[must_use]
 pub fn bucket_count(candidates_len: usize, target_degree: usize) -> usize {
     if target_degree == 0 {
