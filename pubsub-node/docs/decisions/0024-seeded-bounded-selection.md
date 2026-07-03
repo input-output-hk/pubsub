@@ -13,10 +13,10 @@ Select by the **verifiable per-round hash-bucket predicate** of `docs/extensions
 - **Predicate** (`strategies::edge::is_valid_edge`): a directional edge `requester → candidate` on topic `T` at interval `I` is valid iff
   `H(genesis, T, requester, candidate, I) mod B == 0`.
   `H` = SHA-256 over a canonical, length-prefixed encoding (in-tree `sha2`, cross-machine stable — explicitly **not** `DefaultHasher`). Ordered `(requester, candidate)` so it is directional. The predicate is a pure function of public values, so **both peers compute it** — the dial side to select, the accept side to verify.
-- **Bucket count**: `B = max(1, round(|candidates_on_topic| / RF))`. Expected edges per topic = `|candidates| / B ≈ RF`.
-- **Fixed `RF`** (random fanout): a configured constant applied uniformly for the run, **not** derived from network size (Denis's conservative option). This makes small topics self-handle — when `|candidates| ≤ ~RF`, `B` floors to 1 and `mod 1 == 0` always holds, so the node connects to **all** candidates (the graceful small-topic degradation the doc describes) — with no `ln`-based degeneracy (`ln(2)=0`) and no network-size estimation.
+- **Bucket count**: `B = max(1, round(|candidates_on_topic| / target_degree))`. Expected edges per topic = `|candidates| / B ≈ target_degree`.
+- **Fixed `target_degree`** (the target connection degree): a configured constant applied uniformly for the run, **not** derived from network size (Denis's conservative option). This makes small topics self-handle — when `|candidates| ≤ ~target_degree`, `B` floors to 1 and `mod 1 == 0` always holds, so the node connects to **all** candidates (the graceful small-topic degradation the doc describes) — with no `ln`-based degeneracy (`ln(2)=0`) and no network-size estimation.
 - **View**: the model samples within a per-peer view `H_v`. **v1 uses `view = the full candidate set`** (no discovery-layer sampling); `B` derives from the full per-topic candidate count. The seam is shaped so a later discovery/experiment layer can sub-sample `H_v` before the predicate without a seam change.
-- **Interval** is an input (from `Heartbeat` — ADR 0030), not a field; `genesis` is a strategy field. So `HashGatedConnection { genesis, self_id, rf }` stays pure and reproducible.
+- **Interval** is an input (from `Heartbeat` — ADR 0030), not a field; `genesis` is a strategy field. So `HashGatedConnection { genesis, self_id, target_degree }` stays pure and reproducible.
 
 `ConnectionStrategy::expected_upstream` gains the `interval` argument; the concrete policy is `HashGatedConnection`, replacing `SeededBoundedConnection`.
 
@@ -30,7 +30,7 @@ Select by the **verifiable per-round hash-bucket predicate** of `docs/extensions
 ## Alternatives rejected
 
 - **Keyed-hash ranking** / **seeded-PRNG sampling** (earlier revisions of this ADR) — not verifiable; an acceptor cannot confirm a sampled edge, so they give no spam resistance. Replaced by the bucket predicate.
-- **Degree derived from `ln(N)`** — `ln(2)=0` degeneracy + needs network-size estimation; the fixed-`RF` bucketing handles small topics without either.
+- **Degree derived from `ln(N)`** — `ln(2)=0` degeneracy + needs network-size estimation; the fixed-`target_degree` bucketing handles small topics without either.
 - **`DefaultHasher`** — not portable/stable; would break cross-machine reproducibility. **SHA-256** is used.
 - **In-feature back-fill / sticky failed-set** — removed earlier; retry is a future strategy family (see ADR 0025, N-029).
 - **Discovery-layer view sampling now** — deferred; v1 uses the full candidate set as the view.

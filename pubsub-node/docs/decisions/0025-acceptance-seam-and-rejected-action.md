@@ -9,15 +9,15 @@ The connection-seam doc note claimed degree caps would "slot in behind this trai
 ## Decision
 
 1. **Reason-bearing return.** Replace `accepts(...) -> bool` with `admit(...) -> Admission`, where `Admission { Accept, RejectMembership, RejectIllegitimate, RejectOverCapacity }`. The method also takes the node's current `downstream` set (to count capacity) and the **current interval** (to recompute the edge predicate). (`RejectIllegitimate` added at the bucketed-pull redesign — the request fails the verifiable edge predicate for this interval; see ADR 0024.)
-2. **New impl** (bucketed-pull redesign). `VerifiableBoundedAcceptance { genesis, self_id, rf, cap_c }` — replaces `BoundedAcceptance`. On a verified `Request` from `requester` on `topic` at `interval`:
+2. **New impl** (bucketed-pull redesign). `VerifiableBoundedAcceptance { genesis, self_id, target_degree, cap_c }` — replaces `BoundedAcceptance`. On a verified `Request` from `requester` on `topic` at `interval`:
    - not membership-valid (topic registered ∧ shared interest) → `RejectMembership`;
-   - else `H(genesis, topic, requester, self_id, interval) mod B != 0` (`B = max(1, round(|candidates_on_topic|/rf))`, the same predicate the dialer used, `strategies::edge::is_valid_edge`) → `RejectIllegitimate` — the acceptor **verifies** the request; an adversary cannot force an edge the hash does not allow;
-   - else downstream-on-topic ≥ `OC = ⌈rf + cap_c·√rf⌉` → `RejectOverCapacity`;
+   - else `H(genesis, topic, requester, self_id, interval) mod B != 0` (`B = max(1, round(|candidates_on_topic|/target_degree))`, the same predicate the dialer used, `strategies::edge::is_valid_edge`) → `RejectIllegitimate` — the acceptor **verifies** the request; an adversary cannot force an edge the hash does not allow;
+   - else downstream-on-topic ≥ `OC = ⌈target_degree + cap_c·√target_degree⌉` → `RejectOverCapacity`;
    - else `Accept`.
    `AcceptFromAllCandidates` maps its old logic onto `Accept`/`RejectMembership` and never refuses for capacity or predicate.
 3. **New control action.** `ConnectionAction::Rejected { topic }` (acceptor → dialer, wire tag `0x03`), emitted **only** on `RejectOverCapacity`. Distinct from `Terminated` and from a misbehaviour severance — a rejection is a normal capacity outcome, **not** misbehaviour. `RejectMembership` **and `RejectIllegitimate` stay silent drops** (no reply — leaking nothing to a non-member or an adversary; distinct log causes `membership_validation_failed` / `illegitimate_request`). Honest dialers only request predicate-valid peers (both sides compute the same predicate), so they never hit the silent-drop path — they see only `Accepted` or over-capacity `Rejected`.
 4. **Dialer handling (minimal, no back-fill).** `handle_connection_rejected` removes the matching `AwaitingAccept` upstream so the dialer stops awaiting an acceptance — that is the **only** handling. No failed-peer set, no counter, no back-fill; realized degree may under-fill; re-forming is deferred to the heartbeat-rotation layer + a future retry strategy family. A `Rejected` with no matching pending entry is a logged drop (`unsolicited_reject`).
-5. **Config selector.** A case-insensitive `AcceptanceStrategyKind` (`accept-from-all` / `verifiable-bounded`) with a unique per-strategy byte-string tag, parsed at the edge; the bounded kind takes the genesis nonce + fixed `RF` (+ buffer `c`) — no explicit downstream-degree parameter (the cap is `⌈RF + c·√RF⌉`).
+5. **Config selector.** A case-insensitive `AcceptanceStrategyKind` (`accept-from-all` / `verifiable-bounded`) with a unique per-strategy byte-string tag, parsed at the edge; the bounded kind takes the genesis nonce + fixed `target_degree` (+ buffer `c`) — no explicit downstream-degree parameter (the cap is `⌈target_degree + c·√target_degree⌉`).
 
 ## Consequences
 
