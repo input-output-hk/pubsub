@@ -57,7 +57,7 @@ mod tests {
         v
     }
 
-    // FR-010: ForwardToAll returns every downstream peer on the topic.
+    // 006 FR-010: ForwardToAll returns every downstream peer on the topic.
     #[test]
     fn forwards_to_every_downstream_on_the_topic() {
         let down = downstream(&[("a", "t1"), ("b", "t1"), ("c", "t2")]);
@@ -69,7 +69,7 @@ mod tests {
         );
     }
 
-    // FR-009 split-horizon: the excluded peer is removed from the targets.
+    // 006 FR-009 split-horizon: the excluded peer is removed from the targets.
     #[test]
     fn exclude_removes_that_peer() {
         let down = downstream(&[("a", "t1"), ("b", "t1")]);
@@ -81,7 +81,7 @@ mod tests {
         );
     }
 
-    // FR-016: empty downstream → no targets.
+    // 006 FR-016: empty downstream → no targets.
     #[test]
     fn empty_downstream_yields_no_targets() {
         assert!(ForwardToAll

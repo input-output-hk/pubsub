@@ -264,7 +264,7 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// its entry and is re-requested; an `Active` pair is left alone. Expected-set
 /// membership never removes anything (v1 is single-interval; cross-interval
 /// rotation/teardown is deferred). The strategy reads the membership-derived
-/// `subscriptions` field and the current interval (FR-006).
+/// `subscriptions` field and the current interval (005 FR-006).
 fn handle_heartbeat(state: &mut NodeState, interval: u64) -> Vec<Effect> {
     state.interval = interval;
     let view = NodeView {

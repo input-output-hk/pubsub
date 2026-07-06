@@ -30,7 +30,7 @@ Supporting types (`src/strategies/config.rs`):
 - Required-parameter validation is co-located with the strategy that requires it (correctness by locality); each seam's params are typed to that seam.
 - The edge no longer repeats `build → unwrap_or_else(exit)` per seam — one aggregate build, one error site.
 - Adding a strategy = a new kind variant + its `build` arm (+ maybe a field on that seam's params struct) — **no edge churn**.
-- The pattern is uniform across the connection and acceptance seams; the fan-out seam joins the same `NodeStrategies` builder at feature 015 (`FanoutStrategyKind` + `FanoutParams`).
+- The pattern is uniform across the connection and acceptance seams; the fan-out seam (today injected separately as `ForwardToAll`) would join the same `NodeStrategies` builder (`FanoutStrategyKind` + `FanoutParams`) when a selectable fan-out policy lands — a later fan-out-policy feature (ROADMAP 006). This originally named "feature 015", dropped in the bucketed-pull redesign ([[N-028]]).
 
 ## Alternatives rejected
 

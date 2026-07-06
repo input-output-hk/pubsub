@@ -74,7 +74,7 @@ mod tests {
         }
     }
 
-    // FR-010: v1 policy expects every candidate on every joined topic.
+    // 005 FR-010: v1 policy expects every candidate on every joined topic.
     #[test]
     fn expects_every_candidate_across_joined_topics() {
         let subs = subscriptions(&["t1", "t2"]);

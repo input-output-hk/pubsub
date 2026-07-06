@@ -133,7 +133,7 @@ mod tests {
         }
     }
 
-    // FR-001 small-topic (≤ target_degree candidates ⇒ B=1 ⇒ connect-to-all).
+    // 005 FR-001 small-topic (≤ target_degree candidates ⇒ B=1 ⇒ connect-to-all).
     #[test]
     fn small_topic_connects_to_all() {
         let subs = subscriptions(&["t1"]);
@@ -152,7 +152,7 @@ mod tests {
         );
     }
 
-    // FR-002/SC-001: identical inputs ⇒ identical selection, order-independent.
+    // 005 FR-002/SC-001: identical inputs ⇒ identical selection, order-independent.
     #[test]
     fn selection_is_deterministic_and_order_independent() {
         let ids = ids(80);
@@ -167,7 +167,7 @@ mod tests {
         assert_eq!(one, two, "selection must not depend on iteration order");
     }
 
-    // FR-003/SC-004: expected out-degree tracks target_degree on a large set.
+    // 005 FR-003/SC-004: expected out-degree tracks target_degree on a large set.
     #[test]
     fn out_degree_tracks_target_degree() {
         let ids = ids(80);
@@ -185,7 +185,7 @@ mod tests {
         );
     }
 
-    // FR-005: folding self_id in ⇒ two nodes on the same set select differently.
+    // 005 FR-005: folding self_id in ⇒ two nodes on the same set select differently.
     #[test]
     fn selection_varies_by_self_id() {
         let ids = ids(60);
@@ -227,7 +227,7 @@ mod tests {
         assert_eq!(pinned.len(), 80, "B=1 connects to every candidate");
     }
 
-    // FR-004: the default genesis (0) yields a deterministic, repeatable selection.
+    // 005 FR-004: the default genesis (0) yields a deterministic, repeatable selection.
     #[test]
     fn default_genesis_zero_is_deterministic() {
         let ids = ids(40);
