@@ -186,25 +186,28 @@ mod tests {
     #[test]
     fn legitimate_request_accepts_below_cap_and_rejects_at_cap() {
         let t = topic("t1");
-        let names = ["a", "b", "c", "d", "e", "f"];
         let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t1", &names)]);
-        let buckets = bucket_count(names.len(), 1); // target_degree=1 ⇒ cap 4
-        let valid = names
-            .iter()
-            .map(|n| peer(n))
-            .find(|p| is_valid_edge(0, &t, p, &peer("self"), 0, buckets))
-            .expect("some candidate passes the predicate at B=6");
-        let policy = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3);
+        // Pin B=2 (via the override) so ~half of any namespace is legitimate,
+        // then find a member that passes the predicate against this acceptor —
+        // robust to the exact hash rather than betting on a handful of names.
+        let valid_name = (0..10_000)
+            .map(|i| format!("cand-{i}"))
+            .find(|n| is_valid_edge(0, &t, &peer(n), &peer("self"), 0, 2))
+            .expect("some candidate passes the predicate at B=2");
+        let cands = candidates(&[("t1", &[valid_name.as_str()])]);
+        let valid = peer(&valid_name);
+        let policy =
+            VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3).with_bucket_override(Some(2));
 
-        // Below cap (3 held, cap 4) ⇒ Accept.
+        // Below cap (3 held, target_degree=1 ⇒ cap 4) ⇒ Accept.
         let below = downstream(&[("x", "t1"), ("y", "t1"), ("z", "t1")]);
         assert_eq!(
             policy.admit(&valid, &t, &view(&subs, &cands, &below)),
             Admission::Accept,
         );
 
-        // At cap (4 held) ⇒ RejectOverCapacity + (handler sends Rejected).
+        // At cap (4 held, none of them the requester) ⇒ RejectOverCapacity +
+        // (handler sends Rejected).
         let at = downstream(&[("w", "t1"), ("x", "t1"), ("y", "t1"), ("z", "t1")]);
         assert_eq!(
             policy.admit(&valid, &t, &view(&subs, &cands, &at)),
@@ -223,8 +226,8 @@ mod tests {
         let down = HashSet::new();
         // Derived B on 6 candidates at target_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
-        let policy = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3)
-            .with_bucket_override(Some(1));
+        let policy =
+            VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3).with_bucket_override(Some(1));
         assert_eq!(
             policy.admit(&peer("a"), &t, &view(&subs, &cands, &down)),
             Admission::Accept,
@@ -237,27 +240,17 @@ mod tests {
     #[test]
     fn already_downstream_peer_is_reaccepted_at_cap() {
         let t = topic("t1");
-        let names = ["a", "b", "c", "d", "e", "f"];
         let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t1", &names)]);
-        let buckets = bucket_count(names.len(), 1); // target_degree=1 ⇒ cap 4
-        let valid = names
-            .iter()
-            .map(|n| peer(n))
-            .find(|p| is_valid_edge(0, &t, p, &peer("self"), 0, buckets))
-            .expect("some candidate passes the predicate at B=6");
+        // 'a' is a member; the short-circuit fires ahead of the edge check, so no
+        // dependence on whether 'a' would pass the predicate.
+        let cands = candidates(&[("t1", &["a"])]);
         let policy = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3);
 
-        // At cap (4 held) AND the requester is one of the held downstreams ⇒ the
-        // idempotent re-Accept wins over RejectOverCapacity.
-        let at_cap_with_self = downstream(&[
-            (&valid.to_string(), "t1"),
-            ("x", "t1"),
-            ("y", "t1"),
-            ("z", "t1"),
-        ]);
+        // At cap (4 held, target_degree=1 ⇒ cap 4) AND 'a' is one of the held
+        // downstreams ⇒ the idempotent re-Accept wins over RejectOverCapacity.
+        let at_cap_with_a = downstream(&[("a", "t1"), ("x", "t1"), ("y", "t1"), ("z", "t1")]);
         assert_eq!(
-            policy.admit(&valid, &t, &view(&subs, &cands, &at_cap_with_self)),
+            policy.admit(&peer("a"), &t, &view(&subs, &cands, &at_cap_with_a)),
             Admission::Accept,
         );
     }

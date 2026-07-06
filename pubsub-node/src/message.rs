@@ -6,15 +6,16 @@ use crate::topic::TopicId;
 
 /// Append `bytes` to `out` as a `u32` big-endian length prefix followed by the
 /// bytes themselves — the one length-prefix primitive shared by every
-/// `signed_bytes()` encoder (`PlainMessage`, `PlainConnection`).
+/// `signed_bytes()` encoder (`PlainMessage`, `PlainConnection`) and by the
+/// verifiable edge predicate (`strategies::edge`).
 ///
-/// Keeping the canonical signing-byte encoding in a single primitive is what
-/// lets a future change touch one place: in particular, **signature domain
-/// separation** (a per-message-kind tag so the signature commits to "this is a
-/// dissemination message" vs "this is a control message") is deferred to the
-/// real-serialization milestone — see `IMPLEMENTATION_NOTES.md` N-016 — and
-/// would be introduced here / at each encoder's first write.
-fn push_len_prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
+/// Keeping the canonical byte encoding in a single primitive is what lets a
+/// future change touch one place: in particular, **signature domain separation**
+/// (a per-message-kind tag so the signature commits to "this is a dissemination
+/// message" vs "this is a control message") is deferred to the real-serialization
+/// milestone — see `IMPLEMENTATION_NOTES.md` N-016 — and would be introduced here
+/// / at each encoder's first write.
+pub(crate) fn push_len_prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
     let len = u32::try_from(bytes.len()).expect("field length fits in u32");
     out.extend_from_slice(&len.to_be_bytes());
     out.extend_from_slice(bytes);

@@ -7,12 +7,16 @@
 
 use sha2::{Digest, Sha256};
 
+use crate::message::push_len_prefixed;
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 /// Domain-separation tag so the edge predicate never shares a hash domain with
-/// any other SHA-256 use in the crate (e.g. `MessageHash`).
-const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
+/// any other SHA-256 use in the crate (e.g. `MessageHash`). The `v2` suffix is
+/// the predicate's version knob: it was bumped from `v1` when the hash input
+/// moved to raw key bytes and the shared length-prefix encoder (see below), so
+/// the tag stays the one place a future encoding change is recorded.
+const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v2";
 
 /// Per-topic bucket count for a fixed target connection degree `target_degree`: `max(1, round(candidates / target_degree))`.
 ///
@@ -67,26 +71,25 @@ pub fn is_valid_edge(
     interval: u64,
     buckets: usize,
 ) -> bool {
-    // Length-prefix each variable-width component so distinct tuples cannot
-    // collide via concatenation.
-    #[allow(clippy::cast_possible_truncation)]
-    fn feed(hasher: &mut Sha256, bytes: &[u8]) {
-        hasher.update((bytes.len() as u64).to_le_bytes());
-        hasher.update(bytes);
-    }
-
     if buckets <= 1 {
         return true;
     }
 
-    let mut hasher = Sha256::new();
-    feed(&mut hasher, EDGE_DOMAIN);
-    hasher.update(genesis.to_le_bytes());
-    feed(&mut hasher, topic.to_string().as_bytes());
-    feed(&mut hasher, requester.to_string().as_bytes());
-    feed(&mut hasher, candidate.to_string().as_bytes());
-    hasher.update(interval.to_le_bytes());
-    let digest: [u8; 32] = hasher.finalize().into();
+    // Build the canonical pre-image with the crate's one length-prefix primitive
+    // (`message::push_len_prefixed`) so a future canonical-encoding change touches
+    // a single place, then hash it. Variable-width components are length-prefixed
+    // so distinct tuples cannot collide via concatenation; `genesis`/`interval`
+    // are fixed-width. Peers are fed by **raw key bytes** (`PeerId`'s `Display` is
+    // non-injective — an alias, its hex, and the mock suffix can all collide);
+    // the topic by its exact string.
+    let mut preimage = Vec::new();
+    push_len_prefixed(&mut preimage, EDGE_DOMAIN);
+    preimage.extend_from_slice(&genesis.to_le_bytes());
+    push_len_prefixed(&mut preimage, topic.as_str().as_bytes());
+    push_len_prefixed(&mut preimage, requester.as_public_key().as_bytes());
+    push_len_prefixed(&mut preimage, candidate.as_public_key().as_bytes());
+    preimage.extend_from_slice(&interval.to_le_bytes());
+    let digest: [u8; 32] = Sha256::digest(&preimage).into();
 
     // Reduce the leading 8 bytes modulo the bucket count.
     let value = u64::from_le_bytes(digest[..8].try_into().expect("8 bytes"));
