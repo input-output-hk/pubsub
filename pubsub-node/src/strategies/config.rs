@@ -33,6 +33,11 @@ pub struct ConnectionParams {
     pub genesis: u64,
     /// The fixed target connection degree `target_degree` — required by `hash-gated` (bucket count derives from it).
     pub target_degree: Option<usize>,
+    /// Optional pinned bucket count `B`. When set, it overrides the per-topic
+    /// count derived from `target_degree` on **both** seams, so the edge
+    /// predicate is verifiable by construction (no dependence on the two ends
+    /// having folded the same candidate set). Must be `≥ 1` if supplied.
+    pub bucket_count: Option<usize>,
 }
 
 /// Already-parsed parameters for the acceptance (inbound/downstream) seam.
@@ -44,6 +49,10 @@ pub struct AcceptanceParams {
     pub genesis: u64,
     /// The fixed target connection degree `target_degree` — required by `verifiable-bounded`.
     pub target_degree: Option<usize>,
+    /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);
+    /// the acceptor must use the same value the dialer does. Must be `≥ 1` if
+    /// supplied.
+    pub bucket_count: Option<usize>,
     /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3).
     pub cap_buffer: usize,
 }
@@ -60,6 +69,33 @@ pub enum StrategyConfigError {
         /// The missing parameter, in operator-facing terms.
         parameter: &'static str,
     },
+    /// The named strategy was supplied a parameter it cannot use.
+    #[error("the '{strategy}' strategy requires {parameter} to be {constraint}")]
+    InvalidParameter {
+        /// The strategy that rejects the value (its config name).
+        strategy: &'static str,
+        /// The offending parameter, in operator-facing terms.
+        parameter: &'static str,
+        /// The constraint the value violated, in operator-facing terms.
+        constraint: &'static str,
+    },
+}
+
+/// Validate an optional pinned bucket count `B`: it must be `≥ 1` (a `B` of 0
+/// would divide by zero in the edge predicate). Returns the value unchanged when
+/// valid so a caller can thread it straight into a strategy.
+pub(crate) fn validate_bucket_count(
+    strategy: &'static str,
+    bucket_count: Option<usize>,
+) -> Result<Option<usize>, StrategyConfigError> {
+    if bucket_count == Some(0) {
+        return Err(StrategyConfigError::InvalidParameter {
+            strategy,
+            parameter: "the bucket count (--bucket-count)",
+            constraint: "at least 1",
+        });
+    }
+    Ok(bucket_count)
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced

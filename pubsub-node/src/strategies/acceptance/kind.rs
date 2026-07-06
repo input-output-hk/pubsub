@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy, VerifiableBoundedAcceptance};
-use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
+use crate::strategies::config::{validate_bucket_count, AcceptanceParams, StrategyConfigError};
 
 /// A selectable inbound-acceptance strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -57,12 +57,23 @@ impl AcceptanceStrategyKind {
                             strategy: self.name(),
                             parameter: "a target degree (--target-degree)",
                         })?;
-                Ok(Arc::new(VerifiableBoundedAcceptance::new(
-                    params.genesis,
-                    params.self_id.clone(),
-                    target_degree,
-                    params.cap_buffer,
-                )))
+                if target_degree == 0 {
+                    return Err(StrategyConfigError::InvalidParameter {
+                        strategy: self.name(),
+                        parameter: "the target degree (--target-degree)",
+                        constraint: "greater than 0",
+                    });
+                }
+                let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
+                Ok(Arc::new(
+                    VerifiableBoundedAcceptance::new(
+                        params.genesis,
+                        params.self_id.clone(),
+                        target_degree,
+                        params.cap_buffer,
+                    )
+                    .with_bucket_override(bucket_override),
+                ))
             }
         }
     }
@@ -99,6 +110,7 @@ mod tests {
             self_id: PeerId::from_str("self").expect("valid peer id"),
             genesis: 0,
             target_degree,
+            bucket_count: None,
             cap_buffer: 3,
         }
     }
@@ -121,6 +133,29 @@ mod tests {
         assert!(AcceptanceStrategyKind::VerifiableBounded
             .build(&params(Some(8)))
             .is_ok());
+    }
+
+    // A target degree of 0 makes the accept cap 0 (reject everything); reject at
+    // build so the two seams cannot degenerate in opposite directions.
+    #[test]
+    fn verifiable_bounded_rejects_zero_target_degree() {
+        assert!(matches!(
+            AcceptanceStrategyKind::VerifiableBounded.build(&params(Some(0))),
+            Err(StrategyConfigError::InvalidParameter { .. }),
+        ));
+    }
+
+    // A pinned bucket count of 0 would divide by zero in the predicate; reject it.
+    #[test]
+    fn verifiable_bounded_rejects_zero_bucket_count() {
+        let mut p = params(Some(8));
+        p.bucket_count = Some(0);
+        assert!(matches!(
+            AcceptanceStrategyKind::VerifiableBounded.build(&p),
+            Err(StrategyConfigError::InvalidParameter { .. }),
+        ));
+        p.bucket_count = Some(4);
+        assert!(AcceptanceStrategyKind::VerifiableBounded.build(&p).is_ok());
     }
 
     #[test]

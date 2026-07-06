@@ -20,21 +20,44 @@ use crate::topic::TopicId;
 /// interval comes from the [`NodeView`], the hash and modulus are fixed, and the
 /// result is a function of the *set* (order-independent). The acceptor recomputes
 /// the same predicate to **verify** the request (ADR 0025).
+///
+/// **B-agreement assumption.** Verifiability requires the dialer and acceptor to
+/// compute the *same* `B`. Deriving it locally from `|candidates_T|` holds only
+/// while both ends see the same candidate set — true in v1 (full candidate set,
+/// dials happen after `Synced`) but not guaranteed under registry-fold lag or a
+/// future discovery layer (the `H_v` caveat in [`crate::strategies::edge`]). A
+/// pinned [`bucket_override`](Self::with_bucket_override) sidesteps this: both
+/// ends use the same configured `B`, so verification holds by construction.
 pub struct HashGatedConnection {
     genesis: u64,
     self_id: PeerId,
     target_degree: usize,
+    bucket_override: Option<usize>,
 }
 
 impl HashGatedConnection {
-    /// Build the policy for one node from already-parsed inputs.
+    /// Build the policy for one node from already-parsed inputs. `B` is derived
+    /// per topic from `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
+    /// to pin it instead.
     #[must_use]
     pub fn new(genesis: u64, self_id: PeerId, target_degree: usize) -> Self {
         Self {
             genesis,
             self_id,
             target_degree,
+            bucket_override: None,
         }
+    }
+
+    /// Pin the bucket count `B` for every topic instead of deriving it from the
+    /// local candidate count (`--bucket-count`). When both seams pin the same
+    /// value the edge predicate is verifiable by construction, independent of
+    /// local fold state (see the B-agreement note on the type). A `None` restores
+    /// the derived behaviour. Validated `≥ 1` at build time.
+    #[must_use]
+    pub fn with_bucket_override(mut self, bucket_override: Option<usize>) -> Self {
+        self.bucket_override = bucket_override;
+        self
     }
 }
 
@@ -45,7 +68,13 @@ impl ConnectionStrategy for HashGatedConnection {
             let Some(peers) = view.candidates.get(topic) else {
                 continue;
             };
-            let buckets = bucket_count(peers.len(), self.target_degree);
+            // Derive B from the local candidate count, unless pinned. The
+            // derived value is only verifiable while the acceptor sees the same
+            // count (the B-agreement assumption on the type); a pinned override
+            // removes that dependence.
+            let buckets = self
+                .bucket_override
+                .unwrap_or_else(|| bucket_count(peers.len(), self.target_degree));
             for candidate in peers {
                 if is_valid_edge(
                     self.genesis,
@@ -180,6 +209,22 @@ mod tests {
         let expected = HashGatedConnection::new(7, peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
+    }
+
+    // A pinned bucket override replaces the derived B: with B=1 every candidate
+    // is a valid edge (connect-to-all), independent of the candidate count.
+    #[test]
+    fn bucket_override_pins_the_bucket_count() {
+        let ids = ids(80);
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &refs)]);
+        let down = HashSet::new();
+        // Derived B on 80 candidates ⇒ ~8 selected; pinned B=1 ⇒ all 80.
+        let pinned = HashGatedConnection::new(1, peer("self"), 8)
+            .with_bucket_override(Some(1))
+            .expected_upstream(&view(&subs, &cands, &down));
+        assert_eq!(pinned.len(), 80, "B=1 connects to every candidate");
     }
 
     // FR-004: the default genesis (0) yields a deterministic, repeatable selection.

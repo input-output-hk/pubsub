@@ -11,7 +11,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{ConnectToAllCandidates, ConnectionStrategy, HashGatedConnection};
-use crate::strategies::config::{ConnectionParams, StrategyConfigError};
+use crate::strategies::config::{validate_bucket_count, ConnectionParams, StrategyConfigError};
 
 /// A selectable connection-selection strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -58,11 +58,18 @@ impl ConnectionStrategyKind {
                             strategy: self.name(),
                             parameter: "a target degree (--target-degree)",
                         })?;
-                Ok(Arc::new(HashGatedConnection::new(
-                    params.genesis,
-                    params.self_id.clone(),
-                    target_degree,
-                )))
+                if target_degree == 0 {
+                    return Err(StrategyConfigError::InvalidParameter {
+                        strategy: self.name(),
+                        parameter: "the target degree (--target-degree)",
+                        constraint: "greater than 0",
+                    });
+                }
+                let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
+                Ok(Arc::new(
+                    HashGatedConnection::new(params.genesis, params.self_id.clone(), target_degree)
+                        .with_bucket_override(bucket_override),
+                ))
             }
         }
     }
@@ -99,6 +106,7 @@ mod tests {
             self_id: PeerId::from_str("self").expect("valid peer id"),
             genesis: 0,
             target_degree,
+            bucket_count: None,
         }
     }
 
@@ -120,6 +128,30 @@ mod tests {
         assert!(ConnectionStrategyKind::HashGated
             .build(&params(Some(8)))
             .is_ok());
+    }
+
+    // A target degree of 0 degenerates the seam (connect-to-all) and is rejected
+    // at build rather than booting into an asymmetric topology.
+    #[test]
+    fn hash_gated_rejects_zero_target_degree() {
+        assert!(matches!(
+            ConnectionStrategyKind::HashGated.build(&params(Some(0))),
+            Err(StrategyConfigError::InvalidParameter { .. }),
+        ));
+    }
+
+    // A pinned bucket count of 0 would divide by zero in the predicate; reject it.
+    #[test]
+    fn hash_gated_rejects_zero_bucket_count() {
+        let mut p = params(Some(8));
+        p.bucket_count = Some(0);
+        assert!(matches!(
+            ConnectionStrategyKind::HashGated.build(&p),
+            Err(StrategyConfigError::InvalidParameter { .. }),
+        ));
+        // A pinned count ≥ 1 builds.
+        p.bucket_count = Some(4);
+        assert!(ConnectionStrategyKind::HashGated.build(&p).is_ok());
     }
 
     #[test]

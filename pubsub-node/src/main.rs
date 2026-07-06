@@ -49,6 +49,14 @@ struct Args {
     #[arg(long, default_value_t = 0)]
     genesis: u64,
 
+    /// Optional pinned bucket count `B` for the edge predicate. When unset, `B`
+    /// is derived per topic from `--target-degree`. When set, both peers use this
+    /// exact value on both seams, so verification holds by construction (no
+    /// dependence on the two ends having folded the same candidate set); a natural
+    /// experiment axis. Applies to `hash-gated` / `verifiable-bounded`; must be ≥ 1.
+    #[arg(long)]
+    bucket_count: Option<usize>,
+
     /// Inbound-acceptance strategy (case-insensitive): `accept-from-all` (the
     /// default) or `verifiable-bounded` (verifies the edge predicate + caps
     /// downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing over-capacity with `Rejected`).
@@ -120,11 +128,13 @@ async fn main() {
                 self_id: args.self_id.clone(),
                 genesis: args.genesis,
                 target_degree: args.target_degree,
+                bucket_count: args.bucket_count,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
                 genesis: args.genesis,
                 target_degree: args.target_degree,
+                bucket_count: args.bucket_count,
                 cap_buffer: args.cap_buffer,
             },
         )

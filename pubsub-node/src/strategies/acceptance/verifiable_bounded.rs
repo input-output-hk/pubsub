@@ -24,11 +24,14 @@ pub struct VerifiableBoundedAcceptance {
     self_id: PeerId,
     target_degree: usize,
     cap_buffer: usize,
+    bucket_override: Option<usize>,
 }
 
 impl VerifiableBoundedAcceptance {
     /// Build the policy from already-parsed inputs (`cap_buffer` is the `c` in
-    /// `OC = ⌈target_degree + c·√target_degree⌉`).
+    /// `OC = ⌈target_degree + c·√target_degree⌉`). `B` is derived per topic from
+    /// `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
+    /// to pin it — it must match the dialer's `B`.
     #[must_use]
     pub fn new(genesis: u64, self_id: PeerId, target_degree: usize, cap_buffer: usize) -> Self {
         Self {
@@ -36,7 +39,19 @@ impl VerifiableBoundedAcceptance {
             self_id,
             target_degree,
             cap_buffer,
+            bucket_override: None,
         }
+    }
+
+    /// Pin the bucket count `B` used to verify the edge predicate, instead of
+    /// deriving it from the local candidate count (`--bucket-count`). Must match
+    /// the value the dialer uses; when both ends pin the same `B`, verification
+    /// holds by construction regardless of local fold state. Validated `≥ 1` at
+    /// build time.
+    #[must_use]
+    pub fn with_bucket_override(mut self, bucket_override: Option<usize>) -> Self {
+        self.bucket_override = bucket_override;
+        self
     }
 }
 
@@ -54,11 +69,18 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
             return Admission::Accept;
         }
         // Verify against the same edge predicate the dialer used, with the same
-        // bucket count (both sides see the topic's full candidate set, each minus
-        // itself, so the counts and thus B agree). The emitter is the requester,
+        // bucket count. B-agreement assumption: deriving B locally from the
+        // candidate count only matches the dialer's B while both ends see the
+        // same set — true in v1 (full candidate set; dials fire after `Synced`),
+        // but registry-fold lag or a future discovery layer (the `H_v` caveat in
+        // `strategies::edge`) can diverge the counts and silently fail otherwise-
+        // legitimate requests. A pinned `bucket_override` removes the dependence
+        // (both ends use the same configured B). The emitter is the requester,
         // this node the candidate.
-        let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
-        let buckets = bucket_count(candidate_count, self.target_degree);
+        let buckets = self.bucket_override.unwrap_or_else(|| {
+            let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
+            bucket_count(candidate_count, self.target_degree)
+        });
         if !is_valid_edge(
             self.genesis,
             topic,
@@ -187,6 +209,25 @@ mod tests {
         assert_eq!(
             policy.admit(&valid, &t, &view(&subs, &cands, &at)),
             Admission::RejectOverCapacity,
+        );
+    }
+
+    // A pinned bucket override is used to verify instead of the derived B: with
+    // B=1 every membership-valid request passes the predicate (below cap).
+    #[test]
+    fn bucket_override_pins_verification() {
+        let t = topic("t1");
+        let names = ["a", "b", "c", "d", "e", "f"];
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &names)]);
+        let down = HashSet::new();
+        // Derived B on 6 candidates at target_degree=1 would be 6 (most requests
+        // illegitimate); pinned B=1 makes every membership-valid request valid.
+        let policy = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3)
+            .with_bucket_override(Some(1));
+        assert_eq!(
+            policy.admit(&peer("a"), &t, &view(&subs, &cands, &down)),
+            Admission::Accept,
         );
     }
 
