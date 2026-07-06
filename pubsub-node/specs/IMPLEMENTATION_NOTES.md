@@ -419,3 +419,20 @@ Recorded on completing 005 (verifiable hash-gated connection-selection + verifia
 - **`Heartbeat` currently conflates round-advance and dial-trigger.** Even with an externally agreed round, a node dials the instant it processes the event, so a window exists where one side has advanced and dialed while the other still verifies the previous round. Splitting "advance round" from "dial on current round" would let a driver run a two-phase barrier (advance all, then dial) — which experiments need and an anchored round benefits from.
 
 **Trigger to revisit**: the **periodic-heartbeat / epochal-rotation** layer (with [[N-025]]). Before it ships, decide the round-agreement mechanism (external anchor vs. carried-interval-plus-tolerance) and whether to decouple round-advance from the dial trigger.
+
+## N-031 — Decomposed acceptance: bounded-only and hash-gated-only variants
+
+**Surfaced during**: 005-peer-view (PR #73), Ezequiel's follow-up. Relates to ADR 0025 and [[N-028]] (experiment framework deferral).
+
+**Question**: to simulate all stages in the experiment framework, do we also want a **bounded-only** acceptance (membership + cap, no edge predicate) and a **hash-gated-only** acceptance (membership + edge predicate, no cap), alongside the shipped `AcceptFromAll` (neither) and `VerifiableBoundedAcceptance` (both)?
+
+**Working answer (005)**: **Not in this PR** — Ezequiel flagged it as not a blocker, to discuss after the experiments-document review. Feasibility is **trivial**: the checks are already factored into shared, independent pieces — `is_membership_valid` (`strategies::acceptance`) and `is_valid_edge` / `accept_cap` / `bucket_count` (`strategies::edge`) — and `VerifiableBoundedAcceptance::admit` merely sequences them. Each missing variant is a ~15-line `admit` reusing the same helpers, plus an `AcceptanceStrategyKind` variant and a `build` arm. Two candidate shapes:
+
+- **Two concrete thin structs** (`BoundedAcceptance`, `HashGatedAcceptance`) — matches the current one-file-per-strategy layout; simplest for the four fixed combinations.
+- **An ordered `AcceptanceCheck` combinator** AND-combined (first reject wins; `Admission` already names the distinct reject reasons) — more general, but likely over-engineering for four combinations.
+
+The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnection`) — a bound is meaningless on the dial side.
+
+**Why deferred**: the experiments document defines *which* stages need simulating, which in turn decides whether concrete structs or a combinator is the right shape; building before that review risks the wrong decomposition.
+
+**Trigger to revisit**: the experiment/testing-framework feature ([[N-028]]), after the experiments-document review.
