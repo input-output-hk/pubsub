@@ -45,6 +45,14 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
         if !is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
             return Admission::RejectMembership;
         }
+        // An already-accepted (emitter, topic) is re-affirmed idempotently, ahead
+        // of the edge and cap checks: a re-dial re-sends Accepted and never trips
+        // the cap, so a lost/late Accepted (the AwaitingAccept re-request path)
+        // repairs the link rather than stranding a half-open connection — the node
+        // fans out to a downstream that the dialer has dropped (005 FR-013).
+        if view.downstream.contains(&(emitter.clone(), topic.clone())) {
+            return Admission::Accept;
+        }
         // Verify against the same edge predicate the dialer used, with the same
         // bucket count (both sides see the topic's full candidate set, each minus
         // itself, so the counts and thus B agree). The emitter is the requester,
@@ -179,6 +187,37 @@ mod tests {
         assert_eq!(
             policy.admit(&valid, &t, &view(&subs, &cands, &at)),
             Admission::RejectOverCapacity,
+        );
+    }
+
+    // A re-dial of an already-accepted peer is re-affirmed even at cap: the
+    // already-held downstream entry short-circuits to Accept, so a lost/late
+    // Accepted repairs the link instead of leaving it permanently half-open.
+    #[test]
+    fn already_downstream_peer_is_reaccepted_at_cap() {
+        let t = topic("t1");
+        let names = ["a", "b", "c", "d", "e", "f"];
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &names)]);
+        let buckets = bucket_count(names.len(), 1); // target_degree=1 ⇒ cap 4
+        let valid = names
+            .iter()
+            .map(|n| peer(n))
+            .find(|p| is_valid_edge(0, &t, p, &peer("self"), 0, buckets))
+            .expect("some candidate passes the predicate at B=6");
+        let policy = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3);
+
+        // At cap (4 held) AND the requester is one of the held downstreams ⇒ the
+        // idempotent re-Accept wins over RejectOverCapacity.
+        let at_cap_with_self = downstream(&[
+            (&valid.to_string(), "t1"),
+            ("x", "t1"),
+            ("y", "t1"),
+            ("z", "t1"),
+        ]);
+        assert_eq!(
+            policy.admit(&valid, &t, &view(&subs, &cands, &at_cap_with_self)),
+            Admission::Accept,
         );
     }
 
