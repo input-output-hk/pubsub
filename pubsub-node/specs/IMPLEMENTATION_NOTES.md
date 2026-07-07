@@ -420,6 +420,8 @@ Recorded on completing 005 (verifiable hash-gated connection-selection + verifia
 
 **Trigger to revisit**: the **periodic-heartbeat / epochal-rotation** layer (with [[N-025]]). Before it ships, decide the round-agreement mechanism (external anchor vs. carried-interval-plus-tolerance) and whether to decouple round-advance from the dial trigger.
 
+**Partially resolved (ADR 0031, 2026-07-07)**: the heartbeat/dial coupling is **solved** — `Event::Heartbeat` is now a parameterless dial tick and `Event::Epoch { nonce }` folds the randomness context separately, so a driver can run the two-phase advance-then-dial barrier this entry called for; the predicate no longer hashes a per-node counter at all (`is_valid_edge(nonce, …)`, genesis = the initial epoch nonce on node state). The **agreement problem remains open** but is reframed: it now bites only at *epoch* boundaries (rarer than per-round), and the nonce is designed to arrive from the externally observable event this entry identified as the robust direction. The grinding argument against a requester-carried value is unchanged. Revisit trigger unchanged (the periodic-heartbeat/rotation layer).
+
 ## N-031 — Decomposed acceptance: bounded-only and hash-gated-only variants
 
 **Surfaced during**: 005-peer-view (PR #73), Ezequiel's follow-up. Relates to ADR 0025 and [[N-028]] (experiment framework deferral).
@@ -436,3 +438,5 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 **Why deferred**: the experiments document defines *which* stages need simulating, which in turn decides whether concrete structs or a combinator is the right shape; building before that review risks the wrong decomposition.
 
 **Trigger to revisit**: the experiment/testing-framework feature ([[N-028]]), after the experiments-document review.
+
+**Resolved (ADR 0031, 2026-07-07)**: implemented ahead of the experiments-document review per the agreed empirical one-dimensional-baseline approach — `BoundedAcceptance` (cap only) and `HashGatedAcceptance` (gate only) ship beside `accept-from-all` and the compound (renamed `hash-gated-bounded` for dial-seam naming symmetry). The **two concrete thin structs** shape won; the combinator was rejected as over-general for four fixed combinations, with the shared `admit_prelude` capturing the one invariant (membership → already-downstream re-Accept) that must not drift. Compounding beyond the four kinds (blacklists, deposits) stays deferred to the experiment framework.
