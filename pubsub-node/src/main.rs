@@ -45,7 +45,9 @@ struct Args {
     #[arg(long)]
     target_degree: Option<usize>,
 
-    /// Public genesis nonce folded into the verifiable edge predicate (default 0).
+    /// Public genesis nonce (default 0): the node's initial **epoch nonce**, the
+    /// randomness context the verifiable edge predicate hashes (the epoch-0
+    /// stand-in for the chain-anchored beacon; an `Epoch` event replaces it).
     /// Both peers use it; the same genesis reproduces the same topology.
     #[arg(long, default_value_t = 0)]
     genesis: u64,
@@ -130,13 +132,11 @@ async fn main() {
         .build(
             &ConnectionParams {
                 self_id: args.self_id.clone(),
-                genesis: args.genesis,
                 target_degree: args.target_degree,
                 bucket_count: args.bucket_count,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
-                genesis: args.genesis,
                 target_degree: args.target_degree,
                 bucket_count: args.bucket_count,
                 cap_buffer: args.cap_buffer,
@@ -150,6 +150,7 @@ async fn main() {
     let node = Node::new(
         args.self_id,
         cfg,
+        args.genesis,
         network,
         signer,
         verifier,

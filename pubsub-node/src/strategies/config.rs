@@ -29,8 +29,6 @@ use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 pub struct ConnectionParams {
     /// The node's own identity (folded into the verifiable edge predicate).
     pub self_id: PeerId,
-    /// Public genesis nonce for the edge predicate (default 0).
-    pub genesis: u64,
     /// The fixed target connection degree `target_degree` — required by `hash-gated` (bucket count derives from it).
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B`. When set, it overrides the per-topic
@@ -45,8 +43,6 @@ pub struct ConnectionParams {
 pub struct AcceptanceParams {
     /// The node's own identity (the candidate side of the verified edge).
     pub self_id: PeerId,
-    /// Public genesis nonce for the edge predicate (default 0).
-    pub genesis: u64,
     /// The fixed target connection degree `target_degree` — required by `verifiable-bounded`.
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);

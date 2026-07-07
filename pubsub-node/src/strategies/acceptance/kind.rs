@@ -46,7 +46,6 @@ impl AcceptanceStrategyKind {
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     VerifiableBoundedAcceptance::new(
-                        params.genesis,
                         params.self_id.clone(),
                         target_degree,
                         params.cap_buffer,
@@ -87,7 +86,6 @@ mod tests {
     fn params(target_degree: Option<usize>) -> AcceptanceParams {
         AcceptanceParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
-            genesis: 0,
             target_degree,
             bucket_count: None,
             cap_buffer: 3,

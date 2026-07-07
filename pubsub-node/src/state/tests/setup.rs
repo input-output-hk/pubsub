@@ -42,6 +42,59 @@ fn synced_transitions_and_dials_idempotently() {
     );
 }
 
+// ADR 0031: an Epoch event folds the nonce with no effects; the strategy reads
+// the folded nonce on the next Heartbeat, so the dial set follows the epoch
+// (and within one epoch a repeated Heartbeat is a pure retry pass).
+#[test]
+fn epoch_folds_nonce_for_the_next_heartbeat() {
+    use crate::strategies::edge::is_valid_edge;
+
+    // 30 candidates at target_degree 6 ⇒ B = 5: selection varies by nonce.
+    let names: Vec<String> = (0..30).map(|i| format!("c{i:02}")).collect();
+    let t = topic("t");
+    let selection = |nonce: u64| -> BTreeSet<PeerId> {
+        names
+            .iter()
+            .map(|n| peer(n))
+            .filter(|c| is_valid_edge(nonce, &t, &peer("self"), c, 5))
+            .collect()
+    };
+    let at_zero = selection(0);
+    let nonce = (1..64)
+        .find(|n| selection(*n) != at_zero)
+        .expect("some nonce diverges from nonce 0");
+
+    let mut state = NodeState::new(
+        peer("self"),
+        BTreeSet::from([t.clone()]),
+        0, // genesis: the initial epoch nonce
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        Arc::new(HashGatedConnection::new(peer("self"), 6)),
+        Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+    );
+    apply(&mut state, reg_open("t"));
+    apply(&mut state, membership_joined("self", ["t"]));
+    for n in &names {
+        apply(&mut state, membership_joined(n.as_str(), ["t"]));
+    }
+
+    // Readiness dials exactly the nonce-0 edge set.
+    apply(&mut state, Event::Synced);
+    let dialed: BTreeSet<PeerId> = state.upstream.keys().map(|(p, _)| p.clone()).collect();
+    assert_eq!(dialed, at_zero, "the readiness dial uses the genesis nonce");
+
+    // The epoch fold emits nothing; the next Heartbeat dials the new set too
+    // (expected-set membership never removes, so the union accumulates).
+    let effects = apply(&mut state, Event::Epoch { nonce });
+    assert!(effects.is_empty(), "the epoch fold emits nothing");
+    apply(&mut state, Event::Heartbeat);
+    let dialed: BTreeSet<PeerId> = state.upstream.keys().map(|(p, _)| p.clone()).collect();
+    let expected: BTreeSet<PeerId> = at_zero.union(&selection(nonce)).cloned().collect();
+    assert_eq!(dialed, expected, "the next dial pass follows the new nonce");
+}
+
 // ---- T009: dialer side (FR-006..009, US1-AS1..4) --------------------------
 
 // US1-AS1/AS2: a setup event dials every candidate across the node's topics —

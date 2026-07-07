@@ -12,11 +12,11 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 /// Domain-separation tag so the edge predicate never shares a hash domain with
-/// any other SHA-256 use in the crate (e.g. `MessageHash`). The `v2` suffix is
-/// the predicate's version knob: it was bumped from `v1` when the hash input
-/// moved to raw key bytes and the shared length-prefix encoder (see below), so
-/// the tag stays the one place a future encoding change is recorded.
-const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v2";
+/// any other SHA-256 use in the crate (e.g. `MessageHash`). The version suffix
+/// is the predicate's version knob — the one place a pre-image change is
+/// recorded once the protocol has released peers to stay compatible with
+/// (pre-release iterations keep it at `v1`).
+const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 
 /// Per-topic bucket count for a fixed target connection degree `target_degree`: `max(1, round(candidates / target_degree))`.
 ///
@@ -76,18 +76,19 @@ pub fn accept_cap(target_degree: usize, c: usize) -> usize {
 }
 
 /// The verifiable directional edge predicate: `requester → candidate` on `topic`
-/// at `interval` is valid iff `H(genesis, topic, requester, candidate, interval)
-/// mod buckets == 0` (ADR 0024). Pure and public — both peers compute it, so the
-/// acceptor verifies rather than trusts.
+/// under the epoch `nonce` is valid iff `H(nonce, topic, requester, candidate)
+/// mod buckets == 0` (ADR 0024/0031). Pure and public — both peers compute it,
+/// so the acceptor verifies rather than trusts. The `nonce` is the epoch
+/// randomness context (v1: the configured genesis; later: an externally
+/// observable beacon such as a block hash).
 ///
 /// `buckets == 1` (the small-topic floor) makes every edge valid (connect-to-all).
 #[must_use]
 pub fn is_valid_edge(
-    genesis: u64,
+    nonce: u64,
     topic: &TopicId,
     requester: &PeerId,
     candidate: &PeerId,
-    interval: u64,
     buckets: usize,
 ) -> bool {
     if buckets <= 1 {
@@ -97,17 +98,16 @@ pub fn is_valid_edge(
     // Build the canonical pre-image with the crate's one length-prefix primitive
     // (`message::push_len_prefixed`) so a future canonical-encoding change touches
     // a single place, then hash it. Variable-width components are length-prefixed
-    // so distinct tuples cannot collide via concatenation; `genesis`/`interval`
-    // are fixed-width. Peers are fed by **raw key bytes** (`PeerId`'s `Display` is
-    // non-injective — an alias, its hex, and the mock suffix can all collide);
-    // the topic by its exact string.
+    // so distinct tuples cannot collide via concatenation; `nonce` is fixed-width.
+    // Peers are fed by **raw key bytes** (`PeerId`'s `Display` is non-injective —
+    // an alias, its hex, and the mock suffix can all collide); the topic by its
+    // exact string.
     let mut preimage = Vec::new();
     push_len_prefixed(&mut preimage, EDGE_DOMAIN);
-    preimage.extend_from_slice(&genesis.to_le_bytes());
+    preimage.extend_from_slice(&nonce.to_le_bytes());
     push_len_prefixed(&mut preimage, topic.as_str().as_bytes());
     push_len_prefixed(&mut preimage, requester.as_public_key().as_bytes());
     push_len_prefixed(&mut preimage, candidate.as_public_key().as_bytes());
-    preimage.extend_from_slice(&interval.to_le_bytes());
     let digest: [u8; 32] = Sha256::digest(&preimage).into();
 
     // Reduce the leading 8 bytes modulo the bucket count.
@@ -139,29 +139,29 @@ mod tests {
     #[test]
     fn buckets_one_admits_every_edge() {
         // The connect-to-all fallback: buckets == 1 -> always valid.
-        assert!(is_valid_edge(0, &topic("t1"), &peer("a"), &peer("b"), 0, 1));
+        assert!(is_valid_edge(0, &topic("t1"), &peer("a"), &peer("b"), 1));
     }
 
     #[test]
     fn predicate_is_deterministic_and_directional() {
-        let g = 7;
+        let nonce = 7;
         let t = topic("t1");
-        let ab = is_valid_edge(g, &t, &peer("a"), &peer("b"), 0, 4);
+        let ab = is_valid_edge(nonce, &t, &peer("a"), &peer("b"), 4);
         // Deterministic: same inputs, same result.
-        assert_eq!(ab, is_valid_edge(g, &t, &peer("a"), &peer("b"), 0, 4));
+        assert_eq!(ab, is_valid_edge(nonce, &t, &peer("a"), &peer("b"), 4));
         // Directional: (a->b) and (b->a) are independent draws (not required to
         // differ, but computed over distinct tuples).
-        let _ba = is_valid_edge(g, &t, &peer("b"), &peer("a"), 0, 4);
+        let _ba = is_valid_edge(nonce, &t, &peer("b"), &peer("a"), 4);
     }
 
-    // Over a sweep of intervals the accepted fraction approximates 1/B.
+    // Over a sweep of epoch nonces the accepted fraction approximates 1/B.
     #[test]
     #[allow(clippy::cast_precision_loss)]
     fn edge_density_approximates_one_over_buckets() {
         let buckets = 8usize;
         let sweeps = 4000u64;
         let hits = (0..sweeps)
-            .filter(|i| is_valid_edge(0, &topic("t1"), &peer("a"), &peer("b"), *i, buckets))
+            .filter(|nonce| is_valid_edge(*nonce, &topic("t1"), &peer("a"), &peer("b"), buckets))
             .count();
         let frac = hits as f64 / sweeps as f64;
         let expected = 1.0 / buckets as f64;

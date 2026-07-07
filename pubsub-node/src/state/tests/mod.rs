@@ -72,6 +72,7 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
     let mut state = NodeState::new(
         peer(self_id),
         subscriptions.iter().cloned().collect(),
+        0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer(self_id),
         strategy(),

@@ -104,6 +104,10 @@ impl Node {
     /// cold-start bursts drain; topics do not come from config, and a node with
     /// no registry entries simply stays empty (no construction error).
     ///
+    /// `genesis` is the public genesis nonce — the node's **initial epoch
+    /// nonce** for the verifiable edge predicate (the epoch-0 stand-in for the
+    /// chain-anchored beacon; an `Epoch` event replaces it).
+    ///
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. `signer` is the node's signing
     /// identity — it signs the connection-control messages the node emits
@@ -133,6 +137,7 @@ impl Node {
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
         config: NodeConfig,
+        genesis: u64,
         network: Arc<N>,
         signer: Arc<dyn Signer>,
         verifier: Arc<dyn Verifier>,
@@ -163,6 +168,7 @@ impl Node {
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
             node_id.clone(),
             BTreeSet::new(),
+            genesis,
             verifier,
             signer,
             connection_strategy,

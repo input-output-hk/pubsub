@@ -253,11 +253,12 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
+        0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
         strategy(),
         Arc::new(ForwardToAll),
-        Arc::new(VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3)),
+        Arc::new(VerifiableBoundedAcceptance::new(peer("self"), 1, 3)),
     );
     // Synced first (requests are gated on readiness) and before any membership,
     // so the readiness dial pass sees no candidates and pollutes no upstream.
@@ -295,9 +296,10 @@ fn rejected_dial_removes_pending_upstream() {
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
+        0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
-        Arc::new(HashGatedConnection::new(0, peer("self"), 8)),
+        Arc::new(HashGatedConnection::new(peer("self"), 8)),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
     );

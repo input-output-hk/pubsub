@@ -46,7 +46,7 @@ impl ConnectionStrategyKind {
                 let target_degree = require_target_degree(self.name(), params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
-                    HashGatedConnection::new(params.genesis, params.self_id.clone(), target_degree)
+                    HashGatedConnection::new(params.self_id.clone(), target_degree)
                         .with_bucket_override(bucket_override),
                 ))
             }
@@ -83,7 +83,6 @@ mod tests {
     fn params(target_degree: Option<usize>) -> ConnectionParams {
         ConnectionParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
-            genesis: 0,
             target_degree,
             bucket_count: None,
         }

@@ -113,10 +113,16 @@ pub(crate) struct NodeState {
 }
 
 impl NodeState {
-    /// Construct the state value from already-parsed inputs.
+    /// Construct the state value from already-parsed inputs. `genesis` is the
+    /// initial epoch nonce (the epoch-0 stand-in for the chain-anchored beacon);
+    /// an `Epoch` event replaces it.
+    // Mirrors `Node::new`'s specified construction contract (see the note
+    // there); a config/builder struct is the natural refactor if it grows.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         self_id: PeerId,
         subscriptions: BTreeSet<TopicId>,
+        genesis: u64,
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
         connection_strategy: Arc<dyn ConnectionStrategy>,
@@ -132,7 +138,7 @@ impl NodeState {
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
-            epoch_nonce: 0,
+            epoch_nonce: genesis,
             signer,
             connection_strategy,
             fanout_strategy,

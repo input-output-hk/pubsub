@@ -46,10 +46,20 @@ pub(crate) fn view<'a>(
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
     down: &'a HashSet<(PeerId, TopicId)>,
 ) -> NodeView<'a> {
+    view_with_nonce(subs, cands, down, 0)
+}
+
+/// A [`NodeView`] over the borrowed fixtures at an explicit epoch nonce.
+pub(crate) fn view_with_nonce<'a>(
+    subs: &'a BTreeSet<TopicId>,
+    cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+    down: &'a HashSet<(PeerId, TopicId)>,
+    epoch_nonce: u64,
+) -> NodeView<'a> {
     NodeView {
         subscriptions: subs,
         candidates: cands,
         downstream: down,
-        epoch_nonce: 0,
+        epoch_nonce,
     }
 }

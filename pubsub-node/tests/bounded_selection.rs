@@ -1,7 +1,7 @@
 //! Feature 005 (US1) integration: the verifiable hash-gated connection-selection
 //! policy, exercised through a real node + event loop, forms a partial topology
 //! whose edges match the public edge predicate (SC-002, verifiable) and is
-//! reproducible from the genesis + interval (SC-001).
+//! reproducible from the genesis (the initial epoch nonce, SC-001).
 
 mod common;
 
@@ -27,23 +27,24 @@ fn peer(s: &str) -> PeerId {
 }
 
 /// The upstream set the hash-gated policy must produce for `self` on `topic`:
-/// exactly the candidates satisfying the edge predicate at interval 0 (the
-/// single v1 heartbeat), `B = max(1, round(candidates / target_degree))`. The strategy is
-/// deterministic, so this is the exact expected topology.
+/// exactly the candidates satisfying the edge predicate under the genesis nonce
+/// (the epoch v1 never advances), `B = max(1, round(candidates / target_degree))`.
+/// The strategy is deterministic, so this is the exact expected topology.
 fn expected_upstreams(genesis: u64, target_degree: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
     let t = topic("topic");
     let buckets = bucket_count(candidates.len(), target_degree);
     candidates
         .iter()
         .map(|c| peer(c))
-        .filter(|c| is_valid_edge(genesis, &t, &peer("self"), c, 0, buckets))
+        .filter(|c| is_valid_edge(genesis, &t, &peer("self"), c, buckets))
         .collect()
 }
 
-/// Build a single node running `HashGatedConnection { genesis, target_degree }` on one topic
-/// with `candidates` other members pre-seeded in the shared subscription registry
-/// (so the node's readiness heartbeat sees the full candidate set), await the
-/// node reaching its expected upstream count, and return the peers it selected.
+/// Build a single node running `HashGatedConnection { target_degree }` with the
+/// given `genesis` (its initial epoch nonce) on one topic with `candidates`
+/// other members pre-seeded in the shared subscription registry (so the node's
+/// readiness heartbeat sees the full candidate set), await the node reaching its
+/// expected upstream count, and return the peers it selected.
 ///
 /// The candidate ids are registry members only — not real network nodes — so the
 /// dials stay `AwaitingAccept`; the upstream *set* is exactly the selection.
@@ -63,11 +64,7 @@ async fn selected_upstreams(
             .expect("seed candidate membership");
     }
 
-    let strategy = Arc::new(HashGatedConnection::new(
-        genesis,
-        peer("self"),
-        target_degree,
-    ));
+    let strategy = Arc::new(HashGatedConnection::new(peer("self"), target_degree));
     let node = node_with_strategy(
         &registry,
         &network,
@@ -75,6 +72,7 @@ async fn selected_upstreams(
         &[],
         std::slice::from_ref(&t),
         strategy,
+        genesis,
     )
     .await;
 

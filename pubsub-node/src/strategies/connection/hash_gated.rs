@@ -9,17 +9,18 @@ use crate::strategies::edge::{is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
-/// The verifiable, bucketed connection-selection policy (ADR 0024).
+/// The verifiable, bucketed connection-selection policy (ADR 0024/0031).
 ///
-/// For each joined topic `T` at the current interval, dial candidate `U` iff the
-/// shared edge predicate `H(genesis, T, self, U, interval) mod B == 0` holds,
-/// where `B = max(1, round(|candidates_T| / target_degree))`. Expected out-degree
+/// For each joined topic `T` under the current epoch nonce, dial candidate `U`
+/// iff the shared edge predicate `H(nonce, T, self, U) mod B == 0` holds, where
+/// `B = max(1, round(|candidates_T| / target_degree))`. Expected out-degree
 /// per topic ≈ `target_degree`; a topic with `≤ ~target_degree` candidates has
 /// `B = 1` and connects to **all** of them (small-topic fallback). Selection is
-/// pure and reproducible: `genesis` and `target_degree` are fixed fields, the
-/// interval comes from the [`NodeView`], the hash and modulus are fixed, and the
-/// result is a function of the *set* (order-independent). The acceptor recomputes
-/// the same predicate to **verify** the request (ADR 0025).
+/// pure and reproducible: `target_degree` is a fixed field, the epoch nonce
+/// comes from the [`NodeView`] (v1: the configured genesis), the hash and
+/// modulus are fixed, and the result is a function of the *set*
+/// (order-independent). The acceptor recomputes the same predicate to **verify**
+/// the request (ADR 0025).
 ///
 /// **B-agreement assumption.** Verifiability requires the dialer and acceptor to
 /// compute the *same* `B`. Deriving it locally from `|candidates_T|` holds only
@@ -29,7 +30,6 @@ use crate::topic::TopicId;
 /// pinned [`bucket_override`](Self::with_bucket_override) sidesteps this: both
 /// ends use the same configured `B`, so verification holds by construction.
 pub struct HashGatedConnection {
-    genesis: u64,
     self_id: PeerId,
     target_degree: usize,
     bucket_override: Option<usize>,
@@ -40,9 +40,8 @@ impl HashGatedConnection {
     /// per topic from `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
     /// to pin it instead.
     #[must_use]
-    pub fn new(genesis: u64, self_id: PeerId, target_degree: usize) -> Self {
+    pub fn new(self_id: PeerId, target_degree: usize) -> Self {
         Self {
-            genesis,
             self_id,
             target_degree,
             bucket_override: None,
@@ -78,14 +77,7 @@ impl ConnectionStrategy for HashGatedConnection {
             // removes that dependence.
             let buckets = resolve_buckets(self.bucket_override, peers.len(), self.target_degree);
             for candidate in peers {
-                if is_valid_edge(
-                    self.genesis,
-                    topic,
-                    &self.self_id,
-                    candidate,
-                    view.epoch_nonce,
-                    buckets,
-                ) {
+                if is_valid_edge(view.epoch_nonce, topic, &self.self_id, candidate, buckets) {
                     expected.insert((candidate.clone(), topic.clone()));
                 }
             }
@@ -98,7 +90,9 @@ impl ConnectionStrategy for HashGatedConnection {
 mod tests {
     use super::HashGatedConnection;
     use crate::strategies::connection::ConnectionStrategy;
-    use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
+    use crate::strategies::test_support::{
+        candidates, peer, subscriptions, topic, view, view_with_nonce,
+    };
     use std::collections::{BTreeSet, HashSet};
 
     fn ids(n: usize) -> Vec<String> {
@@ -111,7 +105,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b", "c"])]);
         let down = HashSet::new();
-        let expected = HashGatedConnection::new(7, peer("self"), 8)
+        let expected = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
@@ -133,7 +127,7 @@ mod tests {
         rev.reverse();
         let subs = subscriptions(&["t1"]);
         let down = HashSet::new();
-        let policy = HashGatedConnection::new(42, peer("self"), 8);
+        let policy = HashGatedConnection::new(peer("self"), 8);
         let one = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &refs)]), &down));
         let two = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &rev)]), &down));
         assert_eq!(one, two, "selection must not depend on iteration order");
@@ -147,7 +141,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
         let down = HashSet::new();
-        let expected = HashGatedConnection::new(1, peer("self"), 8)
+        let expected = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         // 80 candidates, B = round(80/8) = 10 ⇒ expected ≈ 8. Lenient bound.
         assert!(
@@ -165,10 +159,10 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
         let down = HashSet::new();
-        let by_x = HashGatedConnection::new(1, peer("x"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
-        let by_y = HashGatedConnection::new(1, peer("y"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let by_x =
+            HashGatedConnection::new(peer("x"), 8).expected_upstream(&view(&subs, &cands, &down));
+        let by_y =
+            HashGatedConnection::new(peer("y"), 8).expected_upstream(&view(&subs, &cands, &down));
         assert_ne!(by_x, by_y, "per-node derivation should diverge");
     }
 
@@ -178,7 +172,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]);
         let down = HashSet::new();
-        let expected = HashGatedConnection::new(7, peer("self"), 8)
+        let expected = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
@@ -193,24 +187,42 @@ mod tests {
         let cands = candidates(&[("t1", &refs)]);
         let down = HashSet::new();
         // Derived B on 80 candidates ⇒ ~8 selected; pinned B=1 ⇒ all 80.
-        let pinned = HashGatedConnection::new(1, peer("self"), 8)
+        let pinned = HashGatedConnection::new(peer("self"), 8)
             .with_bucket_override(Some(1))
             .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(pinned.len(), 80, "B=1 connects to every candidate");
     }
 
-    // 005 FR-004: the default genesis (0) yields a deterministic, repeatable selection.
+    // 005 FR-004: the default epoch nonce (0) yields a deterministic, repeatable
+    // selection.
     #[test]
-    fn default_genesis_zero_is_deterministic() {
+    fn default_nonce_zero_is_deterministic() {
         let ids = ids(40);
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
         let down = HashSet::new();
-        let first = HashGatedConnection::new(0, peer("self"), 8)
+        let first = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
-        let again = HashGatedConnection::new(0, peer("self"), 8)
+        let again = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
-        assert_eq!(first, again, "genesis 0 must reproduce identically");
+        assert_eq!(first, again, "nonce 0 must reproduce identically");
+    }
+
+    // ADR 0031: the epoch nonce is read from the view — some nonce among many
+    // must select differently from nonce 0, else the nonce is not being hashed.
+    #[test]
+    fn selection_varies_by_epoch_nonce() {
+        let ids = ids(60);
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &refs)]);
+        let down = HashSet::new();
+        let policy = HashGatedConnection::new(peer("self"), 8);
+        let at_zero = policy.expected_upstream(&view(&subs, &cands, &down));
+        let diverges = (1..=16u64).any(|n| {
+            policy.expected_upstream(&view_with_nonce(&subs, &cands, &down, n)) != at_zero
+        });
+        assert!(diverges, "the epoch nonce must vary the selection");
     }
 }

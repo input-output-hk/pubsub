@@ -190,6 +190,7 @@ pub async fn two_node_fixture_with_subscriptions(
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
         },
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&a_id.to_string()),
         verifier.clone(),
@@ -207,6 +208,7 @@ pub async fn two_node_fixture_with_subscriptions(
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
         },
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&b_id.to_string()),
         verifier,
@@ -266,15 +268,19 @@ pub async fn node_with(
         peers,
         topics,
         Arc::new(ConnectToAllCandidates),
+        0, // genesis: the default initial epoch nonce
     )
     .await
 }
 
 /// Like [`node_with`], but with a caller-supplied connection strategy instead of
-/// the default all-candidates policy. Lets a test pin which edges a node dials
-/// (e.g. [`ConnectToExplicit`]) so an exact acyclic topology can be built on a
-/// shared topic — the all-candidates policy over one topic can only build a full
-/// mesh. Acceptance is unaffected (it still uses the real candidate set).
+/// the default all-candidates policy, and an explicit `genesis` (the node's
+/// initial epoch nonce for the verifiable edge predicate). Lets a test pin which
+/// edges a node dials (e.g. [`ConnectToExplicit`]) so an exact acyclic topology
+/// can be built on a shared topic — the all-candidates policy over one topic can
+/// only build a full mesh. Acceptance is unaffected (it still uses the real
+/// candidate set).
+#[allow(clippy::too_many_arguments)]
 pub async fn node_with_strategy(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
@@ -282,6 +288,7 @@ pub async fn node_with_strategy(
     peers: &[&str],
     topics: &[TopicId],
     strategy: Arc<dyn ConnectionStrategy>,
+    genesis: u64,
 ) -> Node {
     let id = PeerId::from_str(id).expect("valid id");
     registry
@@ -308,6 +315,7 @@ pub async fn node_with_strategy(
     let node = Node::new(
         id,
         NodeConfig { peers },
+        genesis,
         network.clone(),
         signer,
         shared_test_verifier(),
@@ -350,6 +358,7 @@ pub async fn node_sharing(
     Node::new(
         PeerId::from_str(id).expect("valid id"),
         NodeConfig { peers },
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(id),
         shared_test_verifier(),
@@ -872,6 +881,7 @@ impl NodeSpec<'_> {
             &peers,
             &self.topics,
             self.strategy,
+            0, // genesis: the default initial epoch nonce
         )
         .await
     }

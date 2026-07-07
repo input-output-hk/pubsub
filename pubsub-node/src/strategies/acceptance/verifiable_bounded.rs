@@ -10,17 +10,17 @@ use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 /// Accept a verified `Request` iff it is membership-valid, the **verifiable edge
-/// predicate** holds for this interval, and the node is under its per-topic
-/// downstream cap; refuse otherwise (ADR 0025).
+/// predicate** holds under the current epoch nonce, and the node is under its
+/// per-topic downstream cap; refuse otherwise (ADR 0025).
 ///
 /// The acceptor recomputes the *same* predicate the dialer used
-/// (`H(genesis, topic, requester, self, interval) mod B == 0`, `strategies::edge`),
-/// so an adversary cannot force an edge the hash does not allow — a predicate
-/// failure is a **silent** `RejectIllegitimate`. Over the per-topic cap
+/// (`H(nonce, topic, requester, self) mod B == 0`, `strategies::edge`; the epoch
+/// nonce comes from the [`NodeView`]), so an adversary cannot force an edge the
+/// hash does not allow — a predicate failure is a **silent**
+/// `RejectIllegitimate`. Over the per-topic cap
 /// `OC = ⌈target_degree + c·√target_degree⌉` a legitimate request is refused with
 /// `RejectOverCapacity` (an explicit `Rejected`).
 pub struct VerifiableBoundedAcceptance {
-    genesis: u64,
     self_id: PeerId,
     target_degree: usize,
     cap_buffer: usize,
@@ -33,9 +33,8 @@ impl VerifiableBoundedAcceptance {
     /// `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
     /// to pin it — it must match the dialer's `B`.
     #[must_use]
-    pub fn new(genesis: u64, self_id: PeerId, target_degree: usize, cap_buffer: usize) -> Self {
+    pub fn new(self_id: PeerId, target_degree: usize, cap_buffer: usize) -> Self {
         Self {
-            genesis,
             self_id,
             target_degree,
             cap_buffer,
@@ -89,14 +88,7 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
         // emitter is the requester, this node the candidate.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
-        if !is_valid_edge(
-            self.genesis,
-            topic,
-            emitter,
-            &self.self_id,
-            view.epoch_nonce,
-            buckets,
-        ) {
+        if !is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
             return Admission::RejectIllegitimate;
         }
         let cap = accept_cap(self.target_degree, self.cap_buffer);
@@ -124,7 +116,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
         let down = HashSet::new();
-        let got = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3).admit(
+        let got = VerifiableBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed
             &view(&subs, &cands, &down),
@@ -146,9 +138,9 @@ mod tests {
         let invalid = names
             .iter()
             .map(|n| peer(n))
-            .find(|p| !is_valid_edge(0, &t, p, &peer("self"), 0, buckets))
+            .find(|p| !is_valid_edge(0, &t, p, &peer("self"), buckets))
             .expect("some candidate fails the predicate at B=6");
-        let got = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3).admit(
+        let got = VerifiableBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &invalid,
             &t,
             &view(&subs, &cands, &down),
@@ -167,12 +159,12 @@ mod tests {
         // robust to the exact hash rather than betting on a handful of names.
         let valid_name = (0..10_000)
             .map(|i| format!("cand-{i}"))
-            .find(|n| is_valid_edge(0, &t, &peer(n), &peer("self"), 0, 2))
+            .find(|n| is_valid_edge(0, &t, &peer(n), &peer("self"), 2))
             .expect("some candidate passes the predicate at B=2");
         let cands = candidates(&[("t1", &[valid_name.as_str()])]);
         let valid = peer(&valid_name);
         let policy =
-            VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3).with_bucket_override(Some(2));
+            VerifiableBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(2));
 
         // Below cap (3 held, target_degree=1 ⇒ cap 4) ⇒ Accept.
         let below = downstream(&[("x", "t1"), ("y", "t1"), ("z", "t1")]);
@@ -202,7 +194,7 @@ mod tests {
         // Derived B on 6 candidates at target_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
         let policy =
-            VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3).with_bucket_override(Some(1));
+            VerifiableBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(1));
         assert_eq!(
             policy.admit(&peer("a"), &t, &view(&subs, &cands, &down)),
             Admission::Accept,
@@ -219,7 +211,7 @@ mod tests {
         // 'a' is a member; the short-circuit fires ahead of the edge check, so no
         // dependence on whether 'a' would pass the predicate.
         let cands = candidates(&[("t1", &["a"])]);
-        let policy = VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3);
+        let policy = VerifiableBoundedAcceptance::new(peer("self"), 1, 3);
 
         // At cap (4 held, target_degree=1 ⇒ cap 4) AND 'a' is one of the held
         // downstreams ⇒ the idempotent re-Accept wins over RejectOverCapacity.
@@ -237,7 +229,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ target_degree ⇒ B=1
         let down = HashSet::new();
-        let got = VerifiableBoundedAcceptance::new(0, peer("self"), 8, 3).admit(
+        let got = VerifiableBoundedAcceptance::new(peer("self"), 8, 3).admit(
             &peer("a"),
             &topic("t1"),
             &view(&subs, &cands, &down),
