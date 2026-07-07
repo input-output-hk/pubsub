@@ -8,18 +8,28 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy, VerifiableBoundedAcceptance};
+use super::{
+    AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy, HashGatedAcceptance,
+    HashGatedBoundedAcceptance,
+};
 use crate::strategies::config::{
     require_target_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
 };
 
-/// A selectable inbound-acceptance strategy, identified by a readable name.
+/// A selectable inbound-acceptance strategy, identified by a readable name —
+/// the four one-dimensional baselines of the empirical approach (ADR 0031):
+/// neither check, cap only, gate only, both.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AcceptanceStrategyKind {
     /// Accept every membership-valid request ([`AcceptFromAllCandidates`](super::AcceptFromAllCandidates)).
     AcceptFromAll,
-    /// Verifiable, bucketed, bounded acceptance ([`VerifiableBoundedAcceptance`](super::VerifiableBoundedAcceptance)).
-    VerifiableBounded,
+    /// Cap-only acceptance, no hash gate ([`BoundedAcceptance`](super::BoundedAcceptance)).
+    Bounded,
+    /// Hash-gate-only acceptance, no cap ([`HashGatedAcceptance`](super::HashGatedAcceptance)).
+    HashGated,
+    /// Verifiable, bucketed, bounded acceptance — gate **and** cap
+    /// ([`HashGatedBoundedAcceptance`](super::HashGatedBoundedAcceptance)).
+    HashGatedBounded,
 }
 
 impl AcceptanceStrategyKind {
@@ -28,7 +38,9 @@ impl AcceptanceStrategyKind {
     pub const fn name(self) -> &'static str {
         match self {
             Self::AcceptFromAll => "accept-from-all",
-            Self::VerifiableBounded => "verifiable-bounded",
+            Self::Bounded => "bounded",
+            Self::HashGated => "hash-gated",
+            Self::HashGatedBounded => "hash-gated-bounded",
         }
     }
 
@@ -41,11 +53,26 @@ impl AcceptanceStrategyKind {
     ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
-            Self::VerifiableBounded => {
+            Self::Bounded => {
+                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                Ok(Arc::new(BoundedAcceptance::new(
+                    target_degree,
+                    params.cap_buffer,
+                )))
+            }
+            Self::HashGated => {
                 let target_degree = require_target_degree(self.name(), params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
-                    VerifiableBoundedAcceptance::new(
+                    HashGatedAcceptance::new(params.self_id.clone(), target_degree)
+                        .with_bucket_override(bucket_override),
+                ))
+            }
+            Self::HashGatedBounded => {
+                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
+                Ok(Arc::new(
+                    HashGatedBoundedAcceptance::new(
                         params.self_id.clone(),
                         target_degree,
                         params.cap_buffer,
@@ -60,7 +87,7 @@ impl AcceptanceStrategyKind {
 /// The error returned when a configuration string names no known acceptance
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, verifiable-bounded)")]
+#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, bounded, hash-gated, hash-gated-bounded)")]
 pub struct UnknownAcceptanceStrategy(pub String);
 
 impl FromStr for AcceptanceStrategyKind {
@@ -70,7 +97,9 @@ impl FromStr for AcceptanceStrategyKind {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "accept-from-all" => Ok(Self::AcceptFromAll),
-            "verifiable-bounded" => Ok(Self::VerifiableBounded),
+            "bounded" => Ok(Self::Bounded),
+            "hash-gated" => Ok(Self::HashGated),
+            "hash-gated-bounded" => Ok(Self::HashGatedBounded),
             _ => Err(UnknownAcceptanceStrategy(s.to_string())),
         }
     }
@@ -100,39 +129,62 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: verifiable-bounded validates its required target degree in build.
+    // ADR 0028: every parameterised kind validates its required target degree
+    // in build; each builds cleanly once it is supplied.
     #[test]
-    fn verifiable_bounded_requires_rf() {
-        assert!(matches!(
-            AcceptanceStrategyKind::VerifiableBounded.build(&params(None)),
-            Err(StrategyConfigError::MissingParameter { .. }),
-        ));
-        assert!(AcceptanceStrategyKind::VerifiableBounded
-            .build(&params(Some(8)))
-            .is_ok());
+    fn parameterised_kinds_require_a_target_degree() {
+        for kind in [
+            AcceptanceStrategyKind::Bounded,
+            AcceptanceStrategyKind::HashGated,
+            AcceptanceStrategyKind::HashGatedBounded,
+        ] {
+            assert!(
+                matches!(
+                    kind.build(&params(None)),
+                    Err(StrategyConfigError::MissingParameter { .. }),
+                ),
+                "{} must require a target degree",
+                kind.name(),
+            );
+            assert!(
+                kind.build(&params(Some(8))).is_ok(),
+                "{} must build with a target degree",
+                kind.name(),
+            );
+        }
     }
 
     // A target degree of 0 makes the accept cap 0 (reject everything); reject at
     // build so the two seams cannot degenerate in opposite directions.
     #[test]
-    fn verifiable_bounded_rejects_zero_target_degree() {
-        assert!(matches!(
-            AcceptanceStrategyKind::VerifiableBounded.build(&params(Some(0))),
-            Err(StrategyConfigError::InvalidParameter { .. }),
-        ));
+    fn parameterised_kinds_reject_zero_target_degree() {
+        for kind in [
+            AcceptanceStrategyKind::Bounded,
+            AcceptanceStrategyKind::HashGated,
+            AcceptanceStrategyKind::HashGatedBounded,
+        ] {
+            assert!(
+                matches!(
+                    kind.build(&params(Some(0))),
+                    Err(StrategyConfigError::InvalidParameter { .. }),
+                ),
+                "{} must reject a zero target degree",
+                kind.name(),
+            );
+        }
     }
 
     // A pinned bucket count of 0 would divide by zero in the predicate; reject it.
     #[test]
-    fn verifiable_bounded_rejects_zero_bucket_count() {
+    fn hash_gated_bounded_rejects_zero_bucket_count() {
         let mut p = params(Some(8));
         p.bucket_count = Some(0);
         assert!(matches!(
-            AcceptanceStrategyKind::VerifiableBounded.build(&p),
+            AcceptanceStrategyKind::HashGatedBounded.build(&p),
             Err(StrategyConfigError::InvalidParameter { .. }),
         ));
         p.bucket_count = Some(4);
-        assert!(AcceptanceStrategyKind::VerifiableBounded.build(&p).is_ok());
+        assert!(AcceptanceStrategyKind::HashGatedBounded.build(&p).is_ok());
     }
 
     #[test]
@@ -142,8 +194,8 @@ mod tests {
             AcceptanceStrategyKind::AcceptFromAll,
         );
         assert_eq!(
-            AcceptanceStrategyKind::from_str("VERIFIABLE-BOUNDED").unwrap(),
-            AcceptanceStrategyKind::VerifiableBounded,
+            AcceptanceStrategyKind::from_str("HASH-GATED-BOUNDED").unwrap(),
+            AcceptanceStrategyKind::HashGatedBounded,
         );
     }
 
@@ -151,7 +203,9 @@ mod tests {
     fn every_name_round_trips() {
         for kind in [
             AcceptanceStrategyKind::AcceptFromAll,
-            AcceptanceStrategyKind::VerifiableBounded,
+            AcceptanceStrategyKind::Bounded,
+            AcceptanceStrategyKind::HashGated,
+            AcceptanceStrategyKind::HashGatedBounded,
         ] {
             assert_eq!(AcceptanceStrategyKind::from_str(kind.name()).unwrap(), kind);
         }

@@ -1,9 +1,9 @@
 //! The verifiable, bounded inbound-acceptance policy:
-//! [`VerifiableBoundedAcceptance`] (bucketed-pull, ADR 0025).
+//! [`HashGatedBoundedAcceptance`] (bucketed-pull, ADR 0025).
 
 use std::collections::BTreeSet;
 
-use super::{downstream_scan, is_membership_valid, Admission, ConnectionAcceptanceStrategy};
+use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
 use crate::strategies::edge::{accept_cap, is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
@@ -20,14 +20,14 @@ use crate::topic::TopicId;
 /// `RejectIllegitimate`. Over the per-topic cap
 /// `OC = ⌈target_degree + c·√target_degree⌉` a legitimate request is refused with
 /// `RejectOverCapacity` (an explicit `Rejected`).
-pub struct VerifiableBoundedAcceptance {
+pub struct HashGatedBoundedAcceptance {
     self_id: PeerId,
     target_degree: usize,
     cap_buffer: usize,
     bucket_override: Option<usize>,
 }
 
-impl VerifiableBoundedAcceptance {
+impl HashGatedBoundedAcceptance {
     /// Build the policy from already-parsed inputs (`cap_buffer` is the `c` in
     /// `OC = ⌈target_degree + c·√target_degree⌉`). `B` is derived per topic from
     /// `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
@@ -57,22 +57,15 @@ impl VerifiableBoundedAcceptance {
     }
 }
 
-impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
+impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        if !is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
-            return Admission::RejectMembership;
-        }
-        // An already-accepted (emitter, topic) is re-affirmed idempotently, ahead
-        // of the edge and cap checks: a re-dial re-sends Accepted and never trips
-        // the cap, so a lost/late Accepted (the AwaitingAccept re-request path)
-        // repairs the link rather than stranding a half-open connection — the node
-        // fans out to a downstream that the dialer has dropped (005 FR-013).
-        // One borrow-only pass yields both downstream facts the policy needs.
-        let (already_downstream, downstream_on_topic) =
-            downstream_scan(view.downstream, emitter, topic);
-        if already_downstream {
-            return Admission::Accept;
-        }
+        // Membership, then the idempotent already-downstream re-Accept — the
+        // shared prelude every refusing policy runs first (see
+        // `acceptance::admit_prelude` for the half-open-link rationale).
+        let downstream_on_topic = match admit_prelude(emitter, topic, view) {
+            Ok(count) => count,
+            Err(decision) => return decision,
+        };
         // Verify against the same edge predicate the dialer used, with the same
         // bucket count. B-agreement assumption: deriving B locally from the
         // candidate count only matches the dialer's B while both ends see the
@@ -102,7 +95,7 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
 
 #[cfg(test)]
 mod tests {
-    use super::VerifiableBoundedAcceptance;
+    use super::HashGatedBoundedAcceptance;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{bucket_count, is_valid_edge};
     use crate::strategies::test_support::{
@@ -116,7 +109,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
         let down = HashSet::new();
-        let got = VerifiableBoundedAcceptance::new(peer("self"), 1, 3).admit(
+        let got = HashGatedBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed
             &view(&subs, &cands, &down),
@@ -140,7 +133,7 @@ mod tests {
             .map(|n| peer(n))
             .find(|p| !is_valid_edge(0, &t, p, &peer("self"), buckets))
             .expect("some candidate fails the predicate at B=6");
-        let got = VerifiableBoundedAcceptance::new(peer("self"), 1, 3).admit(
+        let got = HashGatedBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &invalid,
             &t,
             &view(&subs, &cands, &down),
@@ -164,7 +157,7 @@ mod tests {
         let cands = candidates(&[("t1", &[valid_name.as_str()])]);
         let valid = peer(&valid_name);
         let policy =
-            VerifiableBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(2));
+            HashGatedBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(2));
 
         // Below cap (3 held, target_degree=1 ⇒ cap 4) ⇒ Accept.
         let below = downstream(&[("x", "t1"), ("y", "t1"), ("z", "t1")]);
@@ -194,7 +187,7 @@ mod tests {
         // Derived B on 6 candidates at target_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
         let policy =
-            VerifiableBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(1));
+            HashGatedBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(1));
         assert_eq!(
             policy.admit(&peer("a"), &t, &view(&subs, &cands, &down)),
             Admission::Accept,
@@ -211,7 +204,7 @@ mod tests {
         // 'a' is a member; the short-circuit fires ahead of the edge check, so no
         // dependence on whether 'a' would pass the predicate.
         let cands = candidates(&[("t1", &["a"])]);
-        let policy = VerifiableBoundedAcceptance::new(peer("self"), 1, 3);
+        let policy = HashGatedBoundedAcceptance::new(peer("self"), 1, 3);
 
         // At cap (4 held, target_degree=1 ⇒ cap 4) AND 'a' is one of the held
         // downstreams ⇒ the idempotent re-Accept wins over RejectOverCapacity.
@@ -229,7 +222,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ target_degree ⇒ B=1
         let down = HashSet::new();
-        let got = VerifiableBoundedAcceptance::new(peer("self"), 8, 3).admit(
+        let got = HashGatedBoundedAcceptance::new(peer("self"), 8, 3).admit(
             &peer("a"),
             &topic("t1"),
             &view(&subs, &cands, &down),

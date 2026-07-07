@@ -240,7 +240,7 @@ fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
     }
 }
 
-// FR-007/FR-008 / US2: at the per-topic cap, `VerifiableBoundedAcceptance`
+// FR-007/FR-008 / US2: at the per-topic cap, `HashGatedBoundedAcceptance`
 // refuses a further *legitimate* request with an explicit `Rejected` (not a
 // severance) and records no downstream entry. A small topic (a single candidate
 // ⇒ B=1) makes the edge predicate always hold, so this exercises the cap + the
@@ -258,7 +258,7 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         alias_signer("self"),
         strategy(),
         Arc::new(ForwardToAll),
-        Arc::new(VerifiableBoundedAcceptance::new(peer("self"), 1, 3)),
+        Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
     );
     // Synced first (requests are gated on readiness) and before any membership,
     // so the readiness dial pass sees no candidates and pollutes no upstream.

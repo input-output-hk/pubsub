@@ -43,7 +43,7 @@ pub struct ConnectionParams {
 pub struct AcceptanceParams {
     /// The node's own identity (the candidate side of the verified edge).
     pub self_id: PeerId,
-    /// The fixed target connection degree `target_degree` — required by `verifiable-bounded`.
+    /// The fixed target connection degree `target_degree` — required by `hash-gated-bounded`.
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);
     /// the acceptor must use the same value the dialer does. Must be `≥ 1` if

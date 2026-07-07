@@ -9,11 +9,13 @@
 //! the idempotent downstream insert, the signed `Accepted` reply — and consults
 //! this seam only for the accept/reject *policy*.
 //!
-//! The trait lives here; each concrete policy is its own submodule. The v1
-//! implementor is [`AcceptFromAllCandidates`] in [`accept_from_all`] — accept
-//! every membership-valid request, the exact inbound mirror of
-//! `ConnectToAllCandidates`. Registration gates delivery, not acceptance (the S7
-//! pin), so this seam reads the membership-derived view only.
+//! The trait lives here; each concrete policy is its own submodule — the four
+//! one-dimensional baselines of the empirical approach (ADR 0031):
+//! [`AcceptFromAllCandidates`] (membership only), [`BoundedAcceptance`] (cap
+//! only), [`HashGatedAcceptance`] (edge predicate only), and
+//! [`HashGatedBoundedAcceptance`] (both — the bucketed-pull compound).
+//! Registration gates delivery, not acceptance (the S7 pin), so this seam reads
+//! the membership-derived view only.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -22,12 +24,16 @@ use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 mod accept_from_all;
+mod bounded;
+mod hash_gated;
+mod hash_gated_bounded;
 mod kind;
-mod verifiable_bounded;
 
 pub use accept_from_all::AcceptFromAllCandidates;
+pub use bounded::BoundedAcceptance;
+pub use hash_gated::HashGatedAcceptance;
+pub use hash_gated_bounded::HashGatedBoundedAcceptance;
 pub use kind::{AcceptanceStrategyKind, UnknownAcceptanceStrategy};
-pub use verifiable_bounded::VerifiableBoundedAcceptance;
 
 /// The outcome of an acceptance decision on a verified connection `Request`
 /// (feature 005, ADR 0025).
@@ -63,16 +69,17 @@ pub enum Admission {
 /// `subscriptions`/`candidates` are the **membership-derived** view, not the
 /// registration-gated effective filter — the accept side mirrors the dial side,
 /// where topic registration gates delivery rather than establishment (the S7
-/// pin). The v1 implementor is [`AcceptFromAllCandidates`]; the verifiable bounded
-/// policy is [`VerifiableBoundedAcceptance`].
+/// pin). The implementors are the four one-dimensional baselines:
+/// [`AcceptFromAllCandidates`], [`BoundedAcceptance`], [`HashGatedAcceptance`],
+/// and the compound [`HashGatedBoundedAcceptance`].
 pub trait ConnectionAcceptanceStrategy: Send + Sync {
     /// The admission decision for a verified `Request` from `emitter` on `topic`,
     /// given the node's read-only [`NodeView`].
     ///
     /// `emitter`/`topic` are the request; the view supplies the node state a
     /// policy reads — `subscriptions`/`candidates` (membership), `downstream`
-    /// (the current inbound set, to count the cap), and `interval` (to recompute
-    /// the verifiable edge predicate).
+    /// (the current inbound set, to count the cap), and `epoch_nonce` (to
+    /// recompute the verifiable edge predicate).
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission;
 }
 
@@ -119,4 +126,32 @@ pub(crate) fn downstream_scan(
         }
     }
     (already_downstream, on_topic)
+}
+
+/// The shared refusing-policy prelude, run before any policy-specific check:
+/// membership validation, then the idempotent already-downstream re-Accept.
+///
+/// `Err` is the early decision (`RejectMembership`, or `Accept` for a re-dial of
+/// an already-held downstream — ahead of any gate or cap, so a lost/late
+/// `Accepted` repairs the link instead of stranding it half-open, 005 FR-013);
+/// `Ok(downstream_on_topic)` means "no early decision" and carries the topic's
+/// downstream count for a cap check, from the same single scan.
+///
+/// Every refusing policy calls this first — the invariant lives here once, so a
+/// new bounding/gating strategy cannot forget it. (`AcceptFromAllCandidates`
+/// needs no prelude: it never refuses a member, so the re-Accept is implied.)
+pub(crate) fn admit_prelude(
+    emitter: &PeerId,
+    topic: &TopicId,
+    view: &NodeView<'_>,
+) -> Result<usize, Admission> {
+    if !is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
+        return Err(Admission::RejectMembership);
+    }
+    let (already_downstream, downstream_on_topic) =
+        downstream_scan(view.downstream, emitter, topic);
+    if already_downstream {
+        return Err(Admission::Accept);
+    }
+    Ok(downstream_on_topic)
 }

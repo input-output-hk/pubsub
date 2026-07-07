@@ -70,8 +70,9 @@ pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
 pub use strategies::acceptance::{
-    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, ConnectionAcceptanceStrategy,
-    UnknownAcceptanceStrategy, VerifiableBoundedAcceptance,
+    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, BoundedAcceptance,
+    ConnectionAcceptanceStrategy, HashGatedAcceptance, HashGatedBoundedAcceptance,
+    UnknownAcceptanceStrategy,
 };
 pub use strategies::config::{
     AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,

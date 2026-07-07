@@ -12,7 +12,7 @@ use crate::topic::TopicId;
 /// The exact inbound mirror of `ConnectToAllCandidates`: the "all" is
 /// membership-scoped, not unconditional. It never refuses for over-capacity or
 /// the edge predicate; the bounded counterpart is
-/// [`VerifiableBoundedAcceptance`](super::VerifiableBoundedAcceptance).
+/// [`HashGatedBoundedAcceptance`](super::HashGatedBoundedAcceptance).
 pub struct AcceptFromAllCandidates;
 
 impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {

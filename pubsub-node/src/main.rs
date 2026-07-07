@@ -39,7 +39,7 @@ struct Args {
     connection_strategy: ConnectionStrategyKind,
 
     /// The fixed target connection degree `target_degree` — the target expected upstream degree per topic. Required
-    /// for the `hash-gated` / `verifiable-bounded` strategies; ignored otherwise.
+    /// for every strategy except `connect-to-all` / `accept-from-all`; ignored by those.
     /// The per-topic bucket count derives from it; with a derived bucket count,
     /// small topics connect to all (see --bucket-count for the pinned case).
     #[arg(long)]
@@ -56,21 +56,23 @@ struct Args {
     /// is derived per topic from `--target-degree`. When set, both peers use this
     /// exact value on both seams, so verification holds by construction (no
     /// dependence on the two ends having folded the same candidate set); a natural
-    /// experiment axis. Applies to `hash-gated` / `verifiable-bounded`; must be ≥ 1.
+    /// experiment axis. Applies to the hash-gated strategies; must be ≥ 1.
     /// Caution: pinning replaces the derived value INCLUDING the small-topic
     /// B=1 connect-to-all floor — a pinned B larger than a topic's candidate
     /// count can leave a node with zero upstreams on that topic (no retry).
     #[arg(long)]
     bucket_count: Option<usize>,
 
-    /// Inbound-acceptance strategy (case-insensitive): `accept-from-all` (the
-    /// default) or `verifiable-bounded` (verifies the edge predicate + caps
-    /// downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing over-capacity with `Rejected`).
+    /// Inbound-acceptance strategy (case-insensitive), the four one-dimensional
+    /// baselines: `accept-from-all` (the default; membership only), `bounded`
+    /// (caps downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing
+    /// over-capacity with `Rejected`), `hash-gated` (verifies the edge predicate,
+    /// no cap), or `hash-gated-bounded` (predicate + cap — the bucketed-pull compound).
     #[arg(long, default_value = "accept-from-all")]
     acceptance_strategy: AcceptanceStrategyKind,
 
     /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3). Only affects the
-    /// `verifiable-bounded` acceptance strategy.
+    /// `bounded` / `hash-gated-bounded` acceptance strategies.
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
 
