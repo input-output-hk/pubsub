@@ -94,7 +94,7 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
             topic,
             emitter,
             &self.self_id,
-            view.interval,
+            view.epoch_nonce,
             buckets,
         ) {
             return Admission::RejectIllegitimate;

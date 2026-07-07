@@ -40,7 +40,7 @@ pub(crate) fn downstream(entries: &[(&str, &str)]) -> HashSet<(PeerId, TopicId)>
     entries.iter().map(|(p, t)| (peer(p), topic(t))).collect()
 }
 
-/// A [`NodeView`] over the borrowed fixtures (interval 0 — the single v1 round).
+/// A [`NodeView`] over the borrowed fixtures (epoch nonce 0 — the v1 default).
 pub(crate) fn view<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
@@ -50,6 +50,6 @@ pub(crate) fn view<'a>(
         subscriptions: subs,
         candidates: cands,
         downstream: down,
-        interval: 0,
+        epoch_nonce: 0,
     }
 }

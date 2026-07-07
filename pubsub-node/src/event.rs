@@ -53,17 +53,27 @@ pub enum Event {
     /// snapshots; it is the single readiness signal (the per-registry markers are
     /// gone). Idempotent — a redundant `Synced` after the transition is a no-op.
     Synced,
-    /// The per-interval connection **heartbeat** (ADR 0030): the node consults
-    /// its connection-selection strategy for the carried `interval` and dials the
-    /// expected upstreams it does not already hold. The `interval` (an advancing
-    /// 0-based counter, offset from genesis) feeds the verifiable edge predicate;
-    /// the node retains it so the acceptor verifies inbound requests against the
-    /// current interval. Invoked by the [`Synced`](Event::Synced) transition
-    /// (interval 0 in v1) and available directly through the public event intake
-    /// (tests, operator injection, the future periodic/rotating heartbeat).
-    Heartbeat {
-        /// The round counter feeding the edge predicate this heartbeat.
-        interval: u64,
+    /// The connection-management **heartbeat** — the dial tick, or "round"
+    /// (ADR 0030/0031): the node consults its connection-selection strategy over
+    /// the current epoch nonce and dials the expected upstreams it does not
+    /// already hold. Carries nothing: the randomness context is
+    /// [`Epoch`](Event::Epoch)'s job, so repeated heartbeats within an epoch
+    /// re-dial the *same* expected set — the retry/back-fill primitive. Invoked
+    /// by the [`Synced`](Event::Synced) transition (once, in v1) and available
+    /// directly through the public event intake (tests, operator injection, the
+    /// future periodic heartbeat).
+    Heartbeat,
+    /// A new **epoch**: the global randomness context advanced (ADR 0031). The
+    /// carried `nonce` is folded onto node state and consumed by the verifiable
+    /// edge predicate on both seams (dial selection and inbound verification).
+    /// Folding it produces no effects — whether to re-dial under the new nonce
+    /// is the driver's choice, via a following [`Heartbeat`](Event::Heartbeat).
+    /// v1 never fires it (the nonce stays at the configured genesis); the future
+    /// beacon layer supplies it from an externally observable event (e.g. a
+    /// block hash), which is what makes the predicate's randomness unbiasable.
+    Epoch {
+        /// The epoch nonce the edge predicate hashes.
+        nonce: u64,
     },
     /// The graceful-teardown trigger, pushed by
     /// [`Node::shutdown`](crate::Node::shutdown). The node notifies every

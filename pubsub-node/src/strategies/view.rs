@@ -2,7 +2,7 @@
 //! decision (ADR 0030).
 //!
 //! Grouping the recurring node-state parameters (`subscriptions`, `candidates`,
-//! `downstream`, `interval`) into one borrowed view keeps the seam signatures
+//! `downstream`, `epoch_nonce`) into one borrowed view keeps the seam signatures
 //! lean and makes the "read-only context in → decision out" contract explicit:
 //! a strategy reads a `NodeView` and returns a decision; it never mutates node
 //! state (the transition applies the decision). This is the shape the planned
@@ -27,7 +27,8 @@ pub struct NodeView<'a> {
     /// connection seam ignores it — a deliberate trade-off of one shared view
     /// over per-seam view types.
     pub downstream: &'a HashSet<(PeerId, TopicId)>,
-    /// The current heartbeat interval — the round counter feeding the edge
-    /// predicate (ADR 0024/0030).
-    pub interval: u64,
+    /// The current epoch nonce — the randomness context feeding the edge
+    /// predicate (ADR 0024/0030/0031). Folded from the last `Epoch` event;
+    /// stable across `Heartbeat` dial ticks within an epoch.
+    pub epoch_nonce: u64,
 }

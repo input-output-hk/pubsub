@@ -156,7 +156,7 @@ fn control_invalid_signature_dropped() {
 fn accepted_activates_awaiting_entry() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
     apply(&mut state, membership_joined("a", ["t1"]));
-    apply(&mut state, Event::Heartbeat { interval: 0 });
+    apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "a", "t1"),
         Some(UpstreamState::AwaitingAccept),
@@ -188,7 +188,7 @@ fn terminated_removes_held_entry_else_dropped() {
     apply(&mut state, Event::Synced); // requests are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
     // Establish both roles with a: upstream via setup+accept, downstream via request.
-    apply(&mut state, Event::Heartbeat { interval: 0 });
+    apply(&mut state, Event::Heartbeat);
     apply(&mut state, accepted_from("a", "t1"));
     apply(&mut state, request_from("a", "t1"));
     assert_eq!(

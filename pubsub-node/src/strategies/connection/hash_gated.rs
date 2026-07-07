@@ -83,7 +83,7 @@ impl ConnectionStrategy for HashGatedConnection {
                     topic,
                     &self.self_id,
                     candidate,
-                    view.interval,
+                    view.epoch_nonce,
                     buckets,
                 ) {
                     expected.insert((candidate.clone(), topic.clone()));

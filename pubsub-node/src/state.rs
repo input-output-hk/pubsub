@@ -72,11 +72,13 @@ pub(crate) struct NodeState {
     /// fan-out destinations — as a set of `(peer, topic)` entries with no
     /// per-entry state (FR-002).
     downstream: HashSet<(PeerId, TopicId)>,
-    /// The current heartbeat **interval** (offset from genesis, 0-based) — the
-    /// round counter that feeds the verifiable edge predicate (ADR 0030). Folded
-    /// from the last `Heartbeat` event (default 0); the acceptor verifies inbound
-    /// requests against it, so it is event-derived state, not a strategy field.
-    interval: u64,
+    /// The current **epoch nonce** — the randomness context the verifiable edge
+    /// predicate hashes (ADR 0031). Folded from the last `Epoch` event (default
+    /// 0); the acceptor verifies inbound requests against it, so it is
+    /// event-derived state, not a strategy field. Deliberately decoupled from
+    /// the `Heartbeat` dial tick: heartbeats within one epoch re-dial the same
+    /// expected set.
+    epoch_nonce: u64,
     /// The node's signing identity: signs the control messages it emits
     /// (`Request`/`Accepted`/`Terminated`). Rides along as an immutable service
     /// handle beside the verifier; the transition signs inside the pure core so
@@ -130,7 +132,7 @@ impl NodeState {
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
-            interval: 0,
+            epoch_nonce: 0,
             signer,
             connection_strategy,
             fanout_strategy,
@@ -249,29 +251,30 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
         Event::Synced => handle_synced(state),
-        Event::Heartbeat { interval } => handle_heartbeat(state, interval),
+        Event::Heartbeat => handle_heartbeat(state),
+        Event::Epoch { nonce } => handle_epoch(state, nonce),
         Event::Shutdown => handle_shutdown(state),
     }
 }
 
-/// Transition for the connection **heartbeat** (ADR 0030).
+/// Transition for the connection **heartbeat** — the dial tick, or "round"
+/// (ADR 0030/0031).
 ///
-/// Stores the carried `interval` (so the acceptor verifies inbound requests
-/// against the current round), then consults the node's connection-selection
-/// strategy for the expected upstream set and applies it as the diff: dial
-/// everything expected that is not already `Active`. A pair not held gains an
+/// Consults the node's connection-selection strategy for the expected upstream
+/// set over the current epoch nonce and applies it as the diff: dial everything
+/// expected that is not already `Active`. A pair not held gains an
 /// `AwaitingAccept` entry and a `Request`; a pair still at `AwaitingAccept` keeps
 /// its entry and is re-requested; an `Active` pair is left alone. Expected-set
-/// membership never removes anything (v1 is single-interval; cross-interval
-/// rotation/teardown is deferred). The strategy reads the membership-derived
-/// `subscriptions` field and the current interval (005 FR-006).
-fn handle_heartbeat(state: &mut NodeState, interval: u64) -> Vec<Effect> {
-    state.interval = interval;
+/// membership never removes anything (cross-epoch rotation/teardown is
+/// deferred). Within one epoch the expected set is stable, so a repeated
+/// heartbeat is a pure retry pass. The strategy reads the membership-derived
+/// `subscriptions` field and the current epoch nonce (005 FR-006).
+fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
     let view = NodeView {
         subscriptions: &state.subscriptions,
         candidates: &state.candidates,
         downstream: &state.downstream,
-        interval,
+        epoch_nonce: state.epoch_nonce,
     };
     let expected = state.connection_strategy.expected_upstream(&view);
     // Clone the immutable bits the request builder needs so the loop can mutate
@@ -312,9 +315,21 @@ fn handle_synced(state: &mut NodeState) -> Vec<Effect> {
         return Vec::new();
     }
     state.synced = true;
-    // v1 fires a single heartbeat (interval 0) on the readiness edge; periodic
-    // heartbeats are a later feature (ADR 0030).
-    handle_heartbeat(state, 0)
+    // v1 fires a single heartbeat on the readiness edge; periodic heartbeats
+    // are a later feature (ADR 0030/0031).
+    handle_heartbeat(state)
+}
+
+/// Transition for a new **epoch** (ADR 0031): fold the carried nonce — the
+/// randomness context the verifiable edge predicate hashes on both seams.
+///
+/// Produces no effects: whether to re-dial under the new nonce is the driver's
+/// choice, via a following `Heartbeat`. Keeping the fold and the dial separate
+/// is what lets a driver run a two-phase barrier (advance every node's epoch,
+/// then dial), narrowing the cross-node verification skew an epoch change opens.
+fn handle_epoch(state: &mut NodeState, nonce: u64) -> Vec<Effect> {
+    state.epoch_nonce = nonce;
+    Vec::new()
 }
 
 /// Build a control message signed by the node's own signer, with the node's
@@ -632,7 +647,7 @@ fn handle_connection_request(
         subscriptions: &state.subscriptions,
         candidates: &state.candidates,
         downstream: &state.downstream,
-        interval: state.interval,
+        epoch_nonce: state.epoch_nonce,
     };
     let admission = state.acceptance_strategy.admit(&emitter, &topic, &view);
     match admission {
