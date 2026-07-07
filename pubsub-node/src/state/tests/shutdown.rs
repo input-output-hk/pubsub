@@ -74,6 +74,7 @@ fn terminated_reception_removes_either_role() {
 fn full_lifecycle_reachable_by_events_alone() {
     let t = topic("t");
     let mut state = node_state("self", HashSet::from([t.clone()]));
+    apply(&mut state, Event::Synced); // requests are gated on readiness
     apply(&mut state, reg_open("t")); // registered, so payload can be admitted
     apply(&mut state, membership_joined("b", ["t"]));
 
@@ -150,12 +151,17 @@ fn full_lifecycle_reachable_by_events_alone() {
         .downstream_snapshot()
         .iter()
         .all(|(p, _)| p != &self_peer));
+}
 
-    // Determinism: the same ConnectionScript twice yields the same final state.
+// SC-006: the same ConnectionScript twice yields the same final state.
+#[test]
+fn scripted_lifecycle_is_deterministic() {
+    let t = topic("t");
     let run = || {
         let mut s = node_state("self", HashSet::from([t.clone()]));
         apply(&mut s, reg_open("t"));
         let script = ConnectionScript::new()
+            .synced() // requests are gated on readiness; effect-free before membership
             .member_joined("b", ["t"])
             .setup()
             .accepted_from("b", "t")

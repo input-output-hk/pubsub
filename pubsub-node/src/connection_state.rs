@@ -217,6 +217,16 @@ pub(crate) mod test_support {
             self
         }
 
+        /// Append a `Synced` readiness step. Scripts that deliver inbound
+        /// `Request`s need it first: the transition drops requests until the
+        /// registry snapshots are folded (the fail-open gate). Placed before any
+        /// membership step it is effect-free (the readiness dial pass sees no
+        /// candidates).
+        pub(crate) fn synced(mut self) -> Self {
+            self.0.push(Event::Synced);
+            self
+        }
+
         /// Append a `Heartbeat` step (interval 0 — the single v1 heartbeat).
         pub(crate) fn setup(mut self) -> Self {
             self.0.push(Event::Heartbeat { interval: 0 });

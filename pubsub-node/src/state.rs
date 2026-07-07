@@ -610,6 +610,24 @@ fn handle_connection_request(
     emitter: PeerId,
     topic: TopicId,
 ) -> Vec<Effect> {
+    // Registry-fold gate: before `Synced` the candidate view is partially
+    // folded, so a bucket count derived from it can floor to 1 and the edge
+    // predicate degenerate to always-true — an un-synced acceptor would fail
+    // OPEN, admitting an edge the full view would reject (and the idempotent
+    // re-Accept would then pin it). Drop silently until readiness. This closes
+    // the pre-snapshot window only; post-sync membership deltas keep the
+    // documented B-agreement assumption in play (ADR 0031).
+    if !state.synced {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "not_synced",
+            self_id = %state.self_id,
+            emitter = %emitter,
+            topic = %topic,
+        );
+        return Vec::new();
+    }
     let view = NodeView {
         subscriptions: &state.subscriptions,
         candidates: &state.candidates,

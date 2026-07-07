@@ -77,12 +77,16 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
         // Verify against the same edge predicate the dialer used, with the same
         // bucket count. B-agreement assumption: deriving B locally from the
         // candidate count only matches the dialer's B while both ends see the
-        // same set — true in v1 (full candidate set; dials fire after `Synced`),
-        // but registry-fold lag or a future discovery layer (the `H_v` caveat in
-        // `strategies::edge`) can diverge the counts and silently fail otherwise-
-        // legitimate requests. A pinned `bucket_override` removes the dependence
-        // (both ends use the same configured B). The emitter is the requester,
-        // this node the candidate.
+        // same set — true in v1 (full candidate set; dials fire after `Synced`,
+        // and the handler drops inbound requests until then), but registry-fold
+        // lag or a future discovery layer (the `H_v` caveat in `strategies::edge`)
+        // can diverge the counts. The failure is two-sided: a count folded HIGHER
+        // than the dialer's silently rejects legitimate dials (fail-closed), and
+        // a count still LOW floors B to 1, degenerating the predicate to
+        // always-true and admitting edges the full view would reject (fail-open —
+        // why the handler gates on `Synced`). A pinned `bucket_override` removes
+        // the dependence entirely (both ends use the same configured B). The
+        // emitter is the requester, this node the candidate.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
         if !is_valid_edge(

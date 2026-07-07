@@ -8,6 +8,7 @@ use super::*;
 #[test]
 fn membership_valid_request_is_accepted() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // requests are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
 
     let effects = apply(&mut state, request_from("a", "t1"));
@@ -20,6 +21,30 @@ fn membership_valid_request_is_accepted() {
     );
 }
 
+// ADR 0031: an inbound Request before `Synced` is dropped — a partially-folded
+// candidate view must not feed the acceptance decision (the fail-open gate).
+// The same request after readiness is accepted.
+#[test]
+fn request_before_synced_is_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+
+    let effects = apply(&mut state, request_from("a", "t1"));
+    assert!(effects.is_empty(), "no reply before readiness");
+    assert!(!has_downstream(&state, "a", "t1"), "no downstream recorded");
+
+    apply(&mut state, Event::Synced);
+    let effects = apply(&mut state, request_from("a", "t1"));
+    assert!(
+        has_downstream(&state, "a", "t1"),
+        "accepted after readiness"
+    );
+    assert_eq!(
+        accepted_sends(&effects, "self"),
+        vec![(peer("a"), topic("t1"))],
+    );
+}
+
 // US1-AS7 / FR-012: a Request fails validation when the topic is not among the
 // node's own topics, or the requester is not a known member — silent drop,
 // no downstream, no reply.
@@ -27,6 +52,7 @@ fn membership_valid_request_is_accepted() {
 fn request_dropped_when_membership_validation_fails() {
     // (a) topic not among own topics.
     let mut state = node_state("self", HashSet::new());
+    apply(&mut state, Event::Synced); // past the readiness gate: membership does the refusing
     apply(&mut state, membership_joined("a", ["t1"]));
     let effects = apply(&mut state, request_from("a", "t1"));
     assert!(!has_downstream(&state, "a", "t1"));
@@ -34,6 +60,7 @@ fn request_dropped_when_membership_validation_fails() {
 
     // (b) requester not a known member.
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced);
     let effects = apply(&mut state, request_from("a", "t1"));
     assert!(!has_downstream(&state, "a", "t1"));
     assert!(effects.is_empty(), "no reply when requester not a member");
@@ -48,6 +75,7 @@ fn request_dropped_when_membership_validation_fails() {
 #[test]
 fn request_for_unregistered_topic_is_rejected() {
     let mut state = node_state("self", HashSet::new()); // t1 deliberately unregistered
+    apply(&mut state, Event::Synced); // past the readiness gate: membership does the refusing
     apply(&mut state, membership_joined("a", ["t1"])); // candidate-gated out
     assert!(
         state.subscriptions_snapshot().is_empty(),
@@ -72,6 +100,7 @@ fn request_for_unregistered_topic_is_rejected() {
 #[test]
 fn duplicate_request_idempotent_then_stale_on_failed_revalidation() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // requests are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
     apply(&mut state, request_from("a", "t1"));
     assert!(has_downstream(&state, "a", "t1"));
@@ -156,6 +185,7 @@ fn unsolicited_accepted_dropped() {
 #[test]
 fn terminated_removes_held_entry_else_dropped() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // requests are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
     // Establish both roles with a: upstream via setup+accept, downstream via request.
     apply(&mut state, Event::Heartbeat { interval: 0 });
@@ -229,6 +259,9 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         Arc::new(ForwardToAll),
         Arc::new(VerifiableBoundedAcceptance::new(0, peer("self"), 1, 3)),
     );
+    // Synced first (requests are gated on readiness) and before any membership,
+    // so the readiness dial pass sees no candidates and pollutes no upstream.
+    apply(&mut state, Event::Synced);
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));
     apply(&mut state, membership_joined("a", ["t1"])); // sole candidate ⇒ B=1
