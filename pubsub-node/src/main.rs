@@ -40,7 +40,8 @@ struct Args {
 
     /// The fixed target connection degree `target_degree` — the target expected upstream degree per topic. Required
     /// for the `hash-gated` / `verifiable-bounded` strategies; ignored otherwise.
-    /// The per-topic bucket count derives from it; small topics connect to all.
+    /// The per-topic bucket count derives from it; with a derived bucket count,
+    /// small topics connect to all (see --bucket-count for the pinned case).
     #[arg(long)]
     target_degree: Option<usize>,
 
@@ -54,6 +55,9 @@ struct Args {
     /// exact value on both seams, so verification holds by construction (no
     /// dependence on the two ends having folded the same candidate set); a natural
     /// experiment axis. Applies to `hash-gated` / `verifiable-bounded`; must be ≥ 1.
+    /// Caution: pinning replaces the derived value INCLUDING the small-topic
+    /// B=1 connect-to-all floor — a pinned B larger than a topic's candidate
+    /// count can leave a node with zero upstreams on that topic (no retry).
     #[arg(long)]
     bucket_count: Option<usize>,
 

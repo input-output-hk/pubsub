@@ -98,6 +98,28 @@ pub(crate) fn validate_bucket_count(
     Ok(bucket_count)
 }
 
+/// Validate the target connection degree a strategy requires: it must be
+/// supplied and `≥ 1` (a degree of 0 degenerates the dial and accept seams in
+/// opposite directions — dial-everything vs accept-nothing). Shared by both
+/// seams' `build` arms so the two cannot drift on what a valid degree is.
+pub(crate) fn require_target_degree(
+    strategy: &'static str,
+    target_degree: Option<usize>,
+) -> Result<usize, StrategyConfigError> {
+    let target_degree = target_degree.ok_or(StrategyConfigError::MissingParameter {
+        strategy,
+        parameter: "a target degree (--target-degree)",
+    })?;
+    if target_degree == 0 {
+        return Err(StrategyConfigError::InvalidParameter {
+            strategy,
+            parameter: "the target degree (--target-degree)",
+            constraint: "greater than 0",
+        });
+    }
+    Ok(target_degree)
+}
+
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
 /// by [`NodeStrategiesBuilder::build`]. (Fan-out stays `ForwardToAll`, injected
 /// separately — it is not built through this two-phase seam.)

@@ -12,6 +12,8 @@ let acceptance = VerifiableBoundedAcceptance::new(genesis, self_id, target_degre
 
 Omit the verifiable strategies (or the `--genesis`/`--target-degree`/`--cap-buffer` params at the edge) → today's full-mesh `connect-to-all` / `accept-from-all` behaviour, unchanged (SC-006).
 
+**Mixed pairs are legal** (an experiment axis — [[N-031]]): the seams are configured independently, so e.g. a `connect-to-all` dialer facing verifiable-bounded acceptors builds cleanly. Note the cost: the acceptors silently drop the ~`(1 − 1/B)` of dials the predicate refuses, and in v1 (single readiness heartbeat, no retry) each such dial persists as a pending `AwaitingAccept` entry until shutdown; the realized Active topology still converges to the predicate-selected ~`target_degree` density.
+
 ## Exercise (test shape)
 
 1. Seed candidate membership (fixed before readiness).

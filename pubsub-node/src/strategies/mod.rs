@@ -14,4 +14,6 @@ pub mod config;
 pub mod connection;
 pub mod edge;
 pub mod fanout;
+#[cfg(test)]
+pub(crate) mod test_support;
 pub mod view;

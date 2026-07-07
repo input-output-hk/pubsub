@@ -38,11 +38,30 @@ pub fn bucket_count(candidates_len: usize, target_degree: usize) -> usize {
     if target_degree == 0 {
         return 1;
     }
-    #[allow(clippy::cast_precision_loss)]
-    let ratio = candidates_len as f64 / target_degree as f64;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let buckets = ratio.round() as usize;
-    buckets.max(1)
+    // round(len / target_degree) in exact integer arithmetic — no float
+    // precision questions in a predicate both peers must agree on.
+    ((candidates_len + target_degree / 2) / target_degree).max(1)
+}
+
+/// The bucket count both seams feed the predicate: the pinned `bucket_override`
+/// when configured (`--bucket-count` — verifiable by construction, both peers
+/// use the same value), else derived per topic via [`bucket_count`].
+///
+/// This is the **one** place the derive-or-override rule lives: the dial and
+/// accept seams both call it, so a future change to the derivation (e.g. the
+/// globally-agreed count the `H_v` caveat on [`bucket_count`] anticipates)
+/// cannot be applied to one side and silently break verification on the other.
+///
+/// Note a pinned override replaces the derived value **including the small-topic
+/// `B = 1` floor**: an override larger than a topic's candidate count can leave
+/// a node with zero upstreams on that topic (no retry/back-fill).
+#[must_use]
+pub fn resolve_buckets(
+    bucket_override: Option<usize>,
+    candidates_len: usize,
+    target_degree: usize,
+) -> usize {
+    bucket_override.unwrap_or_else(|| bucket_count(candidates_len, target_degree))
 }
 
 /// The per-topic downstream accept cap for a fixed target connection degree `target_degree`: `⌈target_degree + c·√target_degree⌉`
@@ -99,16 +118,7 @@ pub fn is_valid_edge(
 #[cfg(test)]
 mod tests {
     use super::{accept_cap, bucket_count, is_valid_edge};
-    use crate::peer::PeerId;
-    use crate::topic::TopicId;
-    use std::str::FromStr;
-
-    fn peer(s: &str) -> PeerId {
-        PeerId::from_str(s).expect("valid peer id")
-    }
-    fn topic(s: &str) -> TopicId {
-        TopicId::from_str(s).expect("valid topic id")
-    }
+    use crate::strategies::test_support::{peer, topic};
 
     #[test]
     fn bucket_count_floors_at_one_for_small_topics() {

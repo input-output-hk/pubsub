@@ -33,46 +33,9 @@ impl ConnectionStrategy for ConnectToAllCandidates {
 #[cfg(test)]
 mod tests {
     use super::ConnectToAllCandidates;
-    use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
-    use crate::strategies::view::NodeView;
-    use crate::topic::TopicId;
+    use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
     use std::collections::{BTreeMap, BTreeSet, HashSet};
-    use std::str::FromStr;
-
-    fn peer(s: &str) -> PeerId {
-        PeerId::from_str(s).expect("valid peer id")
-    }
-
-    fn topic(s: &str) -> TopicId {
-        TopicId::from_str(s).expect("valid topic id")
-    }
-
-    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
-        topics.iter().map(|t| topic(t)).collect()
-    }
-
-    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
-        entries
-            .iter()
-            .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
-            .collect()
-    }
-
-    /// A connection-selection view over `subs`/`cands` (downstream irrelevant to
-    /// selection; interval 0).
-    fn view<'a>(
-        subs: &'a BTreeSet<TopicId>,
-        cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-        down: &'a HashSet<(PeerId, TopicId)>,
-    ) -> NodeView<'a> {
-        NodeView {
-            subscriptions: subs,
-            candidates: cands,
-            downstream: down,
-            interval: 0,
-        }
-    }
 
     // 005 FR-010: v1 policy expects every candidate on every joined topic.
     #[test]

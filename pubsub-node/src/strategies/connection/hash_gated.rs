@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 
 use super::ConnectionStrategy;
 use crate::peer::PeerId;
-use crate::strategies::edge::{bucket_count, is_valid_edge};
+use crate::strategies::edge::{is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -54,6 +54,10 @@ impl HashGatedConnection {
     /// value the edge predicate is verifiable by construction, independent of
     /// local fold state (see the B-agreement note on the type). A `None` restores
     /// the derived behaviour. Validated `≥ 1` at build time.
+    ///
+    /// A pinned `B` replaces the derived value **including the small-topic
+    /// `B = 1` connect-to-all floor**: an override larger than a topic's
+    /// candidate count can select zero upstreams on that topic (no retry).
     #[must_use]
     pub fn with_bucket_override(mut self, bucket_override: Option<usize>) -> Self {
         self.bucket_override = bucket_override;
@@ -72,9 +76,7 @@ impl ConnectionStrategy for HashGatedConnection {
             // derived value is only verifiable while the acceptor sees the same
             // count (the B-agreement assumption on the type); a pinned override
             // removes that dependence.
-            let buckets = self
-                .bucket_override
-                .unwrap_or_else(|| bucket_count(peers.len(), self.target_degree));
+            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.target_degree);
             for candidate in peers {
                 if is_valid_edge(
                     self.genesis,
@@ -95,42 +97,12 @@ impl ConnectionStrategy for HashGatedConnection {
 #[cfg(test)]
 mod tests {
     use super::HashGatedConnection;
-    use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
-    use crate::strategies::view::NodeView;
-    use crate::topic::TopicId;
-    use std::collections::{BTreeMap, BTreeSet, HashSet};
-    use std::str::FromStr;
+    use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
+    use std::collections::{BTreeSet, HashSet};
 
-    fn peer(s: &str) -> PeerId {
-        PeerId::from_str(s).expect("valid peer id")
-    }
-    fn topic(s: &str) -> TopicId {
-        TopicId::from_str(s).expect("valid topic id")
-    }
-    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
-        topics.iter().map(|t| topic(t)).collect()
-    }
-    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
-        entries
-            .iter()
-            .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
-            .collect()
-    }
     fn ids(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("c{i:03}")).collect()
-    }
-    fn view<'a>(
-        subs: &'a BTreeSet<TopicId>,
-        cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-        down: &'a HashSet<(PeerId, TopicId)>,
-    ) -> NodeView<'a> {
-        NodeView {
-            subscriptions: subs,
-            candidates: cands,
-            downstream: down,
-            interval: 0,
-        }
     }
 
     // 005 FR-001 small-topic (≤ target_degree candidates ⇒ B=1 ⇒ connect-to-all).

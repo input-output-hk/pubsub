@@ -15,7 +15,7 @@
 //! `ConnectToAllCandidates`. Registration gates delivery, not acceptance (the S7
 //! pin), so this seam reads the membership-derived view only.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use crate::peer::PeerId;
 use crate::strategies::view::NodeView;
@@ -96,4 +96,27 @@ pub(crate) fn is_membership_valid(
         .get(topic)
         .is_some_and(|peers| peers.contains(emitter));
     is_subscribed && is_candidate
+}
+
+/// One pass over the downstream set for the two facts a bounding policy needs:
+/// whether `(emitter, topic)` is already an accepted downstream, and how many
+/// downstream entries the topic holds. Computed borrow-only (a
+/// `HashSet<(PeerId, TopicId)>` lookup would need an owned tuple, i.e. two
+/// clones per inbound request) and without a second scan for the cap count.
+pub(crate) fn downstream_scan(
+    downstream: &HashSet<(PeerId, TopicId)>,
+    emitter: &PeerId,
+    topic: &TopicId,
+) -> (bool, usize) {
+    let mut already_downstream = false;
+    let mut on_topic = 0;
+    for (peer, t) in downstream {
+        if t == topic {
+            on_topic += 1;
+            if peer == emitter {
+                already_downstream = true;
+            }
+        }
+    }
+    (already_downstream, on_topic)
 }

@@ -22,7 +22,10 @@ pub struct NodeView<'a> {
     pub subscriptions: &'a BTreeSet<TopicId>,
     /// Per-topic peers discovered on each topic (the node's own id never present).
     pub candidates: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    /// The node's current accepted-inbound (downstream) set.
+    /// The node's current accepted-inbound (downstream) set. Read by the
+    /// acceptance seam only (re-accept short-circuit + cap count); the
+    /// connection seam ignores it — a deliberate trade-off of one shared view
+    /// over per-seam view types.
     pub downstream: &'a HashSet<(PeerId, TopicId)>,
     /// The current heartbeat interval — the round counter feeding the edge
     /// predicate (ADR 0024/0030).

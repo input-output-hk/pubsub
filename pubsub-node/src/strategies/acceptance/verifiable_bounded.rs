@@ -3,9 +3,9 @@
 
 use std::collections::BTreeSet;
 
-use super::{is_membership_valid, Admission, ConnectionAcceptanceStrategy};
+use super::{downstream_scan, is_membership_valid, Admission, ConnectionAcceptanceStrategy};
 use crate::peer::PeerId;
-use crate::strategies::edge::{accept_cap, bucket_count, is_valid_edge};
+use crate::strategies::edge::{accept_cap, is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -48,6 +48,9 @@ impl VerifiableBoundedAcceptance {
     /// the value the dialer uses; when both ends pin the same `B`, verification
     /// holds by construction regardless of local fold state. Validated `≥ 1` at
     /// build time.
+    ///
+    /// A pinned `B` replaces the derived value **including the small-topic
+    /// `B = 1` floor** — small topics are no longer accept-all under an override.
     #[must_use]
     pub fn with_bucket_override(mut self, bucket_override: Option<usize>) -> Self {
         self.bucket_override = bucket_override;
@@ -65,7 +68,10 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
         // the cap, so a lost/late Accepted (the AwaitingAccept re-request path)
         // repairs the link rather than stranding a half-open connection — the node
         // fans out to a downstream that the dialer has dropped (005 FR-013).
-        if view.downstream.contains(&(emitter.clone(), topic.clone())) {
+        // One borrow-only pass yields both downstream facts the policy needs.
+        let (already_downstream, downstream_on_topic) =
+            downstream_scan(view.downstream, emitter, topic);
+        if already_downstream {
             return Admission::Accept;
         }
         // Verify against the same edge predicate the dialer used, with the same
@@ -77,10 +83,8 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
         // legitimate requests. A pinned `bucket_override` removes the dependence
         // (both ends use the same configured B). The emitter is the requester,
         // this node the candidate.
-        let buckets = self.bucket_override.unwrap_or_else(|| {
-            let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
-            bucket_count(candidate_count, self.target_degree)
-        });
+        let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
+        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
         if !is_valid_edge(
             self.genesis,
             topic,
@@ -92,7 +96,6 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
             return Admission::RejectIllegitimate;
         }
         let cap = accept_cap(self.target_degree, self.cap_buffer);
-        let downstream_on_topic = view.downstream.iter().filter(|(_, t)| t == topic).count();
         if downstream_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
@@ -104,44 +107,12 @@ impl ConnectionAcceptanceStrategy for VerifiableBoundedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::VerifiableBoundedAcceptance;
-    use crate::peer::PeerId;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{bucket_count, is_valid_edge};
-    use crate::strategies::view::NodeView;
-    use crate::topic::TopicId;
-    use std::collections::{BTreeMap, BTreeSet, HashSet};
-    use std::str::FromStr;
-
-    fn peer(s: &str) -> PeerId {
-        PeerId::from_str(s).expect("valid peer id")
-    }
-    fn topic(s: &str) -> TopicId {
-        TopicId::from_str(s).expect("valid topic id")
-    }
-    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
-        topics.iter().map(|t| topic(t)).collect()
-    }
-    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
-        entries
-            .iter()
-            .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
-            .collect()
-    }
-    fn downstream(entries: &[(&str, &str)]) -> HashSet<(PeerId, TopicId)> {
-        entries.iter().map(|(p, t)| (peer(p), topic(t))).collect()
-    }
-    fn view<'a>(
-        subs: &'a BTreeSet<TopicId>,
-        cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-        down: &'a HashSet<(PeerId, TopicId)>,
-    ) -> NodeView<'a> {
-        NodeView {
-            subscriptions: subs,
-            candidates: cands,
-            downstream: down,
-            interval: 0,
-        }
-    }
+    use crate::strategies::test_support::{
+        candidates, downstream, peer, subscriptions, topic, view,
+    };
+    use std::collections::HashSet;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]

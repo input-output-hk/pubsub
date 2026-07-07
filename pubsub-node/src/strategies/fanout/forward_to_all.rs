@@ -36,21 +36,8 @@ mod tests {
     use super::ForwardToAll;
     use crate::peer::PeerId;
     use crate::strategies::fanout::FanoutStrategy;
-    use crate::topic::TopicId;
+    use crate::strategies::test_support::{downstream, peer, topic};
     use std::collections::HashSet;
-    use std::str::FromStr;
-
-    fn peer(s: &str) -> PeerId {
-        PeerId::from_str(s).expect("valid peer id")
-    }
-
-    fn topic(s: &str) -> TopicId {
-        TopicId::from_str(s).expect("valid topic id")
-    }
-
-    fn downstream(entries: &[(&str, &str)]) -> HashSet<(PeerId, TopicId)> {
-        entries.iter().map(|(p, t)| (peer(p), topic(t))).collect()
-    }
 
     fn sorted(mut v: Vec<PeerId>) -> Vec<PeerId> {
         v.sort_by_key(ToString::to_string);

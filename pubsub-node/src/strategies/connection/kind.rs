@@ -1,9 +1,8 @@
 //! The selectable connection-selection strategies, named for configuration.
 //!
 //! [`ConnectionStrategyKind`] is the config-facing enum: it parses
-//! case-insensitively from a readable name (`connect-to-all`, `hash-gated`) and
-//! carries a stable, unique byte-string [`tag`](ConnectionStrategyKind::tag) per
-//! variant. The edge (CLI/loader) maps a kind plus its parameters to a concrete
+//! case-insensitively from a readable name (`connect-to-all`, `hash-gated`).
+//! The edge (CLI/loader) maps a kind plus its parameters to a concrete
 //! [`ConnectionStrategy`](super::ConnectionStrategy) instance — the kind itself
 //! constructs nothing.
 
@@ -11,7 +10,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{ConnectToAllCandidates, ConnectionStrategy, HashGatedConnection};
-use crate::strategies::config::{validate_bucket_count, ConnectionParams, StrategyConfigError};
+use crate::strategies::config::{
+    require_target_degree, validate_bucket_count, ConnectionParams, StrategyConfigError,
+};
 
 /// A selectable connection-selection strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,15 +33,6 @@ impl ConnectionStrategyKind {
         }
     }
 
-    /// A stable, unique byte-string identifying this strategy.
-    #[must_use]
-    pub const fn tag(self) -> &'static [u8] {
-        match self {
-            Self::ConnectToAll => b"pubsub/connection-strategy/connect-to-all",
-            Self::HashGated => b"pubsub/connection-strategy/hash-gated",
-        }
-    }
-
     /// Build the concrete connection-selection strategy from the connection
     /// seam's params, validating the parameters this kind requires (ADR 0028).
     /// The edge maps a returned [`StrategyConfigError`] once.
@@ -51,20 +43,7 @@ impl ConnectionStrategyKind {
         match self {
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
             Self::HashGated => {
-                let target_degree =
-                    params
-                        .target_degree
-                        .ok_or(StrategyConfigError::MissingParameter {
-                            strategy: self.name(),
-                            parameter: "a target degree (--target-degree)",
-                        })?;
-                if target_degree == 0 {
-                    return Err(StrategyConfigError::InvalidParameter {
-                        strategy: self.name(),
-                        parameter: "the target degree (--target-degree)",
-                        constraint: "greater than 0",
-                    });
-                }
+                let target_degree = require_target_degree(self.name(), params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedConnection::new(params.genesis, params.self_id.clone(), target_degree)
@@ -183,13 +162,5 @@ mod tests {
     #[test]
     fn unknown_name_is_rejected() {
         assert!(ConnectionStrategyKind::from_str("nope").is_err());
-    }
-
-    #[test]
-    fn tags_are_unique_per_strategy() {
-        assert_ne!(
-            ConnectionStrategyKind::ConnectToAll.tag(),
-            ConnectionStrategyKind::HashGated.tag(),
-        );
     }
 }

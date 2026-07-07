@@ -1,16 +1,17 @@
 //! The selectable inbound-acceptance strategies, named for configuration.
 //!
 //! The inbound mirror of `connection::ConnectionStrategyKind`: a config-facing
-//! enum parsed case-insensitively from a readable name, with a stable, unique
-//! byte-string [`tag`](AcceptanceStrategyKind::tag) per variant. The edge maps a
-//! kind plus its parameters to a concrete
+//! enum parsed case-insensitively from a readable name. The edge maps a kind
+//! plus its parameters to a concrete
 //! [`ConnectionAcceptanceStrategy`](super::ConnectionAcceptanceStrategy).
 
 use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy, VerifiableBoundedAcceptance};
-use crate::strategies::config::{validate_bucket_count, AcceptanceParams, StrategyConfigError};
+use crate::strategies::config::{
+    require_target_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
+};
 
 /// A selectable inbound-acceptance strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,15 +32,6 @@ impl AcceptanceStrategyKind {
         }
     }
 
-    /// A stable, unique byte-string identifying this strategy.
-    #[must_use]
-    pub const fn tag(self) -> &'static [u8] {
-        match self {
-            Self::AcceptFromAll => b"pubsub/acceptance-strategy/accept-from-all",
-            Self::VerifiableBounded => b"pubsub/acceptance-strategy/verifiable-bounded",
-        }
-    }
-
     /// Build the concrete inbound-acceptance strategy from the acceptance seam's
     /// params, validating the parameters this kind requires (ADR 0028). The edge
     /// maps a returned [`StrategyConfigError`] once.
@@ -50,20 +42,7 @@ impl AcceptanceStrategyKind {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::VerifiableBounded => {
-                let target_degree =
-                    params
-                        .target_degree
-                        .ok_or(StrategyConfigError::MissingParameter {
-                            strategy: self.name(),
-                            parameter: "a target degree (--target-degree)",
-                        })?;
-                if target_degree == 0 {
-                    return Err(StrategyConfigError::InvalidParameter {
-                        strategy: self.name(),
-                        parameter: "the target degree (--target-degree)",
-                        constraint: "greater than 0",
-                    });
-                }
+                let target_degree = require_target_degree(self.name(), params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     VerifiableBoundedAcceptance::new(
@@ -183,13 +162,5 @@ mod tests {
     #[test]
     fn unknown_name_is_rejected() {
         assert!(AcceptanceStrategyKind::from_str("nope").is_err());
-    }
-
-    #[test]
-    fn tags_are_unique_per_strategy() {
-        assert_ne!(
-            AcceptanceStrategyKind::AcceptFromAll.tag(),
-            AcceptanceStrategyKind::VerifiableBounded.tag(),
-        );
     }
 }

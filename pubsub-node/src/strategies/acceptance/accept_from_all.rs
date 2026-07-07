@@ -28,43 +28,19 @@ impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
 #[cfg(test)]
 mod tests {
     use super::AcceptFromAllCandidates;
-    use crate::peer::PeerId;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
-    use crate::strategies::view::NodeView;
-    use crate::topic::TopicId;
-    use std::collections::{BTreeMap, BTreeSet, HashSet};
-    use std::str::FromStr;
-
-    fn peer(s: &str) -> PeerId {
-        PeerId::from_str(s).expect("valid peer id")
-    }
-
-    fn topic(s: &str) -> TopicId {
-        TopicId::from_str(s).expect("valid topic id")
-    }
-
-    fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
-        topics.iter().map(|t| topic(t)).collect()
-    }
-
-    fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
-        entries
-            .iter()
-            .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
-            .collect()
-    }
+    use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
+    use std::collections::HashSet;
 
     fn admit(emitter: &str, topic_id: &str, subs: &[&str], cands: &[(&str, &[&str])]) -> Admission {
         let subs = subscriptions(subs);
         let cands = candidates(cands);
         let down = HashSet::new();
-        let view = NodeView {
-            subscriptions: &subs,
-            candidates: &cands,
-            downstream: &down,
-            interval: 0,
-        };
-        AcceptFromAllCandidates.admit(&peer(emitter), &topic(topic_id), &view)
+        AcceptFromAllCandidates.admit(
+            &peer(emitter),
+            &topic(topic_id),
+            &view(&subs, &cands, &down),
+        )
     }
 
     // Accept: the topic is the node's own and the emitter is a known member.
