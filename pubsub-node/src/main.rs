@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node,
-    PeerId, Signer, TestVerifier, Verifier,
+    load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
+    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, Signer, TestVerifier,
+    Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -30,6 +31,50 @@ struct Args {
     /// topics legitimately exist and their authorized publishers).
     #[arg(long)]
     topic_registry: PathBuf,
+
+    /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
+    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--target-degree
+    /// upstreams per topic, gated by the edge predicate over --genesis).
+    #[arg(long, default_value = "connect-to-all")]
+    connection_strategy: ConnectionStrategyKind,
+
+    /// The fixed target connection degree `target_degree` — the target expected upstream degree per topic. Required
+    /// for every strategy except `connect-to-all` / `accept-from-all`; ignored by those.
+    /// The per-topic bucket count derives from it; with a derived bucket count,
+    /// small topics connect to all (see --bucket-count for the pinned case).
+    #[arg(long)]
+    target_degree: Option<usize>,
+
+    /// Public genesis nonce (default 0): the node's initial **epoch nonce**, the
+    /// randomness context the verifiable edge predicate hashes (the epoch-0
+    /// stand-in for the chain-anchored beacon; an `Epoch` event replaces it).
+    /// Both peers use it; the same genesis reproduces the same topology.
+    #[arg(long, default_value_t = 0)]
+    genesis: u64,
+
+    /// Optional pinned bucket count `B` for the edge predicate. When unset, `B`
+    /// is derived per topic from `--target-degree`. When set, both peers use this
+    /// exact value on both seams, so verification holds by construction (no
+    /// dependence on the two ends having folded the same candidate set); a natural
+    /// experiment axis. Applies to the hash-gated strategies; must be ≥ 1.
+    /// Caution: pinning replaces the derived value INCLUDING the small-topic
+    /// B=1 connect-to-all floor — a pinned B larger than a topic's candidate
+    /// count can leave a node with zero upstreams on that topic (no retry).
+    #[arg(long)]
+    bucket_count: Option<usize>,
+
+    /// Inbound-acceptance strategy (case-insensitive), the four one-dimensional
+    /// baselines: `accept-from-all` (the default; membership only), `bounded`
+    /// (caps downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing
+    /// over-capacity with `Rejected`), `hash-gated` (verifies the edge predicate,
+    /// no cap), or `hash-gated-bounded` (predicate + cap — the bucketed-pull compound).
+    #[arg(long, default_value = "accept-from-all")]
+    acceptance_strategy: AcceptanceStrategyKind,
+
+    /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3). Only affects the
+    /// `bounded` / `hash-gated-bounded` acceptance strategies.
+    #[arg(long, default_value_t = 3)]
+    cap_buffer: usize,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -78,17 +123,44 @@ async fn main() {
     let scheme = MockCryptoScheme::with_seed([0u8; 32]);
     let signer: Arc<dyn Signer> =
         Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
+
+    // Two-phase strategy construction (ADR 0028): phase 1 captures the resolved
+    // strategy keys (clap already applied the seam defaults and rejected unknown
+    // keys); phase 2 binds each seam's own params and builds them all, validating
+    // the parameters each chosen strategy requires. The edge stays lean — it maps
+    // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
+    // unchanged; fan-out stays `ForwardToAll`, injected separately below.
+    let strategies = NodeStrategies::builder(args.connection_strategy, args.acceptance_strategy)
+        .build(
+            &ConnectionParams {
+                self_id: args.self_id.clone(),
+                target_degree: args.target_degree,
+                bucket_count: args.bucket_count,
+            },
+            &AcceptanceParams {
+                self_id: args.self_id.clone(),
+                target_degree: args.target_degree,
+                bucket_count: args.bucket_count,
+                cap_buffer: args.cap_buffer,
+            },
+        )
+        .unwrap_or_else(|e| {
+            eprintln!("pubsub-node: {e}");
+            std::process::exit(2);
+        });
+
     let node = Node::new(
         args.self_id,
         cfg,
+        args.genesis,
         network,
         signer,
         verifier,
         registry,
         topic_registry,
-        Arc::new(ConnectToAllCandidates),
+        strategies.connection,
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        strategies.acceptance,
     )
     .await
     .unwrap_or_else(|e| {

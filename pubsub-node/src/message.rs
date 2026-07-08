@@ -6,15 +6,16 @@ use crate::topic::TopicId;
 
 /// Append `bytes` to `out` as a `u32` big-endian length prefix followed by the
 /// bytes themselves — the one length-prefix primitive shared by every
-/// `signed_bytes()` encoder (`PlainMessage`, `PlainConnection`).
+/// `signed_bytes()` encoder (`PlainMessage`, `PlainConnection`) and by the
+/// verifiable edge predicate (`strategies::edge`).
 ///
-/// Keeping the canonical signing-byte encoding in a single primitive is what
-/// lets a future change touch one place: in particular, **signature domain
-/// separation** (a per-message-kind tag so the signature commits to "this is a
-/// dissemination message" vs "this is a control message") is deferred to the
-/// real-serialization milestone — see `IMPLEMENTATION_NOTES.md` N-016 — and
-/// would be introduced here / at each encoder's first write.
-fn push_len_prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
+/// Keeping the canonical byte encoding in a single primitive is what lets a
+/// future change touch one place: in particular, **signature domain separation**
+/// (a per-message-kind tag so the signature commits to "this is a dissemination
+/// message" vs "this is a control message") is deferred to the real-serialization
+/// milestone — see `IMPLEMENTATION_NOTES.md` N-016 — and would be introduced here
+/// / at each encoder's first write.
+pub(crate) fn push_len_prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
     let len = u32::try_from(bytes.len()).expect("field length fits in u32");
     out.extend_from_slice(&len.to_be_bytes());
     out.extend_from_slice(bytes);
@@ -227,6 +228,15 @@ pub enum ConnectionAction {
         /// The topic the connection was for.
         topic: TopicId,
     },
+    /// Acceptor → dialer: the requested connection on `topic` was refused for
+    /// over-capacity (the acceptor is at its inbound bound). Distinct from
+    /// `Terminated` (which tears down an *established* link) and from a
+    /// misbehaviour severance — a rejection is a normal capacity outcome
+    /// (feature 005, ADR 0025).
+    Rejected {
+        /// The topic the refused connection was for.
+        topic: TopicId,
+    },
 }
 
 impl PlainConnection {
@@ -240,7 +250,7 @@ impl PlainConnection {
     /// 2. action — a 1-byte tag, then the topic as `u32` byte length + UTF-8
     ///    bytes. Tags are assigned explicitly so future variants append new
     ///    values without disturbing the existing ones: `0x00` Request,
-    ///    `0x01` Accepted, `0x02` Terminated.
+    ///    `0x01` Accepted, `0x02` Terminated, `0x03` Rejected.
     ///
     /// The signature is produced over exactly these bytes, binding emitter
     /// identity, action kind, and topic together. Any layout change is a
@@ -251,6 +261,7 @@ impl PlainConnection {
             ConnectionAction::Request { topic } => (0x00u8, topic),
             ConnectionAction::Accepted { topic } => (0x01u8, topic),
             ConnectionAction::Terminated { topic } => (0x02u8, topic),
+            ConnectionAction::Rejected { topic } => (0x03u8, topic),
         };
 
         let mut out = Vec::new();

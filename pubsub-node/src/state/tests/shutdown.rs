@@ -74,11 +74,12 @@ fn terminated_reception_removes_either_role() {
 fn full_lifecycle_reachable_by_events_alone() {
     let t = topic("t");
     let mut state = node_state("self", HashSet::from([t.clone()]));
+    apply(&mut state, Event::Synced); // requests are gated on readiness
     apply(&mut state, reg_open("t")); // registered, so payload can be admitted
     apply(&mut state, membership_joined("b", ["t"]));
 
     // setup → AwaitingAccept upstream + a Request.
-    let e = apply(&mut state, Event::ConnectionSetup);
+    let e = apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "b", "t"),
         Some(UpstreamState::AwaitingAccept)
@@ -86,7 +87,7 @@ fn full_lifecycle_reachable_by_events_alone() {
     assert_eq!(request_sends(&e, "self"), vec![(peer("b"), t.clone())]);
 
     // recurring setup re-dials the still-pending pair (entry kept).
-    let e = apply(&mut state, Event::ConnectionSetup);
+    let e = apply(&mut state, Event::Heartbeat);
     assert_eq!(
         request_sends(&e, "self"),
         vec![(peer("b"), t.clone())],
@@ -130,7 +131,7 @@ fn full_lifecycle_reachable_by_events_alone() {
     assert!(!has_downstream(&state, "b", "t"));
 
     // re-establish, then graceful shutdown clears everything with notices.
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat);
     apply(&mut state, accepted_from("b", "t"));
     apply(&mut state, request_from("b", "t"));
     let e = apply(&mut state, Event::Shutdown);
@@ -150,12 +151,17 @@ fn full_lifecycle_reachable_by_events_alone() {
         .downstream_snapshot()
         .iter()
         .all(|(p, _)| p != &self_peer));
+}
 
-    // Determinism: the same ConnectionScript twice yields the same final state.
+// SC-006: the same ConnectionScript twice yields the same final state.
+#[test]
+fn scripted_lifecycle_is_deterministic() {
+    let t = topic("t");
     let run = || {
         let mut s = node_state("self", HashSet::from([t.clone()]));
         apply(&mut s, reg_open("t"));
         let script = ConnectionScript::new()
+            .synced() // requests are gated on readiness; effect-free before membership
             .member_joined("b", ["t"])
             .setup()
             .accepted_from("b", "t")
@@ -199,10 +205,11 @@ fn full_lifecycle_reachable_by_events_alone() {
 fn stuck_awaiting_accept_admits_nothing_and_self_never_dialed() {
     let t = topic("t");
     let mut state = node_state("self", HashSet::from([t.clone()]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, reg_open("t"));
     apply(&mut state, membership_joined("absent", ["t"]));
 
-    apply(&mut state, Event::ConnectionSetup); // dials the absent peer
+    apply(&mut state, Event::Heartbeat); // dials the absent peer
     assert_eq!(
         upstream_state(&state, "absent", "t"),
         Some(UpstreamState::AwaitingAccept),
@@ -217,7 +224,7 @@ fn stuck_awaiting_accept_admits_nothing_and_self_never_dialed() {
     );
 
     // It stays pending across a recurring setup (re-dialed, never activated).
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "absent", "t"),
         Some(UpstreamState::AwaitingAccept),
@@ -225,6 +232,6 @@ fn stuck_awaiting_accept_admits_nothing_and_self_never_dialed() {
 
     // SC-007: even with self in membership/candidates, self is never dialed.
     apply(&mut state, membership_joined("self", ["t"]));
-    apply(&mut state, Event::ConnectionSetup);
+    apply(&mut state, Event::Heartbeat);
     assert_eq!(upstream_state(&state, "self", "t"), None);
 }

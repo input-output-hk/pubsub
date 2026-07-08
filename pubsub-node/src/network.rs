@@ -156,7 +156,8 @@ impl NetworkHandle {
 /// let strategy = Arc::new(ConnectToAllCandidates);
 /// let fanout = Arc::new(ForwardToAll);
 /// let acceptance = Arc::new(AcceptFromAllCandidates);
-/// let node = Node::new(self_id, config, network.clone(), signer, verifier, registry, topic_registry, strategy, fanout, acceptance).await?;
+/// let genesis = 0; // the initial epoch nonce for the verifiable edge predicate
+/// let node = Node::new(self_id, config, genesis, network.clone(), signer, verifier, registry, topic_registry, strategy, fanout, acceptance).await?;
 /// # Ok(())
 /// # }
 /// ```

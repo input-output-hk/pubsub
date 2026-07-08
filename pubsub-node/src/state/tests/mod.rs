@@ -18,17 +18,19 @@ mod shutdown;
 
 use super::*;
 
-pub(crate) use crate::acceptance::AcceptFromAllCandidates;
-pub(crate) use crate::connection::test_support::{
-    accepted_from, membership_joined, misattributed_request, payload_from, request_from,
-    tampered_payload_from, terminated_from, ConnectionScript,
+pub(crate) use crate::connection_state::test_support::{
+    accepted_from, membership_joined, misattributed_request, payload_from, rejected_from,
+    request_from, tampered_payload_from, terminated_from, ConnectionScript,
 };
-pub(crate) use crate::connection::ConnectToAllCandidates;
 pub(crate) use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
 pub(crate) use crate::crypto::PublicKey;
 pub(crate) use crate::crypto::{Signer, Timestamp};
-pub(crate) use crate::fanout::ForwardToAll;
 pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
+pub(crate) use crate::strategies::acceptance::{
+    AcceptFromAllCandidates, HashGatedBoundedAcceptance,
+};
+pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
+pub(crate) use crate::strategies::fanout::ForwardToAll;
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
 pub(crate) use std::collections::BTreeSet;
@@ -69,7 +71,8 @@ fn alias_signer(alias: &str) -> Arc<dyn Signer> {
 fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
     let mut state = NodeState::new(
         peer(self_id),
-        subscriptions.clone(),
+        subscriptions.iter().cloned().collect(),
+        0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer(self_id),
         strategy(),

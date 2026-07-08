@@ -13,19 +13,21 @@
 //!
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::acceptance::ConnectionAcceptanceStrategy;
-use crate::connection::{ConnectionStrategy, UpstreamState};
+use crate::connection_state::UpstreamState;
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
-use crate::fanout::FanoutStrategy;
 use crate::message::{
     ConnectionAction, ConnectionMessage, Message, PlainConnection, PlainMessage, SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::received::{Origin, ReceivedDelivery};
+use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
+use crate::strategies::connection::ConnectionStrategy;
+use crate::strategies::fanout::FanoutStrategy;
+use crate::strategies::view::NodeView;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
@@ -47,14 +49,14 @@ use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
 // peers-placement boundary is IMPLEMENTATION_NOTES N-007 (revisit at 008/005).
 pub(crate) struct NodeState {
     self_id: PeerId,
-    subscriptions: HashSet<TopicId>,
+    subscriptions: BTreeSet<TopicId>,
     received: Vec<ReceivedDelivery>,
     verifier: Arc<dyn Verifier>,
     /// Per-topic candidate peers, folded from the subscription-registry stream
     /// (`Event::MembershipUpdate`). The node's own id is never present. This is
     /// the topic-derived peer set, distinct from the shell's static config
     /// `peers` bootstrap list (`IMPLEMENTATION_NOTES` N-007).
-    candidates: HashMap<TopicId, HashSet<PeerId>>,
+    candidates: BTreeMap<TopicId, BTreeSet<PeerId>>,
     /// Registered topics → their authorized publisher keys (empty ⇒ open),
     /// folded from the topic-registry stream (`Event::TopicRegistryUpdate`).
     /// Written only by `handle_topic_registry_update`. The node's **effective**
@@ -70,14 +72,21 @@ pub(crate) struct NodeState {
     /// fan-out destinations — as a set of `(peer, topic)` entries with no
     /// per-entry state (FR-002).
     downstream: HashSet<(PeerId, TopicId)>,
+    /// The current **epoch nonce** — the randomness context the verifiable edge
+    /// predicate hashes (ADR 0031). Folded from the last `Epoch` event (default
+    /// 0); the acceptor verifies inbound requests against it, so it is
+    /// event-derived state, not a strategy field. Deliberately decoupled from
+    /// the `Heartbeat` dial tick: heartbeats within one epoch re-dial the same
+    /// expected set.
+    epoch_nonce: u64,
     /// The node's signing identity: signs the control messages it emits
     /// (`Request`/`Accepted`/`Terminated`). Rides along as an immutable service
     /// handle beside the verifier; the transition signs inside the pure core so
     /// each `Effect::Send` carries a complete signed message (FR-011).
     signer: Arc<dyn Signer>,
-    /// The connection-selection policy consulted on a setup event, beside the
+    /// The connection-selection policy consulted on a `Heartbeat`, beside the
     /// verifier (the immutable service-handle slot). The transition reads it
-    /// from the `ConnectionSetup` arm (ADR 0018).
+    /// from the `Heartbeat` arm (ADR 0018/0030).
     connection_strategy: Arc<dyn ConnectionStrategy>,
     /// The fan-out policy consulted at the record point to choose which
     /// downstream peers receive a forward of a recorded message. The deliberate
@@ -104,10 +113,16 @@ pub(crate) struct NodeState {
 }
 
 impl NodeState {
-    /// Construct the state value from already-parsed inputs.
+    /// Construct the state value from already-parsed inputs. `genesis` is the
+    /// initial epoch nonce (the epoch-0 stand-in for the chain-anchored beacon);
+    /// an `Epoch` event replaces it.
+    // Mirrors `Node::new`'s specified construction contract (see the note
+    // there); a config/builder struct is the natural refactor if it grows.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         self_id: PeerId,
-        subscriptions: HashSet<TopicId>,
+        subscriptions: BTreeSet<TopicId>,
+        genesis: u64,
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
         connection_strategy: Arc<dyn ConnectionStrategy>,
@@ -119,10 +134,11 @@ impl NodeState {
             subscriptions,
             received: Vec::new(),
             verifier,
-            candidates: HashMap::new(),
+            candidates: BTreeMap::new(),
             registered_topics: HashMap::new(),
             upstream: HashMap::new(),
             downstream: HashSet::new(),
+            epoch_nonce: genesis,
             signer,
             connection_strategy,
             fanout_strategy,
@@ -241,26 +257,49 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
         Event::MembershipUpdate(update) => handle_membership_update(state, update),
         Event::TopicRegistryUpdate(update) => handle_topic_registry_update(state, update),
         Event::Synced => handle_synced(state),
-        Event::ConnectionSetup => handle_connection_setup(state),
+        Event::Heartbeat => handle_heartbeat(state),
+        Event::Epoch { nonce } => handle_epoch(state, nonce),
         Event::Shutdown => handle_shutdown(state),
     }
 }
 
-/// Transition for the connection-establishment trigger.
+/// Transition for the connection **heartbeat** — the dial tick, or "round"
+/// (ADR 0030/0031).
 ///
 /// Consults the node's connection-selection strategy for the expected upstream
-/// set and applies it as the FR-007 diff: dial everything expected that is not
-/// already `Active`. A pair not held gains an `AwaitingAccept` entry and a
-/// `Request`; a pair still at `AwaitingAccept` keeps its entry and is
-/// re-requested (its earlier request may have been lost); an `Active` pair is
-/// left alone. Expected-set membership never removes anything. The strategy
-/// reads the **membership-derived** `subscriptions` field (not the
-/// registration-gated effective filter) — the dial side mirrors the acceptance
-/// rule (FR-008/009; data-model §1.4).
-fn handle_connection_setup(state: &mut NodeState) -> Vec<Effect> {
-    let expected = state
-        .connection_strategy
-        .expected_upstream(&state.subscriptions, &state.candidates);
+/// set over the current epoch nonce and applies it as the diff: dial everything
+/// expected that is not already `Active`. A pair not held gains an
+/// `AwaitingAccept` entry and a `Request`; a pair still at `AwaitingAccept` keeps
+/// its entry and is re-requested; an `Active` pair is left alone. Expected-set
+/// membership never removes anything (cross-epoch rotation/teardown is
+/// deferred). Within one epoch the expected set is stable, so a repeated
+/// heartbeat is a pure retry pass. The strategy reads the membership-derived
+/// `subscriptions` field and the current epoch nonce (005 FR-006).
+///
+/// Gated on readiness, symmetric to the inbound-request gate (ADR 0031): a
+/// dial pass over a partially-folded candidate view floors B to 1 and dials
+/// everyone folded so far — synced acceptors verify those dials under the full
+/// view's larger B and silently drop them, each a stranded `AwaitingAccept`
+/// entry. `handle_synced` flips the flag before its readiness dial, so the
+/// production path is unaffected; only an injected pre-sync heartbeat is
+/// dropped.
+fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
+    if !state.synced {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "heartbeat_dropped",
+            cause = "not_synced",
+            self_id = %state.self_id,
+        );
+        return Vec::new();
+    }
+    let view = NodeView {
+        subscriptions: &state.subscriptions,
+        candidates: &state.candidates,
+        downstream: &state.downstream,
+        epoch_nonce: state.epoch_nonce,
+    };
+    let expected = state.connection_strategy.expected_upstream(&view);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.upstream` without aliasing the whole struct.
     let self_id = state.self_id.clone();
@@ -299,7 +338,21 @@ fn handle_synced(state: &mut NodeState) -> Vec<Effect> {
         return Vec::new();
     }
     state.synced = true;
-    handle_connection_setup(state)
+    // v1 fires a single heartbeat on the readiness edge; periodic heartbeats
+    // are a later feature (ADR 0030/0031).
+    handle_heartbeat(state)
+}
+
+/// Transition for a new **epoch** (ADR 0031): fold the carried nonce — the
+/// randomness context the verifiable edge predicate hashes on both seams.
+///
+/// Produces no effects: whether to re-dial under the new nonce is the driver's
+/// choice, via a following `Heartbeat`. Keeping the fold and the dial separate
+/// is what lets a driver run a two-phase barrier (advance every node's epoch,
+/// then dial), narrowing the cross-node verification skew an epoch change opens.
+fn handle_epoch(state: &mut NodeState, nonce: u64) -> Vec<Effect> {
+    state.epoch_nonce = nonce;
+    Vec::new()
 }
 
 /// Build a control message signed by the node's own signer, with the node's
@@ -428,7 +481,7 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             if node == state.self_id {
                 // The node's own entry *is* its subscription set — but only the
                 // registered topics (strict drop of unregistered ones).
-                let mut subscriptions = HashSet::new();
+                let mut subscriptions = BTreeSet::new();
                 for topic in topics {
                     if state.registered_topics.contains_key(&topic) {
                         subscriptions.insert(topic);
@@ -574,6 +627,9 @@ fn handle_connection_message(
         ConnectionAction::Terminated { topic } => {
             handle_connection_terminated(state, &plain.emitter, &topic)
         }
+        ConnectionAction::Rejected { topic } => {
+            handle_connection_rejected(state, &plain.emitter, &topic)
+        }
     }
 }
 
@@ -592,32 +648,87 @@ fn handle_connection_request(
     emitter: PeerId,
     topic: TopicId,
 ) -> Vec<Effect> {
-    if !state
-        .acceptance_strategy
-        .accepts(&emitter, &topic, &state.subscriptions, &state.candidates)
-    {
+    // Registry-fold gate: before `Synced` the candidate view is partially
+    // folded, so a bucket count derived from it can floor to 1 and the edge
+    // predicate degenerate to always-true — an un-synced acceptor would fail
+    // OPEN, admitting an edge the full view would reject (and the idempotent
+    // re-Accept would then pin it). Drop silently until readiness. This closes
+    // the pre-snapshot window only; post-sync membership deltas keep the
+    // documented B-agreement assumption in play (ADR 0031).
+    if !state.synced {
         tracing::info!(
             target: "pubsub_node::node",
             event = "message_dropped",
-            cause = "membership_validation_failed",
+            cause = "not_synced",
             self_id = %state.self_id,
             emitter = %emitter,
             topic = %topic,
         );
         return Vec::new();
     }
-
-    // Idempotent: the set absorbs a duplicate; a re-dial re-sends Accepted.
-    state.downstream.insert((emitter.clone(), topic.clone()));
-    let message = signed_connection(
-        &state.self_id,
-        state.signer.as_ref(),
-        ConnectionAction::Accepted { topic },
-    );
-    vec![Effect::Send {
-        to: emitter,
-        message,
-    }]
+    let view = NodeView {
+        subscriptions: &state.subscriptions,
+        candidates: &state.candidates,
+        downstream: &state.downstream,
+        epoch_nonce: state.epoch_nonce,
+    };
+    let admission = state.acceptance_strategy.admit(&emitter, &topic, &view);
+    match admission {
+        Admission::Accept => {
+            // Idempotent: the set absorbs a duplicate; a re-dial re-sends Accepted.
+            state.downstream.insert((emitter.clone(), topic.clone()));
+            let message = signed_connection(
+                &state.self_id,
+                state.signer.as_ref(),
+                ConnectionAction::Accepted { topic },
+            );
+            vec![Effect::Send {
+                to: emitter,
+                message,
+            }]
+        }
+        // Both silent-drop refusals: no reply, leaking nothing to the requester
+        // (a non-member, or an adversary whose edge predicate does not hold this
+        // interval). Distinct log causes only (ADR 0025).
+        Admission::RejectMembership | Admission::RejectIllegitimate => {
+            let cause = if admission == Admission::RejectMembership {
+                "membership_validation_failed"
+            } else {
+                "illegitimate_request"
+            };
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause,
+                self_id = %state.self_id,
+                emitter = %emitter,
+                topic = %topic,
+            );
+            Vec::new()
+        }
+        Admission::RejectOverCapacity => {
+            // Over the per-topic cap: drop without recording downstream, but send
+            // an explicit `Rejected` so the dialer drops its pending upstream
+            // (ADR 0025). Not misbehaviour — no severance.
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "downstream_capacity_reached",
+                self_id = %state.self_id,
+                emitter = %emitter,
+                topic = %topic,
+            );
+            let message = signed_connection(
+                &state.self_id,
+                state.signer.as_ref(),
+                ConnectionAction::Rejected { topic },
+            );
+            vec![Effect::Send {
+                to: emitter,
+                message,
+            }]
+        }
+    }
 }
 
 /// Transition for a verified `Accepted` from `emitter` on `topic` (FR-013).
@@ -670,6 +781,40 @@ fn handle_connection_terminated(
             topic = %topic,
         );
     }
+    Vec::new()
+}
+
+/// Transition for a verified `Rejected` from `emitter` on `topic` — the peer
+/// refused this node's dial for over-capacity (feature 005, ADR 0025).
+///
+/// Removes the matching `AwaitingAccept` upstream so the dialer stops waiting on
+/// an `Accepted` that will never come; that is the **only** handling. There is no
+/// retry and no back-fill: the realized upstream degree may settle below target,
+/// and re-forming connections is left to the future heartbeat/reshuffle layer
+/// (retry/back-fill is a separate strategy family — see `IMPLEMENTATION_NOTES`).
+/// A `Rejected` with no matching pending entry (absent, or already `Active`) is
+/// dropped and changes nothing. A rejection is never treated as misbehaviour.
+fn handle_connection_rejected(
+    state: &mut NodeState,
+    emitter: &PeerId,
+    topic: &TopicId,
+) -> Vec<Effect> {
+    let key = (emitter.clone(), topic.clone());
+    if matches!(
+        state.upstream.get(&key),
+        Some(UpstreamState::AwaitingAccept)
+    ) {
+        state.upstream.remove(&key);
+        return Vec::new();
+    }
+    tracing::info!(
+        target: "pubsub_node::node",
+        event = "message_dropped",
+        cause = "unsolicited_reject",
+        self_id = %state.self_id,
+        emitter = %emitter,
+        topic = %topic,
+    );
     Vec::new()
 }
 

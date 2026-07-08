@@ -37,33 +37,30 @@
 //! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`],
 //!   [`TopicIdError`] — typed failure modes.
 
-mod acceptance;
 mod config;
-mod connection;
+mod connection_state;
 pub mod crypto;
 mod error;
 mod event;
-mod fanout;
 mod message;
 mod network;
 mod node;
 mod peer;
 mod received;
 mod state;
+mod strategies;
 mod subscription_registry;
 mod topic;
 mod topic_registry;
 
-pub use acceptance::{AcceptFromAllCandidates, ConnectionAcceptanceStrategy};
 pub use config::{load_node_config, NodeConfig, PeerEntry};
-pub use connection::{ConnectToAllCandidates, ConnectionStrategy, UpstreamState};
+pub use connection_state::UpstreamState;
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
 };
 pub use error::{ConfigError, NetworkError, NodeError};
 pub use event::{Event, EventQueue};
-pub use fanout::{FanoutStrategy, ForwardToAll};
 pub use message::{
     ConnectionAction, ConnectionMessage, Message, MessagePayload, PlainConnection, PlainMessage,
     PublisherId, SignedMessage,
@@ -72,6 +69,21 @@ pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
+pub use strategies::acceptance::{
+    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, BoundedAcceptance,
+    ConnectionAcceptanceStrategy, HashGatedAcceptance, HashGatedBoundedAcceptance,
+    UnknownAcceptanceStrategy,
+};
+pub use strategies::config::{
+    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
+};
+pub use strategies::connection::{
+    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, HashGatedConnection,
+    UnknownConnectionStrategy,
+};
+pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge};
+pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
+pub use strategies::view::NodeView;
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
     SubscriptionRegistryControl, SubscriptionRegistryError,

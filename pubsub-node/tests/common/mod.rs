@@ -3,7 +3,7 @@
 // per-binary `dead_code` warnings here at the module level.
 #![allow(dead_code)]
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, Once};
 use std::time::Duration;
@@ -11,9 +11,10 @@ use std::time::Duration;
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, MockCryptoScheme, Node, NodeConfig, Origin, PeerEntry, PeerId, PlainMessage,
-    PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl,
-    TestSigner, TestVerifier, Timestamp, TopicId, TopicRegistryControl, UpstreamState, Verifier,
+    MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeView, Origin, PeerEntry, PeerId,
+    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer,
+    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
+    TopicRegistryControl, UpstreamState, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -189,6 +190,7 @@ pub async fn two_node_fixture_with_subscriptions(
         NodeConfig {
             peers: vec![PeerEntry { id: b_id.clone() }],
         },
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&a_id.to_string()),
         verifier.clone(),
@@ -206,6 +208,7 @@ pub async fn two_node_fixture_with_subscriptions(
         NodeConfig {
             peers: vec![PeerEntry { id: a_id }],
         },
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&b_id.to_string()),
         verifier,
@@ -265,15 +268,19 @@ pub async fn node_with(
         peers,
         topics,
         Arc::new(ConnectToAllCandidates),
+        0, // genesis: the default initial epoch nonce
     )
     .await
 }
 
 /// Like [`node_with`], but with a caller-supplied connection strategy instead of
-/// the default all-candidates policy. Lets a test pin which edges a node dials
-/// (e.g. [`ConnectToExplicit`]) so an exact acyclic topology can be built on a
-/// shared topic — the all-candidates policy over one topic can only build a full
-/// mesh. Acceptance is unaffected (it still uses the real candidate set).
+/// the default all-candidates policy, and an explicit `genesis` (the node's
+/// initial epoch nonce for the verifiable edge predicate). Lets a test pin which
+/// edges a node dials (e.g. [`ConnectToExplicit`]) so an exact acyclic topology
+/// can be built on a shared topic — the all-candidates policy over one topic can
+/// only build a full mesh. Acceptance is unaffected (it still uses the real
+/// candidate set).
+#[allow(clippy::too_many_arguments)]
 pub async fn node_with_strategy(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
@@ -281,6 +288,7 @@ pub async fn node_with_strategy(
     peers: &[&str],
     topics: &[TopicId],
     strategy: Arc<dyn ConnectionStrategy>,
+    genesis: u64,
 ) -> Node {
     let id = PeerId::from_str(id).expect("valid id");
     registry
@@ -307,6 +315,7 @@ pub async fn node_with_strategy(
     let node = Node::new(
         id,
         NodeConfig { peers },
+        genesis,
         network.clone(),
         signer,
         shared_test_verifier(),
@@ -324,6 +333,13 @@ pub async fn node_with_strategy(
     await_subscriptions(&node, topics, Duration::from_secs(1))
         .await
         .expect("node subscriptions converge");
+    // Readiness gate (ADR 0031): pre-`Synced` a node drops inbound Requests and
+    // injected Heartbeats, and v1 has no retry — a dial racing a peer's `Synced`
+    // fold would be lost for good. Hand back only synced nodes so no dial a test
+    // drives can hit the gate.
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node reaches Synced");
     node
 }
 
@@ -346,9 +362,10 @@ pub async fn node_sharing(
             id: PeerId::from_str(p).expect("valid peer id"),
         })
         .collect();
-    Node::new(
+    let node = Node::new(
         PeerId::from_str(id).expect("valid id"),
         NodeConfig { peers },
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(id),
         shared_test_verifier(),
@@ -359,7 +376,14 @@ pub async fn node_sharing(
         Arc::new(AcceptFromAllCandidates),
     )
     .await
-    .expect("construct node")
+    .expect("construct node");
+    // Readiness gate (ADR 0031): same rationale as in `node_with_strategy` —
+    // synced does not depend on registry content, so waiting here is safe even
+    // though the caller seeds the registries itself.
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node reaches Synced");
+    node
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -539,7 +563,7 @@ pub fn assert_subscriptions(node: &Node, expected: &[TopicId]) {
 /// (timer-free) trigger for autonomous establishment. The node consults its
 /// strategy and dials on the next drain of its event loop.
 pub fn trigger_setup(node: &Node) {
-    node.events().push(Event::ConnectionSetup);
+    node.events().push(Event::Heartbeat);
 }
 
 /// Poll `node.upstream_connections()` until it holds `(peer, topic)` as
@@ -771,11 +795,7 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 
 impl ConnectionStrategy for ConnectToExplicit {
-    fn expected_upstream(
-        &self,
-        _subscriptions: &HashSet<TopicId>,
-        _candidates: &HashMap<TopicId, HashSet<PeerId>>,
-    ) -> HashSet<(PeerId, TopicId)> {
+    fn expected_upstream(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }
@@ -875,6 +895,7 @@ impl NodeSpec<'_> {
             &peers,
             &self.topics,
             self.strategy,
+            0, // genesis: the default initial epoch nonce
         )
         .await
     }

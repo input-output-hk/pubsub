@@ -35,6 +35,7 @@ async fn node_with_no_registry_entry_derives_empty_state() {
     let node = Node::new(
         peer("ghost"),
         NodeConfig { peers: vec![] },
+        0, // genesis: the default initial epoch nonce
         network,
         alias_signer("ghost"),
         shared_test_verifier(),

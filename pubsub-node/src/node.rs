@@ -1,17 +1,18 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use tokio::task::JoinHandle;
 
-use crate::acceptance::ConnectionAcceptanceStrategy;
 use crate::config::NodeConfig;
-use crate::connection::{ConnectionStrategy, UpstreamState};
+use crate::connection_state::UpstreamState;
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
-use crate::fanout::FanoutStrategy;
 use crate::message::{Message, SignedMessage};
+use crate::strategies::acceptance::ConnectionAcceptanceStrategy;
+use crate::strategies::connection::ConnectionStrategy;
+use crate::strategies::fanout::FanoutStrategy;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
@@ -103,6 +104,10 @@ impl Node {
     /// cold-start bursts drain; topics do not come from config, and a node with
     /// no registry entries simply stays empty (no construction error).
     ///
+    /// `genesis` is the public genesis nonce — the node's **initial epoch
+    /// nonce** for the verifiable edge predicate (the epoch-0 stand-in for the
+    /// chain-anchored beacon; an `Epoch` event replaces it).
+    ///
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. `signer` is the node's signing
     /// identity — it signs the connection-control messages the node emits
@@ -132,6 +137,7 @@ impl Node {
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
         config: NodeConfig,
+        genesis: u64,
         network: Arc<N>,
         signer: Arc<dyn Signer>,
         verifier: Arc<dyn Verifier>,
@@ -161,7 +167,8 @@ impl Node {
         // error path (FR-016).
         let state: Arc<Mutex<NodeState>> = Arc::new(Mutex::new(NodeState::new(
             node_id.clone(),
-            HashSet::new(),
+            BTreeSet::new(),
+            genesis,
             verifier,
             signer,
             connection_strategy,

@@ -423,6 +423,7 @@ async fn readiness_establishes_autonomously() {
     let a = Node::new(
         peer("a"),
         NodeConfig::default(),
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
         shared_test_verifier(),
@@ -437,6 +438,7 @@ async fn readiness_establishes_autonomously() {
     let b = Node::new(
         peer("b"),
         NodeConfig::default(),
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("b"),
         shared_test_verifier(),
@@ -480,6 +482,7 @@ async fn construction_fails_on_duplicate_registration() {
     let _first = Node::new(
         peer("a"),
         NodeConfig::default(),
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
         shared_test_verifier(),
@@ -496,6 +499,7 @@ async fn construction_fails_on_duplicate_registration() {
     let result = Node::new(
         peer("a"),
         NodeConfig::default(),
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
         shared_test_verifier(),
@@ -529,6 +533,7 @@ async fn construction_fails_on_identity_mismatch() {
     let result = Node::new(
         peer("a"),
         NodeConfig::default(),
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("b"),
         shared_test_verifier(),
@@ -549,6 +554,7 @@ async fn construction_fails_on_identity_mismatch() {
     let _ok = Node::new(
         peer("a"),
         NodeConfig::default(),
+        0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
         shared_test_verifier(),
