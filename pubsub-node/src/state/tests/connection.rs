@@ -155,6 +155,7 @@ fn control_invalid_signature_dropped() {
 #[test]
 fn accepted_activates_awaiting_entry() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
     apply(&mut state, Event::Heartbeat);
     assert_eq!(
@@ -214,6 +215,7 @@ fn terminated_removes_held_entry_else_dropped() {
 fn scripted_establishment_reaches_active() {
     let mut state = node_state("self", HashSet::from([topic("t")]));
     let script = ConnectionScript::new()
+        .synced() // dials are gated on readiness; effect-free before membership
         .member_joined("b", ["t"])
         .setup()
         .accepted_from("b", "t");

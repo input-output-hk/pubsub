@@ -333,6 +333,13 @@ pub async fn node_with_strategy(
     await_subscriptions(&node, topics, Duration::from_secs(1))
         .await
         .expect("node subscriptions converge");
+    // Readiness gate (ADR 0031): pre-`Synced` a node drops inbound Requests and
+    // injected Heartbeats, and v1 has no retry — a dial racing a peer's `Synced`
+    // fold would be lost for good. Hand back only synced nodes so no dial a test
+    // drives can hit the gate.
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node reaches Synced");
     node
 }
 
@@ -355,7 +362,7 @@ pub async fn node_sharing(
             id: PeerId::from_str(p).expect("valid peer id"),
         })
         .collect();
-    Node::new(
+    let node = Node::new(
         PeerId::from_str(id).expect("valid id"),
         NodeConfig { peers },
         0, // genesis: the default initial epoch nonce
@@ -369,7 +376,14 @@ pub async fn node_sharing(
         Arc::new(AcceptFromAllCandidates),
     )
     .await
-    .expect("construct node")
+    .expect("construct node");
+    // Readiness gate (ADR 0031): same rationale as in `node_with_strategy` —
+    // synced does not depend on registry content, so waiting here is safe even
+    // though the caller seeds the registries itself.
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node reaches Synced");
+    node
 }
 
 #[derive(Debug, thiserror::Error)]

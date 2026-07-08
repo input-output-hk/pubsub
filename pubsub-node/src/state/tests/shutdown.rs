@@ -205,6 +205,7 @@ fn scripted_lifecycle_is_deterministic() {
 fn stuck_awaiting_accept_admits_nothing_and_self_never_dialed() {
     let t = topic("t");
     let mut state = node_state("self", HashSet::from([t.clone()]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, reg_open("t"));
     apply(&mut state, membership_joined("absent", ["t"]));
 

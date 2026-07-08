@@ -275,7 +275,24 @@ pub(crate) fn apply(state: &mut NodeState, event: Event) -> Vec<Effect> {
 /// deferred). Within one epoch the expected set is stable, so a repeated
 /// heartbeat is a pure retry pass. The strategy reads the membership-derived
 /// `subscriptions` field and the current epoch nonce (005 FR-006).
+///
+/// Gated on readiness, symmetric to the inbound-request gate (ADR 0031): a
+/// dial pass over a partially-folded candidate view floors B to 1 and dials
+/// everyone folded so far — synced acceptors verify those dials under the full
+/// view's larger B and silently drop them, each a stranded `AwaitingAccept`
+/// entry. `handle_synced` flips the flag before its readiness dial, so the
+/// production path is unaffected; only an injected pre-sync heartbeat is
+/// dropped.
 fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
+    if !state.synced {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "heartbeat_dropped",
+            cause = "not_synced",
+            self_id = %state.self_id,
+        );
+        return Vec::new();
+    }
     let view = NodeView {
         subscriptions: &state.subscriptions,
         candidates: &state.candidates,

@@ -42,6 +42,25 @@ fn synced_transitions_and_dials_idempotently() {
     );
 }
 
+// ADR 0031: the readiness gate is symmetric — a Heartbeat injected before
+// Synced is dropped, exactly like an inbound Request. A dial pass over a
+// partially-folded candidate view would floor B to 1 and dial everyone folded
+// so far; synced acceptors verify those dials under the full view's larger B
+// and drop them, each a stranded AwaitingAccept entry.
+#[test]
+fn heartbeat_before_synced_is_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("a", ["t1"]));
+
+    let effects = apply(&mut state, Event::Heartbeat);
+
+    assert!(effects.is_empty(), "no dial before sync");
+    assert!(
+        state.upstream_snapshot().is_empty(),
+        "no upstream entry recorded before sync",
+    );
+}
+
 // ADR 0031: an Epoch event folds the nonce with no effects; the strategy reads
 // the folded nonce on the next Heartbeat, so the dial set follows the epoch
 // (and within one epoch a repeated Heartbeat is a pure retry pass).
@@ -102,6 +121,7 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
 #[test]
 fn setup_event_dials_all_candidates() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
     apply(&mut state, membership_joined("b", ["t1"]));
 
@@ -130,6 +150,7 @@ fn setup_event_dials_all_candidates() {
 #[test]
 fn setup_keys_connections_per_peer_topic() {
     let mut state = node_state("self", HashSet::from([topic("t1"), topic("t2")]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, membership_joined("a", ["t1", "t2"]));
 
     let effects = apply(&mut state, Event::Heartbeat);
@@ -153,6 +174,7 @@ fn setup_keys_connections_per_peer_topic() {
 #[test]
 fn setup_with_empty_view_is_a_noop() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     let effects = apply(&mut state, Event::Heartbeat);
     assert!(effects.is_empty(), "no candidates → no requests");
     assert!(state.upstream_snapshot().is_empty());
@@ -163,6 +185,7 @@ fn setup_with_empty_view_is_a_noop() {
 #[test]
 fn self_is_never_dialed() {
     let mut state = node_state("self", HashSet::new());
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, reg_open("t1")); // legitimate topic (registered first)
     apply(&mut state, membership_joined("self", ["t1"])); // own entry → subscriptions
     apply(&mut state, membership_joined("a", ["t1"])); // real candidate
@@ -187,6 +210,7 @@ fn self_is_never_dialed() {
 #[test]
 fn repeated_setup_redials_pending_skips_active_never_removes() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
 
     // First setup → a pending.
@@ -238,6 +262,7 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
 #[test]
 fn membership_update_after_setup_folds_only_then_later_setup_dials() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced); // dials are gated on readiness
     apply(&mut state, membership_joined("a", ["t1"]));
     apply(&mut state, Event::Heartbeat);
 
