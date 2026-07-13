@@ -12,8 +12,8 @@ use std::time::Duration;
 
 use common::node_with_strategy;
 use pubsub_node::{
-    bucket_count, is_valid_edge, HashGatedConnection, InMemoryNetwork,
-    InMemorySubscriptionRegistry, PeerId, SubscriptionRegistryControl, TopicId,
+    bucket_count, is_valid_edge, HashGatedSelection, InMemoryNetwork, InMemorySubscriptionRegistry,
+    LinkRole, PeerId, SubscriptionRegistryControl, TopicId,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(2);
@@ -40,7 +40,7 @@ fn expected_upstreams(genesis: u64, relay_degree: usize, candidates: &[&str]) ->
         .collect()
 }
 
-/// Build a single node running `HashGatedConnection { relay_degree }` with the
+/// Build a single node running `HashGatedSelection { relay_degree }` with the
 /// given `genesis` (its initial epoch nonce) on one topic with `candidates`
 /// other members pre-seeded in the shared subscription registry (so the node's
 /// readiness heartbeat sees the full candidate set), await the node reaching its
@@ -64,7 +64,11 @@ async fn selected_upstreams(
             .expect("seed candidate membership");
     }
 
-    let strategy = Arc::new(HashGatedConnection::new(peer("self"), relay_degree));
+    let strategy = Arc::new(HashGatedSelection::new(
+        LinkRole::Relay,
+        peer("self"),
+        relay_degree,
+    ));
     let node = node_with_strategy(
         &registry,
         &network,

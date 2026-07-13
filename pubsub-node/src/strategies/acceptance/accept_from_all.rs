@@ -28,14 +28,14 @@ impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
 #[cfg(test)]
 mod tests {
     use super::AcceptFromAllCandidates;
-    use crate::connection_state::Links;
+    use crate::connection_state::LinkStore;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
 
     fn admit(emitter: &str, topic_id: &str, subs: &[&str], cands: &[(&str, &[&str])]) -> Admission {
         let subs = subscriptions(subs);
         let cands = candidates(cands);
-        let down = Links::new();
+        let down = LinkStore::new();
         AcceptFromAllCandidates.admit(
             &peer(emitter),
             &topic(topic_id),

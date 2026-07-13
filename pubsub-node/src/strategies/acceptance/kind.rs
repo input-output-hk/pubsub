@@ -12,10 +12,8 @@ use super::{
     AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy, HashGatedAcceptance,
     HashGatedBoundedAcceptance,
 };
-use crate::connection_state::LinkRole;
 use crate::strategies::config::{
-    require_degree, require_relay_degree, validate_bucket_count, AcceptanceParams,
-    PublishAcceptanceParams, StrategyConfigError,
+    require_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
 };
 
 /// A selectable inbound-acceptance strategy, identified by a readable name —
@@ -46,9 +44,11 @@ impl AcceptanceStrategyKind {
         }
     }
 
-    /// Build the concrete **relay-slot** inbound-acceptance strategy from the
-    /// acceptance seam's params, validating the parameters this kind requires
-    /// (ADR 0028). The edge maps a returned [`StrategyConfigError`] once.
+    /// Build the concrete inbound-acceptance strategy for one role slot from
+    /// its params, validating the parameters this kind requires (ADR
+    /// 0028/0034). The `role` inside the params scopes the prelude scan, the
+    /// cap, and the predicate domain, and names the right degree flag in
+    /// errors. The edge maps a returned [`StrategyConfigError`] once.
     pub fn build(
         self,
         params: &AcceptanceParams,
@@ -56,77 +56,36 @@ impl AcceptanceStrategyKind {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::Bounded => {
-                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
-                Ok(Arc::new(BoundedAcceptance::new(
-                    relay_degree,
-                    params.cap_buffer,
-                )))
-            }
-            Self::HashGated => {
-                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
-                let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
-                Ok(Arc::new(
-                    HashGatedAcceptance::new(params.self_id.clone(), relay_degree)
-                        .with_bucket_override(bucket_override),
-                ))
-            }
-            Self::HashGatedBounded => {
-                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
-                let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
-                Ok(Arc::new(
-                    HashGatedBoundedAcceptance::new(
-                        params.self_id.clone(),
-                        relay_degree,
-                        params.cap_buffer,
-                    )
-                    .with_bucket_override(bucket_override),
-                ))
-            }
-        }
-    }
-
-    /// Build the concrete inbound-acceptance strategy for a **non-relay slot**
-    /// (feature 015, ADR 0033): the same four kinds, instantiated with that
-    /// role's degree parameters and retargeted so the prelude scan, the cap,
-    /// and the predicate domain are role-scoped. Used by the publish slot.
-    pub fn build_for_role(
-        self,
-        role: LinkRole,
-        params: &PublishAcceptanceParams,
-    ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
-        match self {
-            Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
-            Self::Bounded => {
                 let degree = require_degree(
                     self.name(),
-                    params.publish_degree,
-                    "a publish degree (--publish-degree)",
-                    "the publish degree (--publish-degree)",
+                    params.degree,
+                    params.missing_degree(),
+                    params.invalid_degree(),
                 )?;
                 Ok(Arc::new(
-                    BoundedAcceptance::new(degree, params.cap_buffer).for_role(role),
+                    BoundedAcceptance::new(degree, params.cap_buffer).for_role(params.role),
                 ))
             }
             Self::HashGated => {
                 let degree = require_degree(
                     self.name(),
-                    params.publish_degree,
-                    "a publish degree (--publish-degree)",
-                    "the publish degree (--publish-degree)",
+                    params.degree,
+                    params.missing_degree(),
+                    params.invalid_degree(),
                 )?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedAcceptance::new(params.self_id.clone(), degree)
                         .with_bucket_override(bucket_override)
-                        .for_role(role),
+                        .for_role(params.role),
                 ))
             }
             Self::HashGatedBounded => {
                 let degree = require_degree(
                     self.name(),
-                    params.publish_degree,
-                    "a publish degree (--publish-degree)",
-                    "the publish degree (--publish-degree)",
+                    params.degree,
+                    params.missing_degree(),
+                    params.invalid_degree(),
                 )?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
@@ -136,7 +95,7 @@ impl AcceptanceStrategyKind {
                         params.cap_buffer,
                     )
                     .with_bucket_override(bucket_override)
-                    .for_role(role),
+                    .for_role(params.role),
                 ))
             }
         }
@@ -171,10 +130,11 @@ mod tests {
     use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(relay_degree: Option<usize>) -> AcceptanceParams {
+    fn params(degree: Option<usize>) -> AcceptanceParams {
         AcceptanceParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
-            relay_degree,
+            role: crate::connection_state::LinkRole::Relay,
+            degree,
             bucket_count: None,
             cap_buffer: 3,
         }

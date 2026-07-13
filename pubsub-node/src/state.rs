@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use std::sync::Arc;
 
-use crate::connection_state::{LinkDirection, LinkRole, LinkState, Links};
+use crate::connection_state::{LinkDirection, LinkRole, LinkState, LinkStore};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
 use crate::message::{
@@ -26,9 +26,9 @@ use crate::message::{
 use crate::peer::PeerId;
 use crate::received::{Origin, ReceivedDelivery};
 use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
-use crate::strategies::connection::ConnectionStrategy;
+
 use crate::strategies::fanout::FanoutStrategy;
-use crate::strategies::publish::PublishStrategy;
+use crate::strategies::selection::LinkSelectionStrategy;
 use crate::strategies::view::NodeView;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
@@ -66,15 +66,14 @@ pub(crate) struct NodeState {
     /// intersected with the keys here; a subscribed topic absent here is not yet
     /// (or no longer) a legitimate topic, so its traffic is dropped.
     registered_topics: HashMap<TopicId, TopicEntry>,
-    /// The unified link store (ADR 0032): one logical link per
-    /// `(peer, topic, role, direction)`, each in an explicit [`LinkState`].
-    /// Orientation is derived from role × direction — `Relay`/`Out` entries are
-    /// the dialed message sources (the former `upstream`), `Relay`/`In` the
+    /// The unified link store (ADR 0032/0034), cell-structured by role ×
+    /// direction. Orientation is derived — `Relay`/`Out` entries are the
+    /// dialed message sources (the former `upstream`), `Relay`/`In` the
     /// accepted fan-out destinations (the former `downstream`);
-    /// `Publisher`/`Out` entries are the node's publishing-link injection
-    /// targets and `Publisher`/`In` the accepted inbound publishing links.
-    /// Written by the connection transitions.
-    links: Links,
+    /// `Publisher`/`Out` entries are the node's standing initiation links and
+    /// `Publisher`/`In` the accepted inbound ones. Written by the connection
+    /// transitions.
+    links: LinkStore,
     /// The current **epoch nonce** — the randomness context the verifiable edge
     /// predicate hashes (ADR 0031). Folded from the last `Epoch` event (default
     /// 0); the acceptor verifies inbound requests against it, so it is
@@ -87,10 +86,11 @@ pub(crate) struct NodeState {
     /// handle beside the verifier; the transition signs inside the pure core so
     /// each `Effect::Send` carries a complete signed message (FR-011).
     signer: Arc<dyn Signer>,
-    /// The connection-selection policy consulted on a `Heartbeat`, beside the
+    /// The relay link-selection slot consulted on a `Heartbeat`, beside the
     /// verifier (the immutable service-handle slot). The transition reads it
-    /// from the `Heartbeat` arm (ADR 0018/0030).
-    connection_strategy: Arc<dyn ConnectionStrategy>,
+    /// from the `Heartbeat` arm and tags its picks `Relay`/Out
+    /// (ADR 0018/0030/0034).
+    relay_selection: Arc<dyn LinkSelectionStrategy>,
     /// The fan-out policy consulted at the record point to choose which
     /// downstream peers receive a forward of a recorded message. The deliberate
     /// twin of `connection_strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
@@ -100,10 +100,11 @@ pub(crate) struct NodeState {
     /// destination on the topic. The inbound mirror of `connection_strategy`;
     /// the v1 implementor is `AcceptFromAllCandidates` (ADR 0023).
     acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
-    /// The publish-target policy consulted on a `Heartbeat` after the relay
-    /// dial diff: which `Out`/`Publisher` links (publishing links) the node
-    /// should hold. The v1 default is `NoPublishLinks` (ADR 0033).
-    publish_strategy: Arc<dyn PublishStrategy>,
+    /// The publish link-selection slot consulted on the same `Heartbeat`
+    /// after the relay diff: the node's standing initiation links, tagged
+    /// `Publisher`/Out — always established, unconditionally (the M3 model,
+    /// ADR 0033/0034). The v1 default is `NoLinks`.
+    publish_selection: Arc<dyn LinkSelectionStrategy>,
     /// The inbound-acceptance policy consulted on a verified **publish-intent**
     /// `Request` — the same seam contract as `acceptance_strategy`, dispatched
     /// by the request's carried role and instantiated with publish parameters
@@ -137,10 +138,10 @@ impl NodeState {
         genesis: u64,
         verifier: Arc<dyn Verifier>,
         signer: Arc<dyn Signer>,
-        connection_strategy: Arc<dyn ConnectionStrategy>,
+        relay_selection: Arc<dyn LinkSelectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
         acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
-        publish_strategy: Arc<dyn PublishStrategy>,
+        publish_selection: Arc<dyn LinkSelectionStrategy>,
         publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Self {
         Self {
@@ -150,13 +151,13 @@ impl NodeState {
             verifier,
             candidates: BTreeMap::new(),
             registered_topics: HashMap::new(),
-            links: Links::new(),
+            links: LinkStore::new(),
             epoch_nonce: genesis,
             signer,
-            connection_strategy,
+            relay_selection,
             fanout_strategy,
             acceptance_strategy,
-            publish_strategy,
+            publish_selection,
             publish_acceptance_strategy,
             seen: HashSet::new(),
             synced: false,
@@ -215,11 +216,9 @@ impl NodeState {
     #[must_use]
     pub(crate) fn upstream_snapshot(&self) -> Vec<(PeerId, TopicId, LinkState)> {
         self.links
+            .relay_out()
             .iter()
-            .filter(|((_, _, role, direction), _)| {
-                *role == LinkRole::Relay && *direction == LinkDirection::Out
-            })
-            .map(|((peer, topic, _, _), state)| (peer.clone(), topic.clone(), *state))
+            .map(|((peer, topic), state)| (peer.clone(), topic.clone(), *state))
             .collect()
     }
 
@@ -229,11 +228,9 @@ impl NodeState {
     #[must_use]
     pub(crate) fn downstream_snapshot(&self) -> Vec<(PeerId, TopicId)> {
         self.links
-            .iter()
-            .filter(|((_, _, role, direction), _)| {
-                *role == LinkRole::Relay && *direction == LinkDirection::In
-            })
-            .map(|((peer, topic, _, _), _)| (peer.clone(), topic.clone()))
+            .relay_in()
+            .keys()
+            .map(|(peer, topic)| (peer.clone(), topic.clone()))
             .collect()
     }
 
@@ -246,8 +243,8 @@ impl NodeState {
     ) -> Vec<(PeerId, TopicId, LinkRole, LinkDirection, LinkState)> {
         self.links
             .iter()
-            .map(|((peer, topic, role, direction), state)| {
-                (peer.clone(), topic.clone(), *role, *direction, *state)
+            .map(|(peer, topic, role, direction, state)| {
+                (peer.clone(), topic.clone(), role, direction, state)
             })
             .collect()
     }
@@ -264,7 +261,7 @@ impl NodeState {
         direction: LinkDirection,
         state: LinkState,
     ) {
-        self.links.insert((peer, topic, role, direction), state);
+        self.links.insert(peer, topic, role, direction, state);
     }
 }
 
@@ -355,27 +352,28 @@ fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
         links: &state.links,
         epoch_nonce: state.epoch_nonce,
     };
-    let expected_relay = state.connection_strategy.expected_relay(&view);
+    let expected_relay = state.relay_selection.expected_links(&view);
     // The publish pass runs on the same dial tick, after the relay diff (015
-    // FR-009b): the strategy applies the M3 trigger internally — targets only
-    // for topics with no expected relay downstream (ADR 0033).
-    let expected_publish = state.publish_strategy.expected_publish(&view);
+    // FR-009b): the node's standing initiation links, selected unconditionally
+    // — the M3 model establishes them for every node, regardless of relay
+    // state (ADR 0034; m3/README.md).
+    let expected_publish = state.publish_selection.expected_links(&view);
     // Clone the immutable bits the request builder needs so the loop can mutate
     // `state.links` without aliasing the whole struct.
     let self_id = state.self_id.clone();
     let signer = Arc::clone(&state.signer);
 
     let mut effects = Vec::new();
-    let dial = |links: &mut Links, peer: PeerId, topic: TopicId, role: LinkRole| {
-        match links
-            .get(&(peer.clone(), topic.clone(), role, LinkDirection::Out))
-            .copied()
-        {
+    let dial = |links: &mut LinkStore, peer: PeerId, topic: TopicId, role: LinkRole| {
+        match links.get(&peer, &topic, role, LinkDirection::Out) {
             Some(LinkState::Active) => return None,
             Some(LinkState::AwaitingAccept) => {}
             None => {
                 links.insert(
-                    (peer.clone(), topic.clone(), role, LinkDirection::Out),
+                    peer.clone(),
+                    topic.clone(),
+                    role,
+                    LinkDirection::Out,
                     LinkState::AwaitingAccept,
                 );
             }
@@ -461,9 +459,11 @@ fn handle_shutdown(state: &mut NodeState) -> Vec<Effect> {
     // counterpart's unknown-termination rule.
     let effects: Vec<Effect> = state
         .links
-        .keys()
-        .cloned()
-        .map(|(peer, topic, role, _)| terminate(peer, topic, role))
+        .iter()
+        .map(|(peer, topic, role, _, _)| (peer.clone(), topic.clone(), role))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .map(|(peer, topic, role)| terminate(peer, topic, role))
         .collect();
 
     state.links.clear();
@@ -512,7 +512,7 @@ fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent
             state.registered_topics.remove(&topic);
             state.subscriptions.remove(&topic);
             state.candidates.remove(&topic);
-            state.links.retain(|(_, t, _, _), _| t != &topic);
+            state.links.remove_topic(&topic);
         }
     }
     Vec::new()
@@ -759,7 +759,10 @@ fn handle_connection_request(
             // Accepted. An inbound link is Active at acceptance — the acceptor
             // has nothing to await (ADR 0032).
             state.links.insert(
-                (emitter.clone(), topic.clone(), role, LinkDirection::In),
+                emitter.clone(),
+                topic.clone(),
+                role,
+                LinkDirection::In,
                 LinkState::Active,
             );
             let message = signed_connection(
@@ -828,15 +831,8 @@ fn handle_connection_accepted(
     topic: &TopicId,
     role: LinkRole,
 ) -> Vec<Effect> {
-    if let Some(entry) =
-        state
-            .links
-            .get_mut(&(emitter.clone(), topic.clone(), role, LinkDirection::Out))
-    {
-        if *entry == LinkState::AwaitingAccept {
-            *entry = LinkState::Active;
-            return Vec::new();
-        }
+    if state.links.activate_out(emitter, topic, role) {
+        return Vec::new();
     }
     tracing::info!(
         target: "pubsub_node::node",
@@ -862,14 +858,8 @@ fn handle_connection_terminated(
     topic: &TopicId,
     role: LinkRole,
 ) -> Vec<Effect> {
-    let removed_out = state
-        .links
-        .remove(&(emitter.clone(), topic.clone(), role, LinkDirection::Out))
-        .is_some();
-    let removed_in = state
-        .links
-        .remove(&(emitter.clone(), topic.clone(), role, LinkDirection::In))
-        .is_some();
+    let removed_out = state.links.remove(emitter, topic, role, LinkDirection::Out);
+    let removed_in = state.links.remove(emitter, topic, role, LinkDirection::In);
     if !(removed_out || removed_in) {
         tracing::info!(
             target: "pubsub_node::node",
@@ -900,9 +890,9 @@ fn handle_connection_rejected(
     topic: &TopicId,
     role: LinkRole,
 ) -> Vec<Effect> {
-    let key = (emitter.clone(), topic.clone(), role, LinkDirection::Out);
-    if matches!(state.links.get(&key), Some(LinkState::AwaitingAccept)) {
-        state.links.remove(&key);
+    if state.links.get(emitter, topic, role, LinkDirection::Out) == Some(LinkState::AwaitingAccept)
+    {
+        state.links.remove(emitter, topic, role, LinkDirection::Out);
         return Vec::new();
     }
     tracing::info!(
@@ -1093,21 +1083,14 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
     // send, ADR 0033): a foreign-publisher payload over a publish link is a
     // relay attempt the link's role forbids, dropped with its own cause.
     let topic = signed.plain.topic.clone();
-    let relay_upstream = matches!(
-        state.links.get(&(
-            from.clone(),
-            topic.clone(),
-            LinkRole::Relay,
-            LinkDirection::Out
-        )),
-        Some(LinkState::Active),
-    );
-    let publish_inbound = state.links.contains_key(&(
-        from.clone(),
-        topic.clone(),
-        LinkRole::Publisher,
-        LinkDirection::In,
-    ));
+    let relay_upstream = state
+        .links
+        .get(&from, &topic, LinkRole::Relay, LinkDirection::Out)
+        == Some(LinkState::Active);
+    let publish_inbound = state
+        .links
+        .get(&from, &topic, LinkRole::Publisher, LinkDirection::In)
+        .is_some();
     let publisher_bound = signed.plain.publisher_id.as_public_key() == from.as_public_key();
     if !relay_upstream {
         if publish_inbound && !publisher_bound {
@@ -1172,12 +1155,9 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         // silently: remove the upstream entry and raise the misbehavior signal
         // (the executor logs `connection_severed`); no Terminated is sent.
         let topic = signed.plain.topic.clone();
-        state.links.remove(&(
-            from.clone(),
-            topic.clone(),
-            LinkRole::Relay,
-            LinkDirection::Out,
-        ));
+        state
+            .links
+            .remove(&from, &topic, LinkRole::Relay, LinkDirection::Out);
         return vec![Effect::Misbehaved {
             peer: from,
             topic,

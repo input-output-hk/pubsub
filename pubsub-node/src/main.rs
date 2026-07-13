@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
-    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, PublishAcceptanceParams,
-    PublishParams, PublishStrategyKind, Signer, TestVerifier, Verifier,
+    load_node_config, AcceptanceParams, AcceptanceStrategyKind, FanoutStrategyKind,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkRole,
+    LinkSelectionKind, MockCryptoScheme, Node, NodeStrategies, PeerId, SelectionParams, Signer,
+    TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -32,11 +32,12 @@ struct Args {
     #[arg(long)]
     topic_registry: PathBuf,
 
-    /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--relay-degree
-    /// upstreams per topic, gated by the edge predicate over --genesis).
+    /// Relay link-selection strategy (case-insensitive): `connect-to-all` (full
+    /// mesh, the default), `hash-gated` (verifiable bucketed selection to
+    /// ~--relay-degree upstreams per topic, gated by the edge predicate over
+    /// --genesis), or `none` (dial nobody — an accept-only node).
     #[arg(long, default_value = "connect-to-all")]
-    connection_strategy: ConnectionStrategyKind,
+    connection_strategy: LinkSelectionKind,
 
     /// The fixed relay connection degree `relay_degree` — the target expected upstream (relay) degree per topic. Required
     /// for every strategy except `connect-to-all` / `accept-from-all`; ignored by those.
@@ -76,19 +77,27 @@ struct Args {
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
 
-    /// Publish-target strategy (case-insensitive): `none` (the default — no
-    /// publishing links) or `hash-gated` (verifiable bucketed selection of
-    /// ~--publish-degree publishing targets per topic, formed only on topics
-    /// where no candidate would select this node as a relay upstream).
+    /// Publish link-selection strategy (case-insensitive): `none` (the default
+    /// — no standing initiation links), `hash-gated` (verifiable bucketed
+    /// selection of ~--publish-degree initiation targets per topic, always
+    /// established), or `connect-to-all`.
     #[arg(long, default_value = "none")]
-    publish_strategy: PublishStrategyKind,
+    publish_strategy: LinkSelectionKind,
 
-    /// The publish degree — the target expected publishing-link out-degree per
-    /// topic, independent of --relay-degree. Required by the `hash-gated`
-    /// publish strategy and by every publish-acceptance strategy except
-    /// `accept-from-all`.
+    /// The publish degree — the target standing initiation-link out-degree per
+    /// topic (the M3 model's s−1), independent of --relay-degree. Required by
+    /// the `hash-gated` publish strategy and by every publish-acceptance
+    /// strategy except `accept-from-all`.
     #[arg(long)]
     publish_degree: Option<usize>,
+
+    /// Fan-out strategy (case-insensitive) — the dissemination-model knob:
+    /// `forward-to-all` (the default: relay downstream for every message, plus
+    /// the initiation targets for the node's own publications) or
+    /// `role-scoped` (the strict M3 partition: own publications over
+    /// initiation links ONLY, relayed traffic over relay links only).
+    #[arg(long, default_value = "forward-to-all")]
+    fanout_strategy: FanoutStrategyKind,
 
     /// Inbound acceptance strategy for publish-intent requests
     /// (case-insensitive), the same four baselines as --acceptance-strategy,
@@ -156,28 +165,32 @@ async fn main() {
         args.acceptance_strategy,
         args.publish_strategy,
         args.publish_acceptance_strategy,
+        args.fanout_strategy,
     )
     .build(
-        &ConnectionParams {
+        &SelectionParams {
             self_id: args.self_id.clone(),
-            relay_degree: args.relay_degree,
+            role: LinkRole::Relay,
+            degree: args.relay_degree,
             bucket_count: args.bucket_count,
         },
         &AcceptanceParams {
             self_id: args.self_id.clone(),
-            relay_degree: args.relay_degree,
+            role: LinkRole::Relay,
+            degree: args.relay_degree,
             bucket_count: args.bucket_count,
             cap_buffer: args.cap_buffer,
         },
-        &PublishParams {
+        &SelectionParams {
             self_id: args.self_id.clone(),
-            publish_degree: args.publish_degree,
-            relay_degree: args.relay_degree,
+            role: LinkRole::Publisher,
+            degree: args.publish_degree,
             bucket_count: args.bucket_count,
         },
-        &PublishAcceptanceParams {
+        &AcceptanceParams {
             self_id: args.self_id.clone(),
-            publish_degree: args.publish_degree,
+            role: LinkRole::Publisher,
+            degree: args.publish_degree,
             bucket_count: args.bucket_count,
             cap_buffer: args.cap_buffer,
         },
@@ -196,10 +209,10 @@ async fn main() {
         verifier,
         registry,
         topic_registry,
-        strategies.connection,
-        Arc::new(ForwardToAll),
-        strategies.acceptance,
-        strategies.publish,
+        strategies.relay_selection,
+        strategies.fanout,
+        strategies.relay_acceptance,
+        strategies.publish_selection,
         strategies.publish_acceptance,
     )
     .await

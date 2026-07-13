@@ -30,9 +30,9 @@ pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
 pub(crate) use crate::strategies::acceptance::{
     AcceptFromAllCandidates, BoundedAcceptance, HashGatedBoundedAcceptance,
 };
-pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
 pub(crate) use crate::strategies::fanout::ForwardToAll;
-pub(crate) use crate::strategies::publish::NoPublishLinks;
+pub(crate) use crate::strategies::selection::NoLinks;
+pub(crate) use crate::strategies::selection::{ConnectToAllCandidates, HashGatedSelection};
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
 pub(crate) use std::collections::BTreeSet;
@@ -51,7 +51,7 @@ fn pk(bytes: &[u8]) -> PublicKey {
 }
 
 /// The v1 selection policy, as the transition-visible service handle.
-fn strategy() -> Arc<dyn ConnectionStrategy> {
+fn strategy() -> Arc<dyn LinkSelectionStrategy> {
     Arc::new(ConnectToAllCandidates)
 }
 
@@ -80,7 +80,7 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         strategy(),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     );
     for t in subscriptions {

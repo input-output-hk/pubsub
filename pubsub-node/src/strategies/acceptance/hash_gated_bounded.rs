@@ -117,7 +117,7 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::HashGatedBoundedAcceptance;
-    use crate::connection_state::Links;
+    use crate::connection_state::LinkStore;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{bucket_count, is_valid_edge};
     use crate::strategies::test_support::{
@@ -129,7 +129,7 @@ mod tests {
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = Links::new();
+        let down = LinkStore::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed
@@ -147,7 +147,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"]; // 6 candidates
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let down = Links::new();
+        let down = LinkStore::new();
         let buckets = bucket_count(names.len(), 1); // 6/1 = 6 > 1
         let invalid = names
             .iter()
@@ -204,7 +204,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"];
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let down = Links::new();
+        let down = LinkStore::new();
         // Derived B on 6 candidates at relay_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
         let policy =
@@ -242,7 +242,7 @@ mod tests {
     fn small_topic_admits_every_member_below_cap() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ relay_degree ⇒ B=1
-        let down = Links::new();
+        let down = LinkStore::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 8, 3).admit(
             &peer("a"),
             &topic("t1"),

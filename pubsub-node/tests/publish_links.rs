@@ -1,7 +1,8 @@
-//! Feature 015 integration: a pure publisher — a node no candidate hash-selects
-//! as a relay upstream — injects its published message into the overlay via
-//! **publishing links** (SC-003), established end-to-end through the real
-//! dial→accept handshake on the readiness heartbeat.
+//! Feature 015 integration: a publisher's **standing initiation links**
+//! (`formal_spec/hybrid_dissemination/models/m3/README.md`) — always
+//! established, end-to-end through the real dial→accept handshake on the
+//! readiness heartbeat — carry its published message into the overlay
+//! (SC-003), independent of its relay-side links (ADR 0034).
 
 mod common;
 
@@ -12,10 +13,10 @@ use std::time::Duration;
 
 use common::{alias_signer, ping, shared_test_verifier};
 use pubsub_node::{
-    bucket_count, is_valid_edge, is_valid_edge_for, AcceptFromAllCandidates, HashGatedConnection,
-    HashGatedPublish, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    LinkDirection, LinkRole, LinkState, Message, Node, NodeConfig, Origin, PeerId,
-    SubscriptionRegistryControl, TopicId, TopicRegistryControl,
+    bucket_count, is_valid_edge_for, AcceptFromAllCandidates, HashGatedSelection, InMemoryNetwork,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkDirection, LinkRole, LinkState,
+    Message, Node, NodeConfig, Origin, PeerId, SubscriptionRegistryControl, TopicId,
+    TopicRegistryControl,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(2);
@@ -30,26 +31,16 @@ fn peer(s: &str) -> PeerId {
     PeerId::from_str(s).expect("valid peer id")
 }
 
-/// Find a genesis nonce under which the M3 trigger fires for the publisher —
-/// no candidate would select it as a relay upstream — AND the publish predicate
-/// selects at least one target. Computed from the same exported predicates the
-/// node uses, so the test asserts against the model, not against itself.
-fn genesis_with_pure_publisher(publisher: &str, candidates: &[&str]) -> (u64, Vec<PeerId>) {
+/// Find a genesis nonce under which the publish predicate selects at least
+/// one initiation target for the publisher. Computed from the same exported
+/// predicate the node uses, so the test asserts against the model, not
+/// against itself. (No relay-side condition: standing initiation links are
+/// established unconditionally — ADR 0034.)
+fn genesis_with_initiation_targets(publisher: &str, candidates: &[&str]) -> (u64, Vec<PeerId>) {
     let t = topic();
     let p = peer(publisher);
-    let relay_buckets = bucket_count(candidates.len(), RELAY_DEGREE);
-    assert!(
-        relay_buckets > 1,
-        "the trigger needs B > 1 (B = 1 means everyone expects everyone)",
-    );
     let publish_buckets = bucket_count(candidates.len(), PUBLISH_DEGREE);
     for genesis in 0..10_000u64 {
-        let expected_downstream = candidates
-            .iter()
-            .any(|c| is_valid_edge(genesis, &t, &peer(c), &p, relay_buckets));
-        if expected_downstream {
-            continue;
-        }
         let targets: Vec<PeerId> = candidates
             .iter()
             .map(|c| peer(c))
@@ -59,7 +50,7 @@ fn genesis_with_pure_publisher(publisher: &str, candidates: &[&str]) -> (u64, Ve
             return (genesis, targets);
         }
     }
-    panic!("no genesis in the sweep leaves {publisher} without expected relay downstream");
+    panic!("no genesis in the sweep selects an initiation target for {publisher}");
 }
 
 async fn build_node(
@@ -71,14 +62,14 @@ async fn build_node(
     publisher: bool,
 ) -> Node {
     let id = peer(id);
-    let publish: Arc<dyn pubsub_node::PublishStrategy> = if publisher {
-        Arc::new(HashGatedPublish::new(
+    let publish: Arc<dyn pubsub_node::LinkSelectionStrategy> = if publisher {
+        Arc::new(HashGatedSelection::new(
+            LinkRole::Publisher,
             id.clone(),
             PUBLISH_DEGREE,
-            RELAY_DEGREE,
         ))
     } else {
-        Arc::new(pubsub_node::NoPublishLinks)
+        Arc::new(pubsub_node::NoLinks)
     };
     Node::new(
         id.clone(),
@@ -89,7 +80,11 @@ async fn build_node(
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(HashGatedConnection::new(id.clone(), RELAY_DEGREE)),
+        Arc::new(HashGatedSelection::new(
+            LinkRole::Relay,
+            id.clone(),
+            RELAY_DEGREE,
+        )),
         Arc::new(pubsub_node::ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
         publish,
@@ -99,14 +94,14 @@ async fn build_node(
     .expect("construct node")
 }
 
-// 015 SC-003 / US3: with a genesis under which nobody selects the publisher as
-// an upstream, the publisher forms hash-selected publishing links on the
-// readiness heartbeat and its published message reaches the overlay through
-// them — each accepted target records the message with Origin::Peer(publisher).
+// 015 SC-003 / US3: the publisher forms its hash-selected standing initiation
+// links on the readiness heartbeat — unconditionally — and its published
+// message reaches the overlay through them: each accepted target records the
+// message with Origin::Peer(publisher).
 #[tokio::test]
-async fn pure_publisher_injects_via_publish_links() {
+async fn publisher_injects_via_standing_initiation_links() {
     let candidates = ["r1", "r2", "r3", "r4", "r5", "r6"];
-    let (genesis, expected_targets) = genesis_with_pure_publisher("pub", &candidates);
+    let (genesis, expected_targets) = genesis_with_initiation_targets("pub", &candidates);
 
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
@@ -163,13 +158,6 @@ async fn pure_publisher_injects_via_publish_links() {
         );
         tokio::time::sleep(Duration::from_millis(1)).await;
     }
-
-    // No relay path into the overlay exists for the publisher (the trigger's
-    // premise): nobody dialed it.
-    assert!(
-        publisher.downstream_connections().is_empty(),
-        "the pure publisher has no relay downstream",
-    );
 
     // Publish; every publishing-link target records the message, attributed to
     // the publisher (received over the In/Publisher link).

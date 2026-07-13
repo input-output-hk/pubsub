@@ -63,7 +63,7 @@ impl ConnectionAcceptanceStrategy for BoundedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::BoundedAcceptance;
-    use crate::connection_state::Links;
+    use crate::connection_state::LinkStore;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
@@ -74,7 +74,7 @@ mod tests {
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = Links::new();
+        let down = LinkStore::new();
         let got = BoundedAcceptance::new(1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed

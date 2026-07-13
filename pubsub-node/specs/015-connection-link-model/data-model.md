@@ -29,15 +29,21 @@ pub enum LinkState {
 }
 ```
 
-## 2. The store (`state.rs`, replacing `upstream` + `downstream`)
+## 2. The store (`connection_state.rs`, replacing `upstream` + `downstream`)
 
 ```rust
-links: BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>,
+pub struct LinkStore {           // cell-structured, ADR 0034
+    relay_out: LinkCell,         // dialed pull sources (former upstream)
+    relay_in: LinkCell,          // accepted flood destinations (former downstream)
+    publish_out: LinkCell,       // standing initiation targets
+    publish_in: LinkCell,        // inbound initiation sources
+}
+pub type LinkCell = BTreeMap<(PeerId, TopicId), LinkState>;
 ```
 
-- Keyed including role: a `Relay` and a `Publisher` link between the same pair coexist independently (Clarifications 2026-07-13).
-- Keyed including direction: dial + accept between the same pair (today's upstream∩downstream case) stay two entries.
-- `BTreeMap`: deterministic iteration (shutdown notices, snapshots). Requires `Ord` on the key components (`LinkRole`, `LinkDirection` derive it; `PeerId`, `TopicId` already have it).
+- One cell per role × direction: a `Relay` and a `Publisher` link between the same pair coexist independently (Clarifications 2026-07-13); dial + accept between the same pair are two entries.
+- A strategy reads exactly the cells its dissemination model prescribes — M3 partitions by role, M4/M5 union (ADR 0034).
+- Ordered cells: deterministic iteration (shutdown notices, snapshots).
 - Terminal outcomes are removals (no closed variant) — unchanged rule.
 
 **Migration mapping** (FR-002/003/004): `upstream[(p,t)] = s` → `links[(p,t,Relay,Out)] = s`; `downstream ∋ (p,t)` → `links[(p,t,Relay,In)] = Active`.
@@ -50,7 +56,7 @@ links: BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>,
 pub struct NodeView<'a> {
     pub subscriptions: &'a BTreeSet<TopicId>,
     pub candidates: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    pub links: &'a BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>,
+    pub links: &'a LinkStore,   // cell accessors: relay_out()/relay_in()/publish_out()/publish_in()
     pub epoch_nonce: u64,
 }
 
@@ -67,20 +73,19 @@ Every `ConnectionAction` variant gains `role: LinkRole`. `signed_bytes` layout (
 
 ## 5. Strategy seams
 
-| Seam | Trait method (after) | v1 kinds |
-|---|---|---|
-| Relay selection | `expected_relay(&NodeView) -> BTreeSet<(PeerId, TopicId)>` (renamed from `expected_upstream` for role symmetry, analysis A7; `relay_degree` rename) | `connect-to-all`, `hash-gated` |
-| **Publish selection (NEW)** | `expected_publish(&NodeView) -> BTreeSet<(PeerId, TopicId)>` — internally applies the M3 trigger per topic (R6) | `none` (default), `hash-gated` |
-| Acceptance | `admit(emitter, topic, &NodeView) -> Admission` — one slot per role; role dispatch in the handler | four baselines × role instantiation |
-| Fan-out | `targets(topic, links, origin, exclude) -> Vec<PeerId>` (origin-aware, FR-005) | `forward-to-all` |
+| Seam | Trait method | Kinds | Slots |
+|---|---|---|---|
+| Link selection | `expected_links(&NodeView) -> BTreeSet<(PeerId, TopicId)>` | `none`, `connect-to-all`, `hash-gated` (`HashGatedSelection { role, … }`) | relay (default `connect-to-all`), publish (default `none`) |
+| Acceptance | `admit(emitter, topic, &NodeView) -> Admission` | four baselines, role-instantiated (`AcceptanceParams { role, degree, … }`) | relay, publish (both default `accept-from-all`) |
+| Fan-out | `targets(topic, &LinkStore, origin, exclude)` — the **model knob** | `forward-to-all` (default; union), `role-scoped` (M3 partition) | one |
 
-Publish-side parameters (`strategies/config.rs`): `PublishParams { self_id, publish_degree: Option<usize>, bucket_count: Option<usize> }`, `PublishAcceptanceParams { self_id, publish_degree, bucket_count, cap_buffer }`. `relay_degree` replaces `target_degree` in the relay params. The publish predicate lives beside the relay one in `strategies::edge` under domain `pubsub/bucketed-pull/publish-edge/v1` (relay domain bytes unchanged).
+Params (`strategies/config.rs`): `SelectionParams { self_id, role, degree, bucket_count }`, `AcceptanceParams { self_id, role, degree, bucket_count, cap_buffer }` — `role` picks the hash domain (`edge/v1` vs `publish-edge/v1`) and the degree-flag names in errors. Standing initiation links select **unconditionally** (`m3/README.md`; the trigger of the earlier draft is superseded — ADR 0034).
 
 ## 6. Transitions touched (`state.rs`)
 
 | Transition | Change |
 |---|---|
-| `handle_heartbeat` | after the relay dial diff, a publish dial pass: `expected_publish` → create `(p,t,Publisher,Out) = AwaitingAccept` + send `Request{role: Publisher}` |
+| `handle_heartbeat` | after the relay dial diff, the publish dial pass: `publish_selection.expected_links` (unconditional) → `(p,t,Publisher,Out) = AwaitingAccept` + `Request{role: Publisher}` |
 | `handle_connection_request` | dispatch on carried role → relay vs publish acceptance slot; accept records `(emitter, topic, role, In) = Active`, replies `Accepted{role}` |
 | `handle_connection_accepted/rejected` | match the `(emitter, topic, role, Out)` entry |
 | `handle_connection_terminated` | remove the `(emitter, topic, role, ·)` entries (both directions of that role) |
@@ -94,4 +99,4 @@ Publish-side parameters (`strategies/config.rs`): `PublishParams { self_id, publ
 - `Node::upstream_connections()` / `Node::downstream_connections()` — **preserved semantics** as relay-scoped views (`Relay`/`Out` triples, `Relay`/`In` pairs) so existing tests and callers observe identical behaviour (US1).
 - NEW `Node::links()` → full snapshot `Vec<(PeerId, TopicId, LinkRole, LinkDirection, LinkState)>` (the SC observation surface).
 - `LinkRole`, `LinkDirection`, `LinkState` exported; `UpstreamState` name retired (call-site rename; behaviour identical).
-- CLI: `--relay-degree` (renamed), `--publish-strategy` (`none` default), `--publish-degree`, `--publish-acceptance-strategy` (`accept-from-all` default). `--bucket-count` and `--cap-buffer` apply per seam as today (shared knobs).
+- CLI: `--relay-degree` (renamed), `--connection-strategy`/`--publish-strategy` (one kind family; defaults `connect-to-all`/`none`), `--publish-degree`, `--publish-acceptance-strategy` (`accept-from-all` default), `--fanout-strategy` (`forward-to-all` default | `role-scoped`). `--bucket-count`/`--cap-buffer` shared knobs.

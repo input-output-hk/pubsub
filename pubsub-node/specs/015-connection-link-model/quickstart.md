@@ -16,7 +16,7 @@ pubsub-node \
 
 ## A publishing node
 
-A node that may end up with no relay downstream (nobody hash-selects it as their upstream) forms **publishing links** so its published messages still enter the overlay:
+A publisher opens **standing initiation links** (the M3 model's s−1 links — always established, regardless of its relay links) so its published messages enter the overlay:
 
 ```sh
 pubsub-node \
@@ -28,7 +28,7 @@ pubsub-node \
   --genesis 7
 ```
 
-On the heartbeat dial tick the node first runs the relay dial diff, then the publish pass: for each subscribed topic it checks the **M3 trigger** — would any candidate select this node as an upstream under the current epoch nonce? Only if **no** expected relay downstream exists does it hash-select `≈ --publish-degree` targets (an independent draw: the publish predicate uses its own hash domain) and dial them with publish-intent requests.
+On the heartbeat dial tick the node first runs the relay dial diff, then the publish pass: for each subscribed topic it hash-selects `≈ --publish-degree` initiation targets (an independent draw — the publish predicate uses its own hash domain) and dials them with publish-intent requests. Unconditional: initiation links exist whether or not the node holds relay links (`m3/README.md`).
 
 Acceptors admit publish-intent requests through their **publish acceptance strategy** (default `accept-from-all`; give experiment nodes the compound baseline):
 
@@ -38,11 +38,16 @@ Acceptors admit publish-intent requests through their **publish acceptance strat
 
 The publish accept cap is `⌈publish_degree + c·√publish_degree⌉`, counted only against inbound publishing links — relay capacity is untouched.
 
-## What flows where
+## What flows where — the fan-out kind is the model knob
 
-- A message the node **publishes** (`Node::publish`) goes to every relay downstream **and** every active outbound publishing link.
-- A message the node **relays** goes to relay downstream only — publishing links never carry it.
-- Inbound, a publishing link admits **only the link peer's own published messages**; anything else is dropped (`relay_over_publish_link`).
+Default `--fanout-strategy forward-to-all`:
+
+- A message the node **publishes** (`Node::publish`) goes to every relay downstream **and** every active outbound initiation link.
+- A message the node **relays** goes to relay downstream only — initiation links never carry it.
+
+`--fanout-strategy role-scoped` (the strict M3 partition): a local publish goes over initiation links **only** (the relay downstream receive it via the flood); relayed traffic over relay links only. Caution: with `--publish-strategy none` this makes the node a **mute publisher**.
+
+Either way, inbound initiation links admit **only the link peer's own published messages**; anything else is dropped (`relay_over_publish_link`).
 
 ## Observing links
 

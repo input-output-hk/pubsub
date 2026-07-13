@@ -89,10 +89,10 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
         0, // genesis: the initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
-        Arc::new(HashGatedConnection::new(peer("self"), 6)),
+        Arc::new(HashGatedSelection::new(LinkRole::Relay, peer("self"), 6)),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     );
     apply(&mut state, reg_open("t"));

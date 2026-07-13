@@ -1,6 +1,6 @@
 # 0033 — Publishing-link seams: deterministic trigger, degree/domain separation, role-aware acceptance
 
-**Status**: Accepted (feature 015; builds on ADR 0032)
+**Status**: Accepted (feature 015; builds on ADR 0032). **§1–2 amended by ADR 0034**: the M3 trigger is superseded — the published model (`formal_spec/hybrid_dissemination/models/m3/README.md`) establishes the standing initiation links unconditionally, and the separate `PublishStrategy` seam merged into the role-parameterised `LinkSelectionStrategy` family. §3–5 (independent draw, role-aware acceptance, publisher-binding receive gate) remain in force.
 
 **Context**: the M3 model (logbook 2026-07-09) needs a publisher whose messages have no relay path into the overlay — a node nobody hash-selected as an upstream — to form **publishing links** that carry only its own locally-originated messages. The 015 spec fixes the establishment machinery (same strategy seams as relay links, on the same `Heartbeat` dial tick), the parameterisation (`publish_degree`, independent of `relay_degree`, distinct hash domain), the trigger (no relay downstream on the topic), and the acceptance posture (policy in interchangeable strategies; publish admissions never counted against the relay `OC`). Two points the spec leaves to the plan are resolved here per Constitution IV.
 

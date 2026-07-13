@@ -47,10 +47,188 @@ pub enum LinkDirection {
     In,
 }
 
-/// The node's unified link store: one entry per logical link, keyed by
-/// `(peer, topic, role, direction)` (ADR 0032). Ordered so snapshot and
-/// shutdown-notice emission are deterministic.
-pub type Links = BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>;
+/// One cell of the link store: the ordered links of a single role × direction.
+pub type LinkCell = BTreeMap<(PeerId, TopicId), LinkState>;
+
+/// The node's unified link store, **cell-structured** by role × direction
+/// (ADR 0032/0034): four ordered maps, one per cell, so a strategy reads
+/// exactly the fields its model needs — M3 partitions by role, M4/M5 union
+/// cells — without filtering a shared keyed map. Ordered maps keep snapshot
+/// and shutdown-notice emission deterministic.
+#[derive(Default)]
+pub struct LinkStore {
+    relay_out: LinkCell,
+    relay_in: LinkCell,
+    publish_out: LinkCell,
+    publish_in: LinkCell,
+}
+
+impl LinkStore {
+    /// An empty store.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The cell for one role × direction.
+    #[must_use]
+    pub fn cell(&self, role: LinkRole, direction: LinkDirection) -> &LinkCell {
+        match (role, direction) {
+            (LinkRole::Relay, LinkDirection::Out) => &self.relay_out,
+            (LinkRole::Relay, LinkDirection::In) => &self.relay_in,
+            (LinkRole::Publisher, LinkDirection::Out) => &self.publish_out,
+            (LinkRole::Publisher, LinkDirection::In) => &self.publish_in,
+        }
+    }
+
+    fn cell_mut(&mut self, role: LinkRole, direction: LinkDirection) -> &mut LinkCell {
+        match (role, direction) {
+            (LinkRole::Relay, LinkDirection::Out) => &mut self.relay_out,
+            (LinkRole::Relay, LinkDirection::In) => &mut self.relay_in,
+            (LinkRole::Publisher, LinkDirection::Out) => &mut self.publish_out,
+            (LinkRole::Publisher, LinkDirection::In) => &mut self.publish_in,
+        }
+    }
+
+    /// The node's **relay upstream** cell (`Relay`/Out — dialed pull sources).
+    #[must_use]
+    pub fn relay_out(&self) -> &LinkCell {
+        &self.relay_out
+    }
+
+    /// The node's **relay downstream** cell (`Relay`/In — accepted flood
+    /// destinations).
+    #[must_use]
+    pub fn relay_in(&self) -> &LinkCell {
+        &self.relay_in
+    }
+
+    /// The node's **initiation targets** cell (`Publisher`/Out — standing
+    /// links its own publications are sent over).
+    #[must_use]
+    pub fn publish_out(&self) -> &LinkCell {
+        &self.publish_out
+    }
+
+    /// The node's **inbound initiation** cell (`Publisher`/In — peers whose
+    /// own publications arrive over their standing links).
+    #[must_use]
+    pub fn publish_in(&self) -> &LinkCell {
+        &self.publish_in
+    }
+
+    /// The state of one link, if held.
+    #[must_use]
+    pub fn get(
+        &self,
+        peer: &PeerId,
+        topic: &TopicId,
+        role: LinkRole,
+        direction: LinkDirection,
+    ) -> Option<LinkState> {
+        self.cell(role, direction)
+            .get(&(peer.clone(), topic.clone()))
+            .copied()
+    }
+
+    /// Record (or overwrite) a link.
+    pub(crate) fn insert(
+        &mut self,
+        peer: PeerId,
+        topic: TopicId,
+        role: LinkRole,
+        direction: LinkDirection,
+        state: LinkState,
+    ) {
+        self.cell_mut(role, direction).insert((peer, topic), state);
+    }
+
+    /// Remove a link; `true` if it was held.
+    pub(crate) fn remove(
+        &mut self,
+        peer: &PeerId,
+        topic: &TopicId,
+        role: LinkRole,
+        direction: LinkDirection,
+    ) -> bool {
+        self.cell_mut(role, direction)
+            .remove(&(peer.clone(), topic.clone()))
+            .is_some()
+    }
+
+    /// Advance a pending outbound link of `role` to `Active`; `true` if a
+    /// matching `AwaitingAccept` entry existed.
+    pub(crate) fn activate_out(&mut self, peer: &PeerId, topic: &TopicId, role: LinkRole) -> bool {
+        if let Some(entry) = self
+            .cell_mut(role, LinkDirection::Out)
+            .get_mut(&(peer.clone(), topic.clone()))
+        {
+            if *entry == LinkState::AwaitingAccept {
+                *entry = LinkState::Active;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Drop every link on `topic`, all cells (the topic-removal cascade).
+    pub(crate) fn remove_topic(&mut self, topic: &TopicId) {
+        for cell in [
+            &mut self.relay_out,
+            &mut self.relay_in,
+            &mut self.publish_out,
+            &mut self.publish_in,
+        ] {
+            cell.retain(|(_, t), _| t != topic);
+        }
+    }
+
+    /// Clear every cell (shutdown).
+    pub(crate) fn clear(&mut self) {
+        self.relay_out.clear();
+        self.relay_in.clear();
+        self.publish_out.clear();
+        self.publish_in.clear();
+    }
+
+    /// Iterate every held link as `(peer, topic, role, direction, state)`,
+    /// cell by cell (relay before publish, out before in), each cell in key
+    /// order — deterministic.
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&PeerId, &TopicId, LinkRole, LinkDirection, LinkState)> {
+        let cells: [(&LinkCell, LinkRole, LinkDirection); 4] = [
+            (&self.relay_out, LinkRole::Relay, LinkDirection::Out),
+            (&self.relay_in, LinkRole::Relay, LinkDirection::In),
+            (&self.publish_out, LinkRole::Publisher, LinkDirection::Out),
+            (&self.publish_in, LinkRole::Publisher, LinkDirection::In),
+        ];
+        cells.into_iter().flat_map(|(cell, role, direction)| {
+            cell.iter()
+                .map(move |((peer, topic), state)| (peer, topic, role, direction, *state))
+        })
+    }
+
+    /// One pass over the inbound cell of `role` for the two facts a bounding
+    /// acceptance policy needs: whether `emitter` already holds an inbound
+    /// link on `topic`, and how many inbound links of that role the topic
+    /// holds. Role-scoped, so the relay cap and the publish cap count
+    /// disjoint sets (ADR 0033).
+    #[must_use]
+    pub fn inbound_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize) {
+        let mut already_in = false;
+        let mut on_topic = 0;
+        for (peer, t) in self.cell(role, LinkDirection::In).keys() {
+            if t == topic {
+                on_topic += 1;
+                if peer == emitter {
+                    already_in = true;
+                }
+            }
+        }
+        (already_in, on_topic)
+    }
+}
 
 /// The establishment lifecycle of a link (the former `UpstreamState`).
 ///

@@ -13,8 +13,8 @@ use common::{
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, NoPublishLinks,
-    Node, NodeConfig, NodeError, Origin, PeerId, SubscriptionRegistryControl, TopicId,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, NoLinks, Node,
+    NodeConfig, NodeError, Origin, PeerId, SubscriptionRegistryControl, TopicId,
     TopicRegistryControl,
 };
 
@@ -432,7 +432,7 @@ async fn readiness_establishes_autonomously() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -449,7 +449,7 @@ async fn readiness_establishes_autonomously() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -495,7 +495,7 @@ async fn construction_fails_on_duplicate_registration() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -514,7 +514,7 @@ async fn construction_fails_on_duplicate_registration() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await;
@@ -550,7 +550,7 @@ async fn construction_fails_on_identity_mismatch() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await;
@@ -573,7 +573,7 @@ async fn construction_fails_on_identity_mismatch() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await

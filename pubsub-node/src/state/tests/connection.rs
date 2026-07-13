@@ -252,7 +252,7 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         strategy(),
         Arc::new(ForwardToAll),
         Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     );
     // Synced first (requests are gated on readiness) and before any membership,
@@ -296,10 +296,10 @@ fn rejected_dial_removes_pending_upstream() {
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
-        Arc::new(HashGatedConnection::new(peer("self"), 8)),
+        Arc::new(HashGatedSelection::new(LinkRole::Relay, peer("self"), 8)),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     );
     apply(&mut state, reg_open("t1"));
@@ -342,8 +342,8 @@ fn rejected_dial_removes_pending_upstream() {
 /// `strategies::publish`).
 struct PublishTo(Vec<(&'static str, &'static str)>);
 
-impl crate::strategies::publish::PublishStrategy for PublishTo {
-    fn expected_publish(
+impl crate::strategies::selection::LinkSelectionStrategy for PublishTo {
+    fn expected_links(
         &self,
         _view: &crate::strategies::view::NodeView<'_>,
     ) -> BTreeSet<(PeerId, TopicId)> {
@@ -490,7 +490,7 @@ fn publish_cap_is_disjoint_from_relay_acceptance() {
         strategy(),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(BoundedAcceptance::new(1, 0).for_role(LinkRole::Publisher)),
     );
     apply(&mut state, Event::Synced);

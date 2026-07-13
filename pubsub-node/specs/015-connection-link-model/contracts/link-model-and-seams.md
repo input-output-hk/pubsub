@@ -11,38 +11,33 @@ pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, LinkState)>;   // = 
 pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)>;            // = Relay/In view (semantics preserved)
 ```
 
-`LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }` (`#[non_exhaustive]`), `LinkState { AwaitingAccept, Active }` are exported from the crate root. `UpstreamState` is retired.
+`LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }` (`#[non_exhaustive]`), `LinkState { AwaitingAccept, Active }`, and `LinkStore` are exported from the crate root. `UpstreamState` is retired.
 
-## Seam signatures (after)
+## Seam signatures (after — ADR 0034 model-family shape)
 
 ```rust
-pub trait ConnectionStrategy: Send + Sync {          // relay selection (renamed for role symmetry, analysis A7)
-    fn expected_relay(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
-}
-pub trait PublishStrategy: Send + Sync {             // NEW
-    /// Publish targets per topic; empty unless the M3 trigger holds for the
-    /// topic (no expected relay downstream — research R6).
-    fn expected_publish(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
+pub trait LinkSelectionStrategy: Send + Sync {       // ONE dial seam, one instance per role slot
+    fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
 }
 pub trait ConnectionAcceptanceStrategy: Send + Sync { // one instance per role slot
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission;
 }
-pub trait FanoutStrategy: Send + Sync {              // origin-aware
+pub trait FanoutStrategy: Send + Sync {              // origin-aware — the dissemination-model knob
     fn targets(
         &self,
         topic: &TopicId,
-        links: &BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>,
+        links: &LinkStore,
         origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId>;
 }
 ```
 
-`NodeView` carries `links` (borrow of the store) instead of `downstream`; the role-scoped helper `inbound_scan(role, emitter, topic)` is part of the view's contract. (An observed-downstream helper was planned but dropped: the M3 trigger reads the *expected* set via the predicate — research R6 — so no consumer exists; analysis.md A1.)
+`NodeView` carries `links: &LinkStore` — the **cell-structured** store (`relay_out()` / `relay_in()` / `publish_out()` / `publish_in()`, each an ordered `LinkCell`) — so a fan-out strategy selects or unions exactly the cells its model prescribes; the role-scoped `inbound_scan(role, emitter, topic)` serves the acceptance prelude. Selection kinds (`LinkSelectionKind`): `none` | `connect-to-all` | `hash-gated` — one family for both slots (`HashGatedSelection { role, self_id, degree, bucket_override }`; standing initiation links select **unconditionally**, `m3/README.md`). Fan-out kinds (`FanoutStrategyKind`): `forward-to-all` (default; union) | `role-scoped` (strict M3 partition).
 
-## Two-phase construction (ADR 0028, extended)
+## Two-phase construction (ADR 0028, extended by 0034)
 
-`NodeStrategies::builder(connection, acceptance, publish, publish_acceptance)` → `build(&ConnectionParams, &AcceptanceParams, &PublishParams, &PublishAcceptanceParams)`. Relay params carry `relay_degree` (renamed); publish params carry `publish_degree`. Kinds: `PublishStrategyKind { None, HashGated }` (`none` | `hash-gated`); the publish acceptance slot reuses `AcceptanceStrategyKind`.
+`NodeStrategies::builder(relay_selection, relay_acceptance, publish_selection, publish_acceptance, fanout)` → `build(&SelectionParams, &AcceptanceParams, &SelectionParams, &AcceptanceParams)`. Both params types carry `role: LinkRole` plus the slot's `degree` (`relay_degree` / `publish_degree`); the role picks the hash domain and the flag names in errors.
 
 ## Wire
 

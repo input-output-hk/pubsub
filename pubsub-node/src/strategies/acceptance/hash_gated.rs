@@ -91,7 +91,7 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::HashGatedAcceptance;
-    use crate::connection_state::Links;
+    use crate::connection_state::LinkStore;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{bucket_count, is_valid_edge};
     use crate::strategies::test_support::{
@@ -103,7 +103,7 @@ mod tests {
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = Links::new();
+        let down = LinkStore::new();
         let got = HashGatedAcceptance::new(peer("self"), 1).admit(
             &peer("a"),
             &topic("t2"), // not subscribed

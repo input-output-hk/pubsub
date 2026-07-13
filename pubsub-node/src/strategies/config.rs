@@ -1,91 +1,94 @@
-//! Two-phase strategy construction (ADR 0028).
+//! Two-phase strategy construction (ADR 0028, extended by ADR 0034).
 //!
 //! **Phase 1 — key → builder.** The edge parses each seam's strategy *key* into
-//! its `*StrategyKind` (clap: absent → the seam default, unknown key → rejected
-//! at CLI parse). [`NodeStrategies::builder`] holds the resolved kinds; nothing
-//! is constructed yet.
+//! its kind enum (clap: absent → the seam default, unknown key → rejected at
+//! CLI parse). [`NodeStrategies::builder`] holds the resolved kinds; nothing is
+//! constructed yet.
 //!
 //! **Phase 2 — params → strategy.** [`NodeStrategiesBuilder::build`] takes one
-//! per-seam params struct each ([`ConnectionParams`], [`AcceptanceParams`]) —
-//! already-typed values, no `clap` in the core — and constructs every seam,
-//! validating the parameters each chosen strategy requires. A required param
-//! left `None` yields a [`StrategyConfigError`]; the edge maps it **once**.
-//!
-//! Each kind reads only the params for its own seam (no shared grab-bag), so
-//! construction *and* required-parameter validation live with the strategy, not
-//! scattered across the edge. (Fan-out stays `ForwardToAll`, injected separately;
-//! it is not built through this two-phase seam.)
+//! params struct per slot — already-typed values, no `clap` in the core — and
+//! constructs every seam, validating the parameters each chosen strategy
+//! requires. Both link-selection slots share [`SelectionParams`] and both
+//! acceptance slots share [`AcceptanceParams`]; the `role` field picks the hash
+//! domain and the operator-facing flag names in errors, so one kind family
+//! serves both roles (ADR 0034). A required param left `None` yields a
+//! [`StrategyConfigError`]; the edge maps it **once**.
 
 use std::sync::Arc;
 
 use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
 use crate::strategies::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
-use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
-use crate::strategies::publish::{PublishStrategy, PublishStrategyKind};
+use crate::strategies::fanout::{FanoutStrategy, FanoutStrategyKind};
+use crate::strategies::selection::{LinkSelectionKind, LinkSelectionStrategy};
 
-/// Already-parsed parameters for the connection (dial/upstream) seam. A field a
-/// chosen kind requires but that is left `None` yields a [`StrategyConfigError`]
-/// at build time.
+/// Already-parsed parameters for one link-selection slot (relay or publish).
 #[derive(Clone, Debug)]
-pub struct ConnectionParams {
-    /// The node's own identity (folded into the verifiable edge predicate).
+pub struct SelectionParams {
+    /// The node's own identity (folded into the role's edge predicate).
     pub self_id: PeerId,
-    /// The fixed relay connection degree `relay_degree` — required by `hash-gated` (bucket count derives from it).
-    pub relay_degree: Option<usize>,
+    /// Which role slot these params configure — picks the hash domain and the
+    /// flag names in validation errors.
+    pub role: LinkRole,
+    /// The slot's target out-degree (`relay_degree` / `publish_degree`) —
+    /// required by `hash-gated` (the bucket count derives from it).
+    pub degree: Option<usize>,
     /// Optional pinned bucket count `B`. When set, it overrides the per-topic
-    /// count derived from `relay_degree` on **both** seams, so the edge
-    /// predicate is verifiable by construction (no dependence on the two ends
-    /// having folded the same candidate set). Must be `≥ 1` if supplied.
+    /// derived count on both ends of the slot's handshake, so the edge
+    /// predicate is verifiable by construction. Must be `≥ 1` if supplied.
     pub bucket_count: Option<usize>,
 }
 
-/// Already-parsed parameters for the relay acceptance (inbound) seam.
+impl SelectionParams {
+    pub(crate) fn missing_degree(&self) -> &'static str {
+        match self.role {
+            LinkRole::Relay => "a relay degree (--relay-degree)",
+            LinkRole::Publisher => "a publish degree (--publish-degree)",
+        }
+    }
+
+    pub(crate) fn invalid_degree(&self) -> &'static str {
+        match self.role {
+            LinkRole::Relay => "the relay degree (--relay-degree)",
+            LinkRole::Publisher => "the publish degree (--publish-degree)",
+        }
+    }
+}
+
+/// Already-parsed parameters for one inbound-acceptance slot (relay or
+/// publish). The same kind family serves both slots; the `role` scopes the
+/// prelude scan, the cap, and the predicate domain (ADR 0033/0034).
 #[derive(Clone, Debug)]
 pub struct AcceptanceParams {
     /// The node's own identity (the candidate side of the verified edge).
     pub self_id: PeerId,
-    /// The fixed relay connection degree `relay_degree` — required by `hash-gated-bounded`.
-    pub relay_degree: Option<usize>,
-    /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);
+    /// Which role slot these params configure.
+    pub role: LinkRole,
+    /// The slot's degree (`relay_degree` / `publish_degree`) — required by
+    /// every kind except `accept-from-all` (cap and bucket count derive from it).
+    pub degree: Option<usize>,
+    /// Optional pinned bucket count `B` (see [`SelectionParams::bucket_count`]);
     /// the acceptor must use the same value the dialer does. Must be `≥ 1` if
     /// supplied.
     pub bucket_count: Option<usize>,
-    /// Accept-cap buffer `c` in `OC = ⌈relay_degree + c·√relay_degree⌉` (default 3).
+    /// Accept-cap buffer `c` in `⌈degree + c·√degree⌉` (default 3).
     pub cap_buffer: usize,
 }
 
-/// Already-parsed parameters for the publish (publishing-link dial) seam
-/// (feature 015, ADR 0033).
-#[derive(Clone, Debug)]
-pub struct PublishParams {
-    /// The node's own identity (folded into the publish edge predicate).
-    pub self_id: PeerId,
-    /// The publish degree `publish_degree` — required by `hash-gated` (the
-    /// publish bucket count derives from it). Independent of `relay_degree`.
-    pub publish_degree: Option<usize>,
-    /// The relay degree the M3 trigger recomputes the relay predicate with —
-    /// required by `hash-gated`; must match the relay seam's degree.
-    pub relay_degree: Option<usize>,
-    /// Optional pinned publish bucket count `B_p`. Must be `≥ 1` if supplied.
-    pub bucket_count: Option<usize>,
-}
+impl AcceptanceParams {
+    pub(crate) fn missing_degree(&self) -> &'static str {
+        match self.role {
+            LinkRole::Relay => "a relay degree (--relay-degree)",
+            LinkRole::Publisher => "a publish degree (--publish-degree)",
+        }
+    }
 
-/// Already-parsed parameters for the publish acceptance (inbound
-/// publishing-link) seam (feature 015, ADR 0033). The same acceptance kinds as
-/// the relay slot, instantiated with the publish degree and the publish hash
-/// domain; the cap `⌈publish_degree + c·√publish_degree⌉` counts inbound
-/// publishing links only.
-#[derive(Clone, Debug)]
-pub struct PublishAcceptanceParams {
-    /// The node's own identity (the candidate side of the verified publish edge).
-    pub self_id: PeerId,
-    /// The publish degree — required by every kind except `accept-from-all`.
-    pub publish_degree: Option<usize>,
-    /// Optional pinned publish bucket count `B_p`. Must be `≥ 1` if supplied.
-    pub bucket_count: Option<usize>,
-    /// Accept-cap buffer `c` (default 3), shared with the relay seam.
-    pub cap_buffer: usize,
+    pub(crate) fn invalid_degree(&self) -> &'static str {
+        match self.role {
+            LinkRole::Relay => "the relay degree (--relay-degree)",
+            LinkRole::Publisher => "the publish degree (--publish-degree)",
+        }
+    }
 }
 
 /// The error a strategy kind raises when the configuration lacks a parameter
@@ -131,10 +134,9 @@ pub(crate) fn validate_bucket_count(
 
 /// Validate a degree parameter a strategy requires: it must be supplied and
 /// `≥ 1` (a degree of 0 degenerates the dial and accept seams in opposite
-/// directions — dial-everything vs accept-nothing). Shared by every seam's
-/// `build` arm so they cannot drift on what a valid degree is; the caller names
-/// the parameter in operator-facing terms (`--relay-degree` /
-/// `--publish-degree`).
+/// directions — dial-everything vs accept-nothing). Shared by every slot's
+/// `build` arm so they cannot drift on what a valid degree is; the caller
+/// names the parameter in operator-facing terms via the params helpers.
 pub(crate) fn require_degree(
     strategy: &'static str,
     degree: Option<usize>,
@@ -155,83 +157,73 @@ pub(crate) fn require_degree(
     Ok(degree)
 }
 
-/// Validate the relay degree a relay-seam strategy requires (the
-/// [`require_degree`] instance both relay seams share).
-pub(crate) fn require_relay_degree(
-    strategy: &'static str,
-    relay_degree: Option<usize>,
-) -> Result<usize, StrategyConfigError> {
-    require_degree(
-        strategy,
-        relay_degree,
-        "a relay degree (--relay-degree)",
-        "the relay degree (--relay-degree)",
-    )
-}
-
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
-/// by [`NodeStrategiesBuilder::build`]. (Fan-out stays `ForwardToAll`, injected
-/// separately — it is not built through this two-phase seam.)
+/// by [`NodeStrategiesBuilder::build`].
 pub struct NodeStrategies {
-    /// The relay connection (dial/upstream) strategy.
-    pub connection: Arc<dyn ConnectionStrategy>,
-    /// The relay inbound-acceptance strategy.
-    pub acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
-    /// The publish-target (publishing-link dial) strategy (ADR 0033).
-    pub publish: Arc<dyn PublishStrategy>,
-    /// The publish inbound-acceptance strategy — the same kinds as the relay
-    /// slot, instantiated with publish parameters.
+    /// The relay link-selection slot.
+    pub relay_selection: Arc<dyn LinkSelectionStrategy>,
+    /// The relay inbound-acceptance slot.
+    pub relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The publish link-selection slot (standing initiation links, ADR 0033/0034).
+    pub publish_selection: Arc<dyn LinkSelectionStrategy>,
+    /// The publish inbound-acceptance slot.
     pub publish_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The origin-aware fan-out policy — the dissemination-model knob
+    /// (ADR 0034: `forward-to-all` unions cells, `role-scoped` is the M3
+    /// partition).
+    pub fanout: Arc<dyn FanoutStrategy>,
 }
 
-/// Phase 1 of construction: the resolved per-seam strategy *kinds*, awaiting
+/// Phase 1 of construction: the resolved per-slot strategy *kinds*, awaiting
 /// their parameters. Create it with [`NodeStrategies::builder`].
 pub struct NodeStrategiesBuilder {
-    connection: ConnectionStrategyKind,
-    acceptance: AcceptanceStrategyKind,
-    publish: PublishStrategyKind,
+    relay_selection: LinkSelectionKind,
+    relay_acceptance: AcceptanceStrategyKind,
+    publish_selection: LinkSelectionKind,
     publish_acceptance: AcceptanceStrategyKind,
+    fanout: FanoutStrategyKind,
 }
 
 impl NodeStrategies {
-    /// Phase 1: capture the resolved strategy keys for each seam. Nothing is
+    /// Phase 1: capture the resolved strategy keys for each slot. Nothing is
     /// constructed until [`NodeStrategiesBuilder::build`].
     #[must_use]
     pub fn builder(
-        connection: ConnectionStrategyKind,
-        acceptance: AcceptanceStrategyKind,
-        publish: PublishStrategyKind,
+        relay_selection: LinkSelectionKind,
+        relay_acceptance: AcceptanceStrategyKind,
+        publish_selection: LinkSelectionKind,
         publish_acceptance: AcceptanceStrategyKind,
+        fanout: FanoutStrategyKind,
     ) -> NodeStrategiesBuilder {
         NodeStrategiesBuilder {
-            connection,
-            acceptance,
-            publish,
+            relay_selection,
+            relay_acceptance,
+            publish_selection,
             publish_acceptance,
+            fanout,
         }
     }
 }
 
 impl NodeStrategiesBuilder {
-    /// Phase 2: bind each seam's params, validate the parameters each chosen
+    /// Phase 2: bind each slot's params, validate the parameters each chosen
     /// strategy requires, and construct the whole set — surfacing the first
-    /// [`StrategyConfigError`] so the edge maps it once. The publish acceptance
-    /// slot is built from the acceptance kinds with publish parameters and
-    /// retargeted at the `Publisher` role (ADR 0033).
+    /// [`StrategyConfigError`] so the edge maps it once. Callers pass the same
+    /// param *shapes* for both roles; the `role` field inside each params
+    /// struct is what differentiates the slots (ADR 0034).
     pub fn build(
         self,
-        connection: &ConnectionParams,
-        acceptance: &AcceptanceParams,
-        publish: &PublishParams,
-        publish_acceptance: &PublishAcceptanceParams,
+        relay_selection: &SelectionParams,
+        relay_acceptance: &AcceptanceParams,
+        publish_selection: &SelectionParams,
+        publish_acceptance: &AcceptanceParams,
     ) -> Result<NodeStrategies, StrategyConfigError> {
         Ok(NodeStrategies {
-            connection: self.connection.build(connection)?,
-            acceptance: self.acceptance.build(acceptance)?,
-            publish: self.publish.build(publish)?,
-            publish_acceptance: self
-                .publish_acceptance
-                .build_for_role(LinkRole::Publisher, publish_acceptance)?,
+            relay_selection: self.relay_selection.build(relay_selection)?,
+            relay_acceptance: self.relay_acceptance.build(relay_acceptance)?,
+            publish_selection: self.publish_selection.build(publish_selection)?,
+            publish_acceptance: self.publish_acceptance.build(publish_acceptance)?,
+            fanout: self.fanout.build(),
         })
     }
 }

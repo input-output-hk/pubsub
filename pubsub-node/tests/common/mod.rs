@@ -9,12 +9,12 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, Message,
-    MessageHash, MessagePayload, MockCryptoScheme, NoPublishLinks, Node, NodeConfig, NodeView,
-    Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
-    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
-    TopicId, TopicRegistryControl, Verifier,
+    AcceptFromAllCandidates, ConnectToAllCandidates, Event, ForwardToAll, InMemoryNetwork,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkSelectionStrategy, LinkState, Message,
+    MessageHash, MessagePayload, MockCryptoScheme, NoLinks, Node, NodeConfig, NodeView, Origin,
+    PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage,
+    Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
+    TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -199,7 +199,7 @@ pub async fn two_node_fixture_with_subscriptions(
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -219,7 +219,7 @@ pub async fn two_node_fixture_with_subscriptions(
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -291,7 +291,7 @@ pub async fn node_with_strategy(
     id: &str,
     peers: &[&str],
     topics: &[TopicId],
-    strategy: Arc<dyn ConnectionStrategy>,
+    strategy: Arc<dyn LinkSelectionStrategy>,
     genesis: u64,
 ) -> Node {
     let id = PeerId::from_str(id).expect("valid id");
@@ -328,7 +328,7 @@ pub async fn node_with_strategy(
         strategy,
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -380,7 +380,7 @@ pub async fn node_sharing(
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
-        Arc::new(NoPublishLinks),
+        Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -802,8 +802,8 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 /// it is not a production strategy and never reaches the node's public surface.
 pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 
-impl ConnectionStrategy for ConnectToExplicit {
-    fn expected_relay(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+impl LinkSelectionStrategy for ConnectToExplicit {
+    fn expected_links(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }
@@ -825,7 +825,7 @@ pub struct NodeSpec<'a> {
     id: String,
     peers: Vec<String>,
     topics: Vec<TopicId>,
-    strategy: Arc<dyn ConnectionStrategy>,
+    strategy: Arc<dyn LinkSelectionStrategy>,
 }
 
 /// Start building a node `id` sharing `registry` and `network`.

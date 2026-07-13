@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use crate::connection_state::{LinkDirection, LinkRole, LinkState, Links};
+use crate::connection_state::{LinkDirection, LinkRole, LinkState, LinkStore};
 use crate::peer::PeerId;
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
@@ -38,31 +38,34 @@ pub(crate) fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTree
 
 /// A link store holding relay fan-out destinations (`In`/`Relay`, `Active`)
 /// from `(peer, topic)` entries — the former downstream set.
-pub(crate) fn downstream(entries: &[(&str, &str)]) -> Links {
-    entries
-        .iter()
-        .map(|(p, t)| {
-            (
-                (peer(p), topic(t), LinkRole::Relay, LinkDirection::In),
-                LinkState::Active,
-            )
-        })
-        .collect()
+pub(crate) fn downstream(entries: &[(&str, &str)]) -> LinkStore {
+    let mut store = LinkStore::new();
+    for (p, t) in entries {
+        store.insert(
+            peer(p),
+            topic(t),
+            LinkRole::Relay,
+            LinkDirection::In,
+            LinkState::Active,
+        );
+    }
+    store
 }
 
 /// A link store from explicit `(peer, topic, role, direction, state)` entries.
-pub(crate) fn links(entries: &[(&str, &str, LinkRole, LinkDirection, LinkState)]) -> Links {
-    entries
-        .iter()
-        .map(|(p, t, role, direction, state)| ((peer(p), topic(t), *role, *direction), *state))
-        .collect()
+pub(crate) fn links(entries: &[(&str, &str, LinkRole, LinkDirection, LinkState)]) -> LinkStore {
+    let mut store = LinkStore::new();
+    for (p, t, role, direction, state) in entries {
+        store.insert(peer(p), topic(t), *role, *direction, *state);
+    }
+    store
 }
 
 /// A [`NodeView`] over the borrowed fixtures (epoch nonce 0 — the v1 default).
 pub(crate) fn view<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    links: &'a Links,
+    links: &'a LinkStore,
 ) -> NodeView<'a> {
     view_with_nonce(subs, cands, links, 0)
 }
@@ -71,7 +74,7 @@ pub(crate) fn view<'a>(
 pub(crate) fn view_with_nonce<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    links: &'a Links,
+    links: &'a LinkStore,
     epoch_nonce: u64,
 ) -> NodeView<'a> {
     NodeView {

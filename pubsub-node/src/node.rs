@@ -11,9 +11,8 @@ use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
 use crate::message::{Message, SignedMessage};
 use crate::strategies::acceptance::ConnectionAcceptanceStrategy;
-use crate::strategies::connection::ConnectionStrategy;
 use crate::strategies::fanout::FanoutStrategy;
-use crate::strategies::publish::PublishStrategy;
+use crate::strategies::selection::LinkSelectionStrategy;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
@@ -112,18 +111,18 @@ impl Node {
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. `signer` is the node's signing
     /// identity — it signs the connection-control messages the node emits
-    /// (`Request`/`Accepted`/`Terminated`); `connection_strategy` is the
-    /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
-    /// a setup event; `fanout_strategy` is the fan-out policy (v1:
-    /// `ForwardToAll`) consulted at the record point to choose which downstream
-    /// peers a recorded message is forwarded to; `acceptance_strategy` is the
-    /// inbound-acceptance policy (v1: `AcceptFromAllCandidates`) consulted on a
-    /// verified connection `Request` to decide whether to accept the emitter as
-    /// downstream. `publish_strategy` is the publishing-link dial policy (v1:
-    /// `NoPublishLinks` — no publishing links) consulted on the same dial tick
-    /// after the relay diff, and `publish_acceptance_strategy` its inbound
-    /// mirror for publish-intent requests (v1: `AcceptFromAllCandidates`), the
-    /// role-dispatched second acceptance slot (feature 015, ADR 0033).
+    /// (`Request`/`Accepted`/`Terminated`); `relay_selection` is the relay
+    /// link-selection slot (v1: `ConnectToAllCandidates`) consulted on a dial
+    /// tick; `fanout_strategy` is the origin-aware fan-out policy (v1:
+    /// `ForwardToAll`) consulted at the record point — the dissemination-model
+    /// knob (ADR 0034); `acceptance_strategy` is the relay inbound-acceptance
+    /// slot (v1: `AcceptFromAllCandidates`) consulted on a verified connection
+    /// `Request`. `publish_selection` is the publish link-selection slot (v1:
+    /// `NoLinks` — no standing initiation links) consulted on the same dial
+    /// tick after the relay diff, and `publish_acceptance_strategy` its
+    /// inbound mirror for publish-intent requests (v1:
+    /// `AcceptFromAllCandidates`), the role-dispatched second acceptance slot
+    /// (feature 015, ADR 0033/0034).
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -148,10 +147,10 @@ impl Node {
         verifier: Arc<dyn Verifier>,
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
-        connection_strategy: Arc<dyn ConnectionStrategy>,
+        relay_selection: Arc<dyn LinkSelectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
         acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
-        publish_strategy: Arc<dyn PublishStrategy>,
+        publish_selection: Arc<dyn LinkSelectionStrategy>,
         publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
@@ -178,10 +177,10 @@ impl Node {
             genesis,
             verifier,
             signer,
-            connection_strategy,
+            relay_selection,
             fanout_strategy,
             acceptance_strategy,
-            publish_strategy,
+            publish_selection,
             publish_acceptance_strategy,
         )));
         let state_for_task = Arc::clone(&state);

@@ -18,14 +18,18 @@
 //! plus every active outbound publishing link for a local origin. Degree caps
 //! and peer sampling are deferred to later strategies.
 
-use crate::connection_state::Links;
+use crate::connection_state::LinkStore;
 use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
 
 mod forward_to_all;
+mod kind;
+mod role_scoped;
 
 pub use forward_to_all::ForwardToAll;
+pub use kind::{FanoutStrategyKind, UnknownFanoutStrategy};
+pub use role_scoped::RoleScopedFanout;
 
 /// The forwarding-target policy a node consults at the record point.
 ///
@@ -55,7 +59,7 @@ pub trait FanoutStrategy: Send + Sync {
     fn targets(
         &self,
         topic: &TopicId,
-        links: &Links,
+        links: &LinkStore,
         origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId>;

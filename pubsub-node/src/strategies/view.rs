@@ -13,7 +13,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::connection_state::{LinkDirection, LinkRole, Links};
+use crate::connection_state::{LinkRole, LinkStore};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
@@ -23,11 +23,11 @@ pub struct NodeView<'a> {
     pub subscriptions: &'a BTreeSet<TopicId>,
     /// Per-topic peers discovered on each topic (the node's own id never present).
     pub candidates: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    /// The node's unified link store, keyed by `(peer, topic, role, direction)`
-    /// (ADR 0032). Read role-scoped by the seams — acceptance counts a role's
-    /// inbound links via [`inbound_scan`](Self::inbound_scan); fan-out selects
-    /// its targets from the role × direction cells directly.
-    pub links: &'a Links,
+    /// The node's unified link store, cell-structured by role × direction
+    /// (ADR 0032/0034). A strategy reads exactly the cells its model needs —
+    /// M3 partitions by role, M4/M5 union cells; acceptance counts a role's
+    /// inbound links via [`inbound_scan`](Self::inbound_scan).
+    pub links: &'a LinkStore,
     /// The current epoch nonce — the randomness context feeding the edge
     /// predicate (ADR 0024/0030/0031). Folded from the last `Epoch` event;
     /// stable across `Heartbeat` dial ticks within an epoch.
@@ -35,23 +35,10 @@ pub struct NodeView<'a> {
 }
 
 impl NodeView<'_> {
-    /// One pass over the inbound (`In`) links of `role` for the two facts a
-    /// bounding acceptance policy needs: whether `emitter` is already an
-    /// accepted inbound link on `topic`, and how many inbound links of that
-    /// role the topic holds. Role-scoped, so the relay cap and the publish cap
-    /// count disjoint sets (ADR 0033).
+    /// One pass over the inbound cell of `role` for the two facts a bounding
+    /// acceptance policy needs — see [`LinkStore::inbound_scan`].
     #[must_use]
     pub fn inbound_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize) {
-        let mut already_in = false;
-        let mut on_topic = 0;
-        for (peer, t, r, direction) in self.links.keys() {
-            if *r == role && *direction == LinkDirection::In && t == topic {
-                on_topic += 1;
-                if peer == emitter {
-                    already_in = true;
-                }
-            }
-        }
-        (already_in, on_topic)
+        self.links.inbound_scan(role, emitter, topic)
     }
 }

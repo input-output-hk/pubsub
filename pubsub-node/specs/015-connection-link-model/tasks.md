@@ -85,3 +85,12 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - [X] T024 `cargo fmt` + `cargo clippy --all-targets -- -D warnings` clean; quickstart claims verified against the binary
 - [ ] T025 Update `pubsub-node/CLAUDE.md` active-feature block for 015
 - [X] T026 `/speckit-analyze` pass recorded in `specs/015-connection-link-model/analysis.md`
+
+## Phase 7: Model-family rework (post-review, ADR 0034)
+
+- [X] T027 ADR 0034 (model-family seams; amends 0033 §1–2) in `pubsub-node/docs/decisions/0034-model-family-seams.md`
+- [X] T028 Remove the M3 trigger: standing initiation links select unconditionally (`m3/README.md`); publish strategy loses its `relay_degree` param
+- [X] T029 Unify the dial seams: one `LinkSelectionStrategy` family (`none` | `connect-to-all` | `hash-gated` with role) under `strategies/selection/`; acceptance params gain `role` (one build path, `build_for_role` folded away)
+- [X] T030 Cell-structured `LinkStore` (`relay_out`/`relay_in`/`publish_out`/`publish_in`) replacing the quad-keyed map; `NodeView.links: &LinkStore`
+- [X] T031 Fan-out kinds: `forward-to-all` (default, union) + `role-scoped` (strict M3 partition, mute-publisher caution documented); `--fanout-strategy` CLI flag; `NodeStrategies` gains the fanout slot
+- [X] T032 Test/docs sweep: trigger tests retired, selection/fan-out kind tests added, integration test re-premised on unconditional initiation links; spec/contract/data-model/quickstart/analysis (A8) updated

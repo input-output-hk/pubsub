@@ -1,7 +1,7 @@
 //! The v1 fan-out policy: [`ForwardToAll`].
 
 use super::FanoutStrategy;
-use crate::connection_state::{LinkDirection, LinkRole, LinkState, Links};
+use crate::connection_state::{LinkState, LinkStore};
 use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
@@ -23,21 +23,25 @@ impl FanoutStrategy for ForwardToAll {
     fn targets(
         &self,
         topic: &TopicId,
-        links: &Links,
+        links: &LinkStore,
         origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
-        links
+        // The relay downstream cell carries every message; the initiation
+        // targets join in for a local origin only (ADR 0033/0034).
+        let relay = links
+            .relay_in()
             .iter()
-            .filter(|((_, t, _, _), _)| t == topic)
-            .filter(|((_, _, role, direction), state)| match (role, direction) {
-                (LinkRole::Relay, LinkDirection::In) => true,
-                (LinkRole::Publisher, LinkDirection::Out) => {
-                    **state == LinkState::Active && *origin == Origin::Local
-                }
-                _ => false,
-            })
-            .map(|((peer, _, _, _), _)| peer)
+            .filter(|((_, t), _)| t == topic)
+            .map(|((peer, _), _)| peer);
+        let publish = links
+            .publish_out()
+            .iter()
+            .filter(|_| *origin == Origin::Local)
+            .filter(|((_, t), state)| t == topic && **state == LinkState::Active)
+            .map(|((peer, _), _)| peer);
+        relay
+            .chain(publish)
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()
@@ -47,7 +51,7 @@ impl FanoutStrategy for ForwardToAll {
 #[cfg(test)]
 mod tests {
     use super::ForwardToAll;
-    use crate::connection_state::{LinkDirection, LinkRole, LinkState, Links};
+    use crate::connection_state::{LinkDirection, LinkRole, LinkState, LinkStore};
     use crate::peer::PeerId;
     use crate::received::Origin;
     use crate::strategies::fanout::FanoutStrategy;
@@ -94,7 +98,7 @@ mod tests {
     #[test]
     fn empty_downstream_yields_no_targets() {
         assert!(ForwardToAll
-            .targets(&topic("t1"), &Links::new(), &local(), None)
+            .targets(&topic("t1"), &LinkStore::new(), &local(), None)
             .is_empty());
     }
 

@@ -47,6 +47,15 @@ Two assumptions are baked into that split, and this feature relaxes the first wh
 - Q: Inbound acceptance of a publish-intent request — distinct decision, and what cap? → A: **Policed by the acceptance-strategy seam, kept modular and interchangeable per experiment.** The seam becomes role-aware (the request carries the intended role); the accept/cap policy is strategy business, not a protocol constant. v1 ships a **default publishing-acceptance baseline mirroring the relay one** (hash-gated-bounded analog: publish-domain predicate + a cap derived from `publish_degree`), with publishing admissions **not counting against the relay `OC`** so the two resources stay independently bounded and sweepable.
 - Q: Dual-role between the same `(peer, topic)` — one link with a role set, or separate links? → A: **Coexisting links per role.** The link store is keyed by `(peer, topic, role)`: a `Relay` link and a `Publisher` link between the same pair are independent entries with independent lifecycles, caps, and teardown. (The combination is legal: a node may pull from a peer as relay upstream *and* push to it over a publishing link on the same topic.)
 
+### Session 2026-07-13 (model-family alignment — supersedes the trigger)
+
+Denis's executable dissemination models landed on `main` (`formal_spec/hybrid_dissemination/models/`, M1–M5) and are now the authoritative protocol source for this feature; the workstream goal is M3 + M4 + M5 support as configurations of one node (ADR 0034).
+
+- Q: Trigger — reconfirmed? → A: **No — removed.** Publishing links (the model's **standing initiation links**, `publish_degree` ≈ its `s−1`) are established **always**, unconditionally: `m3/README.md` — "each node opens s−1 standing initiation links". Supersedes this session's earlier conditional answer and FR-009b's trigger clause.
+- Q: Does a local publish also go over the relay downstream, or exclusively over publishing links? → A: **Both, as selectable fan-out kinds** — the fan-out seam is the dissemination-model knob. `forward-to-all` (default; behaviour-preserving): relay downstream for every message plus the initiation targets for a local origin — the reading under which a publisher, as a forwarder, "relays every message it holds" (m3/README.md). `role-scoped` (the strict M3 partition): local publications over initiation links **only**, relayed traffic over relay links only ("initiation links … are never part of the relay graph"). Experiments cross-validate both against the model's coverage laws.
+- Q: Reusable strategies instead of per-role families? → A: **Yes.** One `LinkSelectionStrategy` family (`none` | `connect-to-all` | `hash-gated`) serves both role slots, and one acceptance family serves both acceptance slots — the role is a construction parameter, not a type. The `NodeView` exposes the link store **cell-structured** (`relay_out`/`relay_in`/`publish_out`/`publish_in`) so each fan-out strategy selects — or unions — exactly the fields its model prescribes.
+- Q: M4 and M5? → A: Roadmap: **M4** (bidirectional RF picks, incident-flood, no seeding) = feature 016's symmetric predicate + an incident-flood fan-out kind; **M5** (k_in/k_out, both carrying every held message) = a union fan-out kind + relaxing the publisher-binding receive gate. The cell store and kind enums make each a small follow-on.
+
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -84,18 +93,17 @@ A node holding both a `Publisher` link and a `Relay` link to peers on a topic fo
 
 ### User Story 3 - Publishing-link establishment for a publisher (Priority: P2)
 
-A publishing node forms `Publisher` links to injection targets **through the same strategy machinery relay links use**: on the `Heartbeat` dial tick — the same event that fires relay upstream dials — a link-selection strategy chooses the publishing targets (a hash-gated variant with its own `publish_degree` and hash domain) and the node dials them; each target's acceptance strategy decides admission (e.g. hash-gated-bounded). The dial fires **only when the node holds no relay downstream on the topic** (it was not selected as any peer's upstream, so its published messages have no relay path into the overlay).
+A publishing node forms `Publisher` links (standing initiation links) **through the same strategy machinery relay links use**: on the `Heartbeat` dial tick — the same event that fires relay upstream dials — the publish link-selection slot chooses the targets (the hash-gated policy with its own `publish_degree` and hash domain) and the node dials them; each target's acceptance strategy decides admission. The dial is **unconditional** — initiation links exist regardless of the node's relay links (`m3/README.md`; supersedes the trigger).
 
 **Why this priority**: Establishment is required for publishing links to exist in a running node, but the origin-restricted fan-out (US2) is independently testable against publishing links created by test builders, so establishment is P2 behind the model + fan-out behaviour.
 
-**Independent Test**: A node on `T` with no relay downstream and more injection candidates than `publish_degree` forms exactly the strategy-selected `Publisher` links via dial→accept on the heartbeat; the same node with relay downstream present forms none.
+**Independent Test**: A node on `T` with more candidates than `publish_degree` forms exactly the strategy-selected `Publisher` links via dial→accept on the heartbeat, whether or not it holds relay links.
 
 **Acceptance Scenarios**:
 
-1. **Given** a publisher on `T` holding no relay downstream, **When** the `Heartbeat` dial tick runs, **Then** the node dials the strategy-selected publishing targets and, on acceptance, holds `Out`/`Publisher` links — selected by `publish_degree`, independent of `relay_degree`.
+1. **Given** a publisher on `T`, **When** the `Heartbeat` dial tick runs, **Then** the node dials the strategy-selected initiation targets and, on acceptance, holds `Out`/`Publisher` links — selected by `publish_degree`, independent of `relay_degree` and of any relay-side state.
 2. **Given** a target whose acceptance strategy admits the publish-intent request, **When** the dial arrives, **Then** the target records an `In`/`Publisher` link and replies `Accepted` (same handshake shape as relay).
-3. **Given** a publisher on `T` that **does** hold relay downstream, **When** the dial tick runs, **Then** no publishing links are formed (the relay path already carries its published messages).
-4. **Given** a publisher holding no relay downstream on `T`, **When** it publishes, **Then** its published message still reaches the overlay via the publishing links.
+3. **Given** a publisher holding no relay links at all on `T`, **When** it publishes, **Then** its published message still reaches the overlay via the initiation links.
 
 ### Edge Cases
 
@@ -120,7 +128,8 @@ A publishing node forms `Publisher` links to injection targets **through the sam
 - **FR-008a**: The acceptance seam MUST be **role-aware**: an inbound request carries its intended link role, and the admission policy per role is an interchangeable strategy. The v1 default publishing-acceptance baseline mirrors the relay one (publish-domain predicate + a cap derived from `publish_degree`); accepted publishing links MUST NOT count against the relay downstream cap `OC`.
 - **FR-009**: Publishing-target selection MUST be parameterised by its own **`publish_degree`**, independent of the relay degree, and the publish edge predicate MUST use a distinct domain separator so the publish edge set is an independent hash draw from the relay edge set. A node MUST be able to hold `Publisher` links even when it holds no relay links at all on the topic.
 - **FR-009a**: The existing `target_degree` parameter MUST be renamed **`relay_degree`** (config, CLI, and seam parameters), making the degree pair symmetric (`relay_degree` / `publish_degree`); the rename ships with the behaviour-preserving migration.
-- **FR-009b**: Publishing dials MUST fire on the same `Heartbeat` dial tick that fires relay upstream dials (no new event, no dial-on-publish), and MUST fire **only when the node holds no relay downstream on the topic** — the M3 trigger: a node that was not selected as any peer's upstream forms publishing links so its published messages have a path into the overlay.
+- **FR-009b**: Publishing dials MUST fire on the same `Heartbeat` dial tick that fires relay upstream dials (no new event, no dial-on-publish), **unconditionally** — the node's standing initiation links exist regardless of its relay-side links (`m3/README.md`; the earlier trigger clause is superseded, Clarifications session "model-family alignment").
+- **FR-013**: The fan-out seam MUST be a selectable strategy kind — `forward-to-all` (default: relay downstream for every message ∪ active initiation targets for a local origin) and `role-scoped` (the strict M3 partition) — reading the cell-structured link store, so dissemination models are configurations rather than code changes (ADR 0034).
 - **FR-010**: Publishing-link establishment MUST NOT reintroduce the pre-`Synced` fail-open admission race; inbound link creation stays gated on readiness (ADR 0031).
 - **FR-011**: Existing content-hash dedup MUST continue to prevent a subscriber that is reachable over both a publishing and a relay link from processing the same published message twice.
 - **FR-012**: The migration MUST be behaviour-preserving for existing configurations: with no `Publisher` links configured, observable dissemination, acceptance, and rejection behaviour MUST match the pre-feature node for identical inputs.
@@ -138,7 +147,7 @@ A publishing node forms `Publisher` links to injection targets **through the sam
 
 - **SC-001**: With no publishing links configured, the delivery snapshot for a fixed genesis + membership + interval is identical to the pre-feature node across the existing test topologies (behaviour-preserving migration).
 - **SC-002**: For a node with one publishing and one relay downstream-direction link on a topic, a published message reaches both peers and a relayed message reaches only the relay peer — in 100% of runs (deterministic).
-- **SC-003**: A node with zero relay downstream on a topic (not selected as any peer's upstream) successfully injects its published message into the overlay via publishing links; a node with relay downstream present forms no publishing links.
+- **SC-003**: A publisher successfully injects its published message into the overlay via its standing initiation links, established unconditionally — including when it holds zero relay links on the topic.
 - **SC-004**: Publishing-link count is controllable independently of the relay degree: sweeping `relay_degree` does not change the publishing set, and sweeping `publish_degree` does not change the relay set.
 - **SC-005**: No message is delivered to a subscriber twice when it is reachable via both a publishing and a relay link.
 
