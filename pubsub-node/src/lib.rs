@@ -85,11 +85,11 @@ pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge};
 pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
 pub use strategies::view::NodeView;
 pub use subscription_registry::{
-    InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
-    SubscriptionRegistryControl, SubscriptionRegistryError,
+    InMemorySubscriptionRegistry, MembershipEvent, MembershipSnapshot, MembershipWatch,
+    SubscriptionRegistry, SubscriptionRegistryControl, SubscriptionRegistryError,
 };
 pub use topic::{TopicId, TopicIdError};
 pub use topic_registry::{
     InMemoryTopicRegistry, TopicRegistry, TopicRegistryControl, TopicRegistryError,
-    TopicRegistryEvent, TopicRegistryWatch,
+    TopicRegistryEvent, TopicRegistryWatch, TopicSnapshot,
 };

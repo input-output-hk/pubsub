@@ -26,7 +26,7 @@ use crate::topic::TopicId;
 /// compute the *same* `B`. Deriving it locally from `|candidates_T|` holds only
 /// while both ends see the same candidate set — true in v1 (full candidate set,
 /// dials happen after `Synced`) but not guaranteed under registry-fold lag or a
-/// future discovery layer (the `H_v` caveat in [`crate::strategies::edge`]). A
+/// future discovery layer (the `H_v` caveat in `strategies::edge`). A
 /// pinned [`bucket_override`](Self::with_bucket_override) sidesteps this: both
 /// ends use the same configured `B`, so verification holds by construction.
 pub struct HashGatedConnection {
