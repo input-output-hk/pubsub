@@ -77,7 +77,7 @@ Every `ConnectionAction` variant gains `role: LinkRole`. `signed_bytes` layout (
 |---|---|---|---|
 | Link selection | `expected_links(&NodeView) -> BTreeSet<(PeerId, TopicId)>` | `none`, `connect-to-all`, `hash-gated` (`HashGatedSelection { role, … }`) | relay (default `connect-to-all`), publish (default `none`) |
 | Acceptance | `admit(emitter, topic, &NodeView) -> Admission` | four baselines, role-instantiated (`AcceptanceParams { role, degree, … }`) | relay, publish (both default `accept-from-all`) |
-| Fan-out | `targets(topic, &LinkStore, origin, exclude)` — the **model knob** | `forward-to-all` (default; union), `role-scoped` (M3 partition) | one |
+| Fan-out | `targets(topic, &LinkStore, origin, exclude)` — the **model knob** | `forward-to-all` (default; **the M3 semantics**), `role-scoped` (strict-partition experiment variant) | one |
 
 Params (`strategies/config.rs`): `SelectionParams { self_id, role, degree, bucket_count }`, `AcceptanceParams { self_id, role, degree, bucket_count, cap_buffer }` — `role` picks the hash domain (`edge/v1` vs `publish-edge/v1`) and the degree-flag names in errors. Standing initiation links select **unconditionally** (`m3/README.md`; the trigger of the earlier draft is superseded — ADR 0034).
 

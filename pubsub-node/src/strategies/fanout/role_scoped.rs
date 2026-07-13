@@ -1,4 +1,4 @@
-//! The M3 partition fan-out policy: [`RoleScopedFanout`].
+//! The strict-partition fan-out variant: [`RoleScopedFanout`].
 
 use super::FanoutStrategy;
 use crate::connection_state::{LinkState, LinkStore};
@@ -6,19 +6,20 @@ use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
 
-/// The strict M3 partition (ADR 0034): a locally-published message goes over
+/// The strict role partition — an **experimental variant, not the M3
+/// semantics** (ADR 0034 as amended): a locally-published message goes over
 /// the node's **standing initiation links only** (`Active` publish-out cell);
 /// a relayed message goes over the **relay downstream only** (relay-in cell,
 /// minus the split-horizon exclusion). Neither role ever carries the other's
 /// traffic — the publisher's relay downstream receive its publications through
 /// the flood from the initiation targets, not directly.
 ///
-/// This is the `m3/README.md` link semantics taken strictly ("initiation
-/// links carry only their owner's own publications — they are never part of
-/// the relay graph"); [`ForwardToAll`](super::ForwardToAll) is the union
-/// reading in which a publisher also serves its own message to its
-/// requesters. The experiments cross-validate both against the model's
-/// coverage laws (analysis A8).
+/// M3 itself is [`ForwardToAll`](super::ForwardToAll): its forwarders relay
+/// *every* held message — own publications included — to their requesters,
+/// while initiation links stay owner-exclusive. This variant removes the
+/// publisher→requester direct serving, isolating the initiation links'
+/// marginal contribution to coverage — an experiment lever, prescribed by no
+/// published model (analysis A10).
 ///
 /// Caution: on a node with **no** initiation links configured, a local
 /// publish selects **no targets** — the partition makes `--publish-strategy
@@ -86,16 +87,16 @@ mod tests {
         ])
     }
 
-    // ADR 0034 / M3 partition: a local publication goes over initiation links
-    // ONLY — the relay downstream is excluded.
+    // ADR 0034 strict-partition variant: a local publication goes over
+    // initiation links ONLY — the relay downstream is excluded.
     #[test]
     fn local_origin_targets_initiation_links_only() {
         let targets = RoleScopedFanout.targets(&topic("t1"), &store(), &Origin::Local, None);
         assert_eq!(sorted(targets), vec![peer("b")], "initiation links only");
     }
 
-    // ADR 0034 / M3 partition: a relayed message goes over the relay
-    // downstream ONLY — initiation links never relay.
+    // ADR 0034 strict-partition variant: a relayed message goes over the
+    // relay downstream ONLY — initiation links never relay.
     #[test]
     fn peer_origin_targets_relay_downstream_only() {
         let targets = RoleScopedFanout.targets(

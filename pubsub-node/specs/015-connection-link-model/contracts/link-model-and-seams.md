@@ -33,7 +33,7 @@ pub trait FanoutStrategy: Send + Sync {              // origin-aware — the dis
 }
 ```
 
-`NodeView` carries `links: &LinkStore` — the **cell-structured** store (`relay_out()` / `relay_in()` / `publish_out()` / `publish_in()`, each an ordered `LinkCell`) — so a fan-out strategy selects or unions exactly the cells its model prescribes; the role-scoped `inbound_scan(role, emitter, topic)` serves the acceptance prelude. Selection kinds (`LinkSelectionKind`): `none` | `connect-to-all` | `hash-gated` — one family for both slots (`HashGatedSelection { role, self_id, degree, bucket_override }`; standing initiation links select **unconditionally**, `m3/README.md`). Fan-out kinds (`FanoutStrategyKind`): `forward-to-all` (default; union) | `role-scoped` (strict M3 partition).
+`NodeView` carries `links: &LinkStore` — the **cell-structured** store (`relay_out()` / `relay_in()` / `publish_out()` / `publish_in()`, each an ordered `LinkCell`) — so a fan-out strategy selects or unions exactly the cells its model prescribes; the role-scoped `inbound_scan(role, emitter, topic)` serves the acceptance prelude. Selection kinds (`LinkSelectionKind`): `none` | `connect-to-all` | `hash-gated` — one family for both slots (`HashGatedSelection { role, self_id, degree, bucket_override }`; standing initiation links select **unconditionally**, `m3/README.md`). Fan-out kinds (`FanoutStrategyKind`): `forward-to-all` (default; **the M3 semantics** — relay links carry every held message, initiation links owner-exclusive) | `role-scoped` (strict-partition experiment variant, no published model).
 
 ## Two-phase construction (ADR 0028, extended by 0034)
 

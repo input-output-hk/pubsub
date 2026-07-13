@@ -92,10 +92,11 @@ struct Args {
     publish_degree: Option<usize>,
 
     /// Fan-out strategy (case-insensitive) — the dissemination-model knob:
-    /// `forward-to-all` (the default: relay downstream for every message, plus
-    /// the initiation targets for the node's own publications) or
-    /// `role-scoped` (the strict M3 partition: own publications over
-    /// initiation links ONLY, relayed traffic over relay links only).
+    /// `forward-to-all` (the default, the M3 semantics: relay downstream for
+    /// every message including the node's own publications, plus the
+    /// initiation targets for its own publications) or `role-scoped` (a
+    /// strict-partition experiment variant: own publications over initiation
+    /// links ONLY, relayed traffic over relay links only).
     #[arg(long, default_value = "forward-to-all")]
     fanout_strategy: FanoutStrategyKind,
 

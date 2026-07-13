@@ -9,12 +9,14 @@ use super::{FanoutStrategy, ForwardToAll, RoleScopedFanout};
 /// A selectable fan-out strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FanoutStrategyKind {
-    /// Union: relay downstream for every message, plus the initiation targets
-    /// for a local origin ([`ForwardToAll`](super::ForwardToAll)) — the default.
+    /// The M3 semantics ([`ForwardToAll`](super::ForwardToAll)) — the default:
+    /// relay downstream for every message (own publications included), plus
+    /// the initiation targets for a local origin.
     ForwardToAll,
-    /// The strict M3 partition: local publications over initiation links only,
-    /// relayed traffic over relay links only
-    /// ([`RoleScopedFanout`](super::RoleScopedFanout)).
+    /// The strict-partition experimental variant
+    /// ([`RoleScopedFanout`](super::RoleScopedFanout)): local publications
+    /// over initiation links only, relayed traffic over relay links only.
+    /// Prescribed by no published model — an experiment lever.
     RoleScoped,
 }
 

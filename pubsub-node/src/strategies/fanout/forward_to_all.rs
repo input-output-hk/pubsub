@@ -9,14 +9,17 @@ use crate::topic::TopicId;
 /// The v1 fan-out policy: forward to **every** appropriate link on the topic,
 /// minus the split-horizon exclusion (ADR 0021, origin-aware since ADR 0033).
 ///
-/// Returns each peer holding a `Relay`/`In` link on `topic` (the relay fan-out
-/// destinations — for **any** origin), plus, when `origin` is
-/// [`Origin::Local`], each peer behind an **`Active`** `Publisher`/`Out` link
-/// (the node's publishing-link injection targets; a pending `AwaitingAccept`
-/// publish dial is not a target). A `Publisher` link never carries an
-/// [`Origin::Peer`] message — publishing links do not relay. The split-horizon
-/// `exclude` applies regardless of role. This maintains the full per-topic
-/// fan-out; degree limits and sampling are deferred to later strategies.
+/// **This is the M3 dissemination semantics**
+/// (`formal_spec/hybrid_dissemination/models/m3/README.md`): relay links carry
+/// every message the node holds — a forwarder "relays every message it holds
+/// to its requesters", **including its own publications** — while initiation
+/// links "carry only their owner's own publications". Concretely: each peer
+/// holding a `Relay`/`In` link on `topic` is a target for **any** origin,
+/// plus, when `origin` is [`Origin::Local`], each peer behind an **`Active`**
+/// `Publisher`/`Out` link (a pending `AwaitingAccept` publish dial is not a
+/// target). A `Publisher` link never carries an [`Origin::Peer`] message. The
+/// split-horizon `exclude` applies regardless of role. Degree limits and
+/// sampling are deferred to later strategies.
 /// Targets are deduplicated **per peer**: a peer that is both a relay
 /// downstream and an initiation target of a local publish receives one send
 /// (the receiver's content-hash dedup would absorb a second copy, but the

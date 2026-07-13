@@ -40,12 +40,12 @@ The publish accept cap is `⌈publish_degree + c·√publish_degree⌉`, counted
 
 ## What flows where — the fan-out kind is the model knob
 
-Default `--fanout-strategy forward-to-all`:
+Default `--fanout-strategy forward-to-all` — **the M3 semantics** (`m3/README.md`):
 
-- A message the node **publishes** (`Node::publish`) goes to every relay downstream **and** every active outbound initiation link.
-- A message the node **relays** goes to relay downstream only — initiation links never carry it.
+- A message the node **publishes** (`Node::publish`) goes to every relay downstream **and** every active outbound initiation link (a forwarder relays every message it holds, own publications included).
+- A message the node **relays** goes to relay downstream only — initiation links never carry it (owner-exclusive).
 
-`--fanout-strategy role-scoped` (the strict M3 partition): a local publish goes over initiation links **only** (the relay downstream receive it via the flood); relayed traffic over relay links only. Caution: with `--publish-strategy none` this makes the node a **mute publisher**.
+`--fanout-strategy role-scoped` (a strict-partition experiment variant, prescribed by no published model): a local publish goes over initiation links **only** (the relay downstream receive it via the flood); relayed traffic over relay links only. Caution: with `--publish-strategy none` this makes the node a **mute publisher**.
 
 Either way, inbound initiation links admit **only the link peer's own published messages**; anything else is dropped (`relay_over_publish_link`).
 
