@@ -94,3 +94,13 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - [X] T030 Cell-structured `LinkStore` (`relay_out`/`relay_in`/`publish_out`/`publish_in`) replacing the quad-keyed map; `NodeView.links: &LinkStore`
 - [X] T031 Fan-out kinds: `forward-to-all` (default, union) + `role-scoped` (strict M3 partition, mute-publisher caution documented); `--fanout-strategy` CLI flag; `NodeStrategies` gains the fanout slot
 - [X] T032 Test/docs sweep: trigger tests retired, selection/fan-out kind tests added, integration test re-premised on unconditional initiation links; spec/contract/data-model/quickstart/analysis (A8) updated
+
+## Phase 8: M4/M5 in-feature (maintainer-directed, ADR 0035)
+
+- [X] T033 ADR 0035 (symmetric edges + publish-in admission) in `pubsub-node/docs/decisions/0035-symmetric-edges-and-publish-in-admission.md`
+- [X] T034 `edge::is_valid_edge_sym` — unordered-pair hashing under per-role `…-sym/v1` domains; symmetry, domain-separation, and density tests
+- [X] T035 `symmetric` mode on `HashGatedSelection` + hash-gated acceptance kinds, wired by one `--symmetric-edges` flag through both relay params; reciprocity test
+- [X] T036 `flood-all` fan-out kind (relay-in ∪ publish-out, any origin, minus arrival, per-peer dedup) + unit tests
+- [X] T037 `PublishInAdmission { OwnerOnly, AnyVerified }` on `NodeState`/`Node::new` + `--publish-in-admission`; gate + severance state tests
+- [X] T038 Integration `tests/model_family.rs`: M4 reciprocity + full-coverage flood (predicate-connected 12-node graph); M5 foreign-publisher relay a→b→c over standing links only
+- [X] T039 Docs: spec session/FR-013..015, contract, data-model, quickstart model recipes, CLAUDE.md, analysis A11

@@ -25,11 +25,26 @@ const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 /// sweeping either seam's degree leaves the other's selection untouched.
 const PUBLISH_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/publish-edge/v1";
 
+/// Domain-separation tags for the **symmetric** edge predicates (feature 015,
+/// ADR 0035 — the M4 bidirectional mode). Distinct tags make the symmetric
+/// draws independent of the directional ones for every pair, including pairs
+/// whose directional preimage happens to already be in canonical order.
+const EDGE_SYM_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge-sym/v1";
+const PUBLISH_EDGE_SYM_DOMAIN: &[u8] = b"pubsub/bucketed-pull/publish-edge-sym/v1";
+
 /// The domain-separation tag for a link role's edge predicate.
 const fn edge_domain(role: LinkRole) -> &'static [u8] {
     match role {
         LinkRole::Relay => EDGE_DOMAIN,
         LinkRole::Publisher => PUBLISH_EDGE_DOMAIN,
+    }
+}
+
+/// The domain-separation tag for a link role's **symmetric** edge predicate.
+const fn edge_sym_domain(role: LinkRole) -> &'static [u8] {
+    match role {
+        LinkRole::Relay => EDGE_SYM_DOMAIN,
+        LinkRole::Publisher => PUBLISH_EDGE_SYM_DOMAIN,
     }
 }
 
@@ -147,6 +162,50 @@ pub fn is_valid_edge_for(
     value % (buckets as u64) == 0
 }
 
+/// The **symmetric** edge predicate (feature 015, ADR 0035 — the M4
+/// bidirectional mode): the edge between `a` and `b` on `topic` under the
+/// epoch `nonce` is valid iff the hash of the **unordered** pair passes the
+/// bucket test — `is_valid_edge_sym(…, a, b, …) == is_valid_edge_sym(…, b, a, …)`
+/// by construction (the two keys are fed in canonical byte order). Both ends
+/// therefore compute the same expected edge set, so each dials the other and
+/// the link materialises as the Out+In pair on both sides (research R10 —
+/// bidirectionality is emergent, no stored `Both`).
+///
+/// Same verifiability, purity, and `buckets <= 1` connect-to-all floor as the
+/// directional predicate; drawn from its own domain tag, independent of the
+/// directional draws.
+#[must_use]
+pub fn is_valid_edge_sym(
+    role: LinkRole,
+    nonce: u64,
+    topic: &TopicId,
+    a: &PeerId,
+    b: &PeerId,
+    buckets: usize,
+) -> bool {
+    if buckets <= 1 {
+        return true;
+    }
+
+    // Canonical pair order: lower raw key bytes first, so both ends build the
+    // identical preimage regardless of who evaluates.
+    let (lo, hi) = if a.as_public_key().as_bytes() <= b.as_public_key().as_bytes() {
+        (a, b)
+    } else {
+        (b, a)
+    };
+    let mut preimage = Vec::new();
+    push_len_prefixed(&mut preimage, edge_sym_domain(role));
+    preimage.extend_from_slice(&nonce.to_le_bytes());
+    push_len_prefixed(&mut preimage, topic.as_str().as_bytes());
+    push_len_prefixed(&mut preimage, lo.as_public_key().as_bytes());
+    push_len_prefixed(&mut preimage, hi.as_public_key().as_bytes());
+    let digest: [u8; 32] = Sha256::digest(&preimage).into();
+
+    let value = u64::from_le_bytes(digest[..8].try_into().expect("8 bytes"));
+    value % (buckets as u64) == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::{accept_cap, bucket_count, is_valid_edge};
@@ -200,6 +259,56 @@ mod tests {
         assert!(
             (frac - expected).abs() < 0.03,
             "edge density {frac:.3} deviates from 1/B = {expected:.3}",
+        );
+    }
+
+    // ADR 0035: the symmetric predicate is order-independent and an
+    // independent draw from the directional one.
+    #[test]
+    fn symmetric_predicate_is_symmetric_and_domain_separated() {
+        use super::is_valid_edge_sym;
+        use crate::connection_state::LinkRole;
+        let t = topic("t1");
+        for nonce in 0..64u64 {
+            assert_eq!(
+                is_valid_edge_sym(LinkRole::Relay, nonce, &t, &peer("a"), &peer("b"), 4),
+                is_valid_edge_sym(LinkRole::Relay, nonce, &t, &peer("b"), &peer("a"), 4),
+                "symmetric in its peers",
+            );
+        }
+        // Independent draw: over a sweep, symmetric and directional must
+        // disagree at least once.
+        let differs = (0..200u64).any(|nonce| {
+            is_valid_edge_sym(LinkRole::Relay, nonce, &t, &peer("a"), &peer("b"), 4)
+                != is_valid_edge(nonce, &t, &peer("a"), &peer("b"), 4)
+        });
+        assert!(differs, "symmetric draw is domain-separated");
+    }
+
+    // ADR 0035: symmetric edge density also approximates 1/B.
+    #[test]
+    #[allow(clippy::cast_precision_loss)]
+    fn symmetric_edge_density_approximates_one_over_buckets() {
+        use super::is_valid_edge_sym;
+        use crate::connection_state::LinkRole;
+        let buckets = 8usize;
+        let sweeps = 4000u64;
+        let hits = (0..sweeps)
+            .filter(|nonce| {
+                is_valid_edge_sym(
+                    LinkRole::Relay,
+                    *nonce,
+                    &topic("t1"),
+                    &peer("a"),
+                    &peer("b"),
+                    buckets,
+                )
+            })
+            .count();
+        let frac = hits as f64 / sweeps as f64;
+        assert!(
+            (frac - 1.0 / buckets as f64).abs() < 0.03,
+            "symmetric edge density {frac:.3} deviates from 1/B",
         );
     }
 }

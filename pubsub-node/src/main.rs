@@ -5,8 +5,8 @@ use clap::Parser;
 use pubsub_node::{
     load_node_config, AcceptanceParams, AcceptanceStrategyKind, FanoutStrategyKind,
     InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkRole,
-    LinkSelectionKind, MockCryptoScheme, Node, NodeStrategies, PeerId, SelectionParams, Signer,
-    TestVerifier, Verifier,
+    LinkSelectionKind, MockCryptoScheme, Node, NodeStrategies, PeerId, PublishInAdmission,
+    SelectionParams, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -100,6 +100,22 @@ struct Args {
     #[arg(long, default_value = "forward-to-all")]
     fanout_strategy: FanoutStrategyKind,
 
+    /// Evaluate the SYMMETRIC edge predicate on the relay seams (selection AND
+    /// acceptance together, so the two cannot disagree) — the M4 bidirectional
+    /// mode: both ends compute the same expected edge set, dial each other,
+    /// and every link materialises as an Out+In pair. Applies to the
+    /// `hash-gated` kinds; ignored by `none`/`connect-to-all`/`accept-from-all`.
+    #[arg(long)]
+    symmetric_edges: bool,
+
+    /// Receive-gate admission for inbound initiation links (case-insensitive):
+    /// `owner-only` (the default, the M3 exclusivity — admit only the link
+    /// peer's own publications) or `any-verified` (the M5 semantics — standing
+    /// links carry every held message; pair with `--fanout-strategy flood-all`
+    /// network-wide).
+    #[arg(long, default_value = "owner-only")]
+    publish_in_admission: PublishInAdmission,
+
     /// Inbound acceptance strategy for publish-intent requests
     /// (case-insensitive), the same four baselines as --acceptance-strategy,
     /// instantiated with --publish-degree and counted against inbound
@@ -174,6 +190,7 @@ async fn main() {
             role: LinkRole::Relay,
             degree: args.relay_degree,
             bucket_count: args.bucket_count,
+            symmetric: args.symmetric_edges,
         },
         &AcceptanceParams {
             self_id: args.self_id.clone(),
@@ -181,12 +198,14 @@ async fn main() {
             degree: args.relay_degree,
             bucket_count: args.bucket_count,
             cap_buffer: args.cap_buffer,
+            symmetric: args.symmetric_edges,
         },
         &SelectionParams {
             self_id: args.self_id.clone(),
             role: LinkRole::Publisher,
             degree: args.publish_degree,
             bucket_count: args.bucket_count,
+            symmetric: false,
         },
         &AcceptanceParams {
             self_id: args.self_id.clone(),
@@ -194,6 +213,7 @@ async fn main() {
             degree: args.publish_degree,
             bucket_count: args.bucket_count,
             cap_buffer: args.cap_buffer,
+            symmetric: false,
         },
     )
     .unwrap_or_else(|e| {
@@ -215,6 +235,7 @@ async fn main() {
         strategies.relay_acceptance,
         strategies.publish_selection,
         strategies.publish_acceptance,
+        args.publish_in_admission,
     )
     .await
     .unwrap_or_else(|e| {

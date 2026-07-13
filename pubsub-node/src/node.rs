@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
-use crate::connection_state::{LinkDirection, LinkRole, LinkState};
+use crate::connection_state::{LinkDirection, LinkRole, LinkState, PublishInAdmission};
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
@@ -122,7 +122,10 @@ impl Node {
     /// tick after the relay diff, and `publish_acceptance_strategy` its
     /// inbound mirror for publish-intent requests (v1:
     /// `AcceptFromAllCandidates`), the role-dispatched second acceptance slot
-    /// (feature 015, ADR 0033/0034).
+    /// (feature 015, ADR 0033/0034). `publish_in_admission` is the receive-gate
+    /// policy for inbound initiation links — `OwnerOnly` (M3, the default) or
+    /// `AnyVerified` (M5) — the receive-side half of the dissemination-model
+    /// knob (ADR 0035).
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -152,6 +155,7 @@ impl Node {
         acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
         publish_selection: Arc<dyn LinkSelectionStrategy>,
         publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+        publish_in_admission: PublishInAdmission,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
         // leaks nothing — no handle, no tasks (FR-024).
@@ -182,6 +186,7 @@ impl Node {
             acceptance_strategy,
             publish_selection,
             publish_acceptance_strategy,
+            publish_in_admission,
         )));
         let state_for_task = Arc::clone(&state);
 

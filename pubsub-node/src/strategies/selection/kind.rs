@@ -59,7 +59,8 @@ impl LinkSelectionKind {
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedSelection::new(params.role, params.self_id.clone(), degree)
-                        .with_bucket_override(bucket_override),
+                        .with_bucket_override(bucket_override)
+                        .with_symmetric(params.symmetric),
                 ))
             }
         }
@@ -102,6 +103,7 @@ mod tests {
             role,
             degree,
             bucket_count: None,
+            symmetric: false,
         }
     }
 

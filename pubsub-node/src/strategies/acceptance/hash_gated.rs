@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge_for, resolve_buckets};
+use crate::strategies::edge::{is_valid_edge_for, is_valid_edge_sym, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -24,6 +24,7 @@ pub struct HashGatedAcceptance {
     degree: usize,
     bucket_override: Option<usize>,
     role: LinkRole,
+    symmetric: bool,
 }
 
 impl HashGatedAcceptance {
@@ -40,7 +41,17 @@ impl HashGatedAcceptance {
             degree,
             bucket_override: None,
             role: LinkRole::Relay,
+            symmetric: false,
         }
+    }
+
+    /// Verify under the **symmetric** edge predicate (ADR 0035 — the M4
+    /// bidirectional mode). Must match the dialers' mode (`--symmetric-edges`
+    /// wires both seams).
+    #[must_use]
+    pub fn with_symmetric(mut self, symmetric: bool) -> Self {
+        self.symmetric = symmetric;
+        self
     }
 
     /// Retarget the policy at a link role's acceptance slot: the prelude scan
@@ -73,14 +84,26 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // override removes the dependence.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.degree);
-        if is_valid_edge_for(
-            self.role,
-            view.epoch_nonce,
-            topic,
-            emitter,
-            &self.self_id,
-            buckets,
-        ) {
+        let valid = if self.symmetric {
+            is_valid_edge_sym(
+                self.role,
+                view.epoch_nonce,
+                topic,
+                emitter,
+                &self.self_id,
+                buckets,
+            )
+        } else {
+            is_valid_edge_for(
+                self.role,
+                view.epoch_nonce,
+                topic,
+                emitter,
+                &self.self_id,
+                buckets,
+            )
+        };
+        if valid {
             Admission::Accept
         } else {
             Admission::RejectIllegitimate

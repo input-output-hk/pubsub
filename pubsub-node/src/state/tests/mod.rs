@@ -82,6 +82,7 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     );
     for t in subscriptions {
         state

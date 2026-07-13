@@ -49,6 +49,35 @@ Default `--fanout-strategy forward-to-all` — **the M3 semantics** (`m3/README.
 
 Either way, inbound initiation links admit **only the link peer's own published messages**; anything else is dropped (`relay_over_publish_link`).
 
+## Model recipes (ADR 0035)
+
+All three target dissemination models are per-node configurations:
+
+```sh
+# M3 — pull relaying + standing initiation links (the defaults shown explicit)
+--connection-strategy hash-gated --relay-degree 8 \
+--publish-strategy hash-gated --publish-degree 3 \
+--acceptance-strategy hash-gated-bounded --publish-acceptance-strategy hash-gated-bounded \
+--fanout-strategy forward-to-all --publish-in-admission owner-only
+
+# M4 — bidirectional RF flooding: symmetric picks, no seeding
+--connection-strategy hash-gated --relay-degree 3 --symmetric-edges \
+--acceptance-strategy hash-gated --publish-strategy none \
+--fanout-strategy forward-to-all
+
+# M5 — directed k_in/k_out gossip: standing links carry everything
+--connection-strategy hash-gated --relay-degree 4        # k_in \
+--publish-strategy hash-gated --publish-degree 4          # k_out \
+--fanout-strategy flood-all --publish-in-admission any-verified
+```
+
+`--symmetric-edges` wires the relay selection **and** acceptance to the
+symmetric predicate together (a mismatch would silently drop every dial);
+each edge then materialises as an Out+In pair on both sides, so
+`forward-to-all` floods all incident links — M4 needs no fan-out kind of its
+own. `flood-all` and `any-verified` must be paired network-wide: the union
+sender needs its targets' gates open, and vice versa.
+
 ## Observing links
 
 ```rust

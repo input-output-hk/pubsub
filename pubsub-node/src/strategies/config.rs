@@ -37,6 +37,11 @@ pub struct SelectionParams {
     /// derived count on both ends of the slot's handshake, so the edge
     /// predicate is verifiable by construction. Must be `≥ 1` if supplied.
     pub bucket_count: Option<usize>,
+    /// Evaluate the **symmetric** edge predicate instead of the directional
+    /// one (ADR 0035 — the M4 bidirectional mode). Applies to the `hash-gated`
+    /// kind; one CLI flag wires selection and acceptance together so the two
+    /// seams cannot disagree.
+    pub symmetric: bool,
 }
 
 impl SelectionParams {
@@ -73,6 +78,9 @@ pub struct AcceptanceParams {
     pub bucket_count: Option<usize>,
     /// Accept-cap buffer `c` in `⌈degree + c·√degree⌉` (default 3).
     pub cap_buffer: usize,
+    /// Verify the **symmetric** edge predicate instead of the directional one
+    /// (ADR 0035) — must match the dialers' mode.
+    pub symmetric: bool,
 }
 
 impl AcceptanceParams {

@@ -77,6 +77,7 @@ impl AcceptanceStrategyKind {
                 Ok(Arc::new(
                     HashGatedAcceptance::new(params.self_id.clone(), degree)
                         .with_bucket_override(bucket_override)
+                        .with_symmetric(params.symmetric)
                         .for_role(params.role),
                 ))
             }
@@ -95,6 +96,7 @@ impl AcceptanceStrategyKind {
                         params.cap_buffer,
                     )
                     .with_bucket_override(bucket_override)
+                    .with_symmetric(params.symmetric)
                     .for_role(params.role),
                 ))
             }
@@ -137,6 +139,7 @@ mod tests {
             degree,
             bucket_count: None,
             cap_buffer: 3,
+            symmetric: false,
         }
     }
 

@@ -254,6 +254,7 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     );
     // Synced first (requests are gated on readiness) and before any membership,
     // so the readiness dial pass sees no candidates and pollutes no upstream.
@@ -301,6 +302,7 @@ fn rejected_dial_removes_pending_upstream() {
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     );
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));
@@ -363,6 +365,7 @@ fn publisher_state(targets: Vec<(&'static str, &'static str)>) -> NodeState {
         Arc::new(AcceptFromAllCandidates),
         Arc::new(PublishTo(targets)),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     );
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));
@@ -492,6 +495,7 @@ fn publish_cap_is_disjoint_from_relay_acceptance() {
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(BoundedAcceptance::new(1, 0).for_role(LinkRole::Publisher)),
+        PublishInAdmission::default(),
     );
     apply(&mut state, Event::Synced);
     apply(&mut state, reg_open("t1"));

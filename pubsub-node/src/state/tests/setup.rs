@@ -94,6 +94,7 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     );
     apply(&mut state, reg_open("t"));
     apply(&mut state, membership_joined("self", ["t"]));

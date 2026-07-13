@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use std::sync::Arc;
 
-use crate::connection_state::{LinkDirection, LinkRole, LinkState, LinkStore};
+use crate::connection_state::{LinkDirection, LinkRole, LinkState, LinkStore, PublishInAdmission};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
 use crate::message::{
@@ -110,6 +110,10 @@ pub(crate) struct NodeState {
     /// by the request's carried role and instantiated with publish parameters
     /// (ADR 0033).
     publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The receive-gate admission policy for inbound initiation links —
+    /// `OwnerOnly` (M3, the default) or `AnyVerified` (M5); the receive-side
+    /// half of the dissemination-model knob (ADR 0035).
+    publish_in_admission: PublishInAdmission,
     /// Content hashes of every message already accepted, keyed by
     /// `MessageHash::of(&plain)`. The duplicate-suppression set checked at the
     /// shared record point on both paths (after signature verification): an
@@ -143,6 +147,7 @@ impl NodeState {
         acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
         publish_selection: Arc<dyn LinkSelectionStrategy>,
         publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+        publish_in_admission: PublishInAdmission,
     ) -> Self {
         Self {
             self_id,
@@ -159,6 +164,7 @@ impl NodeState {
             acceptance_strategy,
             publish_selection,
             publish_acceptance_strategy,
+            publish_in_admission,
             seen: HashSet::new(),
             synced: false,
         }
@@ -1091,7 +1097,14 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         .links
         .get(&from, &topic, LinkRole::Publisher, LinkDirection::In)
         .is_some();
-    let publisher_bound = signed.plain.publisher_id.as_public_key() == from.as_public_key();
+    // Owner binding under the M3 policy; the M5 policy admits any payload the
+    // remaining checks pass (ADR 0035).
+    let publisher_bound = match state.publish_in_admission {
+        PublishInAdmission::OwnerOnly => {
+            signed.plain.publisher_id.as_public_key() == from.as_public_key()
+        }
+        PublishInAdmission::AnyVerified => true,
+    };
     if !relay_upstream {
         if publish_inbound && !publisher_bound {
             tracing::info!(

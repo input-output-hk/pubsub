@@ -4,7 +4,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{FanoutStrategy, ForwardToAll, RoleScopedFanout};
+use super::{FanoutStrategy, FloodAll, ForwardToAll, RoleScopedFanout};
 
 /// A selectable fan-out strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -18,6 +18,10 @@ pub enum FanoutStrategyKind {
     /// over initiation links only, relayed traffic over relay links only.
     /// Prescribed by no published model — an experiment lever.
     RoleScoped,
+    /// The M5 semantics ([`FloodAll`](super::FloodAll)): every held message —
+    /// any origin — over the relay downstream and the outbound standing links,
+    /// minus the arrival link. Pair with `--publish-in-admission any-verified`.
+    FloodAll,
 }
 
 impl FanoutStrategyKind {
@@ -27,6 +31,7 @@ impl FanoutStrategyKind {
         match self {
             Self::ForwardToAll => "forward-to-all",
             Self::RoleScoped => "role-scoped",
+            Self::FloodAll => "flood-all",
         }
     }
 
@@ -37,6 +42,7 @@ impl FanoutStrategyKind {
         match self {
             Self::ForwardToAll => Arc::new(ForwardToAll),
             Self::RoleScoped => Arc::new(RoleScopedFanout),
+            Self::FloodAll => Arc::new(FloodAll),
         }
     }
 }
@@ -44,7 +50,7 @@ impl FanoutStrategyKind {
 /// The error returned when a configuration string names no known fan-out
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown fanout strategy '{0}' (expected one of: forward-to-all, role-scoped)")]
+#[error("unknown fanout strategy '{0}' (expected one of: forward-to-all, role-scoped, flood-all)")]
 pub struct UnknownFanoutStrategy(pub String);
 
 impl FromStr for FanoutStrategyKind {
@@ -55,6 +61,7 @@ impl FromStr for FanoutStrategyKind {
         match s.to_ascii_lowercase().as_str() {
             "forward-to-all" => Ok(Self::ForwardToAll),
             "role-scoped" => Ok(Self::RoleScoped),
+            "flood-all" => Ok(Self::FloodAll),
             _ => Err(UnknownFanoutStrategy(s.to_string())),
         }
     }
@@ -70,6 +77,7 @@ mod tests {
         for kind in [
             FanoutStrategyKind::ForwardToAll,
             FanoutStrategyKind::RoleScoped,
+            FanoutStrategyKind::FloodAll,
         ] {
             assert_eq!(FanoutStrategyKind::from_str(kind.name()).unwrap(), kind);
         }

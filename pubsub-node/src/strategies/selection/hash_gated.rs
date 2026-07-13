@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::LinkSelectionStrategy;
 use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge_for, resolve_buckets};
+use crate::strategies::edge::{is_valid_edge_for, is_valid_edge_sym, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -38,6 +38,7 @@ pub struct HashGatedSelection {
     self_id: PeerId,
     degree: usize,
     bucket_override: Option<usize>,
+    symmetric: bool,
 }
 
 impl HashGatedSelection {
@@ -52,7 +53,19 @@ impl HashGatedSelection {
             self_id,
             degree,
             bucket_override: None,
+            symmetric: false,
         }
+    }
+
+    /// Select under the **symmetric** edge predicate (ADR 0035 — the M4
+    /// bidirectional mode): both ends compute the same expected edge set, so
+    /// each dials the other and every link materialises as the Out+In pair.
+    /// The acceptance seam must run the same mode (`--symmetric-edges` wires
+    /// both), or every dial is silently dropped as illegitimate.
+    #[must_use]
+    pub fn with_symmetric(mut self, symmetric: bool) -> Self {
+        self.symmetric = symmetric;
+        self
     }
 
     /// Pin the bucket count `B` for every topic instead of deriving it from
@@ -82,14 +95,26 @@ impl LinkSelectionStrategy for HashGatedSelection {
             };
             let buckets = resolve_buckets(self.bucket_override, peers.len(), self.degree);
             for candidate in peers {
-                if is_valid_edge_for(
-                    self.role,
-                    view.epoch_nonce,
-                    topic,
-                    &self.self_id,
-                    candidate,
-                    buckets,
-                ) {
+                let valid = if self.symmetric {
+                    is_valid_edge_sym(
+                        self.role,
+                        view.epoch_nonce,
+                        topic,
+                        &self.self_id,
+                        candidate,
+                        buckets,
+                    )
+                } else {
+                    is_valid_edge_for(
+                        self.role,
+                        view.epoch_nonce,
+                        topic,
+                        &self.self_id,
+                        candidate,
+                        buckets,
+                    )
+                };
+                if valid {
                     expected.insert((candidate.clone(), topic.clone()));
                 }
             }
@@ -196,5 +221,37 @@ mod tests {
             !with_downstream.is_empty(),
             "a 12-candidate topic at degree 3 selects some targets",
         );
+    }
+
+    // ADR 0035 / M4: under the symmetric mode, A's expected set contains B iff
+    // B's contains A — the pair emergence that makes every link bidirectional.
+    #[test]
+    fn symmetric_selection_is_reciprocal() {
+        let subs = subscriptions(&["t1"]);
+        let names = names(16);
+        let mut all: Vec<&str> = names.iter().map(String::as_str).collect();
+        all.push("self");
+        let cands_of_self = candidates(&[("t1", &all[..all.len() - 1])]);
+        let store = downstream(&[]);
+        let view_self = view_with_nonce(&subs, &cands_of_self, &store, 9);
+        let selected_by_self = HashGatedSelection::new(LinkRole::Relay, peer("self"), 4)
+            .with_symmetric(true)
+            .expected_links(&view_self);
+
+        for c in &names {
+            // c's candidate set: everyone except c (self included). Same size
+            // as self's, so the derived B agrees — the v1 full-view property.
+            let others: Vec<&str> = all.iter().copied().filter(|n| n != &c.as_str()).collect();
+            let cands_of_c = candidates(&[("t1", &others[..])]);
+            let view_c = view_with_nonce(&subs, &cands_of_c, &store, 9);
+            let selected_by_c = HashGatedSelection::new(LinkRole::Relay, peer(c), 4)
+                .with_symmetric(true)
+                .expected_links(&view_c);
+            assert_eq!(
+                selected_by_self.contains(&(peer(c), topic("t1"))),
+                selected_by_c.contains(&(peer("self"), topic("t1"))),
+                "reciprocity for {c}",
+            );
+        }
     }
 }

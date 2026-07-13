@@ -230,6 +230,50 @@ impl LinkStore {
     }
 }
 
+/// The receive-gate admission policy for inbound initiation links
+/// (`Publisher`/`In`) — the dissemination-model knob's receive-side half
+/// (feature 015, ADR 0035).
+///
+/// M3's initiation links carry only their owner's own publications, so its
+/// gate binds the message's publisher to the link peer
+/// ([`OwnerOnly`](PublishInAdmission::OwnerOnly), the default). M5's `k_out`
+/// links carry **every** held message, so its gate admits any payload whose
+/// remaining checks pass ([`AnyVerified`](PublishInAdmission::AnyVerified)).
+/// A node's
+/// policy must match what its dialers' fan-out sends over those links —
+/// `flood-all` senders pair with `any-verified` gates.
+///
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum PublishInAdmission {
+    /// Admit only the link peer's own publications (`publisher_id` = the link
+    /// peer) — the M3 owner-exclusivity, enforced on the receive side.
+    #[default]
+    OwnerOnly,
+    /// Admit any payload over the link (subject to the unchanged
+    /// subscription/registration/authorization/signature checks) — the M5
+    /// semantics, where outbound standing links relay everything.
+    AnyVerified,
+}
+
+/// The error returned when a configuration string names no known publish-in
+/// admission policy.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[error("unknown publish-in admission policy '{0}' (expected one of: owner-only, any-verified)")]
+pub struct UnknownPublishInAdmission(pub String);
+
+impl std::str::FromStr for PublishInAdmission {
+    type Err = UnknownPublishInAdmission;
+
+    /// Parse a policy name case-insensitively.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "owner-only" => Ok(Self::OwnerOnly),
+            "any-verified" => Ok(Self::AnyVerified),
+            _ => Err(UnknownPublishInAdmission(s.to_string())),
+        }
+    }
+}
+
 /// The establishment lifecycle of a link (the former `UpstreamState`).
 ///
 /// An `Out` entry is created by the node's own selection strategy on a dial

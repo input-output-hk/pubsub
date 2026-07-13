@@ -11,7 +11,7 @@ use common::{
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
     InMemorySubscriptionRegistry, InMemoryTopicRegistry, NoLinks, Node, NodeConfig, PeerId,
-    SubscriptionRegistryControl, TopicId,
+    PublishInAdmission, SubscriptionRegistryControl, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -46,6 +46,7 @@ async fn node_with_no_registry_entry_derives_empty_state() {
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     )
     .await
     .expect("construction succeeds even with no registry entry");

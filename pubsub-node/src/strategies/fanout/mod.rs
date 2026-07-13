@@ -23,10 +23,12 @@ use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
 
+mod flood_all;
 mod forward_to_all;
 mod kind;
 mod role_scoped;
 
+pub use flood_all::FloodAll;
 pub use forward_to_all::ForwardToAll;
 pub use kind::{FanoutStrategyKind, UnknownFanoutStrategy};
 pub use role_scoped::RoleScopedFanout;

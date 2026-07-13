@@ -193,3 +193,76 @@ fn duplicate_across_publish_and_relay_paths_is_recorded_once() {
         "content-hash dedup suppresses the second copy across roles",
     );
 }
+
+// ---- 015 / ADR 0035: the M5 receive-gate policy (any-verified) ------------
+
+fn state_with_any_verified(topics: Vec<TopicId>) -> NodeState {
+    let mut state = NodeState::new(
+        peer("self"),
+        topics.iter().cloned().collect(),
+        0, // genesis: the default initial epoch nonce
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        strategy(),
+        Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoLinks),
+        Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::AnyVerified,
+    );
+    for t in topics {
+        apply(
+            &mut state,
+            Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
+                topic: t,
+                publishers: BTreeSet::new(),
+            }),
+        );
+        // Subscription via the membership stream (registered-topics gate).
+    }
+    apply(&mut state, membership_joined("self", ["t1"]));
+    state
+}
+
+// ADR 0035 / M5: under any-verified, a FOREIGN-publisher payload delivered
+// over an inbound standing link is admitted and recorded — the k_out links
+// relay everything.
+#[test]
+fn any_verified_admits_foreign_publisher_over_publish_link() {
+    let mut state = state_with_any_verified(vec![topic("t1")]);
+    with_inbound_publish_link(&mut state, "p", "t1");
+
+    let Event::MessageReceived { message, .. } = payload_from("q", "t1", 1) else {
+        unreachable!("payload_from yields MessageReceived")
+    };
+    apply(
+        &mut state,
+        Event::MessageReceived {
+            from: peer("p"),
+            message,
+        },
+    );
+    let snap = state.received_snapshot();
+    assert_eq!(snap.len(), 1, "admitted under any-verified");
+    assert_eq!(snap[0].origin, Origin::Peer(peer("p")));
+}
+
+// ADR 0035: the relaxed gate does not relax severance — an invalidly-signed
+// payload over the standing link still severs it.
+#[test]
+fn any_verified_still_severs_on_invalid_signature() {
+    let mut state = state_with_any_verified(vec![topic("t1")]);
+    with_inbound_publish_link(&mut state, "p", "t1");
+
+    let effects = apply(&mut state, tampered_payload_from("p", "t1", 1));
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, Effect::Misbehaved { .. })),
+        "misbehaviour raised",
+    );
+    assert!(
+        state.links_snapshot().is_empty(),
+        "the admitting standing link is severed",
+    );
+}

@@ -12,9 +12,9 @@ use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, Event, ForwardToAll, InMemoryNetwork,
     InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkSelectionStrategy, LinkState, Message,
     MessageHash, MessagePayload, MockCryptoScheme, NoLinks, Node, NodeConfig, NodeView, Origin,
-    PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage,
-    Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
-    TopicRegistryControl, Verifier,
+    PeerEntry, PeerId, PlainMessage, PrivateKey, PublishInAdmission, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -201,6 +201,7 @@ pub async fn two_node_fixture_with_subscriptions(
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     )
     .await
     .expect("construct node A");
@@ -221,6 +222,7 @@ pub async fn two_node_fixture_with_subscriptions(
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     )
     .await
     .expect("construct node B");
@@ -330,6 +332,7 @@ pub async fn node_with_strategy(
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     )
     .await
     .expect("construct node");
@@ -382,6 +385,7 @@ pub async fn node_sharing(
         Arc::new(AcceptFromAllCandidates),
         Arc::new(NoLinks),
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     )
     .await
     .expect("construct node");

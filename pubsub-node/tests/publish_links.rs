@@ -15,8 +15,8 @@ use common::{alias_signer, ping, shared_test_verifier};
 use pubsub_node::{
     bucket_count, is_valid_edge_for, AcceptFromAllCandidates, HashGatedSelection, InMemoryNetwork,
     InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkDirection, LinkRole, LinkState,
-    Message, Node, NodeConfig, Origin, PeerId, SubscriptionRegistryControl, TopicId,
-    TopicRegistryControl,
+    Message, Node, NodeConfig, Origin, PeerId, PublishInAdmission, SubscriptionRegistryControl,
+    TopicId, TopicRegistryControl,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(2);
@@ -89,6 +89,7 @@ async fn build_node(
         Arc::new(AcceptFromAllCandidates),
         publish,
         Arc::new(AcceptFromAllCandidates),
+        PublishInAdmission::default(),
     )
     .await
     .expect("construct node")

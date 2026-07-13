@@ -57,7 +57,10 @@ mod topic;
 mod topic_registry;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
-pub use connection_state::{LinkCell, LinkDirection, LinkRole, LinkState, LinkStore};
+pub use connection_state::{
+    LinkCell, LinkDirection, LinkRole, LinkState, LinkStore, PublishInAdmission,
+    UnknownPublishInAdmission,
+};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
@@ -81,9 +84,12 @@ pub use strategies::config::{
     AcceptanceParams, NodeStrategies, NodeStrategiesBuilder, SelectionParams, StrategyConfigError,
 };
 
-pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_for};
+pub use strategies::edge::{
+    accept_cap, bucket_count, is_valid_edge, is_valid_edge_for, is_valid_edge_sym,
+};
 pub use strategies::fanout::{
-    FanoutStrategy, FanoutStrategyKind, ForwardToAll, RoleScopedFanout, UnknownFanoutStrategy,
+    FanoutStrategy, FanoutStrategyKind, FloodAll, ForwardToAll, RoleScopedFanout,
+    UnknownFanoutStrategy,
 };
 pub use strategies::selection::{
     ConnectToAllCandidates, HashGatedSelection, LinkSelectionKind, LinkSelectionStrategy, NoLinks,
