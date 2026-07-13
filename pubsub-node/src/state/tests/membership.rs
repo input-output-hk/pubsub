@@ -128,9 +128,24 @@ fn removed_cascades_to_subscriptions_candidates_and_connections() {
         &mut state,
         Event::MembershipUpdate(MembershipEvent::joined("b", ["weather"])),
     );
-    // Hold a connection in each role on weather.
+    // Hold a link in every cell on weather — both relay directions and both
+    // publish directions (the cascade must clear all four, ADR 0032/0034).
     with_active_upstream(&mut state, "b", "weather");
     with_downstream(&mut state, "c", "weather");
+    state.insert_link_for_test(
+        peer("d"),
+        topic("weather"),
+        LinkRole::Publisher,
+        LinkDirection::Out,
+        LinkState::Active,
+    );
+    state.insert_link_for_test(
+        peer("e"),
+        topic("weather"),
+        LinkRole::Publisher,
+        LinkDirection::In,
+        LinkState::Active,
+    );
     assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")]);
     assert_eq!(
         state.candidates_snapshot(&topic("weather")),
@@ -159,6 +174,10 @@ fn removed_cascades_to_subscriptions_candidates_and_connections() {
     assert!(
         !has_downstream(&state, "c", "weather"),
         "cascade: downstream cleared",
+    );
+    assert!(
+        state.links_snapshot().is_empty(),
+        "cascade: every cell cleared — publish links included",
     );
     assert!(
         !state.is_registered(&topic("weather")),

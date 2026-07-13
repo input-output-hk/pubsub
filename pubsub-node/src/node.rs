@@ -444,8 +444,10 @@ impl Node {
     }
 
     /// Return a snapshot of the node's full **link store** — one
-    /// `(peer, topic, role, direction, state)` tuple per held link, in key
-    /// order (feature 015, ADR 0032). [`upstream_connections`](Self::upstream_connections)
+    /// `(peer, topic, role, direction, state)` tuple per held link,
+    /// cell by cell (relay-out, relay-in, publish-out, publish-in), each cell
+    /// in key order (feature 015, ADR 0032/0034).
+    /// [`upstream_connections`](Self::upstream_connections)
     /// and [`downstream_connections`](Self::downstream_connections) are the
     /// relay-scoped views of the same store.
     #[must_use]

@@ -83,7 +83,7 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 ## Phase 6: Polish
 
 - [X] T024 `cargo fmt` + `cargo clippy --all-targets -- -D warnings` clean; quickstart claims verified against the binary
-- [ ] T025 Update `pubsub-node/CLAUDE.md` active-feature block for 015
+- [X] T025 Update `pubsub-node/CLAUDE.md` active-feature block for 015
 - [X] T026 `/speckit-analyze` pass recorded in `specs/015-connection-link-model/analysis.md`
 
 ## Phase 7: Model-family rework (post-review, ADR 0034)
