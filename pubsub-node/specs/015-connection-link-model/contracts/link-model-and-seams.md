@@ -16,8 +16,8 @@ pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)>;            // = 
 ## Seam signatures (after)
 
 ```rust
-pub trait ConnectionStrategy: Send + Sync {          // relay selection — shape unchanged
-    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
+pub trait ConnectionStrategy: Send + Sync {          // relay selection (renamed for role symmetry, analysis A7)
+    fn expected_relay(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
 }
 pub trait PublishStrategy: Send + Sync {             // NEW
     /// Publish targets per topic; empty unless the M3 trigger holds for the

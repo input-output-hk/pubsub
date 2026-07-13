@@ -28,6 +28,10 @@ The CLI's single `--bucket-count` pins `B` for the relay seams **and** `B_p` for
 
 The receive gate's publisher binding compares `PublisherId::as_public_key()` with `PeerId::as_public_key()` — deliberate: the binding is "the link peer's own key signed this message", and both newtypes expose the same underlying `PublicKey`. Type-level separation (PublisherId ≠ PeerId) is preserved everywhere else; the single comparison site is commented in `handle_dissemination`.
 
+### A7 — Role-symmetric dial-seam naming + shared selection core (Refinement, review follow-up)
+
+Review question: should the publish seam's method be `expected_downstream` to mirror `expected_upstream`? Resolved the opposite way — "downstream" already canonically means relay `In`-links (getters, `OC` cap, the M3 trigger's own phrasing), and publish targets carry only `Origin::Local` traffic, so the orientation word both collides and overstates. Instead the **relay** method was renamed to match the role-based convention: `ConnectionStrategy::expected_upstream` → **`expected_relay`**, pairing with `expected_publish` (the meeting's relaying-/publishing-links vocabulary; orientation stays derived per ADR 0032 — and `expected_relay` remains correct under 016's symmetric predicate where a relay link is no longer purely upstream). Alongside, the duplicated ~15-line selection loop in `HashGatedConnection`/`HashGatedPublish` was extracted into **`edge::hash_gated_selection(role, self_id, degree, bucket_override, view)`** — one derivation site (the `resolve_buckets` argument extended to the whole loop); policy differences (the M3 trigger) stay in the strategies. Tactical per Constitution III (local rewrite to reverse); recorded here, no ADR.
+
 ## Implementation-vs-artifact spot checks (Constitution: spec fidelity verified against code)
 
 - `lib.rs` exports match the contract's public-surface list (`LinkRole`, `LinkDirection`, `LinkState`, `Links`, `PublishStrategy`, `NoPublishLinks`, `HashGatedPublish`, `PublishStrategyKind`, `PublishParams`, `PublishAcceptanceParams`, `is_valid_edge_for`; `UpstreamState` absent) — verified by grep.

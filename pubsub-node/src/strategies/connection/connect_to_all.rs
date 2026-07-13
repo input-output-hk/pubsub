@@ -17,7 +17,7 @@ use crate::topic::TopicId;
 pub struct ConnectToAllCandidates;
 
 impl ConnectionStrategy for ConnectToAllCandidates {
-    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_relay(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
         for topic in view.subscriptions {
             if let Some(peers) = view.candidates.get(topic) {
@@ -44,7 +44,7 @@ mod tests {
         let subs = subscriptions(&["t1", "t2"]);
         let cands = candidates(&[("t1", &["a", "b"]), ("t2", &["c"])]);
         let down = Links::new();
-        let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
+        let expected = ConnectToAllCandidates.expected_relay(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
             BTreeSet::from([
@@ -62,7 +62,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a"]), ("t2", &["b"])]);
         let down = Links::new();
-        let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
+        let expected = ConnectToAllCandidates.expected_relay(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
@@ -73,11 +73,11 @@ mod tests {
         let empty_cands = BTreeMap::new();
         let down = Links::new();
         assert!(ConnectToAllCandidates
-            .expected_upstream(&view(&empty_subs, &empty_cands, &down))
+            .expected_relay(&view(&empty_subs, &empty_cands, &down))
             .is_empty());
         let subs = subscriptions(&["t1"]);
         assert!(ConnectToAllCandidates
-            .expected_upstream(&view(&subs, &empty_cands, &down))
+            .expected_relay(&view(&subs, &empty_cands, &down))
             .is_empty());
     }
 
@@ -88,7 +88,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]);
         let down = Links::new();
-        let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
+        let expected = ConnectToAllCandidates.expected_relay(&view(&subs, &cands, &down));
         assert!(!expected.contains(&(peer("self"), topic("t1"))));
         assert_eq!(expected.len(), 2);
     }

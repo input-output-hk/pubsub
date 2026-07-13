@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use super::ConnectionStrategy;
+use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, resolve_buckets};
+use crate::strategies::edge::hash_gated_selection;
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -65,24 +66,17 @@ impl HashGatedConnection {
 }
 
 impl ConnectionStrategy for HashGatedConnection {
-    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
-        let mut expected = BTreeSet::new();
-        for topic in view.subscriptions {
-            let Some(peers) = view.candidates.get(topic) else {
-                continue;
-            };
-            // Derive B from the local candidate count, unless pinned. The
-            // derived value is only verifiable while the acceptor sees the same
-            // count (the B-agreement assumption on the type); a pinned override
-            // removes that dependence.
-            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.relay_degree);
-            for candidate in peers {
-                if is_valid_edge(view.epoch_nonce, topic, &self.self_id, candidate, buckets) {
-                    expected.insert((candidate.clone(), topic.clone()));
-                }
-            }
-        }
-        expected
+    fn expected_relay(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+        // The shared selection core under the relay domain; B derivation and
+        // its verifiability caveats live once in `strategies::edge` (the
+        // B-agreement assumption on the type; a pinned override removes it).
+        hash_gated_selection(
+            LinkRole::Relay,
+            &self.self_id,
+            self.relay_degree,
+            self.bucket_override,
+            view,
+        )
     }
 }
 
@@ -106,8 +100,8 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b", "c"])]);
         let down = Links::new();
-        let expected = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let expected =
+            HashGatedConnection::new(peer("self"), 8).expected_relay(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
             BTreeSet::from([
@@ -129,8 +123,8 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let down = Links::new();
         let policy = HashGatedConnection::new(peer("self"), 8);
-        let one = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &refs)]), &down));
-        let two = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &rev)]), &down));
+        let one = policy.expected_relay(&view(&subs, &candidates(&[("t1", &refs)]), &down));
+        let two = policy.expected_relay(&view(&subs, &candidates(&[("t1", &rev)]), &down));
         assert_eq!(one, two, "selection must not depend on iteration order");
     }
 
@@ -142,8 +136,8 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
         let down = Links::new();
-        let expected = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let expected =
+            HashGatedConnection::new(peer("self"), 8).expected_relay(&view(&subs, &cands, &down));
         // 80 candidates, B = round(80/8) = 10 ⇒ expected ≈ 8. Lenient bound.
         assert!(
             (3..=18).contains(&expected.len()),
@@ -161,9 +155,9 @@ mod tests {
         let cands = candidates(&[("t1", &refs)]);
         let down = Links::new();
         let by_x =
-            HashGatedConnection::new(peer("x"), 8).expected_upstream(&view(&subs, &cands, &down));
+            HashGatedConnection::new(peer("x"), 8).expected_relay(&view(&subs, &cands, &down));
         let by_y =
-            HashGatedConnection::new(peer("y"), 8).expected_upstream(&view(&subs, &cands, &down));
+            HashGatedConnection::new(peer("y"), 8).expected_relay(&view(&subs, &cands, &down));
         assert_ne!(by_x, by_y, "per-node derivation should diverge");
     }
 
@@ -173,8 +167,8 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]);
         let down = Links::new();
-        let expected = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let expected =
+            HashGatedConnection::new(peer("self"), 8).expected_relay(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
@@ -190,7 +184,7 @@ mod tests {
         // Derived B on 80 candidates ⇒ ~8 selected; pinned B=1 ⇒ all 80.
         let pinned = HashGatedConnection::new(peer("self"), 8)
             .with_bucket_override(Some(1))
-            .expected_upstream(&view(&subs, &cands, &down));
+            .expected_relay(&view(&subs, &cands, &down));
         assert_eq!(pinned.len(), 80, "B=1 connects to every candidate");
     }
 
@@ -203,10 +197,10 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
         let down = Links::new();
-        let first = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
-        let again = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let first =
+            HashGatedConnection::new(peer("self"), 8).expected_relay(&view(&subs, &cands, &down));
+        let again =
+            HashGatedConnection::new(peer("self"), 8).expected_relay(&view(&subs, &cands, &down));
         assert_eq!(first, again, "nonce 0 must reproduce identically");
     }
 
@@ -220,10 +214,9 @@ mod tests {
         let cands = candidates(&[("t1", &refs)]);
         let down = Links::new();
         let policy = HashGatedConnection::new(peer("self"), 8);
-        let at_zero = policy.expected_upstream(&view(&subs, &cands, &down));
-        let diverges = (1..=16u64).any(|n| {
-            policy.expected_upstream(&view_with_nonce(&subs, &cands, &down, n)) != at_zero
-        });
+        let at_zero = policy.expected_relay(&view(&subs, &cands, &down));
+        let diverges = (1..=16u64)
+            .any(|n| policy.expected_relay(&view_with_nonce(&subs, &cands, &down, n)) != at_zero);
         assert!(diverges, "the epoch nonce must vary the selection");
     }
 }

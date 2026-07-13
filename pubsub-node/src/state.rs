@@ -355,7 +355,7 @@ fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
         links: &state.links,
         epoch_nonce: state.epoch_nonce,
     };
-    let expected_relay = state.connection_strategy.expected_upstream(&view);
+    let expected_relay = state.connection_strategy.expected_relay(&view);
     // The publish pass runs on the same dial tick, after the relay diff (015
     // FR-009b): the strategy applies the M3 trigger internally — targets only
     // for topics with no expected relay downstream (ADR 0033).

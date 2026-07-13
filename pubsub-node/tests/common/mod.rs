@@ -803,7 +803,7 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 
 impl ConnectionStrategy for ConnectToExplicit {
-    fn expected_upstream(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_relay(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }

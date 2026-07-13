@@ -69,7 +69,7 @@ Every `ConnectionAction` variant gains `role: LinkRole`. `signed_bytes` layout (
 
 | Seam | Trait method (after) | v1 kinds |
 |---|---|---|
-| Relay selection | `expected_upstream(&NodeView) -> BTreeSet<(PeerId, TopicId)>` (unchanged shape; `relay_degree` rename) | `connect-to-all`, `hash-gated` |
+| Relay selection | `expected_relay(&NodeView) -> BTreeSet<(PeerId, TopicId)>` (renamed from `expected_upstream` for role symmetry, analysis A7; `relay_degree` rename) | `connect-to-all`, `hash-gated` |
 | **Publish selection (NEW)** | `expected_publish(&NodeView) -> BTreeSet<(PeerId, TopicId)>` — internally applies the M3 trigger per topic (R6) | `none` (default), `hash-gated` |
 | Acceptance | `admit(emitter, topic, &NodeView) -> Admission` — one slot per role; role dispatch in the handler | four baselines × role instantiation |
 | Fan-out | `targets(topic, links, origin, exclude) -> Vec<PeerId>` (origin-aware, FR-005) | `forward-to-all` |

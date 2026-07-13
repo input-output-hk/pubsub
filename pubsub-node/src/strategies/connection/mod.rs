@@ -37,11 +37,11 @@ pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
 /// topology policies); the v1 implementor is [`ConnectToAllCandidates`], and the
 /// verifiable hash-gated policy is [`HashGatedConnection`].
 pub trait ConnectionStrategy: Send + Sync {
-    /// The expected upstream set given the node's read-only [`NodeView`].
+    /// The expected outbound relay-link set given the node's read-only [`NodeView`].
     ///
     /// Reads `view.subscriptions` (the membership-derived topic set — not the
     /// registration-gated effective filter, mirroring the acceptance rule),
     /// `view.candidates` (per-topic discovered peers, self never present), and
     /// `view.epoch_nonce` (the randomness context for the edge predicate).
-    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
+    fn expected_relay(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
 }

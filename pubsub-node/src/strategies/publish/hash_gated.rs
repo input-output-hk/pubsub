@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::PublishStrategy;
 use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, is_valid_edge_for, resolve_buckets};
+use crate::strategies::edge::{hash_gated_selection, is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -94,33 +94,21 @@ impl HashGatedPublish {
 
 impl PublishStrategy for HashGatedPublish {
     fn expected_publish(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
-        let mut expected = BTreeSet::new();
-        for topic in view.subscriptions {
-            let Some(peers) = view.candidates.get(topic) else {
-                continue;
-            };
-            if peers.is_empty() {
-                continue;
-            }
-            // The M3 trigger: a node someone will pull from needs no
-            // publishing links on the topic (ADR 0033).
-            if self.has_expected_relay_downstream(view, topic, peers) {
-                continue;
-            }
-            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.publish_degree);
-            for candidate in peers {
-                if is_valid_edge_for(
-                    LinkRole::Publisher,
-                    view.epoch_nonce,
-                    topic,
-                    &self.self_id,
-                    candidate,
-                    buckets,
-                ) {
-                    expected.insert((candidate.clone(), topic.clone()));
-                }
-            }
-        }
+        // The M3 trigger per topic, then the shared selection core under the
+        // publish domain (ADR 0033): a node someone will pull from needs no
+        // publishing links on that topic.
+        let mut expected = hash_gated_selection(
+            LinkRole::Publisher,
+            &self.self_id,
+            self.publish_degree,
+            self.bucket_override,
+            view,
+        );
+        expected.retain(|(_, topic)| {
+            view.candidates
+                .get(topic)
+                .is_some_and(|peers| !self.has_expected_relay_downstream(view, topic, peers))
+        });
         expected
     }
 }
@@ -233,7 +221,7 @@ mod tests {
                 .expected_publish(&view);
             let relay = HashGatedConnection::new(peer("self"), 4)
                 .with_bucket_override(Some(4))
-                .expected_upstream(&view);
+                .expected_relay(&view);
             publish != relay
         });
         assert!(
