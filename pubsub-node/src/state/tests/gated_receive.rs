@@ -105,3 +105,91 @@ fn gate_first_then_subscription_filter_unchanged() {
         "passes the gate but t2 is not subscribed → topic_not_subscribed drop",
     );
 }
+
+// ---- 015: the publishing-link receive gate (ADR 0033) ----------------------
+
+/// Seed an inbound publishing link `(peer, topic)` directly — the declarative
+/// stand-in for a full publish-intent handshake.
+fn with_inbound_publish_link(state: &mut NodeState, peer_alias: &str, t: &str) {
+    state.insert_link_for_test(
+        peer(peer_alias),
+        topic(t),
+        LinkRole::Publisher,
+        LinkDirection::In,
+        LinkState::Active,
+    );
+}
+
+// 015 US2 / FR-004 dual: a payload delivered over an inbound publishing link is
+// admitted when the deliverer IS the publisher (`payload_from` signs under the
+// deliverer's own key).
+#[test]
+fn own_publish_over_inbound_publish_link_is_recorded() {
+    let mut state = state_subscribed(vec![topic("t1")]);
+    with_inbound_publish_link(&mut state, "p", "t1");
+
+    let effects = apply(&mut state, payload_from("p", "t1", 1));
+    assert!(effects.is_empty(), "no downstream → no forwards");
+    let snap = state.received_snapshot();
+    assert_eq!(snap.len(), 1, "admitted over the publishing link");
+    assert_eq!(snap[0].origin, Origin::Peer(peer("p")));
+}
+
+// 015 R5 / ADR 0033: a payload from a DIFFERENT publisher delivered over a
+// publishing link is a relay attempt the link's role forbids — dropped
+// (relay_over_publish_link), never recorded.
+#[test]
+fn foreign_publisher_over_publish_link_is_dropped() {
+    let mut state = state_subscribed(vec![topic("t1")]);
+    with_inbound_publish_link(&mut state, "p", "t1");
+
+    // A message published (signed) by "q", delivered by "p" over p's
+    // publishing link: rewrap q's signed payload in a frame from p.
+    let Event::MessageReceived { message, .. } = payload_from("q", "t1", 1) else {
+        unreachable!("payload_from yields MessageReceived")
+    };
+    let effects = apply(
+        &mut state,
+        Event::MessageReceived {
+            from: peer("p"),
+            message,
+        },
+    );
+    assert!(effects.is_empty());
+    assert!(
+        state.received_snapshot().is_empty(),
+        "publishing links do not relay — foreign-publisher payload dropped",
+    );
+}
+
+// 015 FR-011/SC-005: the same published message arriving over BOTH a publishing
+// link and a relay upstream is recorded once — content-hash dedup holds across
+// link roles.
+#[test]
+fn duplicate_across_publish_and_relay_paths_is_recorded_once() {
+    let mut state = state_subscribed(vec![topic("t1")]);
+    with_inbound_publish_link(&mut state, "p", "t1");
+    with_active_upstream(&mut state, "x", "t1");
+
+    // First copy: p pushes its own publish over the publishing link.
+    apply(&mut state, payload_from("p", "t1", 7));
+    assert_eq!(state.received_snapshot().len(), 1);
+
+    // Second copy: the identical message relayed by x over the relay upstream.
+    let Event::MessageReceived { message, .. } = payload_from("p", "t1", 7) else {
+        unreachable!("payload_from yields MessageReceived")
+    };
+    let effects = apply(
+        &mut state,
+        Event::MessageReceived {
+            from: peer("x"),
+            message,
+        },
+    );
+    assert!(effects.is_empty(), "duplicate is not re-fanned");
+    assert_eq!(
+        state.received_snapshot().len(),
+        1,
+        "content-hash dedup suppresses the second copy across roles",
+    );
+}

@@ -203,6 +203,17 @@ pub(crate) mod test_support {
         )
     }
 
+    /// A publish `Terminated{topic}` control event from `emitter` (feature 015).
+    pub(crate) fn publish_terminated_from(emitter: &str, topic_id: &str) -> Event {
+        control_event(
+            emitter,
+            ConnectionAction::Terminated {
+                topic: topic(topic_id),
+                role: LinkRole::Publisher,
+            },
+        )
+    }
+
     /// A relay `Rejected{topic}` control event from `emitter` (acceptor →
     /// dialer, over-capacity refusal; feature 005).
     pub(crate) fn rejected_from(emitter: &str, topic_id: &str) -> Event {

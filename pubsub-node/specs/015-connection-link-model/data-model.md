@@ -58,9 +58,6 @@ impl NodeView<'_> {
     /// (already_in, count) for In links of `role` on `topic` — the acceptance
     /// prelude's single scan, now role-scoped (FR-008a).
     pub fn inbound_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize);
-    /// Whether any In/Relay link exists on `topic` (observed downstream —
-    /// not the trigger input; the trigger uses the expected set, R6).
-    pub fn has_relay_downstream(&self, topic: &TopicId) -> bool;
 }
 ```
 

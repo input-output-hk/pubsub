@@ -334,3 +334,227 @@ fn rejected_dial_removes_pending_upstream() {
         "no retry/back-fill; the other pending upstreams remain",
     );
 }
+
+// ---- 015: publishing-link establishment mechanics (ADR 0032/0033) ----------
+
+/// A test publish policy selecting fixed `(peer, topic)` targets, isolating the
+/// transition mechanics from the hash trigger (which has its own unit tests in
+/// `strategies::publish`).
+struct PublishTo(Vec<(&'static str, &'static str)>);
+
+impl crate::strategies::publish::PublishStrategy for PublishTo {
+    fn expected_publish(
+        &self,
+        _view: &crate::strategies::view::NodeView<'_>,
+    ) -> BTreeSet<(PeerId, TopicId)> {
+        self.0.iter().map(|(p, t)| (peer(p), topic(t))).collect()
+    }
+}
+
+fn publisher_state(targets: Vec<(&'static str, &'static str)>) -> NodeState {
+    let mut state = NodeState::new(
+        peer("self"),
+        BTreeSet::from([topic("t1")]),
+        0, // genesis: the default initial epoch nonce
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        strategy(),
+        Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(PublishTo(targets)),
+        Arc::new(AcceptFromAllCandidates),
+    );
+    apply(&mut state, reg_open("t1"));
+    apply(&mut state, membership_joined("self", ["t1"]));
+    state
+}
+
+// 015 US3-AS1 / FR-009b: the heartbeat's publish pass dials the selected
+// targets with publish-intent requests, recording pending Out/Publisher links.
+#[test]
+fn heartbeat_dials_publish_targets_with_publish_role() {
+    let mut state = publisher_state(vec![("b", "t1")]);
+    apply(&mut state, membership_joined("b", ["t1"]));
+
+    let effects = apply(&mut state, Event::Synced);
+    assert!(
+        state.links_snapshot().contains(&(
+            peer("b"),
+            topic("t1"),
+            LinkRole::Publisher,
+            LinkDirection::Out,
+            LinkState::AwaitingAccept,
+        )),
+        "the publish dial records a pending outbound publishing link",
+    );
+    // The wire request carries the Publisher role (relay dial: b is also a
+    // relay candidate under connect-to-all, so both requests go out).
+    let publish_requests: Vec<_> = effects
+        .iter()
+        .filter_map(|e| match e {
+            Effect::Send {
+                to,
+                message: Message::Connection(cm),
+            } => match &cm.plain.action {
+                ConnectionAction::Request {
+                    topic: t,
+                    role: LinkRole::Publisher,
+                } => Some((to.clone(), t.clone())),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        publish_requests,
+        vec![(peer("b"), topic("t1"))],
+        "one publish-intent request to the selected target",
+    );
+}
+
+// 015 US3-AS2: the target's Accepted{Publisher} activates the pending link;
+// the relay link between the same pair is untouched (coexisting roles).
+#[test]
+fn publish_accept_activates_only_the_publish_link() {
+    let mut state = publisher_state(vec![("b", "t1")]);
+    apply(&mut state, membership_joined("b", ["t1"]));
+    apply(&mut state, Event::Synced); // dials b as relay (connect-to-all) AND publish target
+
+    apply(&mut state, publish_accepted_from("b", "t1"));
+    let snap = state.links_snapshot();
+    assert!(
+        snap.contains(&(
+            peer("b"),
+            topic("t1"),
+            LinkRole::Publisher,
+            LinkDirection::Out,
+            LinkState::Active,
+        )),
+        "the publish link is Active",
+    );
+    assert!(
+        snap.contains(&(
+            peer("b"),
+            topic("t1"),
+            LinkRole::Relay,
+            LinkDirection::Out,
+            LinkState::AwaitingAccept,
+        )),
+        "the relay dial to the same peer stays pending — roles are independent",
+    );
+}
+
+// 015 / FR-008a: an inbound publish-intent request is dispatched to the publish
+// acceptance slot; acceptance records an In/Publisher link (Active) and replies
+// Accepted{Publisher} — and the relay downstream view does not include it.
+#[test]
+fn publish_request_records_inbound_publish_link() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced);
+    apply(&mut state, membership_joined("self", ["t1"]));
+    apply(&mut state, membership_joined("p", ["t1"]));
+
+    let effects = apply(&mut state, publish_request_from("p", "t1"));
+    assert!(
+        state.links_snapshot().contains(&(
+            peer("p"),
+            topic("t1"),
+            LinkRole::Publisher,
+            LinkDirection::In,
+            LinkState::Active,
+        )),
+        "the inbound publishing link is recorded Active",
+    );
+    assert!(
+        state.downstream_snapshot().is_empty(),
+        "an inbound publishing link is not a relay downstream",
+    );
+    assert!(matches!(
+        sent_action(&effects[0]),
+        Some((to, ConnectionAction::Accepted { role: LinkRole::Publisher, .. })) if to == &peer("p")
+    ));
+}
+
+// 015 / FR-008a: the publish accept cap counts inbound publishing links only —
+// a full publish cap refuses the next publish request with Rejected{Publisher}
+// while a relay request from the same peer is still accepted (disjoint caps).
+#[test]
+fn publish_cap_is_disjoint_from_relay_acceptance() {
+    // publish_degree = 1, cap_buffer = 0 ⇒ publish cap = ⌈1 + 0⌉ = 1.
+    let mut state = NodeState::new(
+        peer("self"),
+        BTreeSet::from([topic("t1")]),
+        0, // genesis: the default initial epoch nonce
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        strategy(),
+        Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(BoundedAcceptance::new(1, 0).for_role(LinkRole::Publisher)),
+    );
+    apply(&mut state, Event::Synced);
+    apply(&mut state, reg_open("t1"));
+    apply(&mut state, membership_joined("self", ["t1"]));
+    apply(&mut state, membership_joined("p", ["t1"]));
+    apply(&mut state, membership_joined("q", ["t1"]));
+
+    // First publish request fills the cap.
+    apply(&mut state, publish_request_from("p", "t1"));
+    // Second publish request: over the publish cap → explicit Rejected{Publisher}.
+    let effects = apply(&mut state, publish_request_from("q", "t1"));
+    assert!(matches!(
+        sent_action(&effects[0]),
+        Some((to, ConnectionAction::Rejected { role: LinkRole::Publisher, .. })) if to == &peer("q")
+    ));
+    // A relay request from the same peer is judged by the relay slot — accepted.
+    let effects = apply(&mut state, request_from("q", "t1"));
+    assert!(matches!(
+        sent_action(&effects[0]),
+        Some((to, ConnectionAction::Accepted { role: LinkRole::Relay, .. })) if to == &peer("q")
+    ));
+}
+
+// 015 / FR-010: the readiness gate applies to publish-intent requests exactly
+// as to relay requests — a pre-Synced publish request is silently dropped.
+#[test]
+fn pre_synced_publish_request_is_dropped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, membership_joined("self", ["t1"]));
+    apply(&mut state, membership_joined("p", ["t1"]));
+
+    let effects = apply(&mut state, publish_request_from("p", "t1"));
+    assert!(effects.is_empty());
+    assert!(
+        state.links_snapshot().is_empty(),
+        "no link recorded before readiness",
+    );
+}
+
+// 015 / Clarifications (dual-role): a Terminated{Publisher} removes only the
+// publishing link between the pair; the relay entries survive.
+#[test]
+fn terminated_is_role_scoped() {
+    let mut state = node_state("self", HashSet::from([topic("t1")]));
+    apply(&mut state, Event::Synced);
+    apply(&mut state, membership_joined("self", ["t1"]));
+    apply(&mut state, membership_joined("p", ["t1"]));
+    apply(&mut state, publish_request_from("p", "t1")); // In/Publisher
+    apply(&mut state, request_from("p", "t1")); // In/Relay
+
+    // p tears down the publishing link only.
+    apply(&mut state, publish_terminated_from("p", "t1"));
+    let snap = state.links_snapshot();
+    assert!(
+        !snap
+            .iter()
+            .any(|(p_, _, role, _, _)| p_ == &peer("p") && *role == LinkRole::Publisher),
+        "the publishing link is removed",
+    );
+    assert!(
+        snap.iter().any(|(p_, _, role, dir, _)| p_ == &peer("p")
+            && *role == LinkRole::Relay
+            && *dir == LinkDirection::In),
+        "the relay link between the same pair survives (coexisting roles)",
+    );
+}

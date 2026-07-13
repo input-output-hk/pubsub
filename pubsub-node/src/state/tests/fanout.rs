@@ -325,3 +325,61 @@ fn invalid_signature_publish_does_not_poison_seen() {
     );
     assert_eq!(state.received_snapshot()[0].origin, Origin::Local);
 }
+
+// ---- 015: origin-restricted forwarding over publishing links (ADR 0033) ----
+
+/// Seed an Active outbound publishing link `(peer, topic)` directly.
+fn with_outbound_publish_link(state: &mut NodeState, peer_alias: &str, t: &str) {
+    state.insert_link_for_test(
+        peer(peer_alias),
+        topic(t),
+        LinkRole::Publisher,
+        LinkDirection::Out,
+        LinkState::Active,
+    );
+}
+
+// 015 US2-AS1 / FR-005/SC-002: a locally-published message goes to the relay
+// downstream AND the active outbound publishing links.
+#[test]
+fn publish_targets_relay_downstream_and_publish_links() {
+    let t1 = topic("t1");
+    let mut state = state_subscribed(vec![t1.clone()]);
+    with_downstream(&mut state, "a", "t1");
+    with_outbound_publish_link(&mut state, "b", "t1");
+    let sm = signed(signed_ping(&signer(), t1, 1));
+
+    let effects = handle_publish(&mut state, sm);
+    let sends = signed_sends(&effects);
+    assert_eq!(
+        sorted_peers(sends.iter().map(|(p, _)| p.clone()).collect()),
+        vec![peer("a"), peer("b")],
+        "publish reaches the relay downstream and the publishing link",
+    );
+}
+
+// 015 US2-AS2 / FR-005/SC-002: a relayed (Origin::Peer) message never targets a
+// publishing link — publishing links carry only the node's own publishes.
+#[test]
+fn relayed_message_never_targets_publish_links() {
+    let t1 = topic("t1");
+    let mut state = state_subscribed(vec![t1.clone()]);
+    with_active_upstream(&mut state, "x", "t1");
+    with_downstream(&mut state, "a", "t1");
+    with_outbound_publish_link(&mut state, "b", "t1");
+    let sm = signed(signed_ping(&signer(), t1, 1));
+
+    let effects = apply(
+        &mut state,
+        Event::MessageReceived {
+            from: peer("x"),
+            message: Message::Dissemination(sm),
+        },
+    );
+    let sends = signed_sends(&effects);
+    assert_eq!(
+        sorted_peers(sends.iter().map(|(p, _)| p.clone()).collect()),
+        vec![peer("a")],
+        "the relayed copy goes to the relay downstream only",
+    );
+}

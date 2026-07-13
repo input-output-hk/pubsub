@@ -38,7 +38,7 @@ pub trait FanoutStrategy: Send + Sync {              // origin-aware
 }
 ```
 
-`NodeView` carries `links` (borrow of the store) instead of `downstream`; role-scoped helpers `inbound_scan(role, emitter, topic)` and `has_relay_downstream(topic)` are part of the view's contract.
+`NodeView` carries `links` (borrow of the store) instead of `downstream`; the role-scoped helper `inbound_scan(role, emitter, topic)` is part of the view's contract. (An observed-downstream helper was planned but dropped: the M3 trigger reads the *expected* set via the predicate — research R6 — so no consumer exists; analysis.md A1.)
 
 ## Two-phase construction (ADR 0028, extended)
 

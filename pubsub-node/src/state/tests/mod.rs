@@ -19,15 +19,16 @@ mod shutdown;
 use super::*;
 
 pub(crate) use crate::connection_state::test_support::{
-    accepted_from, membership_joined, misattributed_request, payload_from, rejected_from,
-    request_from, tampered_payload_from, terminated_from, ConnectionScript,
+    accepted_from, membership_joined, misattributed_request, payload_from, publish_accepted_from,
+    publish_request_from, publish_terminated_from, rejected_from, request_from,
+    tampered_payload_from, terminated_from, ConnectionScript,
 };
 pub(crate) use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
 pub(crate) use crate::crypto::PublicKey;
 pub(crate) use crate::crypto::{Signer, Timestamp};
 pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
 pub(crate) use crate::strategies::acceptance::{
-    AcceptFromAllCandidates, HashGatedBoundedAcceptance,
+    AcceptFromAllCandidates, BoundedAcceptance, HashGatedBoundedAcceptance,
 };
 pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
 pub(crate) use crate::strategies::fanout::ForwardToAll;
