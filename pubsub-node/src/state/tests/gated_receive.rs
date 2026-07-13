@@ -32,9 +32,13 @@ fn payload_without_connection_is_dropped() {
 #[test]
 fn payload_over_awaiting_accept_is_dropped() {
     let mut state = state_subscribed(vec![topic("t1")]);
-    state
-        .upstream
-        .insert((peer("b"), topic("t1")), UpstreamState::AwaitingAccept);
+    state.insert_link_for_test(
+        peer("b"),
+        topic("t1"),
+        LinkRole::Relay,
+        LinkDirection::Out,
+        LinkState::AwaitingAccept,
+    );
 
     let effects = apply(&mut state, payload_from("b", "t1", 1));
     assert!(effects.is_empty());

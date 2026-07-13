@@ -13,8 +13,9 @@ use common::{
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, NetworkError, Node, NodeConfig, NodeError,
-    Origin, PeerId, SubscriptionRegistryControl, TopicId, TopicRegistryControl, UpstreamState,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, NoPublishLinks,
+    Node, NodeConfig, NodeError, Origin, PeerId, SubscriptionRegistryControl, TopicId,
+    TopicRegistryControl,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -71,8 +72,7 @@ async fn full_bidirectional_graph_for_three_nodes() {
         let up = node.upstream_connections();
         assert_eq!(up.len(), 2, "two upstreams");
         assert!(
-            up.iter()
-                .all(|(_, _, state)| *state == UpstreamState::Active),
+            up.iter().all(|(_, _, state)| *state == LinkState::Active),
             "every upstream Active",
         );
         assert_eq!(node.downstream_connections().len(), 2, "two downstreams");
@@ -254,7 +254,7 @@ async fn misbehavior_severs_one_connection_silently() {
     );
     assert!(
         up.iter()
-            .any(|(p, t, st)| p == b.id() && t == &t2 && *st == UpstreamState::Active),
+            .any(|(p, t, st)| p == b.id() && t == &t2 && *st == LinkState::Active),
         "the offender's t2 connection is untouched",
     );
 
@@ -373,7 +373,7 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
     let snapshot = s.upstream_connections();
     assert_eq!(
         snapshot,
-        vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
+        vec![(peer("ghost"), t.clone(), LinkState::AwaitingAccept)],
         "the unanswered request is observable as a pending entry",
     );
 
@@ -387,12 +387,12 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
     assert_no_connection_change(&s, Duration::from_millis(50)).await;
     assert_eq!(
         snapshot,
-        vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
+        vec![(peer("ghost"), t.clone(), LinkState::AwaitingAccept)],
         "the earlier snapshot is a stable clone, unaffected by later events",
     );
     assert_eq!(
         s.upstream_connections(),
-        vec![(peer("ghost"), t, UpstreamState::AwaitingAccept)],
+        vec![(peer("ghost"), t, LinkState::AwaitingAccept)],
         "a fresh read still shows the pending entry — it never auto-heals",
     );
 }
@@ -432,6 +432,8 @@ async fn readiness_establishes_autonomously() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct a");
@@ -446,6 +448,8 @@ async fn readiness_establishes_autonomously() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -491,6 +495,8 @@ async fn construction_fails_on_duplicate_registration() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("first registration succeeds");
@@ -507,6 +513,8 @@ async fn construction_fails_on_duplicate_registration() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await;
@@ -542,6 +550,8 @@ async fn construction_fails_on_identity_mismatch() {
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await;
 
@@ -562,6 +572,8 @@ async fn construction_fails_on_identity_mismatch() {
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await

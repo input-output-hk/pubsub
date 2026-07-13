@@ -89,11 +89,12 @@ impl ConnectionStrategy for HashGatedConnection {
 #[cfg(test)]
 mod tests {
     use super::HashGatedConnection;
+    use crate::connection_state::Links;
     use crate::strategies::connection::ConnectionStrategy;
     use crate::strategies::test_support::{
         candidates, peer, subscriptions, topic, view, view_with_nonce,
     };
-    use std::collections::{BTreeSet, HashSet};
+    use std::collections::BTreeSet;
 
     fn ids(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("c{i:03}")).collect()
@@ -104,7 +105,7 @@ mod tests {
     fn small_topic_connects_to_all() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b", "c"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let expected = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(
@@ -126,7 +127,7 @@ mod tests {
         let mut rev = refs.clone();
         rev.reverse();
         let subs = subscriptions(&["t1"]);
-        let down = HashSet::new();
+        let down = Links::new();
         let policy = HashGatedConnection::new(peer("self"), 8);
         let one = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &refs)]), &down));
         let two = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &rev)]), &down));
@@ -140,7 +141,7 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = Links::new();
         let expected = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         // 80 candidates, B = round(80/8) = 10 ⇒ expected ≈ 8. Lenient bound.
@@ -158,7 +159,7 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = Links::new();
         let by_x =
             HashGatedConnection::new(peer("x"), 8).expected_upstream(&view(&subs, &cands, &down));
         let by_y =
@@ -171,7 +172,7 @@ mod tests {
     fn ignores_unjoined_topics() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let expected = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
@@ -185,7 +186,7 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = Links::new();
         // Derived B on 80 candidates ⇒ ~8 selected; pinned B=1 ⇒ all 80.
         let pinned = HashGatedConnection::new(peer("self"), 8)
             .with_bucket_override(Some(1))
@@ -201,7 +202,7 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = Links::new();
         let first = HashGatedConnection::new(peer("self"), 8)
             .expected_upstream(&view(&subs, &cands, &down));
         let again = HashGatedConnection::new(peer("self"), 8)
@@ -217,7 +218,7 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = Links::new();
         let policy = HashGatedConnection::new(peer("self"), 8);
         let at_zero = policy.expected_upstream(&view(&subs, &cands, &down));
         let diverges = (1..=16u64).any(|n| {

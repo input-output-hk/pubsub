@@ -7,6 +7,7 @@
 
 use sha2::{Digest, Sha256};
 
+use crate::connection_state::LinkRole;
 use crate::message::push_len_prefixed;
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -18,9 +19,24 @@ use crate::topic::TopicId;
 /// (pre-release iterations keep it at `v1`).
 const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 
-/// Per-topic bucket count for a fixed relay connection degree `relay_degree`: `max(1, round(candidates / relay_degree))`.
+/// Domain-separation tag for **publishing-link** edges (feature 015, ADR 0033).
+/// A distinct tag makes the publish edge set an independent hash draw from the
+/// relay edge set for the same `(nonce, topic, requester, candidate)` tuple —
+/// sweeping either seam's degree leaves the other's selection untouched.
+const PUBLISH_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/publish-edge/v1";
+
+/// The domain-separation tag for a link role's edge predicate.
+const fn edge_domain(role: LinkRole) -> &'static [u8] {
+    match role {
+        LinkRole::Relay => EDGE_DOMAIN,
+        LinkRole::Publisher => PUBLISH_EDGE_DOMAIN,
+    }
+}
+
+/// Per-topic bucket count for a fixed target degree (`relay_degree` on the
+/// relay seams, `publish_degree` on the publish seams): `max(1, round(candidates / degree))`.
 ///
-/// Expected valid edges per topic = `candidates / B ≈ relay_degree`. When there are `≤ ~relay_degree`
+/// Expected valid edges per topic = `candidates / B ≈ degree`. When there are `≤ ~degree`
 /// candidates, `B` floors to **1** and [`is_valid_edge`] always holds — the
 /// connect-to-all small-topic fallback, with no threshold and no `ln` degeneracy
 /// (ADR 0024).
@@ -34,13 +50,13 @@ const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 /// from a **globally-agreed** per-topic count (the registry's `S_T`, or a fixed
 /// `H_v` parameter), *not* the sampled view size, or verification silently breaks.
 #[must_use]
-pub fn bucket_count(candidates_len: usize, relay_degree: usize) -> usize {
-    if relay_degree == 0 {
+pub fn bucket_count(candidates_len: usize, degree: usize) -> usize {
+    if degree == 0 {
         return 1;
     }
-    // round(len / relay_degree) in exact integer arithmetic — no float
+    // round(len / degree) in exact integer arithmetic — no float
     // precision questions in a predicate both peers must agree on.
-    ((candidates_len + relay_degree / 2) / relay_degree).max(1)
+    ((candidates_len + degree / 2) / degree).max(1)
 }
 
 /// The bucket count both seams feed the predicate: the pinned `bucket_override`
@@ -59,17 +75,18 @@ pub fn bucket_count(candidates_len: usize, relay_degree: usize) -> usize {
 pub fn resolve_buckets(
     bucket_override: Option<usize>,
     candidates_len: usize,
-    relay_degree: usize,
+    degree: usize,
 ) -> usize {
-    bucket_override.unwrap_or_else(|| bucket_count(candidates_len, relay_degree))
+    bucket_override.unwrap_or_else(|| bucket_count(candidates_len, degree))
 }
 
-/// The per-topic downstream accept cap for a fixed relay connection degree `relay_degree`: `⌈relay_degree + c·√relay_degree⌉`
+/// The per-topic inbound accept cap for a fixed target degree (`relay_degree`
+/// or `publish_degree`, per seam): `⌈degree + c·√degree⌉`
 /// (the `OC` variance buffer of `docs/extensions/bucketed-pull.md`; `c` default 3).
 #[must_use]
-pub fn accept_cap(relay_degree: usize, c: usize) -> usize {
+pub fn accept_cap(degree: usize, c: usize) -> usize {
     #[allow(clippy::cast_precision_loss)]
-    let cap = relay_degree as f64 + (c as f64) * (relay_degree as f64).sqrt();
+    let cap = degree as f64 + (c as f64) * (degree as f64).sqrt();
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let cap = cap.ceil() as usize;
     cap
@@ -91,6 +108,21 @@ pub fn is_valid_edge(
     candidate: &PeerId,
     buckets: usize,
 ) -> bool {
+    is_valid_edge_for(LinkRole::Relay, nonce, topic, requester, candidate, buckets)
+}
+
+/// The edge predicate for a link `role`: the relay predicate under the relay
+/// domain tag (byte-identical to [`is_valid_edge`]), or the publishing-link
+/// predicate under its own domain tag — an independent hash draw (ADR 0033).
+#[must_use]
+pub fn is_valid_edge_for(
+    role: LinkRole,
+    nonce: u64,
+    topic: &TopicId,
+    requester: &PeerId,
+    candidate: &PeerId,
+    buckets: usize,
+) -> bool {
     if buckets <= 1 {
         return true;
     }
@@ -103,7 +135,7 @@ pub fn is_valid_edge(
     // an alias, its hex, and the mock suffix can all collide); the topic by its
     // exact string.
     let mut preimage = Vec::new();
-    push_len_prefixed(&mut preimage, EDGE_DOMAIN);
+    push_len_prefixed(&mut preimage, edge_domain(role));
     preimage.extend_from_slice(&nonce.to_le_bytes());
     push_len_prefixed(&mut preimage, topic.as_str().as_bytes());
     push_len_prefixed(&mut preimage, requester.as_public_key().as_bytes());
@@ -124,15 +156,15 @@ mod tests {
     fn bucket_count_floors_at_one_for_small_topics() {
         assert_eq!(bucket_count(0, 8), 1);
         assert_eq!(bucket_count(4, 8), 1); // 4/8 rounds to 0 -> floored to 1
-        assert_eq!(bucket_count(8, 8), 1); // exactly relay_degree -> 1
+        assert_eq!(bucket_count(8, 8), 1); // exactly degree -> 1
         assert_eq!(bucket_count(80, 8), 10); // 80/8 = 10
     }
 
     #[test]
     fn accept_cap_is_degree_plus_buffer() {
-        // relay_degree=8, c=3 -> 8 + 3*sqrt(8) = 8 + 8.485... = 16.48 -> 17
+        // degree=8, c=3 -> 8 + 3*sqrt(8) = 8 + 8.485... = 16.48 -> 17
         assert_eq!(accept_cap(8, 3), 17);
-        // relay_degree=3, c=3 -> 3 + 3*sqrt(3) = 8.196 -> 9 (doc example ~8)
+        // degree=3, c=3 -> 3 + 3*sqrt(3) = 8.196 -> 9 (doc example ~8)
         assert_eq!(accept_cap(3, 3), 9);
     }
 

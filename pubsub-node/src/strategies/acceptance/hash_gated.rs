@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, resolve_buckets};
+use crate::strategies::edge::{is_valid_edge_for, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -20,21 +21,35 @@ use crate::topic::TopicId;
 /// with the same shared predicate the dialer used.
 pub struct HashGatedAcceptance {
     self_id: PeerId,
-    relay_degree: usize,
+    degree: usize,
     bucket_override: Option<usize>,
+    role: LinkRole,
 }
 
 impl HashGatedAcceptance {
-    /// Build the policy from already-parsed inputs. `B` is derived per topic
-    /// from `relay_degree`; use [`with_bucket_override`](Self::with_bucket_override)
-    /// to pin it — it must match the dialer's `B`.
+    /// Build the policy from already-parsed inputs (`degree` is the serving
+    /// seam's target degree — `relay_degree` or `publish_degree`). `B` is
+    /// derived per topic from it; use
+    /// [`with_bucket_override`](Self::with_bucket_override) to pin it — it must
+    /// match the dialer's `B`. Serves the `Relay` slot by default; retarget
+    /// with [`for_role`](Self::for_role).
     #[must_use]
-    pub fn new(self_id: PeerId, relay_degree: usize) -> Self {
+    pub fn new(self_id: PeerId, degree: usize) -> Self {
         Self {
             self_id,
-            relay_degree,
+            degree,
             bucket_override: None,
+            role: LinkRole::Relay,
         }
+    }
+
+    /// Retarget the policy at a link role's acceptance slot: the prelude scan
+    /// is role-scoped and the predicate verifies under that role's hash domain
+    /// (ADR 0033).
+    #[must_use]
+    pub fn for_role(mut self, role: LinkRole) -> Self {
+        self.role = role;
+        self
     }
 
     /// Pin the bucket count `B` used to verify the edge predicate (see
@@ -49,7 +64,7 @@ impl HashGatedAcceptance {
 
 impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        if let Err(decision) = admit_prelude(emitter, topic, view) {
+        if let Err(decision) = admit_prelude(self.role, emitter, topic, view) {
             return decision;
         }
         // Same B-agreement assumption as the compound policy (see
@@ -57,8 +72,15 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // dialer's only while both ends see the same candidate set; the pinned
         // override removes the dependence.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
-        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.relay_degree);
-        if is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
+        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.degree);
+        if is_valid_edge_for(
+            self.role,
+            view.epoch_nonce,
+            topic,
+            emitter,
+            &self.self_id,
+            buckets,
+        ) {
             Admission::Accept
         } else {
             Admission::RejectIllegitimate
@@ -69,19 +91,19 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::HashGatedAcceptance;
+    use crate::connection_state::Links;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{bucket_count, is_valid_edge};
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
     };
-    use std::collections::HashSet;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let got = HashGatedAcceptance::new(peer("self"), 1).admit(
             &peer("a"),
             &topic("t2"), // not subscribed

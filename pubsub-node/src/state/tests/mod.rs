@@ -31,6 +31,7 @@ pub(crate) use crate::strategies::acceptance::{
 };
 pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
 pub(crate) use crate::strategies::fanout::ForwardToAll;
+pub(crate) use crate::strategies::publish::NoPublishLinks;
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
 pub(crate) use std::collections::BTreeSet;
@@ -77,6 +78,8 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         alias_signer(self_id),
         strategy(),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     );
     for t in subscriptions {
@@ -181,7 +184,7 @@ fn assert_invariants(state: &NodeState) {
 // ---- Connection lifecycle (US1): helpers ----------------------------------
 
 /// The upstream state recorded for `(p, t)`, if any.
-fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<UpstreamState> {
+fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<LinkState> {
     state
         .upstream_snapshot()
         .into_iter()
@@ -203,7 +206,8 @@ fn request_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, Top
             message: Message::Connection(cm),
         } = effect
         {
-            if let ConnectionAction::Request { topic } = &cm.plain.action {
+            if let ConnectionAction::Request { topic, role } = &cm.plain.action {
+                assert_eq!(*role, LinkRole::Relay, "request role (relay helper)");
                 assert_eq!(cm.plain.emitter, peer(expected_emitter), "request emitter");
                 out.push((to.clone(), topic.clone()));
             }
@@ -221,7 +225,8 @@ fn accepted_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, To
             message: Message::Connection(cm),
         } = effect
         {
-            if let ConnectionAction::Accepted { topic } = &cm.plain.action {
+            if let ConnectionAction::Accepted { topic, role } = &cm.plain.action {
+                assert_eq!(*role, LinkRole::Relay, "accepted role (relay helper)");
                 assert_eq!(cm.plain.emitter, peer(expected_emitter), "accepted emitter");
                 out.push((to.clone(), topic.clone()));
             }
@@ -241,9 +246,13 @@ fn sorted_pairs(mut v: Vec<(PeerId, TopicId)>) -> Vec<(PeerId, TopicId)> {
 /// stand-in for a full setup→accept handshake when a test only needs the
 /// gate to be open (the test module reaches `NodeState`'s private fields).
 fn with_active_upstream(state: &mut NodeState, peer_alias: &str, t: &str) {
-    state
-        .upstream
-        .insert((peer(peer_alias), topic(t)), UpstreamState::Active);
+    state.insert_link_for_test(
+        peer(peer_alias),
+        topic(t),
+        LinkRole::Relay,
+        LinkDirection::Out,
+        LinkState::Active,
+    );
 }
 
 // ---- T021: misbehavior severance (US3, FR-017/018) ------------------------
@@ -278,7 +287,13 @@ fn has_send(effects: &[Effect]) -> bool {
 
 /// Seed a downstream entry `(peer, topic)` directly.
 fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
-    state.downstream.insert((peer(peer_alias), topic(t)));
+    state.insert_link_for_test(
+        peer(peer_alias),
+        topic(t),
+        LinkRole::Relay,
+        LinkDirection::In,
+        LinkState::Active,
+    );
 }
 
 /// The `(to, topic)` of every `Terminated` send effect (asserting emitter).
@@ -290,7 +305,7 @@ fn terminated_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, 
             message: Message::Connection(cm),
         } = effect
         {
-            if let ConnectionAction::Terminated { topic } = &cm.plain.action {
+            if let ConnectionAction::Terminated { topic, role: _ } = &cm.plain.action {
                 assert_eq!(
                     cm.plain.emitter,
                     peer(expected_emitter),

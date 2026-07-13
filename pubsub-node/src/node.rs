@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
-use crate::connection_state::UpstreamState;
+use crate::connection_state::{LinkDirection, LinkRole, LinkState};
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
@@ -13,6 +13,7 @@ use crate::message::{Message, SignedMessage};
 use crate::strategies::acceptance::ConnectionAcceptanceStrategy;
 use crate::strategies::connection::ConnectionStrategy;
 use crate::strategies::fanout::FanoutStrategy;
+use crate::strategies::publish::PublishStrategy;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
@@ -44,8 +45,8 @@ use crate::topic_registry::{TopicRegistry, TopicRegistryEvent};
 ///   registry streams),
 /// - **logical connections** to peers, one per `(peer, topic)`, in two roles:
 ///   *upstream* connections it requested (its message sources, each
-///   [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
-///   [`Active`](crate::UpstreamState::Active)) and *downstream* connections it
+///   [`AwaitingAccept`](crate::LinkState::AwaitingAccept) or
+///   [`Active`](crate::LinkState::Active)) and *downstream* connections it
 ///   accepted (its fan-out destinations). They are established autonomously by
 ///   an injected connection-selection strategy on a setup event, exchanged as
 ///   signed control messages over the network, and observable through
@@ -118,7 +119,11 @@ impl Node {
     /// peers a recorded message is forwarded to; `acceptance_strategy` is the
     /// inbound-acceptance policy (v1: `AcceptFromAllCandidates`) consulted on a
     /// verified connection `Request` to decide whether to accept the emitter as
-    /// downstream.
+    /// downstream. `publish_strategy` is the publishing-link dial policy (v1:
+    /// `NoPublishLinks` — no publishing links) consulted on the same dial tick
+    /// after the relay diff, and `publish_acceptance_strategy` its inbound
+    /// mirror for publish-intent requests (v1: `AcceptFromAllCandidates`), the
+    /// role-dispatched second acceptance slot (feature 015, ADR 0033).
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -146,6 +151,8 @@ impl Node {
         connection_strategy: Arc<dyn ConnectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
         acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+        publish_strategy: Arc<dyn PublishStrategy>,
+        publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
         // leaks nothing — no handle, no tasks (FR-024).
@@ -174,6 +181,8 @@ impl Node {
             connection_strategy,
             fanout_strategy,
             acceptance_strategy,
+            publish_strategy,
+            publish_acceptance_strategy,
         )));
         let state_for_task = Arc::clone(&state);
 
@@ -408,14 +417,14 @@ impl Node {
 
     /// Return a snapshot of this node's **upstream** connections — the
     /// `(peer, topic, state)` triples it requested as message sources, each
-    /// either [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
-    /// [`Active`](crate::UpstreamState::Active).
+    /// either [`AwaitingAccept`](crate::LinkState::AwaitingAccept) or
+    /// [`Active`](crate::LinkState::Active).
     ///
     /// A stable clone of the node's record, unaffected by subsequent events;
     /// entry order is unspecified. Pending (`AwaitingAccept`) entries are a
     /// visible diagnostic — a request awaiting an answer that may never come.
     #[must_use]
-    pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, UpstreamState)> {
+    pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, LinkState)> {
         self.state
             .lock()
             .expect("upstream_connections: state mutex poisoned")
@@ -435,8 +444,21 @@ impl Node {
             .downstream_snapshot()
     }
 
+    /// Return a snapshot of the node's full **link store** — one
+    /// `(peer, topic, role, direction, state)` tuple per held link, in key
+    /// order (feature 015, ADR 0032). [`upstream_connections`](Self::upstream_connections)
+    /// and [`downstream_connections`](Self::downstream_connections) are the
+    /// relay-scoped views of the same store.
+    #[must_use]
+    pub fn links(&self) -> Vec<(PeerId, TopicId, LinkRole, LinkDirection, LinkState)> {
+        self.state
+            .lock()
+            .expect("links: state mutex poisoned")
+            .links_snapshot()
+    }
+
     /// Gracefully shut the node down: drain any already-queued events, send one
-    /// `Terminated` notice per held connection (both roles, any state), then
+    /// `Terminated` notice per held link (any role or state), then
     /// release the node. Consuming `self` makes use-after-shutdown
     /// unrepresentable.
     ///

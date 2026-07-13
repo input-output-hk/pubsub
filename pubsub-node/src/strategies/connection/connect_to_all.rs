@@ -33,16 +33,17 @@ impl ConnectionStrategy for ConnectToAllCandidates {
 #[cfg(test)]
 mod tests {
     use super::ConnectToAllCandidates;
+    use crate::connection_state::Links;
     use crate::strategies::connection::ConnectionStrategy;
     use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
-    use std::collections::{BTreeMap, BTreeSet, HashSet};
+    use std::collections::{BTreeMap, BTreeSet};
 
     // 005 FR-010: v1 policy expects every candidate on every joined topic.
     #[test]
     fn expects_every_candidate_across_joined_topics() {
         let subs = subscriptions(&["t1", "t2"]);
         let cands = candidates(&[("t1", &["a", "b"]), ("t2", &["c"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
@@ -60,7 +61,7 @@ mod tests {
     fn candidates_on_unjoined_topics_are_ignored() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a"]), ("t2", &["b"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
@@ -70,7 +71,7 @@ mod tests {
     fn empty_view_expects_nothing() {
         let empty_subs = BTreeSet::new();
         let empty_cands = BTreeMap::new();
-        let down = HashSet::new();
+        let down = Links::new();
         assert!(ConnectToAllCandidates
             .expected_upstream(&view(&empty_subs, &empty_cands, &down))
             .is_empty());
@@ -86,7 +87,7 @@ mod tests {
     fn self_exclusion_is_input_borne() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let expected = ConnectToAllCandidates.expected_upstream(&view(&subs, &cands, &down));
         assert!(!expected.contains(&(peer("self"), topic("t1"))));
         assert_eq!(expected.len(), 2);

@@ -5,8 +5,8 @@ use clap::Parser;
 use pubsub_node::{
     load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
     ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, Signer, TestVerifier,
-    Verifier,
+    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, PublishAcceptanceParams,
+    PublishParams, PublishStrategyKind, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -72,9 +72,30 @@ struct Args {
     acceptance_strategy: AcceptanceStrategyKind,
 
     /// Accept-cap buffer `c` in `OC = ⌈relay_degree + c·√relay_degree⌉` (default 3). Only affects the
-    /// `bounded` / `hash-gated-bounded` acceptance strategies.
+    /// `bounded` / `hash-gated-bounded` acceptance strategies (both slots).
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
+
+    /// Publish-target strategy (case-insensitive): `none` (the default — no
+    /// publishing links) or `hash-gated` (verifiable bucketed selection of
+    /// ~--publish-degree publishing targets per topic, formed only on topics
+    /// where no candidate would select this node as a relay upstream).
+    #[arg(long, default_value = "none")]
+    publish_strategy: PublishStrategyKind,
+
+    /// The publish degree — the target expected publishing-link out-degree per
+    /// topic, independent of --relay-degree. Required by the `hash-gated`
+    /// publish strategy and by every publish-acceptance strategy except
+    /// `accept-from-all`.
+    #[arg(long)]
+    publish_degree: Option<usize>,
+
+    /// Inbound acceptance strategy for publish-intent requests
+    /// (case-insensitive), the same four baselines as --acceptance-strategy,
+    /// instantiated with --publish-degree and counted against inbound
+    /// publishing links only (default: accept-from-all).
+    #[arg(long, default_value = "accept-from-all")]
+    publish_acceptance_strategy: AcceptanceStrategyKind,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -130,24 +151,41 @@ async fn main() {
     // the parameters each chosen strategy requires. The edge stays lean — it maps
     // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
     // unchanged; fan-out stays `ForwardToAll`, injected separately below.
-    let strategies = NodeStrategies::builder(args.connection_strategy, args.acceptance_strategy)
-        .build(
-            &ConnectionParams {
-                self_id: args.self_id.clone(),
-                relay_degree: args.relay_degree,
-                bucket_count: args.bucket_count,
-            },
-            &AcceptanceParams {
-                self_id: args.self_id.clone(),
-                relay_degree: args.relay_degree,
-                bucket_count: args.bucket_count,
-                cap_buffer: args.cap_buffer,
-            },
-        )
-        .unwrap_or_else(|e| {
-            eprintln!("pubsub-node: {e}");
-            std::process::exit(2);
-        });
+    let strategies = NodeStrategies::builder(
+        args.connection_strategy,
+        args.acceptance_strategy,
+        args.publish_strategy,
+        args.publish_acceptance_strategy,
+    )
+    .build(
+        &ConnectionParams {
+            self_id: args.self_id.clone(),
+            relay_degree: args.relay_degree,
+            bucket_count: args.bucket_count,
+        },
+        &AcceptanceParams {
+            self_id: args.self_id.clone(),
+            relay_degree: args.relay_degree,
+            bucket_count: args.bucket_count,
+            cap_buffer: args.cap_buffer,
+        },
+        &PublishParams {
+            self_id: args.self_id.clone(),
+            publish_degree: args.publish_degree,
+            relay_degree: args.relay_degree,
+            bucket_count: args.bucket_count,
+        },
+        &PublishAcceptanceParams {
+            self_id: args.self_id.clone(),
+            publish_degree: args.publish_degree,
+            bucket_count: args.bucket_count,
+            cap_buffer: args.cap_buffer,
+        },
+    )
+    .unwrap_or_else(|e| {
+        eprintln!("pubsub-node: {e}");
+        std::process::exit(2);
+    });
 
     let node = Node::new(
         args.self_id,
@@ -161,6 +199,8 @@ async fn main() {
         strategies.connection,
         Arc::new(ForwardToAll),
         strategies.acceptance,
+        strategies.publish,
+        strategies.publish_acceptance,
     )
     .await
     .unwrap_or_else(|e| {

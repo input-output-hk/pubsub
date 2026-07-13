@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::connection_state::LinkRole;
 use crate::crypto::{MessageHash, PublicKey, Signature, Timestamp};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -204,7 +205,9 @@ pub struct PlainConnection {
     pub action: ConnectionAction,
 }
 
-/// A connection-handshake action, each carrying the topic it concerns.
+/// A connection-handshake action, each carrying the topic and the [`LinkRole`]
+/// of the link it concerns (ADR 0032: links are keyed by role on both ends, so
+/// every handshake and teardown message identifies which link it addresses).
 ///
 /// Marked `#[non_exhaustive]`: a `Rejected` variant arrives with the deny-path
 /// package (a ROADMAP-justified forward shape), so external pattern-matches
@@ -213,29 +216,39 @@ pub struct PlainConnection {
 #[non_exhaustive]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConnectionAction {
-    /// Dialer → acceptor: request an upstream connection on `topic`.
+    /// Dialer → acceptor: request a link on `topic`. For a `Relay` link the
+    /// dialer asks to *receive* (an upstream); for a `Publisher` link the
+    /// dialer asks to *push* its own published messages.
     Request {
-        /// The topic the connection is for.
+        /// The topic the link is for.
         topic: TopicId,
+        /// Which link the request establishes.
+        role: LinkRole,
     },
-    /// Acceptor → dialer: accept the requested connection on `topic`.
+    /// Acceptor → dialer: accept the requested link on `topic`.
     Accepted {
-        /// The topic the connection is for.
+        /// The topic the link is for.
         topic: TopicId,
+        /// Which link the acceptance confirms.
+        role: LinkRole,
     },
-    /// Either role → counterpart: tear down the connection on `topic`.
+    /// Either side → counterpart: tear down the link on `topic`.
     Terminated {
-        /// The topic the connection was for.
+        /// The topic the link was for.
         topic: TopicId,
+        /// Which link is torn down.
+        role: LinkRole,
     },
-    /// Acceptor → dialer: the requested connection on `topic` was refused for
-    /// over-capacity (the acceptor is at its inbound bound). Distinct from
-    /// `Terminated` (which tears down an *established* link) and from a
+    /// Acceptor → dialer: the requested link on `topic` was refused for
+    /// over-capacity (the acceptor is at that role's inbound bound). Distinct
+    /// from `Terminated` (which tears down an *established* link) and from a
     /// misbehaviour severance — a rejection is a normal capacity outcome
     /// (feature 005, ADR 0025).
     Rejected {
-        /// The topic the refused connection was for.
+        /// The topic the refused link was for.
         topic: TopicId,
+        /// Which link was refused.
+        role: LinkRole,
     },
 }
 
@@ -251,23 +264,32 @@ impl PlainConnection {
     ///    bytes. Tags are assigned explicitly so future variants append new
     ///    values without disturbing the existing ones: `0x00` Request,
     ///    `0x01` Accepted, `0x02` Terminated, `0x03` Rejected.
+    /// 3. role — a 1-byte tag for the link role the action concerns:
+    ///    `0x00` Relay, `0x01` Publisher (feature 015, ADR 0032).
     ///
     /// The signature is produced over exactly these bytes, binding emitter
-    /// identity, action kind, and topic together. Any layout change is a
-    /// protocol change and must update this documentation in the same commit.
+    /// identity, action kind, topic, and link role together (an unauthenticated
+    /// role would let a peer shift a request between the per-role caps). Any
+    /// layout change is a protocol change and must update this documentation in
+    /// the same commit.
     #[must_use]
     pub fn signed_bytes(&self) -> Vec<u8> {
-        let (tag, topic) = match &self.action {
-            ConnectionAction::Request { topic } => (0x00u8, topic),
-            ConnectionAction::Accepted { topic } => (0x01u8, topic),
-            ConnectionAction::Terminated { topic } => (0x02u8, topic),
-            ConnectionAction::Rejected { topic } => (0x03u8, topic),
+        let (tag, topic, role) = match &self.action {
+            ConnectionAction::Request { topic, role } => (0x00u8, topic, role),
+            ConnectionAction::Accepted { topic, role } => (0x01u8, topic, role),
+            ConnectionAction::Terminated { topic, role } => (0x02u8, topic, role),
+            ConnectionAction::Rejected { topic, role } => (0x03u8, topic, role),
+        };
+        let role_tag: u8 = match role {
+            LinkRole::Relay => 0x00,
+            LinkRole::Publisher => 0x01,
         };
 
         let mut out = Vec::new();
         push_len_prefixed(&mut out, self.emitter.as_public_key().as_bytes());
         out.push(tag);
         push_len_prefixed(&mut out, topic.as_str().as_bytes());
+        out.push(role_tag);
         out
     }
 }
@@ -277,6 +299,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::{ConnectionAction, PlainConnection};
+    use crate::connection_state::LinkRole;
     use crate::crypto::mock::MockCryptoScheme;
     use crate::crypto::mock::TestVerifier;
     use crate::crypto::{Signer, Verifier};
@@ -296,16 +319,21 @@ mod tests {
     fn signed_bytes_layout_is_stable() {
         let plain = PlainConnection {
             emitter: peer("a"),
-            action: ConnectionAction::Request { topic: topic("t1") },
+            action: ConnectionAction::Request {
+                topic: topic("t1"),
+                role: LinkRole::Relay,
+            },
         };
         // emitter key = alias bytes + mock public suffix = b"a_public" (len 8);
-        // tag 0x00 (Request); topic "t1" (len 2).
+        // tag 0x00 (Request); topic "t1" (len 2); role tag 0x00 (Relay) —
+        // feature 015, ADR 0032.
         let mut expected = Vec::new();
         expected.extend_from_slice(&8u32.to_be_bytes());
         expected.extend_from_slice(b"a_public");
         expected.push(0x00);
         expected.extend_from_slice(&2u32.to_be_bytes());
         expected.extend_from_slice(b"t1");
+        expected.push(0x00);
         assert_eq!(plain.signed_bytes(), expected);
     }
 
@@ -319,9 +347,18 @@ mod tests {
             }
             .signed_bytes()
         };
-        let req = bytes(ConnectionAction::Request { topic: topic("t1") });
-        let acc = bytes(ConnectionAction::Accepted { topic: topic("t1") });
-        let term = bytes(ConnectionAction::Terminated { topic: topic("t1") });
+        let req = bytes(ConnectionAction::Request {
+            topic: topic("t1"),
+            role: LinkRole::Relay,
+        });
+        let acc = bytes(ConnectionAction::Accepted {
+            topic: topic("t1"),
+            role: LinkRole::Relay,
+        });
+        let term = bytes(ConnectionAction::Terminated {
+            topic: topic("t1"),
+            role: LinkRole::Relay,
+        });
         assert_ne!(req, acc);
         assert_ne!(acc, term);
         assert_ne!(req, term);
@@ -336,7 +373,10 @@ mod tests {
         let signer = scheme.signer(kp.private);
         let plain = PlainConnection {
             emitter: peer("a"),
-            action: ConnectionAction::Request { topic: topic("t1") },
+            action: ConnectionAction::Request {
+                topic: topic("t1"),
+                role: LinkRole::Relay,
+            },
         };
         let sig = signer.sign(&plain.signed_bytes());
         assert!(TestVerifier
@@ -353,7 +393,10 @@ mod tests {
         let signer = scheme.signer(kp.private);
         let original = PlainConnection {
             emitter: peer("a"),
-            action: ConnectionAction::Request { topic: topic("t1") },
+            action: ConnectionAction::Request {
+                topic: topic("t1"),
+                role: LinkRole::Relay,
+            },
         };
         let sig = signer.sign(&original.signed_bytes());
         let key = original.emitter.as_public_key().clone();
@@ -361,7 +404,10 @@ mod tests {
         // Tamper the emitter (the field bound into the bytes).
         let tampered_emitter = PlainConnection {
             emitter: peer("b"),
-            action: ConnectionAction::Request { topic: topic("t1") },
+            action: ConnectionAction::Request {
+                topic: topic("t1"),
+                role: LinkRole::Relay,
+            },
         };
         assert!(TestVerifier
             .verify(&key, &tampered_emitter.signed_bytes(), &sig)
@@ -370,7 +416,10 @@ mod tests {
         // Tamper the kind.
         let tampered_kind = PlainConnection {
             emitter: peer("a"),
-            action: ConnectionAction::Accepted { topic: topic("t1") },
+            action: ConnectionAction::Accepted {
+                topic: topic("t1"),
+                role: LinkRole::Relay,
+            },
         };
         assert!(TestVerifier
             .verify(&key, &tampered_kind.signed_bytes(), &sig)
@@ -379,7 +428,10 @@ mod tests {
         // Tamper the topic.
         let tampered_topic = PlainConnection {
             emitter: peer("a"),
-            action: ConnectionAction::Request { topic: topic("t2") },
+            action: ConnectionAction::Request {
+                topic: topic("t2"),
+                role: LinkRole::Relay,
+            },
         };
         assert!(TestVerifier
             .verify(&key, &tampered_topic.signed_bytes(), &sig)

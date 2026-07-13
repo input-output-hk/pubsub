@@ -14,9 +14,10 @@
 //! The shell side (queue, event loop, producers) lives in `crate::node`.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+
 use std::sync::Arc;
 
-use crate::connection_state::UpstreamState;
+use crate::connection_state::{LinkDirection, LinkRole, LinkState, Links};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
 use crate::message::{
@@ -27,6 +28,7 @@ use crate::received::{Origin, ReceivedDelivery};
 use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
 use crate::strategies::connection::ConnectionStrategy;
 use crate::strategies::fanout::FanoutStrategy;
+use crate::strategies::publish::PublishStrategy;
 use crate::strategies::view::NodeView;
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
@@ -64,14 +66,15 @@ pub(crate) struct NodeState {
     /// intersected with the keys here; a subscribed topic absent here is not yet
     /// (or no longer) a legitimate topic, so its traffic is dropped.
     registered_topics: HashMap<TopicId, TopicEntry>,
-    /// Upstream connections — those this node requested, serving as its message
-    /// sources — keyed by `(peer, topic)`, each in an explicit
-    /// [`UpstreamState`]. Written by the connection transitions (FR-001).
-    upstream: HashMap<(PeerId, TopicId), UpstreamState>,
-    /// Downstream connections — those this node accepted, serving as its
-    /// fan-out destinations — as a set of `(peer, topic)` entries with no
-    /// per-entry state (FR-002).
-    downstream: HashSet<(PeerId, TopicId)>,
+    /// The unified link store (ADR 0032): one logical link per
+    /// `(peer, topic, role, direction)`, each in an explicit [`LinkState`].
+    /// Orientation is derived from role × direction — `Relay`/`Out` entries are
+    /// the dialed message sources (the former `upstream`), `Relay`/`In` the
+    /// accepted fan-out destinations (the former `downstream`);
+    /// `Publisher`/`Out` entries are the node's publishing-link injection
+    /// targets and `Publisher`/`In` the accepted inbound publishing links.
+    /// Written by the connection transitions.
+    links: Links,
     /// The current **epoch nonce** — the randomness context the verifiable edge
     /// predicate hashes (ADR 0031). Folded from the last `Epoch` event (default
     /// 0); the acceptor verifies inbound requests against it, so it is
@@ -92,11 +95,20 @@ pub(crate) struct NodeState {
     /// downstream peers receive a forward of a recorded message. The deliberate
     /// twin of `connection_strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
     fanout_strategy: Arc<dyn FanoutStrategy>,
-    /// The inbound-acceptance policy consulted on a verified `Request` to decide
-    /// whether to accept the emitter as downstream on the topic. The inbound
-    /// mirror of `connection_strategy`; the v1 implementor is
-    /// `AcceptFromAllCandidates` (ADR 0023).
+    /// The inbound-acceptance policy consulted on a verified **relay**
+    /// `Request` to decide whether to accept the emitter as a relay fan-out
+    /// destination on the topic. The inbound mirror of `connection_strategy`;
+    /// the v1 implementor is `AcceptFromAllCandidates` (ADR 0023).
     acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The publish-target policy consulted on a `Heartbeat` after the relay
+    /// dial diff: which `Out`/`Publisher` links (publishing links) the node
+    /// should hold. The v1 default is `NoPublishLinks` (ADR 0033).
+    publish_strategy: Arc<dyn PublishStrategy>,
+    /// The inbound-acceptance policy consulted on a verified **publish-intent**
+    /// `Request` — the same seam contract as `acceptance_strategy`, dispatched
+    /// by the request's carried role and instantiated with publish parameters
+    /// (ADR 0033).
+    publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     /// Content hashes of every message already accepted, keyed by
     /// `MessageHash::of(&plain)`. The duplicate-suppression set checked at the
     /// shared record point on both paths (after signature verification): an
@@ -128,6 +140,8 @@ impl NodeState {
         connection_strategy: Arc<dyn ConnectionStrategy>,
         fanout_strategy: Arc<dyn FanoutStrategy>,
         acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+        publish_strategy: Arc<dyn PublishStrategy>,
+        publish_acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Self {
         Self {
             self_id,
@@ -136,13 +150,14 @@ impl NodeState {
             verifier,
             candidates: BTreeMap::new(),
             registered_topics: HashMap::new(),
-            upstream: HashMap::new(),
-            downstream: HashSet::new(),
+            links: Links::new(),
             epoch_nonce: genesis,
             signer,
             connection_strategy,
             fanout_strategy,
             acceptance_strategy,
+            publish_strategy,
+            publish_acceptance_strategy,
             seen: HashSet::new(),
             synced: false,
         }
@@ -194,21 +209,62 @@ impl NodeState {
             .unwrap_or_default()
     }
 
-    /// Snapshot of the upstream connections — `(peer, topic, state)` triples in
-    /// unspecified order. A stable clone, unaffected by later events.
+    /// Snapshot of the **relay upstream** links — `(peer, topic, state)`
+    /// triples (the `Relay`/`Out` view of the link store, preserving the
+    /// pre-015 getter semantics). A stable clone, unaffected by later events.
     #[must_use]
-    pub(crate) fn upstream_snapshot(&self) -> Vec<(PeerId, TopicId, UpstreamState)> {
-        self.upstream
+    pub(crate) fn upstream_snapshot(&self) -> Vec<(PeerId, TopicId, LinkState)> {
+        self.links
             .iter()
-            .map(|((peer, topic), state)| (peer.clone(), topic.clone(), *state))
+            .filter(|((_, _, role, direction), _)| {
+                *role == LinkRole::Relay && *direction == LinkDirection::Out
+            })
+            .map(|((peer, topic, _, _), state)| (peer.clone(), topic.clone(), *state))
             .collect()
     }
 
-    /// Snapshot of the downstream connections — `(peer, topic)` pairs in
-    /// unspecified order. A stable clone, unaffected by later events.
+    /// Snapshot of the **relay downstream** links — `(peer, topic)` pairs (the
+    /// `Relay`/`In` view of the link store, preserving the pre-015 getter
+    /// semantics). A stable clone, unaffected by later events.
     #[must_use]
     pub(crate) fn downstream_snapshot(&self) -> Vec<(PeerId, TopicId)> {
-        self.downstream.iter().cloned().collect()
+        self.links
+            .iter()
+            .filter(|((_, _, role, direction), _)| {
+                *role == LinkRole::Relay && *direction == LinkDirection::In
+            })
+            .map(|((peer, topic, _, _), _)| (peer.clone(), topic.clone()))
+            .collect()
+    }
+
+    /// Snapshot of the full link store — `(peer, topic, role, direction,
+    /// state)` tuples in key order (feature 015). A stable clone, unaffected by
+    /// later events.
+    #[must_use]
+    pub(crate) fn links_snapshot(
+        &self,
+    ) -> Vec<(PeerId, TopicId, LinkRole, LinkDirection, LinkState)> {
+        self.links
+            .iter()
+            .map(|((peer, topic, role, direction), state)| {
+                (peer.clone(), topic.clone(), *role, *direction, *state)
+            })
+            .collect()
+    }
+
+    /// Test-only: record a link directly, bypassing establishment — the
+    /// declarative fixture for transitions that *read* the store (fan-out,
+    /// receive gate) without exercising the handshake.
+    #[cfg(test)]
+    pub(crate) fn insert_link_for_test(
+        &mut self,
+        peer: PeerId,
+        topic: TopicId,
+        role: LinkRole,
+        direction: LinkDirection,
+        state: LinkState,
+    ) {
+        self.links.insert((peer, topic, role, direction), state);
     }
 }
 
@@ -296,32 +352,46 @@ fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
     let view = NodeView {
         subscriptions: &state.subscriptions,
         candidates: &state.candidates,
-        downstream: &state.downstream,
+        links: &state.links,
         epoch_nonce: state.epoch_nonce,
     };
-    let expected = state.connection_strategy.expected_upstream(&view);
+    let expected_relay = state.connection_strategy.expected_upstream(&view);
+    // The publish pass runs on the same dial tick, after the relay diff (015
+    // FR-009b): the strategy applies the M3 trigger internally — targets only
+    // for topics with no expected relay downstream (ADR 0033).
+    let expected_publish = state.publish_strategy.expected_publish(&view);
     // Clone the immutable bits the request builder needs so the loop can mutate
-    // `state.upstream` without aliasing the whole struct.
+    // `state.links` without aliasing the whole struct.
     let self_id = state.self_id.clone();
     let signer = Arc::clone(&state.signer);
 
     let mut effects = Vec::new();
-    for (peer, topic) in expected {
-        match state.upstream.get(&(peer.clone(), topic.clone())).copied() {
-            Some(UpstreamState::Active) => continue,
-            Some(UpstreamState::AwaitingAccept) => {}
+    let dial = |links: &mut Links, peer: PeerId, topic: TopicId, role: LinkRole| {
+        match links
+            .get(&(peer.clone(), topic.clone(), role, LinkDirection::Out))
+            .copied()
+        {
+            Some(LinkState::Active) => return None,
+            Some(LinkState::AwaitingAccept) => {}
             None => {
-                state
-                    .upstream
-                    .insert((peer.clone(), topic.clone()), UpstreamState::AwaitingAccept);
+                links.insert(
+                    (peer.clone(), topic.clone(), role, LinkDirection::Out),
+                    LinkState::AwaitingAccept,
+                );
             }
         }
         let message = signed_connection(
             &self_id,
             signer.as_ref(),
-            ConnectionAction::Request { topic },
+            ConnectionAction::Request { topic, role },
         );
-        effects.push(Effect::Send { to: peer, message });
+        Some(Effect::Send { to: peer, message })
+    };
+    for (peer, topic) in expected_relay {
+        effects.extend(dial(&mut state.links, peer, topic, LinkRole::Relay));
+    }
+    for (peer, topic) in expected_publish {
+        effects.extend(dial(&mut state.links, peer, topic, LinkRole::Publisher));
     }
     effects
 }
@@ -376,25 +446,27 @@ fn signed_connection(self_id: &PeerId, signer: &dyn Signer, action: ConnectionAc
 fn handle_shutdown(state: &mut NodeState) -> Vec<Effect> {
     let self_id = state.self_id.clone();
     let signer = Arc::clone(&state.signer);
-    let terminate = |peer: PeerId, topic: TopicId| Effect::Send {
+    let terminate = |peer: PeerId, topic: TopicId, role: LinkRole| Effect::Send {
         to: peer,
         message: signed_connection(
             &self_id,
             signer.as_ref(),
-            ConnectionAction::Terminated { topic },
+            ConnectionAction::Terminated { topic, role },
         ),
     };
 
+    // One notice per held link entry, in key order (the ordered store makes
+    // emission deterministic). A pair held in both directions of a role is
+    // notified once per entry; the redundant notice is absorbed by the
+    // counterpart's unknown-termination rule.
     let effects: Vec<Effect> = state
-        .upstream
+        .links
         .keys()
         .cloned()
-        .chain(state.downstream.iter().cloned())
-        .map(|(peer, topic)| terminate(peer, topic))
+        .map(|(peer, topic, role, _)| terminate(peer, topic, role))
         .collect();
 
-    state.upstream.clear();
-    state.downstream.clear();
+    state.links.clear();
     effects
 }
 
@@ -440,8 +512,7 @@ fn handle_topic_registry_update(state: &mut NodeState, event: TopicRegistryEvent
             state.registered_topics.remove(&topic);
             state.subscriptions.remove(&topic);
             state.candidates.remove(&topic);
-            state.upstream.retain(|(_, t), _| t != &topic);
-            state.downstream.retain(|(_, t)| t != &topic);
+            state.links.retain(|(_, t, _, _), _| t != &topic);
         }
     }
     Vec::new()
@@ -618,35 +689,39 @@ fn handle_connection_message(
     }
 
     match plain.action {
-        ConnectionAction::Request { topic } => {
-            handle_connection_request(state, plain.emitter, topic)
+        ConnectionAction::Request { topic, role } => {
+            handle_connection_request(state, plain.emitter, topic, role)
         }
-        ConnectionAction::Accepted { topic } => {
-            handle_connection_accepted(state, &plain.emitter, &topic)
+        ConnectionAction::Accepted { topic, role } => {
+            handle_connection_accepted(state, &plain.emitter, &topic, role)
         }
-        ConnectionAction::Terminated { topic } => {
-            handle_connection_terminated(state, &plain.emitter, &topic)
+        ConnectionAction::Terminated { topic, role } => {
+            handle_connection_terminated(state, &plain.emitter, &topic, role)
         }
-        ConnectionAction::Rejected { topic } => {
-            handle_connection_rejected(state, &plain.emitter, &topic)
+        ConnectionAction::Rejected { topic, role } => {
+            handle_connection_rejected(state, &plain.emitter, &topic, role)
         }
     }
 }
 
-/// Transition for a verified `Request` from `emitter` on `topic` (FR-012).
+/// Transition for a verified `Request` from `emitter` on `topic` (FR-012),
+/// dispatched by the request's carried link `role` (ADR 0032/0033).
 ///
-/// The accept/reject *policy* is the injected [`ConnectionAcceptanceStrategy`]
-/// (the inbound mirror of the dial-side `connection_strategy`); the handler owns
-/// the mechanics. The v1 `AcceptFromAllCandidates` membership-validates against
-/// the **membership-derived** view (registration gates delivery, not acceptance
-/// — the S7 pin): the topic must be among the node's own topics AND the emitter
-/// a known member of it. An accepted request records the downstream entry
-/// (idempotently) and replies `Accepted` to the carried emitter; a rejected one
-/// is dropped with no state change and no reply.
+/// The accept/reject *policy* is the role's injected
+/// [`ConnectionAcceptanceStrategy`] — the relay slot for a relay request, the
+/// publish slot for a publish-intent request (same seam contract, publish
+/// parameters); the handler owns the mechanics. Policies membership-validate
+/// against the **membership-derived** view (registration gates delivery, not
+/// acceptance — the S7 pin): the topic must be among the node's own topics AND
+/// the emitter a known member of it. An accepted request records the
+/// `(emitter, topic, role, In)` link `Active` (idempotently) and replies
+/// `Accepted` with the role to the carried emitter; a rejected one is dropped
+/// with no state change and — except over-capacity — no reply.
 fn handle_connection_request(
     state: &mut NodeState,
     emitter: PeerId,
     topic: TopicId,
+    role: LinkRole,
 ) -> Vec<Effect> {
     // Registry-fold gate: before `Synced` the candidate view is partially
     // folded, so a bucket count derived from it can floor to 1 and the edge
@@ -669,18 +744,28 @@ fn handle_connection_request(
     let view = NodeView {
         subscriptions: &state.subscriptions,
         candidates: &state.candidates,
-        downstream: &state.downstream,
+        links: &state.links,
         epoch_nonce: state.epoch_nonce,
     };
-    let admission = state.acceptance_strategy.admit(&emitter, &topic, &view);
+    let admission = match role {
+        LinkRole::Relay => state.acceptance_strategy.admit(&emitter, &topic, &view),
+        LinkRole::Publisher => state
+            .publish_acceptance_strategy
+            .admit(&emitter, &topic, &view),
+    };
     match admission {
         Admission::Accept => {
-            // Idempotent: the set absorbs a duplicate; a re-dial re-sends Accepted.
-            state.downstream.insert((emitter.clone(), topic.clone()));
+            // Idempotent: the map absorbs a duplicate; a re-dial re-sends
+            // Accepted. An inbound link is Active at acceptance — the acceptor
+            // has nothing to await (ADR 0032).
+            state.links.insert(
+                (emitter.clone(), topic.clone(), role, LinkDirection::In),
+                LinkState::Active,
+            );
             let message = signed_connection(
                 &state.self_id,
                 state.signer.as_ref(),
-                ConnectionAction::Accepted { topic },
+                ConnectionAction::Accepted { topic, role },
             );
             vec![Effect::Send {
                 to: emitter,
@@ -721,7 +806,7 @@ fn handle_connection_request(
             let message = signed_connection(
                 &state.self_id,
                 state.signer.as_ref(),
-                ConnectionAction::Rejected { topic },
+                ConnectionAction::Rejected { topic, role },
             );
             vec![Effect::Send {
                 to: emitter,
@@ -731,19 +816,25 @@ fn handle_connection_request(
     }
 }
 
-/// Transition for a verified `Accepted` from `emitter` on `topic` (FR-013).
+/// Transition for a verified `Accepted` from `emitter` on `topic` (FR-013),
+/// keyed by the carried link `role`.
 ///
-/// Activates the matching `AwaitingAccept` upstream entry. An `Accepted` with
-/// no matching pending entry (absent, or already `Active`) is dropped and
-/// creates/modifies nothing.
+/// Activates the matching `AwaitingAccept` outbound entry of that role. An
+/// `Accepted` with no matching pending entry (absent, already `Active`, or a
+/// different role) is dropped and creates/modifies nothing.
 fn handle_connection_accepted(
     state: &mut NodeState,
     emitter: &PeerId,
     topic: &TopicId,
+    role: LinkRole,
 ) -> Vec<Effect> {
-    if let Some(entry) = state.upstream.get_mut(&(emitter.clone(), topic.clone())) {
-        if *entry == UpstreamState::AwaitingAccept {
-            *entry = UpstreamState::Active;
+    if let Some(entry) =
+        state
+            .links
+            .get_mut(&(emitter.clone(), topic.clone(), role, LinkDirection::Out))
+    {
+        if *entry == LinkState::AwaitingAccept {
+            *entry = LinkState::Active;
             return Vec::new();
         }
     }
@@ -758,20 +849,28 @@ fn handle_connection_accepted(
     Vec::new()
 }
 
-/// Transition for a verified `Terminated` from `emitter` on `topic` (FR-014).
+/// Transition for a verified `Terminated` from `emitter` on `topic` (FR-014),
+/// scoped to the carried link `role`.
 ///
-/// Removes the matching entry in either role (both, if both are held). A
-/// `Terminated` for a connection not held is dropped; a `Terminated` is never
-/// replied to.
+/// Removes that role's matching entry in either direction (both, if both are
+/// held); the other role's links between the same pair are untouched
+/// (coexisting links, ADR 0032). A `Terminated` for a link not held is dropped;
+/// a `Terminated` is never replied to.
 fn handle_connection_terminated(
     state: &mut NodeState,
     emitter: &PeerId,
     topic: &TopicId,
+    role: LinkRole,
 ) -> Vec<Effect> {
-    let key = (emitter.clone(), topic.clone());
-    let removed_upstream = state.upstream.remove(&key).is_some();
-    let removed_downstream = state.downstream.remove(&key);
-    if !(removed_upstream || removed_downstream) {
+    let removed_out = state
+        .links
+        .remove(&(emitter.clone(), topic.clone(), role, LinkDirection::Out))
+        .is_some();
+    let removed_in = state
+        .links
+        .remove(&(emitter.clone(), topic.clone(), role, LinkDirection::In))
+        .is_some();
+    if !(removed_out || removed_in) {
         tracing::info!(
             target: "pubsub_node::node",
             event = "message_dropped",
@@ -787,24 +886,23 @@ fn handle_connection_terminated(
 /// Transition for a verified `Rejected` from `emitter` on `topic` — the peer
 /// refused this node's dial for over-capacity (feature 005, ADR 0025).
 ///
-/// Removes the matching `AwaitingAccept` upstream so the dialer stops waiting on
-/// an `Accepted` that will never come; that is the **only** handling. There is no
-/// retry and no back-fill: the realized upstream degree may settle below target,
-/// and re-forming connections is left to the future heartbeat/reshuffle layer
-/// (retry/back-fill is a separate strategy family — see `IMPLEMENTATION_NOTES`).
-/// A `Rejected` with no matching pending entry (absent, or already `Active`) is
-/// dropped and changes nothing. A rejection is never treated as misbehaviour.
+/// Removes the matching `AwaitingAccept` outbound entry of the carried role so
+/// the dialer stops waiting on an `Accepted` that will never come; that is the
+/// **only** handling. There is no retry and no back-fill: the realized degree
+/// may settle below target, and re-forming links is left to the future
+/// heartbeat/reshuffle layer (retry/back-fill is a separate strategy family —
+/// see `IMPLEMENTATION_NOTES`). A `Rejected` with no matching pending entry
+/// (absent, already `Active`, or a different role) is dropped and changes
+/// nothing. A rejection is never treated as misbehaviour.
 fn handle_connection_rejected(
     state: &mut NodeState,
     emitter: &PeerId,
     topic: &TopicId,
+    role: LinkRole,
 ) -> Vec<Effect> {
-    let key = (emitter.clone(), topic.clone());
-    if matches!(
-        state.upstream.get(&key),
-        Some(UpstreamState::AwaitingAccept)
-    ) {
-        state.upstream.remove(&key);
+    let key = (emitter.clone(), topic.clone(), role, LinkDirection::Out);
+    if matches!(state.links.get(&key), Some(LinkState::AwaitingAccept)) {
+        state.links.remove(&key);
         return Vec::new();
     }
     tracing::info!(
@@ -860,18 +958,20 @@ fn validate_dissemination(state: &NodeState, plain: &PlainMessage) -> Option<&'s
 
 /// Compute the verbatim fan-out effects for `message` on `topic`: one
 /// [`Effect::Send`] per target the strategy selects, each carrying a clone of
-/// the original [`SignedMessage`] (relays never re-sign — FR-007). `exclude` is
-/// the split-horizon peer — the deliverer on the receive path, `None` on the
-/// publish path.
+/// the original [`SignedMessage`] (relays never re-sign — FR-007). The seam is
+/// **origin-aware** (015 FR-005): publishing links are targets only for a
+/// local origin. `exclude` is the split-horizon peer — the deliverer on the
+/// receive path, `None` on the publish path.
 fn fanout(
     state: &NodeState,
     topic: &TopicId,
     message: &SignedMessage,
+    origin: &Origin,
     exclude: Option<&PeerId>,
 ) -> Vec<Effect> {
     state
         .fanout_strategy
-        .targets(topic, &state.downstream, exclude)
+        .targets(topic, &state.links, origin, exclude)
         .into_iter()
         .map(|to| Effect::Send {
             to,
@@ -913,7 +1013,7 @@ fn record_and_fanout(
         return Vec::new();
     }
     let topic = signed.plain.topic.clone();
-    let effects = fanout(state, &topic, &signed, exclude);
+    let effects = fanout(state, &topic, &signed, &origin, exclude);
     state.received.push(ReceivedDelivery {
         origin,
         message: Message::Dissemination(signed),
@@ -986,23 +1086,53 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 // check, over an Active upstream, is misbehavior and severs (FR-017); the
 // fan-out happens only past the record point.
 fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessage) -> Vec<Effect> {
-    // FR-016: admit only from an Active upstream for this topic.
-    let connected = matches!(
-        state
-            .upstream
-            .get(&(from.clone(), signed.plain.topic.clone())),
-        Some(UpstreamState::Active),
+    // FR-016: admit only over a link oriented to *receive* from the deliverer —
+    // an Active Relay/Out (dialed upstream, as before 015), or an inbound
+    // publishing link (Publisher/In). Over a publishing link the deliverer must
+    // BE the message's publisher (the receive-side dual of the origin-gated
+    // send, ADR 0033): a foreign-publisher payload over a publish link is a
+    // relay attempt the link's role forbids, dropped with its own cause.
+    let topic = signed.plain.topic.clone();
+    let relay_upstream = matches!(
+        state.links.get(&(
+            from.clone(),
+            topic.clone(),
+            LinkRole::Relay,
+            LinkDirection::Out
+        )),
+        Some(LinkState::Active),
     );
-    if !connected {
-        tracing::info!(
-            target: "pubsub_node::node",
-            event = "message_dropped",
-            cause = "not_connected",
-            self_id = %state.self_id,
-            from = %from,
-            topic = %signed.plain.topic,
-        );
-        return Vec::new();
+    let publish_inbound = state.links.contains_key(&(
+        from.clone(),
+        topic.clone(),
+        LinkRole::Publisher,
+        LinkDirection::In,
+    ));
+    let publisher_bound = signed.plain.publisher_id.as_public_key() == from.as_public_key();
+    if !relay_upstream {
+        if publish_inbound && !publisher_bound {
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "relay_over_publish_link",
+                self_id = %state.self_id,
+                from = %from,
+                topic = %signed.plain.topic,
+                publisher_id = %signed.plain.publisher_id,
+            );
+            return Vec::new();
+        }
+        if !publish_inbound {
+            tracing::info!(
+                target: "pubsub_node::node",
+                event = "message_dropped",
+                cause = "not_connected",
+                self_id = %state.self_id,
+                from = %from,
+                topic = %signed.plain.topic,
+            );
+            return Vec::new();
+        }
     }
 
     // The shared subscribed → registered → authorized chain (R9); a failure is a
@@ -1042,7 +1172,12 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         // silently: remove the upstream entry and raise the misbehavior signal
         // (the executor logs `connection_severed`); no Terminated is sent.
         let topic = signed.plain.topic.clone();
-        state.upstream.remove(&(from.clone(), topic.clone()));
+        state.links.remove(&(
+            from.clone(),
+            topic.clone(),
+            LinkRole::Relay,
+            LinkDirection::Out,
+        ));
         return vec![Effect::Misbehaved {
             peer: from,
             topic,

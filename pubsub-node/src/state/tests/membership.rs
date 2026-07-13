@@ -130,7 +130,7 @@ fn removed_cascades_to_subscriptions_candidates_and_connections() {
     );
     // Hold a connection in each role on weather.
     with_active_upstream(&mut state, "b", "weather");
-    state.downstream.insert((peer("c"), topic("weather")));
+    with_downstream(&mut state, "c", "weather");
     assert_eq!(state.subscriptions_snapshot(), vec![topic("weather")]);
     assert_eq!(
         state.candidates_snapshot(&topic("weather")),

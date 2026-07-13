@@ -25,7 +25,7 @@ fn synced_transitions_and_dials_idempotently() {
     assert!(state.is_synced(), "Synced transitions the node to Synced");
     assert_eq!(
         upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
         "Synced dials the candidate",
     );
     assert_eq!(
@@ -92,6 +92,8 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
         Arc::new(HashGatedConnection::new(peer("self"), 6)),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(AcceptFromAllCandidates),
     );
     apply(&mut state, reg_open("t"));
     apply(&mut state, membership_joined("self", ["t"]));
@@ -101,7 +103,11 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
 
     // Readiness dials exactly the nonce-0 edge set.
     apply(&mut state, Event::Synced);
-    let dialed: BTreeSet<PeerId> = state.upstream.keys().map(|(p, _)| p.clone()).collect();
+    let dialed: BTreeSet<PeerId> = state
+        .upstream_snapshot()
+        .iter()
+        .map(|(p, _, _)| p.clone())
+        .collect();
     assert_eq!(dialed, at_zero, "the readiness dial uses the genesis nonce");
 
     // The epoch fold emits nothing; the next Heartbeat dials the new set too
@@ -109,7 +115,11 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
     let effects = apply(&mut state, Event::Epoch { nonce });
     assert!(effects.is_empty(), "the epoch fold emits nothing");
     apply(&mut state, Event::Heartbeat);
-    let dialed: BTreeSet<PeerId> = state.upstream.keys().map(|(p, _)| p.clone()).collect();
+    let dialed: BTreeSet<PeerId> = state
+        .upstream_snapshot()
+        .iter()
+        .map(|(p, _, _)| p.clone())
+        .collect();
     let expected: BTreeSet<PeerId> = at_zero.union(&selection(nonce)).cloned().collect();
     assert_eq!(dialed, expected, "the next dial pass follows the new nonce");
 }
@@ -129,11 +139,11 @@ fn setup_event_dials_all_candidates() {
 
     assert_eq!(
         upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
     assert_eq!(
         upstream_state(&state, "b", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
     assert_eq!(
         sorted_pairs(request_sends(&effects, "self")),
@@ -157,11 +167,11 @@ fn setup_keys_connections_per_peer_topic() {
 
     assert_eq!(
         upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
     assert_eq!(
         upstream_state(&state, "a", "t2"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
     assert_eq!(
         request_sends(&effects, "self").len(),
@@ -217,7 +227,7 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
     apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
 
     // Repeat with a still pending → re-dialed (fresh Request), entry kept.
@@ -229,15 +239,12 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
     );
     assert_eq!(
         upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
 
     // a accepts → Active. Add candidate b.
     apply(&mut state, accepted_from("a", "t1"));
-    assert_eq!(
-        upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "a", "t1"), Some(LinkState::Active));
     apply(&mut state, membership_joined("b", ["t1"]));
 
     // Repeat → b dialed, a (Active) left alone and still present.
@@ -247,13 +254,10 @@ fn repeated_setup_redials_pending_skips_active_never_removes() {
         vec![(peer("b"), topic("t1"))],
         "Active pair not re-dialed; new candidate dialed",
     );
-    assert_eq!(
-        upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "a", "t1"), Some(LinkState::Active));
     assert_eq!(
         upstream_state(&state, "b", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
 }
 

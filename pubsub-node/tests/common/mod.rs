@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeView, Origin, PeerEntry, PeerId,
-    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer,
-    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
-    TopicRegistryControl, UpstreamState, Verifier,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, Message,
+    MessageHash, MessagePayload, MockCryptoScheme, NoPublishLinks, Node, NodeConfig, NodeView,
+    Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -199,6 +199,8 @@ pub async fn two_node_fixture_with_subscriptions(
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node A");
@@ -216,6 +218,8 @@ pub async fn two_node_fixture_with_subscriptions(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -324,6 +328,8 @@ pub async fn node_with_strategy(
         strategy,
         Arc::new(ForwardToAll),
         Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
+        Arc::new(AcceptFromAllCandidates),
     )
     .await
     .expect("construct node");
@@ -373,6 +379,8 @@ pub async fn node_sharing(
         topic_registry.clone(),
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
@@ -501,7 +509,7 @@ pub async fn assert_no_new_deliveries(nodes: &[&Node], window: Duration) {
 /// behaviour with no pure-core equivalent, it is the best available regression
 /// window).
 pub async fn assert_no_connection_change(node: &Node, window: Duration) {
-    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, UpstreamState)> {
+    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, LinkState)> {
         let mut up = node.upstream_connections();
         up.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
         up
@@ -581,7 +589,7 @@ pub async fn await_upstream_active(
         let active = node
             .upstream_connections()
             .into_iter()
-            .any(|(p, t, state)| &p == peer && &t == topic && state == UpstreamState::Active);
+            .any(|(p, t, state)| &p == peer && &t == topic && state == LinkState::Active);
         if active {
             return Ok(());
         }

@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::{accept_cap, is_valid_edge, resolve_buckets};
+use crate::strategies::edge::{accept_cap, is_valid_edge_for, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -18,28 +19,41 @@ use crate::topic::TopicId;
 /// nonce comes from the [`NodeView`]), so an adversary cannot force an edge the
 /// hash does not allow — a predicate failure is a **silent**
 /// `RejectIllegitimate`. Over the per-topic cap
-/// `OC = ⌈relay_degree + c·√relay_degree⌉` a legitimate request is refused with
+/// `OC = ⌈degree + c·√degree⌉` a legitimate request is refused with
 /// `RejectOverCapacity` (an explicit `Rejected`).
 pub struct HashGatedBoundedAcceptance {
     self_id: PeerId,
-    relay_degree: usize,
+    degree: usize,
     cap_buffer: usize,
     bucket_override: Option<usize>,
+    role: LinkRole,
 }
 
 impl HashGatedBoundedAcceptance {
     /// Build the policy from already-parsed inputs (`cap_buffer` is the `c` in
-    /// `OC = ⌈relay_degree + c·√relay_degree⌉`). `B` is derived per topic from
-    /// `relay_degree`; use [`with_bucket_override`](Self::with_bucket_override)
-    /// to pin it — it must match the dialer's `B`.
+    /// `OC = ⌈degree + c·√degree⌉`; `degree` is the serving seam's target degree
+    /// — `relay_degree` or `publish_degree`). `B` is derived per topic from it;
+    /// use [`with_bucket_override`](Self::with_bucket_override) to pin it — it
+    /// must match the dialer's `B`. Serves the `Relay` slot by default;
+    /// retarget with [`for_role`](Self::for_role).
     #[must_use]
-    pub fn new(self_id: PeerId, relay_degree: usize, cap_buffer: usize) -> Self {
+    pub fn new(self_id: PeerId, degree: usize, cap_buffer: usize) -> Self {
         Self {
             self_id,
-            relay_degree,
+            degree,
             cap_buffer,
             bucket_override: None,
+            role: LinkRole::Relay,
         }
+    }
+
+    /// Retarget the policy at a link role's acceptance slot: the prelude scan
+    /// and the cap count that role's inbound links, and the predicate verifies
+    /// under that role's hash domain (ADR 0033).
+    #[must_use]
+    pub fn for_role(mut self, role: LinkRole) -> Self {
+        self.role = role;
+        self
     }
 
     /// Pin the bucket count `B` used to verify the edge predicate, instead of
@@ -62,7 +76,7 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
         // Membership, then the idempotent already-downstream re-Accept — the
         // shared prelude every refusing policy runs first (see
         // `acceptance::admit_prelude` for the half-open-link rationale).
-        let downstream_on_topic = match admit_prelude(emitter, topic, view) {
+        let inbound_on_topic = match admit_prelude(self.role, emitter, topic, view) {
             Ok(count) => count,
             Err(decision) => return decision,
         };
@@ -80,12 +94,19 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
         // the dependence entirely (both ends use the same configured B). The
         // emitter is the requester, this node the candidate.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
-        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.relay_degree);
-        if !is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
+        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.degree);
+        if !is_valid_edge_for(
+            self.role,
+            view.epoch_nonce,
+            topic,
+            emitter,
+            &self.self_id,
+            buckets,
+        ) {
             return Admission::RejectIllegitimate;
         }
-        let cap = accept_cap(self.relay_degree, self.cap_buffer);
-        if downstream_on_topic >= cap {
+        let cap = accept_cap(self.degree, self.cap_buffer);
+        if inbound_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept
@@ -96,19 +117,19 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::HashGatedBoundedAcceptance;
+    use crate::connection_state::Links;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{bucket_count, is_valid_edge};
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
     };
-    use std::collections::HashSet;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = Links::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed
@@ -126,7 +147,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"]; // 6 candidates
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let down = HashSet::new();
+        let down = Links::new();
         let buckets = bucket_count(names.len(), 1); // 6/1 = 6 > 1
         let invalid = names
             .iter()
@@ -183,7 +204,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"];
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let down = HashSet::new();
+        let down = Links::new();
         // Derived B on 6 candidates at relay_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
         let policy =
@@ -221,7 +242,7 @@ mod tests {
     fn small_topic_admits_every_member_below_cap() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ relay_degree ⇒ B=1
-        let down = HashSet::new();
+        let down = Links::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 8, 3).admit(
             &peer("a"),
             &topic("t1"),

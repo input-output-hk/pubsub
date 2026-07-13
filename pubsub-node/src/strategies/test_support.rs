@@ -5,9 +5,10 @@
 //! Test-only (`#[cfg(test)]` at the module declaration); adding a field to
 //! [`NodeView`] is a one-place change here rather than a per-test-module sweep.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
+use crate::connection_state::{LinkDirection, LinkRole, LinkState, Links};
 use crate::peer::PeerId;
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
@@ -35,31 +36,48 @@ pub(crate) fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTree
         .collect()
 }
 
-/// A downstream set from `(peer, topic)` entries.
-pub(crate) fn downstream(entries: &[(&str, &str)]) -> HashSet<(PeerId, TopicId)> {
-    entries.iter().map(|(p, t)| (peer(p), topic(t))).collect()
+/// A link store holding relay fan-out destinations (`In`/`Relay`, `Active`)
+/// from `(peer, topic)` entries — the former downstream set.
+pub(crate) fn downstream(entries: &[(&str, &str)]) -> Links {
+    entries
+        .iter()
+        .map(|(p, t)| {
+            (
+                (peer(p), topic(t), LinkRole::Relay, LinkDirection::In),
+                LinkState::Active,
+            )
+        })
+        .collect()
+}
+
+/// A link store from explicit `(peer, topic, role, direction, state)` entries.
+pub(crate) fn links(entries: &[(&str, &str, LinkRole, LinkDirection, LinkState)]) -> Links {
+    entries
+        .iter()
+        .map(|(p, t, role, direction, state)| ((peer(p), topic(t), *role, *direction), *state))
+        .collect()
 }
 
 /// A [`NodeView`] over the borrowed fixtures (epoch nonce 0 — the v1 default).
 pub(crate) fn view<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    down: &'a HashSet<(PeerId, TopicId)>,
+    links: &'a Links,
 ) -> NodeView<'a> {
-    view_with_nonce(subs, cands, down, 0)
+    view_with_nonce(subs, cands, links, 0)
 }
 
 /// A [`NodeView`] over the borrowed fixtures at an explicit epoch nonce.
 pub(crate) fn view_with_nonce<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    down: &'a HashSet<(PeerId, TopicId)>,
+    links: &'a Links,
     epoch_nonce: u64,
 ) -> NodeView<'a> {
     NodeView {
         subscriptions: subs,
         candidates: cands,
-        downstream: down,
+        links,
         epoch_nonce,
     }
 }

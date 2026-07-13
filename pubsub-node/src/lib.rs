@@ -18,13 +18,16 @@
 //!   [`MessagePayload::Ping`]), and [`Message::Connection`] carries a
 //!   [`ConnectionMessage`] (a signed [`PlainConnection`] — the carried emitter
 //!   plus a [`ConnectionAction`]).
-//! - [`UpstreamState`], [`ConnectionStrategy`], [`ConnectToAllCandidates`],
-//!   [`ConnectionAcceptanceStrategy`], [`AcceptFromAllCandidates`] —
-//!   the logical-connection vocabulary: a node's upstream connections carry an
-//!   explicit state, an injected strategy selects which upstreams to dial on a
-//!   setup event, and an injected acceptance strategy decides which inbound
-//!   requests to accept as downstream. Read the topology via
-//!   [`Node::upstream_connections`]/[`Node::downstream_connections`].
+//! - [`LinkRole`], [`LinkDirection`], [`LinkState`], [`ConnectionStrategy`],
+//!   [`ConnectToAllCandidates`], [`ConnectionAcceptanceStrategy`],
+//!   [`AcceptFromAllCandidates`], [`PublishStrategy`], [`NoPublishLinks`] —
+//!   the unified link vocabulary (ADR 0032): one logical link per
+//!   `(peer, topic, role, direction)`, with injected strategies per seam —
+//!   relay selection, role-dispatched inbound acceptance, publishing-link
+//!   targets (ADR 0033), and origin-aware fan-out. Read the topology via
+//!   [`Node::links`] (full store) or
+//!   [`Node::upstream_connections`]/[`Node::downstream_connections`] (the
+//!   relay-scoped views).
 //! - [`crypto`] — the [`Signer`]/[`Verifier`] trait pair and the byte-newtype
 //!   types they operate over ([`PublicKey`], [`PrivateKey`], [`Signature`],
 //!   [`MessageHash`], [`Timestamp`]); [`crypto::mock`] holds the test crypto.
@@ -54,7 +57,7 @@ mod topic;
 mod topic_registry;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
-pub use connection_state::UpstreamState;
+pub use connection_state::{LinkDirection, LinkRole, LinkState, Links};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
@@ -75,14 +78,18 @@ pub use strategies::acceptance::{
     UnknownAcceptanceStrategy,
 };
 pub use strategies::config::{
-    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
+    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder,
+    PublishAcceptanceParams, PublishParams, StrategyConfigError,
 };
 pub use strategies::connection::{
     ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, HashGatedConnection,
     UnknownConnectionStrategy,
 };
-pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge};
+pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_for};
 pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
+pub use strategies::publish::{
+    HashGatedPublish, NoPublishLinks, PublishStrategy, PublishStrategyKind, UnknownPublishStrategy,
+};
 pub use strategies::view::NodeView;
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,

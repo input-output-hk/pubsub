@@ -1,27 +1,72 @@
-//! The connection-domain vocabulary the core owns: the upstream-connection state
-//! enum, plus test-only declarative builders for the events that drive the
-//! connection state machine.
+//! The connection-domain vocabulary the core owns: the unified link key
+//! components ([`LinkRole`], [`LinkDirection`]), the establishment lifecycle
+//! ([`LinkState`]), plus test-only declarative builders for the events that
+//! drive the connection state machine.
 //!
-//! This is deliberately *not* a strategy — the connection-selection policy lives
-//! under [`crate::strategies::connection`]. What lives here is the lifecycle
-//! state the pure core (`crate::state`) assigns and stores: an upstream entry the
-//! node's strategy creates in [`AwaitingAccept`](UpstreamState::AwaitingAccept)
-//! advances to [`Active`](UpstreamState::Active) when the peer's `Accepted`
-//! arrives — plus the `test_support` harness that scripts lifecycle events.
+//! This is deliberately *not* a strategy — the selection/acceptance policies
+//! live under [`crate::strategies`]. What lives here is the vocabulary the pure
+//! core (`crate::state`) keys its **link store** on (ADR 0032): one logical
+//! link per `(peer, topic, role, direction)`, whose send/receive orientation is
+//! *derived* from role × direction rather than stored — for `Relay` links the
+//! dialer receives (Out = message source, In = fan-out destination); for
+//! `Publisher` links the dialer sends (Out = injection target for the node's
+//! own published messages, In = a source of that peer's published messages).
 
-/// The state of an upstream (dialer-side) connection for one `(peer, topic)`.
+use std::collections::BTreeMap;
+
+use crate::peer::PeerId;
+use crate::topic::TopicId;
+
+/// Which dissemination duty a link serves (ADR 0032).
 ///
-/// An upstream entry is created by the node's own strategy on a setup event in
-/// [`AwaitingAccept`](UpstreamState::AwaitingAccept); it advances to
-/// [`Active`](UpstreamState::Active) when the peer's `Accepted` arrives.
-/// Terminal outcomes are removals, not stored states — there is no
+/// A `Relay` and a `Publisher` link between the same `(peer, topic)` coexist as
+/// independent entries with independent lifecycles and caps.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum LinkRole {
+    /// Full flood participation: the link carries published **and** relayed
+    /// messages (the relaying link of the M3 vocabulary).
+    Relay,
+    /// A publishing link (the M3 S-link): carries only the dialing publisher's
+    /// own locally-originated messages — never relayed traffic, in either
+    /// direction (ADR 0033).
+    Publisher,
+}
+
+/// Who dialed (ADR 0032). Orientation per role is derived — see [`LinkRole`].
+///
+/// `#[non_exhaustive]`: feature 016 (bidirectional links) may add a variant if
+/// its design requires one; its baseline representation is the Out + In *pair*
+/// a symmetric edge predicate produces, so the stored direction stays binary
+/// here.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum LinkDirection {
+    /// This node dialed.
+    Out,
+    /// The peer dialed.
+    In,
+}
+
+/// The node's unified link store: one entry per logical link, keyed by
+/// `(peer, topic, role, direction)` (ADR 0032). Ordered so snapshot and
+/// shutdown-notice emission are deterministic.
+pub type Links = BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>;
+
+/// The establishment lifecycle of a link (the former `UpstreamState`).
+///
+/// An `Out` entry is created by the node's own selection strategy on a dial
+/// tick in [`AwaitingAccept`](LinkState::AwaitingAccept); it advances to
+/// [`Active`](LinkState::Active) when the peer's `Accepted` arrives. An `In`
+/// entry is recorded directly `Active` at acceptance (the acceptor has nothing
+/// to await). Terminal outcomes are removals, not stored states — there is no
 /// closing/rejected variant.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum UpstreamState {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum LinkState {
     /// A `Request` has been sent; the peer's `Accepted` has not yet arrived.
     /// Admits no payload.
     AwaitingAccept,
-    /// The peer accepted; payload it forwards on this topic is admitted.
+    /// The link is established; payload consistent with its role × direction
+    /// orientation is admitted.
     Active,
 }
 
@@ -51,6 +96,7 @@ pub enum UpstreamState {
 pub(crate) mod test_support {
     use std::str::FromStr;
 
+    use super::LinkRole;
     use crate::crypto::mock::MockCryptoScheme;
     use crate::crypto::{Signer, Timestamp};
     use crate::event::Event;
@@ -101,43 +147,70 @@ pub(crate) mod test_support {
         Event::MembershipUpdate(MembershipEvent::joined(node, topics))
     }
 
-    /// A `Request{topic}` control event from `emitter`.
+    /// A relay `Request{topic}` control event from `emitter`.
     pub(crate) fn request_from(emitter: &str, topic_id: &str) -> Event {
         control_event(
             emitter,
             ConnectionAction::Request {
                 topic: topic(topic_id),
+                role: LinkRole::Relay,
             },
         )
     }
 
-    /// An `Accepted{topic}` control event from `emitter`.
+    /// A publish-intent `Request{topic}` control event from `emitter`
+    /// (feature 015).
+    pub(crate) fn publish_request_from(emitter: &str, topic_id: &str) -> Event {
+        control_event(
+            emitter,
+            ConnectionAction::Request {
+                topic: topic(topic_id),
+                role: LinkRole::Publisher,
+            },
+        )
+    }
+
+    /// A relay `Accepted{topic}` control event from `emitter`.
     pub(crate) fn accepted_from(emitter: &str, topic_id: &str) -> Event {
         control_event(
             emitter,
             ConnectionAction::Accepted {
                 topic: topic(topic_id),
+                role: LinkRole::Relay,
             },
         )
     }
 
-    /// A `Terminated{topic}` control event from `emitter`.
+    /// A publish `Accepted{topic}` control event from `emitter` (feature 015).
+    pub(crate) fn publish_accepted_from(emitter: &str, topic_id: &str) -> Event {
+        control_event(
+            emitter,
+            ConnectionAction::Accepted {
+                topic: topic(topic_id),
+                role: LinkRole::Publisher,
+            },
+        )
+    }
+
+    /// A relay `Terminated{topic}` control event from `emitter`.
     pub(crate) fn terminated_from(emitter: &str, topic_id: &str) -> Event {
         control_event(
             emitter,
             ConnectionAction::Terminated {
                 topic: topic(topic_id),
+                role: LinkRole::Relay,
             },
         )
     }
 
-    /// A `Rejected{topic}` control event from `emitter` (acceptor → dialer,
-    /// over-capacity refusal; feature 005).
+    /// A relay `Rejected{topic}` control event from `emitter` (acceptor →
+    /// dialer, over-capacity refusal; feature 005).
     pub(crate) fn rejected_from(emitter: &str, topic_id: &str) -> Event {
         control_event(
             emitter,
             ConnectionAction::Rejected {
                 topic: topic(topic_id),
+                role: LinkRole::Relay,
             },
         )
     }
@@ -154,6 +227,7 @@ pub(crate) mod test_support {
             emitter: peer(emitter_alias),
             action: ConnectionAction::Request {
                 topic: topic(topic_id),
+                role: LinkRole::Relay,
             },
         };
         let signature = alias_signer(signing_alias).sign(&plain.signed_bytes());

@@ -10,7 +10,7 @@ use common::{
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, PeerId,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, NoPublishLinks, Node, NodeConfig, PeerId,
     SubscriptionRegistryControl, TopicId,
 };
 
@@ -43,6 +43,8 @@ async fn node_with_no_registry_entry_derives_empty_state() {
         topic_registry,
         Arc::new(ConnectToAllCandidates),
         Arc::new(ForwardToAll),
+        Arc::new(AcceptFromAllCandidates),
+        Arc::new(NoPublishLinks),
         Arc::new(AcceptFromAllCandidates),
     )
     .await
