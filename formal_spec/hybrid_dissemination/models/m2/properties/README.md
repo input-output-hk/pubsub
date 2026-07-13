@@ -1,0 +1,30 @@
+# M2 properties
+
+Per-property analyses of [M2](../README.md) (pull relaying).
+
+**Scripts** (this model's folder, all in `../scripts/`): the shared sampler
+`m2_model.py` (run it for a self-test; reused by M3), `sweep_m2_cost.py`
+(bandwidth/latency + good-graph-law check), `sim_m2_degrees.py` (degree
+distributions), and the eclipse validators
+`check_p01_per_target_eclipse.py` (per-target eclipse closed form
+P_ecl = C(k,RF)/C(N−1,RF) ≈ μ^RF — the coverage floor) and
+`check_p02_adversary_tolerance.py` (k_max(ε) ≈ N·ε^{1/RF}).
+
+| Property | File | Verdict |
+|---|---|---|
+| Full coverage — P(bad graph) | [`full_coverage.md`](full_coverage.md) | HYBRID |
+| Expected messages (bandwidth) | [`expected_number_of_messages.md`](expected_number_of_messages.md) | CLOSED FORM |
+| Expected hops (latency) | [`expected_number_of_hops.md`](expected_number_of_hops.md) | SIMULATION ONLY |
+| Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
+| Churn tolerance (no repair) | [`churn_tolerance.md`](../../churn_tolerance.md) (shared) | pending — expected CLOSED FORM |
+| Join service (mid-epoch newcomers) | [`join_service.md`](../../join_service.md) (shared) | pending — structural |
+| Link repair (mid-epoch redraws) | [`link_repair.md`](../../link_repair.md) (shared) | pending — expected HYBRID |
+
+**Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−H[(1−ρ_f)+u]},
+dominated by muted publishers (e^{−RF(1−μ)}, present even at μ = 0); the
+smallest fanout with P(bad) ≤ 10⁻⁴ is **RF = 24** (≈ 307 200
+transmissions/message, 19.2 / honest node, 4.8 hops).
+
+**Verdict legend** — CLOSED FORM: exact explicit formula; HYBRID: closed-form
+law validated by simulation, exact finite-N values need simulation;
+SIMULATION ONLY: no closed form.

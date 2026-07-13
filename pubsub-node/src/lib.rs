@@ -91,11 +91,11 @@ pub use strategies::selection::{
 };
 pub use strategies::view::NodeView;
 pub use subscription_registry::{
-    InMemorySubscriptionRegistry, MembershipEvent, MembershipWatch, SubscriptionRegistry,
-    SubscriptionRegistryControl, SubscriptionRegistryError,
+    InMemorySubscriptionRegistry, MembershipEvent, MembershipSnapshot, MembershipWatch,
+    SubscriptionRegistry, SubscriptionRegistryControl, SubscriptionRegistryError,
 };
 pub use topic::{TopicId, TopicIdError};
 pub use topic_registry::{
     InMemoryTopicRegistry, TopicRegistry, TopicRegistryControl, TopicRegistryError,
-    TopicRegistryEvent, TopicRegistryWatch,
+    TopicRegistryEvent, TopicRegistryWatch, TopicSnapshot,
 };
