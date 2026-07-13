@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::LinkSelectionStrategy;
 use crate::connection_state::LinkRole;
 use crate::peer::PeerId;
-use crate::strategies::edge::hash_gated_selection;
+use crate::strategies::edge::{is_valid_edge_for, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -70,13 +70,31 @@ impl HashGatedSelection {
 
 impl LinkSelectionStrategy for HashGatedSelection {
     fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
-        hash_gated_selection(
-            self.role,
-            &self.self_id,
-            self.degree,
-            self.bucket_override,
-            view,
-        )
+        // One derivation site per topic (`resolve_buckets` — the derive-or-
+        // override rule), one predicate evaluation per candidate under the
+        // slot's role domain. Selection is a pure function of the view.
+        // (Feature 016's symmetric variant re-extracts this loop into a shared
+        // helper when it becomes the second consumer.)
+        let mut expected = BTreeSet::new();
+        for topic in view.subscriptions {
+            let Some(peers) = view.candidates.get(topic) else {
+                continue;
+            };
+            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.degree);
+            for candidate in peers {
+                if is_valid_edge_for(
+                    self.role,
+                    view.epoch_nonce,
+                    topic,
+                    &self.self_id,
+                    candidate,
+                    buckets,
+                ) {
+                    expected.insert((candidate.clone(), topic.clone()));
+                }
+            }
+        }
+        expected
     }
 }
 

@@ -1151,13 +1151,21 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         );
         // FR-017: reaching signature verification means the connection gate,
         // subscription, registration, and authorization checks all passed — so
-        // a failure here, over an Active upstream, is misbehavior. Sever
-        // silently: remove the upstream entry and raise the misbehavior signal
-        // (the executor logs `connection_severed`); no Terminated is sent.
-        let topic = signed.plain.topic.clone();
-        state
-            .links
-            .remove(&from, &topic, LinkRole::Relay, LinkDirection::Out);
+        // a failure here is misbehavior by the deliverer. Sever silently the
+        // link that ADMITTED the message — the Active relay upstream when the
+        // relay gate passed, else the inbound initiation link (the ADR 0033 §5
+        // dual: a publisher spamming invalid signatures over its standing link
+        // loses it) — and raise the misbehavior signal (the executor logs
+        // `connection_severed`); no Terminated is sent.
+        if relay_upstream {
+            state
+                .links
+                .remove(&from, &topic, LinkRole::Relay, LinkDirection::Out);
+        } else {
+            state
+                .links
+                .remove(&from, &topic, LinkRole::Publisher, LinkDirection::In);
+        }
         return vec![Effect::Misbehaved {
             peer: from,
             topic,

@@ -147,40 +147,6 @@ pub fn is_valid_edge_for(
     value % (buckets as u64) == 0
 }
 
-/// The shared hash-gated selection loop both dial seams run (feature 015
-/// follow-up): for each subscribed topic, select candidate `U` iff the
-/// role's edge predicate holds under buckets derived from `degree` (or the
-/// pinned override) — `Relay` instances draw from the relay domain,
-/// `Publisher` instances from the publish domain. Selection is pure,
-/// order-independent, and reproducible from the view's epoch nonce.
-///
-/// Extracting the loop keeps the two strategies from drifting on derivation
-/// mechanics (the same argument as [`resolve_buckets`]); the *policy*
-/// differences stay in the strategies — the publish side runs its M3 trigger
-/// before calling this (ADR 0033).
-#[must_use]
-pub fn hash_gated_selection(
-    role: LinkRole,
-    self_id: &PeerId,
-    degree: usize,
-    bucket_override: Option<usize>,
-    view: &crate::strategies::view::NodeView<'_>,
-) -> std::collections::BTreeSet<(PeerId, TopicId)> {
-    let mut expected = std::collections::BTreeSet::new();
-    for topic in view.subscriptions {
-        let Some(peers) = view.candidates.get(topic) else {
-            continue;
-        };
-        let buckets = resolve_buckets(bucket_override, peers.len(), degree);
-        for candidate in peers {
-            if is_valid_edge_for(role, view.epoch_nonce, topic, self_id, candidate, buckets) {
-                expected.insert((candidate.clone(), topic.clone()));
-            }
-        }
-    }
-    expected
-}
-
 #[cfg(test)]
 mod tests {
     use super::{accept_cap, bucket_count, is_valid_edge};

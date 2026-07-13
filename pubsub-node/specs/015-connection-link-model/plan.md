@@ -4,6 +4,8 @@
 
 **Input**: Feature specification from `specs/015-connection-link-model/spec.md`
 
+> **Model-family rework note (2026-07-13, ADR 0034).** After Denis's executable dissemination models (M1–M5) landed on `main`, parts of this plan were superseded — see the spec's "model-family alignment" Clarifications session and ADR 0034: the **M3 trigger is removed** (standing initiation links are unconditional per `m3/README.md`); the separate `PublishStrategy` seam merged into one role-parameterised **`LinkSelectionStrategy`** family; the store became **cell-structured** (`LinkStore`); and fan-out gained kinds (`forward-to-all` | `role-scoped`) as the dissemination-model knob. The Summary and ADR list below describe the design as first planned; `data-model.md`, `contracts/`, and `analysis.md` (A7–A8) reflect what shipped.
+
 ## Summary
 
 Replace the `upstream`/`downstream` split on `NodeState` with a single **link store** — `links: BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>` — where `LinkRole ∈ {Relay, Publisher}`, `LinkDirection ∈ {Out, In}` (who dialed), and `LinkState ∈ {AwaitingAccept, Active}` (the former `UpstreamState` lifecycle; `In` links are recorded `Active` at acceptance). The send/receive orientation of a link is a function of **role × direction** (research R2), generalising ROADMAP §1.2's "connection-direction inversion": for `Relay` the dialer receives (Out = message source, In = fan-out destination); for `Publisher` the dialer **sends** (Out = injection target for `Origin::Local` messages only, In = a source of that peer's own published messages).

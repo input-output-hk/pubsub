@@ -162,3 +162,78 @@ fn severance_isolates_other_topics_and_peers() {
         "other peer intact",
     );
 }
+
+// 015 / ADR 0033 §5 dual: an invalidly-signed payload delivered over an
+// inbound initiation link severs THAT link (the publisher loses its standing
+// link), raises the misbehaviour signal, and records/forwards nothing. The
+// relay cells are untouched.
+#[test]
+fn invalid_signature_over_publish_link_severs_the_publish_link() {
+    let mut state = state_subscribed(vec![topic("t1")]);
+    state.insert_link_for_test(
+        peer("p"),
+        topic("t1"),
+        LinkRole::Publisher,
+        LinkDirection::In,
+        LinkState::Active,
+    );
+    // An unrelated relay upstream to another peer must survive the severance.
+    with_active_upstream(&mut state, "x", "t1");
+
+    let effects = apply(&mut state, tampered_payload_from("p", "t1", 1));
+
+    assert_eq!(
+        misbehaved(&effects),
+        vec![(peer("p"), topic("t1"), "invalid_signature")],
+        "misbehaviour signal raised for the deliverer",
+    );
+    assert!(!has_send(&effects), "severance sends nothing");
+    assert!(
+        state.received_snapshot().is_empty(),
+        "nothing recorded or forwarded",
+    );
+    let snap = state.links_snapshot();
+    assert!(
+        !snap
+            .iter()
+            .any(|(p_, _, role, _, _)| p_ == &peer("p") && *role == LinkRole::Publisher),
+        "the admitting initiation link is severed",
+    );
+    assert!(
+        snap.iter()
+            .any(|(p_, _, role, _, _)| p_ == &peer("x") && *role == LinkRole::Relay),
+        "unrelated relay links survive",
+    );
+}
+
+// 015: when the deliverer holds an Active relay upstream, an invalid signature
+// severs the relay link (the pre-015 behaviour) — an inbound initiation link
+// from the same peer is NOT collaterally severed (the relay gate admitted the
+// message).
+#[test]
+fn invalid_signature_over_relay_upstream_leaves_publish_link_intact() {
+    let mut state = state_subscribed(vec![topic("t1")]);
+    with_active_upstream(&mut state, "p", "t1");
+    state.insert_link_for_test(
+        peer("p"),
+        topic("t1"),
+        LinkRole::Publisher,
+        LinkDirection::In,
+        LinkState::Active,
+    );
+
+    apply(&mut state, tampered_payload_from("p", "t1", 1));
+
+    let snap = state.links_snapshot();
+    assert!(
+        !snap
+            .iter()
+            .any(|(p_, _, role, _, _)| p_ == &peer("p") && *role == LinkRole::Relay),
+        "the admitting relay upstream is severed",
+    );
+    assert!(
+        snap.iter()
+            .any(|(p_, _, role, _, _)| p_ == &peer("p") && *role == LinkRole::Publisher),
+        "the initiation link is not collaterally severed",
+    );
+}

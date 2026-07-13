@@ -17,6 +17,10 @@ use crate::topic::TopicId;
 /// [`Origin::Peer`] message — publishing links do not relay. The split-horizon
 /// `exclude` applies regardless of role. This maintains the full per-topic
 /// fan-out; degree limits and sampling are deferred to later strategies.
+/// Targets are deduplicated **per peer**: a peer that is both a relay
+/// downstream and an initiation target of a local publish receives one send
+/// (the receiver's content-hash dedup would absorb a second copy, but the
+/// duplicate wire message would skew the models' expected-message metric).
 pub struct ForwardToAll;
 
 impl FanoutStrategy for ForwardToAll {
@@ -28,7 +32,9 @@ impl FanoutStrategy for ForwardToAll {
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
         // The relay downstream cell carries every message; the initiation
-        // targets join in for a local origin only (ADR 0033/0034).
+        // targets join in for a local origin only (ADR 0033/0034). Collected
+        // through an ordered set so a peer present in both cells is sent one
+        // copy, deterministically ordered.
         let relay = links
             .relay_in()
             .iter()
@@ -40,11 +46,11 @@ impl FanoutStrategy for ForwardToAll {
             .filter(|_| *origin == Origin::Local)
             .filter(|((_, t), state)| t == topic && **state == LinkState::Active)
             .map(|((peer, _), _)| peer);
-        relay
+        let targets: std::collections::BTreeSet<&PeerId> = relay
             .chain(publish)
             .filter(|peer| Some(*peer) != exclude)
-            .cloned()
-            .collect()
+            .collect();
+        targets.into_iter().cloned().collect()
     }
 }
 
@@ -240,5 +246,30 @@ mod tests {
         assert!(ForwardToAll
             .targets(&topic("t1"), &store, &local(), None)
             .is_empty());
+    }
+
+    // 015 review fix: a peer that is BOTH a relay downstream and an initiation
+    // target receives one send per local publish, not two (duplicate wire
+    // traffic would skew the models' expected-message metric).
+    #[test]
+    fn peer_in_both_cells_is_targeted_once() {
+        let store = links(&[
+            (
+                "a",
+                "t1",
+                LinkRole::Relay,
+                LinkDirection::In,
+                LinkState::Active,
+            ),
+            (
+                "a",
+                "t1",
+                LinkRole::Publisher,
+                LinkDirection::Out,
+                LinkState::Active,
+            ),
+        ]);
+        let targets = ForwardToAll.targets(&topic("t1"), &store, &local(), None);
+        assert_eq!(targets, vec![peer("a")], "one send per peer");
     }
 }

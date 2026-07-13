@@ -2,6 +2,8 @@
 
 Decisions made during planning, with rationale and rejected alternatives. FRs refer to [spec.md](./spec.md).
 
+> **Supersession note (2026-07-13, ADR 0034 — model-family rework).** R1's store *shape* is superseded (one quad-keyed map → the cell-structured `LinkStore`; the keying semantics and coexistence rules stand). **R6 is superseded entirely** — the M3 trigger was removed: `m3/README.md` establishes the s−1 standing initiation links unconditionally. R7's mechanics changed (`build_for_role` folded into role-carrying `AcceptanceParams`; the posture — one family, publish caps disjoint from relay `OC` — stands). R4/R5's fan-out behaviour became the `forward-to-all` *kind*, joined by `role-scoped` (the strict M3 partition). See analysis A8.
+
 ## R1 — Link store shape
 
 **Decision**: `links: BTreeMap<(PeerId, TopicId, LinkRole, LinkDirection), LinkState>` with `LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }`, `LinkState { AwaitingAccept, Active }` (the former `UpstreamState`, renamed). `In` links are inserted `Active` at acceptance (the acceptor has nothing to await). Terminal outcomes stay removals, not stored states.
