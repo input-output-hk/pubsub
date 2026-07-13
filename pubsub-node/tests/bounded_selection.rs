@@ -28,11 +28,11 @@ fn peer(s: &str) -> PeerId {
 
 /// The upstream set the hash-gated policy must produce for `self` on `topic`:
 /// exactly the candidates satisfying the edge predicate under the genesis nonce
-/// (the epoch v1 never advances), `B = max(1, round(candidates / target_degree))`.
+/// (the epoch v1 never advances), `B = max(1, round(candidates / relay_degree))`.
 /// The strategy is deterministic, so this is the exact expected topology.
-fn expected_upstreams(genesis: u64, target_degree: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
+fn expected_upstreams(genesis: u64, relay_degree: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
     let t = topic("topic");
-    let buckets = bucket_count(candidates.len(), target_degree);
+    let buckets = bucket_count(candidates.len(), relay_degree);
     candidates
         .iter()
         .map(|c| peer(c))
@@ -40,7 +40,7 @@ fn expected_upstreams(genesis: u64, target_degree: usize, candidates: &[&str]) -
         .collect()
 }
 
-/// Build a single node running `HashGatedConnection { target_degree }` with the
+/// Build a single node running `HashGatedConnection { relay_degree }` with the
 /// given `genesis` (its initial epoch nonce) on one topic with `candidates`
 /// other members pre-seeded in the shared subscription registry (so the node's
 /// readiness heartbeat sees the full candidate set), await the node reaching its
@@ -50,7 +50,7 @@ fn expected_upstreams(genesis: u64, target_degree: usize, candidates: &[&str]) -
 /// dials stay `AwaitingAccept`; the upstream *set* is exactly the selection.
 async fn selected_upstreams(
     genesis: u64,
-    target_degree: usize,
+    relay_degree: usize,
     candidates: &[&str],
 ) -> BTreeSet<PeerId> {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
@@ -64,7 +64,7 @@ async fn selected_upstreams(
             .expect("seed candidate membership");
     }
 
-    let strategy = Arc::new(HashGatedConnection::new(peer("self"), target_degree));
+    let strategy = Arc::new(HashGatedConnection::new(peer("self"), relay_degree));
     let node = node_with_strategy(
         &registry,
         &network,
@@ -76,7 +76,7 @@ async fn selected_upstreams(
     )
     .await;
 
-    let want = expected_upstreams(genesis, target_degree, candidates).len();
+    let want = expected_upstreams(genesis, relay_degree, candidates).len();
     await_upstream_count(&node, want, TIMEOUT).await;
     node.upstream_connections()
         .into_iter()
@@ -106,14 +106,14 @@ async fn await_upstream_count(node: &pubsub_node::Node, n: usize, timeout: Durat
 #[tokio::test]
 async fn hash_gated_selection_matches_predicate_and_reproduces() {
     let candidates = ["c0", "c1", "c2", "c3", "c4", "c5"];
-    let target_degree = 3;
-    let expected = expected_upstreams(7, target_degree, &candidates);
+    let relay_degree = 3;
+    let expected = expected_upstreams(7, relay_degree, &candidates);
 
-    let first = selected_upstreams(7, target_degree, &candidates).await;
-    let second = selected_upstreams(7, target_degree, &candidates).await;
+    let first = selected_upstreams(7, relay_degree, &candidates).await;
+    let second = selected_upstreams(7, relay_degree, &candidates).await;
 
     // SC-002: the realized set is exactly the verifiable edge set (never exceeds
-    // the candidate set; bounded around target_degree via the bucket count).
+    // the candidate set; bounded around relay_degree via the bucket count).
     assert_eq!(
         first, expected,
         "the realized upstreams must be exactly the edge-predicate set",
@@ -128,7 +128,7 @@ async fn hash_gated_selection_matches_predicate_and_reproduces() {
     );
 }
 
-// Small-topic path across the node boundary: candidates ≤ target_degree ⇒ B=1 ⇒ every
+// Small-topic path across the node boundary: candidates ≤ relay_degree ⇒ B=1 ⇒ every
 // candidate is a valid edge (connect-to-all fallback).
 #[tokio::test]
 async fn small_topic_selects_all_candidates() {
@@ -137,6 +137,6 @@ async fn small_topic_selects_all_candidates() {
     assert_eq!(
         selected,
         BTreeSet::from([peer("c0"), peer("c1")]),
-        "with ≤ target_degree candidates B=1, so all are selected",
+        "with ≤ relay_degree candidates B=1, so all are selected",
     );
 }

@@ -13,7 +13,7 @@ use super::{
     HashGatedBoundedAcceptance,
 };
 use crate::strategies::config::{
-    require_target_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
+    require_relay_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
 };
 
 /// A selectable inbound-acceptance strategy, identified by a readable name —
@@ -54,27 +54,27 @@ impl AcceptanceStrategyKind {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::Bounded => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
                 Ok(Arc::new(BoundedAcceptance::new(
-                    target_degree,
+                    relay_degree,
                     params.cap_buffer,
                 )))
             }
             Self::HashGated => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
-                    HashGatedAcceptance::new(params.self_id.clone(), target_degree)
+                    HashGatedAcceptance::new(params.self_id.clone(), relay_degree)
                         .with_bucket_override(bucket_override),
                 ))
             }
             Self::HashGatedBounded => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedBoundedAcceptance::new(
                         params.self_id.clone(),
-                        target_degree,
+                        relay_degree,
                         params.cap_buffer,
                     )
                     .with_bucket_override(bucket_override),
@@ -112,10 +112,10 @@ mod tests {
     use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(target_degree: Option<usize>) -> AcceptanceParams {
+    fn params(relay_degree: Option<usize>) -> AcceptanceParams {
         AcceptanceParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
-            target_degree,
+            relay_degree,
             bucket_count: None,
             cap_buffer: 3,
         }
@@ -129,10 +129,10 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: every parameterised kind validates its required target degree
+    // ADR 0028: every parameterised kind validates its required relay degree
     // in build; each builds cleanly once it is supplied.
     #[test]
-    fn parameterised_kinds_require_a_target_degree() {
+    fn parameterised_kinds_require_a_relay_degree() {
         for kind in [
             AcceptanceStrategyKind::Bounded,
             AcceptanceStrategyKind::HashGated,
@@ -143,21 +143,21 @@ mod tests {
                     kind.build(&params(None)),
                     Err(StrategyConfigError::MissingParameter { .. }),
                 ),
-                "{} must require a target degree",
+                "{} must require a relay degree",
                 kind.name(),
             );
             assert!(
                 kind.build(&params(Some(8))).is_ok(),
-                "{} must build with a target degree",
+                "{} must build with a relay degree",
                 kind.name(),
             );
         }
     }
 
-    // A target degree of 0 makes the accept cap 0 (reject everything); reject at
+    // A relay degree of 0 makes the accept cap 0 (reject everything); reject at
     // build so the two seams cannot degenerate in opposite directions.
     #[test]
-    fn parameterised_kinds_reject_zero_target_degree() {
+    fn parameterised_kinds_reject_zero_relay_degree() {
         for kind in [
             AcceptanceStrategyKind::Bounded,
             AcceptanceStrategyKind::HashGated,
@@ -168,7 +168,7 @@ mod tests {
                     kind.build(&params(Some(0))),
                     Err(StrategyConfigError::InvalidParameter { .. }),
                 ),
-                "{} must reject a zero target degree",
+                "{} must reject a zero relay degree",
                 kind.name(),
             );
         }

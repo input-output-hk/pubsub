@@ -8,7 +8,7 @@ use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
 /// Accept a verified `Request` iff it is membership-valid and the node is under
-/// its per-topic downstream cap `OC = ⌈target_degree + c·√target_degree⌉` — the
+/// its per-topic downstream cap `OC = ⌈relay_degree + c·√relay_degree⌉` — the
 /// **cap without the hash gate**, isolating the capacity dimension for the
 /// empirical baseline experiments (ADR 0031).
 ///
@@ -16,17 +16,17 @@ use crate::topic::TopicId;
 /// over-capacity refusal is the explicit `Rejected`, exactly as in the compound
 /// [`HashGatedBoundedAcceptance`](super::HashGatedBoundedAcceptance).
 pub struct BoundedAcceptance {
-    target_degree: usize,
+    relay_degree: usize,
     cap_buffer: usize,
 }
 
 impl BoundedAcceptance {
     /// Build the policy from already-parsed inputs (`cap_buffer` is the `c` in
-    /// `OC = ⌈target_degree + c·√target_degree⌉`).
+    /// `OC = ⌈relay_degree + c·√relay_degree⌉`).
     #[must_use]
-    pub fn new(target_degree: usize, cap_buffer: usize) -> Self {
+    pub fn new(relay_degree: usize, cap_buffer: usize) -> Self {
         Self {
-            target_degree,
+            relay_degree,
             cap_buffer,
         }
     }
@@ -38,7 +38,7 @@ impl ConnectionAcceptanceStrategy for BoundedAcceptance {
             Ok(count) => count,
             Err(decision) => return decision,
         };
-        let cap = accept_cap(self.target_degree, self.cap_buffer);
+        let cap = accept_cap(self.relay_degree, self.cap_buffer);
         if downstream_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
@@ -78,7 +78,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"];
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let policy = BoundedAcceptance::new(1, 3); // target_degree=1 ⇒ cap 4
+        let policy = BoundedAcceptance::new(1, 3); // relay_degree=1 ⇒ cap 4
 
         // Below cap (3 held) ⇒ every member accepted, no predicate consulted.
         let below = downstream(&[("x", "t1"), ("y", "t1"), ("z", "t1")]);

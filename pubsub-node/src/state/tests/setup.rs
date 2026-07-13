@@ -68,7 +68,7 @@ fn heartbeat_before_synced_is_dropped() {
 fn epoch_folds_nonce_for_the_next_heartbeat() {
     use crate::strategies::edge::is_valid_edge;
 
-    // 30 candidates at target_degree 6 ⇒ B = 5: selection varies by nonce.
+    // 30 candidates at relay_degree 6 ⇒ B = 5: selection varies by nonce.
     let names: Vec<String> = (0..30).map(|i| format!("c{i:02}")).collect();
     let t = topic("t");
     let selection = |nonce: u64| -> BTreeSet<PeerId> {

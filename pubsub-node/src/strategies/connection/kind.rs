@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use super::{ConnectToAllCandidates, ConnectionStrategy, HashGatedConnection};
 use crate::strategies::config::{
-    require_target_degree, validate_bucket_count, ConnectionParams, StrategyConfigError,
+    require_relay_degree, validate_bucket_count, ConnectionParams, StrategyConfigError,
 };
 
 /// A selectable connection-selection strategy, identified by a readable name.
@@ -43,10 +43,10 @@ impl ConnectionStrategyKind {
         match self {
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
             Self::HashGated => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let relay_degree = require_relay_degree(self.name(), params.relay_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
-                    HashGatedConnection::new(params.self_id.clone(), target_degree)
+                    HashGatedConnection::new(params.self_id.clone(), relay_degree)
                         .with_bucket_override(bucket_override),
                 ))
             }
@@ -80,10 +80,10 @@ mod tests {
     use crate::strategies::config::{ConnectionParams, StrategyConfigError};
     use std::str::FromStr;
 
-    fn params(target_degree: Option<usize>) -> ConnectionParams {
+    fn params(relay_degree: Option<usize>) -> ConnectionParams {
         ConnectionParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
-            target_degree,
+            relay_degree,
             bucket_count: None,
         }
     }
@@ -96,7 +96,7 @@ mod tests {
             .is_ok());
     }
 
-    // ADR 0028: hash-gated validates its required target degree in build.
+    // ADR 0028: hash-gated validates its required relay degree in build.
     #[test]
     fn hash_gated_requires_rf() {
         assert!(matches!(
@@ -108,10 +108,10 @@ mod tests {
             .is_ok());
     }
 
-    // A target degree of 0 degenerates the seam (connect-to-all) and is rejected
+    // A relay degree of 0 degenerates the seam (connect-to-all) and is rejected
     // at build rather than booting into an asymmetric topology.
     #[test]
-    fn hash_gated_rejects_zero_target_degree() {
+    fn hash_gated_rejects_zero_relay_degree() {
         assert!(matches!(
             ConnectionStrategyKind::HashGated.build(&params(Some(0))),
             Err(StrategyConfigError::InvalidParameter { .. }),

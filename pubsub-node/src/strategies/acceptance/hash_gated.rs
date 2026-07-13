@@ -20,19 +20,19 @@ use crate::topic::TopicId;
 /// with the same shared predicate the dialer used.
 pub struct HashGatedAcceptance {
     self_id: PeerId,
-    target_degree: usize,
+    relay_degree: usize,
     bucket_override: Option<usize>,
 }
 
 impl HashGatedAcceptance {
     /// Build the policy from already-parsed inputs. `B` is derived per topic
-    /// from `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
+    /// from `relay_degree`; use [`with_bucket_override`](Self::with_bucket_override)
     /// to pin it — it must match the dialer's `B`.
     #[must_use]
-    pub fn new(self_id: PeerId, target_degree: usize) -> Self {
+    pub fn new(self_id: PeerId, relay_degree: usize) -> Self {
         Self {
             self_id,
-            target_degree,
+            relay_degree,
             bucket_override: None,
         }
     }
@@ -57,7 +57,7 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // dialer's only while both ends see the same candidate set; the pinned
         // override removes the dependence.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
-        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
+        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.relay_degree);
         if is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
             Admission::Accept
         } else {
@@ -102,7 +102,7 @@ mod tests {
         let buckets = bucket_count(names.len(), 1); // 6/1 = 6 > 1
         let policy = HashGatedAcceptance::new(peer("self"), 1);
 
-        // Far beyond the compound policy's cap (target_degree=1 ⇒ OC=4): 6 held.
+        // Far beyond the compound policy's cap (relay_degree=1 ⇒ OC=4): 6 held.
         let heavy = downstream(&[
             ("u", "t1"),
             ("v", "t1"),

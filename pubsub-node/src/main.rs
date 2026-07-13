@@ -33,17 +33,17 @@ struct Args {
     topic_registry: PathBuf,
 
     /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--target-degree
+    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--relay-degree
     /// upstreams per topic, gated by the edge predicate over --genesis).
     #[arg(long, default_value = "connect-to-all")]
     connection_strategy: ConnectionStrategyKind,
 
-    /// The fixed target connection degree `target_degree` — the target expected upstream degree per topic. Required
+    /// The fixed relay connection degree `relay_degree` — the target expected upstream (relay) degree per topic. Required
     /// for every strategy except `connect-to-all` / `accept-from-all`; ignored by those.
     /// The per-topic bucket count derives from it; with a derived bucket count,
     /// small topics connect to all (see --bucket-count for the pinned case).
     #[arg(long)]
-    target_degree: Option<usize>,
+    relay_degree: Option<usize>,
 
     /// Public genesis nonce (default 0): the node's initial **epoch nonce**, the
     /// randomness context the verifiable edge predicate hashes (the epoch-0
@@ -53,7 +53,7 @@ struct Args {
     genesis: u64,
 
     /// Optional pinned bucket count `B` for the edge predicate. When unset, `B`
-    /// is derived per topic from `--target-degree`. When set, both peers use this
+    /// is derived per topic from `--relay-degree`. When set, both peers use this
     /// exact value on both seams, so verification holds by construction (no
     /// dependence on the two ends having folded the same candidate set); a natural
     /// experiment axis. Applies to the hash-gated strategies; must be ≥ 1.
@@ -65,13 +65,13 @@ struct Args {
 
     /// Inbound-acceptance strategy (case-insensitive), the four one-dimensional
     /// baselines: `accept-from-all` (the default; membership only), `bounded`
-    /// (caps downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing
+    /// (caps downstream at `⌈relay_degree + c·√relay_degree⌉` per topic, refusing
     /// over-capacity with `Rejected`), `hash-gated` (verifies the edge predicate,
     /// no cap), or `hash-gated-bounded` (predicate + cap — the bucketed-pull compound).
     #[arg(long, default_value = "accept-from-all")]
     acceptance_strategy: AcceptanceStrategyKind,
 
-    /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3). Only affects the
+    /// Accept-cap buffer `c` in `OC = ⌈relay_degree + c·√relay_degree⌉` (default 3). Only affects the
     /// `bounded` / `hash-gated-bounded` acceptance strategies.
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
@@ -134,12 +134,12 @@ async fn main() {
         .build(
             &ConnectionParams {
                 self_id: args.self_id.clone(),
-                target_degree: args.target_degree,
+                relay_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
-                target_degree: args.target_degree,
+                relay_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
                 cap_buffer: args.cap_buffer,
             },

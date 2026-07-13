@@ -29,10 +29,10 @@ use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 pub struct ConnectionParams {
     /// The node's own identity (folded into the verifiable edge predicate).
     pub self_id: PeerId,
-    /// The fixed target connection degree `target_degree` — required by `hash-gated` (bucket count derives from it).
-    pub target_degree: Option<usize>,
+    /// The fixed relay connection degree `relay_degree` — required by `hash-gated` (bucket count derives from it).
+    pub relay_degree: Option<usize>,
     /// Optional pinned bucket count `B`. When set, it overrides the per-topic
-    /// count derived from `target_degree` on **both** seams, so the edge
+    /// count derived from `relay_degree` on **both** seams, so the edge
     /// predicate is verifiable by construction (no dependence on the two ends
     /// having folded the same candidate set). Must be `≥ 1` if supplied.
     pub bucket_count: Option<usize>,
@@ -43,13 +43,13 @@ pub struct ConnectionParams {
 pub struct AcceptanceParams {
     /// The node's own identity (the candidate side of the verified edge).
     pub self_id: PeerId,
-    /// The fixed target connection degree `target_degree` — required by `hash-gated-bounded`.
-    pub target_degree: Option<usize>,
+    /// The fixed relay connection degree `relay_degree` — required by `hash-gated-bounded`.
+    pub relay_degree: Option<usize>,
     /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);
     /// the acceptor must use the same value the dialer does. Must be `≥ 1` if
     /// supplied.
     pub bucket_count: Option<usize>,
-    /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3).
+    /// Accept-cap buffer `c` in `OC = ⌈relay_degree + c·√relay_degree⌉` (default 3).
     pub cap_buffer: usize,
 }
 
@@ -94,26 +94,26 @@ pub(crate) fn validate_bucket_count(
     Ok(bucket_count)
 }
 
-/// Validate the target connection degree a strategy requires: it must be
+/// Validate the relay connection degree a strategy requires: it must be
 /// supplied and `≥ 1` (a degree of 0 degenerates the dial and accept seams in
 /// opposite directions — dial-everything vs accept-nothing). Shared by both
 /// seams' `build` arms so the two cannot drift on what a valid degree is.
-pub(crate) fn require_target_degree(
+pub(crate) fn require_relay_degree(
     strategy: &'static str,
-    target_degree: Option<usize>,
+    relay_degree: Option<usize>,
 ) -> Result<usize, StrategyConfigError> {
-    let target_degree = target_degree.ok_or(StrategyConfigError::MissingParameter {
+    let relay_degree = relay_degree.ok_or(StrategyConfigError::MissingParameter {
         strategy,
-        parameter: "a target degree (--target-degree)",
+        parameter: "a relay degree (--relay-degree)",
     })?;
-    if target_degree == 0 {
+    if relay_degree == 0 {
         return Err(StrategyConfigError::InvalidParameter {
             strategy,
-            parameter: "the target degree (--target-degree)",
+            parameter: "the relay degree (--relay-degree)",
             constraint: "greater than 0",
         });
     }
-    Ok(target_degree)
+    Ok(relay_degree)
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced

@@ -18,25 +18,25 @@ use crate::topic::TopicId;
 /// nonce comes from the [`NodeView`]), so an adversary cannot force an edge the
 /// hash does not allow — a predicate failure is a **silent**
 /// `RejectIllegitimate`. Over the per-topic cap
-/// `OC = ⌈target_degree + c·√target_degree⌉` a legitimate request is refused with
+/// `OC = ⌈relay_degree + c·√relay_degree⌉` a legitimate request is refused with
 /// `RejectOverCapacity` (an explicit `Rejected`).
 pub struct HashGatedBoundedAcceptance {
     self_id: PeerId,
-    target_degree: usize,
+    relay_degree: usize,
     cap_buffer: usize,
     bucket_override: Option<usize>,
 }
 
 impl HashGatedBoundedAcceptance {
     /// Build the policy from already-parsed inputs (`cap_buffer` is the `c` in
-    /// `OC = ⌈target_degree + c·√target_degree⌉`). `B` is derived per topic from
-    /// `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
+    /// `OC = ⌈relay_degree + c·√relay_degree⌉`). `B` is derived per topic from
+    /// `relay_degree`; use [`with_bucket_override`](Self::with_bucket_override)
     /// to pin it — it must match the dialer's `B`.
     #[must_use]
-    pub fn new(self_id: PeerId, target_degree: usize, cap_buffer: usize) -> Self {
+    pub fn new(self_id: PeerId, relay_degree: usize, cap_buffer: usize) -> Self {
         Self {
             self_id,
-            target_degree,
+            relay_degree,
             cap_buffer,
             bucket_override: None,
         }
@@ -80,11 +80,11 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
         // the dependence entirely (both ends use the same configured B). The
         // emitter is the requester, this node the candidate.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
-        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
+        let buckets = resolve_buckets(self.bucket_override, candidate_count, self.relay_degree);
         if !is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
             return Admission::RejectIllegitimate;
         }
-        let cap = accept_cap(self.target_degree, self.cap_buffer);
+        let cap = accept_cap(self.relay_degree, self.cap_buffer);
         if downstream_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
@@ -159,7 +159,7 @@ mod tests {
         let policy =
             HashGatedBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(2));
 
-        // Below cap (3 held, target_degree=1 ⇒ cap 4) ⇒ Accept.
+        // Below cap (3 held, relay_degree=1 ⇒ cap 4) ⇒ Accept.
         let below = downstream(&[("x", "t1"), ("y", "t1"), ("z", "t1")]);
         assert_eq!(
             policy.admit(&valid, &t, &view(&subs, &cands, &below)),
@@ -184,7 +184,7 @@ mod tests {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
         let down = HashSet::new();
-        // Derived B on 6 candidates at target_degree=1 would be 6 (most requests
+        // Derived B on 6 candidates at relay_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
         let policy =
             HashGatedBoundedAcceptance::new(peer("self"), 1, 3).with_bucket_override(Some(1));
@@ -206,7 +206,7 @@ mod tests {
         let cands = candidates(&[("t1", &["a"])]);
         let policy = HashGatedBoundedAcceptance::new(peer("self"), 1, 3);
 
-        // At cap (4 held, target_degree=1 ⇒ cap 4) AND 'a' is one of the held
+        // At cap (4 held, relay_degree=1 ⇒ cap 4) AND 'a' is one of the held
         // downstreams ⇒ the idempotent re-Accept wins over RejectOverCapacity.
         let at_cap_with_a = downstream(&[("a", "t1"), ("x", "t1"), ("y", "t1"), ("z", "t1")]);
         assert_eq!(
@@ -215,12 +215,12 @@ mod tests {
         );
     }
 
-    // Small topic (≤ target_degree candidates ⇒ B=1) admits every membership-valid
+    // Small topic (≤ relay_degree candidates ⇒ B=1) admits every membership-valid
     // request (connect-to-all): the predicate is always true, only the cap bounds.
     #[test]
     fn small_topic_admits_every_member_below_cap() {
         let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ target_degree ⇒ B=1
+        let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ relay_degree ⇒ B=1
         let down = HashSet::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 8, 3).admit(
             &peer("a"),

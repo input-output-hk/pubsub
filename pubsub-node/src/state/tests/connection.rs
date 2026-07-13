@@ -251,7 +251,7 @@ fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
 #[test]
 fn over_capacity_request_is_rejected_with_signal_not_severance() {
     let t = topic("t1");
-    // target_degree = 1 ⇒ cap = ⌈1 + 3·√1⌉ = 4.
+    // relay_degree = 1 ⇒ cap = ⌈1 + 3·√1⌉ = 4.
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
@@ -294,7 +294,7 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
 #[test]
 fn rejected_dial_removes_pending_upstream() {
     let t = topic("t1");
-    // target_degree = 8 with 3 candidates ⇒ B = 1 ⇒ all three are dialed (small-topic path).
+    // relay_degree = 8 with 3 candidates ⇒ B = 1 ⇒ all three are dialed (small-topic path).
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),

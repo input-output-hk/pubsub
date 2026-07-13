@@ -13,10 +13,10 @@ use crate::topic::TopicId;
 ///
 /// For each joined topic `T` under the current epoch nonce, dial candidate `U`
 /// iff the shared edge predicate `H(nonce, T, self, U) mod B == 0` holds, where
-/// `B = max(1, round(|candidates_T| / target_degree))`. Expected out-degree
-/// per topic ≈ `target_degree`; a topic with `≤ ~target_degree` candidates has
+/// `B = max(1, round(|candidates_T| / relay_degree))`. Expected out-degree
+/// per topic ≈ `relay_degree`; a topic with `≤ ~relay_degree` candidates has
 /// `B = 1` and connects to **all** of them (small-topic fallback). Selection is
-/// pure and reproducible: `target_degree` is a fixed field, the epoch nonce
+/// pure and reproducible: `relay_degree` is a fixed field, the epoch nonce
 /// comes from the [`NodeView`] (v1: the configured genesis), the hash and
 /// modulus are fixed, and the result is a function of the *set*
 /// (order-independent). The acceptor recomputes the same predicate to **verify**
@@ -31,19 +31,19 @@ use crate::topic::TopicId;
 /// ends use the same configured `B`, so verification holds by construction.
 pub struct HashGatedConnection {
     self_id: PeerId,
-    target_degree: usize,
+    relay_degree: usize,
     bucket_override: Option<usize>,
 }
 
 impl HashGatedConnection {
     /// Build the policy for one node from already-parsed inputs. `B` is derived
-    /// per topic from `target_degree`; use [`with_bucket_override`](Self::with_bucket_override)
+    /// per topic from `relay_degree`; use [`with_bucket_override`](Self::with_bucket_override)
     /// to pin it instead.
     #[must_use]
-    pub fn new(self_id: PeerId, target_degree: usize) -> Self {
+    pub fn new(self_id: PeerId, relay_degree: usize) -> Self {
         Self {
             self_id,
-            target_degree,
+            relay_degree,
             bucket_override: None,
         }
     }
@@ -75,7 +75,7 @@ impl ConnectionStrategy for HashGatedConnection {
             // derived value is only verifiable while the acceptor sees the same
             // count (the B-agreement assumption on the type); a pinned override
             // removes that dependence.
-            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.target_degree);
+            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.relay_degree);
             for candidate in peers {
                 if is_valid_edge(view.epoch_nonce, topic, &self.self_id, candidate, buckets) {
                     expected.insert((candidate.clone(), topic.clone()));
@@ -99,7 +99,7 @@ mod tests {
         (0..n).map(|i| format!("c{i:03}")).collect()
     }
 
-    // 005 FR-001 small-topic (≤ target_degree candidates ⇒ B=1 ⇒ connect-to-all).
+    // 005 FR-001 small-topic (≤ relay_degree candidates ⇒ B=1 ⇒ connect-to-all).
     #[test]
     fn small_topic_connects_to_all() {
         let subs = subscriptions(&["t1"]);
@@ -114,7 +114,7 @@ mod tests {
                 (peer("b"), topic("t1")),
                 (peer("c"), topic("t1")),
             ]),
-            "with ≤ target_degree candidates B=1, so every candidate is a valid edge",
+            "with ≤ relay_degree candidates B=1, so every candidate is a valid edge",
         );
     }
 
@@ -133,9 +133,9 @@ mod tests {
         assert_eq!(one, two, "selection must not depend on iteration order");
     }
 
-    // 005 FR-003/SC-004: expected out-degree tracks target_degree on a large set.
+    // 005 FR-003/SC-004: expected out-degree tracks relay_degree on a large set.
     #[test]
-    fn out_degree_tracks_target_degree() {
+    fn out_degree_tracks_relay_degree() {
         let ids = ids(80);
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
@@ -146,7 +146,7 @@ mod tests {
         // 80 candidates, B = round(80/8) = 10 ⇒ expected ≈ 8. Lenient bound.
         assert!(
             (3..=18).contains(&expected.len()),
-            "degree {} should be near target_degree=8",
+            "degree {} should be near relay_degree=8",
             expected.len(),
         );
     }
