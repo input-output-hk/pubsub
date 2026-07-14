@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use common::{alias_signer, shared_test_verifier};
 use pubsub_node::{
-    bucket_count, is_valid_edge_for, is_valid_edge_sym, AcceptFromAllCandidates, FloodAll,
-    ForwardToAll, HashGatedAcceptance, HashGatedSelection, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkDirection, LinkRole, LinkState,
-    Message, MessagePayload, Node, NodeConfig, Origin, PeerId, PlainMessage, PublishInAdmission,
-    PublisherId, SignedMessage, SubscriptionRegistryControl, TopicId, TopicRegistryControl,
+    bucket_count, is_valid_edge_for, is_valid_edge_sym, AcceptFromAllCandidates, ForwardToAll,
+    HashGatedAcceptance, HashGatedSelection, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, LinkDirection, LinkRole, LinkState, Message, MessagePayload, Node,
+    NodeConfig, Origin, PeerId, PlainMessage, PublishInAdmission, PublisherId, RoleAgnosticFanout,
+    SignedMessage, SubscriptionRegistryControl, TopicId, TopicRegistryControl,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(3);
@@ -279,7 +279,7 @@ async fn m5_node(
         // `k_in` = 0 for this test: the ONLY propagation edges are the standing
         // outbound links, so delivery proves the M5 relay-over-publish path.
         Arc::new(pubsub_node::NoLinks),
-        Arc::new(FloodAll),
+        Arc::new(RoleAgnosticFanout),
         Arc::new(AcceptFromAllCandidates),
         Arc::new(HashGatedSelection::new(
             LinkRole::Publisher,

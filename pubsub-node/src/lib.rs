@@ -88,7 +88,7 @@ pub use strategies::edge::{
     accept_cap, bucket_count, is_valid_edge, is_valid_edge_for, is_valid_edge_sym,
 };
 pub use strategies::fanout::{
-    FanoutStrategy, FanoutStrategyKind, FloodAll, ForwardToAll, RoleScopedFanout,
+    FanoutStrategy, FanoutStrategyKind, ForwardToAll, RoleAgnosticFanout, RoleScopedFanout,
     UnknownFanoutStrategy,
 };
 pub use strategies::selection::{

@@ -241,7 +241,7 @@ impl LinkStore {
 /// remaining checks pass ([`AnyVerified`](PublishInAdmission::AnyVerified)).
 /// A node's
 /// policy must match what its dialers' fan-out sends over those links —
-/// `flood-all` senders pair with `any-verified` gates.
+/// `role-agnostic` senders pair with `any-verified` gates.
 ///
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PublishInAdmission {

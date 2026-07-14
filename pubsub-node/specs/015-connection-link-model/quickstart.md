@@ -68,14 +68,14 @@ All three target dissemination models are per-node configurations:
 # M5 — directed k_in/k_out gossip: standing links carry everything
 --connection-strategy hash-gated --relay-degree 4        # k_in \
 --publish-strategy hash-gated --publish-degree 4          # k_out \
---fanout-strategy flood-all --publish-in-admission any-verified
+--fanout-strategy role-agnostic --publish-in-admission any-verified
 ```
 
 `--symmetric-edges` wires the relay selection **and** acceptance to the
 symmetric predicate together (a mismatch would silently drop every dial);
 each edge then materialises as an Out+In pair on both sides, so
 `forward-to-all` floods all incident links — M4 needs no fan-out kind of its
-own. `flood-all` and `any-verified` must be paired network-wide: the union
+own. `role-agnostic` and `any-verified` must be paired network-wide: the union
 sender needs its targets' gates open, and vice versa.
 
 ## Observing links

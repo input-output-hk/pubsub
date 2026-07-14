@@ -77,7 +77,7 @@ Every `ConnectionAction` variant gains `role: LinkRole`. `signed_bytes` layout (
 |---|---|---|---|
 | Link selection | `expected_links(&NodeView) -> BTreeSet<(PeerId, TopicId)>` | `none`, `connect-to-all`, `hash-gated` (`HashGatedSelection { role, … }`) | relay (default `connect-to-all`), publish (default `none`) |
 | Acceptance | `admit(emitter, topic, &NodeView) -> Admission` | four baselines, role-instantiated (`AcceptanceParams { role, degree, … }`) | relay, publish (both default `accept-from-all`) |
-| Fan-out | `targets(topic, &LinkStore, origin, exclude)` — the **model knob** | `forward-to-all` (default; **M3**), `role-scoped` (experiment variant), `flood-all` (**M5**) | one |
+| Fan-out | `targets(topic, &LinkStore, origin, exclude)` — the **model knob** | `forward-to-all` (default; **M3**), `role-scoped` (experiment variant), `role-agnostic` (**M5**, no role distinction) | one |
 
 Params (`strategies/config.rs`): `SelectionParams { self_id, role, degree, bucket_count }`, `AcceptanceParams { self_id, role, degree, bucket_count, cap_buffer }` — `role` picks the hash domain (`edge/v1` vs `publish-edge/v1`) and the degree-flag names in errors. Standing initiation links select **unconditionally** (`m3/README.md`; the trigger of the earlier draft is superseded — ADR 0034). Both params carry `symmetric: bool` (the M4 mode, `--symmetric-edges` — relay seams only); the receive gate carries `PublishInAdmission` (`owner-only` | `any-verified`, the M5 gate — ADR 0035).
 
@@ -99,4 +99,4 @@ Params (`strategies/config.rs`): `SelectionParams { self_id, role, degree, bucke
 - `Node::upstream_connections()` / `Node::downstream_connections()` — **preserved semantics** as relay-scoped views (`Relay`/`Out` triples, `Relay`/`In` pairs) so existing tests and callers observe identical behaviour (US1).
 - NEW `Node::links()` → full snapshot `Vec<(PeerId, TopicId, LinkRole, LinkDirection, LinkState)>` (the SC observation surface).
 - `LinkRole`, `LinkDirection`, `LinkState` exported; `UpstreamState` name retired (call-site rename; behaviour identical).
-- CLI: `--relay-degree` (renamed), `--connection-strategy`/`--publish-strategy` (one kind family; defaults `connect-to-all`/`none`), `--publish-degree`, `--publish-acceptance-strategy` (`accept-from-all` default), `--fanout-strategy` (`forward-to-all` | `role-scoped` | `flood-all`), `--symmetric-edges` (M4), `--publish-in-admission` (`owner-only` default | `any-verified`, M5). `--bucket-count`/`--cap-buffer` shared knobs.
+- CLI: `--relay-degree` (renamed), `--connection-strategy`/`--publish-strategy` (one kind family; defaults `connect-to-all`/`none`), `--publish-degree`, `--publish-acceptance-strategy` (`accept-from-all` default), `--fanout-strategy` (`forward-to-all` | `role-scoped` | `role-agnostic`), `--symmetric-edges` (M4), `--publish-in-admission` (`owner-only` default | `any-verified`, M5). `--bucket-count`/`--cap-buffer` shared knobs.

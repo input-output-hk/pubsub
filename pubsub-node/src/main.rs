@@ -91,12 +91,14 @@ struct Args {
     #[arg(long)]
     publish_degree: Option<usize>,
 
-    /// Fan-out strategy (case-insensitive) — the dissemination-model knob:
-    /// `forward-to-all` (the default, the M3 semantics: relay downstream for
-    /// every message including the node's own publications, plus the
-    /// initiation targets for its own publications) or `role-scoped` (a
-    /// strict-partition experiment variant: own publications over initiation
-    /// links ONLY, relayed traffic over relay links only).
+    /// Fan-out strategy (case-insensitive) — the dissemination-model knob,
+    /// distinguished by how link ROLES are treated: `forward-to-all` (the
+    /// default, the M3 semantics — relay downstream carries every message,
+    /// initiation links carry ONLY the node's own publications), `role-scoped`
+    /// (strict partition: own publications over initiation links only, relayed
+    /// traffic over relay links only), or `role-agnostic` (the M5 semantics —
+    /// no role distinction, everything over all outgoing links; pair with
+    /// --publish-in-admission any-verified).
     #[arg(long, default_value = "forward-to-all")]
     fanout_strategy: FanoutStrategyKind,
 
@@ -111,7 +113,7 @@ struct Args {
     /// Receive-gate admission for inbound initiation links (case-insensitive):
     /// `owner-only` (the default, the M3 exclusivity — admit only the link
     /// peer's own publications) or `any-verified` (the M5 semantics — standing
-    /// links carry every held message; pair with `--fanout-strategy flood-all`
+    /// links carry every held message; pair with `--fanout-strategy role-agnostic`
     /// network-wide).
     #[arg(long, default_value = "owner-only")]
     publish_in_admission: PublishInAdmission,
