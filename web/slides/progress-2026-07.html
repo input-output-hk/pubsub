@@ -151,9 +151,9 @@
   }
   .actor-graph { justify-self: center; }
   .actor-graph svg { width: clamp(340px, 40vw, 720px); max-height: 76vh; height: auto; display: block; }
-  .split-row.timeline-row { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+  .split-row.timeline-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .timeline-visual { justify-self: center; }
-  .timeline-visual svg { width: clamp(320px, 38vw, 680px); max-height: 70vh; height: auto; display: block; }
+  .timeline-visual svg { width: clamp(380px, 46vw, 820px); max-height: 70vh; height: auto; display: block; }
   @media (max-width: 900px) {
     .split-row { grid-template-columns: 1fr; }
     .actor-graph { display: none; }
@@ -183,7 +183,6 @@
     color: var(--text-faint);
   }
   .about-name strong { color: var(--text); font-weight: 600; }
-  .about-role { display: block; margin-top: 0.45em; }
   @media (max-width: 700px) {
     .about-row { grid-template-columns: 1fr; }
     .about-figure { display: none; }
@@ -344,7 +343,7 @@
       </div>
       <figure class="about-figure">
         <img class="about-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff">
-        <figcaption class="about-name"><strong>William Wolff</strong><span class="about-role">Technical Architect</span></figcaption>
+        <figcaption class="about-name"><strong>William Wolff</strong></figcaption>
       </figure>
     </div>
   </section>
@@ -408,16 +407,16 @@
 
           <!-- publisher edges -->
           <g stroke="var(--line-strong)" stroke-width="1.3" fill="none" marker-end="url(#arr)">
-            <path d="M150,62 C178,62 176,180 194,182"/>
-            <path d="M150,152 C172,152 176,190 194,191"/>
-            <path d="M150,242 C172,242 176,204 194,203"/>
-            <path d="M150,332 C178,332 176,214 194,212"/>
+            <path d="M150,62 C173.5,62 173.5,182 197,182"/>
+            <path d="M150,152 C173.5,152 173.5,191 197,191"/>
+            <path d="M150,242 C173.5,242 173.5,203 197,203"/>
+            <path d="M150,332 C173.5,332 173.5,212 197,212"/>
           </g>
           <!-- subscriber edges -->
           <g stroke="var(--line-strong)" stroke-width="1.3" fill="none" marker-end="url(#arr)">
-            <path d="M273,184 C294,182 296,97 317,97"/>
-            <path d="M273,197 C292,197 298,207 317,207"/>
-            <path d="M273,210 C294,212 296,317 317,317"/>
+            <path d="M273,184 C296.5,184 296.5,97 320,97"/>
+            <path d="M273,197 C296.5,197 296.5,207 320,207"/>
+            <path d="M273,210 C296.5,210 296.5,317 320,317"/>
           </g>
 
           <!-- subscribers -->
