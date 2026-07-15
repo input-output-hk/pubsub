@@ -56,7 +56,7 @@ struct SinkEntry   { relay_accepted: bool,    push: Option<LinkState> }
 pub struct NodeView<'a> {
     pub subscriptions: &'a BTreeSet<TopicId>,
     pub candidates: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    pub links: &'a LinkStore,   // cell accessors: relay_out()/relay_in()/publish_out()/publish_in()
+    pub links: &'a LinkStore,   // reads: sources() / sinks() / sinks_on(topic) / get() / inbound_scan()
     pub epoch_nonce: u64,
 }
 
