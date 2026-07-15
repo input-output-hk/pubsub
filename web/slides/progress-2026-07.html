@@ -90,8 +90,13 @@
   }
   .slide.title-slide h1 .accent { color: var(--iog-infared); }
   .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
-  .title-byline { font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+  .title-byline { display: flex; align-items: center; gap: 0.6em; font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+  .title-byline span { white-space: nowrap; }
   .title-byline strong { color: var(--text); font-weight: 600; }
+  .byline-avatar {
+    width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid var(--line, rgba(128,128,128,0.35));
+  }
   .title-slide .split-row { width: 100%; }
   .title-team { margin-top: 3em; }
   .title-team-label {
@@ -271,7 +276,7 @@
         <h1>Cardano <span class="accent">PubSub</span></h1>
         <p class="title-sub">In pursuit of a verifiable communication layer for the Cardano ecosystem —
           an innovation workstream at the frontier of peer-sampling and dissemination research.</p>
-        <p class="title-byline"><strong>Will Wolff</strong> · Technical Architect · Input Output</p>
+        <p class="title-byline"><img class="byline-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="Will Wolff"><span><strong>Will Wolff</strong> · Technical Architect · Input Output</span></p>
         <div class="title-team">
           <div class="title-team-label">Team</div>
           <div class="title-team-row">
