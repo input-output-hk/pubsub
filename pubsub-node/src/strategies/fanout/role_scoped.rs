@@ -39,13 +39,12 @@ impl FanoutStrategy for RoleScopedFanout {
         // publications ride only Active initiation links; relayed traffic only
         // the relay facet.
         links
-            .sinks()
-            .filter(|(_, t, _, _)| *t == topic)
-            .filter(|(_, _, relay_accepted, push)| match origin {
+            .sinks_on(topic)
+            .filter(|(_, relay_accepted, push)| match origin {
                 Origin::Local => *push == Some(LinkState::Active),
                 Origin::Peer(_) => *relay_accepted,
             })
-            .map(|(peer, _, _, _)| peer)
+            .map(|(peer, _, _)| peer)
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()

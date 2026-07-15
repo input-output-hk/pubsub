@@ -11,7 +11,7 @@ pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, LinkState)>;   // = 
 pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)>;            // = Relay/In view (semantics preserved)
 ```
 
-`LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }` (`#[non_exhaustive]`), `LinkState { AwaitingAccept, Active }`, and `LinkStore` are exported from the crate root. `UpstreamState` is retired; no speculative accessors — the store exposes `sources()`/`sinks()`/`get()`/`iter()`/`inbound_scan()` only.
+`LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }` (`#[non_exhaustive]`), `LinkState { AwaitingAccept, Active }`, and `LinkStore` are exported from the crate root. `UpstreamState` is retired; no speculative accessors — the store exposes `sources()`/`sinks()`/`sinks_on(topic)`/`get()`/`iter()`/`inbound_scan()` only (nested topic → peer keying: borrowed-key lookups, per-topic subtree walks).
 
 ## Seam signatures (after — ADR 0034 model-family shape)
 

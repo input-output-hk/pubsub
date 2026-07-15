@@ -38,12 +38,11 @@ impl FanoutStrategy for ForwardToAll {
         // message; the push facet (initiation link) joins for a local origin
         // only, when Active. One entry per peer — dedup is structural.
         links
-            .sinks()
-            .filter(|(_, t, _, _)| *t == topic)
-            .filter(|(_, _, relay_accepted, push)| {
+            .sinks_on(topic)
+            .filter(|(_, relay_accepted, push)| {
                 *relay_accepted || (*origin == Origin::Local && *push == Some(LinkState::Active))
             })
-            .map(|(peer, _, _, _)| peer)
+            .map(|(peer, _, _)| peer)
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()

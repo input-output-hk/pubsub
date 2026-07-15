@@ -33,9 +33,9 @@ pub enum LinkState {
 
 ```rust
 pub struct LinkStore {                       // flow-oriented, ADR 0036
-    sources: BTreeMap<(PeerId, TopicId), SourceEntry>, // peers I receive from
-    sinks:   BTreeMap<(PeerId, TopicId), SinkEntry>,   // peers I send to
-}
+    sources: BTreeMap<TopicId, BTreeMap<PeerId, SourceEntry>>, // peers I receive from
+    sinks:   BTreeMap<TopicId, BTreeMap<PeerId, SinkEntry>>,   // peers I send to
+}   // nested topic → peer: borrowed-key lookups (no clones); per-topic ops walk one subtree
 struct SourceEntry { pull: Option<LinkState>, push_accepted: bool }
 struct SinkEntry   { relay_accepted: bool,    push: Option<LinkState> }
 // role × direction ⇄ facet: Relay/Out = sources.pull · Publisher/In = sources.push_accepted

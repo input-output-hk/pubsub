@@ -35,15 +35,12 @@ impl FanoutStrategy for RoleAgnosticFanout {
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
         let _ = origin; // every origin floods identically (M5)
-                        // One pass over the sinks (ADR 0036): any facet makes the peer a
-                        // target — relay accepted, or an Active initiation link.
+                        // One pass over the topic's sinks (ADR 0036): any facet makes the
+                        // peer a target — relay accepted, or an Active initiation link.
         links
-            .sinks()
-            .filter(|(_, t, _, _)| *t == topic)
-            .filter(|(_, _, relay_accepted, push)| {
-                *relay_accepted || *push == Some(LinkState::Active)
-            })
-            .map(|(peer, _, _, _)| peer)
+            .sinks_on(topic)
+            .filter(|(_, relay_accepted, push)| *relay_accepted || *push == Some(LinkState::Active))
+            .map(|(peer, _, _)| peer)
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()
