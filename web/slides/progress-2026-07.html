@@ -11,9 +11,19 @@
 <link rel="stylesheet" href="../shared.css">
 <style>
   html, body { height: 100%; }
-  body { overflow: hidden; font-size: clamp(15px, 1.35vw, 21px); }
+  body { overflow: hidden; font-size: clamp(15px, 1.35vw, 21px); background: var(--bg); }
 
-  .deck { height: 100%; position: relative; }
+  /* Static network-topology texture behind every slide */
+  .bg-net {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.35;
+  }
+  .bg-net svg { width: 100%; height: 100%; display: block; }
+
+  .deck { height: 100%; position: relative; z-index: 1; }
 
   .slide {
     position: absolute;
@@ -22,7 +32,6 @@
     flex-direction: column;
     justify-content: center;
     padding: clamp(32px, 6vh, 72px) clamp(28px, 7vw, 110px);
-    background: var(--bg);
   }
   .slide.active { display: flex; }
 
@@ -125,12 +134,12 @@
   /* Split layout with trailing visual */
   .split-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
-    gap: clamp(24px, 4vw, 64px);
+    gap: clamp(24px, 3vw, 48px);
   }
   .actor-graph { justify-self: center; }
-  .actor-graph svg { width: clamp(280px, 32vw, 470px); height: auto; display: block; }
+  .actor-graph svg { width: clamp(340px, 40vw, 720px); max-height: 76vh; height: auto; display: block; }
   @media (max-width: 900px) {
     .split-row { grid-template-columns: 1fr; }
     .actor-graph { display: none; }
@@ -164,7 +173,7 @@
     .about-figure { display: none; }
   }
 
-  /* Corner buttons (GitHub · close · theme) */
+  /* Corner buttons (GitHub · theme · close) */
   .corner-btn {
     position: fixed;
     top: 20px;
@@ -215,12 +224,126 @@
   @media print {
     body { overflow: visible; font-size: 13px; }
     .deck { height: auto; }
-    .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; }
-    .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint { display: none !important; }
+    .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; background: var(--bg); }
+    .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint, .bg-net { display: none !important; }
   }
 </style>
 </head>
 <body>
+
+<div class="bg-net" aria-hidden="true">
+<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<g stroke="var(--text-faint)" stroke-width="1" fill="none">
+  <line x1="54.8" y1="55.4" x2="76.9" y2="260.4"/>
+  <line x1="54.8" y1="55.4" x2="207.3" y2="206.4"/>
+  <line x1="54.8" y1="55.4" x2="1355.0" y2="264.6"/>
+  <line x1="54.8" y1="55.4" x2="387.8" y2="842.9"/>
+  <line x1="291.7" y1="46.9" x2="430.9" y2="57.9"/>
+  <line x1="291.7" y1="46.9" x2="207.3" y2="206.4"/>
+  <line x1="430.9" y1="57.9" x2="580.3" y2="51.1"/>
+  <line x1="430.9" y1="57.9" x2="433.1" y2="210.4"/>
+  <line x1="580.3" y1="51.1" x2="580.9" y2="226.8"/>
+  <line x1="814.3" y1="76.4" x2="940.4" y2="32.3"/>
+  <line x1="814.3" y1="76.4" x2="748.3" y2="246.8"/>
+  <line x1="940.4" y1="32.3" x2="1125.0" y2="77.9"/>
+  <line x1="1125.0" y1="77.9" x2="1172.1" y2="262.6"/>
+  <line x1="1376.3" y1="8.8" x2="1593.0" y2="91.8"/>
+  <line x1="1376.3" y1="8.8" x2="1355.0" y2="264.6"/>
+  <line x1="1593.0" y1="91.8" x2="1535.3" y2="230.0"/>
+  <line x1="76.9" y1="260.4" x2="207.3" y2="206.4"/>
+  <line x1="433.1" y1="210.4" x2="580.9" y2="226.8"/>
+  <line x1="580.9" y1="226.8" x2="748.3" y2="246.8"/>
+  <line x1="580.9" y1="226.8" x2="591.8" y2="411.3"/>
+  <line x1="748.3" y1="246.8" x2="829.3" y2="441.0"/>
+  <line x1="748.3" y1="246.8" x2="198.0" y2="661.7"/>
+  <line x1="748.3" y1="246.8" x2="204.4" y2="862.9"/>
+  <line x1="978.5" y1="280.8" x2="1172.1" y2="262.6"/>
+  <line x1="978.5" y1="280.8" x2="1023.1" y2="439.8"/>
+  <line x1="1172.1" y1="262.6" x2="1355.0" y2="264.6"/>
+  <line x1="1172.1" y1="262.6" x2="851.8" y2="877.3"/>
+  <line x1="1355.0" y1="264.6" x2="1535.3" y2="230.0"/>
+  <line x1="1355.0" y1="264.6" x2="1300.1" y2="423.9"/>
+  <line x1="1535.3" y1="230.0" x2="1585.1" y2="447.3"/>
+  <line x1="114.7" y1="494.6" x2="282.4" y2="468.7"/>
+  <line x1="114.7" y1="494.6" x2="1220.4" y2="481.3"/>
+  <line x1="114.7" y1="494.6" x2="112.8" y2="640.8"/>
+  <line x1="114.7" y1="494.6" x2="198.0" y2="661.7"/>
+  <line x1="282.4" y1="468.7" x2="409.7" y2="425.7"/>
+  <line x1="409.7" y1="425.7" x2="591.8" y2="411.3"/>
+  <line x1="409.7" y1="425.7" x2="460.6" y2="629.3"/>
+  <line x1="591.8" y1="411.3" x2="583.4" y2="829.3"/>
+  <line x1="829.3" y1="441.0" x2="1023.1" y2="439.8"/>
+  <line x1="1220.4" y1="481.3" x2="1300.1" y2="423.9"/>
+  <line x1="1220.4" y1="481.3" x2="1126.1" y2="610.4"/>
+  <line x1="1300.1" y1="423.9" x2="1387.7" y2="621.0"/>
+  <line x1="1585.1" y1="447.3" x2="1546.5" y2="645.3"/>
+  <line x1="112.8" y1="640.8" x2="198.0" y2="661.7"/>
+  <line x1="112.8" y1="640.8" x2="26.0" y2="870.9"/>
+  <line x1="460.6" y1="629.3" x2="569.6" y2="634.9"/>
+  <line x1="569.6" y1="634.9" x2="583.4" y2="829.3"/>
+  <line x1="851.0" y1="673.2" x2="943.0" y2="627.2"/>
+  <line x1="851.0" y1="673.2" x2="851.8" y2="877.3"/>
+  <line x1="943.0" y1="627.2" x2="1126.1" y2="610.4"/>
+  <line x1="1126.1" y1="610.4" x2="1138.2" y2="840.5"/>
+  <line x1="1387.7" y1="621.0" x2="1546.5" y2="645.3"/>
+  <line x1="1387.7" y1="621.0" x2="1394.0" y2="862.8"/>
+  <line x1="1546.5" y1="645.3" x2="1496.0" y2="894.0"/>
+  <line x1="26.0" y1="870.9" x2="204.4" y2="862.9"/>
+  <line x1="204.4" y1="862.9" x2="387.8" y2="842.9"/>
+  <line x1="387.8" y1="842.9" x2="583.4" y2="829.3"/>
+  <line x1="851.8" y1="877.3" x2="963.5" y2="884.6"/>
+  <line x1="963.5" y1="884.6" x2="1138.2" y2="840.5"/>
+  <line x1="1394.0" y1="862.8" x2="1496.0" y2="894.0"/>
+</g>
+<g fill="var(--text-faint)">
+  <circle cx="54.8" cy="55.4" r="2.5"/>
+  <circle cx="291.7" cy="46.9" r="2.5"/>
+  <circle cx="430.9" cy="57.9" r="3"/>
+  <circle cx="580.3" cy="51.1" r="2.5"/>
+  <circle cx="814.3" cy="76.4" r="2"/>
+  <circle cx="940.4" cy="32.3" r="3"/>
+  <circle cx="1125.0" cy="77.9" r="2.5"/>
+  <circle cx="1376.3" cy="8.8" r="3"/>
+  <circle cx="1593.0" cy="91.8" r="2"/>
+  <circle cx="76.9" cy="260.4" r="2.5"/>
+  <circle cx="207.3" cy="206.4" r="2"/>
+  <circle cx="433.1" cy="210.4" r="3"/>
+  <circle cx="580.9" cy="226.8" r="2"/>
+  <circle cx="748.3" cy="246.8" r="2.5"/>
+  <circle cx="978.5" cy="280.8" r="2"/>
+  <circle cx="1172.1" cy="262.6" r="3"/>
+  <circle cx="1355.0" cy="264.6" r="2"/>
+  <circle cx="1535.3" cy="230.0" r="3"/>
+  <circle cx="114.7" cy="494.6" r="2"/>
+  <circle cx="282.4" cy="468.7" r="2"/>
+  <circle cx="409.7" cy="425.7" r="3"/>
+  <circle cx="591.8" cy="411.3" r="3"/>
+  <circle cx="829.3" cy="441.0" r="3"/>
+  <circle cx="1023.1" cy="439.8" r="2"/>
+  <circle cx="1220.4" cy="481.3" r="3"/>
+  <circle cx="1300.1" cy="423.9" r="2.5"/>
+  <circle cx="1585.1" cy="447.3" r="2.5"/>
+  <circle cx="112.8" cy="640.8" r="3"/>
+  <circle cx="198.0" cy="661.7" r="2"/>
+  <circle cx="460.6" cy="629.3" r="2.5"/>
+  <circle cx="569.6" cy="634.9" r="2"/>
+  <circle cx="851.0" cy="673.2" r="2"/>
+  <circle cx="943.0" cy="627.2" r="2"/>
+  <circle cx="1126.1" cy="610.4" r="2"/>
+  <circle cx="1387.7" cy="621.0" r="3"/>
+  <circle cx="1546.5" cy="645.3" r="2.5"/>
+  <circle cx="26.0" cy="870.9" r="2"/>
+  <circle cx="204.4" cy="862.9" r="3"/>
+  <circle cx="387.8" cy="842.9" r="3"/>
+  <circle cx="583.4" cy="829.3" r="2.5"/>
+  <circle cx="851.8" cy="877.3" r="2.5"/>
+  <circle cx="963.5" cy="884.6" r="2.5"/>
+  <circle cx="1138.2" cy="840.5" r="3"/>
+  <circle cx="1394.0" cy="862.8" r="2.5"/>
+  <circle cx="1496.0" cy="894.0" r="2.5"/>
+</g>
+</svg>
+</div>
 
 <button class="theme-toggle" type="button" aria-label="Toggle color theme">
   <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
