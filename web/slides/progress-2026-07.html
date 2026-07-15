@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano PubSub — Progress &amp; Direction · July 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  html, body { height: 100%; }
+  body { overflow: hidden; font-size: clamp(15px, 1.35vw, 21px); }
+
+  .deck { height: 100%; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(32px, 6vh, 72px) clamp(28px, 7vw, 110px);
+    background: var(--bg);
+  }
+  .slide.active { display: flex; }
+
+  .slide-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 0.9em;
+  }
+  .slide h2 {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+    max-width: 22ch;
+  }
+  .slide p.lede { font-size: 1.15em; color: var(--text-mute); max-width: 58ch; line-height: 1.55; }
+
+  ul.points { list-style: none; display: grid; gap: 0.75em; max-width: 62ch; }
+  ul.points li {
+    font-size: 1.08em;
+    line-height: 1.5;
+    padding-left: 1.2em;
+    position: relative;
+    color: var(--text);
+  }
+  ul.points li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0.62em;
+    width: 0.45em; height: 0.45em;
+    border-radius: 2px;
+    background: var(--iog-infared);
+  }
+  ul.points li strong { font-weight: 600; }
+  ul.points li .mute { color: var(--text-mute); }
+
+  .takeaway {
+    margin-top: 1.6em;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text);
+    border-left: 4px solid var(--iog-infared);
+    padding: 0.35em 0 0.35em 0.9em;
+    max-width: 56ch;
+    line-height: 1.45;
+  }
+
+  /* Title slide */
+  .slide.title-slide { align-items: flex-start; }
+  .title-logo { height: clamp(40px, 7vh, 68px); width: auto; margin-bottom: 3em; }
+  .slide.title-slide h1 {
+    font-family: var(--font-display);
+    font-size: 3.4em;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 0.4em;
+  }
+  .slide.title-slide h1 .accent { color: var(--iog-infared); }
+  .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
+  .title-byline { font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+  .title-byline strong { color: var(--text); font-weight: 600; }
+
+  /* Before / After slides */
+  .ba-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(16px, 2.5vw, 36px);
+    align-items: stretch;
+  }
+  @media (max-width: 760px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-col {
+    border-radius: 10px;
+    padding: 1.4em 1.5em 1.5em;
+    border: 1px solid var(--card-stroke-faint);
+  }
+  .ba-col.before { background: var(--bg-alt); }
+  .ba-col.after { background: var(--good-soft); border-color: var(--good); }
+  .ba-label {
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin-bottom: 1em;
+  }
+  .ba-col.before .ba-label { color: var(--text-faint); }
+  .ba-col.after .ba-label { color: var(--good); }
+  .ba-col ul { list-style: none; display: grid; gap: 0.65em; }
+  .ba-col li { font-size: 0.98em; line-height: 1.45; padding-left: 1.1em; position: relative; }
+  .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
+  .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
+
+  /* Slide chrome */
+  .chrome {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px clamp(28px, 7vw, 110px);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 30;
+  }
+  .chrome .chrome-logo { height: 18px; width: auto; opacity: 0.9; }
+  .progress {
+    position: fixed;
+    left: 0; top: 0;
+    height: 3px;
+    background: var(--iog-infared);
+    transition: width .25s ease;
+    z-index: 60;
+  }
+  .nav-hint { position: fixed; right: 20px; bottom: 52px; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.08em; }
+
+  /* Print: all slides sequentially */
+  @media print {
+    body { overflow: visible; font-size: 13px; }
+    .deck { height: auto; }
+    .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; }
+    .chrome, .progress, .theme-toggle, .nav-hint { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" aria-label="Toggle color theme">
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+
+<div class="deck">
+
+  <!-- 1 · Title -->
+  <section class="slide title-slide">
+    <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+    <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+    <div class="slide-kicker">Research &amp; Development · July 2026</div>
+    <h1>Cardano <span class="accent">PubSub</span></h1>
+    <p class="title-sub">A verifiable communication layer for the Cardano ecosystem — progress and direction.</p>
+    <p class="title-byline"><strong>Will Wolff</strong> · Technical Architect · Input Output</p>
+  </section>
+
+  <!-- 2 · About me -->
+  <section class="slide">
+    <div class="slide-kicker">Introduction</div>
+    <h2>About me</h2>
+    <ul class="points">
+      <li><strong>Will Wolff</strong> — Technical Architect at Input Output.</li>
+      <li>With IO for almost five years — first as Solution Architect, now as Technical Architect.</li>
+      <li>Since early 2026: leading the <strong>Pub/Sub workstream</strong>.</li>
+      <li class="mute">Background in distributed systems, secure software architecture, and Cardano protocols.</li>
+    </ul>
+  </section>
+
+  <!-- 3 · What we're building -->
+  <section class="slide">
+    <div class="slide-kicker">The workstream</div>
+    <h2>What we're building</h2>
+    <p class="lede">
+      A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication —
+      identifiable publishers, verifiable events, on-chain channel commitments, and Sybil
+      resistance derived from main-chain stake.
+    </p>
+    <ul class="points" style="margin-top:1.4em">
+      <li><strong>Governance notifications</strong> — CIP-1694 proposals, votes, outcomes.</li>
+      <li><strong>SPO-to-delegator communication</strong> — channels that provably belong to the pool.</li>
+      <li><strong>Authenticated emergency alerts</strong> — verifiable origin when it matters most.</li>
+      <li><strong>Ecosystem announcements</strong> — published under on-chain identities.</li>
+    </ul>
+  </section>
+
+  <!-- 4 · Before/After: trusted communication -->
+  <section class="slide">
+    <div class="slide-kicker">Topic 1 · Trusted communication for Cardano</div>
+    <h2>Before &amp; after</h2>
+    <div class="ba-grid">
+      <div class="ba-col before">
+        <div class="ba-label">Before</div>
+        <ul>
+          <li>Critical messages travel over X, Discord, Telegram — entirely off-chain.</li>
+          <li>Anyone can impersonate an SPO or a governance actor.</li>
+          <li>No way to verify origin, no audit trail.</li>
+          <li>Spam and Sybil accounts cost the attacker nothing.</li>
+        </ul>
+      </div>
+      <div class="ba-col after">
+        <div class="ba-label">After</div>
+        <ul>
+          <li>Publishers identified by on-chain credentials.</li>
+          <li>Every message cryptographically verifiable.</li>
+          <li>Channels committed on-chain — subscribers know what they subscribed to.</li>
+          <li>Influence costs real main-chain stake.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="takeaway">The guarantees Cardano gives transactions, extended to communication.</p>
+  </section>
+
+  <!-- 5 · Phase 1 -->
+  <section class="slide">
+    <div class="slide-kicker">Topic 1 · Phase 1 — exploratory research</div>
+    <h2>From proposal to evidence</h2>
+    <ul class="points">
+      <li><strong>What we started from:</strong> validated use cases as motivation, and a research
+        proposal — a three-layer stack (peer sampling → overlay → dissemination) built on the
+        SecureCyclon protocol, with upper layers inheriting the base layer's security.</li>
+      <li><strong>What we did:</strong> modelled every layer and analysed it formally and
+        empirically — simulation and probabilistic model checking.</li>
+      <li><strong>What we found:</strong> the layers work against each other. Upper layers bias the
+        base layer's sampling, so the claimed security is not inherited — and an adversary who
+        follows every rule can silently distort a node's view of the network.</li>
+      <li class="mute">In our experiments, all nine of the protocol's defences stayed silent while a
+        targeted node was fully eclipsed.</li>
+    </ul>
+    <p class="takeaway">We caught this before anything was built on top of it — that is the value of the analysis.</p>
+  </section>
+
+  <!-- 6 · Before/After: architecture -->
+  <section class="slide">
+    <div class="slide-kicker">Topic 2 · Evidence-based architecture</div>
+    <h2>Before &amp; after</h2>
+    <div class="ba-grid">
+      <div class="ba-col before">
+        <div class="ba-label">Before</div>
+        <ul>
+          <li>Security rests on layered gossip with sampled, private views.</li>
+          <li>Properties assumed to be inherited between layers — not verifiable in operation.</li>
+          <li>Attack cost is constant: a handful of nodes suffices at any network size.</li>
+        </ul>
+      </div>
+      <div class="ba-col after">
+        <div class="ba-label">After</div>
+        <ul>
+          <li>Network membership anchored on-chain — public, authenticated, verifiable.</li>
+          <li>Delivery paths seeded by verifiable on-chain randomness.</li>
+          <li>Attack cost grows with the network — security improves as Cardano grows.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="takeaway">The unverifiable private state that broke peer sampling is removed by design.</p>
+  </section>
+
+  <!-- 7 · Phase 2 progress -->
+  <section class="slide">
+    <div class="slide-kicker">Topic 2 · Phase 2 — where we are</div>
+    <h2>Progress</h2>
+    <ul class="points">
+      <li><strong>Five dissemination models</strong> (M1–M5) specified and analysed on measurable
+        properties — <strong>M3 adopted</strong> as the base model.</li>
+      <li><strong>Working Rust prototype node</strong> — topics, subscriptions, publishing,
+        fan-out forwarding, and on-chain-style registries.</li>
+      <li><strong>Deterministic simulation framework</strong> — controlled, reproducible
+        experiments on protocol behaviour.</li>
+    </ul>
+  </section>
+
+  <!-- 8 · Next steps -->
+  <section class="slide">
+    <div class="slide-kicker">Direction</div>
+    <h2>Next steps</h2>
+    <ul class="points">
+      <li><strong>Experimentation at scale</strong> — stress-test the models across resource
+        constraints and attack budgets.</li>
+      <li><strong>Churn analysis</strong> — join, leave, and repair behaviour under realistic
+        network dynamics.</li>
+      <li><strong>Cross-validation</strong> — analytical results checked against simulation, and
+        simulation against analysis.</li>
+      <li><strong>Consolidation</strong> — a solution architecture and a CIP to bring the design
+        to the ecosystem.</li>
+    </ul>
+    <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
+  </section>
+
+  <!-- 9 · Close -->
+  <section class="slide">
+    <div class="slide-kicker">Summary</div>
+    <h2>From unauthenticated announcements to a verifiable, stake-backed communication layer</h2>
+    <ul class="points">
+      <li>Phase 1 de-risked the foundations — rigorous analysis replaced assumption with evidence.</li>
+      <li>Phase 2 is building the architecture that the evidence supports.</li>
+      <li class="mute">Next time: experiment results and a live prototype demo.</li>
+    </ul>
+    <p class="takeaway" style="margin-top:2em">Thank you — questions welcome.</p>
+  </section>
+
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="chrome">
+  <span>Cardano PubSub · July 2026</span>
+  <span id="counter">1 / 9</span>
+</div>
+<div class="nav-hint">← → to navigate</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    // Presentation defaults to the bright theme; the toggle overrides per browser.
+    var stored = null;
+    try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+    if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    document.querySelector('.theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var counter = document.getElementById('counter');
+    var progress = document.getElementById('progress');
+    var current = 0;
+
+    function show(i) {
+      current = Math.max(0, Math.min(slides.length - 1, i));
+      slides.forEach(function (s, idx) { s.classList.toggle('active', idx === current); });
+      counter.textContent = (current + 1) + ' / ' + slides.length;
+      progress.style.width = ((current + 1) / slides.length * 100) + '%';
+      if (history.replaceState) history.replaceState(null, '', '#' + (current + 1));
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); show(0); }
+      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+    });
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.theme-toggle') || e.target.closest('a')) return;
+      show(current + 1);
+    });
+
+    var fromHash = parseInt(location.hash.slice(1), 10);
+    show(isNaN(fromHash) ? 0 : fromHash - 1);
+  })();
+</script>
+
+</body>
+</html>

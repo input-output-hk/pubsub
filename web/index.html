@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano PubSub — A verifiable communication layer for Cardano</title>
+<meta name="description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain channel commitments, and Sybil resistance derived from main-chain stake.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  body {
+    font-size: 17px;
+    line-height: 1.65;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  main { flex: 1; }
+
+  /* ---------- Hero ---------- */
+  section.hero { padding: 72px 0 64px; }
+  .hero-logo { height: clamp(44px, 5vw, 72px); width: auto; margin-bottom: 48px; }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 20px;
+  }
+  .hero h1 .accent { color: var(--iog-infared); }
+  .hero-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+  .hero-lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+    color: var(--text-mute);
+    max-width: 62ch;
+    margin-bottom: 36px;
+  }
+  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 4px;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .btn-primary { background: var(--iog-infared); color: #FFFFFF; border: 1px solid var(--iog-infared); }
+  .btn-primary:hover { background: var(--iog-ember-orange); border-color: var(--iog-ember-orange); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line-strong); }
+  .btn-ghost:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+
+  /* ---------- Sections ---------- */
+  section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+  .section-head { margin-bottom: 32px; }
+  .section-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .section-head p { color: var(--text-mute); max-width: 68ch; margin-top: 10px; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+  }
+  .card {
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    padding: 22px 22px 24px;
+  }
+  .card h3 {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .card p { font-size: 0.92rem; color: var(--text-mute); line-height: 1.55; }
+  .card .card-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* ---------- Phases ---------- */
+  .phase-list { display: grid; gap: 16px; }
+  .phase {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 20px;
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    padding: 22px;
+  }
+  @media (max-width: 640px) { .phase { grid-template-columns: 1fr; gap: 8px; } }
+  .phase-tag {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .phase-tag .status { display: block; margin-top: 6px; font-weight: 500; }
+  .status-done { color: var(--good); }
+  .status-active { color: var(--info); }
+  .status-ahead { color: var(--text-faint); }
+  .phase h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+  .phase p { font-size: 0.94rem; color: var(--text-mute); line-height: 1.6; }
+
+  /* ---------- Materials ---------- */
+  .material-list { list-style: none; display: grid; gap: 10px; max-width: 720px; }
+  .material-list li {
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 6px;
+    background: var(--card-fill);
+  }
+  .material-list a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .material-list a:hover .material-name { color: var(--iog-infared); }
+  .material-name { font-weight: 600; font-size: 0.98rem; transition: color .12s ease; }
+  .material-note { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; white-space: nowrap; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 28px 0 36px;
+    margin-top: 40px;
+  }
+  .footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .footer-logo { height: 26px; width: auto; }
+  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+
+<nav class="navbar" aria-label="Primary">
+  <a class="navbar-brand" href="./">CARDANO PUBSUB <span class="brand-tag">RESEARCH &amp; DEVELOPMENT</span></a>
+  <div class="navbar-links">
+    <a href="#scenarios">Scenarios</a>
+    <a href="#research">Research</a>
+    <a href="#materials">Materials</a>
+    <a href="slides/progress-2026-07.html">Presentation</a>
+    <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<button class="theme-toggle" type="button" aria-label="Toggle color theme">
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+
+<main>
+  <section class="hero">
+    <div class="container">
+      <img class="hero-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
+      <img class="hero-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
+      <div class="hero-tagline">Cardano PubSub</div>
+      <h1>A verifiable communication layer<br>for the <span class="accent">Cardano</span> ecosystem</h1>
+      <p class="hero-lede">
+        A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication:
+        identifiable publishers, verifiable events, on-chain channel commitments, and Sybil
+        resistance derived from main-chain stake.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="slides/progress-2026-07.html">View the presentation</a>
+        <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">Repository</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="scenarios">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Why it matters</div>
+        <h2>Critical communication deserves the same guarantees as transactions</h2>
+        <p>
+          Today, ecosystem-critical messages travel over social platforms and chat servers —
+          unauthenticated, unverifiable, and open to impersonation. PubSub extends Cardano's
+          trust guarantees to the messages that coordinate the ecosystem.
+        </p>
+      </header>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-kicker">Governance</div>
+          <h3>Governance notifications</h3>
+          <p>Authenticated notifications for CIP-1694 governance actions — proposals, votes, and outcomes delivered verifiably to every participant.</p>
+        </div>
+        <div class="card">
+          <div class="card-kicker">Stake pools</div>
+          <h3>SPO-to-delegator communication</h3>
+          <p>Stake pool operators reach their delegators through a channel that provably belongs to the pool — no spoofed announcements.</p>
+        </div>
+        <div class="card">
+          <div class="card-kicker">Security</div>
+          <h3>Authenticated emergency alerts</h3>
+          <p>Verified security and operational alerts whose origin can be checked cryptographically, when authenticity matters most.</p>
+        </div>
+        <div class="card">
+          <div class="card-kicker">Ecosystem</div>
+          <h3>Ecosystem announcements</h3>
+          <p>Project and protocol announcements published under on-chain identities, with spam resisted by real main-chain stake.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="research">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Research programme</div>
+        <h2>From proposed design to evidence-based architecture</h2>
+        <p>
+          The workstream moves in phases: rigorous analysis of the proposed foundations first,
+          then an architecture built on what the evidence supports.
+        </p>
+      </header>
+      <div class="phase-list">
+        <div class="phase">
+          <div class="phase-tag">Phase 1<span class="status status-done">Complete</span></div>
+          <div>
+            <h3>Exploratory research</h3>
+            <p>
+              Use-case and requirements analysis, cryptographic key-material study, and formal plus
+              empirical analysis of the proposed peer-sampling foundation. The analysis surfaced
+              silent attack vectors — adversaries can bias nodes' views of the network without
+              triggering any of the protocol's defences — which led to the sampling layer being
+              set aside in favour of an on-chain, list-based design.
+            </p>
+          </div>
+        </div>
+        <div class="phase">
+          <div class="phase-tag">Phase 2<span class="status status-active">Active</span></div>
+          <div>
+            <h3>Empirically-driven architecture</h3>
+            <p>
+              Five candidate dissemination models specified and compared on measurable properties,
+              with M3 adopted as the base model. A Rust prototype node implements topics,
+              subscriptions, publishing, and fan-out forwarding, backed by a deterministic
+              simulation framework for controlled experiments.
+            </p>
+          </div>
+        </div>
+        <div class="phase">
+          <div class="phase-tag">Ahead<span class="status status-ahead">Planned</span></div>
+          <div>
+            <h3>Recommendation &amp; standardisation</h3>
+            <p>
+              Large-scale experimentation across resource constraints and attack budgets, churn
+              analysis, and cross-validation of analytical results against simulation —
+              consolidated into a solution architecture and a CIP.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="materials">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Materials</div>
+        <h2>Read more</h2>
+      </header>
+      <ul class="material-list">
+        <li>
+          <a href="slides/progress-2026-07.html">
+            <span class="material-name">Progress presentation</span>
+            <span class="material-note">July 2026</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
+            <span class="material-name">Source repository — prototype, formal specifications, reports</span>
+            <span class="material-note">GitHub</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
+            <span class="material-name">Research logbook</span>
+            <span class="material-note">Ongoing</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container footer-row">
+    <img class="footer-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
+    <img class="footer-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
+    <p>INPUT OUTPUT · CARDANO PUBSUB · 2026</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var stored = null;
+    try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+    if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    document.querySelector('.theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+
+</body>
+</html>
