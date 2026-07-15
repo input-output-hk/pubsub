@@ -534,14 +534,14 @@
             paper <em>SecureCyclon: Dependable Peer Sampling</em> (July 2023).</li>
           <li>The proposal: three layers — peer sampling, navigation, dissemination —
             security inherited across the layers.</li>
-          <li><strong>What we did:</strong> tested those claims formally — simulation and
-            probabilistic model checking.</li>
-          <li><strong>What we found:</strong> pull from upstream peers you pick — with push,
-            a node may simply never be picked.</li>
-          <li>Uniformity fails, and silent attacks bias a node's view — none of the nine
-            defences fire.</li>
+          <li><strong>What we did:</strong> tested those claims systematically — formal model
+            checking, simulation, and manual analysis.</li>
+          <li><strong>What we found:</strong> the sampled views drift from uniform, and a
+            silent adversary can bias a node's view without a single protocol violation.</li>
+          <li>None of SecureCyclon's nine defences fire — the attack sits outside the paper's
+            adversary model.</li>
           <li><strong>Where that led us:</strong> a simpler, modellable design — no peer
-            sampling yet; the node registry shuts out silent attacks.</li>
+            sampling for now; on-chain registries close off the silent sampling attacks.</li>
         </ul>
         <p class="takeaway" style="margin-top:1.1em">Analysed what we were given, widened to
           alternatives like Basalt — then narrowed to a modular base built to grow.</p>
@@ -602,13 +602,13 @@
         <div class="slide-kicker">Phase 2 — the approach</div>
         <h2>Deriving the design, not proposing it</h2>
         <ul class="points">
+          <li><strong>One bar to clear:</strong> a <em>good graph</em> — every message of every
+            honest publisher reaches all other honest nodes.</li>
           <li><strong>Five candidate topologies</strong> (M1–M5), all facing the same adversary:
             a fraction <strong>μ</strong> of silent Byzantine nodes.</li>
-          <li><strong>One bar to clear:</strong> a <em>good graph</em> — every message from every
-            honest publisher reaches every other honest subscriber of the topic.</li>
           <li><strong>Two independent tracks:</strong> formal analysis — per-model laws for coverage,
-            bandwidth, hops, and degrees — cross-validated against Monte-Carlo simulation and
-            prototype experiments.</li>
+            bandwidth, hops, and degrees, validated against Monte-Carlo simulation — and prototype
+            experiments measuring the same models empirically.</li>
           <li><strong>Measured trade-off:</strong> good-graph probability (security) vs hops (latency)
             vs messages (bandwidth) — per configuration, not in the abstract.</li>
         </ul>
@@ -632,13 +632,13 @@
             </tr>
             <tr>
               <td class="model-id">M3</td>
-              <td><strong>Pull + standing links</strong> — per-epoch pull plus <em>s</em>−1
-                standing initiation links.</td>
+              <td><strong>Pull + publishing links</strong> — per-epoch pull plus <em>s</em>−1 publishing
+                links carrying only the node's own publications.</td>
             </tr>
             <tr>
               <td class="model-id">M4</td>
-              <td><strong>Flooding</strong> — <em>RF</em> uniform picks form bidirectional links;
-                messages flood along them.</td>
+              <td><strong>Flooding</strong> — each node picks <em>RF</em> peers uniformly; every
+                pick becomes a bidirectional link, and messages flood along all links.</td>
             </tr>
             <tr>
               <td class="model-id">M5</td>
@@ -651,34 +651,17 @@
     </div>
   </section>
 
-  <!-- 7 · Phase 2 progress -->
-  <section class="slide">
-    <div class="slide-kicker">Phase 2 — where we are</div>
-    <h2>Progress</h2>
-    <ul class="points">
-      <li><strong>All five models specified</strong> as executable formal models with per-property
-        analyses — laws self-tested against their own simulators and cross-validated against
-        independent algorithms.</li>
-      <li><strong>M3 is the current favourite on intuition</strong> — standing links plus per-epoch
-        pull — but intuition decides nothing here: the verdict waits on the experiment data.</li>
-      <li><strong>Working Rust prototype node</strong> — topics, subscriptions, publishing,
-        fan-out forwarding, and on-chain-style registries.</li>
-      <li><strong>Deterministic simulation framework</strong> — controlled, reproducible
-        experiments on protocol behaviour.</li>
-    </ul>
-  </section>
-
-  <!-- 8 · Next steps -->
+  <!-- 7 · Next steps -->
   <section class="slide">
     <div class="slide-kicker">Direction</div>
     <h2>Next steps</h2>
     <ul class="points">
       <li><strong>Complete the formal analysis</strong> — validated laws per model, the churn
         family (degradation, join, repair), and a cross-model recommendation.</li>
-      <li><strong>Run the experiments</strong> — the same models measured empirically in the
-        prototype, findings compared against the analytical predictions.</li>
+      <li><strong>Run the experiments</strong> — the five models measured in the working Rust
+        prototype and its deterministic simulation framework.</li>
       <li><strong>Design proposal by mid-August</strong> — the measured architecture, its
-        adversary model, positioning against existing art such as GossipSub, and a runnable
+        adversary model, positioning against prior art such as GossipSub, and a runnable
         reference configuration.</li>
       <li class="mute">Remaining weeks of the phase validate and harden it — published as a CIP
         if time permits.</li>
@@ -686,7 +669,7 @@
     <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
   </section>
 
-  <!-- 9 · Close -->
+  <!-- 8 · Close -->
   <section class="slide">
     <div class="slide-kicker">Summary</div>
     <h2>Where we are, and what comes next</h2>
@@ -702,45 +685,12 @@
     <p class="takeaway" style="margin-top:2em">Thank you — questions welcome.</p>
   </section>
 
-  <!-- Backup · Before/After: architecture -->
-  <section class="slide">
-    <div class="slide-kicker">Backup — evidence-based architecture</div>
-    <div class="ba-grid">
-      <div class="ba-col before">
-        <div class="ba-label">Before</div>
-        <ul>
-          <li>Security rests on layered gossip with sampled, private views.</li>
-          <li>Properties assumed to be inherited between layers — not verifiable in operation.</li>
-          <li>Attack cost is constant: a handful of nodes suffices at any network size.</li>
-        </ul>
-      </div>
-      <div class="ba-arrow" aria-hidden="true">
-        <svg viewBox="0 0 120 60" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M8 18 H28" stroke-width="5" opacity="0.3"/>
-          <path d="M2 30 H36" stroke-width="5" opacity="0.55"/>
-          <path d="M8 42 H28" stroke-width="5" opacity="0.3"/>
-          <path d="M48 30 H98" stroke-width="7"/>
-          <path d="M82 13 L100 30 L82 47" stroke-width="7"/>
-        </svg>
-      </div>
-      <div class="ba-col after">
-        <div class="ba-label">After</div>
-        <ul>
-          <li>Network membership anchored on-chain — public, authenticated, verifiable.</li>
-          <li>Delivery paths seeded by verifiable on-chain randomness.</li>
-          <li>Attack cost grows with the network — security improves as Cardano grows.</li>
-        </ul>
-      </div>
-    </div>
-    <p class="takeaway">The unverifiable private state that broke peer sampling is removed by design.</p>
-  </section>
-
 </div>
 
 <div class="progress" id="progress"></div>
 <div class="chrome">
   <span>Cardano PubSub · July 2026</span>
-  <span id="counter">1 / 10</span>
+  <span id="counter">1 / 8</span>
 </div>
 <div class="nav-hint">← → to navigate</div>
 
