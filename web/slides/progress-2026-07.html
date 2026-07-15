@@ -106,7 +106,6 @@
   .title-team-member .team-role { font-size: 0.6em; color: var(--text-faint); margin-top: 0.1em; }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
-  @media (max-width: 900px) { .hero-visual { display: none; } }
 
   /* Before / After slides */
   .ba-grid {
@@ -115,10 +114,6 @@
     gap: clamp(24px, 4vw, 64px);
     align-items: start;
     width: 100%;
-  }
-  @media (max-width: 760px) {
-    .ba-grid { grid-template-columns: 1fr; }
-    .ba-arrow { display: none; }
   }
   .ba-col { min-width: 0; }
   .ba-col.before { opacity: 0.55; }
@@ -154,11 +149,30 @@
   .split-row.timeline-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .timeline-visual { justify-self: center; }
   .timeline-visual svg { width: clamp(380px, 46vw, 820px); max-height: 70vh; height: auto; display: block; }
-  @media (max-width: 900px) {
-    .split-row { grid-template-columns: 1fr; }
-    .actor-graph { display: none; }
-    .timeline-visual { display: none; }
+
+  /* Candidate-topology table (phase 2 approach slide) */
+  .split-row.method-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .model-visual { min-width: 0; }
+  .model-table { width: 100%; border-collapse: collapse; }
+  .model-table th {
+    font-family: var(--font-mono);
+    font-size: 0.66em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    text-align: left;
+    padding: 0 0.9em 0.7em 0;
   }
+  .model-table td {
+    padding: 0.6em 0.9em 0.6em 0;
+    border-top: 1px solid var(--line-strong);
+    font-size: 0.92em;
+    line-height: 1.45;
+    vertical-align: baseline;
+  }
+  .model-table th:last-child, .model-table td:last-child { padding-right: 0; }
+  .model-table .model-id { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); white-space: nowrap; }
 
   /* About slide */
   .about-row {
@@ -183,10 +197,6 @@
     color: var(--text-faint);
   }
   .about-name strong { color: var(--text); font-weight: 600; }
-  @media (max-width: 700px) {
-    .about-row { grid-template-columns: 1fr; }
-    .about-figure { display: none; }
-  }
 
   /* Corner buttons (GitHub · theme · close) */
   .corner-btn {
@@ -234,6 +244,46 @@
     z-index: 60;
   }
   .nav-hint { position: fixed; right: 20px; bottom: 52px; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.08em; }
+
+  /* Mobile / narrow screens: stack each slide vertically — text first, visual
+     below — and let the slide scroll instead of hiding content. */
+  @media (max-width: 900px) {
+    .slide {
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 76px 22px 96px;
+    }
+    .slide h2 { font-size: 1.9em; }
+    .slide.title-slide h1 { font-size: 2.5em; }
+    .title-logo { height: auto; width: min(64vw, 250px); margin-bottom: 1.6em; }
+    .title-team { margin-top: 2em; }
+    .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
+
+    .split-row,
+    .split-row.timeline-row,
+    .split-row.method-row,
+    .about-row {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      gap: 2.2em;
+    }
+    .model-visual { overflow-x: auto; }
+    .hero-visual, .actor-graph, .timeline-visual { justify-self: center; width: 100%; }
+    .hero-visual svg, .actor-graph svg, .timeline-visual svg {
+      width: min(100%, 460px);
+      max-height: none;
+      margin: 0 auto;
+    }
+    .about-figure { justify-self: center; }
+    .about-avatar { width: clamp(120px, 40vw, 200px); }
+
+    .ba-grid { grid-template-columns: minmax(0, 1fr); gap: 1.6em; }
+    .ba-arrow svg { transform: rotate(90deg); width: 44px; margin: 0 auto; }
+    .ba-grid + .takeaway { white-space: normal; }
+
+    .nav-hint { display: none; }
+  }
 
   /* Print: all slides sequentially */
   @media print {
@@ -545,9 +595,116 @@
     </div>
   </section>
 
-  <!-- 6 · Before/After: architecture -->
+  <!-- 6 · Phase 2 approach -->
   <section class="slide">
-    <div class="slide-kicker">Evidence-based architecture</div>
+    <div class="split-row method-row">
+      <div>
+        <div class="slide-kicker">Phase 2 — the approach</div>
+        <h2>Deriving the design, not proposing it</h2>
+        <ul class="points">
+          <li><strong>Five candidate topologies</strong> (M1–M5), all facing the same adversary:
+            a fraction <strong>μ</strong> of silent Byzantine nodes.</li>
+          <li><strong>One bar to clear:</strong> a <em>good graph</em> — every message from every
+            honest publisher reaches every other honest subscriber of the topic.</li>
+          <li><strong>Two independent tracks:</strong> formal analysis — per-model laws for coverage,
+            bandwidth, hops, and degrees — cross-validated against Monte-Carlo simulation and
+            prototype experiments.</li>
+          <li><strong>Measured trade-off:</strong> good-graph probability (security) vs hops (latency)
+            vs messages (bandwidth) — per configuration, not in the abstract.</li>
+        </ul>
+        <p class="takeaway">If the final design carries complexity, it is because the data shows the
+          simpler variants fail — and exactly why.</p>
+      </div>
+      <div class="model-visual">
+        <table class="model-table">
+          <thead>
+            <tr><th scope="col">Model</th><th scope="col">Mechanism</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model-id">M1</td>
+              <td><strong>Push</strong> — publishers push each message to <em>F</em> random peers.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M2</td>
+              <td><strong>Pull</strong> — each node pulls from <em>RF</em> forwarders, redrawn
+                every epoch.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M3</td>
+              <td><strong>Pull + standing links</strong> — per-epoch pull plus <em>s</em>−1
+                standing initiation links.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M4</td>
+              <td><strong>Flooding</strong> — <em>RF</em> uniform picks form bidirectional links;
+                messages flood along them.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M5</td>
+              <td><strong>Directed</strong> — <em>k</em><sub>in</sub> inbound +
+                <em>k</em><sub>out</sub> outbound links, both the node's own picks.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · Phase 2 progress -->
+  <section class="slide">
+    <div class="slide-kicker">Phase 2 — where we are</div>
+    <h2>Progress</h2>
+    <ul class="points">
+      <li><strong>All five models specified</strong> as executable formal models with per-property
+        analyses — laws self-tested against their own simulators and cross-validated against
+        independent algorithms.</li>
+      <li><strong>M3 is the current favourite on intuition</strong> — standing links plus per-epoch
+        pull — but intuition decides nothing here: the verdict waits on the experiment data.</li>
+      <li><strong>Working Rust prototype node</strong> — topics, subscriptions, publishing,
+        fan-out forwarding, and on-chain-style registries.</li>
+      <li><strong>Deterministic simulation framework</strong> — controlled, reproducible
+        experiments on protocol behaviour.</li>
+    </ul>
+  </section>
+
+  <!-- 8 · Next steps -->
+  <section class="slide">
+    <div class="slide-kicker">Direction</div>
+    <h2>Next steps</h2>
+    <ul class="points">
+      <li><strong>Complete the formal analysis</strong> — validated laws per model, the churn
+        family (degradation, join, repair), and a cross-model recommendation.</li>
+      <li><strong>Run the experiments</strong> — the same models measured empirically in the
+        prototype, findings compared against the analytical predictions.</li>
+      <li><strong>Design proposal by mid-August</strong> — the measured architecture, its
+        adversary model, positioning against existing art such as GossipSub, and a runnable
+        reference configuration.</li>
+      <li class="mute">Remaining weeks of the phase validate and harden it — published as a CIP
+        if time permits.</li>
+    </ul>
+    <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
+  </section>
+
+  <!-- 9 · Close -->
+  <section class="slide">
+    <div class="slide-kicker">Summary</div>
+    <h2>Where we are, and what comes next</h2>
+    <ul class="points">
+      <li>Phase 1 de-risked the foundations — rigorous analysis replaced assumption with evidence.</li>
+      <li>Phase 2 is producing the evidence that will pick the architecture — analysis and
+        experiments together.</li>
+      <li>The target: attack cost that grows with the network — security that improves as
+        Cardano grows.</li>
+      <li class="mute">Next time: experiment results and a live prototype demo — and, if time
+        permits, a CIP.</li>
+    </ul>
+    <p class="takeaway" style="margin-top:2em">Thank you — questions welcome.</p>
+  </section>
+
+  <!-- Backup · Before/After: architecture -->
+  <section class="slide">
+    <div class="slide-kicker">Backup — evidence-based architecture</div>
     <div class="ba-grid">
       <div class="ba-col before">
         <div class="ba-label">Before</div>
@@ -576,74 +733,6 @@
       </div>
     </div>
     <p class="takeaway">The unverifiable private state that broke peer sampling is removed by design.</p>
-  </section>
-
-  <!-- 7 · Phase 2 method -->
-  <section class="slide">
-    <div class="slide-kicker">Phase 2 — the method</div>
-    <h2>Earning the design, not proposing it</h2>
-    <ul class="points">
-      <li><strong>Five candidate topologies</strong> (M1–M5), from the simplest — push to a few
-        random peers — up to hybrid designs, all facing the same adversary: a fraction
-        <strong>μ</strong> of silent Byzantine nodes.</li>
-      <li><strong>One bar to clear:</strong> a <em>good graph</em> — every message from every
-        honest publisher reaches every other honest subscriber of the topic.</li>
-      <li><strong>Two independent tracks:</strong> formal analysis — per-model laws for coverage,
-        bandwidth, hops, and degrees — cross-validated against Monte-Carlo simulation and
-        prototype experiments.</li>
-      <li><strong>Measured trade-off:</strong> good-graph probability (security) vs hops (latency)
-        vs messages (bandwidth) — per configuration, not in the abstract.</li>
-    </ul>
-    <p class="takeaway">If the final design carries complexity, it is because the data shows the
-      simpler variants fail — and exactly why.</p>
-  </section>
-
-  <!-- 8 · Phase 2 progress -->
-  <section class="slide">
-    <div class="slide-kicker">Phase 2 — where we are</div>
-    <h2>Progress</h2>
-    <ul class="points">
-      <li><strong>All five models specified</strong> as executable formal models with per-property
-        analyses — laws self-tested against their own simulators and cross-validated against
-        independent algorithms.</li>
-      <li><strong>M3 is the current favourite on intuition</strong> — standing links plus per-epoch
-        pull — but intuition decides nothing here: the verdict waits on the experiment data.</li>
-      <li><strong>Working Rust prototype node</strong> — topics, subscriptions, publishing,
-        fan-out forwarding, and on-chain-style registries.</li>
-      <li><strong>Deterministic simulation framework</strong> — controlled, reproducible
-        experiments on protocol behaviour.</li>
-    </ul>
-  </section>
-
-  <!-- 9 · Next steps -->
-  <section class="slide">
-    <div class="slide-kicker">Direction</div>
-    <h2>Next steps</h2>
-    <ul class="points">
-      <li><strong>Complete the formal analysis</strong> — validated laws per model, the churn
-        family (degradation, join, repair), and a cross-model recommendation.</li>
-      <li><strong>Run the experiments</strong> — the same models measured empirically in the
-        prototype, findings compared against the analytical predictions.</li>
-      <li><strong>Design proposal by mid-August</strong> — the measured architecture, its
-        adversary model, positioning against existing art such as GossipSub, and a runnable
-        reference configuration.</li>
-      <li class="mute">Remaining weeks of the phase validate and harden it — published as a CIP
-        if time permits.</li>
-    </ul>
-    <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
-  </section>
-
-  <!-- 10 · Close -->
-  <section class="slide">
-    <div class="slide-kicker">Summary</div>
-    <h2>From unauthenticated announcements to a verifiable, stake-backed communication layer</h2>
-    <ul class="points">
-      <li>Phase 1 de-risked the foundations — rigorous analysis replaced assumption with evidence.</li>
-      <li>Phase 2 is producing the evidence that will pick the architecture — analysis and
-        experiments together.</li>
-      <li class="mute">Next time: experiment results and a live prototype demo.</li>
-    </ul>
-    <p class="takeaway" style="margin-top:2em">Thank you — questions welcome.</p>
   </section>
 
 </div>
@@ -691,6 +780,20 @@
       if (e.target.closest('.theme-toggle') || e.target.closest('a')) return;
       show(current + 1);
     });
+
+    var touchStartX = null, touchStartY = null;
+    document.addEventListener('touchstart', function (e) {
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (touchStartX === null) return;
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      touchStartX = touchStartY = null;
+      // Horizontal swipes navigate; vertical ones are left to scroll the slide.
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) show(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
 
     var fromHash = parseInt(location.hash.slice(1), 10);
     show(isNaN(fromHash) ? 0 : fromHash - 1);
