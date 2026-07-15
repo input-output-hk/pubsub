@@ -438,14 +438,15 @@
 
   <!-- 4 · Before/After: trusted communication -->
   <section class="slide">
-    <div class="slide-kicker">Topic 1 · Trusted communication for Cardano</div>
+    <div class="slide-kicker">Trusted communication for Cardano</div>
     <div class="ba-grid">
       <div class="ba-col before">
         <div class="ba-label">Before</div>
         <ul>
           <li>Critical messages travel over X, Discord, Telegram — entirely off-chain.</li>
           <li>Anyone can impersonate an SPO or a governance actor.</li>
-          <li>No way to verify origin, no audit trail.</li>
+          <li>No canonical channels — audiences can't know where legitimate messages appear.</li>
+          <li>No delivery guarantee — a message may simply never reach its audience.</li>
           <li>Spam and Sybil accounts cost the attacker nothing.</li>
         </ul>
       </div>
@@ -464,7 +465,9 @@
           <li>Publishers identified by on-chain credentials.</li>
           <li>Every message cryptographically verifiable.</li>
           <li>Topics committed on-chain — subscribers know what they subscribed to.</li>
-          <li>Influence costs real main-chain stake.</li>
+          <li>Delivery to every honest subscriber — formally analysed, and guaranteed while
+            attackers stay below a known share of the network.</li>
+          <li>Spam and fake identities carry a real on-chain cost.</li>
         </ul>
       </div>
     </div>
@@ -475,55 +478,69 @@
   <section class="slide">
     <div class="split-row timeline-row">
       <div>
-        <div class="slide-kicker">Topic 1 · Phase 1 — exploratory research</div>
+        <div class="slide-kicker">Phase 1 — exploratory research</div>
         <h2>From proposal to evidence</h2>
-        <ul class="points">
-          <li><strong>What we started from:</strong> validated use cases as motivation, and a research
-            proposal — a three-layer stack (peer sampling → overlay → dissemination) built on the
-            SecureCyclon protocol, with upper layers inheriting the base layer's security.</li>
-          <li><strong>What we did:</strong> modelled every layer and analysed it formally and
-            empirically — simulation and probabilistic model checking.</li>
-          <li><strong>What we found:</strong> the layers work against each other. Upper layers bias the
-            base layer's sampling, so the claimed security is not inherited — and an adversary who
-            follows every rule can silently distort a node's view of the network.</li>
-          <li class="mute">In our experiments, all nine of the protocol's defences stayed silent while a
-            targeted node was fully eclipsed.</li>
+        <ul class="points" style="gap:0.6em">
+          <li><strong>Where we started:</strong> the four use cases just shown, and the research
+            paper <em>SecureCyclon: Dependable Peer Sampling</em> (July 2023).</li>
+          <li>The proposal: three layers — peer sampling, navigation, dissemination —
+            security inherited across the layers.</li>
+          <li><strong>What we did:</strong> tested those claims formally — simulation and
+            probabilistic model checking.</li>
+          <li><strong>What we found:</strong> pull from upstream peers you pick — with push,
+            a node may simply never be picked.</li>
+          <li>Uniformity fails, and silent attacks bias a node's view — none of the nine
+            defences fire.</li>
+          <li><strong>Where that led us:</strong> a simpler, modellable design — no peer
+            sampling yet; the node registry shuts out silent attacks.</li>
         </ul>
-        <p class="takeaway">We caught this before anything was built on top of it — that is the value of the analysis.</p>
+        <p class="takeaway" style="margin-top:1.1em">Analysed what we were given, widened to
+          alternatives like Basalt — then narrowed to a modular base built to grow.</p>
       </div>
       <div class="timeline-visual" aria-hidden="true">
-        <svg viewBox="0 0 470 200" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
+        <svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
           <defs>
             <marker id="tl-arr" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
               <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--text-faint)"/>
             </marker>
           </defs>
 
-          <!-- base track, continuing beyond phase 2 -->
-          <line x1="20" y1="110" x2="452" y2="110" stroke="var(--line-strong)" stroke-width="2" marker-end="url(#tl-arr)"/>
+          <!-- base track with a compressed-time break between the research paper and phase 1 -->
+          <line x1="14" y1="110" x2="74" y2="110" stroke="var(--line-strong)" stroke-width="2"/>
+          <line x1="96" y1="110" x2="502" y2="110" stroke="var(--line-strong)" stroke-width="2" marker-end="url(#tl-arr)"/>
+          <path d="M77 118 l8 -16 M87 118 l8 -16" fill="none" stroke="var(--line-strong)" stroke-width="2"/>
+
+          <!-- research paper · Jul 2023 (timeline not to scale) -->
+          <circle cx="44" cy="110" r="5.5" fill="var(--text-faint)"/>
+          <text x="44" y="156" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text)">SecureCyclon</text>
+          <text x="44" y="174" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">paper · Jul 2023</text>
+
+          <!-- phase 2 · Jul – Sep 2026 · in progress (drawn first, behind phase 1) -->
+          <line x1="316" y1="110" x2="352" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round"/>
+          <line x1="365" y1="110" x2="488" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 13" opacity="0.5"/>
 
           <!-- phase 1 · Feb – Jul 2026 · complete -->
-          <line x1="20" y1="110" x2="283" y2="110" stroke="var(--good)" stroke-width="6" stroke-linecap="round"/>
-          <circle cx="20" cy="110" r="6" fill="var(--good)"/>
-          <circle cx="283" cy="110" r="6" fill="var(--good)"/>
+          <line x1="106" y1="110" x2="322" y2="110" stroke="var(--good)" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="106" cy="110" r="6" fill="var(--good)"/>
+          <circle cx="322" cy="110" r="6" fill="var(--good)"/>
           <g>
-            <circle cx="106" cy="66" r="11" fill="none" stroke="var(--good)" stroke-width="2"/>
-            <path d="M100.5 66.5 l4 4 l7.5 -8" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <text x="124" y="70" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--good)" font-family="JetBrains Mono, monospace">COMPLETE</text>
+            <circle cx="156" cy="66" r="11" fill="none" stroke="var(--good)" stroke-width="2"/>
+            <path d="M150.5 66.5 l4 4 l7.5 -8" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="174" y="70" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--good)" font-family="JetBrains Mono, monospace">COMPLETE</text>
           </g>
-          <text x="151" y="145" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 1 · Exploratory research</text>
-          <text x="151" y="163" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Feb – Jul 2026</text>
+          <text x="208" y="139" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 1</text>
+          <text x="208" y="156" text-anchor="middle" font-size="11.5" fill="var(--text)">Exploratory research</text>
+          <text x="208" y="174" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Feb – Jul 2026</text>
 
-          <!-- phase 2 · Jul – Sep 2026 · in progress -->
-          <line x1="283" y1="110" x2="309" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round"/>
-          <line x1="322" y1="110" x2="440" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 13" opacity="0.5"/>
-          <text x="361" y="145" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 2 · Evidence-based design</text>
-          <text x="361" y="163" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Jul – Sep 2026</text>
+          <!-- phase 2 labels -->
+          <text x="412" y="139" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 2</text>
+          <text x="412" y="156" text-anchor="middle" font-size="11.5" fill="var(--text)">Evidence-based design</text>
+          <text x="412" y="174" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Jul – Sep 2026</text>
 
           <!-- today marker -->
-          <line x1="309" y1="84" x2="309" y2="110" stroke="var(--iog-infared)" stroke-width="2"/>
-          <circle cx="309" cy="110" r="7" fill="var(--iog-infared)" stroke="var(--bg)" stroke-width="2.5"/>
-          <text x="309" y="72" text-anchor="middle" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)" font-family="JetBrains Mono, monospace">TODAY</text>
+          <line x1="352" y1="84" x2="352" y2="110" stroke="var(--iog-infared)" stroke-width="2"/>
+          <circle cx="352" cy="110" r="7" fill="var(--iog-infared)" stroke="var(--bg)" stroke-width="2.5"/>
+          <text x="352" y="72" text-anchor="middle" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)" font-family="JetBrains Mono, monospace">TODAY</text>
         </svg>
       </div>
     </div>
@@ -531,7 +548,7 @@
 
   <!-- 6 · Before/After: architecture -->
   <section class="slide">
-    <div class="slide-kicker">Topic 2 · Evidence-based architecture</div>
+    <div class="slide-kicker">Evidence-based architecture</div>
     <div class="ba-grid">
       <div class="ba-col before">
         <div class="ba-label">Before</div>
@@ -564,7 +581,7 @@
 
   <!-- 7 · Phase 2 method -->
   <section class="slide">
-    <div class="slide-kicker">Topic 2 · Phase 2 — the method</div>
+    <div class="slide-kicker">Phase 2 — the method</div>
     <h2>Earning the design, not proposing it</h2>
     <ul class="points">
       <li><strong>Five candidate topologies</strong> (M1–M5), from the simplest — push to a few
@@ -584,7 +601,7 @@
 
   <!-- 8 · Phase 2 progress -->
   <section class="slide">
-    <div class="slide-kicker">Topic 2 · Phase 2 — where we are</div>
+    <div class="slide-kicker">Phase 2 — where we are</div>
     <h2>Progress</h2>
     <ul class="points">
       <li><strong>All five models specified</strong> as executable formal models with per-property
