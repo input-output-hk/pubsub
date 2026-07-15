@@ -77,6 +77,13 @@
     line-height: 1.45;
   }
 
+  /* Closing slide */
+  .slide.close-slide { align-items: center; text-align: center; }
+  .slide.close-slide .title-logo { margin-bottom: 2.2em; }
+  .slide.close-slide h2 { font-size: 3.4em; max-width: none; margin-bottom: 0.35em; }
+  .slide.close-slide h2 .accent { color: var(--iog-infared); }
+  .close-sub { font-size: 1.25em; color: var(--text-mute); }
+
   /* Title slide */
   .slide.title-slide { align-items: flex-start; }
   .title-logo { height: clamp(40px, 7vh, 68px); width: auto; margin-bottom: 3em; }
@@ -669,20 +676,13 @@
     <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
   </section>
 
-  <!-- 8 · Close -->
-  <section class="slide">
-    <div class="slide-kicker">Summary</div>
-    <h2>Where we are, and what comes next</h2>
-    <ul class="points">
-      <li>Phase 1 de-risked the foundations — rigorous analysis replaced assumption with evidence.</li>
-      <li>Phase 2 is producing the evidence that will pick the architecture — analysis and
-        experiments together.</li>
-      <li>The target: attack cost that grows with the network — security that improves as
-        Cardano grows.</li>
-      <li class="mute">Next time: experiment results and a live prototype demo — and, if time
-        permits, a CIP.</li>
-    </ul>
-    <p class="takeaway" style="margin-top:2em">Thank you — questions welcome.</p>
+  <!-- 8 · Thank you -->
+  <section class="slide close-slide">
+    <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+    <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+    <div class="slide-kicker">Cardano PubSub · July 2026</div>
+    <h2>Thank <span class="accent">you</span></h2>
+    <p class="close-sub">Questions welcome.</p>
   </section>
 
 </div>
