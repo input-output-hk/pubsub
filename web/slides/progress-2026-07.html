@@ -408,13 +408,36 @@
     <p class="takeaway">The unverifiable private state that broke peer sampling is removed by design.</p>
   </section>
 
-  <!-- 7 · Phase 2 progress -->
+  <!-- 7 · Phase 2 method -->
+  <section class="slide">
+    <div class="slide-kicker">Topic 2 · Phase 2 — the method</div>
+    <h2>Earning the design, not proposing it</h2>
+    <ul class="points">
+      <li><strong>Five candidate topologies</strong> (M1–M5), from the simplest — push to a few
+        random peers — up to hybrid designs, all facing the same adversary: a fraction
+        <strong>μ</strong> of silent Byzantine nodes.</li>
+      <li><strong>One bar to clear:</strong> a <em>good graph</em> — every message from every
+        honest publisher reaches every other honest subscriber of the topic.</li>
+      <li><strong>Two independent tracks:</strong> formal analysis — per-model laws for coverage,
+        bandwidth, hops, and degrees — cross-validated against Monte-Carlo simulation and
+        prototype experiments.</li>
+      <li><strong>Measured trade-off:</strong> good-graph probability (security) vs hops (latency)
+        vs messages (bandwidth) — per configuration, not in the abstract.</li>
+    </ul>
+    <p class="takeaway">If the final design carries complexity, it is because the data shows the
+      simpler variants fail — and exactly why.</p>
+  </section>
+
+  <!-- 8 · Phase 2 progress -->
   <section class="slide">
     <div class="slide-kicker">Topic 2 · Phase 2 — where we are</div>
     <h2>Progress</h2>
     <ul class="points">
-      <li><strong>Five dissemination models</strong> (M1–M5) specified and analysed on measurable
-        properties — <strong>M3 adopted</strong> as the base model.</li>
+      <li><strong>All five models specified</strong> as executable formal models with per-property
+        analyses — laws self-tested against their own simulators and cross-validated against
+        independent algorithms.</li>
+      <li><strong>M3 is the current favourite on intuition</strong> — standing links plus per-epoch
+        pull — but intuition decides nothing here: the verdict waits on the experiment data.</li>
       <li><strong>Working Rust prototype node</strong> — topics, subscriptions, publishing,
         fan-out forwarding, and on-chain-style registries.</li>
       <li><strong>Deterministic simulation framework</strong> — controlled, reproducible
@@ -422,30 +445,32 @@
     </ul>
   </section>
 
-  <!-- 8 · Next steps -->
+  <!-- 9 · Next steps -->
   <section class="slide">
     <div class="slide-kicker">Direction</div>
     <h2>Next steps</h2>
     <ul class="points">
-      <li><strong>Experimentation at scale</strong> — stress-test the models across resource
-        constraints and attack budgets.</li>
-      <li><strong>Churn analysis</strong> — join, leave, and repair behaviour under realistic
-        network dynamics.</li>
-      <li><strong>Cross-validation</strong> — analytical results checked against simulation, and
-        simulation against analysis.</li>
-      <li><strong>Consolidation</strong> — a solution architecture and a CIP to bring the design
-        to the ecosystem.</li>
+      <li><strong>Complete the formal analysis</strong> — validated laws per model, the churn
+        family (degradation, join, repair), and a cross-model recommendation.</li>
+      <li><strong>Run the experiments</strong> — the same models measured empirically in the
+        prototype, findings compared against the analytical predictions.</li>
+      <li><strong>Design proposal by mid-August</strong> — the measured architecture, its
+        adversary model, positioning against existing art such as GossipSub, and a runnable
+        reference configuration.</li>
+      <li class="mute">Remaining weeks of the phase validate and harden it — published as a CIP
+        if time permits.</li>
     </ul>
     <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
   </section>
 
-  <!-- 9 · Close -->
+  <!-- 10 · Close -->
   <section class="slide">
     <div class="slide-kicker">Summary</div>
     <h2>From unauthenticated announcements to a verifiable, stake-backed communication layer</h2>
     <ul class="points">
       <li>Phase 1 de-risked the foundations — rigorous analysis replaced assumption with evidence.</li>
-      <li>Phase 2 is building the architecture that the evidence supports.</li>
+      <li>Phase 2 is producing the evidence that will pick the architecture — analysis and
+        experiments together.</li>
       <li class="mute">Next time: experiment results and a live prototype demo.</li>
     </ul>
     <p class="takeaway" style="margin-top:2em">Thank you — questions welcome.</p>
@@ -456,7 +481,7 @@
 <div class="progress" id="progress"></div>
 <div class="chrome">
   <span>Cardano PubSub · July 2026</span>
-  <span id="counter">1 / 9</span>
+  <span id="counter">1 / 10</span>
 </div>
 <div class="nav-hint">← → to navigate</div>
 
