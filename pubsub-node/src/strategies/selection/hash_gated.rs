@@ -57,11 +57,16 @@ impl HashGatedSelection {
         }
     }
 
-    /// Select under the **symmetric** edge predicate (ADR 0035 — the M4
-    /// bidirectional mode): both ends compute the same expected edge set, so
-    /// each dials the other and every link materialises as the Out+In pair.
-    /// The acceptance seam must run the same mode (`--symmetric-edges` wires
-    /// both), or every dial is silently dropped as illegitimate.
+    /// Select under the **symmetric** edge predicate (ADR 0035). Vocabulary,
+    /// layered deliberately: *symmetric* names the mechanism — the hash
+    /// predicate satisfies `edge(A, B) == edge(B, A)` — while M4's
+    /// *bidirectional* (undirected) links are the emergent **result**: both
+    /// ends compute the same expected edge set, each dials the other, and
+    /// every link materialises as the Out+In pair — but only when selection
+    /// AND acceptance run this mode network-wide (`--symmetric-edges` wires
+    /// both; a mismatch silently drops every dial as illegitimate). A `with_*`
+    /// builder setter per Rust convention (`is_*` is the predicate-getter
+    /// prefix).
     #[must_use]
     pub fn with_symmetric(mut self, symmetric: bool) -> Self {
         self.symmetric = symmetric;
