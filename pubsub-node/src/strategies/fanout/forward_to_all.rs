@@ -34,26 +34,19 @@ impl FanoutStrategy for ForwardToAll {
         origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
-        // The relay downstream cell carries every message; the initiation
-        // targets join in for a local origin only (ADR 0033/0034). Collected
-        // through an ordered set so a peer present in both cells is sent one
-        // copy, deterministically ordered.
-        let relay = links
-            .relay_in()
-            .iter()
-            .filter(|((_, t), _)| t == topic)
-            .map(|((peer, _), _)| peer);
-        let publish = links
-            .publish_out()
-            .iter()
-            .filter(|_| *origin == Origin::Local)
-            .filter(|((_, t), state)| t == topic && **state == LinkState::Active)
-            .map(|((peer, _), _)| peer);
-        let targets: std::collections::BTreeSet<&PeerId> = relay
-            .chain(publish)
+        // One pass over the sinks (ADR 0036): the relay facet carries every
+        // message; the push facet (initiation link) joins for a local origin
+        // only, when Active. One entry per peer — dedup is structural.
+        links
+            .sinks()
+            .filter(|(_, t, _, _)| *t == topic)
+            .filter(|(_, _, relay_accepted, push)| {
+                *relay_accepted || (*origin == Origin::Local && *push == Some(LinkState::Active))
+            })
+            .map(|(peer, _, _, _)| peer)
             .filter(|peer| Some(*peer) != exclude)
-            .collect();
-        targets.into_iter().cloned().collect()
+            .cloned()
+            .collect()
     }
 }
 

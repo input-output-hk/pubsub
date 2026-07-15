@@ -222,9 +222,11 @@ impl NodeState {
     #[must_use]
     pub(crate) fn upstream_snapshot(&self) -> Vec<(PeerId, TopicId, LinkState)> {
         self.links
-            .relay_out()
             .iter()
-            .map(|((peer, topic), state)| (peer.clone(), topic.clone(), *state))
+            .filter(|(_, _, role, direction, _)| {
+                *role == LinkRole::Relay && *direction == LinkDirection::Out
+            })
+            .map(|(peer, topic, _, _, state)| (peer.clone(), topic.clone(), state))
             .collect()
     }
 
@@ -234,9 +236,11 @@ impl NodeState {
     #[must_use]
     pub(crate) fn downstream_snapshot(&self) -> Vec<(PeerId, TopicId)> {
         self.links
-            .relay_in()
-            .keys()
-            .map(|(peer, topic)| (peer.clone(), topic.clone()))
+            .iter()
+            .filter(|(_, _, role, direction, _)| {
+                *role == LinkRole::Relay && *direction == LinkDirection::In
+            })
+            .map(|(peer, topic, _, _, _)| (peer.clone(), topic.clone()))
             .collect()
     }
 

@@ -32,19 +32,19 @@ pub enum LinkState {
 ## 2. The store (`connection_state.rs`, replacing `upstream` + `downstream`)
 
 ```rust
-pub struct LinkStore {           // cell-structured, ADR 0034
-    relay_out: LinkCell,         // dialed pull sources (former upstream)
-    relay_in: LinkCell,          // accepted flood destinations (former downstream)
-    publish_out: LinkCell,       // standing initiation targets
-    publish_in: LinkCell,        // inbound initiation sources
+pub struct LinkStore {                       // flow-oriented, ADR 0036
+    sources: BTreeMap<(PeerId, TopicId), SourceEntry>, // peers I receive from
+    sinks:   BTreeMap<(PeerId, TopicId), SinkEntry>,   // peers I send to
 }
-pub type LinkCell = BTreeMap<(PeerId, TopicId), LinkState>;
+struct SourceEntry { pull: Option<LinkState>, push_accepted: bool }
+struct SinkEntry   { relay_accepted: bool,    push: Option<LinkState> }
+// role × direction ⇄ facet: Relay/Out = sources.pull · Publisher/In = sources.push_accepted
+//                           Relay/In  = sinks.relay_accepted · Publisher/Out = sinks.push
 ```
 
-- One cell per role × direction: a `Relay` and a `Publisher` link between the same pair coexist independently (Clarifications 2026-07-13); dial + accept between the same pair are two entries.
-- A strategy reads exactly the cells its dissemination model prescribes — M3 partitions by role, M4/M5 union (ADR 0034).
-- Ordered cells: deterministic iteration (shutdown notices, snapshots).
-- Terminal outcomes are removals (no closed variant) — unchanged rule.
+- **Each seam reads one map** (ADR 0036): the receive gate looks up `sources`; every fan-out policy is one `sinks` pass selecting facets. One entry per peer ⇒ per-peer dedup is structural.
+- The **role × direction vocabulary stays** as the mutation API, snapshots (`links()` emits the same tuples), and wire — tests bind to those views, never to the store shape (the test-stability rule; this refactor changed no test file).
+- Coexisting roles per pair (Clarifications 2026-07-13) = two facets on one entry. Ordered maps: deterministic emission. Terminal outcomes are removals — unchanged.
 
 **Migration mapping** (FR-002/003/004): `upstream[(p,t)] = s` → `links[(p,t,Relay,Out)] = s`; `downstream ∋ (p,t)` → `links[(p,t,Relay,In)] = Active`.
 

@@ -35,19 +35,17 @@ impl FanoutStrategy for RoleScopedFanout {
         origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
-        let cell = match origin {
-            Origin::Local => links.publish_out(),
-            Origin::Peer(_) => links.relay_in(),
-        };
-        cell.iter()
-            .filter(|((_, t), _)| t == topic)
-            .filter(|(_, state)| match origin {
-                // Initiation targets must be established; relay-in entries are
-                // Active by construction.
-                Origin::Local => **state == LinkState::Active,
-                Origin::Peer(_) => true,
+        // One pass over the sinks (ADR 0036), facet chosen by origin: own
+        // publications ride only Active initiation links; relayed traffic only
+        // the relay facet.
+        links
+            .sinks()
+            .filter(|(_, t, _, _)| *t == topic)
+            .filter(|(_, _, relay_accepted, push)| match origin {
+                Origin::Local => *push == Some(LinkState::Active),
+                Origin::Peer(_) => *relay_accepted,
             })
-            .map(|((peer, _), _)| peer)
+            .map(|(peer, _, _, _)| peer)
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()
