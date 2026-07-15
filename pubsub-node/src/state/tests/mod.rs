@@ -75,9 +75,9 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer(self_id),
-        strategy(),
+        NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     );
     for t in subscriptions {
         state
@@ -181,9 +181,9 @@ fn assert_invariants(state: &NodeState) {
 // ---- Connection lifecycle (US1): helpers ----------------------------------
 
 /// The upstream state recorded for `(p, t)`, if any.
-fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<UpstreamState> {
+fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<LinkState> {
     state
-        .upstream_snapshot()
+        .upstream_relays()
         .into_iter()
         .find(|(pp, tt, _)| pp == &peer(p) && tt == &topic(t))
         .map(|(_, _, st)| st)
@@ -191,7 +191,7 @@ fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<UpstreamState> 
 
 /// Whether a downstream entry is held for `(p, t)`.
 fn has_downstream(state: &NodeState, p: &str, t: &str) -> bool {
-    state.downstream_snapshot().contains(&(peer(p), topic(t)))
+    state.downstream_relays().contains(&(peer(p), topic(t)))
 }
 
 /// The `(to, topic)` of every `Request` send effect (asserting emitter == self).
@@ -237,13 +237,14 @@ fn sorted_pairs(mut v: Vec<(PeerId, TopicId)>) -> Vec<(PeerId, TopicId)> {
 
 // ---- T017: connection-gated delivery (US2, FR-016/019) --------------------
 
-/// Seed an Active upstream `(peer, topic)` directly — the declarative
+/// Seed an Active relay upstream `(peer, topic)` directly — the declarative
 /// stand-in for a full setup→accept handshake when a test only needs the
 /// gate to be open (the test module reaches `NodeState`'s private fields).
 fn with_active_upstream(state: &mut NodeState, peer_alias: &str, t: &str) {
-    state
-        .upstream
-        .insert((peer(peer_alias), topic(t)), UpstreamState::Active);
+    state.upstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Relay),
+        LinkState::Active,
+    );
 }
 
 // ---- T021: misbehavior severance (US3, FR-017/018) ------------------------
@@ -276,9 +277,12 @@ fn has_send(effects: &[Effect]) -> bool {
 
 // ---- T024: graceful shutdown & Terminated reception (US4, FR-014/020) -----
 
-/// Seed a downstream entry `(peer, topic)` directly.
+/// Seed an accepted relay downstream entry `(peer, topic)` directly.
 fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
-    state.downstream.insert((peer(peer_alias), topic(t)));
+    state.downstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Relay),
+        LinkState::Active,
+    );
 }
 
 /// The `(to, topic)` of every `Terminated` send effect (asserting emitter).

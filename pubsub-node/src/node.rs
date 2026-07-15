@@ -5,13 +5,12 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::config::NodeConfig;
-use crate::connection_state::UpstreamState;
+use crate::connection_state::{LinkState, PublisherAdmission};
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
 use crate::message::{Message, SignedMessage};
-use crate::strategies::acceptance::ConnectionAcceptanceStrategy;
-use crate::strategies::connection::ConnectionStrategy;
+use crate::strategies::config::NodeStrategies;
 use crate::strategies::fanout::FanoutStrategy;
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -42,15 +41,16 @@ use crate::topic_registry::{TopicRegistry, TopicRegistryEvent};
 ///   its subscription-list entry **and** that are registered in the topic
 ///   registry); the node holds no API to mutate it (it is folded from the two
 ///   registry streams),
-/// - **logical connections** to peers, one per `(peer, topic)`, in two roles:
-///   *upstream* connections it requested (its message sources, each
-///   [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
-///   [`Active`](crate::UpstreamState::Active)) and *downstream* connections it
-///   accepted (its fan-out destinations). They are established autonomously by
-///   an injected connection-selection strategy on a setup event, exchanged as
-///   signed control messages over the network, and observable through
-///   [`upstream_connections`](Node::upstream_connections) /
-///   [`downstream_connections`](Node::downstream_connections). There is no
+/// - **logical links** to peers, one per `(peer, topic, kind)` in each
+///   direction: *upstream* links it receives from (relay pull dials with a
+///   lifecycle, accepted inbound publisher links) and *downstream* links it
+///   sends to (accepted relay peers, its own publisher dials). They are
+///   established autonomously by the injected selection strategies on a dial
+///   event, exchanged as signed control messages over the network, and
+///   observable per class through [`upstream_relays`](Node::upstream_relays) /
+///   [`downstream_relays`](Node::downstream_relays) /
+///   [`upstream_publishers`](Node::upstream_publishers) /
+///   [`downstream_publishers`](Node::downstream_publishers). There is no
 ///   manual connect/disconnect API — only construction, [`send`](Node::send),
 ///   [`shutdown`](Node::shutdown), and the read-only snapshot getters.
 /// - a queryable record of received messages accessible via
@@ -111,14 +111,12 @@ impl Node {
     /// `verifier` checks each inbound message's signature; messages whose
     /// signature does not verify are dropped. `signer` is the node's signing
     /// identity — it signs the connection-control messages the node emits
-    /// (`Request`/`Accepted`/`Terminated`); `connection_strategy` is the
-    /// connection-selection policy (v1: `ConnectToAllCandidates`) consulted on
-    /// a setup event; `fanout_strategy` is the fan-out policy (v1:
-    /// `ForwardToAll`) consulted at the record point to choose which downstream
-    /// peers a recorded message is forwarded to; `acceptance_strategy` is the
-    /// inbound-acceptance policy (v1: `AcceptFromAllCandidates`) consulted on a
-    /// verified connection `Request` to decide whether to accept the emitter as
-    /// downstream.
+    /// (`Request`/`Accepted`/`Terminated`/`Rejected`). `strategies` carries the
+    /// four link seams: the relay selection/acceptance pair, plus the optional
+    /// publisher pair (`None` disables publisher links). `fanout_strategy` is
+    /// the fan-out policy consulted at the record point; `publisher_admission`
+    /// is the receive-gate policy for inbound publisher links (owner-only by
+    /// default).
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -128,11 +126,9 @@ impl Node {
     ///
     /// Returns [`NodeError`] if the identity/signer check fails or network
     /// registration fails.
-    // The parameter list is the feature's specified construction contract
-    // (contracts §4): network + signer + verifier + two registries + connection
-    // strategy + fan-out strategy + acceptance strategy are each a distinct
-    // collaborator, not incidental sprawl. A config/builder struct is the natural
-    // future refactor if it grows further.
+    // The parameter list is the specified construction contract: network +
+    // signer + verifier + two registries + the strategy set + fan-out +
+    // admission are each a distinct collaborator, not incidental sprawl.
     #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
@@ -143,9 +139,9 @@ impl Node {
         verifier: Arc<dyn Verifier>,
         subscription_registry: Arc<R>,
         topic_registry: Arc<T>,
-        connection_strategy: Arc<dyn ConnectionStrategy>,
+        strategies: NodeStrategies,
         fanout_strategy: Arc<dyn FanoutStrategy>,
-        acceptance_strategy: Arc<dyn ConnectionAcceptanceStrategy>,
+        publisher_admission: PublisherAdmission,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
         // leaks nothing — no handle, no tasks (FR-024).
@@ -171,9 +167,9 @@ impl Node {
             genesis,
             verifier,
             signer,
-            connection_strategy,
+            strategies,
             fanout_strategy,
-            acceptance_strategy,
+            publisher_admission,
         )));
         let state_for_task = Arc::clone(&state);
 
@@ -406,33 +402,61 @@ impl Node {
             .is_registered(topic)
     }
 
-    /// Return a snapshot of this node's **upstream** connections — the
-    /// `(peer, topic, state)` triples it requested as message sources, each
-    /// either [`AwaitingAccept`](crate::UpstreamState::AwaitingAccept) or
-    /// [`Active`](crate::UpstreamState::Active).
+    /// Return a snapshot of this node's **relay upstream** links — the
+    /// `(peer, topic, state)` triples it dialed as message sources, each
+    /// either [`AwaitingAccept`](crate::LinkState::AwaitingAccept) or
+    /// [`Active`](crate::LinkState::Active).
     ///
     /// A stable clone of the node's record, unaffected by subsequent events;
     /// entry order is unspecified. Pending (`AwaitingAccept`) entries are a
     /// visible diagnostic — a request awaiting an answer that may never come.
     #[must_use]
-    pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, UpstreamState)> {
+    pub fn upstream_relays(&self) -> Vec<(PeerId, TopicId, LinkState)> {
         self.state
             .lock()
-            .expect("upstream_connections: state mutex poisoned")
-            .upstream_snapshot()
+            .expect("upstream_relays: state mutex poisoned")
+            .upstream_relays()
     }
 
-    /// Return a snapshot of this node's **downstream** connections — the
+    /// Return a snapshot of this node's **relay downstream** links — the
     /// `(peer, topic)` pairs it accepted as fan-out destinations.
     ///
     /// A stable clone of the node's record, unaffected by subsequent events;
     /// entry order is unspecified.
     #[must_use]
-    pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)> {
+    pub fn downstream_relays(&self) -> Vec<(PeerId, TopicId)> {
         self.state
             .lock()
-            .expect("downstream_connections: state mutex poisoned")
-            .downstream_snapshot()
+            .expect("downstream_relays: state mutex poisoned")
+            .downstream_relays()
+    }
+
+    /// Return a snapshot of this node's **publisher upstream** links — the
+    /// `(peer, topic)` pairs whose inbound initiation links it accepted (each
+    /// owner may push its own publications over its link).
+    ///
+    /// A stable clone of the node's record, unaffected by subsequent events;
+    /// entry order is unspecified.
+    #[must_use]
+    pub fn upstream_publishers(&self) -> Vec<(PeerId, TopicId)> {
+        self.state
+            .lock()
+            .expect("upstream_publishers: state mutex poisoned")
+            .upstream_publishers()
+    }
+
+    /// Return a snapshot of this node's **publisher downstream** links — the
+    /// `(peer, topic, state)` triples it dialed as standing targets for its
+    /// own publications.
+    ///
+    /// A stable clone of the node's record, unaffected by subsequent events;
+    /// entry order is unspecified.
+    #[must_use]
+    pub fn downstream_publishers(&self) -> Vec<(PeerId, TopicId, LinkState)> {
+        self.state
+            .lock()
+            .expect("downstream_publishers: state mutex poisoned")
+            .downstream_publishers()
     }
 
     /// Gracefully shut the node down: drain any already-queued events, send one

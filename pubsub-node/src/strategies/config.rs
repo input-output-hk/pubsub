@@ -117,13 +117,21 @@ pub(crate) fn require_target_degree(
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
-/// by [`NodeStrategiesBuilder::build`]. (Fan-out stays `ForwardToAll`, injected
-/// separately — it is not built through this two-phase seam.)
+/// by [`NodeStrategiesBuilder::build`] (or [`NodeStrategies::relay_only`] for
+/// direct construction). Four link seams: the relay pair (required) and the
+/// publisher pair (optional — `None` disables publisher links: no dials on the
+/// selection side, inbound publisher requests dropped on the acceptance side).
+/// Fan-out stays injected separately — it is not built through this two-phase
+/// seam.
 pub struct NodeStrategies {
-    /// The connection (dial/upstream) strategy.
+    /// The relay-link selection (dial/upstream) strategy.
     pub connection: Arc<dyn ConnectionStrategy>,
-    /// The inbound-acceptance (downstream) strategy.
+    /// The relay-link acceptance (downstream) strategy.
     pub acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The publisher-link selection strategy (standing initiation dials).
+    pub publisher_connection: Option<Arc<dyn ConnectionStrategy>>,
+    /// The publisher-link acceptance strategy (inbound initiation links).
+    pub publisher_acceptance: Option<Arc<dyn ConnectionAcceptanceStrategy>>,
 }
 
 /// Phase 1 of construction: the resolved per-seam strategy *kinds*, awaiting
@@ -146,12 +154,29 @@ impl NodeStrategies {
             acceptance,
         }
     }
+
+    /// A relay-only strategy set from already-constructed instances — the M2
+    /// baseline shape (publisher links disabled), and the concise form for
+    /// tests that inject concrete strategies directly.
+    #[must_use]
+    pub fn relay_only(
+        connection: Arc<dyn ConnectionStrategy>,
+        acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    ) -> Self {
+        Self {
+            connection,
+            acceptance,
+            publisher_connection: None,
+            publisher_acceptance: None,
+        }
+    }
 }
 
 impl NodeStrategiesBuilder {
     /// Phase 2: bind each seam's params, validate the parameters each chosen
     /// strategy requires, and construct the whole set — surfacing the first
-    /// [`StrategyConfigError`] so the edge maps it once.
+    /// [`StrategyConfigError`] so the edge maps it once. The publisher pair is
+    /// `None` here; the edge fills it when publisher flags are configured.
     pub fn build(
         self,
         connection: &ConnectionParams,
@@ -160,6 +185,8 @@ impl NodeStrategiesBuilder {
         Ok(NodeStrategies {
             connection: self.connection.build(connection)?,
             acceptance: self.acceptance.build(acceptance)?,
+            publisher_connection: None,
+            publisher_acceptance: None,
         })
     }
 }

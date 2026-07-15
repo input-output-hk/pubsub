@@ -13,8 +13,9 @@ use common::{
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, NetworkError, Node, NodeConfig, NodeError,
-    Origin, PeerId, SubscriptionRegistryControl, TopicId, TopicRegistryControl, UpstreamState,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, Node, NodeConfig,
+    NodeError, NodeStrategies, Origin, PeerId, PublisherAdmission, SubscriptionRegistryControl,
+    TopicId, TopicRegistryControl,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -68,14 +69,13 @@ async fn full_bidirectional_graph_for_three_nodes() {
 
     // Exactly N−1 of each, all upstreams Active — no stragglers, no extras.
     for node in [&a, &b, &c] {
-        let up = node.upstream_connections();
+        let up = node.upstream_relays();
         assert_eq!(up.len(), 2, "two upstreams");
         assert!(
-            up.iter()
-                .all(|(_, _, state)| *state == UpstreamState::Active),
+            up.iter().all(|(_, _, state)| *state == LinkState::Active),
             "every upstream Active",
         );
-        assert_eq!(node.downstream_connections().len(), 2, "two downstreams");
+        assert_eq!(node.downstream_relays().len(), 2, "two downstreams");
     }
 }
 
@@ -105,7 +105,7 @@ async fn partial_convergence_stays_static_across_membership_change() {
 
     // a folded c into its candidate view but never dialed it — membership alone
     // does not establish.
-    let up = a.upstream_connections();
+    let up = a.upstream_relays();
     assert_eq!(up.len(), 1, "still just the one upstream");
     assert!(
         up.iter().all(|(p, _, _)| p != &peer("c")),
@@ -135,14 +135,10 @@ async fn node_that_dialed_nothing_still_accepts_inbound() {
     await_downstream(&a, &peer("b"), &t, TIMEOUT).await.unwrap();
 
     assert!(
-        a.upstream_connections().is_empty(),
+        a.upstream_relays().is_empty(),
         "a issued no requests of its own",
     );
-    assert_eq!(
-        a.downstream_connections().len(),
-        1,
-        "a accepted b's request"
-    );
+    assert_eq!(a.downstream_relays().len(), 1, "a accepted b's request");
 }
 
 // US1-AS2: a peer shared across two topics yields two independent per-(peer,
@@ -168,7 +164,7 @@ async fn two_topics_yield_two_independent_connections() {
         .await
         .unwrap();
 
-    let up = a.upstream_connections();
+    let up = a.upstream_relays();
     assert_eq!(up.len(), 2, "one connection per (peer, topic)");
 }
 
@@ -247,14 +243,14 @@ async fn misbehavior_severs_one_connection_silently() {
         .await
         .expect("the t2 connection still delivers");
 
-    let up = s.upstream_connections();
+    let up = s.upstream_relays();
     assert!(
         !up.iter().any(|(p, t, _)| p == b.id() && t == &t1),
         "the t1 connection was severed",
     );
     assert!(
         up.iter()
-            .any(|(p, t, st)| p == b.id() && t == &t2 && *st == UpstreamState::Active),
+            .any(|(p, t, st)| p == b.id() && t == &t2 && *st == LinkState::Active),
         "the offender's t2 connection is untouched",
     );
 
@@ -289,7 +285,7 @@ async fn graceful_shutdown_clears_counterpart_entries() {
     let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
     establish_mutual(&a, &b, std::slice::from_ref(&t)).await;
     assert!(
-        !a.upstream_connections().is_empty() && !a.downstream_connections().is_empty(),
+        !a.upstream_relays().is_empty() && !a.downstream_relays().is_empty(),
         "a holds both-role entries about b before shutdown",
     );
 
@@ -323,15 +319,11 @@ async fn abrupt_drop_leaves_stale_entries() {
 
     // a still holds its (now stale) entries about b.
     assert!(
-        a.upstream_connections()
-            .iter()
-            .any(|(p, _, _)| p == &peer("b")),
+        a.upstream_relays().iter().any(|(p, _, _)| p == &peer("b")),
         "abrupt drop leaves the survivor's upstream entry stale",
     );
     assert!(
-        a.downstream_connections()
-            .iter()
-            .any(|(p, _)| p == &peer("b")),
+        a.downstream_relays().iter().any(|(p, _)| p == &peer("b")),
         "abrupt drop leaves the survivor's downstream entry stale",
     );
 }
@@ -370,10 +362,10 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
         .expect("the pending upstream is created");
 
     // The pending entry is a visible diagnostic at AwaitingAccept.
-    let snapshot = s.upstream_connections();
+    let snapshot = s.upstream_relays();
     assert_eq!(
         snapshot,
-        vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
+        vec![(peer("ghost"), t.clone(), LinkState::AwaitingAccept)],
         "the unanswered request is observable as a pending entry",
     );
 
@@ -387,12 +379,12 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
     assert_no_connection_change(&s, Duration::from_millis(50)).await;
     assert_eq!(
         snapshot,
-        vec![(peer("ghost"), t.clone(), UpstreamState::AwaitingAccept)],
+        vec![(peer("ghost"), t.clone(), LinkState::AwaitingAccept)],
         "the earlier snapshot is a stable clone, unaffected by later events",
     );
     assert_eq!(
-        s.upstream_connections(),
-        vec![(peer("ghost"), t, UpstreamState::AwaitingAccept)],
+        s.upstream_relays(),
+        vec![(peer("ghost"), t, LinkState::AwaitingAccept)],
         "a fresh read still shows the pending entry — it never auto-heals",
     );
 }
@@ -429,9 +421,12 @@ async fn readiness_establishes_autonomously() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("construct a");
@@ -444,9 +439,12 @@ async fn readiness_establishes_autonomously() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("construct b");
@@ -488,9 +486,12 @@ async fn construction_fails_on_duplicate_registration() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("first registration succeeds");
@@ -505,9 +506,12 @@ async fn construction_fails_on_duplicate_registration() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await;
 
@@ -539,9 +543,12 @@ async fn construction_fails_on_identity_mismatch() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await;
 
@@ -560,9 +567,12 @@ async fn construction_fails_on_identity_mismatch() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("the failed construction left the id free");

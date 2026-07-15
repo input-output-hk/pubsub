@@ -111,7 +111,7 @@ fn duplicate_request_idempotent_then_stale_on_failed_revalidation() {
         accepted_sends(&effects, "self"),
         vec![(peer("a"), topic("t1"))]
     );
-    assert_eq!(state.downstream_snapshot().len(), 1, "still one entry");
+    assert_eq!(state.downstream_relays().len(), 1, "still one entry");
 
     // a leaves the topic, then re-dials → validation fails, entry left as-is.
     apply(
@@ -134,7 +134,7 @@ fn self_emitter_control_message_dropped() {
     apply(&mut state, membership_joined("self", ["t1"]));
     let effects = apply(&mut state, request_from("self", "t1"));
     assert!(effects.is_empty());
-    assert!(state.downstream_snapshot().is_empty(), "no self-connection");
+    assert!(state.downstream_relays().is_empty(), "no self-connection");
 }
 
 // FR-015 invalid-signature EC: a control message failing verification is
@@ -160,15 +160,12 @@ fn accepted_activates_awaiting_entry() {
     apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
 
     let effects = apply(&mut state, accepted_from("a", "t1"));
     assert!(effects.is_empty(), "activation sends nothing");
-    assert_eq!(
-        upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "a", "t1"), Some(LinkState::Active));
 }
 
 // FR-013: an Accepted with no matching pending entry is dropped, no entry
@@ -192,10 +189,7 @@ fn terminated_removes_held_entry_else_dropped() {
     apply(&mut state, Event::Heartbeat);
     apply(&mut state, accepted_from("a", "t1"));
     apply(&mut state, request_from("a", "t1"));
-    assert_eq!(
-        upstream_state(&state, "a", "t1"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "a", "t1"), Some(LinkState::Active));
     assert!(has_downstream(&state, "a", "t1"));
 
     // Terminated removes the matching entry in both roles, sends nothing.
@@ -222,10 +216,7 @@ fn scripted_establishment_reaches_active() {
     for event in script {
         apply(&mut state, event);
     }
-    assert_eq!(
-        upstream_state(&state, "b", "t"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "b", "t"), Some(LinkState::Active));
 }
 
 // ---- feature 005 (US2): bounded acceptance + rejected-dial back-fill --------
@@ -258,9 +249,12 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
-        strategy(),
+        NodeStrategies::relay_only(
+            strategy(),
+            Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
+        PublisherAdmission::default(),
     );
     // Synced first (requests are gated on readiness) and before any membership,
     // so the readiness dial pass sees no candidates and pollutes no upstream.
@@ -276,7 +270,9 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
     // `a` is a member and B=1 (predicate holds), but the topic is at its cap ⇒
     // refused with an explicit Rejected, no downstream entry, no Misbehaved.
     let reject = apply(&mut state, request_from("a", "t1"));
-    assert!(!state.downstream.contains(&(peer("a"), t.clone())));
+    assert!(!state
+        .downstream
+        .contains_key(&LinkKey::new(t.clone(), peer("a"), LinkKind::Relay)));
     assert_eq!(reject.len(), 1);
     assert!(matches!(
         sent_action(&reject[0]),
@@ -301,9 +297,12 @@ fn rejected_dial_removes_pending_upstream() {
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
-        Arc::new(HashGatedConnection::new(peer("self"), 8)),
+        NodeStrategies::relay_only(
+            Arc::new(HashGatedConnection::new(peer("self"), 8)),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     );
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));
@@ -312,7 +311,7 @@ fn rejected_dial_removes_pending_upstream() {
     }
 
     apply(&mut state, Event::Synced); // fires Heartbeat(0); B=1 dials all three
-    let dialed: Vec<PeerId> = state.upstream.keys().map(|(p, _)| p.clone()).collect();
+    let dialed: Vec<PeerId> = state.upstream.keys().map(|k| k.peer.clone()).collect();
     assert_eq!(dialed.len(), 3, "B=1 dials every candidate");
     let rejected_peer = dialed[0].clone();
 
@@ -321,9 +320,11 @@ fn rejected_dial_removes_pending_upstream() {
     let effects = apply(&mut state, rejected_from(&rejected_peer.to_string(), "t1"));
     assert!(effects.is_empty(), "a rejection produces no effects");
     assert!(
-        !state
-            .upstream
-            .contains_key(&(rejected_peer.clone(), t.clone())),
+        !state.upstream.contains_key(&LinkKey::new(
+            t.clone(),
+            rejected_peer.clone(),
+            LinkKind::Relay
+        )),
         "the rejected pending upstream is removed",
     );
     assert_eq!(

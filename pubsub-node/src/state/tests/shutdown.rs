@@ -6,18 +6,20 @@ use super::*;
 #[test]
 fn shutdown_notifies_every_entry_including_awaiting_accept() {
     let mut state = node_state("self", HashSet::new());
-    state
-        .upstream
-        .insert((peer("b"), topic("t1")), UpstreamState::Active);
-    state
-        .upstream
-        .insert((peer("c"), topic("t1")), UpstreamState::AwaitingAccept);
+    state.upstream.insert(
+        LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
+        LinkState::Active,
+    );
+    state.upstream.insert(
+        LinkKey::new(topic("t1"), peer("c"), LinkKind::Relay),
+        LinkState::AwaitingAccept,
+    );
     with_downstream(&mut state, "d", "t1");
 
     let effects = apply(&mut state, Event::Shutdown);
 
-    assert!(state.upstream_snapshot().is_empty(), "upstream cleared");
-    assert!(state.downstream_snapshot().is_empty(), "downstream cleared");
+    assert!(state.upstream_relays().is_empty(), "upstream cleared");
+    assert!(state.downstream_relays().is_empty(), "downstream cleared");
     assert_eq!(
         sorted_pairs(terminated_sends(&effects, "self")),
         sorted_pairs(vec![
@@ -35,9 +37,10 @@ fn shutdown_notifies_every_entry_including_awaiting_accept() {
 #[test]
 fn shutdown_notifies_each_role_of_a_both_roles_pair() {
     let mut state = node_state("self", HashSet::new());
-    state
-        .upstream
-        .insert((peer("b"), topic("t1")), UpstreamState::Active);
+    state.upstream.insert(
+        LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
+        LinkState::Active,
+    );
     with_downstream(&mut state, "b", "t1");
 
     let effects = apply(&mut state, Event::Shutdown);
@@ -54,9 +57,10 @@ fn shutdown_notifies_each_role_of_a_both_roles_pair() {
 fn terminated_reception_removes_either_role() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
     apply(&mut state, membership_joined("b", ["t1"]));
-    state
-        .upstream
-        .insert((peer("b"), topic("t1")), UpstreamState::Active);
+    state.upstream.insert(
+        LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
+        LinkState::Active,
+    );
     with_downstream(&mut state, "b", "t1");
 
     let effects = apply(&mut state, terminated_from("b", "t1"));
@@ -82,7 +86,7 @@ fn full_lifecycle_reachable_by_events_alone() {
     let e = apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "b", "t"),
-        Some(UpstreamState::AwaitingAccept)
+        Some(LinkState::AwaitingAccept)
     );
     assert_eq!(request_sends(&e, "self"), vec![(peer("b"), t.clone())]);
 
@@ -95,15 +99,12 @@ fn full_lifecycle_reachable_by_events_alone() {
     );
     assert_eq!(
         upstream_state(&state, "b", "t"),
-        Some(UpstreamState::AwaitingAccept)
+        Some(LinkState::AwaitingAccept)
     );
 
     // Accepted → Active.
     apply(&mut state, accepted_from("b", "t"));
-    assert_eq!(
-        upstream_state(&state, "b", "t"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "b", "t"), Some(LinkState::Active));
 
     // inbound Request → downstream recorded + Accepted (both roles now held).
     let e = apply(&mut state, request_from("b", "t"));
@@ -135,7 +136,7 @@ fn full_lifecycle_reachable_by_events_alone() {
     apply(&mut state, accepted_from("b", "t"));
     apply(&mut state, request_from("b", "t"));
     let e = apply(&mut state, Event::Shutdown);
-    assert!(state.upstream_snapshot().is_empty() && state.downstream_snapshot().is_empty());
+    assert!(state.upstream_relays().is_empty() && state.downstream_relays().is_empty());
     assert!(
         !terminated_sends(&e, "self").is_empty(),
         "shutdown notifies"
@@ -144,11 +145,11 @@ fn full_lifecycle_reachable_by_events_alone() {
     // SC-007: self never appears in either structure across the lifecycle.
     let self_peer = peer("self");
     assert!(state
-        .upstream_snapshot()
+        .upstream_relays()
         .iter()
         .all(|(p, _, _)| p != &self_peer));
     assert!(state
-        .downstream_snapshot()
+        .downstream_relays()
         .iter()
         .all(|(p, _)| p != &self_peer));
 }
@@ -180,22 +181,22 @@ fn scripted_lifecycle_is_deterministic() {
     assert_eq!(
         sorted_pairs(
             first
-                .upstream_snapshot()
+                .upstream_relays()
                 .into_iter()
                 .map(|(p, t, _)| (p, t))
                 .collect()
         ),
         sorted_pairs(
             second
-                .upstream_snapshot()
+                .upstream_relays()
                 .into_iter()
                 .map(|(p, t, _)| (p, t))
                 .collect()
         ),
     );
     assert_eq!(
-        sorted_pairs(first.downstream_snapshot()),
-        sorted_pairs(second.downstream_snapshot()),
+        sorted_pairs(first.downstream_relays()),
+        sorted_pairs(second.downstream_relays()),
     );
 }
 
@@ -212,7 +213,7 @@ fn stuck_awaiting_accept_admits_nothing_and_self_never_dialed() {
     apply(&mut state, Event::Heartbeat); // dials the absent peer
     assert_eq!(
         upstream_state(&state, "absent", "t"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
 
     // No Accepted arrives — a payload from the pending peer is not admitted.
@@ -227,7 +228,7 @@ fn stuck_awaiting_accept_admits_nothing_and_self_never_dialed() {
     apply(&mut state, Event::Heartbeat);
     assert_eq!(
         upstream_state(&state, "absent", "t"),
-        Some(UpstreamState::AwaitingAccept),
+        Some(LinkState::AwaitingAccept),
     );
 
     // SC-007: even with self in membership/candidates, self is never dialed.

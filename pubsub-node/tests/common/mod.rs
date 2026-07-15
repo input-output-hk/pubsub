@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeView, Origin, PeerEntry, PeerId,
-    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer,
-    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
-    TopicRegistryControl, UpstreamState, Verifier,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, Message,
+    MessageHash, MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeStrategies, NodeView,
+    Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherAdmission, PublisherId,
+    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
+    Timestamp, TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -196,9 +196,12 @@ pub async fn two_node_fixture_with_subscriptions(
         verifier.clone(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("construct node A");
@@ -214,9 +217,12 @@ pub async fn two_node_fixture_with_subscriptions(
         verifier,
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("construct node B");
@@ -321,9 +327,9 @@ pub async fn node_with_strategy(
         shared_test_verifier(),
         registry.clone(),
         topic_registry,
-        strategy,
+        NodeStrategies::relay_only(strategy, Arc::new(AcceptFromAllCandidates)),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("construct node");
@@ -371,9 +377,12 @@ pub async fn node_sharing(
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
         Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::default(),
     )
     .await
     .expect("construct node");
@@ -501,13 +510,13 @@ pub async fn assert_no_new_deliveries(nodes: &[&Node], window: Duration) {
 /// behaviour with no pure-core equivalent, it is the best available regression
 /// window).
 pub async fn assert_no_connection_change(node: &Node, window: Duration) {
-    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, UpstreamState)> {
-        let mut up = node.upstream_connections();
+    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, LinkState)> {
+        let mut up = node.upstream_relays();
         up.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
         up
     }
     fn sorted_downstream(node: &Node) -> Vec<(PeerId, TopicId)> {
-        let mut down = node.downstream_connections();
+        let mut down = node.downstream_relays();
         down.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
         down
     }
@@ -566,7 +575,7 @@ pub fn trigger_setup(node: &Node) {
     node.events().push(Event::Heartbeat);
 }
 
-/// Poll `node.upstream_connections()` until it holds `(peer, topic)` as
+/// Poll `node.upstream_relays()` until it holds `(peer, topic)` as
 /// `Active`, or `timeout` elapses. Establishment is asynchronous (the request,
 /// its acceptance, and the activation each cross the event loop), so tests wait
 /// the same way they wait for delivery.
@@ -579,9 +588,9 @@ pub async fn await_upstream_active(
     let start = tokio::time::Instant::now();
     loop {
         let active = node
-            .upstream_connections()
+            .upstream_relays()
             .into_iter()
-            .any(|(p, t, state)| &p == peer && &t == topic && state == UpstreamState::Active);
+            .any(|(p, t, state)| &p == peer && &t == topic && state == LinkState::Active);
         if active {
             return Ok(());
         }
@@ -592,7 +601,7 @@ pub async fn await_upstream_active(
     }
 }
 
-/// Poll `node.downstream_connections()` until it holds `(peer, topic)`, or
+/// Poll `node.downstream_relays()` until it holds `(peer, topic)`, or
 /// `timeout` elapses.
 pub async fn await_downstream(
     node: &Node,
@@ -603,7 +612,7 @@ pub async fn await_downstream(
     let start = tokio::time::Instant::now();
     loop {
         if node
-            .downstream_connections()
+            .downstream_relays()
             .iter()
             .any(|(p, t)| p == peer && t == topic)
         {
@@ -632,7 +641,7 @@ pub async fn await_upstream_present(
     let start = tokio::time::Instant::now();
     loop {
         if node
-            .upstream_connections()
+            .upstream_relays()
             .iter()
             .any(|(p, t, _)| p == peer && t == topic)
         {
@@ -703,11 +712,8 @@ pub async fn await_peer_forgotten(
 ) -> Result<(), AwaitError> {
     let start = tokio::time::Instant::now();
     loop {
-        let in_upstream = node
-            .upstream_connections()
-            .iter()
-            .any(|(p, _, _)| p == peer);
-        let in_downstream = node.downstream_connections().iter().any(|(p, _)| p == peer);
+        let in_upstream = node.upstream_relays().iter().any(|(p, _, _)| p == peer);
+        let in_downstream = node.downstream_relays().iter().any(|(p, _)| p == peer);
         if !in_upstream && !in_downstream {
             return Ok(());
         }
@@ -795,7 +801,7 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 
 impl ConnectionStrategy for ConnectToExplicit {
-    fn expected_upstream(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_links(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }

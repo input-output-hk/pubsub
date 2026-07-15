@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::connection_state::LinkKind;
 use crate::crypto::{MessageHash, PublicKey, Signature, Timestamp};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -190,16 +191,21 @@ pub struct ConnectionMessage {
 }
 
 /// The signed-over content of a connection-control message: the emitting
-/// node's identity and the handshake action.
+/// node's identity, the link kind the action concerns, and the handshake
+/// action.
 ///
 /// The canonical signing-byte encoding lives on this type
 /// ([`PlainConnection::signed_bytes`]); the signature binds the emitter, the
-/// action kind, and the topic together.
+/// action, the topic, and the link kind together.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlainConnection {
     /// The node that emitted (and signs) this message — the control-path
     /// identity, carried inside the signed content.
     pub emitter: PeerId,
+    /// Which link class the action concerns. Every control action names one
+    /// link, and a link has exactly one kind; the acceptor dispatches its
+    /// acceptance policy, hash domain, and capacity on this.
+    pub kind: LinkKind,
     /// The handshake action and its topic.
     pub action: ConnectionAction,
 }
@@ -251,9 +257,11 @@ impl PlainConnection {
     ///    bytes. Tags are assigned explicitly so future variants append new
     ///    values without disturbing the existing ones: `0x00` Request,
     ///    `0x01` Accepted, `0x02` Terminated, `0x03` Rejected.
+    /// 3. link kind — a 1-byte tag: `0x00` Relay, `0x01` Publisher.
     ///
     /// The signature is produced over exactly these bytes, binding emitter
-    /// identity, action kind, and topic together. Any layout change is a
+    /// identity, action, topic, and link kind together — a relay control
+    /// message cannot be replayed as a publisher one. Any layout change is a
     /// protocol change and must update this documentation in the same commit.
     #[must_use]
     pub fn signed_bytes(&self) -> Vec<u8> {
@@ -263,11 +271,16 @@ impl PlainConnection {
             ConnectionAction::Terminated { topic } => (0x02u8, topic),
             ConnectionAction::Rejected { topic } => (0x03u8, topic),
         };
+        let kind_tag = match self.kind {
+            LinkKind::Relay => 0x00u8,
+            LinkKind::Publisher => 0x01u8,
+        };
 
         let mut out = Vec::new();
         push_len_prefixed(&mut out, self.emitter.as_public_key().as_bytes());
         out.push(tag);
         push_len_prefixed(&mut out, topic.as_str().as_bytes());
+        out.push(kind_tag);
         out
     }
 }
@@ -276,7 +289,7 @@ impl PlainConnection {
 mod tests {
     use std::str::FromStr;
 
-    use super::{ConnectionAction, PlainConnection};
+    use super::{ConnectionAction, LinkKind, PlainConnection};
     use crate::crypto::mock::MockCryptoScheme;
     use crate::crypto::mock::TestVerifier;
     use crate::crypto::{Signer, Verifier};
@@ -291,44 +304,62 @@ mod tests {
         TopicId::from_str(s).expect("valid topic id")
     }
 
-    // FR-011 / contracts §1.1: the signing-byte layout is stable and explicit.
+    // Contracts §1: the signing-byte layout is stable and explicit.
     #[test]
     fn signed_bytes_layout_is_stable() {
         let plain = PlainConnection {
             emitter: peer("a"),
+            kind: LinkKind::Relay,
             action: ConnectionAction::Request { topic: topic("t1") },
         };
         // emitter key = alias bytes + mock public suffix = b"a_public" (len 8);
-        // tag 0x00 (Request); topic "t1" (len 2).
+        // tag 0x00 (Request); topic "t1" (len 2); link-kind tag 0x00 (Relay).
         let mut expected = Vec::new();
         expected.extend_from_slice(&8u32.to_be_bytes());
         expected.extend_from_slice(b"a_public");
         expected.push(0x00);
         expected.extend_from_slice(&2u32.to_be_bytes());
         expected.extend_from_slice(b"t1");
+        expected.push(0x00);
         assert_eq!(plain.signed_bytes(), expected);
     }
 
-    // The action tag distinguishes the three kinds on the wire.
+    // The action tag distinguishes the action kinds on the wire; the link-kind
+    // tag distinguishes relay from publisher for one action.
     #[test]
-    fn action_tags_are_distinct() {
-        let bytes = |action| {
+    fn action_and_link_kind_tags_are_distinct() {
+        let bytes = |kind, action| {
             PlainConnection {
                 emitter: peer("a"),
+                kind,
                 action,
             }
             .signed_bytes()
         };
-        let req = bytes(ConnectionAction::Request { topic: topic("t1") });
-        let acc = bytes(ConnectionAction::Accepted { topic: topic("t1") });
-        let term = bytes(ConnectionAction::Terminated { topic: topic("t1") });
+        let req = bytes(
+            LinkKind::Relay,
+            ConnectionAction::Request { topic: topic("t1") },
+        );
+        let acc = bytes(
+            LinkKind::Relay,
+            ConnectionAction::Accepted { topic: topic("t1") },
+        );
+        let term = bytes(
+            LinkKind::Relay,
+            ConnectionAction::Terminated { topic: topic("t1") },
+        );
+        let pub_req = bytes(
+            LinkKind::Publisher,
+            ConnectionAction::Request { topic: topic("t1") },
+        );
         assert_ne!(req, acc);
         assert_ne!(acc, term);
         assert_ne!(req, term);
+        assert_ne!(req, pub_req);
     }
 
-    // FR-011: an emitter signs its own control message and it verifies under
-    // the emitter's key.
+    // An emitter signs its own control message and it verifies under the
+    // emitter's key.
     #[test]
     fn sign_verify_round_trip() {
         let scheme = MockCryptoScheme::with_seed([0u8; 32]);
@@ -336,6 +367,7 @@ mod tests {
         let signer = scheme.signer(kp.private);
         let plain = PlainConnection {
             emitter: peer("a"),
+            kind: LinkKind::Relay,
             action: ConnectionAction::Request { topic: topic("t1") },
         };
         let sig = signer.sign(&plain.signed_bytes());
@@ -344,8 +376,8 @@ mod tests {
             .is_ok());
     }
 
-    // FR-011: the signature binds emitter, kind, and topic — tampering with any
-    // one makes the original signature no longer verify.
+    // The signature binds emitter, action, topic, and link kind — tampering
+    // with any one makes the original signature no longer verify.
     #[test]
     fn tamper_on_any_bound_field_breaks_signature() {
         let scheme = MockCryptoScheme::with_seed([0u8; 32]);
@@ -353,6 +385,7 @@ mod tests {
         let signer = scheme.signer(kp.private);
         let original = PlainConnection {
             emitter: peer("a"),
+            kind: LinkKind::Relay,
             action: ConnectionAction::Request { topic: topic("t1") },
         };
         let sig = signer.sign(&original.signed_bytes());
@@ -361,28 +394,38 @@ mod tests {
         // Tamper the emitter (the field bound into the bytes).
         let tampered_emitter = PlainConnection {
             emitter: peer("b"),
-            action: ConnectionAction::Request { topic: topic("t1") },
+            ..original.clone()
         };
         assert!(TestVerifier
             .verify(&key, &tampered_emitter.signed_bytes(), &sig)
             .is_err());
 
-        // Tamper the kind.
-        let tampered_kind = PlainConnection {
-            emitter: peer("a"),
+        // Tamper the action.
+        let tampered_action = PlainConnection {
             action: ConnectionAction::Accepted { topic: topic("t1") },
+            ..original.clone()
         };
         assert!(TestVerifier
-            .verify(&key, &tampered_kind.signed_bytes(), &sig)
+            .verify(&key, &tampered_action.signed_bytes(), &sig)
             .is_err());
 
         // Tamper the topic.
         let tampered_topic = PlainConnection {
-            emitter: peer("a"),
             action: ConnectionAction::Request { topic: topic("t2") },
+            ..original.clone()
         };
         assert!(TestVerifier
             .verify(&key, &tampered_topic.signed_bytes(), &sig)
+            .is_err());
+
+        // Tamper the link kind — a relay control message cannot be replayed as
+        // a publisher one.
+        let tampered_link_kind = PlainConnection {
+            kind: LinkKind::Publisher,
+            ..original
+        };
+        assert!(TestVerifier
+            .verify(&key, &tampered_link_kind.signed_bytes(), &sig)
             .is_err());
     }
 }

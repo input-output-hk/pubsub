@@ -17,8 +17,9 @@
 //! Registration gates delivery, not acceptance (the S7 pin), so this seam reads
 //! the membership-derived view only.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
+use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::peer::PeerId;
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
@@ -105,42 +106,50 @@ pub(crate) fn is_membership_valid(
     is_subscribed && is_candidate
 }
 
-/// One pass over the downstream set for the two facts a bounding policy needs:
-/// whether `(emitter, topic)` is already an accepted downstream, and how many
-/// downstream entries the topic holds. Computed borrow-only (a
-/// `HashSet<(PeerId, TopicId)>` lookup would need an owned tuple, i.e. two
-/// clones per inbound request) and without a second scan for the cap count.
-pub(crate) fn downstream_scan(
-    downstream: &HashSet<(PeerId, TopicId)>,
+/// One pass over a link map for the two facts a bounding policy needs: whether
+/// an entry of `kind` for `(emitter, topic)` is already held, and how many
+/// entries of `kind` the topic holds. Borrow-only — no owned key is built per
+/// inbound request.
+pub(crate) fn link_scan(
+    links: &BTreeMap<LinkKey, LinkState>,
+    kind: LinkKind,
     emitter: &PeerId,
     topic: &TopicId,
 ) -> (bool, usize) {
-    let mut already_downstream = false;
+    let mut already_held = false;
     let mut on_topic = 0;
-    for (peer, t) in downstream {
-        if t == topic {
+    for key in links.keys() {
+        if &key.topic == topic && key.kind == kind {
             on_topic += 1;
-            if peer == emitter {
-                already_downstream = true;
+            if &key.peer == emitter {
+                already_held = true;
             }
         }
     }
-    (already_downstream, on_topic)
+    (already_held, on_topic)
 }
 
 /// The shared refusing-policy prelude, run before any policy-specific check:
-/// membership validation, then the idempotent already-downstream re-Accept.
+/// membership validation, then the idempotent already-accepted re-Accept.
 ///
-/// `Err` is the early decision (`RejectMembership`, or `Accept` for a re-dial of
-/// an already-held downstream — ahead of any gate or cap, so a lost/late
+/// `kind` names the acceptance instance's link class and thereby the map it
+/// admits into: a relay instance counts relay entries in `view.downstream`
+/// (accepted fan-out destinations); a publisher instance counts publisher
+/// entries in `view.upstream` (accepted inbound initiation links). The two
+/// capacities are disjoint by construction — an instance only ever scans its
+/// own kind.
+///
+/// `Err` is the early decision (`RejectMembership`, or `Accept` for a re-dial
+/// of an already-held link — ahead of any gate or cap, so a lost/late
 /// `Accepted` repairs the link instead of stranding it half-open, 005 FR-013);
-/// `Ok(downstream_on_topic)` means "no early decision" and carries the topic's
-/// downstream count for a cap check, from the same single scan.
+/// `Ok(accepted_on_topic)` means "no early decision" and carries the topic's
+/// accepted count of that kind for a cap check, from the same single scan.
 ///
 /// Every refusing policy calls this first — the invariant lives here once, so a
 /// new bounding/gating strategy cannot forget it. (`AcceptFromAllCandidates`
 /// needs no prelude: it never refuses a member, so the re-Accept is implied.)
 pub(crate) fn admit_prelude(
+    kind: LinkKind,
     emitter: &PeerId,
     topic: &TopicId,
     view: &NodeView<'_>,
@@ -148,10 +157,13 @@ pub(crate) fn admit_prelude(
     if !is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
         return Err(Admission::RejectMembership);
     }
-    let (already_downstream, downstream_on_topic) =
-        downstream_scan(view.downstream, emitter, topic);
-    if already_downstream {
+    let accepted = match kind {
+        LinkKind::Relay => view.downstream,
+        LinkKind::Publisher => view.upstream,
+    };
+    let (already_held, accepted_on_topic) = link_scan(accepted, kind, emitter, topic);
+    if already_held {
         return Err(Admission::Accept);
     }
-    Ok(downstream_on_topic)
+    Ok(accepted_on_topic)
 }

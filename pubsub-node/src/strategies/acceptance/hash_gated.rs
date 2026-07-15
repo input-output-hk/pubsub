@@ -4,6 +4,7 @@
 use std::collections::BTreeSet;
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
 use crate::strategies::edge::{is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
@@ -22,6 +23,7 @@ pub struct HashGatedAcceptance {
     self_id: PeerId,
     target_degree: usize,
     bucket_override: Option<usize>,
+    kind: LinkKind,
 }
 
 impl HashGatedAcceptance {
@@ -34,7 +36,17 @@ impl HashGatedAcceptance {
             self_id,
             target_degree,
             bucket_override: None,
+            kind: LinkKind::Relay,
         }
+    }
+
+    /// Re-target the instance at a link kind (`Relay` is the constructor
+    /// default): the kind selects the hash domain the predicate is verified
+    /// under and which accepted-link class the prelude scans.
+    #[must_use]
+    pub fn for_kind(mut self, kind: LinkKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Pin the bucket count `B` used to verify the edge predicate (see
@@ -49,7 +61,7 @@ impl HashGatedAcceptance {
 
 impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        if let Err(decision) = admit_prelude(emitter, topic, view) {
+        if let Err(decision) = admit_prelude(self.kind, emitter, topic, view) {
             return decision;
         }
         // Same B-agreement assumption as the compound policy (see
@@ -74,14 +86,14 @@ mod tests {
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
     };
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let got = HashGatedAcceptance::new(peer("self"), 1).admit(
             &peer("a"),
             &topic("t2"), // not subscribed

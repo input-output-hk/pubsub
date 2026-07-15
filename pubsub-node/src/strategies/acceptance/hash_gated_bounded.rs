@@ -4,6 +4,7 @@
 use std::collections::BTreeSet;
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
 use crate::strategies::edge::{accept_cap, is_valid_edge, resolve_buckets};
 use crate::strategies::view::NodeView;
@@ -25,6 +26,7 @@ pub struct HashGatedBoundedAcceptance {
     target_degree: usize,
     cap_buffer: usize,
     bucket_override: Option<usize>,
+    kind: LinkKind,
 }
 
 impl HashGatedBoundedAcceptance {
@@ -39,7 +41,17 @@ impl HashGatedBoundedAcceptance {
             target_degree,
             cap_buffer,
             bucket_override: None,
+            kind: LinkKind::Relay,
         }
+    }
+
+    /// Re-target the instance at a link kind (`Relay` is the constructor
+    /// default): the kind selects the hash domain the predicate is verified
+    /// under and which accepted-link class the cap counts.
+    #[must_use]
+    pub fn for_kind(mut self, kind: LinkKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Pin the bucket count `B` used to verify the edge predicate, instead of
@@ -62,7 +74,7 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
         // Membership, then the idempotent already-downstream re-Accept — the
         // shared prelude every refusing policy runs first (see
         // `acceptance::admit_prelude` for the half-open-link rationale).
-        let downstream_on_topic = match admit_prelude(emitter, topic, view) {
+        let accepted_on_topic = match admit_prelude(self.kind, emitter, topic, view) {
             Ok(count) => count,
             Err(decision) => return decision,
         };
@@ -85,7 +97,7 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
             return Admission::RejectIllegitimate;
         }
         let cap = accept_cap(self.target_degree, self.cap_buffer);
-        if downstream_on_topic >= cap {
+        if accepted_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept
@@ -101,14 +113,14 @@ mod tests {
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
     };
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed
@@ -126,7 +138,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"]; // 6 candidates
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let buckets = bucket_count(names.len(), 1); // 6/1 = 6 > 1
         let invalid = names
             .iter()
@@ -183,7 +195,7 @@ mod tests {
         let names = ["a", "b", "c", "d", "e", "f"];
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &names)]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         // Derived B on 6 candidates at target_degree=1 would be 6 (most requests
         // illegitimate); pinned B=1 makes every membership-valid request valid.
         let policy =
@@ -221,7 +233,7 @@ mod tests {
     fn small_topic_admits_every_member_below_cap() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b"])]); // 2 ≤ target_degree ⇒ B=1
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let got = HashGatedBoundedAcceptance::new(peer("self"), 8, 3).admit(
             &peer("a"),
             &topic("t1"),

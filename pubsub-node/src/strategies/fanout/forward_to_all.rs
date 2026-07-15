@@ -1,30 +1,48 @@
-//! The v1 fan-out policy: [`ForwardToAll`].
+//! The default fan-out policy: [`ForwardToAll`].
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::FanoutStrategy;
+use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::peer::PeerId;
+use crate::received::Origin;
 use crate::topic::TopicId;
 
-/// The v1 fan-out policy: forward to **every** downstream peer on the topic,
-/// minus the split-horizon exclusion.
+/// The default fan-out policy: forward to every **relay** downstream peer on
+/// the topic — plus, for a **locally-published** message, the node's `Active`
+/// **publisher** links — minus the split-horizon exclusion, one send per peer.
 ///
-/// Returns each `peer` for which `(peer, topic)` is in `downstream` and
-/// `Some(peer) != exclude`. This maintains the full per-topic fan-out; degree
-/// limits and sampling are deferred to later strategies.
+/// The origin split is the publisher-link exclusivity rule: publisher links
+/// carry only their owner's own publications, never relayed traffic. A node
+/// with no publisher links (the pre-015 baseline) behaves exactly as before.
+/// Degree limits and sampling are deferred to later strategies.
 pub struct ForwardToAll;
 
 impl FanoutStrategy for ForwardToAll {
     fn targets(
         &self,
         topic: &TopicId,
-        downstream: &HashSet<(PeerId, TopicId)>,
+        downstream: &BTreeMap<LinkKey, LinkState>,
+        origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
-        downstream
-            .iter()
-            .filter(|(_, t)| t == topic)
-            .map(|(peer, _)| peer)
+        // Collect into a set first: a peer reachable as both a relay
+        // destination and a publisher target receives one send.
+        let mut targets: BTreeSet<&PeerId> = BTreeSet::new();
+        for (key, state) in downstream {
+            if &key.topic != topic {
+                continue;
+            }
+            let selected = match key.kind {
+                LinkKind::Relay => true,
+                LinkKind::Publisher => *origin == Origin::Local && *state == LinkState::Active,
+            };
+            if selected {
+                targets.insert(&key.peer);
+            }
+        }
+        targets
+            .into_iter()
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()
@@ -35,20 +53,21 @@ impl FanoutStrategy for ForwardToAll {
 mod tests {
     use super::ForwardToAll;
     use crate::peer::PeerId;
+    use crate::received::Origin;
     use crate::strategies::fanout::FanoutStrategy;
     use crate::strategies::test_support::{downstream, peer, topic};
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     fn sorted(mut v: Vec<PeerId>) -> Vec<PeerId> {
         v.sort_by_key(ToString::to_string);
         v
     }
 
-    // 006 FR-010: ForwardToAll returns every downstream peer on the topic.
+    // 006 FR-010: ForwardToAll returns every relay downstream peer on the topic.
     #[test]
     fn forwards_to_every_downstream_on_the_topic() {
         let down = downstream(&[("a", "t1"), ("b", "t1"), ("c", "t2")]);
-        let targets = ForwardToAll.targets(&topic("t1"), &down, None);
+        let targets = ForwardToAll.targets(&topic("t1"), &down, &Origin::Local, None);
         assert_eq!(
             sorted(targets),
             vec![peer("a"), peer("b")],
@@ -60,7 +79,12 @@ mod tests {
     #[test]
     fn exclude_removes_that_peer() {
         let down = downstream(&[("a", "t1"), ("b", "t1")]);
-        let targets = ForwardToAll.targets(&topic("t1"), &down, Some(&peer("a")));
+        let targets = ForwardToAll.targets(
+            &topic("t1"),
+            &down,
+            &Origin::Peer(peer("a")),
+            Some(&peer("a")),
+        );
         assert_eq!(
             sorted(targets),
             vec![peer("b")],
@@ -72,7 +96,7 @@ mod tests {
     #[test]
     fn empty_downstream_yields_no_targets() {
         assert!(ForwardToAll
-            .targets(&topic("t1"), &HashSet::new(), None)
+            .targets(&topic("t1"), &BTreeMap::new(), &Origin::Local, None)
             .is_empty());
     }
 
@@ -81,7 +105,9 @@ mod tests {
     #[test]
     fn other_topic_downstream_yields_no_targets() {
         let down = downstream(&[("a", "t2"), ("b", "t2")]);
-        assert!(ForwardToAll.targets(&topic("t1"), &down, None).is_empty());
+        assert!(ForwardToAll
+            .targets(&topic("t1"), &down, &Origin::Local, None)
+            .is_empty());
     }
 
     // The sole downstream being the excluded peer → no targets.
@@ -89,7 +115,12 @@ mod tests {
     fn sole_downstream_excluded_yields_no_targets() {
         let down = downstream(&[("a", "t1")]);
         assert!(ForwardToAll
-            .targets(&topic("t1"), &down, Some(&peer("a")))
+            .targets(
+                &topic("t1"),
+                &down,
+                &Origin::Peer(peer("a")),
+                Some(&peer("a"))
+            )
             .is_empty());
     }
 }

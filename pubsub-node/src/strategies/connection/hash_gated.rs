@@ -65,7 +65,7 @@ impl HashGatedConnection {
 }
 
 impl ConnectionStrategy for HashGatedConnection {
-    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
         for topic in view.subscriptions {
             let Some(peers) = view.candidates.get(topic) else {
@@ -93,7 +93,7 @@ mod tests {
     use crate::strategies::test_support::{
         candidates, peer, subscriptions, topic, view, view_with_nonce,
     };
-    use std::collections::{BTreeSet, HashSet};
+    use std::collections::{BTreeMap, BTreeSet};
 
     fn ids(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("c{i:03}")).collect()
@@ -104,9 +104,9 @@ mod tests {
     fn small_topic_connects_to_all() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a", "b", "c"])]);
-        let down = HashSet::new();
-        let expected = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let down = BTreeMap::new();
+        let expected =
+            HashGatedConnection::new(peer("self"), 8).expected_links(&view(&subs, &cands, &down));
         assert_eq!(
             expected,
             BTreeSet::from([
@@ -126,10 +126,10 @@ mod tests {
         let mut rev = refs.clone();
         rev.reverse();
         let subs = subscriptions(&["t1"]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let policy = HashGatedConnection::new(peer("self"), 8);
-        let one = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &refs)]), &down));
-        let two = policy.expected_upstream(&view(&subs, &candidates(&[("t1", &rev)]), &down));
+        let one = policy.expected_links(&view(&subs, &candidates(&[("t1", &refs)]), &down));
+        let two = policy.expected_links(&view(&subs, &candidates(&[("t1", &rev)]), &down));
         assert_eq!(one, two, "selection must not depend on iteration order");
     }
 
@@ -140,9 +140,9 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
-        let expected = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let down = BTreeMap::new();
+        let expected =
+            HashGatedConnection::new(peer("self"), 8).expected_links(&view(&subs, &cands, &down));
         // 80 candidates, B = round(80/8) = 10 ⇒ expected ≈ 8. Lenient bound.
         assert!(
             (3..=18).contains(&expected.len()),
@@ -158,11 +158,11 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let by_x =
-            HashGatedConnection::new(peer("x"), 8).expected_upstream(&view(&subs, &cands, &down));
+            HashGatedConnection::new(peer("x"), 8).expected_links(&view(&subs, &cands, &down));
         let by_y =
-            HashGatedConnection::new(peer("y"), 8).expected_upstream(&view(&subs, &cands, &down));
+            HashGatedConnection::new(peer("y"), 8).expected_links(&view(&subs, &cands, &down));
         assert_ne!(by_x, by_y, "per-node derivation should diverge");
     }
 
@@ -171,9 +171,9 @@ mod tests {
     fn ignores_unjoined_topics() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &["a"]), ("t2", &["b", "c"])]);
-        let down = HashSet::new();
-        let expected = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let down = BTreeMap::new();
+        let expected =
+            HashGatedConnection::new(peer("self"), 8).expected_links(&view(&subs, &cands, &down));
         assert_eq!(expected, BTreeSet::from([(peer("a"), topic("t1"))]));
     }
 
@@ -185,11 +185,11 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         // Derived B on 80 candidates ⇒ ~8 selected; pinned B=1 ⇒ all 80.
         let pinned = HashGatedConnection::new(peer("self"), 8)
             .with_bucket_override(Some(1))
-            .expected_upstream(&view(&subs, &cands, &down));
+            .expected_links(&view(&subs, &cands, &down));
         assert_eq!(pinned.len(), 80, "B=1 connects to every candidate");
     }
 
@@ -201,11 +201,11 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
-        let first = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
-        let again = HashGatedConnection::new(peer("self"), 8)
-            .expected_upstream(&view(&subs, &cands, &down));
+        let down = BTreeMap::new();
+        let first =
+            HashGatedConnection::new(peer("self"), 8).expected_links(&view(&subs, &cands, &down));
+        let again =
+            HashGatedConnection::new(peer("self"), 8).expected_links(&view(&subs, &cands, &down));
         assert_eq!(first, again, "nonce 0 must reproduce identically");
     }
 
@@ -217,12 +217,11 @@ mod tests {
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t1", &refs)]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let policy = HashGatedConnection::new(peer("self"), 8);
-        let at_zero = policy.expected_upstream(&view(&subs, &cands, &down));
-        let diverges = (1..=16u64).any(|n| {
-            policy.expected_upstream(&view_with_nonce(&subs, &cands, &down, n)) != at_zero
-        });
+        let at_zero = policy.expected_links(&view(&subs, &cands, &down));
+        let diverges = (1..=16u64)
+            .any(|n| policy.expected_links(&view_with_nonce(&subs, &cands, &down, n)) != at_zero);
         assert!(diverges, "the epoch nonce must vary the selection");
     }
 }

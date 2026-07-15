@@ -2,6 +2,7 @@
 //! (one-dimensional baseline, ADR 0031).
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
 use crate::strategies::edge::accept_cap;
 use crate::strategies::view::NodeView;
@@ -18,6 +19,7 @@ use crate::topic::TopicId;
 pub struct BoundedAcceptance {
     target_degree: usize,
     cap_buffer: usize,
+    kind: LinkKind,
 }
 
 impl BoundedAcceptance {
@@ -28,18 +30,27 @@ impl BoundedAcceptance {
         Self {
             target_degree,
             cap_buffer,
+            kind: LinkKind::Relay,
         }
+    }
+
+    /// Re-target the instance at a link kind (`Relay` is the constructor
+    /// default): the kind names which accepted-link class the cap counts.
+    #[must_use]
+    pub fn for_kind(mut self, kind: LinkKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 
 impl ConnectionAcceptanceStrategy for BoundedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        let downstream_on_topic = match admit_prelude(emitter, topic, view) {
+        let accepted_on_topic = match admit_prelude(self.kind, emitter, topic, view) {
             Ok(count) => count,
             Err(decision) => return decision,
         };
         let cap = accept_cap(self.target_degree, self.cap_buffer);
-        if downstream_on_topic >= cap {
+        if accepted_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept
@@ -54,14 +65,14 @@ mod tests {
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
     };
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let got = BoundedAcceptance::new(1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed

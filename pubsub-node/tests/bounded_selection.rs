@@ -78,7 +78,7 @@ async fn selected_upstreams(
 
     let want = expected_upstreams(genesis, target_degree, candidates).len();
     await_upstream_count(&node, want, TIMEOUT).await;
-    node.upstream_connections()
+    node.upstream_relays()
         .into_iter()
         .map(|(p, _, _)| p)
         .collect()
@@ -88,7 +88,7 @@ async fn selected_upstreams(
 async fn await_upstream_count(node: &pubsub_node::Node, n: usize, timeout: Duration) {
     let start = tokio::time::Instant::now();
     loop {
-        let len = node.upstream_connections().len();
+        let len = node.upstream_relays().len();
         if len == n {
             return;
         }

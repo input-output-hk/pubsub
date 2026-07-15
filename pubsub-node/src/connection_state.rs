@@ -1,28 +1,86 @@
-//! The connection-domain vocabulary the core owns: the upstream-connection state
-//! enum, plus test-only declarative builders for the events that drive the
-//! connection state machine.
+//! The connection-domain vocabulary the core owns: the link kind, key, and
+//! lifecycle-state types, plus test-only declarative builders for the events
+//! that drive the connection state machine.
 //!
 //! This is deliberately *not* a strategy — the connection-selection policy lives
-//! under [`crate::strategies::connection`]. What lives here is the lifecycle
-//! state the pure core (`crate::state`) assigns and stores: an upstream entry the
-//! node's strategy creates in [`AwaitingAccept`](UpstreamState::AwaitingAccept)
-//! advances to [`Active`](UpstreamState::Active) when the peer's `Accepted`
-//! arrives — plus the `test_support` harness that scripts lifecycle events.
+//! under [`crate::strategies::connection`]. What lives here is the vocabulary
+//! the pure core (`crate::state`) keys its two link collections on: a
+//! [`LinkKey`] names one link, a [`LinkState`] tracks a dialed link's
+//! lifecycle — plus the `test_support` harness that scripts lifecycle events.
 
-/// The state of an upstream (dialer-side) connection for one `(peer, topic)`.
+use crate::peer::PeerId;
+use crate::topic::TopicId;
+
+/// Which dissemination class a link belongs to.
 ///
-/// An upstream entry is created by the node's own strategy on a setup event in
-/// [`AwaitingAccept`](UpstreamState::AwaitingAccept); it advances to
-/// [`Active`](UpstreamState::Active) when the peer's `Accepted` arrives.
-/// Terminal outcomes are removals, not stored states — there is no
-/// closing/rejected variant.
+/// Carried on every connection-control message (inside the signed bytes), so
+/// the acceptor applies the matching acceptance policy, hash domain, and
+/// capacity. The kind implies the data direction of the link being set up: a
+/// relay request's dialer will *receive* from the acceptor; a publisher
+/// request's dialer will *send* its own publications to the acceptor.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum LinkKind {
+    /// The pull-based relay mesh: links that carry relayed traffic.
+    Relay,
+    /// A standing link that carries, by default, only its owner's own
+    /// publications (the receive side may relax this per configuration).
+    Publisher,
+}
+
+/// The key of one link: `(topic, peer, kind)`.
+///
+/// Topic-first field order on purpose — the derived `Ord` clusters a topic's
+/// links contiguously in a `BTreeMap`, so per-topic reads are range walks.
+/// Which *direction* a link runs is not part of the key: it is which of the
+/// two `NodeState` collections (`upstream` — peers the node receives from;
+/// `downstream` — peers it sends to) the entry lives in.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct LinkKey {
+    /// The topic the link is scoped to.
+    pub topic: TopicId,
+    /// The peer at the other end.
+    pub peer: PeerId,
+    /// The link's dissemination class.
+    pub kind: LinkKind,
+}
+
+impl LinkKey {
+    /// Construct a key from its parts.
+    #[must_use]
+    pub fn new(topic: TopicId, peer: PeerId, kind: LinkKind) -> Self {
+        Self { topic, peer, kind }
+    }
+}
+
+/// The lifecycle state of a link this node **dialed** (a relay upstream or a
+/// publisher downstream), for one [`LinkKey`].
+///
+/// A dialed entry is created by the node's own strategy on a dial event in
+/// [`AwaitingAccept`](LinkState::AwaitingAccept); it advances to
+/// [`Active`](LinkState::Active) when the peer's `Accepted` arrives. Links the
+/// node *accepted* (a relay downstream, a publisher upstream) are inserted
+/// directly as `Active` — presence means accepted. Terminal outcomes are
+/// removals, not stored states — there is no closing/rejected variant.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum UpstreamState {
+pub enum LinkState {
     /// A `Request` has been sent; the peer's `Accepted` has not yet arrived.
-    /// Admits no payload.
+    /// Admits and carries no payload.
     AwaitingAccept,
-    /// The peer accepted; payload it forwards on this topic is admitted.
+    /// The link is established.
     Active,
+}
+
+/// The receive-gate policy for messages arriving over an inbound publisher
+/// link (a per-node configuration value, not a strategy seam).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum PublisherAdmission {
+    /// Admit a message only when its publisher is the link's owner — publisher
+    /// links carry exclusively their owner's own publications (the default).
+    #[default]
+    OwnerOnly,
+    /// Admit any message whose remaining checks pass, whoever published it —
+    /// publisher links carry everything their owner holds.
+    AnyVerified,
 }
 
 /// Test-only declarative constructors for the events that drive the connection
@@ -51,6 +109,7 @@ pub enum UpstreamState {
 pub(crate) mod test_support {
     use std::str::FromStr;
 
+    use super::LinkKind;
     use crate::crypto::mock::MockCryptoScheme;
     use crate::crypto::{Signer, Timestamp};
     use crate::event::Event;
@@ -77,10 +136,12 @@ pub(crate) mod test_support {
         scheme.signer(scheme.keypair_from_alias(alias).private)
     }
 
-    /// A signed control message from `emitter` carrying `action`.
-    fn control(emitter: &str, action: ConnectionAction) -> Message {
+    /// A signed control message from `emitter` carrying `action` for a link of
+    /// `kind`.
+    fn control(emitter: &str, kind: LinkKind, action: ConnectionAction) -> Message {
         let plain = PlainConnection {
             emitter: peer(emitter),
+            kind,
             action,
         };
         let signature = alias_signer(emitter).sign(&plain.signed_bytes());
@@ -88,11 +149,12 @@ pub(crate) mod test_support {
     }
 
     /// A control-message `Event` (the frame `from` is set to the emitter; the
-    /// control path keys on the carried emitter, not the frame).
+    /// control path keys on the carried emitter, not the frame). Relay-kind —
+    /// the pre-015 default every existing script step uses.
     fn control_event(emitter: &str, action: ConnectionAction) -> Event {
         Event::MessageReceived {
             from: peer(emitter),
-            message: control(emitter, action),
+            message: control(emitter, LinkKind::Relay, action),
         }
     }
 
@@ -152,6 +214,7 @@ pub(crate) mod test_support {
     ) -> Event {
         let plain = PlainConnection {
             emitter: peer(emitter_alias),
+            kind: LinkKind::Relay,
             action: ConnectionAction::Request {
                 topic: topic(topic_id),
             },
