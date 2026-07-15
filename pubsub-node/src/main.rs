@@ -106,7 +106,8 @@ struct Args {
     /// acceptance together, so the two cannot disagree) — the M4 bidirectional
     /// mode: both ends compute the same expected edge set, dial each other,
     /// and every link materialises as an Out+In pair. Applies to the
-    /// `hash-gated` kinds; ignored by `none`/`connect-to-all`/`accept-from-all`.
+    /// `hash-gated` kinds; ignored by kinds without a predicate
+    /// (`none`/`connect-to-all`/`accept-from-all`/`bounded`).
     #[arg(long)]
     symmetric_edges: bool,
 

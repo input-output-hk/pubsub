@@ -16,7 +16,7 @@
 
 ## Consequences
 
-- `LinkCell` becomes a materialised view type (`cell()` builds it on demand); seams that used per-cell borrows read the facet iterators instead.
+- Seams that used per-cell borrows read the facet iterators instead. (A materialised `cell()`/`LinkCell` view shipped initially and was removed in review — no consumers; add back when something needs it.)
 - The dual-facet coexistence cases (a peer that is both my pull source and an accepted initiation source, etc.) are now visible as one entry with two facets — the coexistence rules of ADR 0032 unchanged, easier to audit.
 - Cap accounting stays exact: emptied entries are dropped on facet removal so facet counts equal link counts.
 

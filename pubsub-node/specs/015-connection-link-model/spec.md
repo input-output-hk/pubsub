@@ -140,7 +140,7 @@ A publishing node forms `Publisher` links (standing initiation links) **through 
 
 ### Key Entities
 
-- **Link**: one logical connection identified by `(peer, topic, role, direction)` — stored as role × direction cells keyed by `(peer, topic)` — carrying (for outbound) the lifecycle `state`. A `Relay` and a `Publisher` link between the same pair coexist as independent entries, as do the two directions of one role. Replaces `UpstreamState` and the flat downstream set.
+- **Link**: one logical connection identified by `(peer, topic, role, direction)` — stored flow-oriented as source/sink facets keyed by `(peer, topic)` (ADR 0036), with role × direction as the stable view — carrying (for outbound) the lifecycle `state`. A `Relay` and a `Publisher` link between the same pair coexist as independent entries, as do the two directions of one role. Replaces `UpstreamState` and the flat downstream set.
 - **LinkRole**: `Relay` (participates in the full dissemination flood — publish and relay) vs `Publisher` (a publishing link — carries only the node's own `Origin::Local` published messages into the overlay; the M3 S-link, formerly referred to as "seed link").
 - **LinkDirection**: `Out` (node dialed), `In` (peer dialed), `Both` (reserved — the symmetric bidirectional case delivered in 016).
 - **Origin** (existing): `Local` (this node published) vs `Peer(PeerId)` (relayed) — now an input to the fan-out decision, not only to `ReceivedDelivery`.

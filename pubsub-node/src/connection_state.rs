@@ -47,10 +47,6 @@ pub enum LinkDirection {
     In,
 }
 
-/// One derived cell view of the link store: the ordered links of a single
-/// role × direction, materialised on demand from the flow store (ADR 0036).
-pub type LinkCell = BTreeMap<(PeerId, TopicId), LinkState>;
-
 /// What a node holds against one **source** peer — a peer it receives from —
 /// on one topic (ADR 0036): its own pull link (`Relay`/Out, with dial
 /// lifecycle), an accepted inbound initiation link (`Publisher`/In), or both.
@@ -138,45 +134,6 @@ impl LinkStore {
         self.sinks
             .iter()
             .map(|((peer, topic), e)| (peer, topic, e.relay_accepted, e.push))
-    }
-
-    /// The source facets held against `peer` on `topic`:
-    /// `(pull_state, push_accepted)` — the receive gate's point lookup.
-    #[must_use]
-    pub fn source(&self, peer: &PeerId, topic: &TopicId) -> (Option<LinkState>, bool) {
-        self.sources
-            .get(&(peer.clone(), topic.clone()))
-            .map_or((None, false), |e| (e.pull, e.push_accepted))
-    }
-
-    /// The derived cell for one role × direction (materialised; prefer
-    /// [`sources`](Self::sources)/[`sinks`](Self::sinks) in seams).
-    #[must_use]
-    pub fn cell(&self, role: LinkRole, direction: LinkDirection) -> LinkCell {
-        match (role, direction) {
-            (LinkRole::Relay, LinkDirection::Out) => self
-                .sources
-                .iter()
-                .filter_map(|(k, e)| e.pull.map(|s| (k.clone(), s)))
-                .collect(),
-            (LinkRole::Publisher, LinkDirection::In) => self
-                .sources
-                .iter()
-                .filter(|(_, e)| e.push_accepted)
-                .map(|(k, _)| (k.clone(), LinkState::Active))
-                .collect(),
-            (LinkRole::Relay, LinkDirection::In) => self
-                .sinks
-                .iter()
-                .filter(|(_, e)| e.relay_accepted)
-                .map(|(k, _)| (k.clone(), LinkState::Active))
-                .collect(),
-            (LinkRole::Publisher, LinkDirection::Out) => self
-                .sinks
-                .iter()
-                .filter_map(|(k, e)| e.push.map(|s| (k.clone(), s)))
-                .collect(),
-        }
     }
 
     /// The state of one link, if held.

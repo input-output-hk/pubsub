@@ -58,8 +58,7 @@ mod topic_registry;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use connection_state::{
-    LinkCell, LinkDirection, LinkRole, LinkState, LinkStore, PublishInAdmission,
-    UnknownPublishInAdmission,
+    LinkDirection, LinkRole, LinkState, LinkStore, PublishInAdmission, UnknownPublishInAdmission,
 };
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{

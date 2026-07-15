@@ -11,7 +11,7 @@ pub fn upstream_connections(&self) -> Vec<(PeerId, TopicId, LinkState)>;   // = 
 pub fn downstream_connections(&self) -> Vec<(PeerId, TopicId)>;            // = Relay/In view (semantics preserved)
 ```
 
-`LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }` (`#[non_exhaustive]`), `LinkState { AwaitingAccept, Active }`, and `LinkStore` are exported from the crate root. `UpstreamState` is retired.
+`LinkRole { Relay, Publisher }`, `LinkDirection { Out, In }` (`#[non_exhaustive]`), `LinkState { AwaitingAccept, Active }`, and `LinkStore` are exported from the crate root. `UpstreamState` is retired; no speculative accessors — the store exposes `sources()`/`sinks()`/`get()`/`iter()`/`inbound_scan()` only.
 
 ## Seam signatures (after — ADR 0034 model-family shape)
 
@@ -33,7 +33,7 @@ pub trait FanoutStrategy: Send + Sync {              // origin-aware — the dis
 }
 ```
 
-`NodeView` carries `links: &LinkStore` — **flow-oriented** (ADR 0036): `sources()` (receive gate's read surface) and `sinks()` (fan-out's read surface), with the role × direction vocabulary as the stable mutation/observation API (`cell()` materialises a view; `inbound_scan(role, …)` serves the acceptance prelude). Tests bind to the views, never the shape. Selection kinds (`LinkSelectionKind`): `none` | `connect-to-all` | `hash-gated` — one family for both slots (`HashGatedSelection { role, self_id, degree, bucket_override }`; standing initiation links select **unconditionally**, `m3/README.md`). Fan-out kinds (`FanoutStrategyKind`): `forward-to-all` (default; **the M3 semantics** — relay links carry every held message, initiation links owner-exclusive) | `role-scoped` (strict-partition experiment variant, no published model) | `role-agnostic` (**the M5 semantics** — no link-role distinction; pair with `any-verified`). Both hash-gated relay kinds accept a **symmetric** mode (`SelectionParams.symmetric`/`AcceptanceParams.symmetric`, CLI `--symmetric-edges`; `edge::is_valid_edge_sym` under `…/edge-sym/v1` domains) — the M4 bidirectional mode. The receive gate's inbound-initiation admission is `PublishInAdmission { OwnerOnly (default), AnyVerified }` (`--publish-in-admission`), a `Node::new` parameter (ADR 0035).
+`NodeView` carries `links: &LinkStore` — **flow-oriented** (ADR 0036): `sources()` (receive gate's read surface) and `sinks()` (fan-out's read surface), with the role × direction vocabulary as the stable mutation/observation API (`inbound_scan(role, …)` serves the acceptance prelude). Tests bind to the views, never the shape. Selection kinds (`LinkSelectionKind`): `none` | `connect-to-all` | `hash-gated` — one family for both slots (`HashGatedSelection { role, self_id, degree, bucket_override }`; standing initiation links select **unconditionally**, `m3/README.md`). Fan-out kinds (`FanoutStrategyKind`): `forward-to-all` (default; **the M3 semantics** — relay links carry every held message, initiation links owner-exclusive) | `role-scoped` (strict-partition experiment variant, no published model) | `role-agnostic` (**the M5 semantics** — no link-role distinction; pair with `any-verified`). Both hash-gated relay kinds accept a **symmetric** mode (`SelectionParams.symmetric`/`AcceptanceParams.symmetric`, CLI `--symmetric-edges`; `edge::is_valid_edge_sym` under `…/edge-sym/v1` domains) — the M4 bidirectional mode. The receive gate's inbound-initiation admission is `PublishInAdmission { OwnerOnly (default), AnyVerified }` (`--publish-in-admission`), a `Node::new` parameter (ADR 0035).
 
 ## Two-phase construction (ADR 0028, extended by 0034)
 

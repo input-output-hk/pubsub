@@ -52,10 +52,14 @@ Maintainer direction ("fill those gaps, not document them") pulled the M4/M5 wor
 
 Review asked whether the upstream publisher/relay distinction is needed and whether refactors can stop rewriting tests. Verified: the distinction is load-bearing only for the M3 owner-binding and the disjoint caps (irreducible information); the four-cell *shape* was not. The store was rewritten as two facet maps (`sources`/`sinks`) with role × direction retained as the mutation API, views, and wire — the receive gate reads one map, each fan-out policy is one `sinks` pass, per-peer dedup became structural (retiring A9 §2's bug class), and **no test file changed** (244 green before and after) — establishing the test-stability rule: tests bind to views, never to store shape.
 
+### A13 — Round-3 review: dead API removed, In-facet insert guarded, doc freshness (Refinement)
+
+A third full-diff review found no correctness issues. Fixed: **(1)** the flow-store rewrite had left `LinkStore::cell()`, `LinkStore::source()`, and the `LinkCell` alias with zero consumers — removed per the consumer-justified-shapes standard (add back when something needs them); **(2)** `LinkStore::insert` silently discarded the `state` argument for In-facets (inbound links are presence-only/Active by definition) — now documented on the method and `debug_assert`ed so a test inserting a pending In-link fails loudly; **(3)** six doc-freshness spots (spec Key Entities, research/plan supersession banners, CLAUDE.md and this file's suite counts, the PR description's store paragraph, the `--symmetric-edges` help's ignored-kinds list) synced to the post-0036 state.
+
 ## Implementation-vs-artifact spot checks (Constitution: spec fidelity verified against code)
 
-- `lib.rs` exports match the contract's public-surface list (`LinkRole`, `LinkDirection`, `LinkState`, `LinkStore`, `LinkSelectionStrategy`/`Kind`, `HashGatedSelection`, `NoLinks`, `FanoutStrategyKind`, `RoleScopedFanout`, `SelectionParams`, role-carrying `AcceptanceParams`, `is_valid_edge_for`; `UpstreamState`/`Links`/`PublishStrategy` absent) — verified by grep.
+- `lib.rs` exports match the contract's public-surface list (`LinkRole`, `LinkDirection`, `LinkState`, `LinkStore` + `sources()`/`sinks()`, `LinkSelectionStrategy`/`Kind`, `HashGatedSelection`, `NoLinks`, `FanoutStrategyKind`, `RoleScopedFanout`/`RoleAgnosticFanout`, `SelectionParams`, role-carrying `AcceptanceParams`, `is_valid_edge_for`/`is_valid_edge_sym`, `PublishInAdmission`; `UpstreamState`/`Links`/`LinkCell`/`PublishStrategy` absent) — verified by grep.
 - `signed_bytes` layout pin test matches the contract's wire section (role tag after topic; `0x00`/`0x01`).
 - Relay edge-domain bytes unchanged (`pubsub/bucketed-pull/edge/v1`) — SC-001's by-construction leg.
 - CLI flags and defaults match data-model §7 (`--publish-strategy none`, `--publish-acceptance-strategy accept-from-all`); missing-degree error path exercised against the built binary.
-- Suite: 231 tests green post-rework (the trigger tests retired with the trigger); clippy `-D warnings` clean; fmt clean.
+- Suite: 244 tests green (as of the flow-store rewrite + M4/M5 landing); clippy `-D warnings`, `cargo doc`, fmt clean.

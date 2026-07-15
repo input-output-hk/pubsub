@@ -104,3 +104,5 @@ Single Rust project: sources under `pubsub-node/src/`, tests under `pubsub-node/
 - [X] T037 `PublishInAdmission { OwnerOnly, AnyVerified }` on `NodeState`/`Node::new` + `--publish-in-admission`; gate + severance state tests
 - [X] T038 Integration `tests/model_family.rs`: M4 reciprocity + full-coverage flood (predicate-connected 12-node graph); M5 foreign-publisher relay a→b→c over standing links only
 - [X] T039 Docs: spec session/FR-013..015, contract, data-model, quickstart model recipes, CLAUDE.md, analysis A11
+- [X] T040 Flow-oriented `LinkStore` (sources/sinks facets; role × direction as stable view; zero test churn) — ADR 0036, analysis A12
+- [X] T041 ADR hygiene pass (forward-pointing status banners 0017–0034, `docs/decisions/README.md` index) + round-3 cleanup (dead API removed, In-facet insert guarded, doc freshness) — analysis A13
