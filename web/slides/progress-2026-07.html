@@ -93,6 +93,18 @@
   .title-byline { font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
   .title-byline strong { color: var(--text); font-weight: 600; }
   .title-slide .split-row { width: 100%; }
+  .title-team { margin-top: 3em; }
+  .title-team-label {
+    font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.9em;
+  }
+  .title-team-row { display: grid; grid-template-columns: repeat(3, max-content); gap: 0.9em 1.6em; }
+  .title-team-member { display: flex; align-items: center; gap: 0.5em; }
+  .title-team-member img {
+    width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid var(--line, rgba(128,128,128,0.35));
+  }
+  .title-team-member span { font-size: 0.75em; color: var(--text-mute); white-space: nowrap; }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
   @media (max-width: 900px) { .hero-visual { display: none; } }
@@ -100,18 +112,20 @@
   /* Before / After slides */
   .ba-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(16px, 2.5vw, 36px);
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 64px);
+    align-items: start;
+    width: 100%;
   }
-  @media (max-width: 760px) { .ba-grid { grid-template-columns: 1fr; } }
-  .ba-col {
-    border-radius: 10px;
-    padding: 1.4em 1.5em 1.5em;
-    border: 1px solid var(--card-stroke-faint);
+  @media (max-width: 760px) {
+    .ba-grid { grid-template-columns: 1fr; }
+    .ba-arrow { display: none; }
   }
-  .ba-col.before { background: var(--bg-alt); }
-  .ba-col.after { background: var(--good-soft); border-color: var(--good); }
+  .ba-col { min-width: 0; }
+  .ba-col.before { opacity: 0.55; }
+  .ba-col.after { color: var(--text); }
+  .ba-arrow { color: var(--iog-infared); justify-self: center; align-self: center; }
+  .ba-arrow svg { width: clamp(64px, 7vw, 130px); height: auto; display: block; }
   .ba-label {
     font-family: var(--font-mono);
     font-size: 0.72em;
@@ -124,6 +138,7 @@
   .ba-col.after .ba-label { color: var(--good); }
   .ba-col ul { list-style: none; display: grid; gap: 0.65em; }
   .ba-col li { font-size: 1.04em; line-height: 1.45; padding-left: 1.1em; position: relative; }
+  .ba-col.after li { font-weight: 500; }
   .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
   .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
 
@@ -136,9 +151,13 @@
   }
   .actor-graph { justify-self: center; }
   .actor-graph svg { width: clamp(340px, 40vw, 720px); max-height: 76vh; height: auto; display: block; }
+  .split-row.timeline-row { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+  .timeline-visual { justify-self: center; }
+  .timeline-visual svg { width: clamp(320px, 38vw, 680px); max-height: 70vh; height: auto; display: block; }
   @media (max-width: 900px) {
     .split-row { grid-template-columns: 1fr; }
     .actor-graph { display: none; }
+    .timeline-visual { display: none; }
   }
 
   /* About slide */
@@ -253,6 +272,16 @@
         <p class="title-sub">In pursuit of a verifiable communication layer for the Cardano ecosystem —
           an innovation workstream at the frontier of peer-sampling and dissemination research.</p>
         <p class="title-byline"><strong>Will Wolff</strong> · Technical Architect · Input Output</p>
+        <div class="title-team">
+          <div class="title-team-label">Team</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><span>Denis Firsov</span></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><span>Ezequiel Postan</span></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><span>Jesus Diaz Vico</span></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><span>Dana Alibrandi</span></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><span>Sandro Coretti-Drayton</span></div>
+          </div>
+        </div>
       </div>
       <div class="hero-visual" aria-hidden="true">
         <svg viewBox="0 0 440 372" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
@@ -293,7 +322,6 @@
             <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
           </g>
           <!-- PubSub hub -->
-          <circle cx="222" cy="186" r="58" fill="none" stroke="var(--iog-infared)" stroke-opacity="0.2" stroke-width="1.5"/>
           <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
           <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
         </svg>
@@ -315,7 +343,7 @@
         </ul>
       </div>
       <figure class="about-figure">
-        <img class="about-avatar" src="../assets/will-avatar.jpg" alt="Will Wolff">
+        <img class="about-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="Will Wolff">
         <figcaption class="about-name"><strong>Will Wolff</strong><span class="about-role">Technical Architect</span></figcaption>
       </figure>
     </div>
@@ -339,8 +367,8 @@
           <li><strong>SPOs → delegators</strong> — announcements from topics that provably
             belong to the pool.</li>
           <li><strong>dReps → delegators</strong> — voting intent and rationale (CIP-1694).</li>
-          <li><strong>dApps → users</strong> — protocol updates and alerts under on-chain
-            identities.</li>
+          <li><strong>dApps → users</strong> — critical alerts and dApp-specific,
+            per-user notifications (e.g. open positions) under on-chain identities.</li>
         </ul>
       </div>
       <div class="actor-graph" aria-hidden="true">
@@ -422,6 +450,15 @@
           <li>Spam and Sybil accounts cost the attacker nothing.</li>
         </ul>
       </div>
+      <div class="ba-arrow" aria-hidden="true">
+        <svg viewBox="0 0 120 60" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 18 H28" stroke-width="5" opacity="0.3"/>
+          <path d="M2 30 H36" stroke-width="5" opacity="0.55"/>
+          <path d="M8 42 H28" stroke-width="5" opacity="0.3"/>
+          <path d="M48 30 H98" stroke-width="7"/>
+          <path d="M82 13 L100 30 L82 47" stroke-width="7"/>
+        </svg>
+      </div>
       <div class="ba-col after">
         <div class="ba-label">After</div>
         <ul>
@@ -437,21 +474,60 @@
 
   <!-- 5 · Phase 1 -->
   <section class="slide">
-    <div class="slide-kicker">Topic 1 · Phase 1 — exploratory research</div>
-    <h2>From proposal to evidence</h2>
-    <ul class="points">
-      <li><strong>What we started from:</strong> validated use cases as motivation, and a research
-        proposal — a three-layer stack (peer sampling → overlay → dissemination) built on the
-        SecureCyclon protocol, with upper layers inheriting the base layer's security.</li>
-      <li><strong>What we did:</strong> modelled every layer and analysed it formally and
-        empirically — simulation and probabilistic model checking.</li>
-      <li><strong>What we found:</strong> the layers work against each other. Upper layers bias the
-        base layer's sampling, so the claimed security is not inherited — and an adversary who
-        follows every rule can silently distort a node's view of the network.</li>
-      <li class="mute">In our experiments, all nine of the protocol's defences stayed silent while a
-        targeted node was fully eclipsed.</li>
-    </ul>
-    <p class="takeaway">We caught this before anything was built on top of it — that is the value of the analysis.</p>
+    <div class="split-row timeline-row">
+      <div>
+        <div class="slide-kicker">Topic 1 · Phase 1 — exploratory research</div>
+        <h2>From proposal to evidence</h2>
+        <ul class="points">
+          <li><strong>What we started from:</strong> validated use cases as motivation, and a research
+            proposal — a three-layer stack (peer sampling → overlay → dissemination) built on the
+            SecureCyclon protocol, with upper layers inheriting the base layer's security.</li>
+          <li><strong>What we did:</strong> modelled every layer and analysed it formally and
+            empirically — simulation and probabilistic model checking.</li>
+          <li><strong>What we found:</strong> the layers work against each other. Upper layers bias the
+            base layer's sampling, so the claimed security is not inherited — and an adversary who
+            follows every rule can silently distort a node's view of the network.</li>
+          <li class="mute">In our experiments, all nine of the protocol's defences stayed silent while a
+            targeted node was fully eclipsed.</li>
+        </ul>
+        <p class="takeaway">We caught this before anything was built on top of it — that is the value of the analysis.</p>
+      </div>
+      <div class="timeline-visual" aria-hidden="true">
+        <svg viewBox="0 0 470 200" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
+          <defs>
+            <marker id="tl-arr" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--text-faint)"/>
+            </marker>
+          </defs>
+
+          <!-- base track, continuing beyond phase 2 -->
+          <line x1="20" y1="110" x2="452" y2="110" stroke="var(--line-strong)" stroke-width="2" marker-end="url(#tl-arr)"/>
+
+          <!-- phase 1 · Feb – Jul 2026 · complete -->
+          <line x1="20" y1="110" x2="283" y2="110" stroke="var(--good)" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="20" cy="110" r="6" fill="var(--good)"/>
+          <circle cx="283" cy="110" r="6" fill="var(--good)"/>
+          <g>
+            <circle cx="106" cy="66" r="11" fill="none" stroke="var(--good)" stroke-width="2"/>
+            <path d="M100.5 66.5 l4 4 l7.5 -8" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="124" y="70" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--good)" font-family="JetBrains Mono, monospace">COMPLETE</text>
+          </g>
+          <text x="151" y="145" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 1 · Exploratory research</text>
+          <text x="151" y="163" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Feb – Jul 2026</text>
+
+          <!-- phase 2 · Jul – Sep 2026 · in progress -->
+          <line x1="283" y1="110" x2="309" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round"/>
+          <line x1="322" y1="110" x2="440" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 13" opacity="0.5"/>
+          <text x="361" y="145" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 2 · Evidence-based design</text>
+          <text x="361" y="163" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Jul – Sep 2026</text>
+
+          <!-- today marker -->
+          <line x1="309" y1="84" x2="309" y2="110" stroke="var(--iog-infared)" stroke-width="2"/>
+          <circle cx="309" cy="110" r="7" fill="var(--iog-infared)" stroke="var(--bg)" stroke-width="2.5"/>
+          <text x="309" y="72" text-anchor="middle" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)" font-family="JetBrains Mono, monospace">TODAY</text>
+        </svg>
+      </div>
+    </div>
   </section>
 
   <!-- 6 · Before/After: architecture -->
@@ -466,6 +542,15 @@
           <li>Properties assumed to be inherited between layers — not verifiable in operation.</li>
           <li>Attack cost is constant: a handful of nodes suffices at any network size.</li>
         </ul>
+      </div>
+      <div class="ba-arrow" aria-hidden="true">
+        <svg viewBox="0 0 120 60" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 18 H28" stroke-width="5" opacity="0.3"/>
+          <path d="M2 30 H36" stroke-width="5" opacity="0.55"/>
+          <path d="M8 42 H28" stroke-width="5" opacity="0.3"/>
+          <path d="M48 30 H98" stroke-width="7"/>
+          <path d="M82 13 L100 30 L82 47" stroke-width="7"/>
+        </svg>
       </div>
       <div class="ba-col after">
         <div class="ba-label">After</div>
