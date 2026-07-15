@@ -26,7 +26,7 @@ pub struct NodeView<'a> {
     /// The node's unified link store, cell-structured by role × direction
     /// (ADR 0032/0034). A strategy reads exactly the cells its model needs —
     /// M3 partitions by role, M4/M5 union cells; acceptance counts a role's
-    /// inbound links via [`inbound_scan`](Self::inbound_scan).
+    /// admissions via [`accepted_scan`](Self::accepted_scan).
     pub links: &'a LinkStore,
     /// The current epoch nonce — the randomness context feeding the edge
     /// predicate (ADR 0024/0030/0031). Folded from the last `Epoch` event;
@@ -35,10 +35,15 @@ pub struct NodeView<'a> {
 }
 
 impl NodeView<'_> {
-    /// One pass over the inbound cell of `role` for the two facts a bounding
-    /// acceptance policy needs — see [`LinkStore::inbound_scan`].
+    /// One pass over the **admissions** of `role` for the two facts a bounding
+    /// acceptance policy needs — see [`LinkStore::accepted_scan`].
     #[must_use]
-    pub fn inbound_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize) {
-        self.links.inbound_scan(role, emitter, topic)
+    pub fn accepted_scan(
+        &self,
+        role: LinkRole,
+        emitter: &PeerId,
+        topic: &TopicId,
+    ) -> (bool, usize) {
+        self.links.accepted_scan(role, emitter, topic)
     }
 }

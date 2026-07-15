@@ -107,16 +107,16 @@ pub(crate) fn is_membership_valid(
 }
 
 /// The shared refusing-policy prelude, run before any policy-specific check:
-/// membership validation, then the idempotent already-inbound re-Accept —
+/// membership validation, then the idempotent already-admitted re-Accept —
 /// role-scoped over the unified link store (ADR 0032).
 ///
 /// `Err` is the early decision (`RejectMembership`, or `Accept` for a re-dial of
-/// an already-held inbound link of this `role` — ahead of any gate or cap, so a
+/// an already-admitted link of this `role` — ahead of any gate or cap, so a
 /// lost/late `Accepted` repairs the link instead of stranding it half-open, 005
-/// FR-013); `Ok(inbound_on_topic)` means "no early decision" and carries the
-/// topic's inbound-link count **for this role** — which is what keeps the relay
+/// FR-013); `Ok(accepted_on_topic)` means "no early decision" and carries the
+/// topic's **admission count for this role** — which is what keeps the relay
 /// cap and the publish cap counting disjoint sets (ADR 0033) — from the same
-/// single scan ([`NodeView::inbound_scan`]).
+/// single scan ([`NodeView::accepted_scan`]).
 ///
 /// Every refusing policy calls this first — the invariant lives here once, so a
 /// new bounding/gating strategy cannot forget it. (`AcceptFromAllCandidates`
@@ -130,9 +130,9 @@ pub(crate) fn admit_prelude(
     if !is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
         return Err(Admission::RejectMembership);
     }
-    let (already_in, inbound_on_topic) = view.inbound_scan(role, emitter, topic);
-    if already_in {
+    let (already_accepted, accepted_on_topic) = view.accepted_scan(role, emitter, topic);
+    if already_accepted {
         return Err(Admission::Accept);
     }
-    Ok(inbound_on_topic)
+    Ok(accepted_on_topic)
 }

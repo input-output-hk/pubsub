@@ -47,12 +47,12 @@ impl BoundedAcceptance {
 
 impl ConnectionAcceptanceStrategy for BoundedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        let inbound_on_topic = match admit_prelude(self.role, emitter, topic, view) {
+        let accepted_on_topic = match admit_prelude(self.role, emitter, topic, view) {
             Ok(count) => count,
             Err(decision) => return decision,
         };
         let cap = accept_cap(self.degree, self.cap_buffer);
-        if inbound_on_topic >= cap {
+        if accepted_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept

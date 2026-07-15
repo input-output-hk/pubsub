@@ -107,7 +107,7 @@ impl SinkEntry {
 /// (topic-major, peers in key order); one entry per peer makes per-peer
 /// target dedup structural. The maps nest **topic → peer** so point lookups
 /// borrow both keys (no owned-tuple clones) and per-topic operations —
-/// fan-out, `inbound_scan`, the removal cascade — walk only that topic's
+/// fan-out, `accepted_scan`, the removal cascade — walk only that topic's
 /// subtree.
 #[derive(Default)]
 pub struct LinkStore {
@@ -363,13 +363,23 @@ impl LinkStore {
             .chain(publish_in)
     }
 
-    /// One pass over the inbound facets of `role` for the two facts a bounding
-    /// acceptance policy needs: whether `emitter` already holds that inbound
-    /// facet on `topic`, and how many the topic holds. Role-scoped, so the
-    /// relay cap and the publish cap count disjoint facets (ADR 0033).
+    /// One pass over the **admissions** of `role` — the links this node has
+    /// accepted from dialing peers (an accepted relay downstream for the relay
+    /// slot; an accepted initiation source for the publish slot) — for the two
+    /// facts a bounding acceptance policy needs: whether `emitter` is already
+    /// admitted on `topic`, and how many admissions the topic holds. Named by
+    /// what the caps bound (admissions), not by link direction: "inbound" is
+    /// ambiguous — a relay peer that dialed us *receives* from us, while a
+    /// publish peer that dialed us *sends* to us. Role-scoped, so the relay
+    /// cap and the publish cap count disjoint facets (ADR 0033).
     #[must_use]
-    pub fn inbound_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize) {
-        let mut already_in = false;
+    pub fn accepted_scan(
+        &self,
+        role: LinkRole,
+        emitter: &PeerId,
+        topic: &TopicId,
+    ) -> (bool, usize) {
+        let mut already_accepted = false;
         let mut on_topic = 0;
         match role {
             LinkRole::Relay => {
@@ -378,7 +388,7 @@ impl LinkStore {
                         if e.relay_accepted {
                             on_topic += 1;
                             if peer == emitter {
-                                already_in = true;
+                                already_accepted = true;
                             }
                         }
                     }
@@ -390,14 +400,14 @@ impl LinkStore {
                         if e.push_accepted {
                             on_topic += 1;
                             if peer == emitter {
-                                already_in = true;
+                                already_accepted = true;
                             }
                         }
                     }
                 }
             }
         }
-        (already_in, on_topic)
+        (already_accepted, on_topic)
     }
 }
 

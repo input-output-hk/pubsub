@@ -87,7 +87,7 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
         // Membership, then the idempotent already-downstream re-Accept — the
         // shared prelude every refusing policy runs first (see
         // `acceptance::admit_prelude` for the half-open-link rationale).
-        let inbound_on_topic = match admit_prelude(self.role, emitter, topic, view) {
+        let accepted_on_topic = match admit_prelude(self.role, emitter, topic, view) {
             Ok(count) => count,
             Err(decision) => return decision,
         };
@@ -129,7 +129,7 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
             return Admission::RejectIllegitimate;
         }
         let cap = accept_cap(self.degree, self.cap_buffer);
-        if inbound_on_topic >= cap {
+        if accepted_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept

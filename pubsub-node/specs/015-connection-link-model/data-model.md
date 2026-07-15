@@ -56,14 +56,14 @@ struct SinkEntry   { relay_accepted: bool,    push: Option<LinkState> }
 pub struct NodeView<'a> {
     pub subscriptions: &'a BTreeSet<TopicId>,
     pub candidates: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    pub links: &'a LinkStore,   // reads: sources() / sinks() / sinks_on(topic) / get() / inbound_scan()
+    pub links: &'a LinkStore,   // reads: sources() / sinks() / sinks_on(topic) / get() / accepted_scan()
     pub epoch_nonce: u64,
 }
 
 impl NodeView<'_> {
     /// (already_in, count) for In links of `role` on `topic` — the acceptance
     /// prelude's single scan, now role-scoped (FR-008a).
-    pub fn inbound_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize);
+    pub fn accepted_scan(&self, role: LinkRole, emitter: &PeerId, topic: &TopicId) -> (bool, usize);
 }
 ```
 
