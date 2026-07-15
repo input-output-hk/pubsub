@@ -1,6 +1,6 @@
 # 0031 — Epoch/Round split, readiness-gated acceptance, and decomposed acceptance baselines
 
-**Status**: Accepted (amends 0030; renames 0025's acceptance policy)
+**Status**: Accepted (amends 0030; renames 0025's acceptance policy). **Amended by ADR 0033/0034** (feature 015): the heartbeat gained the publish dial pass, and the four acceptance baselines became role-instantiable (one family, two slots). The epoch/round split and readiness gate stand.
 
 **Context**: ADR 0030's `Event::Heartbeat { interval }` fused two roles: the connection-management dial trigger and the round counter the verifiable edge predicate hashes. That coupling meant a retry could not re-request without advancing the randomness (a new interval reshuffles the whole edge set), and the predicate's randomness context was partly strategy configuration (`genesis` fields on the strategies) and partly per-node event state (`interval`) — with no agreement mechanism between two nodes' intervals (N-030). Separately, review of PR #73 found a fail-open admission window (an inbound `Request` racing the registry snapshot fold sees a partially-folded candidate view, floors the derived bucket count to 1, and the predicate degenerates to always-true), and the experiments plan (agreed with Ezequiel) calls for **one-dimensional acceptance baselines** — the cap and the hash gate exercised separately before the compound protocol layers.
 

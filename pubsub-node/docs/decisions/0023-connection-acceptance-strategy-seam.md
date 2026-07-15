@@ -1,6 +1,6 @@
 # ADR 0023: Connection-acceptance strategy seam
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0033/0034** (feature 015): the seam serves two role slots (relay / publish), instantiated from one kind family with role-carrying params. The seam concept stands.
 **Date**: 2026-06-23
 **Feature**: connection-acceptance-strategy refactor (behavior-preserving; not a Spec Kit feature)
 **Source**: ADR 0018 (`ConnectionStrategy` strategy-seam precedent), ADR 0021 (`FanoutStrategy`, the second seam), ADR 0017 (connection model + acceptance rule), ADR 0011 (pure core), ADR 0009 (`Arc<dyn …>` service-handle shape); 004-connections `handle_connection_request` (the hardcoded logic this extracts); `specs/ROADMAP.md` 006/007 (degree-cap / sampling policy consumers).

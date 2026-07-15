@@ -1,6 +1,6 @@
 # 0024 — Verifiable hash-gated (bucketed-pull) connection selection
 
-**Status**: Accepted (supersedes the earlier "seeded bounded selection" decision recorded under this number)
+**Status**: Accepted (supersedes the earlier "seeded bounded selection" decision recorded under this number). **Amended by ADR 0033/0034/0035** (feature 015): the predicate gained per-role domain tags and a symmetric mode; `HashGatedConnection` merged into the role-parameterised `HashGatedSelection`. The predicate mechanics and B-derivation stand.
 
 **Context**: Feature 005 replaces the full-mesh `ConnectToAllCandidates` dial policy with a bounded one so dissemination has a non-trivial topology **and** a spam-resistant admission rule. Requirements: (a) bounded degree, (b) reproducible across machines, (c) pure (no ambient RNG / wall-clock in a transition), (d) per-node diverse, (e) **verifiable** — the acceptor must be able to confirm a request is legitimate without trusting the dialer, so an adversary cannot exhaust a victim's serving slots by spamming (the attack in `docs/extensions/bucketed-pull.md`).
 

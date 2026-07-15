@@ -1,6 +1,6 @@
 # 0029 — `strategies/` module grouping; connection state stays in the core
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0034** (feature 015): `connection/` and the later `publish/` merged into `selection/`; `fanout/` gained a kind selector. The trait-in-mod-rs / one-file-per-policy layout stands.
 
 > **Update (ADR 0030 / bucketed-pull redesign).** Two forward-looking predictions below were overtaken within feature 005 itself and should be read with this note: (1) the shared edge predicate was **extracted to `strategies::edge` in this feature** (ADR 0030), not deferred — the redesign gave it a second consumer immediately (the acceptance seam *verifies* with the same predicate the connection seam *selects* with), so "no second consumer yet / defer the extraction" no longer holds; (2) former **feature 015** (bounded/seeded fan-out) was **dropped** in the redesign ([[N-028]]) — read the "015" references below as "a later fan-out-policy feature" (ROADMAP 006). The per-seam params are named `ConnectionParams` / `AcceptanceParams` (ADR 0028); `StrategyParams` was 0028's *rejected* grab-bag alternative.
 

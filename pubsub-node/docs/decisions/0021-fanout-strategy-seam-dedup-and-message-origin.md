@@ -1,6 +1,6 @@
 # ADR 0021: Fan-out strategy seam, content-hash dedup, and message origin
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0033/0034/0036** (feature 015): the seam became origin-aware and kind-selectable (`forward-to-all` | `role-scoped` | `role-agnostic`), reading the flow-oriented link store's sinks. Dedup and `Origin` stand.
 **Date**: 2026-06-16
 **Feature**: 006-fanout-policy
 **Source**: `specs/006-fanout-policy/{spec,research,data-model,contracts}.md` (FR-001..016, R1–R8); ADR 0018 (strategy-seam precedent), ADR 0011 (pure core), ADR 0012 (producer ownership), ADR 0010 (`Message` hierarchy), ADR 0009 (`Arc<dyn …>` service-handle / content-anchored hash, N-005); `specs/ROADMAP.md` 006/007 (fan-out policy consumers).

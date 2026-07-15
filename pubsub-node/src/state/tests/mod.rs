@@ -185,7 +185,11 @@ fn assert_invariants(state: &NodeState) {
 
 // ---- Connection lifecycle (US1): helpers ----------------------------------
 
-/// The upstream state recorded for `(p, t)`, if any.
+/// The upstream state recorded for `(p, t)`, if any. "Upstream" is the
+/// preserved relay-scoped view vocabulary (`Relay`/Out — ADR 0032 §5 kept the
+/// getter names; only the *type* was renamed to `LinkState` because it now
+/// covers all link kinds). Helpers mirror the getters so tests bind to the
+/// stable views, not the store shape (ADR 0036).
 fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<LinkState> {
     state
         .upstream_snapshot()
@@ -244,9 +248,9 @@ fn sorted_pairs(mut v: Vec<(PeerId, TopicId)>) -> Vec<(PeerId, TopicId)> {
 
 // ---- T017: connection-gated delivery (US2, FR-016/019) --------------------
 
-/// Seed an Active upstream `(peer, topic)` directly — the declarative
-/// stand-in for a full setup→accept handshake when a test only needs the
-/// gate to be open (the test module reaches `NodeState`'s private fields).
+/// Seed an Active upstream (`Relay`/Out) link `(peer, topic)` directly — the
+/// declarative stand-in for a full setup→accept handshake when a test only
+/// needs the gate to be open.
 fn with_active_upstream(state: &mut NodeState, peer_alias: &str, t: &str) {
     state.insert_link_for_test(
         peer(peer_alias),
@@ -287,7 +291,7 @@ fn has_send(effects: &[Effect]) -> bool {
 
 // ---- T024: graceful shutdown & Terminated reception (US4, FR-014/020) -----
 
-/// Seed a downstream entry `(peer, topic)` directly.
+/// Seed a downstream (`Relay`/In) link `(peer, topic)` directly.
 fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
     state.insert_link_for_test(
         peer(peer_alias),

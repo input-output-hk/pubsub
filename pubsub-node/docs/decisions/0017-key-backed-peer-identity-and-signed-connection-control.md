@@ -1,6 +1,6 @@
 # ADR 0017: Key-backed peer identity and signed connection control messages
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0032** (feature 015): the per-`(peer, topic)` `upstream`/`downstream` split became the unified link store, and every `ConnectionAction` gained a signed link-role tag (`signed_bytes` layout extended). The key-backed identity and signed-control decisions stand.
 **Date**: 2026-06-12
 **Feature**: 004-connections
 **Source**: `specs/004-connections/{spec,research,data-model}.md`; `specs/004-connections/contracts/connection-protocol.md`; ADR 0009 (crypto trait shape), ADR 0010 (message hierarchy), ADR 0013 (pubkey-keyed subscription list context); `../docs/node-lifecycle/README.md` (on-chain artifacts: node pubkey → topics → deposit).

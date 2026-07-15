@@ -1,6 +1,6 @@
 # ADR 0018: Connection-selection strategy seam
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0034** (feature 015): the `ConnectionStrategy` trait merged into the role-parameterised `LinkSelectionStrategy` family (`expected_links`), one family serving the relay and publish slots. The seam concept stands.
 **Date**: 2026-06-12
 **Feature**: 004-connections
 **Source**: `specs/004-connections/{spec,research,data-model}.md` (FR-006..009, R5/R6); ADR 0011 (pure core), ADR 0012 (producer ownership), ADR 0009 (`Arc<dyn …>` service-handle precedent); `specs/ROADMAP.md` 006/007 (policy consumers).

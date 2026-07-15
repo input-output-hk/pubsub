@@ -1,6 +1,6 @@
 # 0025 — Acceptance-seam evolution and the `Rejected` connection action
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0032/0033** (feature 015): `Rejected` (like every control action) carries the link role, and the prelude's downstream scan became role-scoped over the link store. `Admission` and the silent-drop/`Rejected` split stand.
 
 **Context**: Feature 005 (US2) bounds a node's **inbound** degree. The v1 acceptance seam returned a bare `bool` (`accepts -> bool`) and the handler dropped a refused request silently. To bound the downstream degree and refuse over capacity, the handler must (a) see the node's current downstream so the policy can count, and (b) distinguish a *membership* failure (a silent drop — must not leak membership to a non-member) from an *over-capacity* refusal (which must tell the dialer so it can stop awaiting an acceptance). A bare `bool` cannot carry that distinction.
 

@@ -1,6 +1,6 @@
 # 0032 — Unified link store (role × direction) and the role-carrying handshake
 
-**Status**: Accepted (feature 015; supersedes the `upstream`/`downstream` split of ADR 0017 as amended by 0020/0025/0031)
+**Status**: Accepted (feature 015; supersedes the `upstream`/`downstream` split of ADR 0017 as amended by 0020/0025/0031). **§1/§3 reshaped by ADR 0036**: the store's internal shape is flow-oriented (sources/sinks facets); the role × direction vocabulary, wire tag, orientation rule, and coexistence semantics stand as the stable API.
 
 **Context**: `NodeState` held connections as two structures keyed by dial direction — `upstream: HashMap<(PeerId, TopicId), UpstreamState>` (dialed message sources) and `downstream: HashSet<(PeerId, TopicId)>` (accepted fan-out destinations). Two assumptions were baked in: every accepted link is a uniform relay, and a link's purpose is fully implied by who dialed (ROADMAP §1.2's connection-direction inversion). The M3 **publishing link** (S-link; logbook 2026-07-09, `docs/extensions/relay-tier-extension-proposal.md` §2.2 adapted to the hash-gated overlay) breaks the first assumption — a link that carries only the dialing publisher's own messages — and feature 016 (bidirectional links) strains the second. The 015 spec (Clarifications 2026-07-10/13) fixed: a unified `Link` abstraction, links keyed by role with coexisting roles per pair, and the canonical terms **publishing links** / **relaying links**.
 

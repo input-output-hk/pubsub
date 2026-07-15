@@ -1,6 +1,6 @@
 # 0030 — Heartbeat interval event and the shared verifiable edge predicate
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0031** (epoch/round split — `Heartbeat { interval }` became the parameterless dial tick + `Epoch { nonce }`) and extended by **0033/0035** (per-role and symmetric predicate domains in `strategies::edge`).
 
 **Context**: The bucketed-pull selection/acceptance (ADR 0024/0025) is defined **per round** — the predicate `H(genesis, T, requester, candidate, interval) mod B == 0` depends on an interval that both peers agree on. The existing single dial-trigger, `Event::ConnectionSetup`, carries no such counter, and both the dial and accept seams need the *same* predicate. This ADR pins how the interval flows and where the predicate lives.
 
