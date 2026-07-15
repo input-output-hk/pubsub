@@ -90,13 +90,6 @@
   }
   .slide.title-slide h1 .accent { color: var(--iog-infared); }
   .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
-  .title-byline { display: flex; align-items: center; gap: 0.6em; font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
-  .title-byline span { white-space: nowrap; }
-  .title-byline strong { color: var(--text); font-weight: 600; }
-  .byline-avatar {
-    width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
-    border: 1.5px solid var(--line, rgba(128,128,128,0.35));
-  }
   .title-slide .split-row { width: 100%; }
   .title-team { margin-top: 3em; }
   .title-team-label {
@@ -109,7 +102,8 @@
     width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
     border: 1.5px solid var(--line, rgba(128,128,128,0.35));
   }
-  .title-team-member span { font-size: 0.75em; color: var(--text-mute); white-space: nowrap; }
+  .title-team-member span { display: block; font-size: 0.75em; color: var(--text-mute); white-space: nowrap; }
+  .title-team-member .team-role { font-size: 0.6em; color: var(--text-faint); margin-top: 0.1em; }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
   @media (max-width: 900px) { .hero-visual { display: none; } }
@@ -277,15 +271,15 @@
         <h1>Cardano <span class="accent">PubSub</span></h1>
         <p class="title-sub">In pursuit of a verifiable communication layer for the Cardano ecosystem —
           an innovation workstream at the frontier of peer-sampling and dissemination research.</p>
-        <p class="title-byline"><img class="byline-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="Will Wolff"><span><strong>Will Wolff</strong> · Technical Architect · Input Output</span></p>
         <div class="title-team">
           <div class="title-team-label">Team</div>
           <div class="title-team-row">
-            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><span>Denis Firsov</span></div>
-            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><span>Ezequiel Postan</span></div>
-            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><span>Jesus Diaz Vico</span></div>
-            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><span>Dana Alibrandi</span></div>
-            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><span>Sandro Coretti-Drayton</span></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff"><div><span>William Wolff</span><span class="team-role">Lead · Technical Architect</span></div></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><div><span>Denis Firsov</span><span class="team-role">Senior Formal Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><div><span>Jesus Diaz Vico</span><span class="team-role">Applied Cryptography Lead</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><div><span>Dana Alibrandi</span><span class="team-role">Product Manager</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><div><span>Sandro Coretti-Drayton</span><span class="team-role">Senior Research Fellow</span></div></div>
           </div>
         </div>
       </div>
@@ -349,8 +343,8 @@
         </ul>
       </div>
       <figure class="about-figure">
-        <img class="about-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="Will Wolff">
-        <figcaption class="about-name"><strong>Will Wolff</strong><span class="about-role">Technical Architect</span></figcaption>
+        <img class="about-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff">
+        <figcaption class="about-name"><strong>William Wolff</strong><span class="about-role">Technical Architect</span></figcaption>
       </figure>
     </div>
   </section>
