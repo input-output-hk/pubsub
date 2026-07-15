@@ -254,44 +254,47 @@
         <p class="title-byline"><strong>Will Wolff</strong> · Technical Architect · Input Output</p>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <svg viewBox="0 0 440 360" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 440 372" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--info)">PUBLISHERS</text>
+          <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--good)">SUBSCRIBERS</text>
+
           <!-- flows in -->
-          <g stroke="var(--line-strong)" stroke-width="1.5" fill="none">
-            <path d="M43,40 C110,40 135,158 170,164"/>
-            <path d="M43,133 C105,133 135,172 170,174"/>
-            <path d="M43,227 C105,227 135,188 170,186"/>
-            <path d="M43,320 C110,320 135,202 170,196"/>
+          <g stroke="var(--info)" stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M43,52 C110,52 130,166 163,170"/>
+            <path d="M43,145 C105,145 130,178 163,180"/>
+            <path d="M43,239 C105,239 130,194 163,192"/>
+            <path d="M43,332 C110,332 130,206 163,202"/>
           </g>
           <!-- flows out -->
-          <g stroke="var(--line-strong)" stroke-width="1.5" fill="none">
-            <path d="M274,168 C330,162 350,70 397,70"/>
-            <path d="M274,180 C320,180 350,180 397,180"/>
-            <path d="M274,192 C330,198 350,290 397,290"/>
+          <g stroke="var(--good)" stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M281,172 C330,168 350,82 397,82"/>
+            <path d="M281,186 C320,186 350,192 397,192"/>
+            <path d="M281,200 C330,206 350,302 397,302"/>
           </g>
           <!-- publisher nodes -->
           <g>
-            <circle cx="26" cy="40" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="40" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
-            <circle cx="26" cy="133" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="133" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
-            <circle cx="26" cy="227" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="227" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
-            <circle cx="26" cy="320" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="320" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
+            <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="145" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="239" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="332" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
           </g>
           <!-- subscriber nodes -->
           <g>
-            <circle cx="414" cy="70" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="70" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
-            <circle cx="414" cy="180" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="180" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
-            <circle cx="414" cy="290" r="17" fill="none" stroke="var(--text-faint)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="290" r="9" fill="var(--card-fill)" stroke="var(--line-strong)"/>
+            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="82" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="192" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
           </g>
-          <!-- I/O hub -->
-          <circle cx="222" cy="180" r="52" fill="none" stroke="var(--iog-infared)" stroke-opacity="0.25" stroke-width="1.5"/>
-          <rect x="186" y="156" width="13" height="48" rx="6.5" fill="var(--iog-infared)"/>
-          <circle cx="234" cy="180" r="17.5" fill="none" stroke="var(--iog-infared)" stroke-width="13"/>
+          <!-- PubSub hub -->
+          <circle cx="222" cy="186" r="58" fill="none" stroke="var(--iog-infared)" stroke-opacity="0.2" stroke-width="1.5"/>
+          <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
         </svg>
       </div>
     </div>
@@ -312,7 +315,7 @@
       </div>
       <figure class="about-figure">
         <img class="about-avatar" src="../assets/will-avatar.jpg" alt="Will Wolff">
-        <figcaption class="about-name"><strong>Will Wolff</strong> · Technical Architect</figcaption>
+        <figcaption class="about-name"><strong>Will Wolff</strong><span class="about-role">Technical Architect</span></figcaption>
       </figure>
     </div>
   </section>
