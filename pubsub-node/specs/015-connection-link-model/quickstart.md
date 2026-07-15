@@ -8,7 +8,7 @@ The defaults are behaviour-preserving; the only visible change is the degree fla
 pubsub-node \
   --self-id node-a --config node-a.toml \
   --subscription-list subs.toml --topic-registry topics.toml \
-  --connection-strategy hash-gated --acceptance-strategy hash-gated-bounded \
+  --relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded \
   --relay-degree 8 --genesis 7
 ```
 
@@ -22,7 +22,7 @@ A publisher opens **standing initiation links** (the M3 model's s−1 links — 
 pubsub-node \
   --self-id publisher-p --config p.toml \
   --subscription-list subs.toml --topic-registry topics.toml \
-  --connection-strategy hash-gated --acceptance-strategy hash-gated-bounded \
+  --relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded \
   --relay-degree 8 \
   --publish-strategy hash-gated --publish-degree 3 \
   --genesis 7
@@ -55,18 +55,18 @@ All three target dissemination models are per-node configurations:
 
 ```sh
 # M3 — pull relaying + standing initiation links (the defaults shown explicit)
---connection-strategy hash-gated --relay-degree 8 \
+--relay-strategy hash-gated --relay-degree 8 \
 --publish-strategy hash-gated --publish-degree 3 \
---acceptance-strategy hash-gated-bounded --publish-acceptance-strategy hash-gated-bounded \
+--relay-acceptance-strategy hash-gated-bounded --publish-acceptance-strategy hash-gated-bounded \
 --fanout-strategy forward-to-all --publish-in-admission owner-only
 
 # M4 — bidirectional RF flooding: symmetric picks, no seeding
---connection-strategy hash-gated --relay-degree 3 --symmetric-edges \
---acceptance-strategy hash-gated --publish-strategy none \
+--relay-strategy hash-gated --relay-degree 3 --symmetric-edges \
+--relay-acceptance-strategy hash-gated --publish-strategy none \
 --fanout-strategy forward-to-all
 
 # M5 — directed k_in/k_out gossip: standing links carry everything
---connection-strategy hash-gated --relay-degree 4        # k_in \
+--relay-strategy hash-gated --relay-degree 4        # k_in \
 --publish-strategy hash-gated --publish-degree 4          # k_out \
 --fanout-strategy role-agnostic --publish-in-admission any-verified
 ```

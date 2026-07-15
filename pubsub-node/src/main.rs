@@ -37,7 +37,7 @@ struct Args {
     /// ~--relay-degree upstreams per topic, gated by the edge predicate over
     /// --genesis), or `none` (dial nobody — an accept-only node).
     #[arg(long, default_value = "connect-to-all")]
-    connection_strategy: LinkSelectionKind,
+    relay_strategy: LinkSelectionKind,
 
     /// The fixed relay connection degree `relay_degree` — the target expected upstream (relay) degree per topic. Required
     /// for every strategy except `connect-to-all` / `accept-from-all`; ignored by those.
@@ -64,13 +64,13 @@ struct Args {
     #[arg(long)]
     bucket_count: Option<usize>,
 
-    /// Inbound-acceptance strategy (case-insensitive), the four one-dimensional
+    /// Relay inbound-acceptance strategy (case-insensitive), the four one-dimensional
     /// baselines: `accept-from-all` (the default; membership only), `bounded`
     /// (caps downstream at `⌈relay_degree + c·√relay_degree⌉` per topic, refusing
     /// over-capacity with `Rejected`), `hash-gated` (verifies the edge predicate,
     /// no cap), or `hash-gated-bounded` (predicate + cap — the bucketed-pull compound).
     #[arg(long, default_value = "accept-from-all")]
-    acceptance_strategy: AcceptanceStrategyKind,
+    relay_acceptance_strategy: AcceptanceStrategyKind,
 
     /// Accept-cap buffer `c` in `OC = ⌈relay_degree + c·√relay_degree⌉` (default 3). Only affects the
     /// `bounded` / `hash-gated-bounded` acceptance strategies (both slots).
@@ -181,8 +181,8 @@ async fn main() {
     // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
     // unchanged; fan-out stays `ForwardToAll`, injected separately below.
     let strategies = NodeStrategies::builder(
-        args.connection_strategy,
-        args.acceptance_strategy,
+        args.relay_strategy,
+        args.relay_acceptance_strategy,
         args.publish_strategy,
         args.publish_acceptance_strategy,
         args.fanout_strategy,
