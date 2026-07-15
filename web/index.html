@@ -147,6 +147,7 @@
   .timeline-entry::before {
     content: "";
     position: absolute;
+    box-sizing: border-box;
     left: 91px;
     top: 5px;
     width: 12px;
@@ -160,6 +161,7 @@
   .timeline-entry.active::after {
     content: "";
     position: absolute;
+    box-sizing: border-box;
     left: 91px;
     top: 5px;
     width: 12px;
@@ -443,8 +445,11 @@
           <p>
             A design proposal consolidates the analytical and experimental findings — the
             measured architecture, its adversary model, and positioning against existing art —
-            published as a CIP. Beyond it: the incentive/fee layer that closes the remaining
-            Byzantine gaps, real network transport, and on-chain integration.
+            published as a CIP if phase&nbsp;2 time permits. Beyond it: the fee-and-incentive
+            model that closes the remaining Byzantine gaps, real network transport in the
+            prototype node, and a public testnet deployment. On the research side, larger
+            networks reopen the peer-sampling question — further protocol analysis of
+            decentralised sampling at scales where the on-chain list no longer suffices.
           </p>
         </div>
       </div>
