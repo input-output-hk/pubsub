@@ -124,31 +124,45 @@
 
   /* Split layout with trailing visual */
   .split-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: clamp(24px, 4vw, 64px);
   }
-  .split-row > div:first-child { min-width: 0; }
-  .actor-graph { flex-shrink: 0; }
+  .actor-graph { justify-self: center; }
   .actor-graph svg { width: clamp(280px, 32vw, 470px); height: auto; display: block; }
-  @media (max-width: 900px) { .actor-graph { display: none; } }
+  @media (max-width: 900px) {
+    .split-row { grid-template-columns: 1fr; }
+    .actor-graph { display: none; }
+  }
 
   /* About slide */
   .about-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: clamp(28px, 5vw, 80px);
   }
+  .about-figure { justify-self: center; text-align: center; }
   .about-avatar {
     width: clamp(150px, 24vh, 260px);
     height: auto;
     border-radius: 50%;
     border: 3px solid var(--iog-infared);
-    flex-shrink: 0;
   }
-  @media (max-width: 700px) { .about-avatar { display: none; } }
+  .about-name {
+    margin-top: 1.1em;
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .about-name strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 700px) {
+    .about-row { grid-template-columns: 1fr; }
+    .about-figure { display: none; }
+  }
 
   /* Corner buttons (GitHub · close · theme) */
   .corner-btn {
@@ -166,8 +180,9 @@
   }
   .corner-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
   .corner-btn svg { width: 16px; height: 16px; display: block; }
-  .btn-close { right: 68px; }
+  .btn-close { right: 20px; }
   .btn-github { right: 116px; }
+  .theme-toggle { right: 68px; }
 
   /* Slide chrome */
   .chrome {
@@ -239,14 +254,16 @@
         <div class="slide-kicker">Introduction</div>
         <h2>About me</h2>
         <ul class="points">
-          <li><strong>Will Wolff</strong> — Technical Architect at Input Output.</li>
           <li>With IO for almost five years — first as Solution Architect, now as Technical Architect.</li>
+          <li>Worked on the backend architecture of the <strong>Lace</strong> wallet platform.</li>
           <li>Led the <strong>Ouroboros Leios</strong> workstream through 2025 — now handed over to engineering.</li>
           <li>Since early 2026: leading the <strong>PubSub workstream</strong>.</li>
-          <li class="mute">Background in distributed systems, secure software architecture, and Cardano protocols.</li>
         </ul>
       </div>
-      <img class="about-avatar" src="../assets/will-avatar.jpg" alt="Will Wolff">
+      <figure class="about-figure">
+        <img class="about-avatar" src="../assets/will-avatar.jpg" alt="Will Wolff">
+        <figcaption class="about-name"><strong>Will Wolff</strong> · Technical Architect</figcaption>
+      </figure>
     </div>
   </section>
 
