@@ -11,7 +11,9 @@
 <link rel="stylesheet" href="../shared.css">
 <style>
   html, body { height: 100%; }
-  body { overflow: hidden; font-size: clamp(15px, 1.35vw, 21px); background: var(--bg); }
+  /* Sized for screen-share: scale with both width and height so wide screens
+     get larger type instead of whitespace, without overflowing short windows. */
+  body { overflow: hidden; font-size: clamp(16px, min(1.55vw, 2.75vh), 27px); background: var(--bg); }
 
   /* Static network-topology texture behind every slide */
   .bg-net {
@@ -53,9 +55,9 @@
     margin-bottom: 0.7em;
     max-width: 22ch;
   }
-  .slide p.lede { font-size: 1.15em; color: var(--text-mute); max-width: 58ch; line-height: 1.55; }
+  .slide p.lede { font-size: 1.15em; color: var(--text-mute); max-width: 62ch; line-height: 1.55; }
 
-  ul.points { list-style: none; display: grid; gap: 0.75em; max-width: 62ch; }
+  ul.points { list-style: none; display: grid; gap: 0.75em; max-width: 66ch; }
   ul.points li {
     font-size: 1.08em;
     line-height: 1.5;
@@ -127,7 +129,7 @@
   .ba-col.before .ba-label { color: var(--text-faint); }
   .ba-col.after .ba-label { color: var(--good); }
   .ba-col ul { list-style: none; display: grid; gap: 0.65em; }
-  .ba-col li { font-size: 0.98em; line-height: 1.45; padding-left: 1.1em; position: relative; }
+  .ba-col li { font-size: 1.04em; line-height: 1.45; padding-left: 1.1em; position: relative; }
   .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
   .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
 
