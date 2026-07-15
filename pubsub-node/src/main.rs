@@ -4,7 +4,7 @@ use std::sync::Arc;
 use clap::Parser;
 use pubsub_node::{
     load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
-    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
+    ConnectionStrategyKind, FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry,
     InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId,
     PublisherAdmission, Signer, TestVerifier, Verifier,
 };
@@ -104,6 +104,19 @@ struct Args {
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
 
+    /// Fan-out strategy (case-insensitive): `forward-to-all` (the default —
+    /// relay downstream always, publisher links only for locally-published
+    /// messages) or `all-links` (every held message over both link classes).
+    #[arg(long, default_value = "forward-to-all")]
+    fanout_strategy: FanoutStrategyKind,
+
+    /// Receive-gate policy for inbound publisher links (case-insensitive):
+    /// `owner-only` (the default — a publisher link admits only its owner's
+    /// own publications) or `any-verified` (admits any verified message).
+    /// Pair `any-verified` with `--fanout-strategy all-links` network-wide.
+    #[arg(long, default_value = "owner-only")]
+    publisher_admission: PublisherAdmission,
+
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
     log_level: tracing::Level,
@@ -195,8 +208,8 @@ async fn main() {
         registry,
         topic_registry,
         strategies,
-        Arc::new(ForwardToAll),
-        PublisherAdmission::default(),
+        args.fanout_strategy.build(),
+        args.publisher_admission,
     )
     .await
     .unwrap_or_else(|e| {

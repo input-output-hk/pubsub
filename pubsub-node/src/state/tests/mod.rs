@@ -33,7 +33,7 @@ pub(crate) use crate::strategies::acceptance::{
     AcceptFromAllCandidates, HashGatedBoundedAcceptance,
 };
 pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
-pub(crate) use crate::strategies::fanout::ForwardToAll;
+pub(crate) use crate::strategies::fanout::{AllLinks, ForwardToAll};
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
 pub(crate) use std::collections::BTreeSet;

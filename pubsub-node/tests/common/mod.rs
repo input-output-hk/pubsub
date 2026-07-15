@@ -9,10 +9,10 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, Message,
-    MessageHash, MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeStrategies, NodeView,
-    Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherAdmission, PublisherId,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, FanoutStrategy,
+    ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState,
+    Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeStrategies,
+    NodeView, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherAdmission, PublisherId,
     ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
     Timestamp, TopicId, TopicRegistryControl, Verifier,
 };
@@ -405,6 +405,7 @@ pub async fn node_with_links(
     id: &str,
     topics: &[TopicId],
     strategies: NodeStrategies,
+    fanout: Arc<dyn FanoutStrategy>,
     admission: PublisherAdmission,
     genesis: u64,
 ) -> Node {
@@ -431,7 +432,7 @@ pub async fn node_with_links(
         registry.clone(),
         topic_registry,
         strategies,
-        Arc::new(ForwardToAll),
+        fanout,
         admission,
     )
     .await

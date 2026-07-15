@@ -57,7 +57,9 @@ mod topic;
 mod topic_registry;
 
 pub use config::{load_node_config, NodeConfig, PeerEntry};
-pub use connection_state::{LinkKey, LinkKind, LinkState, PublisherAdmission};
+pub use connection_state::{
+    LinkKey, LinkKind, LinkState, PublisherAdmission, UnknownPublisherAdmission,
+};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,
@@ -85,7 +87,9 @@ pub use strategies::connection::{
     UnknownConnectionStrategy,
 };
 pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_sym};
-pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
+pub use strategies::fanout::{
+    AllLinks, FanoutStrategy, FanoutStrategyKind, ForwardToAll, UnknownFanoutStrategy,
+};
 pub use strategies::view::NodeView;
 pub use subscription_registry::{
     InMemorySubscriptionRegistry, MembershipEvent, MembershipSnapshot, MembershipWatch,

@@ -8,11 +8,14 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{await_candidates, await_upstream_active, node_with_links, ping, trigger_setup};
+use common::{
+    assert_no_new_deliveries, await_candidates, await_publisher_target_active,
+    await_upstream_active, node_with_links, ping, trigger_setup, ConnectToExplicit,
+};
 use pubsub_node::{
-    is_valid_edge_sym, HashGatedAcceptance, HashGatedConnection, InMemoryNetwork,
-    InMemorySubscriptionRegistry, Message, Node, NodeStrategies, PeerId, PublisherAdmission,
-    TopicId,
+    is_valid_edge_sym, AcceptFromAllCandidates, AllLinks, FanoutStrategy, ForwardToAll,
+    HashGatedAcceptance, HashGatedConnection, InMemoryNetwork, InMemorySubscriptionRegistry,
+    Message, Node, NodeStrategies, PeerId, PublisherAdmission, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -108,6 +111,7 @@ async fn m4_symmetric_edges_form_reciprocal_pairs_and_flood() {
                 id,
                 &[t.clone()],
                 m4_strategies(id),
+                Arc::new(ForwardToAll),
                 PublisherAdmission::default(),
                 genesis,
             )
@@ -225,4 +229,131 @@ async fn await_content(node: &Node, message: &Message, timeout: Duration) {
         );
         tokio::time::sleep(Duration::from_millis(1)).await;
     }
+}
+
+// ---- M5: directed publisher chain, everything-carrying ----------------------
+
+/// An M5-chain node: no relay links at all; publisher links to an explicit
+/// target list (the directed `k_out` picks); publisher acceptance open.
+fn chain_strategies(targets: &[(&str, &TopicId)]) -> NodeStrategies {
+    NodeStrategies {
+        connection: Arc::new(ConnectToExplicit(Vec::new())),
+        acceptance: Arc::new(AcceptFromAllCandidates),
+        publisher_connection: Some(Arc::new(ConnectToExplicit(
+            targets
+                .iter()
+                .map(|(p, t)| (peer(p), (*t).clone()))
+                .collect(),
+        ))),
+        publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
+    }
+}
+
+/// Build the a→b→c publisher-link chain under the given fan-out + admission
+/// and return the three nodes with all links Active.
+async fn chain_fleet(
+    fanout: fn() -> Arc<dyn FanoutStrategy>,
+    admission: PublisherAdmission,
+) -> (Node, Node, Node) {
+    let t = topic("t1");
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let a = node_with_links(
+        &registry,
+        &network,
+        "a",
+        &[t.clone()],
+        chain_strategies(&[("b", &t)]),
+        fanout(),
+        admission,
+        0,
+    )
+    .await;
+    let b = node_with_links(
+        &registry,
+        &network,
+        "b",
+        &[t.clone()],
+        chain_strategies(&[("c", &t)]),
+        fanout(),
+        admission,
+        0,
+    )
+    .await;
+    let c = node_with_links(
+        &registry,
+        &network,
+        "c",
+        &[t.clone()],
+        chain_strategies(&[]),
+        fanout(),
+        admission,
+        0,
+    )
+    .await;
+    for node in [&a, &b, &c] {
+        trigger_setup(node); // retry pass once every membership has folded
+    }
+    await_publisher_target_active(&a, b.id(), &t, T)
+        .await
+        .expect("a→b publisher link");
+    await_publisher_target_active(&b, c.id(), &t, T)
+        .await
+        .expect("b→c publisher link");
+    (a, b, c)
+}
+
+// SC-003: with all-links + any-verified, a foreign publisher's message hops
+// a→b→c over standing publisher links only — b relays a's message to c.
+#[tokio::test]
+async fn m5_chain_relays_foreign_publisher_over_standing_links() {
+    let (a, _b, c) = chain_fleet(|| Arc::new(AllLinks), PublisherAdmission::AnyVerified).await;
+    let t = topic("t1");
+
+    let message = alias_ping_m5("a", &t, 5);
+    let Message::Dissemination(signed) = message.clone() else {
+        unreachable!()
+    };
+    a.publish(signed);
+
+    // c holds no link to a — the ONLY path is the b hop, admitted by
+    // any-verified and forwarded by all-links.
+    await_content(&c, &message, T).await;
+}
+
+// The M3 exclusivity pin: the SAME topology under the defaults does NOT
+// deliver a's message to c — forward-to-all never relays over publisher links
+// (and owner-only would drop the b→c hop anyway).
+#[tokio::test]
+async fn m3_defaults_do_not_relay_over_the_chain() {
+    let (a, b, c) = chain_fleet(|| Arc::new(ForwardToAll), PublisherAdmission::OwnerOnly).await;
+    let t = topic("t1");
+
+    let message = alias_ping_m5("a", &t, 6);
+    let Message::Dissemination(signed) = message.clone() else {
+        unreachable!()
+    };
+    a.publish(signed);
+
+    // b receives it (a owns the a→b link)…
+    await_content(&b, &message, T).await;
+    // …and it stops there.
+    assert_no_new_deliveries(&[&c], Duration::from_millis(80)).await;
+}
+
+/// A `Ping(n)` signed with `alias`'s own key (the chain publisher).
+fn alias_ping_m5(alias: &str, t: &TopicId, n: u64) -> Message {
+    use pubsub_node::{MessagePayload, MockCryptoScheme, PublisherId, SignedMessage, Signer};
+    let scheme = MockCryptoScheme::with_seed([0u8; 32]);
+    let signer = scheme.signer(scheme.keypair_from_alias(alias).private);
+    let plain = pubsub_node::PlainMessage {
+        topic: t.clone(),
+        publisher_id: PublisherId::new(signer.public_key()),
+        parent_hash: None,
+        sequence: 0,
+        timestamp: pubsub_node::Timestamp::from_millis(0),
+        payload: MessagePayload::Ping(n),
+    };
+    let signature = signer.sign(&plain.signed_bytes());
+    Message::Dissemination(SignedMessage { plain, signature })
 }

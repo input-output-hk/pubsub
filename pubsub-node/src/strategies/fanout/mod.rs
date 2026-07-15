@@ -19,9 +19,13 @@ use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
 
+mod all_links;
 mod forward_to_all;
+mod kind;
 
+pub use all_links::AllLinks;
 pub use forward_to_all::ForwardToAll;
+pub use kind::{FanoutStrategyKind, UnknownFanoutStrategy};
 
 /// The forwarding-target policy a node consults at the record point.
 ///

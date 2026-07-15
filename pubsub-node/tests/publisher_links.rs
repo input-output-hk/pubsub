@@ -14,9 +14,9 @@ use common::{
     build_signed_message_simple, node_with_links, ping, ConnectToExplicit,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, InMemoryNetwork, InMemorySubscriptionRegistry,
-    Message, MessagePayload, MockCryptoScheme, Node, NodeStrategies, PeerId, PublisherAdmission,
-    TopicId,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
+    InMemorySubscriptionRegistry, Message, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
+    PeerId, PublisherAdmission, TopicId,
 };
 
 /// A `Ping(n)` on `t` signed with `alias`'s own key — the message an
@@ -64,6 +64,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         "a",
         &topics,
         publisher_only(),
+        Arc::new(ForwardToAll),
         PublisherAdmission::OwnerOnly,
         0,
     )
@@ -74,6 +75,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         "b",
         &topics,
         publisher_only(),
+        Arc::new(ForwardToAll),
         PublisherAdmission::OwnerOnly,
         0,
     )
@@ -84,6 +86,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         "c",
         &topics,
         publisher_only(),
+        Arc::new(ForwardToAll),
         PublisherAdmission::OwnerOnly,
         0,
     )

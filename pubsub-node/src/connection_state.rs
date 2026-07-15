@@ -71,7 +71,8 @@ pub enum LinkState {
 }
 
 /// The receive-gate policy for messages arriving over an inbound publisher
-/// link (a per-node configuration value, not a strategy seam).
+/// link (a per-node configuration value, not a strategy seam). Parses from
+/// its configuration names `owner-only` / `any-verified`.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PublisherAdmission {
     /// Admit a message only when its publisher is the link's owner — publisher
@@ -81,6 +82,25 @@ pub enum PublisherAdmission {
     /// Admit any message whose remaining checks pass, whoever published it —
     /// publisher links carry everything their owner holds.
     AnyVerified,
+}
+
+/// The error returned when a configuration string names no known publisher
+/// admission policy.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[error("unknown publisher admission '{0}' (expected one of: owner-only, any-verified)")]
+pub struct UnknownPublisherAdmission(pub String);
+
+impl std::str::FromStr for PublisherAdmission {
+    type Err = UnknownPublisherAdmission;
+
+    /// Parse a policy name case-insensitively.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "owner-only" => Ok(Self::OwnerOnly),
+            "any-verified" => Ok(Self::AnyVerified),
+            _ => Err(UnknownPublisherAdmission(s.to_string())),
+        }
+    }
 }
 
 /// Test-only declarative constructors for the events that drive the connection

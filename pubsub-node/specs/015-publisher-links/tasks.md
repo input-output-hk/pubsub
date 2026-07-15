@@ -93,14 +93,14 @@
 
 ### Tests for User Story 3 (write first, must fail)
 
-- [ ] T029 [P] [US3] State tests in src/state/tests/: `AnyVerified` admits a foreign publisher's message over upstream × Publisher; `OwnerOnly` (default) drops the same arrival (FR-008); `AllLinks` fan-out sends peer-origin messages over publisher links too, deduplicated (FR-007/011)
-- [ ] T030 [P] [US3] Integration test in tests/model_family.rs (port from archive): M5 chain a→b→c over publisher links with `any-verified` + `all-links`; same topology under defaults does NOT deliver (the M3 exclusivity pin); await Active handshakes before publishing (archive lesson — no retry means a pre-handshake publish is lost)
+- [x] T029 [P] [US3] State tests in src/state/tests/: `AnyVerified` admits a foreign publisher's message over upstream × Publisher; `OwnerOnly` (default) drops the same arrival (FR-008); `AllLinks` fan-out sends peer-origin messages over publisher links too, deduplicated (FR-007/011)
+- [x] T030 [P] [US3] Integration test in tests/model_family.rs (port from archive): M5 chain a→b→c over publisher links with `any-verified` + `all-links`; same topology under defaults does NOT deliver (the M3 exclusivity pin); await Active handshakes before publishing (archive lesson — no retry means a pre-handshake publish is lost)
 
 ### Implementation for User Story 3
 
-- [ ] T031 [P] [US3] `AllLinks` fan-out strategy in src/strategies/fanout/all_links.rs + `FanoutStrategyKind` (`forward-to-all` | `all-links`) in src/strategies/fanout/kind.rs; re-export in src/lib.rs
-- [ ] T032 [US3] `PublisherAdmission::AnyVerified` arm in the receive gate (src/state.rs) — severance stays policy-independent
-- [ ] T033 [US3] `--fanout-strategy` and `--publisher-admission` flags (`FromStr` at the edge) in src/main.rs; green checkpoint + commit
+- [x] T031 [P] [US3] `AllLinks` fan-out strategy in src/strategies/fanout/all_links.rs + `FanoutStrategyKind` (`forward-to-all` | `all-links`) in src/strategies/fanout/kind.rs; re-export in src/lib.rs
+- [x] T032 [US3] `PublisherAdmission::AnyVerified` arm in the receive gate (src/state.rs) — severance stays policy-independent
+- [x] T033 [US3] `--fanout-strategy` and `--publisher-admission` flags (`FromStr` at the edge) in src/main.rs; green checkpoint + commit
 
 **Checkpoint**: all three recipes configurable; axes independent (SC-005).
 

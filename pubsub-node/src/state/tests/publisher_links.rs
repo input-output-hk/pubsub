@@ -314,3 +314,72 @@ fn topic_removal_cascades_over_publisher_links() {
     assert!(state.upstream_publishers().is_empty());
     assert!(state.downstream_publishers().is_empty());
 }
+
+// ---- US3 (M5): relaxed admission + union fan-out ----------------------------
+
+// FR-008: under AnyVerified, a foreign publisher's message arriving over an
+// inbound publisher link is admitted; the OwnerOnly default drops the same
+// arrival (pinned above in publisher_link_admits_owner_only).
+#[test]
+fn any_verified_admits_foreign_publisher_over_publisher_link() {
+    let mut state = node_state_with_publishers(
+        "self",
+        HashSet::from([topic("t1")]),
+        Arc::new(ConnectToAllCandidates),
+        Arc::new(AcceptFromAllCandidates),
+        PublisherAdmission::AnyVerified,
+    );
+    with_upstream_publisher(&mut state, "a", "t1");
+
+    // Published by b, delivered by a over a's publisher link: admitted.
+    apply(&mut state, payload_via("a", "b", "t1", 21));
+    assert_eq!(
+        state.received_snapshot().len(),
+        1,
+        "any-verified admits the foreign hop",
+    );
+
+    // Severance stays policy-independent: a tampered payload over the same
+    // link still severs it.
+    let effects = apply(&mut state, tampered_payload_from("a", "t1", 22));
+    assert_eq!(misbehaved(&effects).len(), 1);
+    assert!(!has_upstream_publisher(&state, "a", "t1"));
+}
+
+// FR-007/011: the AllLinks fan-out sends EVERY held message — peer origin
+// included — over relay downstream and Active publisher links, deduplicated.
+#[test]
+fn all_links_fanout_unions_both_kinds_for_any_origin() {
+    let mut state = NodeState::new(
+        peer("self"),
+        BTreeSet::from([topic("t1")]),
+        0,
+        Arc::new(TestVerifier),
+        alias_signer("self"),
+        NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
+        Arc::new(AllLinks),
+        PublisherAdmission::AnyVerified,
+    );
+    state
+        .registered_topics
+        .insert(topic("t1"), TopicEntry::from_publishers(BTreeSet::new()));
+    with_active_upstream(&mut state, "a", "t1"); // relay source
+    with_downstream(&mut state, "b", "t1"); // relay destination
+    with_publisher_target(&mut state, "c", "t1", LinkState::Active);
+    with_publisher_target(&mut state, "d", "t1", LinkState::AwaitingAccept);
+    with_publisher_target(&mut state, "b", "t1", LinkState::Active); // dual-kind peer
+
+    // A relayed (peer-origin) message from a: forwarded over b (relay, once,
+    // despite the coexisting publisher link) AND c (Active publisher target);
+    // never d (pending), never back to a (split-horizon).
+    let effects = apply(&mut state, payload_from("a", "t1", 30));
+    let targets: Vec<PeerId> = signed_sends(&effects)
+        .into_iter()
+        .map(|(to, _)| to)
+        .collect();
+    assert_eq!(
+        sorted_peers(targets),
+        vec![peer("b"), peer("c")],
+        "peer-origin traffic rides publisher links under all-links, deduplicated",
+    );
+}
