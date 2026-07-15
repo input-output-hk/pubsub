@@ -18,11 +18,9 @@ Technical decisions and progress. Most recent first.
 
 **Implementation lesson noted.** Ezequiel flagged that the prototype would have been more testable had suppressed/dropped messages been returned as explicit effects rather than only logged. Current code stays as is; recorded as an improvement for future iterations.
 
-**External visibility.** James Chapman (Midgard) requested public documentation of the peer-sampling analysis; the relevant formal specifications live in the private repo's `formal` folder. Will reaches out to James and Philip Darro to arrange access.
-
 **Decisions.** *Aligned:* node view categorises peers into distinct publishing and relaying sets (explicit fields, no abstract link type); M3 implementation prioritised as the base for M4/M5; M5 fan-out confirmed role-agnostic; framework trait exposes relay and publishing downstreams for graph construction and metrics; experiment reproducibility via weekly GitHub tags; full CIP optional, empirical data mandatory; deposit/attack-budget analysis mandatory, synthetic profiling optional. *Resolved in follow-up:* M5 is not symmetric — k_in and k_out are independent (k_in = 9, k_out = 8 at N = 20k, μ = 0.2). *Open:* RF/S parameter combination for M3 optimisation; node-identity cost mechanism; experimental cross-validation of the ~30% M3-over-M5 traffic advantage.
 
-**Next.** Will: node-view refactor PR (relay/publishing fields, strategy renames), midyear-report slides, access for James/Philip, polish the phase parent issue [#46](https://github.com/input-output-hk/pubsub/issues/46). Ezequiel: metrics trait in the experiment framework, RF/S clarification with Denis, GitHub issues and test-document updates for the five models. Group: finalise the M-model implementations and experimentation framework so performance testing can start next week; check in Friday.
+**Next.** Will: node-view refactor PR (relay/publishing fields, strategy renames), midyear-report slides, polish the phase parent issue [#46](https://github.com/input-output-hk/pubsub/issues/46). Ezequiel: metrics trait in the experiment framework, RF/S clarification with Denis, GitHub issues and test-document updates for the five models. Group: finalise the M-model implementations and experimentation framework so performance testing can start next week; check in Friday.
 
 ---
 
