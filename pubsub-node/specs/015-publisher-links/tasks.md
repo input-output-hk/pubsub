@@ -108,10 +108,10 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T034 [P] Verify quickstart.md recipes against the shipped flags (spec-fidelity pass per constitution: grep lib.rs re-exports and main.rs flags against contracts §4/§5); fix docs, not code, where they drift
-- [ ] T035 [P] Sync the CLAUDE.md SPECKIT active-feature block to the final shape (getters, flags, ADR 0032)
-- [ ] T036 Full-suite audit: cargo test + clippy + fmt, confirm pre-existing test files show only mechanical renames (spec SC-004) — `git diff --stat archive-base` review; commit
-- [ ] T037 Run /speckit-analyze and record findings + resolutions in specs/015-publisher-links/analysis.md (constitution Development Workflow)
+- [x] T034 [P] Verify quickstart.md recipes against the shipped flags (spec-fidelity pass per constitution: grep lib.rs re-exports and main.rs flags against contracts §4/§5); fix docs, not code, where they drift
+- [x] T035 [P] Sync the CLAUDE.md SPECKIT active-feature block to the final shape (getters, flags, ADR 0032)
+- [x] T036 Full-suite audit: cargo test + clippy + fmt, confirm pre-existing test files show only mechanical renames (spec SC-004) — `git diff --stat archive-base` review; commit
+- [x] T037 Run /speckit-analyze and record findings + resolutions in specs/015-publisher-links/analysis.md (constitution Development Workflow)
 
 ---
 
