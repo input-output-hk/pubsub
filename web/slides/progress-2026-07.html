@@ -96,14 +96,14 @@
     font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.9em;
   }
-  .title-team-row { display: grid; grid-template-columns: repeat(3, max-content); gap: 0.9em 1.6em; }
-  .title-team-member { display: flex; align-items: center; gap: 0.5em; }
+  .title-team-row { display: grid; grid-template-columns: repeat(3, max-content); gap: 1em 1.8em; }
+  .title-team-member { display: flex; align-items: center; gap: 0.6em; }
   .title-team-member img {
-    width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
     border: 1.5px solid var(--line, rgba(128,128,128,0.35));
   }
-  .title-team-member span { display: block; font-size: 0.75em; color: var(--text-mute); white-space: nowrap; }
-  .title-team-member .team-role { font-size: 0.6em; color: var(--text-faint); margin-top: 0.1em; }
+  .title-team-member span { display: block; font-size: 0.82em; color: var(--text-mute); white-space: nowrap; }
+  .title-team-member .team-role { font-size: 0.66em; color: var(--text-faint); margin-top: 0.1em; }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
 
@@ -514,8 +514,8 @@
           <li>Publishers identified by on-chain credentials.</li>
           <li>Every message cryptographically verifiable.</li>
           <li>Topics committed on-chain — subscribers know what they subscribed to.</li>
-          <li>Delivery to every honest subscriber — formally analysed, and guaranteed while
-            attackers stay below a known share of the network.</li>
+          <li>Delivery to every honest subscriber — formally analysed, failure risk
+            quantified and bounded while attackers stay below a known share of the network.</li>
           <li>Spam and fake identities carry a real on-chain cost.</li>
         </ul>
       </div>
