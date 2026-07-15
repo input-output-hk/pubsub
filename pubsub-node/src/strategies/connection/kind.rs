@@ -47,7 +47,8 @@ impl ConnectionStrategyKind {
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedConnection::new(params.self_id.clone(), target_degree)
-                        .with_bucket_override(bucket_override),
+                        .with_bucket_override(bucket_override)
+                        .for_kind(params.kind),
                 ))
             }
         }
@@ -76,6 +77,7 @@ impl FromStr for ConnectionStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::ConnectionStrategyKind;
+    use crate::connection_state::LinkKind;
     use crate::peer::PeerId;
     use crate::strategies::config::{ConnectionParams, StrategyConfigError};
     use std::str::FromStr;
@@ -83,6 +85,7 @@ mod tests {
     fn params(target_degree: Option<usize>) -> ConnectionParams {
         ConnectionParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
+            kind: LinkKind::Relay,
             target_degree,
             bucket_count: None,
         }

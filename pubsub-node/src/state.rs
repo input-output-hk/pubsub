@@ -351,14 +351,22 @@ fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
         downstream: &state.downstream,
         epoch_nonce: state.epoch_nonce,
     };
-    let expected = state.connection_strategy.expected_links(&view);
+    let expected_relay = state.connection_strategy.expected_links(&view);
+    // The publisher pass runs unconditionally whenever a publisher strategy is
+    // configured — its picks never depend on the relay topology (M3: standing
+    // initiation links are always established).
+    let expected_publish = state
+        .publisher_strategy
+        .as_ref()
+        .map(|strategy| strategy.expected_links(&view));
     // Clone the immutable bits the request builder needs so the loop can mutate
     // the link maps without aliasing the whole struct.
     let self_id = state.self_id.clone();
     let signer = Arc::clone(&state.signer);
 
     let mut effects = Vec::new();
-    for (peer, topic) in expected {
+    // Relay pass: dials land in `upstream` (the node will receive).
+    for (peer, topic) in expected_relay {
         let key = LinkKey::new(topic.clone(), peer.clone(), LinkKind::Relay);
         match state.upstream.get(&key).copied() {
             Some(LinkState::Active) => continue,
@@ -371,6 +379,25 @@ fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
             &self_id,
             signer.as_ref(),
             LinkKind::Relay,
+            ConnectionAction::Request { topic },
+        );
+        effects.push(Effect::Send { to: peer, message });
+    }
+    // Publisher pass: dials land in `downstream` (the node will send its own
+    // publications). Same diff-and-retry semantics as the relay pass.
+    for (peer, topic) in expected_publish.into_iter().flatten() {
+        let key = LinkKey::new(topic.clone(), peer.clone(), LinkKind::Publisher);
+        match state.downstream.get(&key).copied() {
+            Some(LinkState::Active) => continue,
+            Some(LinkState::AwaitingAccept) => {}
+            None => {
+                state.downstream.insert(key, LinkState::AwaitingAccept);
+            }
+        }
+        let message = signed_connection(
+            &self_id,
+            signer.as_ref(),
+            LinkKind::Publisher,
             ConnectionAction::Request { topic },
         );
         effects.push(Effect::Send { to: peer, message });
@@ -1083,25 +1110,48 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 
 /// Transition for a signed dissemination message.
 ///
-/// Records the delivery when the **delivering peer holds an Active upstream**
-/// for the message's topic (the connection gate, FR-016), its topic is
+/// Records the delivery when the delivering peer holds an **admitting link**
+/// for the message's topic — an Active relay upstream, or an inbound publisher
+/// link whose admission policy passes (owner-only by default) — its topic is
 /// subscribed **and** a registered (legitimate) topic, its publisher is
 /// authorized, and its signature verifies; otherwise the message is dropped
 /// (with an info-level `message_dropped` event carrying the cause). A recorded
-/// message is then fanned out to the node's other downstream on the topic,
-/// excluding the deliverer (split-horizon) — the same record-and-forward tail
-/// the publish path uses (FR-006/007/009).
-// FR-016: the connection gate is the FIRST check (keyed on the delivering
-// peer — a payload carries a publisher identity, not the sender's); the
-// pre-existing chain runs unchanged after it — subscribed?, registered?,
-// authorized?, signature? (ADR 0016). A signature failure past every earlier
-// check, over an Active upstream, is misbehavior and severs (FR-017); the
-// fan-out happens only past the record point.
+/// message is then fanned out per the fan-out strategy, excluding the
+/// deliverer (split-horizon) — the same record-and-forward tail the publish
+/// path uses.
+// The link gate is the FIRST check (keyed on the delivering peer — a payload
+// carries a publisher identity, not the sender's); the pre-existing chain
+// runs unchanged after it — subscribed?, registered?, authorized?, signature?
+// (ADR 0016/0032). A signature failure past every earlier check severs the
+// ADMITTING link (ADR 0032 §5); the fan-out happens only past the record
+// point.
 fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessage) -> Vec<Effect> {
-    // Admit only from an Active relay upstream for this topic.
+    // The link gate: an Active relay upstream admits anything (checked first);
+    // failing that, an inbound publisher link admits per the node's publisher
+    // admission policy — owner-only (the message's publisher must be the link
+    // owner; M3's exclusivity) or any-verified (M5). The key that admitted the
+    // message is remembered: a signature failure past every later check severs
+    // exactly that link.
     let relay_key = LinkKey::new(signed.plain.topic.clone(), from.clone(), LinkKind::Relay);
-    let connected = matches!(state.upstream.get(&relay_key), Some(LinkState::Active));
-    if !connected {
+    let publisher_key = LinkKey::new(
+        signed.plain.topic.clone(),
+        from.clone(),
+        LinkKind::Publisher,
+    );
+    let admitting_key = if matches!(state.upstream.get(&relay_key), Some(LinkState::Active)) {
+        Some(relay_key)
+    } else if state.upstream.contains_key(&publisher_key) {
+        let owner_bound = match state.publisher_admission {
+            PublisherAdmission::OwnerOnly => {
+                signed.plain.publisher_id.as_public_key() == from.as_public_key()
+            }
+            PublisherAdmission::AnyVerified => true,
+        };
+        owner_bound.then_some(publisher_key)
+    } else {
+        None
+    };
+    let Some(admitting_key) = admitting_key else {
         tracing::info!(
             target: "pubsub_node::node",
             event = "message_dropped",
@@ -1111,7 +1161,7 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
             topic = %signed.plain.topic,
         );
         return Vec::new();
-    }
+    };
 
     // The shared subscribed → registered → authorized chain (R9); a failure is a
     // plain drop logged with the receive-path `from=` field. The connection gate
@@ -1150,7 +1200,7 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         // the entry that admitted the message and raise the misbehavior signal
         // (the executor logs `connection_severed`); no Terminated is sent.
         let topic = signed.plain.topic.clone();
-        state.upstream.remove(&relay_key);
+        state.upstream.remove(&admitting_key);
         return vec![Effect::Misbehaved {
             peer: from,
             topic,

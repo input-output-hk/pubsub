@@ -18,6 +18,11 @@ use crate::topic::TopicId;
 /// (pre-release iterations keep it at `v1`).
 const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 
+/// Domain tag for **publisher-link** edges: an independent draw from the relay
+/// domain, so a node's publisher targets are uncorrelated with its relay
+/// upstreams over the same nonce/topic/pair (feature 015, M3).
+const PUBLISHER_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/publisher-edge/v1";
+
 /// Per-topic bucket count for a fixed target connection degree `target_degree`: `max(1, round(candidates / target_degree))`.
 ///
 /// Expected valid edges per topic = `candidates / B ≈ target_degree`. When there are `≤ ~target_degree`
@@ -91,6 +96,40 @@ pub fn is_valid_edge(
     candidate: &PeerId,
     buckets: usize,
 ) -> bool {
+    is_valid_edge_in(EDGE_DOMAIN, nonce, topic, requester, candidate, buckets)
+}
+
+/// The publisher-link twin of [`is_valid_edge`]: the same directional
+/// predicate under the dedicated publisher domain — an independent draw, so
+/// selecting a peer as a relay upstream says nothing about selecting it as a
+/// publisher target (feature 015).
+#[must_use]
+pub fn is_valid_edge_publisher(
+    nonce: u64,
+    topic: &TopicId,
+    requester: &PeerId,
+    candidate: &PeerId,
+    buckets: usize,
+) -> bool {
+    is_valid_edge_in(
+        PUBLISHER_EDGE_DOMAIN,
+        nonce,
+        topic,
+        requester,
+        candidate,
+        buckets,
+    )
+}
+
+/// The one predicate body, parameterised by hash domain.
+fn is_valid_edge_in(
+    domain: &[u8],
+    nonce: u64,
+    topic: &TopicId,
+    requester: &PeerId,
+    candidate: &PeerId,
+    buckets: usize,
+) -> bool {
     if buckets <= 1 {
         return true;
     }
@@ -103,7 +142,7 @@ pub fn is_valid_edge(
     // an alias, its hex, and the mock suffix can all collide); the topic by its
     // exact string.
     let mut preimage = Vec::new();
-    push_len_prefixed(&mut preimage, EDGE_DOMAIN);
+    push_len_prefixed(&mut preimage, domain);
     preimage.extend_from_slice(&nonce.to_le_bytes());
     push_len_prefixed(&mut preimage, topic.as_str().as_bytes());
     push_len_prefixed(&mut preimage, requester.as_public_key().as_bytes());
@@ -152,6 +191,19 @@ mod tests {
         // Directional: (a->b) and (b->a) are independent draws (not required to
         // differ, but computed over distinct tuples).
         let _ba = is_valid_edge(nonce, &t, &peer("b"), &peer("a"), 4);
+    }
+
+    // 015: the publisher domain is an independent draw — over a nonce sweep the
+    // relay and publisher predicates must disagree somewhere (same tuple).
+    #[test]
+    fn publisher_domain_is_an_independent_draw() {
+        use super::is_valid_edge_publisher;
+        let t = topic("t1");
+        let diverges = (0..256u64).any(|nonce| {
+            is_valid_edge(nonce, &t, &peer("a"), &peer("b"), 4)
+                != is_valid_edge_publisher(nonce, &t, &peer("a"), &peer("b"), 4)
+        });
+        assert!(diverges, "the two domains must not be correlated");
     }
 
     // Over a sweep of epoch nonces the accepted fraction approximates 1/B.

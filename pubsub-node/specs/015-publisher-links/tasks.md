@@ -43,22 +43,22 @@
 
 ### Tests for User Story 1 (write first, must fail)
 
-- [ ] T011 [P] [US1] State-machine tests in src/state/tests/: publisher heartbeat pass dials expected publisher links unconditionally (with zero and with full relay downstream — FR-002); publisher `Request` dispatch inserts upstream × Publisher `Active` and replies `Accepted` (kind Publisher); `None` publisher acceptance silently drops (FR-014); `Accepted`/`Rejected`/`Terminated` with kind Publisher mutate the publisher entries only (FR-015)
-- [ ] T012 [P] [US1] Gate tests in src/state/tests/: owner-bound admission over upstream × Publisher (owner admitted, foreigner dropped — FR-006); invalid signature over a publisher link severs the publisher entry, not a relay entry (FR-010); relay admission unchanged
-- [ ] T013 [P] [US1] Fan-out tests in src/state/tests/: local origin → relay ∪ publisher-Active targets; peer origin → relay only (FR-005); peer present as both kinds receives one send (FR-011)
-- [ ] T014 [P] [US1] Acceptance-cap test in src/state/tests/ or src/strategies/acceptance/: relay and publisher bounded acceptance count independently (FR-004)
-- [ ] T015 [P] [US1] Integration test tests/publisher_links.rs (port scenarios from the archive branch): M3 recipe end-to-end — unconditional establishment, delivery over publisher links, owner-binding rejection
+- [x] T011 [P] [US1] State-machine tests in src/state/tests/: publisher heartbeat pass dials expected publisher links unconditionally (with zero and with full relay downstream — FR-002); publisher `Request` dispatch inserts upstream × Publisher `Active` and replies `Accepted` (kind Publisher); `None` publisher acceptance silently drops (FR-014); `Accepted`/`Rejected`/`Terminated` with kind Publisher mutate the publisher entries only (FR-015)
+- [x] T012 [P] [US1] Gate tests in src/state/tests/: owner-bound admission over upstream × Publisher (owner admitted, foreigner dropped — FR-006); invalid signature over a publisher link severs the publisher entry, not a relay entry (FR-010); relay admission unchanged
+- [x] T013 [P] [US1] Fan-out tests in src/state/tests/: local origin → relay ∪ publisher-Active targets; peer origin → relay only (FR-005); peer present as both kinds receives one send (FR-011)
+- [x] T014 [P] [US1] Acceptance-cap test in src/state/tests/ or src/strategies/acceptance/: relay and publisher bounded acceptance count independently (FR-004)
+- [x] T015 [P] [US1] Integration test tests/publisher_links.rs (port scenarios from the archive branch): M3 recipe end-to-end — unconditional establishment, delivery over publisher links, owner-binding rejection
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Add `is_valid_edge_in(domain, …)` internal + `is_valid_edge_publisher` (`…/publisher-edge/v1`) in src/strategies/edge.rs (existing `is_valid_edge` signature/domain untouched)
-- [ ] T017 [US1] Add `kind: LinkKind` field to `HashGatedConnection` (src/strategies/connection/hash_gated.rs) and the hash-gated acceptance baselines (src/strategies/acceptance/hash_gated.rs, hash_gated_bounded.rs) selecting the domain; constructor defaults keep `Relay`; publisher acceptance instances scan upstream × Publisher via `link_scan`
-- [ ] T018 [US1] Publisher heartbeat pass in `handle_heartbeat` (src/state.rs): `if let Some(strategy)` — diff over downstream × Publisher, insert `AwaitingAccept`, send kind-Publisher `Request`; behind the existing `synced` gate; never reads relay entries
-- [ ] T019 [US1] Kind dispatch in the control handlers (src/state.rs): request → publisher acceptance slot (or `publisher_links_disabled` drop), accepted → activate downstream × Publisher, rejected → remove downstream × Publisher `AwaitingAccept`, terminated → remove the carried kind from both maps; shutdown and topic-removal cascade already iterate both maps (T003) — extend the `Terminated` notices with each entry's kind
-- [ ] T020 [US1] Receive gate + severance in `handle_dissemination` (src/state.rs): admit via upstream × Relay `Active` or upstream × Publisher under `PublisherAdmission::OwnerOnly` owner-binding; sever the admitting `LinkKey` on signature failure
-- [ ] T021 [US1] `ForwardToAll` gains the publisher facet: relay ∪ (publisher-Active iff `Origin::Local`) in src/strategies/fanout/forward_to_all.rs
-- [ ] T022 [US1] Publisher CLI flags (`--publisher-strategy`, `--publisher-acceptance-strategy`, `--publisher-degree`) in src/main.rs; two-phase build of the optional publisher pair in src/strategies/config.rs; extend ConnectionScript with publisher-kind steps (`publisher_request_from`, `publisher_accepted_from`, …) in src/connection_state.rs test_support
-- [ ] T023 [US1] Green checkpoint: T011–T015 pass, full suite + clippy + fmt green; commit
+- [x] T016 [P] [US1] Add `is_valid_edge_in(domain, …)` internal + `is_valid_edge_publisher` (`…/publisher-edge/v1`) in src/strategies/edge.rs (existing `is_valid_edge` signature/domain untouched)
+- [x] T017 [US1] Add `kind: LinkKind` field to `HashGatedConnection` (src/strategies/connection/hash_gated.rs) and the hash-gated acceptance baselines (src/strategies/acceptance/hash_gated.rs, hash_gated_bounded.rs) selecting the domain; constructor defaults keep `Relay`; publisher acceptance instances scan upstream × Publisher via `link_scan`
+- [x] T018 [US1] Publisher heartbeat pass in `handle_heartbeat` (src/state.rs): `if let Some(strategy)` — diff over downstream × Publisher, insert `AwaitingAccept`, send kind-Publisher `Request`; behind the existing `synced` gate; never reads relay entries
+- [x] T019 [US1] Kind dispatch in the control handlers (src/state.rs): request → publisher acceptance slot (or `publisher_links_disabled` drop), accepted → activate downstream × Publisher, rejected → remove downstream × Publisher `AwaitingAccept`, terminated → remove the carried kind from both maps; shutdown and topic-removal cascade already iterate both maps (T003) — extend the `Terminated` notices with each entry's kind
+- [x] T020 [US1] Receive gate + severance in `handle_dissemination` (src/state.rs): admit via upstream × Relay `Active` or upstream × Publisher under `PublisherAdmission::OwnerOnly` owner-binding; sever the admitting `LinkKey` on signature failure
+- [x] T021 [US1] `ForwardToAll` gains the publisher facet: relay ∪ (publisher-Active iff `Origin::Local`) in src/strategies/fanout/forward_to_all.rs
+- [x] T022 [US1] Publisher CLI flags (`--publisher-strategy`, `--publisher-acceptance-strategy`, `--publisher-degree`) in src/main.rs; two-phase build of the optional publisher pair in src/strategies/config.rs; extend ConnectionScript with publisher-kind steps (`publisher_request_from`, `publisher_accepted_from`, …) in src/connection_state.rs test_support
+- [x] T023 [US1] Green checkpoint: T011–T015 pass, full suite + clippy + fmt green; commit
 
 **Checkpoint**: M3 configurable end-to-end; M2 unchanged (defaults).
 

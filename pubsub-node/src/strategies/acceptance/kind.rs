@@ -55,17 +55,17 @@ impl AcceptanceStrategyKind {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::Bounded => {
                 let target_degree = require_target_degree(self.name(), params.target_degree)?;
-                Ok(Arc::new(BoundedAcceptance::new(
-                    target_degree,
-                    params.cap_buffer,
-                )))
+                Ok(Arc::new(
+                    BoundedAcceptance::new(target_degree, params.cap_buffer).for_kind(params.kind),
+                ))
             }
             Self::HashGated => {
                 let target_degree = require_target_degree(self.name(), params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedAcceptance::new(params.self_id.clone(), target_degree)
-                        .with_bucket_override(bucket_override),
+                        .with_bucket_override(bucket_override)
+                        .for_kind(params.kind),
                 ))
             }
             Self::HashGatedBounded => {
@@ -77,7 +77,8 @@ impl AcceptanceStrategyKind {
                         target_degree,
                         params.cap_buffer,
                     )
-                    .with_bucket_override(bucket_override),
+                    .with_bucket_override(bucket_override)
+                    .for_kind(params.kind),
                 ))
             }
         }
@@ -108,6 +109,7 @@ impl FromStr for AcceptanceStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::AcceptanceStrategyKind;
+    use crate::connection_state::LinkKind;
     use crate::peer::PeerId;
     use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
@@ -115,6 +117,7 @@ mod tests {
     fn params(target_degree: Option<usize>) -> AcceptanceParams {
         AcceptanceParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
+            kind: LinkKind::Relay,
             target_degree,
             bucket_count: None,
             cap_buffer: 3,

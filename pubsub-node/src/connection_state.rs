@@ -204,6 +204,55 @@ pub(crate) mod test_support {
         )
     }
 
+    /// A publisher-kind control-message `Event` (feature 015).
+    fn publisher_control_event(emitter: &str, action: ConnectionAction) -> Event {
+        Event::MessageReceived {
+            from: peer(emitter),
+            message: control(emitter, LinkKind::Publisher, action),
+        }
+    }
+
+    /// A publisher-kind `Request{topic}` control event from `emitter` — the
+    /// emitter asks to push its own publications to this node.
+    pub(crate) fn publisher_request_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Request {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Accepted{topic}` control event from `emitter`.
+    pub(crate) fn publisher_accepted_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Accepted {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Terminated{topic}` control event from `emitter`.
+    pub(crate) fn publisher_terminated_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Terminated {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Rejected{topic}` control event from `emitter`.
+    pub(crate) fn publisher_rejected_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Rejected {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
     /// A control message signed by `signing_alias` but claiming a different
     /// `emitter_alias` — its signature does not verify under the carried
     /// emitter's key (the control invalid-signature case).
@@ -250,6 +299,16 @@ pub(crate) mod test_support {
     pub(crate) fn payload_from(publisher: &str, topic_id: &str, n: u64) -> Event {
         Event::MessageReceived {
             from: peer(publisher),
+            message: signed_payload_message(publisher, topic_id, n, false),
+        }
+    }
+
+    /// A validly-signed payload `Ping(n)` published by `publisher` but
+    /// **delivered by** `from` — the frame sender differs from the message's
+    /// publisher (a relayed/foreign message; the owner-binding cases).
+    pub(crate) fn payload_via(from: &str, publisher: &str, topic_id: &str, n: u64) -> Event {
+        Event::MessageReceived {
+            from: peer(from),
             message: signed_payload_message(publisher, topic_id, n, false),
         }
     }

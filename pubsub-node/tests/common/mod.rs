@@ -395,6 +395,80 @@ pub async fn node_sharing(
     node
 }
 
+/// Like [`node_with_strategy`], but with the full four-slot strategy set and
+/// an explicit publisher-admission policy — the constructor for
+/// publisher-link / model-family fixtures (015).
+#[allow(clippy::too_many_arguments)]
+pub async fn node_with_links(
+    registry: &Arc<InMemorySubscriptionRegistry>,
+    network: &Arc<InMemoryNetwork>,
+    id: &str,
+    topics: &[TopicId],
+    strategies: NodeStrategies,
+    admission: PublisherAdmission,
+    genesis: u64,
+) -> Node {
+    let id = PeerId::from_str(id).expect("valid id");
+    registry
+        .set_topics(id.clone(), topics.iter().cloned().collect())
+        .await
+        .expect("seed node topics");
+    let topic_registry = Arc::new(InMemoryTopicRegistry::new());
+    for t in topics {
+        topic_registry
+            .set_topic(t.clone(), BTreeSet::new())
+            .await
+            .expect("register topic open");
+    }
+    let signer = alias_signer(&id.to_string());
+    let node = Node::new(
+        id,
+        NodeConfig { peers: Vec::new() },
+        genesis,
+        network.clone(),
+        signer,
+        shared_test_verifier(),
+        registry.clone(),
+        topic_registry,
+        strategies,
+        Arc::new(ForwardToAll),
+        admission,
+    )
+    .await
+    .expect("construct node");
+    await_subscriptions(&node, topics, Duration::from_secs(1))
+        .await
+        .expect("node subscriptions converge");
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node reaches Synced");
+    node
+}
+
+/// Poll `node.downstream_publishers()` until it holds `(peer, topic)` as
+/// `Active`, or `timeout` elapses — the publisher-link establishment barrier.
+pub async fn await_publisher_target_active(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        let active = node
+            .downstream_publishers()
+            .into_iter()
+            .any(|(p, t, state)| &p == peer && &t == topic && state == LinkState::Active);
+        if active {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AwaitError {
     #[error("timed out after {0:?} waiting for delivery")]

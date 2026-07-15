@@ -18,6 +18,7 @@
 
 use std::sync::Arc;
 
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
 use crate::strategies::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
 use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
@@ -29,6 +30,9 @@ use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 pub struct ConnectionParams {
     /// The node's own identity (folded into the verifiable edge predicate).
     pub self_id: PeerId,
+    /// The link kind the built instance dials — selects the hash domain
+    /// (`Relay` for the relay seam, `Publisher` for the publisher seam).
+    pub kind: LinkKind,
     /// The fixed target connection degree `target_degree` — required by `hash-gated` (bucket count derives from it).
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B`. When set, it overrides the per-topic
@@ -43,6 +47,9 @@ pub struct ConnectionParams {
 pub struct AcceptanceParams {
     /// The node's own identity (the candidate side of the verified edge).
     pub self_id: PeerId,
+    /// The link kind the built instance admits — selects the hash domain and
+    /// which accepted-link class its capacity counts.
+    pub kind: LinkKind,
     /// The fixed target connection degree `target_degree` — required by `hash-gated-bounded`.
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);

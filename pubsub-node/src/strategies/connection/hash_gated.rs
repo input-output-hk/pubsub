@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use super::ConnectionStrategy;
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, resolve_buckets};
+use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -33,6 +34,7 @@ pub struct HashGatedConnection {
     self_id: PeerId,
     target_degree: usize,
     bucket_override: Option<usize>,
+    kind: LinkKind,
 }
 
 impl HashGatedConnection {
@@ -45,7 +47,18 @@ impl HashGatedConnection {
             self_id,
             target_degree,
             bucket_override: None,
+            kind: LinkKind::Relay,
         }
+    }
+
+    /// Re-target the instance at a link kind (`Relay` is the constructor
+    /// default): the kind selects the hash domain the picks are drawn from —
+    /// the publisher instance's picks are an independent draw from the relay
+    /// instance's over the same view.
+    #[must_use]
+    pub fn for_kind(mut self, kind: LinkKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Pin the bucket count `B` for every topic instead of deriving it from the
@@ -77,7 +90,19 @@ impl ConnectionStrategy for HashGatedConnection {
             // removes that dependence.
             let buckets = resolve_buckets(self.bucket_override, peers.len(), self.target_degree);
             for candidate in peers {
-                if is_valid_edge(view.epoch_nonce, topic, &self.self_id, candidate, buckets) {
+                let valid = match self.kind {
+                    LinkKind::Relay => {
+                        is_valid_edge(view.epoch_nonce, topic, &self.self_id, candidate, buckets)
+                    }
+                    LinkKind::Publisher => is_valid_edge_publisher(
+                        view.epoch_nonce,
+                        topic,
+                        &self.self_id,
+                        candidate,
+                        buckets,
+                    ),
+                };
+                if valid {
                     expected.insert((candidate.clone(), topic.clone()));
                 }
             }

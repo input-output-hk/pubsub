@@ -5,8 +5,8 @@ use clap::Parser;
 use pubsub_node::{
     load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
     ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, PublisherAdmission,
-    Signer, TestVerifier, Verifier,
+    InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId,
+    PublisherAdmission, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -73,6 +73,24 @@ struct Args {
     #[arg(long, default_value = "accept-from-all")]
     relay_acceptance_strategy: AcceptanceStrategyKind,
 
+    /// Publisher-link selection strategy (case-insensitive): `connect-to-all`
+    /// or `hash-gated`. When absent (the default) the node never dials
+    /// publisher links — the pre-publisher-links baseline.
+    #[arg(long)]
+    publisher_strategy: Option<ConnectionStrategyKind>,
+
+    /// Publisher-link acceptance strategy (case-insensitive), same four kinds
+    /// as --relay-acceptance-strategy. When absent (the default) inbound
+    /// publisher requests are silently dropped.
+    #[arg(long)]
+    publisher_acceptance_strategy: Option<AcceptanceStrategyKind>,
+
+    /// The fixed publisher target degree — the target expected number of
+    /// standing publisher links per topic. Required by the publisher
+    /// `hash-gated` / bounded kinds.
+    #[arg(long)]
+    publisher_degree: Option<usize>,
+
     /// Accept-cap buffer `c` in the per-topic accept cap (default 3). Only
     /// affects the `bounded` / `hash-gated-bounded` acceptance strategies.
     #[arg(long, default_value_t = 3)]
@@ -136,11 +154,13 @@ async fn main() {
         .build(
             &ConnectionParams {
                 self_id: args.self_id.clone(),
+                kind: LinkKind::Relay,
                 target_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
+                kind: LinkKind::Relay,
                 target_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
                 cap_buffer: args.cap_buffer,
@@ -150,6 +170,39 @@ async fn main() {
             eprintln!("pubsub-node: {e}");
             std::process::exit(2);
         });
+
+    // The optional publisher pair: second instances of the same seams, drawn
+    // from the publisher hash domain with their own degree.
+    let mut strategies = strategies;
+    if let Some(kind) = args.publisher_strategy {
+        strategies.publisher_connection = Some(
+            kind.build(&ConnectionParams {
+                self_id: args.self_id.clone(),
+                kind: LinkKind::Publisher,
+                target_degree: args.publisher_degree,
+                bucket_count: args.bucket_count,
+            })
+            .unwrap_or_else(|e| {
+                eprintln!("pubsub-node: {e}");
+                std::process::exit(2);
+            }),
+        );
+    }
+    if let Some(kind) = args.publisher_acceptance_strategy {
+        strategies.publisher_acceptance = Some(
+            kind.build(&AcceptanceParams {
+                self_id: args.self_id.clone(),
+                kind: LinkKind::Publisher,
+                target_degree: args.publisher_degree,
+                bucket_count: args.bucket_count,
+                cap_buffer: args.cap_buffer,
+            })
+            .unwrap_or_else(|e| {
+                eprintln!("pubsub-node: {e}");
+                std::process::exit(2);
+            }),
+        );
+    }
 
     let node = Node::new(
         args.self_id,

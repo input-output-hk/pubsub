@@ -12,6 +12,7 @@ mod connection;
 mod fanout;
 mod gated_receive;
 mod membership;
+mod publisher_links;
 mod setup;
 mod severance;
 mod shutdown;
@@ -19,8 +20,10 @@ mod shutdown;
 use super::*;
 
 pub(crate) use crate::connection_state::test_support::{
-    accepted_from, membership_joined, misattributed_request, payload_from, rejected_from,
-    request_from, tampered_payload_from, terminated_from, ConnectionScript,
+    accepted_from, membership_joined, misattributed_request, payload_from, payload_via,
+    publisher_accepted_from, publisher_rejected_from, publisher_request_from,
+    publisher_terminated_from, rejected_from, request_from, tampered_payload_from, terminated_from,
+    ConnectionScript,
 };
 pub(crate) use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
 pub(crate) use crate::crypto::PublicKey;
@@ -283,6 +286,113 @@ fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
         LinkKey::new(topic(t), peer(peer_alias), LinkKind::Relay),
         LinkState::Active,
     );
+}
+
+// ---- 015: publisher links — helpers ----------------------------------------
+
+/// Construct a `NodeState` like [`node_state`] but with the **publisher** seam
+/// pair configured (selection + acceptance) and an explicit admission policy.
+fn node_state_with_publishers(
+    self_id: &str,
+    subscriptions: HashSet<TopicId>,
+    publisher_strategy: Arc<dyn ConnectionStrategy>,
+    publisher_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    admission: PublisherAdmission,
+) -> NodeState {
+    let mut state = NodeState::new(
+        peer(self_id),
+        subscriptions.iter().cloned().collect(),
+        0,
+        Arc::new(TestVerifier),
+        alias_signer(self_id),
+        NodeStrategies {
+            connection: strategy(),
+            acceptance: Arc::new(AcceptFromAllCandidates),
+            publisher_connection: Some(publisher_strategy),
+            publisher_acceptance: Some(publisher_acceptance),
+        },
+        Arc::new(ForwardToAll),
+        admission,
+    );
+    for t in subscriptions {
+        state
+            .registered_topics
+            .insert(t, TopicEntry::from_publishers(BTreeSet::new()));
+    }
+    state
+}
+
+/// Seed an accepted **publisher upstream** entry `(peer, topic)` directly —
+/// the declarative stand-in for an accepted inbound initiation link.
+fn with_upstream_publisher(state: &mut NodeState, peer_alias: &str, t: &str) {
+    state.upstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Publisher),
+        LinkState::Active,
+    );
+}
+
+/// Seed a **publisher downstream** entry `(peer, topic)` directly, in the
+/// given lifecycle state (the node's own initiation dial).
+fn with_publisher_target(state: &mut NodeState, peer_alias: &str, t: &str, st: LinkState) {
+    state.downstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Publisher),
+        st,
+    );
+}
+
+/// The `(to, topic)` of every **publisher-kind** `Request` send effect.
+fn publisher_request_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
+    kind_sends(effects, expected_emitter, LinkKind::Publisher, |action| {
+        matches!(action, ConnectionAction::Request { .. })
+    })
+}
+
+/// The `(to, topic)` of every **publisher-kind** `Accepted` send effect.
+fn publisher_accepted_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
+    kind_sends(effects, expected_emitter, LinkKind::Publisher, |action| {
+        matches!(action, ConnectionAction::Accepted { .. })
+    })
+}
+
+/// The `(to, topic)` of every control send of `kind` matching `select`.
+fn kind_sends(
+    effects: &[Effect],
+    expected_emitter: &str,
+    kind: LinkKind,
+    select: impl Fn(&ConnectionAction) -> bool,
+) -> Vec<(PeerId, TopicId)> {
+    let mut out = Vec::new();
+    for effect in effects {
+        if let Effect::Send {
+            to,
+            message: Message::Connection(cm),
+        } = effect
+        {
+            if cm.plain.kind == kind && select(&cm.plain.action) {
+                assert_eq!(cm.plain.emitter, peer(expected_emitter), "control emitter");
+                let (ConnectionAction::Request { topic }
+                | ConnectionAction::Accepted { topic }
+                | ConnectionAction::Terminated { topic }
+                | ConnectionAction::Rejected { topic }) = &cm.plain.action;
+                out.push((to.clone(), topic.clone()));
+            }
+        }
+    }
+    out
+}
+
+/// The publisher-downstream state recorded for `(p, t)`, if any.
+fn publisher_target_state(state: &NodeState, p: &str, t: &str) -> Option<LinkState> {
+    state
+        .downstream_publishers()
+        .into_iter()
+        .find(|(pp, tt, _)| pp == &peer(p) && tt == &topic(t))
+        .map(|(_, _, st)| st)
+}
+
+/// Whether an accepted publisher upstream is held for `(p, t)`.
+fn has_upstream_publisher(state: &NodeState, p: &str, t: &str) -> bool {
+    state.upstream_publishers().contains(&(peer(p), topic(t)))
 }
 
 /// The `(to, topic)` of every `Terminated` send effect (asserting emitter).

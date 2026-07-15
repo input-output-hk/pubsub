@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, resolve_buckets};
+use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, resolve_buckets};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -70,7 +70,15 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // override removes the dependence.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
-        if is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
+        let valid = match self.kind {
+            LinkKind::Relay => {
+                is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+            }
+            LinkKind::Publisher => {
+                is_valid_edge_publisher(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+            }
+        };
+        if valid {
             Admission::Accept
         } else {
             Admission::RejectIllegitimate
