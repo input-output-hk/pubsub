@@ -103,12 +103,16 @@ impl SinkEntry {
 /// | `Relay`/In (accepted downstream) | `sinks[..].relay_accepted` |
 /// | `Publisher`/Out (my initiation link) | `sinks[..].push` |
 ///
-/// Ordered maps keep snapshot and shutdown-notice emission deterministic; one
-/// entry per peer makes per-peer target dedup structural.
+/// Ordered maps keep snapshot and shutdown-notice emission deterministic
+/// (topic-major, peers in key order); one entry per peer makes per-peer
+/// target dedup structural. The maps nest **topic → peer** so point lookups
+/// borrow both keys (no owned-tuple clones) and per-topic operations —
+/// fan-out, `inbound_scan`, the removal cascade — walk only that topic's
+/// subtree.
 #[derive(Default)]
 pub struct LinkStore {
-    sources: BTreeMap<(PeerId, TopicId), SourceEntry>,
-    sinks: BTreeMap<(PeerId, TopicId), SinkEntry>,
+    sources: BTreeMap<TopicId, BTreeMap<PeerId, SourceEntry>>,
+    sinks: BTreeMap<TopicId, BTreeMap<PeerId, SinkEntry>>,
 }
 
 impl LinkStore {
@@ -118,25 +122,43 @@ impl LinkStore {
         Self::default()
     }
 
-    /// The **sources** map — every peer this node receives from on some topic,
-    /// with the receive facets: `(pull_state, push_accepted)`. The receive
-    /// gate's single read surface (ADR 0036).
+    /// The **sources** — every peer this node receives from on some topic,
+    /// with the receive facets: `(pull_state, push_accepted)`. Topic-major,
+    /// peers in key order. The receive gate's read surface (ADR 0036).
     pub fn sources(&self) -> impl Iterator<Item = (&PeerId, &TopicId, Option<LinkState>, bool)> {
-        self.sources
-            .iter()
-            .map(|((peer, topic), e)| (peer, topic, e.pull, e.push_accepted))
+        self.sources.iter().flat_map(|(topic, peers)| {
+            peers
+                .iter()
+                .map(move |(peer, e)| (peer, topic, e.pull, e.push_accepted))
+        })
     }
 
-    /// The **sinks** map — every peer this node sends to on some topic, with
-    /// the send facets: `(relay_accepted, push_state)`. The fan-out seam's
-    /// single read surface (ADR 0036).
+    /// The **sinks** — every peer this node sends to on some topic, with the
+    /// send facets: `(relay_accepted, push_state)`. Topic-major, peers in key
+    /// order. The fan-out seam's read surface (ADR 0036).
     pub fn sinks(&self) -> impl Iterator<Item = (&PeerId, &TopicId, bool, Option<LinkState>)> {
-        self.sinks
-            .iter()
-            .map(|((peer, topic), e)| (peer, topic, e.relay_accepted, e.push))
+        self.sinks.iter().flat_map(|(topic, peers)| {
+            peers
+                .iter()
+                .map(move |(peer, e)| (peer, topic, e.relay_accepted, e.push))
+        })
     }
 
-    /// The state of one link, if held.
+    /// The sinks on one `topic` — the fan-out seam's per-message read: only
+    /// that topic's subtree is walked (nested keying, no full-store filter).
+    pub fn sinks_on<'a>(
+        &'a self,
+        topic: &TopicId,
+    ) -> impl Iterator<Item = (&'a PeerId, bool, Option<LinkState>)> + 'a {
+        self.sinks.get(topic).into_iter().flat_map(|peers| {
+            peers
+                .iter()
+                .map(|(peer, e)| (peer, e.relay_accepted, e.push))
+        })
+    }
+
+    /// The state of one link, if held. Borrowed keys — no clones (the maps
+    /// nest topic → peer precisely so lookups need no owned tuple).
     #[must_use]
     pub fn get(
         &self,
@@ -145,24 +167,33 @@ impl LinkStore {
         role: LinkRole,
         direction: LinkDirection,
     ) -> Option<LinkState> {
-        let key = (peer.clone(), topic.clone());
         match (role, direction) {
-            (LinkRole::Relay, LinkDirection::Out) => self.sources.get(&key).and_then(|e| e.pull),
+            (LinkRole::Relay, LinkDirection::Out) => {
+                self.sources.get(topic)?.get(peer).and_then(|e| e.pull)
+            }
             (LinkRole::Publisher, LinkDirection::In) => self
                 .sources
-                .get(&key)
+                .get(topic)?
+                .get(peer)
                 .filter(|e| e.push_accepted)
                 .map(|_| LinkState::Active),
             (LinkRole::Relay, LinkDirection::In) => self
                 .sinks
-                .get(&key)
+                .get(topic)?
+                .get(peer)
                 .filter(|e| e.relay_accepted)
                 .map(|_| LinkState::Active),
-            (LinkRole::Publisher, LinkDirection::Out) => self.sinks.get(&key).and_then(|e| e.push),
+            (LinkRole::Publisher, LinkDirection::Out) => {
+                self.sinks.get(topic)?.get(peer).and_then(|e| e.push)
+            }
         }
     }
 
-    /// Record (or overwrite) a link.
+    /// Record (or overwrite) a link. The `state` argument applies to
+    /// **outbound** facets only; inbound links are presence-only — `Active` by
+    /// definition the moment they are accepted (ADR 0032) — so a non-`Active`
+    /// state passed with `LinkDirection::In` fails a debug assertion rather
+    /// than being silently coerced.
     pub(crate) fn insert(
         &mut self,
         peer: PeerId,
@@ -171,19 +202,40 @@ impl LinkStore {
         direction: LinkDirection,
         state: LinkState,
     ) {
-        let key = (peer, topic);
         match (role, direction) {
             (LinkRole::Relay, LinkDirection::Out) => {
-                self.sources.entry(key).or_default().pull = Some(state);
+                self.sources
+                    .entry(topic)
+                    .or_default()
+                    .entry(peer)
+                    .or_default()
+                    .pull = Some(state);
             }
             (LinkRole::Publisher, LinkDirection::In) => {
-                self.sources.entry(key).or_default().push_accepted = true;
+                debug_assert_eq!(state, LinkState::Active, "inbound links are presence-only");
+                self.sources
+                    .entry(topic)
+                    .or_default()
+                    .entry(peer)
+                    .or_default()
+                    .push_accepted = true;
             }
             (LinkRole::Relay, LinkDirection::In) => {
-                self.sinks.entry(key).or_default().relay_accepted = true;
+                debug_assert_eq!(state, LinkState::Active, "inbound links are presence-only");
+                self.sinks
+                    .entry(topic)
+                    .or_default()
+                    .entry(peer)
+                    .or_default()
+                    .relay_accepted = true;
             }
             (LinkRole::Publisher, LinkDirection::Out) => {
-                self.sinks.entry(key).or_default().push = Some(state);
+                self.sinks
+                    .entry(topic)
+                    .or_default()
+                    .entry(peer)
+                    .or_default()
+                    .push = Some(state);
             }
         }
     }
@@ -196,34 +248,44 @@ impl LinkStore {
         role: LinkRole,
         direction: LinkDirection,
     ) -> bool {
-        let key = (peer.clone(), topic.clone());
         let held = match (role, direction) {
             (LinkRole::Relay, LinkDirection::Out) => self
                 .sources
-                .get_mut(&key)
+                .get_mut(topic)
+                .and_then(|peers| peers.get_mut(peer))
                 .is_some_and(|e| e.pull.take().is_some()),
             (LinkRole::Publisher, LinkDirection::In) => self
                 .sources
-                .get_mut(&key)
+                .get_mut(topic)
+                .and_then(|peers| peers.get_mut(peer))
                 .is_some_and(|e| std::mem::take(&mut e.push_accepted)),
             (LinkRole::Relay, LinkDirection::In) => self
                 .sinks
-                .get_mut(&key)
+                .get_mut(topic)
+                .and_then(|peers| peers.get_mut(peer))
                 .is_some_and(|e| std::mem::take(&mut e.relay_accepted)),
             (LinkRole::Publisher, LinkDirection::Out) => self
                 .sinks
-                .get_mut(&key)
+                .get_mut(topic)
+                .and_then(|peers| peers.get_mut(peer))
                 .is_some_and(|e| e.push.take().is_some()),
         };
-        // Drop emptied entries so iteration and counts stay exact.
-        if let Some(e) = self.sources.get(&key).copied() {
-            if e.is_empty() {
-                self.sources.remove(&key);
+        // Drop emptied entries (and emptied topic subtrees) so iteration and
+        // counts stay exact.
+        if let Some(peers) = self.sources.get_mut(topic) {
+            if peers.get(peer).copied().is_some_and(SourceEntry::is_empty) {
+                peers.remove(peer);
+            }
+            if peers.is_empty() {
+                self.sources.remove(topic);
             }
         }
-        if let Some(e) = self.sinks.get(&key).copied() {
-            if e.is_empty() {
-                self.sinks.remove(&key);
+        if let Some(peers) = self.sinks.get_mut(topic) {
+            if peers.get(peer).copied().is_some_and(SinkEntry::is_empty) {
+                peers.remove(peer);
+            }
+            if peers.is_empty() {
+                self.sinks.remove(topic);
             }
         }
         held
@@ -232,10 +294,17 @@ impl LinkStore {
     /// Advance a pending outbound link of `role` to `Active`; `true` if a
     /// matching `AwaitingAccept` entry existed.
     pub(crate) fn activate_out(&mut self, peer: &PeerId, topic: &TopicId, role: LinkRole) -> bool {
-        let key = (peer.clone(), topic.clone());
         let slot = match role {
-            LinkRole::Relay => self.sources.get_mut(&key).map(|e| &mut e.pull),
-            LinkRole::Publisher => self.sinks.get_mut(&key).map(|e| &mut e.push),
+            LinkRole::Relay => self
+                .sources
+                .get_mut(topic)
+                .and_then(|peers| peers.get_mut(peer))
+                .map(|e| &mut e.pull),
+            LinkRole::Publisher => self
+                .sinks
+                .get_mut(topic)
+                .and_then(|peers| peers.get_mut(peer))
+                .map(|e| &mut e.push),
         };
         if let Some(slot) = slot {
             if *slot == Some(LinkState::AwaitingAccept) {
@@ -248,8 +317,8 @@ impl LinkStore {
 
     /// Drop every link on `topic`, all facets (the topic-removal cascade).
     pub(crate) fn remove_topic(&mut self, topic: &TopicId) {
-        self.sources.retain(|(_, t), _| t != topic);
-        self.sinks.retain(|(_, t), _| t != topic);
+        self.sources.remove(topic);
+        self.sinks.remove(topic);
     }
 
     /// Clear everything (shutdown).
@@ -266,24 +335,20 @@ impl LinkStore {
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = (&PeerId, &TopicId, LinkRole, LinkDirection, LinkState)> {
-        let relay_out = self.sources.iter().filter_map(|((p, t), e)| {
-            e.pull
-                .map(|s| (p, t, LinkRole::Relay, LinkDirection::Out, s))
+        let relay_out = self.sources().filter_map(|(p, t, pull, _)| {
+            pull.map(|s| (p, t, LinkRole::Relay, LinkDirection::Out, s))
         });
         let relay_in = self
-            .sinks
-            .iter()
-            .filter(|(_, e)| e.relay_accepted)
-            .map(|((p, t), _)| (p, t, LinkRole::Relay, LinkDirection::In, LinkState::Active));
-        let publish_out = self.sinks.iter().filter_map(|((p, t), e)| {
-            e.push
-                .map(|s| (p, t, LinkRole::Publisher, LinkDirection::Out, s))
+            .sinks()
+            .filter(|(_, _, relay_accepted, _)| *relay_accepted)
+            .map(|(p, t, _, _)| (p, t, LinkRole::Relay, LinkDirection::In, LinkState::Active));
+        let publish_out = self.sinks().filter_map(|(p, t, _, push)| {
+            push.map(|s| (p, t, LinkRole::Publisher, LinkDirection::Out, s))
         });
         let publish_in = self
-            .sources
-            .iter()
-            .filter(|(_, e)| e.push_accepted)
-            .map(|((p, t), _)| {
+            .sources()
+            .filter(|(_, _, _, push_accepted)| *push_accepted)
+            .map(|(p, t, _, _)| {
                 (
                     p,
                     t,
@@ -308,21 +373,25 @@ impl LinkStore {
         let mut on_topic = 0;
         match role {
             LinkRole::Relay => {
-                for ((peer, t), e) in &self.sinks {
-                    if t == topic && e.relay_accepted {
-                        on_topic += 1;
-                        if peer == emitter {
-                            already_in = true;
+                if let Some(peers) = self.sinks.get(topic) {
+                    for (peer, e) in peers {
+                        if e.relay_accepted {
+                            on_topic += 1;
+                            if peer == emitter {
+                                already_in = true;
+                            }
                         }
                     }
                 }
             }
             LinkRole::Publisher => {
-                for ((peer, t), e) in &self.sources {
-                    if t == topic && e.push_accepted {
-                        on_topic += 1;
-                        if peer == emitter {
-                            already_in = true;
+                if let Some(peers) = self.sources.get(topic) {
+                    for (peer, e) in peers {
+                        if e.push_accepted {
+                            on_topic += 1;
+                            if peer == emitter {
+                                already_in = true;
+                            }
                         }
                     }
                 }
