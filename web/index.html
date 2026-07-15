@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano PubSub — A verifiable communication layer for Cardano</title>
+<meta name="description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain topic commitments, and an economic cost to creating publisher identities.">
+<link rel="icon" href="assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  body {
+    font-size: 17px;
+    line-height: 1.65;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  main { flex: 1; }
+
+  /* Header icon buttons — theme toggle and GitHub sit inside the navbar row */
+  .navbar { padding-right: clamp(24px, 5vw, 80px); }
+  .navbar-icons { display: flex; align-items: center; gap: 10px; }
+  .nav-icon-btn {
+    position: relative;
+    top: auto; right: auto;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    flex-shrink: 0;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
+
+  /* Collapsible navigation — links and icon buttons fold into a dropdown on small screens */
+  .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
+  .nav-menu-btn { display: none; }
+  .nav-menu-btn .icon-close { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-burger { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
+  @media (max-width: 1040px) {
+    .nav-menu-btn { display: flex; }
+    .nav-collapse {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      padding: 4px clamp(24px, 5vw, 80px) 18px;
+    }
+    .navbar.menu-open .nav-collapse { display: flex; }
+    .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
+    .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .navbar-icons { padding-top: 16px; }
+  }
+  @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
+
+  /* ---------- Hero ---------- */
+  section.hero { padding: 72px 0 64px; }
+  .hero-logo { height: clamp(44px, 5vw, 72px); width: auto; margin-bottom: 48px; }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 20px;
+  }
+  .hero h1 .accent { color: var(--iog-infared); }
+  /* The headline's manual break is tuned for wide screens; let narrow ones wrap naturally. */
+  @media (max-width: 640px) { .hero h1 br { display: none; } }
+  .hero-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+  .hero-lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+    color: var(--text-mute);
+    max-width: 62ch;
+    margin-bottom: 36px;
+  }
+  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 4px;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .btn-primary { background: var(--iog-infared); color: #FFFFFF; border: 1px solid var(--iog-infared); }
+  .btn-primary:hover { background: var(--iog-ember-orange); border-color: var(--iog-ember-orange); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line-strong); }
+  .btn-ghost:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .btn svg { width: 14px; height: 14px; display: block; }
+
+  /* ---------- Sections ---------- */
+  section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+  .section-head { margin-bottom: 32px; }
+  .section-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .section-head p { color: var(--text-mute); max-width: 68ch; margin-top: 10px; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+  }
+  .card {
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    padding: 22px 22px 24px;
+  }
+  .card h3 {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .card p { font-size: 0.92rem; color: var(--text-mute); line-height: 1.55; }
+  .card .card-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* ---------- Research timeline ---------- */
+  .timeline { position: relative; max-width: 860px; }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 96px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--line);
+  }
+  .timeline-entry {
+    position: relative;
+    padding-left: 136px;
+    padding-bottom: 44px;
+  }
+  .timeline-entry:last-child { padding-bottom: 0; }
+  .timeline-entry::before {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+    left: 91px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text);
+    border: 2px solid var(--bg);
+    z-index: 1;
+  }
+  .timeline-entry.active::before { background: var(--iog-infared); }
+  .timeline-entry.active::after {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+    left: 91px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--iog-infared);
+    opacity: 0.3;
+    transform-origin: center;
+    animation: timeline-pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes timeline-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(2.4); }
+  }
+  @media (prefers-reduced-motion: reduce) { .timeline-entry.active::after { animation: none; } }
+  .timeline-entry.ahead::before { background: var(--bg); border: 2px solid var(--line-strong); }
+  .timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 3px;
+    width: 78px;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
+  }
+  .timeline-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .status-done { color: var(--good); }
+  .status-active { color: var(--info); }
+  .status-ahead { color: var(--text-faint); }
+  .timeline-entry h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+  .timeline-entry p { font-size: 0.94rem; color: var(--text-mute); line-height: 1.6; max-width: 62ch; }
+  @media (max-width: 640px) {
+    .timeline::before { left: 5px; }
+    .timeline-entry { padding-left: 30px; padding-bottom: 36px; }
+    .timeline-entry::before,
+    .timeline-entry.active::after { left: 0; }
+    .timeline-marker {
+      position: static;
+      display: block;
+      width: auto;
+      text-align: left;
+      margin-bottom: 6px;
+    }
+  }
+
+  /* ---------- Materials ---------- */
+  .material-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+  }
+  .material-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    padding: 24px 22px 22px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color .15s ease;
+  }
+  .material-tile:hover { border-color: var(--iog-infared); }
+  .material-tile:hover .material-name { color: var(--iog-infared); }
+  .material-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    color: var(--iog-infared);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .material-icon svg { width: 18px; height: 18px; display: block; }
+  .material-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    transition: color .12s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .material-desc { font-size: 0.9rem; color: var(--text-mute); line-height: 1.55; margin-top: 8px; }
+  .material-note {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
+    margin-top: auto;
+    padding-top: 18px;
+  }
+
+  /* ---------- "Soon" badge ---------- */
+  .badge-soon {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--iog-infared);
+    color: var(--iog-infared);
+    white-space: nowrap;
+  }
+  .btn .badge-soon { margin-left: 2px; }
+  .nav-icon-btn .badge-soon {
+    position: absolute;
+    top: -8px;
+    right: -12px;
+    font-size: 0.5rem;
+    padding: 2px 6px;
+    background: var(--bg);
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 28px 0 36px;
+    margin-top: 40px;
+  }
+  .footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .footer-logo { height: 26px; width: auto; }
+  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+</svg>
+
+<nav class="navbar" aria-label="Primary">
+  <a class="navbar-brand" href="./">CARDANO PUBSUB <span class="brand-tag">RESEARCH &amp; DEVELOPMENT</span></a>
+  <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
+    <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+  </button>
+  <div class="nav-collapse">
+  <div class="navbar-links">
+    <a href="#scenarios">Scenarios</a>
+    <a href="#research">Research</a>
+    <a href="#materials">Materials</a>
+    <a href="slides/progress-2026-07.html">Presentation</a>
+  </div>
+  <div class="navbar-icons">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository (open-sourcing soon)">
+      <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+      <span class="badge-soon">Soon</span>
+    </a>
+    <button class="nav-icon-btn theme-toggle" type="button" aria-label="Toggle color theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="container">
+      <img class="hero-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
+      <img class="hero-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
+      <div class="hero-tagline">Cardano PubSub</div>
+      <h1>A verifiable communication layer<br>for the <span class="accent">Cardano</span> ecosystem</h1>
+      <p class="hero-lede">
+        A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication:
+        identifiable publishers, verifiable events, on-chain topic commitments, and an
+        economic cost to creating publisher identities.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="slides/progress-2026-07.html">Midyear presentation</a>
+        <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+          Repository
+          <span class="badge-soon">Soon</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="scenarios">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Why it matters</div>
+        <h2>Critical communication deserves the same guarantees as transactions</h2>
+        <p>
+          Today, ecosystem-critical messages travel over social platforms and chat servers —
+          unauthenticated, unverifiable, and open to impersonation. PubSub extends Cardano's
+          trust guarantees to the messages that coordinate the ecosystem.
+        </p>
+      </header>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-kicker">Node operations</div>
+          <h3>Emergency alerts for node operators</h3>
+          <p>Node builders and maintainers — teams like IOG, Amaru, and the Cardano Foundation — reach node operators with authenticated emergency and operational alerts.</p>
+        </div>
+        <div class="card">
+          <div class="card-kicker">Stake pools</div>
+          <h3>SPO-to-delegator communication</h3>
+          <p>Stake pool operators reach their delegators through a topic that provably belongs to the pool — no spoofed announcements.</p>
+        </div>
+        <div class="card">
+          <div class="card-kicker">Governance</div>
+          <h3>dRep-to-delegator communication</h3>
+          <p>dReps share voting intent and rationale with the delegators they represent, verifiably, in the CIP-1694 governance system.</p>
+        </div>
+        <div class="card">
+          <div class="card-kicker">Applications</div>
+          <h3>dApp-to-user announcements</h3>
+          <p>dApps reach their users with critical alerts and notifications tailored to the dApp's purpose — from protocol updates to user-specific events such as open positions — published under on-chain identities with spam resisted by real stake.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="research">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Research programme</div>
+        <h2>From proposed design to evidence-based architecture</h2>
+        <p>
+          The workstream moves in phases: rigorous analysis of the proposed foundations first,
+          then an architecture built on what the evidence supports.
+        </p>
+      </header>
+      <div class="timeline">
+        <div class="timeline-entry">
+          <div class="timeline-marker">Jul 2023</div>
+          <div class="timeline-tag">Foundations</div>
+          <h3>SecureCyclon published</h3>
+          <p>
+            Antonov &amp; Voulgaris publish SecureCyclon at ICDCS 2023 — a Byzantine-hardened
+            peer-sampling protocol, proposed as the decentralised foundation the PubSub
+            workstream would build on.
+          </p>
+        </div>
+        <div class="timeline-entry">
+          <div class="timeline-marker">Feb 2026</div>
+          <div class="timeline-tag">Phase 1 · <span class="status-done">Complete</span> · Feb – Jul 2026</div>
+          <h3>Exploratory research</h3>
+          <p>
+            Use-case and requirements analysis, cryptographic key-material study, and formal plus
+            empirical analysis of the proposed peer-sampling foundation. The analysis surfaced
+            silent attack vectors — adversaries can bias nodes' views of the network without
+            triggering any of the protocol's defences — which led to the sampling layer being
+            set aside in favour of an on-chain, list-based design.
+          </p>
+        </div>
+        <div class="timeline-entry active">
+          <div class="timeline-marker">Jul 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">Active</span> · Jul – Sep 2026</div>
+          <h3>Empirically-driven architecture</h3>
+          <p>
+            Five candidate dissemination models, from simple push to hybrid designs, analysed
+            formally and measured empirically against a silent Byzantine adversary — so the
+            final design is the one the data supports, not the one intuition favours. A Rust
+            prototype node implements topics, subscriptions, publishing, and fan-out forwarding,
+            backed by a deterministic simulation framework for controlled experiments.
+          </p>
+        </div>
+        <div class="timeline-entry ahead">
+          <div class="timeline-marker">Ahead</div>
+          <div class="timeline-tag"><span class="status-ahead">Planned</span></div>
+          <h3>Hardening &amp; ecosystem integration</h3>
+          <p>
+            A design proposal consolidates the analytical and experimental findings — the
+            measured architecture, its adversary model, and positioning against existing art —
+            published as a CIP if phase&nbsp;2 time permits. Beyond it: a fee-and-incentive
+            model that aligns participation with honest behaviour, real network transport in the
+            prototype node, and a public testnet deployment. On the research side, larger
+            networks reopen the peer-sampling question — further protocol analysis of
+            decentralised sampling at scales where the on-chain list no longer suffices.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="materials">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Materials</div>
+        <h2>Read more</h2>
+      </header>
+      <div class="material-grid">
+        <a class="material-tile" href="slides/progress-2026-07.html">
+          <div class="material-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M4 3v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V3"/><path d="m8 21 4-4 4 4"/><path d="M12 15v2"/></svg>
+          </div>
+          <span class="material-name">Midyear presentation</span>
+          <p class="material-desc">The latest R&amp;D progress deck: findings from the exploratory phase and the plan for the empirically-driven architecture.</p>
+          <span class="material-note">July 2026</span>
+        </a>
+        <a class="material-tile" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
+          <div class="material-icon">
+            <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+          </div>
+          <span class="material-name">Source repository <span class="badge-soon">Open-sourcing soon</span></span>
+          <p class="material-desc">The Rust prototype node, simulation framework, formal specifications, and analysis reports — currently private, to be opened.</p>
+          <span class="material-note">GitHub</span>
+        </a>
+        <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
+          <div class="material-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          </div>
+          <span class="material-name">Research logbook <span class="badge-soon">Public soon</span></span>
+          <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen — public once the repository opens.</p>
+          <span class="material-note">Ongoing</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container footer-row">
+    <img class="footer-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
+    <img class="footer-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
+    <p>INPUT OUTPUT · CARDANO PUBSUB · 2026</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var stored = null;
+    try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+    if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    document.querySelector('.theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+
+    var navbar = document.querySelector('.navbar');
+    var menuBtn = document.querySelector('.nav-menu-btn');
+    menuBtn.addEventListener('click', function () {
+      var open = navbar.classList.toggle('menu-open');
+      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.querySelectorAll('.navbar-links a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        navbar.classList.remove('menu-open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

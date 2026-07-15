@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano PubSub — Progress &amp; Direction · July 2026</title>
+<link rel="icon" href="../assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  html, body { height: 100%; }
+  /* Sized for screen-share: scale with both width and height so wide screens
+     get larger type instead of whitespace, without overflowing short windows. */
+  body { overflow: hidden; font-size: clamp(16px, min(1.55vw, 2.75vh), 27px); background: var(--bg); }
+
+  .deck { height: 100%; position: relative; z-index: 1; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(32px, 6vh, 72px) clamp(28px, 7vw, 110px);
+  }
+  .slide.active { display: flex; }
+
+  .slide-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 0.9em;
+  }
+  .slide h2 {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+    max-width: 22ch;
+  }
+  .slide p.lede { font-size: 1.15em; color: var(--text-mute); max-width: 62ch; line-height: 1.55; }
+
+  ul.points { list-style: none; display: grid; gap: 0.75em; max-width: 66ch; }
+  ul.points li {
+    font-size: 1.08em;
+    line-height: 1.5;
+    padding-left: 1.2em;
+    position: relative;
+    color: var(--text);
+  }
+  ul.points li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0.62em;
+    width: 0.45em; height: 0.45em;
+    border-radius: 2px;
+    background: var(--iog-infared);
+  }
+  ul.points li strong { font-weight: 600; }
+  ul.points li .mute { color: var(--text-mute); }
+
+  .takeaway {
+    margin-top: 1.6em;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text);
+    border-left: 4px solid var(--iog-infared);
+    padding: 0.35em 0 0.35em 0.9em;
+    max-width: 56ch;
+    line-height: 1.45;
+  }
+
+  /* Closing slide */
+  .slide.close-slide { align-items: center; text-align: center; }
+  .slide.close-slide .title-logo { margin-bottom: 2.2em; }
+  .slide.close-slide h2 { font-size: 3.4em; max-width: none; margin-bottom: 0.35em; }
+  .slide.close-slide h2 .accent { color: var(--iog-infared); }
+  .close-sub { font-size: 1.25em; color: var(--text-mute); }
+
+  /* Title slide */
+  .slide.title-slide { align-items: flex-start; }
+  .title-logo { height: clamp(40px, 7vh, 68px); width: auto; margin-bottom: 3em; }
+  .slide.title-slide h1 {
+    font-family: var(--font-display);
+    font-size: 3.4em;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 0.4em;
+  }
+  .slide.title-slide h1 .accent { color: var(--iog-infared); }
+  .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
+  .title-slide .split-row { width: 100%; }
+  .title-team { margin-top: 3em; }
+  .title-team-label {
+    font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.9em;
+  }
+  .title-team-row { display: grid; grid-template-columns: repeat(3, max-content); gap: 1em 1.8em; }
+  .title-team-member { display: flex; align-items: center; gap: 0.6em; }
+  .title-team-member img {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid var(--line, rgba(128,128,128,0.35));
+  }
+  .title-team-member span { display: block; font-size: 0.82em; color: var(--text-mute); white-space: nowrap; }
+  .title-team-member .team-role { font-size: 0.66em; color: var(--text-faint); margin-top: 0.1em; }
+  .hero-visual { justify-self: center; }
+  .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
+
+  /* Before / After slides */
+  .ba-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 64px);
+    align-items: start;
+    width: 100%;
+  }
+  .ba-col { min-width: 0; }
+  .ba-col.before { opacity: 0.55; }
+  .ba-col.after { color: var(--text); }
+  .ba-arrow { color: var(--iog-infared); justify-self: center; align-self: center; }
+  .ba-arrow svg { width: clamp(64px, 7vw, 130px); height: auto; display: block; }
+  .ba-label {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+  }
+  .ba-col.before .ba-label { color: var(--text); }
+  .ba-col.after .ba-label { color: var(--good); }
+  .ba-grid + .takeaway { max-width: none; white-space: nowrap; }
+  .ba-col ul { list-style: none; display: grid; gap: 0.65em; }
+  .ba-col li { font-size: 1.04em; line-height: 1.45; padding-left: 1.1em; position: relative; }
+  .ba-col.after li { font-weight: 500; }
+  .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
+  .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
+
+  /* Split layout with trailing visual */
+  .split-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(24px, 3vw, 48px);
+  }
+  .actor-graph { justify-self: center; }
+  .actor-graph svg { width: clamp(340px, 40vw, 720px); max-height: 76vh; height: auto; display: block; }
+  .split-row.timeline-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .timeline-visual { justify-self: center; }
+  .timeline-visual svg { width: clamp(380px, 46vw, 820px); max-height: 70vh; height: auto; display: block; }
+
+  /* Candidate-topology table (phase 2 approach slide) */
+  .split-row.method-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .model-visual { min-width: 0; }
+  .model-table { width: 100%; border-collapse: collapse; }
+  .model-table th {
+    font-family: var(--font-mono);
+    font-size: 0.66em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    text-align: left;
+    padding: 0 0.9em 0.7em 0;
+  }
+  .model-table td {
+    padding: 0.6em 0.9em 0.6em 0;
+    border-top: 1px solid var(--line-strong);
+    font-size: 0.92em;
+    line-height: 1.45;
+    vertical-align: baseline;
+  }
+  .model-table th:last-child, .model-table td:last-child { padding-right: 0; }
+  .model-table .model-id { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); white-space: nowrap; }
+
+  /* About slide */
+  .about-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(28px, 5vw, 80px);
+  }
+  .about-figure { justify-self: center; text-align: center; }
+  .about-avatar {
+    width: clamp(150px, 24vh, 260px);
+    height: auto;
+    border-radius: 50%;
+    border: 3px solid var(--iog-infared);
+  }
+  .about-name {
+    margin-top: 1.1em;
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .about-name strong { color: var(--text); font-weight: 600; }
+
+  /* Corner buttons (GitHub · theme · close) */
+  .corner-btn {
+    position: fixed;
+    top: 20px;
+    z-index: 50;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .corner-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .corner-btn svg { width: 16px; height: 16px; display: block; }
+  .btn-close { right: 20px; }
+  .btn-github { right: 116px; }
+  .theme-toggle { right: 68px; }
+
+  /* Slide chrome */
+  .chrome {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px clamp(28px, 7vw, 110px);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 30;
+  }
+  .chrome .chrome-logo { height: 18px; width: auto; opacity: 0.9; }
+  .progress {
+    position: fixed;
+    left: 0; top: 0;
+    height: 3px;
+    background: var(--iog-infared);
+    transition: width .25s ease;
+    z-index: 60;
+  }
+  .nav-hint { position: fixed; right: 20px; bottom: 52px; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.08em; }
+
+  /* Mobile / narrow screens: stack each slide vertically — text first, visual
+     below — and let the slide scroll instead of hiding content. */
+  @media (max-width: 900px) {
+    .slide {
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 76px 22px 96px;
+    }
+    .slide h2 { font-size: 1.9em; }
+    .slide.title-slide h1 { font-size: 2.5em; }
+    .title-logo { height: auto; width: min(64vw, 250px); margin-bottom: 1.6em; }
+    .title-team { margin-top: 2em; }
+    .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
+
+    .split-row,
+    .split-row.timeline-row,
+    .split-row.method-row,
+    .about-row {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      gap: 2.2em;
+    }
+    .model-visual { overflow-x: auto; }
+    .hero-visual, .actor-graph, .timeline-visual { justify-self: center; width: 100%; }
+    .hero-visual svg, .actor-graph svg, .timeline-visual svg {
+      width: min(100%, 460px);
+      max-height: none;
+      margin: 0 auto;
+    }
+    .about-figure { justify-self: center; }
+    .about-avatar { width: clamp(120px, 40vw, 200px); }
+
+    .ba-grid { grid-template-columns: minmax(0, 1fr); gap: 1.6em; }
+    .ba-arrow svg { transform: rotate(90deg); width: 44px; margin: 0 auto; }
+    .ba-grid + .takeaway { white-space: normal; }
+
+    .nav-hint { display: none; }
+  }
+
+  /* Print: all slides sequentially */
+  @media print {
+    body { overflow: visible; font-size: 13px; }
+    .deck { height: auto; }
+    .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; background: var(--bg); }
+    .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" aria-label="Toggle color theme">
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+
+<a class="corner-btn btn-close" href="../" aria-label="Back to the Cardano PubSub site">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</a>
+<a class="corner-btn btn-github" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+</a>
+
+<div class="deck">
+
+  <!-- 1 · Title -->
+  <section class="slide title-slide">
+    <div class="split-row">
+      <div>
+        <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+        <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+        <div class="slide-kicker">Research &amp; Development · July 2026</div>
+        <h1>Cardano <span class="accent">PubSub</span></h1>
+        <p class="title-sub">In pursuit of a verifiable communication layer for the Cardano ecosystem —
+          an innovation workstream at the frontier of peer-sampling and dissemination research.</p>
+        <div class="title-team">
+          <div class="title-team-label">Team</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff"><div><span>William Wolff</span><span class="team-role">Lead · Technical Architect</span></div></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><div><span>Denis Firsov</span><span class="team-role">Senior Formal Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><div><span>Jesus Diaz Vico</span><span class="team-role">Applied Cryptography Lead</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><div><span>Dana Alibrandi</span><span class="team-role">Product Manager</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><div><span>Sandro Coretti-Drayton</span><span class="team-role">Senior Research Fellow</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 440 372" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--info)">PUBLISHERS</text>
+          <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--good)">SUBSCRIBERS</text>
+
+          <!-- flows in -->
+          <g stroke="var(--info)" stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M43,52 C110,52 130,166 163,170"/>
+            <path d="M43,145 C105,145 130,178 163,180"/>
+            <path d="M43,239 C105,239 130,194 163,192"/>
+            <path d="M43,332 C110,332 130,206 163,202"/>
+          </g>
+          <!-- flows out -->
+          <g stroke="var(--good)" stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M281,172 C330,168 350,82 397,82"/>
+            <path d="M281,186 C320,186 350,192 397,192"/>
+            <path d="M281,200 C330,206 350,302 397,302"/>
+          </g>
+          <!-- publisher nodes -->
+          <g>
+            <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="145" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="239" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="332" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+          </g>
+          <!-- subscriber nodes -->
+          <g>
+            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="82" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="192" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- PubSub hub -->
+          <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · About me -->
+  <section class="slide">
+    <div class="about-row">
+      <div>
+        <div class="slide-kicker">Introduction</div>
+        <h2>About me</h2>
+        <ul class="points">
+          <li>With IO for almost five years — first as Solution Architect, now as Technical Architect.</li>
+          <li>Worked on the backend architecture of the <strong>Lace</strong> wallet platform.</li>
+          <li>Led the <strong>Ouroboros Leios</strong> workstream through 2025 — now handed over to engineering.</li>
+          <li>Since early 2026: leading the <strong>PubSub workstream</strong>.</li>
+        </ul>
+      </div>
+      <figure class="about-figure">
+        <img class="about-avatar" src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff">
+        <figcaption class="about-name"><strong>William Wolff</strong></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 3 · What we're working towards -->
+  <section class="slide">
+    <div class="split-row">
+      <div>
+        <div class="slide-kicker">The workstream</div>
+        <h2>What we're working towards</h2>
+        <p class="lede">
+          An innovation workstream: starting from research proposals and product-driven use
+          cases, we design and prototype a Cardano-anchored publish/subscribe layer —
+          identifiable publishers, verifiable events, on-chain topic commitments, and an
+          economic cost to creating publisher identities.
+        </p>
+        <ul class="points" style="margin-top:1.3em">
+          <li><strong>Node builders → node operators</strong> — authenticated emergency alerts
+            from teams like IOG, Amaru, and the Cardano Foundation.</li>
+          <li><strong>SPOs → delegators</strong> — announcements from topics that provably
+            belong to the pool.</li>
+          <li><strong>dReps → delegators</strong> — voting intent and rationale (CIP-1694).</li>
+          <li><strong>dApps → users</strong> — critical alerts and dApp-specific,
+            per-user notifications (e.g. open positions) under on-chain identities.</li>
+        </ul>
+      </div>
+      <div class="actor-graph" aria-hidden="true">
+        <svg viewBox="0 0 470 400" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
+          <defs>
+            <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--text-faint)"/>
+            </marker>
+          </defs>
+
+          <text x="75" y="18" text-anchor="middle" font-size="10" letter-spacing="2" fill="var(--text-faint)" font-family="JetBrains Mono, monospace">PUBLISHERS</text>
+          <text x="395" y="18" text-anchor="middle" font-size="10" letter-spacing="2" fill="var(--text-faint)" font-family="JetBrains Mono, monospace">SUBSCRIBERS</text>
+
+          <!-- publishers -->
+          <g>
+            <rect x="0" y="36" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="75" y="58" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Node builders</text>
+            <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">IOG · Amaru · CF</text>
+
+            <rect x="0" y="126" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="75" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">SPOs</text>
+            <text x="75" y="166" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">stake pool operators</text>
+
+            <rect x="0" y="216" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="75" y="238" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">dReps</text>
+            <text x="75" y="256" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">governance representatives</text>
+
+            <rect x="0" y="306" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="75" y="328" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">dApps</text>
+            <text x="75" y="346" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">applications &amp; protocols</text>
+          </g>
+
+          <!-- hub -->
+          <rect x="197" y="167" width="76" height="60" rx="12" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+          <text x="235" y="193" text-anchor="middle" font-size="14" font-weight="700" fill="var(--iog-infared)">PubSub</text>
+          <text x="235" y="210" text-anchor="middle" font-size="11" fill="var(--iog-infared)">topics</text>
+
+          <!-- publisher edges -->
+          <g stroke="var(--line-strong)" stroke-width="1.3" fill="none" marker-end="url(#arr)">
+            <path d="M150,62 C173.5,62 173.5,182 197,182"/>
+            <path d="M150,152 C173.5,152 173.5,191 197,191"/>
+            <path d="M150,242 C173.5,242 173.5,203 197,203"/>
+            <path d="M150,332 C173.5,332 173.5,212 197,212"/>
+          </g>
+          <!-- subscriber edges -->
+          <g stroke="var(--line-strong)" stroke-width="1.3" fill="none" marker-end="url(#arr)">
+            <path d="M273,184 C296.5,184 296.5,97 320,97"/>
+            <path d="M273,197 C296.5,197 296.5,207 320,207"/>
+            <path d="M273,210 C296.5,210 296.5,317 320,317"/>
+          </g>
+
+          <!-- subscribers -->
+          <g>
+            <rect x="320" y="71" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="395" y="102" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Node operators</text>
+
+            <rect x="320" y="181" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="395" y="212" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Delegators</text>
+
+            <rect x="320" y="291" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="395" y="322" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Users</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · Before/After: trusted communication -->
+  <section class="slide">
+    <div class="slide-kicker">Trusted communication for Cardano</div>
+    <div class="ba-grid">
+      <div class="ba-col before">
+        <div class="ba-label">Before</div>
+        <ul>
+          <li>Critical messages travel over X, Discord, Telegram — entirely off-chain.</li>
+          <li>Anyone can impersonate an SPO or a governance actor.</li>
+          <li>No canonical channels — audiences can't know where legitimate messages appear.</li>
+          <li>No delivery guarantee — a message may simply never reach its audience.</li>
+          <li>Spam and Sybil accounts cost the attacker nothing.</li>
+        </ul>
+      </div>
+      <div class="ba-arrow" aria-hidden="true">
+        <svg viewBox="0 0 120 60" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 18 H28" stroke-width="5" opacity="0.3"/>
+          <path d="M2 30 H36" stroke-width="5" opacity="0.55"/>
+          <path d="M8 42 H28" stroke-width="5" opacity="0.3"/>
+          <path d="M48 30 H98" stroke-width="7"/>
+          <path d="M82 13 L100 30 L82 47" stroke-width="7"/>
+        </svg>
+      </div>
+      <div class="ba-col after">
+        <div class="ba-label">After</div>
+        <ul>
+          <li>Publishers identified by on-chain credentials.</li>
+          <li>Every message cryptographically verifiable.</li>
+          <li>Topics committed on-chain — subscribers know what they subscribed to.</li>
+          <li>Delivery to every honest subscriber — formally analysed, failure risk
+            quantified and bounded while attackers stay below a known share of the network.</li>
+          <li>Spam and fake identities carry a real on-chain cost.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="takeaway">The guarantees Cardano gives transactions, extended to communication.</p>
+  </section>
+
+  <!-- 5 · Phase 1 -->
+  <section class="slide">
+    <div class="split-row timeline-row">
+      <div>
+        <div class="slide-kicker">Phase 1 — exploratory research</div>
+        <h2>From proposal to evidence</h2>
+        <ul class="points" style="gap:0.6em">
+          <li><strong>Where we started:</strong> the four use cases just shown, and the research
+            paper <em>SecureCyclon: Dependable Peer Sampling</em> (July 2023).</li>
+          <li>The proposal: three layers — peer sampling, navigation, dissemination —
+            security inherited across the layers.</li>
+          <li><strong>What we did:</strong> tested those claims systematically — formal model
+            checking, simulation, and manual analysis.</li>
+          <li><strong>What we found:</strong> the sampled views drift from uniform, and a
+            silent adversary can bias a node's view without a single protocol violation.</li>
+          <li>None of SecureCyclon's nine defences fire — the attack sits outside the paper's
+            adversary model.</li>
+          <li><strong>Where that led us:</strong> a simpler, modellable design — no peer
+            sampling for now; on-chain registries close off the silent sampling attacks.</li>
+        </ul>
+        <p class="takeaway" style="margin-top:1.1em">Analysed what we were given, widened to
+          alternatives like Basalt — then narrowed to a modular base built to grow.</p>
+      </div>
+      <div class="timeline-visual" aria-hidden="true">
+        <svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
+          <defs>
+            <marker id="tl-arr" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--text-faint)"/>
+            </marker>
+          </defs>
+
+          <!-- base track with a compressed-time break between the research paper and phase 1 -->
+          <line x1="14" y1="110" x2="74" y2="110" stroke="var(--line-strong)" stroke-width="2"/>
+          <line x1="96" y1="110" x2="502" y2="110" stroke="var(--line-strong)" stroke-width="2" marker-end="url(#tl-arr)"/>
+          <path d="M77 118 l8 -16 M87 118 l8 -16" fill="none" stroke="var(--line-strong)" stroke-width="2"/>
+
+          <!-- research paper · Jul 2023 (timeline not to scale) -->
+          <circle cx="44" cy="110" r="5.5" fill="var(--text-faint)"/>
+          <text x="44" y="156" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text)">SecureCyclon</text>
+          <text x="44" y="174" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">paper · Jul 2023</text>
+
+          <!-- phase 2 · Jul – Sep 2026 · in progress (drawn first, behind phase 1) -->
+          <line x1="316" y1="110" x2="352" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round"/>
+          <line x1="365" y1="110" x2="488" y2="110" stroke="var(--iog-infared)" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 13" opacity="0.5"/>
+
+          <!-- phase 1 · Feb – Jul 2026 · complete -->
+          <line x1="106" y1="110" x2="322" y2="110" stroke="var(--good)" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="106" cy="110" r="6" fill="var(--good)"/>
+          <circle cx="322" cy="110" r="6" fill="var(--good)"/>
+          <g>
+            <circle cx="156" cy="66" r="11" fill="none" stroke="var(--good)" stroke-width="2"/>
+            <path d="M150.5 66.5 l4 4 l7.5 -8" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="174" y="70" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--good)" font-family="JetBrains Mono, monospace">COMPLETE</text>
+          </g>
+          <text x="208" y="139" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 1</text>
+          <text x="208" y="156" text-anchor="middle" font-size="11.5" fill="var(--text)">Exploratory research</text>
+          <text x="208" y="174" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Feb – Jul 2026</text>
+
+          <!-- phase 2 labels -->
+          <text x="412" y="139" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">Phase 2</text>
+          <text x="412" y="156" text-anchor="middle" font-size="11.5" fill="var(--text)">Evidence-based design</text>
+          <text x="412" y="174" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">Jul – Sep 2026</text>
+
+          <!-- today marker -->
+          <line x1="352" y1="84" x2="352" y2="110" stroke="var(--iog-infared)" stroke-width="2"/>
+          <circle cx="352" cy="110" r="7" fill="var(--iog-infared)" stroke="var(--bg)" stroke-width="2.5"/>
+          <text x="352" y="72" text-anchor="middle" font-size="10.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)" font-family="JetBrains Mono, monospace">TODAY</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · Phase 2 approach -->
+  <section class="slide">
+    <div class="split-row method-row">
+      <div>
+        <div class="slide-kicker">Phase 2 — the approach</div>
+        <h2>Deriving the design, not proposing it</h2>
+        <ul class="points">
+          <li><strong>One bar to clear:</strong> a <em>good graph</em> — every message of every
+            honest publisher reaches all other honest nodes.</li>
+          <li><strong>Five candidate topologies</strong> (M1–M5), all facing the same adversary:
+            a fraction <strong>μ</strong> of silent Byzantine nodes.</li>
+          <li><strong>Two independent tracks:</strong> formal analysis — per-model laws for coverage,
+            bandwidth, hops, and degrees, validated against Monte-Carlo simulation — and prototype
+            experiments measuring the same models empirically.</li>
+          <li><strong>Measured trade-off:</strong> good-graph probability (security) vs hops (latency)
+            vs messages (bandwidth) — per configuration, not in the abstract.</li>
+        </ul>
+        <p class="takeaway">If the final design carries complexity, it is because the data shows the
+          simpler variants fail — and exactly why.</p>
+      </div>
+      <div class="model-visual">
+        <table class="model-table">
+          <thead>
+            <tr><th scope="col">Model</th><th scope="col">Mechanism</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model-id">M1</td>
+              <td><strong>Push</strong> — publishers push each message to <em>F</em> random peers.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M2</td>
+              <td><strong>Pull</strong> — each node pulls from <em>RF</em> forwarders, redrawn
+                every epoch.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M3</td>
+              <td><strong>Pull + publishing links</strong> — per-epoch pull plus <em>s</em>−1 publishing
+                links carrying only the node's own publications.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M4</td>
+              <td><strong>Flooding</strong> — each node picks <em>RF</em> peers uniformly; every
+                pick becomes a bidirectional link, and messages flood along all links.</td>
+            </tr>
+            <tr>
+              <td class="model-id">M5</td>
+              <td><strong>Directed</strong> — <em>k</em><sub>in</sub> inbound +
+                <em>k</em><sub>out</sub> outbound links, both the node's own picks.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · Next steps -->
+  <section class="slide">
+    <div class="slide-kicker">Direction</div>
+    <h2>Next steps</h2>
+    <ul class="points">
+      <li><strong>Complete the formal analysis</strong> — validate the laws for each model and
+        cross-compare them toward a recommendation.</li>
+      <li><strong>Run the experiments</strong> — measure the five models in the prototype and
+        analyze the results.</li>
+      <li><strong>Design proposal by mid-August</strong> — a clear candidate we can put forward
+        as the solution architecture.</li>
+      <li class="mute">If time permits, a draft CIP — an ambition, not yet a commitment.</li>
+      <li class="mute">Beyond this phase: economic feasibility — how the infrastructure pays for
+        itself (fees, incentives) is an open question outside phase 2's scope.</li>
+    </ul>
+    <p class="takeaway">Outcome: an evidence-backed architecture recommendation Cardano can adopt.</p>
+  </section>
+
+  <!-- 8 · Thank you -->
+  <section class="slide close-slide">
+    <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+    <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+    <div class="slide-kicker">Cardano PubSub · July 2026</div>
+    <h2>Thank <span class="accent">you</span></h2>
+    <p class="close-sub">Questions welcome.</p>
+  </section>
+
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="chrome">
+  <span>Cardano PubSub · July 2026</span>
+  <span id="counter">1 / 8</span>
+</div>
+<div class="nav-hint">← → to navigate</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    // Presentation defaults to the bright theme; the toggle overrides per browser.
+    var stored = null;
+    try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+    if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    document.querySelector('.theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var counter = document.getElementById('counter');
+    var progress = document.getElementById('progress');
+    var current = 0;
+
+    function show(i) {
+      current = Math.max(0, Math.min(slides.length - 1, i));
+      slides.forEach(function (s, idx) { s.classList.toggle('active', idx === current); });
+      counter.textContent = (current + 1) + ' / ' + slides.length;
+      progress.style.width = ((current + 1) / slides.length * 100) + '%';
+      if (history.replaceState) history.replaceState(null, '', '#' + (current + 1));
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); show(0); }
+      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+    });
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.theme-toggle') || e.target.closest('a')) return;
+      show(current + 1);
+    });
+
+    var touchStartX = null, touchStartY = null;
+    document.addEventListener('touchstart', function (e) {
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (touchStartX === null) return;
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      touchStartX = touchStartY = null;
+      // Horizontal swipes navigate; vertical ones are left to scroll the slide.
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) show(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
+
+    var fromHash = parseInt(location.hash.slice(1), 10);
+    show(isNaN(fromHash) ? 0 : fromHash - 1);
+  })();
+</script>
+
+</body>
+</html>
