@@ -11,7 +11,6 @@ The project is currently in **Phase 2 — empirically-driven architecture** ([#4
 | Path | What it holds |
 |------|---------------|
 | [`web/`](web/) | Public [GitHub Pages site](https://input-output-hk.github.io/pubsub/): workstream overview and progress presentations |
-| [`site/`](site/) + [`mkdocs.yml`](mkdocs.yml) | MkDocs documentation content: product vision, use cases, architecture, economics |
 | [`docs/`](docs/) | Design documents: technical reviews, gap analyses, design synthesis, extension proposals |
 | [`formal_spec/`](formal_spec/) | Formal models (Quint, PRISM): peer sampling, hybrid dissemination (the M models), topic registry |
 | [`pubsub-node/`](pubsub-node/) | Rust prototype of the PubSub node — see its [README](pubsub-node/README.md) for the spec-driven workflow |
@@ -40,9 +39,4 @@ Protocol design background lives in [`docs/`](docs/) and [`formal_spec/`](formal
 
 ## Website & documentation
 
-The [public site](https://input-output-hk.github.io/pubsub/) is deployed from [`web/`](web/) on every merge to `main`. Deeper documentation content (product vision, use cases, architecture, economics) lives in [`site/`](site/) and can be browsed locally with MkDocs Material:
-
-```sh
-pip install mkdocs-material
-mkdocs serve
-```
+The [public site](https://input-output-hk.github.io/pubsub/) is deployed from [`web/`](web/) on every merge to `main`. The earlier MkDocs documentation (product vision, use cases, architecture, economics) is retired and preserved on the [`archive/mkdocs-site`](https://github.com/input-output-hk/pubsub/tree/archive/mkdocs-site/site) branch.
