@@ -84,7 +84,7 @@ pub use strategies::connection::{
     ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, HashGatedConnection,
     UnknownConnectionStrategy,
 };
-pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge};
+pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_sym};
 pub use strategies::fanout::{FanoutStrategy, ForwardToAll};
 pub use strategies::view::NodeView;
 pub use subscription_registry::{

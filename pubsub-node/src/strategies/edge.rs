@@ -23,6 +23,12 @@ const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
 /// upstreams over the same nonce/topic/pair (feature 015, M3).
 const PUBLISHER_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/publisher-edge/v1";
 
+/// Domain tag for **symmetric** relay edges (feature 015, M4): its own domain,
+/// so the symmetric draw is independent of the directional ones — a pair whose
+/// directional preimage happens to already be in canonical order must not
+/// correlate with the directional predicate.
+const SYM_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge-sym/v1";
+
 /// Per-topic bucket count for a fixed target connection degree `target_degree`: `max(1, round(candidates / target_degree))`.
 ///
 /// Expected valid edges per topic = `candidates / B ≈ target_degree`. When there are `≤ ~target_degree`
@@ -121,6 +127,29 @@ pub fn is_valid_edge_publisher(
     )
 }
 
+/// The **symmetric** edge predicate (feature 015, M4): valid for the
+/// *unordered* pair — the two peers are fed to the hash in canonical byte
+/// order, so both ends compute the identical draw and, when it holds, both
+/// dial each other. Each such edge materialises as a reciprocal pair of
+/// directed links on both sides; bidirectionality is emergent, not stored.
+#[must_use]
+pub fn is_valid_edge_sym(
+    nonce: u64,
+    topic: &TopicId,
+    one: &PeerId,
+    other: &PeerId,
+    buckets: usize,
+) -> bool {
+    // Canonical order: lexicographic on the raw public-key bytes (the same
+    // bytes the preimage encodes), so the two ends cannot disagree.
+    let (first, second) = if one.as_public_key().as_bytes() <= other.as_public_key().as_bytes() {
+        (one, other)
+    } else {
+        (other, one)
+    };
+    is_valid_edge_in(SYM_EDGE_DOMAIN, nonce, topic, first, second, buckets)
+}
+
 /// The one predicate body, parameterised by hash domain.
 fn is_valid_edge_in(
     domain: &[u8],
@@ -191,6 +220,59 @@ mod tests {
         // Directional: (a->b) and (b->a) are independent draws (not required to
         // differ, but computed over distinct tuples).
         let _ba = is_valid_edge(nonce, &t, &peer("b"), &peer("a"), 4);
+    }
+
+    // 015 M4: the symmetric predicate is order-independent — both ends compute
+    // the identical draw for the unordered pair.
+    #[test]
+    fn symmetric_predicate_is_order_independent() {
+        use super::is_valid_edge_sym;
+        let t = topic("t1");
+        for nonce in 0..64u64 {
+            assert_eq!(
+                is_valid_edge_sym(nonce, &t, &peer("a"), &peer("b"), 4),
+                is_valid_edge_sym(nonce, &t, &peer("b"), &peer("a"), 4),
+                "nonce {nonce}: the two ends must agree",
+            );
+        }
+    }
+
+    // 015 M4: the symmetric domain is independent of the directional one — for
+    // an already-canonically-ordered pair the two draws must still diverge
+    // somewhere over a nonce sweep (same preimage layout, different domain).
+    #[test]
+    fn symmetric_domain_is_an_independent_draw() {
+        use super::is_valid_edge_sym;
+        let t = topic("t1");
+        // "a" < "b" in key-byte order, so the directional (a→b) preimage equals
+        // the symmetric pair's ordering — only the domain tag differs.
+        let diverges = (0..256u64).any(|nonce| {
+            is_valid_edge(nonce, &t, &peer("a"), &peer("b"), 4)
+                != is_valid_edge_sym(nonce, &t, &peer("a"), &peer("b"), 4)
+        });
+        assert!(
+            diverges,
+            "the symmetric domain must not mirror the directional one"
+        );
+    }
+
+    // Over a sweep of nonces the symmetric density also approximates 1/B.
+    #[test]
+    #[allow(clippy::cast_precision_loss)]
+    fn symmetric_density_approximates_one_over_buckets() {
+        use super::is_valid_edge_sym;
+        let buckets = 8usize;
+        let sweeps = 4000u64;
+        let hits = (0..sweeps)
+            .filter(|nonce| {
+                is_valid_edge_sym(*nonce, &topic("t1"), &peer("a"), &peer("b"), buckets)
+            })
+            .count();
+        let frac = hits as f64 / sweeps as f64;
+        assert!(
+            (frac - 1.0 / buckets as f64).abs() < 0.03,
+            "symmetric density {frac:.3} deviates from 1/B",
+        );
     }
 
     // 015: the publisher domain is an independent draw — over a nonce sweep the

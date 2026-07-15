@@ -40,6 +40,10 @@ pub struct ConnectionParams {
     /// predicate is verifiable by construction (no dependence on the two ends
     /// having folded the same candidate set). Must be `≥ 1` if supplied.
     pub bucket_count: Option<usize>,
+    /// Use the symmetric edge predicate (M4). One CLI flag sets this on the
+    /// relay selection AND acceptance params together; publisher params leave
+    /// it `false` (publisher links stay directional).
+    pub symmetric: bool,
 }
 
 /// Already-parsed parameters for the acceptance (inbound/downstream) seam.
@@ -58,6 +62,9 @@ pub struct AcceptanceParams {
     pub bucket_count: Option<usize>,
     /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3).
     pub cap_buffer: usize,
+    /// Use the symmetric edge predicate (M4) — must match the dial side (one
+    /// CLI flag sets both).
+    pub symmetric: bool,
 }
 
 /// The error a strategy kind raises when the configuration lacks a parameter

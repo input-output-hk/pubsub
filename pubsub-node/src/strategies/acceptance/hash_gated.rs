@@ -6,7 +6,9 @@ use std::collections::BTreeSet;
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, resolve_buckets};
+use crate::strategies::edge::{
+    is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, resolve_buckets,
+};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -24,6 +26,7 @@ pub struct HashGatedAcceptance {
     target_degree: usize,
     bucket_override: Option<usize>,
     kind: LinkKind,
+    symmetric: bool,
 }
 
 impl HashGatedAcceptance {
@@ -37,7 +40,18 @@ impl HashGatedAcceptance {
             target_degree,
             bucket_override: None,
             kind: LinkKind::Relay,
+            symmetric: false,
         }
+    }
+
+    /// Verify inbound requests against the **symmetric** edge predicate (M4) —
+    /// must be enabled together with the dial side's symmetric mode, or the
+    /// two ends disagree and every dial is silently dropped (one CLI flag
+    /// drives both).
+    #[must_use]
+    pub fn with_symmetric(mut self, symmetric: bool) -> Self {
+        self.symmetric = symmetric;
+        self
     }
 
     /// Re-target the instance at a link kind (`Relay` is the constructor
@@ -70,12 +84,20 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // override removes the dependence.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
-        let valid = match self.kind {
-            LinkKind::Relay => {
-                is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
-            }
-            LinkKind::Publisher => {
-                is_valid_edge_publisher(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+        let valid = if self.symmetric {
+            is_valid_edge_sym(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+        } else {
+            match self.kind {
+                LinkKind::Relay => {
+                    is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+                }
+                LinkKind::Publisher => is_valid_edge_publisher(
+                    view.epoch_nonce,
+                    topic,
+                    emitter,
+                    &self.self_id,
+                    buckets,
+                ),
             }
         };
         if valid {

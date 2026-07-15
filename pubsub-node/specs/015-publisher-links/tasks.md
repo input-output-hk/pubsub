@@ -72,14 +72,14 @@
 
 ### Tests for User Story 2 (write first, must fail)
 
-- [ ] T024 [P] [US2] Predicate tests in src/strategies/edge.rs: `is_valid_edge_sym` is order-independent, uses its own domain (draws differ from directional for already-canonical pairs), density ≈ 1/B
-- [ ] T025 [P] [US2] Integration test tests/model_family.rs (port from archive): M4 recipe — pairwise reciprocity of `upstream_relays`/`downstream_relays` across the fleet + full-coverage flood over a genesis whose predicate graph is connected (export/reuse the predicate helpers to find one deterministically)
+- [x] T024 [P] [US2] Predicate tests in src/strategies/edge.rs: `is_valid_edge_sym` is order-independent, uses its own domain (draws differ from directional for already-canonical pairs), density ≈ 1/B
+- [x] T025 [P] [US2] Integration test tests/model_family.rs (port from archive): M4 recipe — pairwise reciprocity of `upstream_relays`/`downstream_relays` across the fleet + full-coverage flood over a genesis whose predicate graph is connected (export/reuse the predicate helpers to find one deterministically)
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] `is_valid_edge_sym` (`…/edge-sym/v1`, canonical byte-order pair) in src/strategies/edge.rs
-- [ ] T027 [US2] `symmetric: bool` on `HashGatedConnection` and the hash-gated acceptance baselines (selects the symmetric predicate; publisher instances always directional); thread through src/strategies/config.rs params
-- [ ] T028 [US2] `--symmetric-edges` flag in src/main.rs setting both relay seams' `symmetric` from the one flag (contract §5); green checkpoint + commit
+- [x] T026 [US2] `is_valid_edge_sym` (`…/edge-sym/v1`, canonical byte-order pair) in src/strategies/edge.rs
+- [x] T027 [US2] `symmetric: bool` on `HashGatedConnection` and the hash-gated acceptance baselines (selects the symmetric predicate; publisher instances always directional); thread through src/strategies/config.rs params
+- [x] T028 [US2] `--symmetric-edges` flag in src/main.rs setting both relay seams' `symmetric` from the one flag (contract §5); green checkpoint + commit
 
 **Checkpoint**: M4 configurable; US1 behaviour untouched (flag off by default).
 

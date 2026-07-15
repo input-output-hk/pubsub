@@ -48,7 +48,8 @@ impl ConnectionStrategyKind {
                 Ok(Arc::new(
                     HashGatedConnection::new(params.self_id.clone(), target_degree)
                         .with_bucket_override(bucket_override)
-                        .for_kind(params.kind),
+                        .for_kind(params.kind)
+                        .with_symmetric(params.symmetric),
                 ))
             }
         }
@@ -88,6 +89,7 @@ mod tests {
             kind: LinkKind::Relay,
             target_degree,
             bucket_count: None,
+            symmetric: false,
         }
     }
 

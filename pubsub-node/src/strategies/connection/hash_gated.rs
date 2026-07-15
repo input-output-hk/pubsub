@@ -6,7 +6,9 @@ use std::collections::BTreeSet;
 use super::ConnectionStrategy;
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, resolve_buckets};
+use crate::strategies::edge::{
+    is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, resolve_buckets,
+};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -35,6 +37,7 @@ pub struct HashGatedConnection {
     target_degree: usize,
     bucket_override: Option<usize>,
     kind: LinkKind,
+    symmetric: bool,
 }
 
 impl HashGatedConnection {
@@ -48,7 +51,20 @@ impl HashGatedConnection {
             target_degree,
             bucket_override: None,
             kind: LinkKind::Relay,
+            symmetric: false,
         }
+    }
+
+    /// Switch the instance to the **symmetric** edge predicate (M4): picks are
+    /// drawn for the unordered pair under the dedicated symmetric domain, so
+    /// both ends of a valid edge dial each other and the link materialises as
+    /// a reciprocal pair — bidirectionality is emergent, never stored. Applies
+    /// to relay instances; the publisher seam stays directional (no published
+    /// model uses symmetric publisher links) and never sets this.
+    #[must_use]
+    pub fn with_symmetric(mut self, symmetric: bool) -> Self {
+        self.symmetric = symmetric;
+        self
     }
 
     /// Re-target the instance at a link kind (`Relay` is the constructor
@@ -90,17 +106,25 @@ impl ConnectionStrategy for HashGatedConnection {
             // removes that dependence.
             let buckets = resolve_buckets(self.bucket_override, peers.len(), self.target_degree);
             for candidate in peers {
-                let valid = match self.kind {
-                    LinkKind::Relay => {
-                        is_valid_edge(view.epoch_nonce, topic, &self.self_id, candidate, buckets)
+                let valid = if self.symmetric {
+                    is_valid_edge_sym(view.epoch_nonce, topic, &self.self_id, candidate, buckets)
+                } else {
+                    match self.kind {
+                        LinkKind::Relay => is_valid_edge(
+                            view.epoch_nonce,
+                            topic,
+                            &self.self_id,
+                            candidate,
+                            buckets,
+                        ),
+                        LinkKind::Publisher => is_valid_edge_publisher(
+                            view.epoch_nonce,
+                            topic,
+                            &self.self_id,
+                            candidate,
+                            buckets,
+                        ),
                     }
-                    LinkKind::Publisher => is_valid_edge_publisher(
-                        view.epoch_nonce,
-                        topic,
-                        &self.self_id,
-                        candidate,
-                        buckets,
-                    ),
                 };
                 if valid {
                     expected.insert((candidate.clone(), topic.clone()));

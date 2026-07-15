@@ -65,7 +65,8 @@ impl AcceptanceStrategyKind {
                 Ok(Arc::new(
                     HashGatedAcceptance::new(params.self_id.clone(), target_degree)
                         .with_bucket_override(bucket_override)
-                        .for_kind(params.kind),
+                        .for_kind(params.kind)
+                        .with_symmetric(params.symmetric),
                 ))
             }
             Self::HashGatedBounded => {
@@ -78,7 +79,8 @@ impl AcceptanceStrategyKind {
                         params.cap_buffer,
                     )
                     .with_bucket_override(bucket_override)
-                    .for_kind(params.kind),
+                    .for_kind(params.kind)
+                    .with_symmetric(params.symmetric),
                 ))
             }
         }
@@ -121,6 +123,7 @@ mod tests {
             target_degree,
             bucket_count: None,
             cap_buffer: 3,
+            symmetric: false,
         }
     }
 

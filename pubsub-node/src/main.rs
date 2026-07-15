@@ -91,6 +91,14 @@ struct Args {
     #[arg(long)]
     publisher_degree: Option<usize>,
 
+    /// Draw relay edges with the symmetric (unordered-pair) predicate: both
+    /// ends of a valid edge dial each other and every link forms as a
+    /// reciprocal pair. Applies to the relay selection AND acceptance
+    /// hash-gated strategies together (the two sides must agree). Publisher
+    /// links stay directional.
+    #[arg(long)]
+    symmetric_edges: bool,
+
     /// Accept-cap buffer `c` in the per-topic accept cap (default 3). Only
     /// affects the `bounded` / `hash-gated-bounded` acceptance strategies.
     #[arg(long, default_value_t = 3)]
@@ -157,6 +165,7 @@ async fn main() {
                 kind: LinkKind::Relay,
                 target_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
+                symmetric: args.symmetric_edges,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
@@ -164,6 +173,7 @@ async fn main() {
                 target_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
                 cap_buffer: args.cap_buffer,
+                symmetric: args.symmetric_edges,
             },
         )
         .unwrap_or_else(|e| {
@@ -173,36 +183,7 @@ async fn main() {
 
     // The optional publisher pair: second instances of the same seams, drawn
     // from the publisher hash domain with their own degree.
-    let mut strategies = strategies;
-    if let Some(kind) = args.publisher_strategy {
-        strategies.publisher_connection = Some(
-            kind.build(&ConnectionParams {
-                self_id: args.self_id.clone(),
-                kind: LinkKind::Publisher,
-                target_degree: args.publisher_degree,
-                bucket_count: args.bucket_count,
-            })
-            .unwrap_or_else(|e| {
-                eprintln!("pubsub-node: {e}");
-                std::process::exit(2);
-            }),
-        );
-    }
-    if let Some(kind) = args.publisher_acceptance_strategy {
-        strategies.publisher_acceptance = Some(
-            kind.build(&AcceptanceParams {
-                self_id: args.self_id.clone(),
-                kind: LinkKind::Publisher,
-                target_degree: args.publisher_degree,
-                bucket_count: args.bucket_count,
-                cap_buffer: args.cap_buffer,
-            })
-            .unwrap_or_else(|e| {
-                eprintln!("pubsub-node: {e}");
-                std::process::exit(2);
-            }),
-        );
-    }
+    let strategies = with_publisher_pair(strategies, &args);
 
     let node = Node::new(
         args.self_id,
@@ -229,4 +210,43 @@ async fn main() {
     }
 
     drop(node);
+}
+
+/// Build the optional publisher selection/acceptance instances from the
+/// publisher flags — second instances of the relay seams under the publisher
+/// hash domain, with their own degree. Absent flags leave the pair `None`
+/// (publisher links disabled).
+fn with_publisher_pair(mut strategies: NodeStrategies, args: &Args) -> NodeStrategies {
+    if let Some(kind) = args.publisher_strategy {
+        strategies.publisher_connection = Some(
+            kind.build(&ConnectionParams {
+                self_id: args.self_id.clone(),
+                kind: LinkKind::Publisher,
+                target_degree: args.publisher_degree,
+                bucket_count: args.bucket_count,
+                symmetric: false,
+            })
+            .unwrap_or_else(|e| {
+                eprintln!("pubsub-node: {e}");
+                std::process::exit(2);
+            }),
+        );
+    }
+    if let Some(kind) = args.publisher_acceptance_strategy {
+        strategies.publisher_acceptance = Some(
+            kind.build(&AcceptanceParams {
+                self_id: args.self_id.clone(),
+                kind: LinkKind::Publisher,
+                target_degree: args.publisher_degree,
+                bucket_count: args.bucket_count,
+                cap_buffer: args.cap_buffer,
+                symmetric: false,
+            })
+            .unwrap_or_else(|e| {
+                eprintln!("pubsub-node: {e}");
+                std::process::exit(2);
+            }),
+        );
+    }
+    strategies
 }
