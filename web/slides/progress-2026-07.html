@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cardano PubSub — Progress &amp; Direction · July 2026</title>
+<link rel="icon" href="../assets/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -121,6 +122,41 @@
   .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
   .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
 
+  /* About slide */
+  .about-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(28px, 5vw, 80px);
+  }
+  .about-avatar {
+    width: clamp(150px, 24vh, 260px);
+    height: auto;
+    border-radius: 50%;
+    border: 3px solid var(--iog-infared);
+    flex-shrink: 0;
+  }
+  @media (max-width: 700px) { .about-avatar { display: none; } }
+
+  /* Corner buttons (GitHub · close · theme) */
+  .corner-btn {
+    position: fixed;
+    top: 20px;
+    z-index: 50;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .corner-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .corner-btn svg { width: 16px; height: 16px; display: block; }
+  .btn-close { right: 68px; }
+  .btn-github { right: 116px; }
+
   /* Slide chrome */
   .chrome {
     position: fixed;
@@ -153,7 +189,7 @@
     body { overflow: visible; font-size: 13px; }
     .deck { height: auto; }
     .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; }
-    .chrome, .progress, .theme-toggle, .nav-hint { display: none !important; }
+    .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint { display: none !important; }
   }
 </style>
 </head>
@@ -164,6 +200,13 @@
   <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
 </button>
 
+<a class="corner-btn btn-close" href="../" aria-label="Back to the Cardano PubSub site">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</a>
+<a class="corner-btn btn-github" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+</a>
+
 <div class="deck">
 
   <!-- 1 · Title -->
@@ -172,20 +215,27 @@
     <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
     <div class="slide-kicker">Research &amp; Development · July 2026</div>
     <h1>Cardano <span class="accent">PubSub</span></h1>
-    <p class="title-sub">A verifiable communication layer for the Cardano ecosystem — progress and direction.</p>
+    <p class="title-sub">In pursuit of a verifiable communication layer for the Cardano ecosystem —
+      an innovation workstream at the frontier of peer-sampling and dissemination research.</p>
     <p class="title-byline"><strong>Will Wolff</strong> · Technical Architect · Input Output</p>
   </section>
 
   <!-- 2 · About me -->
   <section class="slide">
-    <div class="slide-kicker">Introduction</div>
-    <h2>About me</h2>
-    <ul class="points">
-      <li><strong>Will Wolff</strong> — Technical Architect at Input Output.</li>
-      <li>With IO for almost five years — first as Solution Architect, now as Technical Architect.</li>
-      <li>Since early 2026: leading the <strong>Pub/Sub workstream</strong>.</li>
-      <li class="mute">Background in distributed systems, secure software architecture, and Cardano protocols.</li>
-    </ul>
+    <div class="about-row">
+      <div>
+        <div class="slide-kicker">Introduction</div>
+        <h2>About me</h2>
+        <ul class="points">
+          <li><strong>Will Wolff</strong> — Technical Architect at Input Output.</li>
+          <li>With IO for almost five years — first as Solution Architect, now as Technical Architect.</li>
+          <li>Led the <strong>Ouroboros Leios</strong> workstream through 2025 — now handed over to engineering.</li>
+          <li>Since early 2026: leading the <strong>PubSub workstream</strong>.</li>
+          <li class="mute">Background in distributed systems, secure software architecture, and Cardano protocols.</li>
+        </ul>
+      </div>
+      <img class="about-avatar" src="../assets/will-avatar.jpg" alt="Will Wolff">
+    </div>
   </section>
 
   <!-- 3 · What we're building -->
@@ -194,12 +244,12 @@
     <h2>What we're building</h2>
     <p class="lede">
       A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication —
-      identifiable publishers, verifiable events, on-chain channel commitments, and Sybil
+      identifiable publishers, verifiable events, on-chain topic commitments, and Sybil
       resistance derived from main-chain stake.
     </p>
     <ul class="points" style="margin-top:1.4em">
       <li><strong>Governance notifications</strong> — CIP-1694 proposals, votes, outcomes.</li>
-      <li><strong>SPO-to-delegator communication</strong> — channels that provably belong to the pool.</li>
+      <li><strong>SPO-to-delegator communication</strong> — topics that provably belong to the pool.</li>
       <li><strong>Authenticated emergency alerts</strong> — verifiable origin when it matters most.</li>
       <li><strong>Ecosystem announcements</strong> — published under on-chain identities.</li>
     </ul>
@@ -224,7 +274,7 @@
         <ul>
           <li>Publishers identified by on-chain credentials.</li>
           <li>Every message cryptographically verifiable.</li>
-          <li>Channels committed on-chain — subscribers know what they subscribed to.</li>
+          <li>Topics committed on-chain — subscribers know what they subscribed to.</li>
           <li>Influence costs real main-chain stake.</li>
         </ul>
       </div>
