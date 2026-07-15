@@ -24,7 +24,8 @@
   .navbar { padding-right: clamp(24px, 5vw, 80px); }
   .navbar-icons { display: flex; align-items: center; gap: 10px; }
   .nav-icon-btn {
-    position: static;
+    position: relative;
+    top: auto; right: auto;
     width: 36px; height: 36px;
     border-radius: 50%;
     border: 1px solid var(--line-strong);
@@ -126,51 +127,171 @@
     margin-bottom: 10px;
   }
 
-  /* ---------- Phases ---------- */
-  .phase-list { display: grid; gap: 16px; }
-  .phase {
-    display: grid;
-    grid-template-columns: 130px 1fr;
-    gap: 20px;
-    border: 1px solid var(--card-stroke-faint);
-    border-radius: 8px;
-    background: var(--card-fill);
-    padding: 22px;
+  /* ---------- Research timeline ---------- */
+  .timeline { position: relative; max-width: 860px; }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 96px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--line);
   }
-  @media (max-width: 640px) { .phase { grid-template-columns: 1fr; gap: 8px; } }
-  .phase-tag {
+  .timeline-entry {
+    position: relative;
+    padding-left: 136px;
+    padding-bottom: 44px;
+  }
+  .timeline-entry:last-child { padding-bottom: 0; }
+  .timeline-entry::before {
+    content: "";
+    position: absolute;
+    left: 91px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text);
+    border: 2px solid var(--bg);
+    z-index: 1;
+  }
+  .timeline-entry.active::before { background: var(--iog-infared); }
+  .timeline-entry.active::after {
+    content: "";
+    position: absolute;
+    left: 91px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--iog-infared);
+    opacity: 0.3;
+    transform-origin: center;
+    animation: timeline-pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes timeline-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(2.4); }
+  }
+  @media (prefers-reduced-motion: reduce) { .timeline-entry.active::after { animation: none; } }
+  .timeline-entry.ahead::before { background: var(--bg); border: 2px solid var(--line-strong); }
+  .timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 3px;
+    width: 78px;
+    text-align: right;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
   }
-  .phase-tag .status { display: block; margin-top: 6px; font-weight: 500; }
+  .timeline-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
   .status-done { color: var(--good); }
   .status-active { color: var(--info); }
   .status-ahead { color: var(--text-faint); }
-  .phase h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
-  .phase p { font-size: 0.94rem; color: var(--text-mute); line-height: 1.6; }
+  .timeline-entry h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+  .timeline-entry p { font-size: 0.94rem; color: var(--text-mute); line-height: 1.6; max-width: 62ch; }
+  @media (max-width: 640px) {
+    .timeline::before { left: 5px; }
+    .timeline-entry { padding-left: 30px; padding-bottom: 36px; }
+    .timeline-entry::before,
+    .timeline-entry.active::after { left: 0; }
+    .timeline-marker {
+      position: static;
+      display: block;
+      width: auto;
+      text-align: left;
+      margin-bottom: 6px;
+    }
+  }
 
   /* ---------- Materials ---------- */
-  .material-list { list-style: none; display: grid; gap: 10px; max-width: 720px; }
-  .material-list li {
-    border: 1px solid var(--card-stroke-faint);
-    border-radius: 6px;
-    background: var(--card-fill);
+  .material-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
   }
-  .material-list a {
+  .material-tile {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 18px;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    padding: 24px 22px 22px;
     text-decoration: none;
     color: var(--text);
+    transition: border-color .15s ease;
   }
-  .material-list a:hover .material-name { color: var(--iog-infared); }
-  .material-name { font-weight: 600; font-size: 0.98rem; transition: color .12s ease; }
-  .material-note { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; white-space: nowrap; }
+  .material-tile:hover { border-color: var(--iog-infared); }
+  .material-tile:hover .material-name { color: var(--iog-infared); }
+  .material-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    color: var(--iog-infared);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .material-icon svg { width: 18px; height: 18px; display: block; }
+  .material-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    transition: color .12s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .material-desc { font-size: 0.9rem; color: var(--text-mute); line-height: 1.55; margin-top: 8px; }
+  .material-note {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
+    margin-top: auto;
+    padding-top: 18px;
+  }
+
+  /* ---------- "Soon" badge ---------- */
+  .badge-soon {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--iog-infared);
+    color: var(--iog-infared);
+    white-space: nowrap;
+  }
+  .btn .badge-soon { margin-left: 2px; }
+  .nav-icon-btn .badge-soon {
+    position: absolute;
+    top: -8px;
+    right: -12px;
+    font-size: 0.5rem;
+    padding: 2px 6px;
+    background: var(--bg);
+  }
 
   /* ---------- Footer ---------- */
   footer {
@@ -200,8 +321,9 @@
     <a href="slides/progress-2026-07.html">Presentation</a>
   </div>
   <div class="navbar-icons">
-    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository (open-sourcing soon)">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      <span class="badge-soon">Soon</span>
     </a>
     <button class="nav-icon-btn theme-toggle" type="button" aria-label="Toggle color theme">
       <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -227,6 +349,7 @@
         <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
           <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           Repository
+          <span class="badge-soon">Soon</span>
         </a>
       </div>
     </div>
@@ -262,7 +385,7 @@
         <div class="card">
           <div class="card-kicker">Applications</div>
           <h3>dApp-to-user announcements</h3>
-          <p>dApps notify their users of protocol updates and critical events, published under on-chain identities with spam resisted by real stake.</p>
+          <p>dApps reach their users with critical alerts and notifications tailored to the dApp's purpose — from protocol updates to user-specific events such as open positions — published under on-chain identities with spam resisted by real stake.</p>
         </div>
       </div>
     </div>
@@ -278,44 +401,51 @@
           then an architecture built on what the evidence supports.
         </p>
       </header>
-      <div class="phase-list">
-        <div class="phase">
-          <div class="phase-tag">Phase 1<span class="status status-done">Complete</span></div>
-          <div>
-            <h3>Exploratory research</h3>
-            <p>
-              Use-case and requirements analysis, cryptographic key-material study, and formal plus
-              empirical analysis of the proposed peer-sampling foundation. The analysis surfaced
-              silent attack vectors — adversaries can bias nodes' views of the network without
-              triggering any of the protocol's defences — which led to the sampling layer being
-              set aside in favour of an on-chain, list-based design.
-            </p>
-          </div>
+      <div class="timeline">
+        <div class="timeline-entry">
+          <div class="timeline-marker">Jul 2023</div>
+          <div class="timeline-tag">Foundations</div>
+          <h3>SecureCyclon published</h3>
+          <p>
+            Antonov &amp; Voulgaris publish SecureCyclon at ICDCS 2023 — a Byzantine-hardened
+            peer-sampling protocol, proposed as the decentralised foundation the PubSub
+            workstream would build on.
+          </p>
         </div>
-        <div class="phase">
-          <div class="phase-tag">Phase 2<span class="status status-active">Active</span></div>
-          <div>
-            <h3>Empirically-driven architecture</h3>
-            <p>
-              Five candidate dissemination models, from simple push to hybrid designs, analysed
-              formally and measured empirically against a silent Byzantine adversary — so the
-              final design is the one the data supports, not the one intuition favours. A Rust
-              prototype node implements topics, subscriptions, publishing, and fan-out forwarding,
-              backed by a deterministic simulation framework for controlled experiments.
-            </p>
-          </div>
+        <div class="timeline-entry">
+          <div class="timeline-marker">Feb 2026</div>
+          <div class="timeline-tag">Phase 1 · <span class="status-done">Complete</span> · Feb – Jul 2026</div>
+          <h3>Exploratory research</h3>
+          <p>
+            Use-case and requirements analysis, cryptographic key-material study, and formal plus
+            empirical analysis of the proposed peer-sampling foundation. The analysis surfaced
+            silent attack vectors — adversaries can bias nodes' views of the network without
+            triggering any of the protocol's defences — which led to the sampling layer being
+            set aside in favour of an on-chain, list-based design.
+          </p>
         </div>
-        <div class="phase">
-          <div class="phase-tag">Ahead<span class="status status-ahead">Planned</span></div>
-          <div>
-            <h3>Hardening &amp; ecosystem integration</h3>
-            <p>
-              A design proposal consolidates the analytical and experimental findings — the
-              measured architecture, its adversary model, and positioning against existing art —
-              published as a CIP. Beyond it: the incentive/fee layer that closes the remaining
-              Byzantine gaps, real network transport, and on-chain integration.
-            </p>
-          </div>
+        <div class="timeline-entry active">
+          <div class="timeline-marker">Jul 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">Active</span> · Jul – Sep 2026</div>
+          <h3>Empirically-driven architecture</h3>
+          <p>
+            Five candidate dissemination models, from simple push to hybrid designs, analysed
+            formally and measured empirically against a silent Byzantine adversary — so the
+            final design is the one the data supports, not the one intuition favours. A Rust
+            prototype node implements topics, subscriptions, publishing, and fan-out forwarding,
+            backed by a deterministic simulation framework for controlled experiments.
+          </p>
+        </div>
+        <div class="timeline-entry ahead">
+          <div class="timeline-marker">Ahead</div>
+          <div class="timeline-tag"><span class="status-ahead">Planned</span></div>
+          <h3>Hardening &amp; ecosystem integration</h3>
+          <p>
+            A design proposal consolidates the analytical and experimental findings — the
+            measured architecture, its adversary model, and positioning against existing art —
+            published as a CIP. Beyond it: the incentive/fee layer that closes the remaining
+            Byzantine gaps, real network transport, and on-chain integration.
+          </p>
         </div>
       </div>
     </div>
@@ -327,26 +457,32 @@
         <div class="section-kind">Materials</div>
         <h2>Read more</h2>
       </header>
-      <ul class="material-list">
-        <li>
-          <a href="slides/progress-2026-07.html">
-            <span class="material-name">Progress presentation</span>
-            <span class="material-note">July 2026</span>
-          </a>
-        </li>
-        <li>
-          <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
-            <span class="material-name">Source repository — prototype, formal specifications, reports</span>
-            <span class="material-note">GitHub</span>
-          </a>
-        </li>
-        <li>
-          <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
-            <span class="material-name">Research logbook</span>
-            <span class="material-note">Ongoing</span>
-          </a>
-        </li>
-      </ul>
+      <div class="material-grid">
+        <a class="material-tile" href="slides/progress-2026-07.html">
+          <div class="material-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M4 3v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V3"/><path d="m8 21 4-4 4 4"/><path d="M12 15v2"/></svg>
+          </div>
+          <span class="material-name">Progress presentation</span>
+          <p class="material-desc">The latest R&amp;D progress deck: findings from the exploratory phase and the plan for the empirically-driven architecture.</p>
+          <span class="material-note">July 2026</span>
+        </a>
+        <a class="material-tile" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
+          <div class="material-icon">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          </div>
+          <span class="material-name">Source repository <span class="badge-soon">Open-sourcing soon</span></span>
+          <p class="material-desc">The Rust prototype node, simulation framework, formal specifications, and analysis reports — currently private, to be opened.</p>
+          <span class="material-note">GitHub</span>
+        </a>
+        <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
+          <div class="material-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          </div>
+          <span class="material-name">Research logbook</span>
+          <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen, on the main branch.</p>
+          <span class="material-note">Ongoing</span>
+        </a>
+      </div>
     </div>
   </section>
 </main>
