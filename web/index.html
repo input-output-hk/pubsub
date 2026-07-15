@@ -40,6 +40,34 @@
   .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
   .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
 
+  /* Collapsible navigation — links and icon buttons fold into a dropdown on small screens */
+  .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
+  .nav-menu-btn { display: none; }
+  .nav-menu-btn .icon-close { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-burger { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
+  @media (max-width: 1040px) {
+    .nav-menu-btn { display: flex; }
+    .nav-collapse {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      padding: 4px clamp(24px, 5vw, 80px) 18px;
+    }
+    .navbar.menu-open .nav-collapse { display: flex; }
+    .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
+    .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .navbar-icons { padding-top: 16px; }
+  }
+  @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
+
   /* ---------- Hero ---------- */
   section.hero { padding: 72px 0 64px; }
   .hero-logo { height: clamp(44px, 5vw, 72px); width: auto; margin-bottom: 48px; }
@@ -316,6 +344,11 @@
 
 <nav class="navbar" aria-label="Primary">
   <a class="navbar-brand" href="./">CARDANO PUBSUB <span class="brand-tag">RESEARCH &amp; DEVELOPMENT</span></a>
+  <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
+    <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+  </button>
+  <div class="nav-collapse">
   <div class="navbar-links">
     <a href="#scenarios">Scenarios</a>
     <a href="#research">Research</a>
@@ -332,6 +365,7 @@
       <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
     </button>
   </div>
+  </div>
 </nav>
 
 <main>
@@ -347,7 +381,7 @@
         resistance derived from main-chain stake.
       </p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="slides/progress-2026-07.html">View the latest R&amp;D presentation</a>
+        <a class="btn btn-primary" href="slides/progress-2026-07.html">View presentation</a>
         <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
           <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           Repository
@@ -510,6 +544,19 @@
       var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
       try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+
+    var navbar = document.querySelector('.navbar');
+    var menuBtn = document.querySelector('.nav-menu-btn');
+    menuBtn.addEventListener('click', function () {
+      var open = navbar.classList.toggle('menu-open');
+      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.querySelectorAll('.navbar-links a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        navbar.classList.remove('menu-open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+      });
     });
   })();
 </script>
