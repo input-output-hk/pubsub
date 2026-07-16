@@ -340,46 +340,56 @@
         </div>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <svg viewBox="0 0 440 372" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
-          <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--info)">PUBLISHERS</text>
-          <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--good)">SUBSCRIBERS</text>
+        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">PUBLISHERS</text>
+          <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">SUBSCRIBERS</text>
 
-          <!-- flows in -->
-          <g stroke="var(--info)" stroke-opacity="0.45" stroke-width="1.5" fill="none">
-            <path d="M43,52 C110,52 130,166 163,170"/>
-            <path d="M43,145 C105,145 130,178 163,180"/>
-            <path d="M43,239 C105,239 130,194 163,192"/>
-            <path d="M43,332 C110,332 130,206 163,202"/>
+          <!-- flows in, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M43,52 C110,52 130,166 163,170" stroke="var(--info)"/>
+            <path d="M43,145 C105,145 130,178 163,180" stroke="var(--warn)"/>
+            <path d="M43,239 C105,239 130,194 163,192" stroke="var(--warn)"/>
+            <path d="M43,332 C110,332 130,206 163,202" stroke="var(--good)"/>
           </g>
-          <!-- flows out -->
-          <g stroke="var(--good)" stroke-opacity="0.45" stroke-width="1.5" fill="none">
-            <path d="M281,172 C330,168 350,82 397,82"/>
-            <path d="M281,186 C320,186 350,192 397,192"/>
-            <path d="M281,200 C330,206 350,302 397,302"/>
+          <!-- flows out, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M281,172 C330,168 350,82 397,82" stroke="var(--info)"/>
+            <path d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
+            <path d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
           </g>
-          <!-- publisher nodes -->
+          <!-- publisher nodes, colored by the topic they publish to -->
           <g>
             <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
             <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="145" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="239" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="332" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="145" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="239" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="332" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
           </g>
-          <!-- subscriber nodes -->
+          <!-- subscriber nodes, colored by the topic they subscribe to -->
           <g>
-            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="82" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
-            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="192" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="82" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="192" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
             <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
             <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
           </g>
           <!-- PubSub hub -->
           <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
           <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+
+          <!-- topic color legend -->
+          <g font-size="10" letter-spacing="1" fill="var(--text-faint)">
+            <circle cx="112" cy="388" r="4.5" fill="var(--info-soft)" stroke="var(--info)"/>
+            <text x="123" y="392">TOPIC 1</text>
+            <circle cx="197" cy="388" r="4.5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <text x="208" y="392">TOPIC 2</text>
+            <circle cx="282" cy="388" r="4.5" fill="var(--good-soft)" stroke="var(--good)"/>
+            <text x="293" y="392">TOPIC 3</text>
+          </g>
         </svg>
       </div>
     </div>
