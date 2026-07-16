@@ -94,8 +94,10 @@ struct Args {
     /// Draw relay edges with the symmetric (unordered-pair) predicate: both
     /// ends of a valid edge dial each other and every link forms as a
     /// reciprocal pair. Applies to the relay selection AND acceptance
-    /// hash-gated strategies together (the two sides must agree). Publisher
-    /// links stay directional.
+    /// hash-gated strategies together (the two sides must agree). The
+    /// bidirectional model uses no publisher links (a publisher's own
+    /// symmetric links carry its message out); publisher strategies, if
+    /// configured anyway, are unaffected by this flag.
     #[arg(long)]
     symmetric_edges: bool,
 

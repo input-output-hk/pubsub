@@ -41,8 +41,12 @@ pub struct ConnectionParams {
     /// having folded the same candidate set). Must be `≥ 1` if supplied.
     pub bucket_count: Option<usize>,
     /// Use the symmetric edge predicate (M4). One CLI flag sets this on the
-    /// relay selection AND acceptance params together; publisher params leave
-    /// it `false` (publisher links stay directional).
+    /// relay selection AND acceptance params together. Publisher params leave
+    /// it `false`: M4 itself uses no publisher links at all ("no seeding
+    /// mechanism" — `m4/README.md`; a publisher's own symmetric relay links
+    /// carry its message out), and no published model defines symmetric
+    /// publisher links, so a publisher instance configured alongside the flag
+    /// stays directional.
     pub symmetric: bool,
 }
 
