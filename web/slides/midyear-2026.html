@@ -440,8 +440,14 @@
       <div class="actor-graph" aria-hidden="true">
         <svg viewBox="0 0 470 400" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
           <defs>
-            <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--text-faint)"/>
+            <marker id="arr-info" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--info)"/>
+            </marker>
+            <marker id="arr-warn" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--warn)"/>
+            </marker>
+            <marker id="arr-good" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0.5 L7.5,4 L0,7.5 Z" fill="var(--good)"/>
             </marker>
           </defs>
 
@@ -450,19 +456,19 @@
 
           <!-- publishers -->
           <g>
-            <rect x="0" y="36" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="0" y="36" width="150" height="52" rx="9" fill="var(--info-soft)" stroke="var(--info)"/>
             <text x="75" y="58" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Node builders</text>
             <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">IOG · Amaru · CF</text>
 
-            <rect x="0" y="126" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="0" y="126" width="150" height="52" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
             <text x="75" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">SPOs</text>
             <text x="75" y="166" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">stake pool operators</text>
 
-            <rect x="0" y="216" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="0" y="216" width="150" height="52" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
             <text x="75" y="238" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">dReps</text>
             <text x="75" y="256" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">governance representatives</text>
 
-            <rect x="0" y="306" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="0" y="306" width="150" height="52" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
             <text x="75" y="328" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">dApps</text>
             <text x="75" y="346" text-anchor="middle" font-size="10.5" fill="var(--text-faint)">applications &amp; protocols</text>
           </g>
@@ -472,29 +478,29 @@
           <text x="235" y="193" text-anchor="middle" font-size="14" font-weight="700" fill="var(--iog-infared)">PubSub</text>
           <text x="235" y="210" text-anchor="middle" font-size="11" fill="var(--iog-infared)">topics</text>
 
-          <!-- publisher edges -->
-          <g stroke="var(--line-strong)" stroke-width="1.3" fill="none" marker-end="url(#arr)">
-            <path d="M150,62 C173.5,62 173.5,182 197,182"/>
-            <path d="M150,152 C173.5,152 173.5,191 197,191"/>
-            <path d="M150,242 C173.5,242 173.5,203 197,203"/>
-            <path d="M150,332 C173.5,332 173.5,212 197,212"/>
+          <!-- publisher edges, colored by topic -->
+          <g stroke-width="1.3" stroke-opacity="0.55" fill="none">
+            <path d="M150,62 C173.5,62 173.5,182 197,182" stroke="var(--info)" marker-end="url(#arr-info)"/>
+            <path d="M150,152 C173.5,152 173.5,191 197,191" stroke="var(--warn)" marker-end="url(#arr-warn)"/>
+            <path d="M150,242 C173.5,242 173.5,203 197,203" stroke="var(--warn)" marker-end="url(#arr-warn)"/>
+            <path d="M150,332 C173.5,332 173.5,212 197,212" stroke="var(--good)" marker-end="url(#arr-good)"/>
           </g>
-          <!-- subscriber edges -->
-          <g stroke="var(--line-strong)" stroke-width="1.3" fill="none" marker-end="url(#arr)">
-            <path d="M273,184 C296.5,184 296.5,97 320,97"/>
-            <path d="M273,197 C296.5,197 296.5,207 320,207"/>
-            <path d="M273,210 C296.5,210 296.5,317 320,317"/>
+          <!-- subscriber edges, colored by topic -->
+          <g stroke-width="1.3" stroke-opacity="0.55" fill="none">
+            <path d="M273,184 C296.5,184 296.5,97 320,97" stroke="var(--info)" marker-end="url(#arr-info)"/>
+            <path d="M273,197 C296.5,197 296.5,207 320,207" stroke="var(--warn)" marker-end="url(#arr-warn)"/>
+            <path d="M273,210 C296.5,210 296.5,317 320,317" stroke="var(--good)" marker-end="url(#arr-good)"/>
           </g>
 
           <!-- subscribers -->
           <g>
-            <rect x="320" y="71" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="320" y="71" width="150" height="52" rx="9" fill="var(--info-soft)" stroke="var(--info)"/>
             <text x="395" y="102" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Node operators</text>
 
-            <rect x="320" y="181" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="320" y="181" width="150" height="52" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
             <text x="395" y="212" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Delegators</text>
 
-            <rect x="320" y="291" width="150" height="52" rx="9" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="320" y="291" width="150" height="52" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
             <text x="395" y="322" text-anchor="middle" font-size="14" font-weight="600" fill="var(--text)">Users</text>
           </g>
         </svg>
