@@ -537,9 +537,9 @@
           <li>Publishers identified by on-chain credentials.</li>
           <li>Every message cryptographically verifiable.</li>
           <li>Topics committed on-chain — subscribers know what they subscribed to.</li>
-          <li>Delivery to every honest subscriber — formally analysed, failure risk
-            quantified and bounded while attackers stay below a known share of the network.</li>
-          <li>Spam and fake identities carry a real on-chain cost.</li>
+          <li>Delivery to every honest subscriber — failure risk formally analysed
+            and bounded.</li>
+          <li>Fake publisher identities carry a real on-chain cost.</li>
         </ul>
       </div>
     </div>
@@ -646,7 +646,8 @@
           <tbody>
             <tr>
               <td class="model-id">M1</td>
-              <td><strong>Push</strong> — publishers push each message to <em>F</em> random peers.</td>
+              <td><strong>Push</strong> — every node, on first receipt, pushes the message to
+                <em>F</em> random peers.</td>
             </tr>
             <tr>
               <td class="model-id">M2</td>
