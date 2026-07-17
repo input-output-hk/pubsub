@@ -253,7 +253,7 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
             strategy(),
             Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     );
     // Synced first (requests are gated on readiness) and before any membership,
@@ -301,7 +301,7 @@ fn rejected_dial_removes_pending_upstream() {
             Arc::new(HashGatedConnection::new(peer("self"), 8)),
             Arc::new(AcceptFromAllCandidates),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     );
     apply(&mut state, reg_open("t1"));

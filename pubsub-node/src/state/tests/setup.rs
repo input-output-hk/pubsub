@@ -93,7 +93,7 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
             Arc::new(HashGatedConnection::new(peer("self"), 6)),
             Arc::new(AcceptFromAllCandidates),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     );
     apply(&mut state, reg_open("t"));

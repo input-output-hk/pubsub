@@ -8,7 +8,7 @@
 //! "the trait is the variation point future strategies replace" intent).
 //!
 //! The trait lives here; each concrete policy is its own submodule. The v1
-//! implementor is [`ForwardToAll`] in [`forward_to_all`] — forward to every
+//! implementor is [`ForwardToRelays`] in [`forward_to_all`] — forward to every
 //! downstream peer on the topic, minus the split-horizon exclusion. Degree caps
 //! and peer sampling are deferred to later strategies.
 
@@ -19,12 +19,12 @@ use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
 
-mod all_links;
 mod forward_to_all;
+mod forward_to_relays;
 mod kind;
 
-pub use all_links::AllLinks;
 pub use forward_to_all::ForwardToAll;
+pub use forward_to_relays::ForwardToRelays;
 pub use kind::{FanoutStrategyKind, UnknownFanoutStrategy};
 
 /// The forwarding-target policy a node consults at the record point.

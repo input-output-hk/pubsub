@@ -14,7 +14,7 @@ use common::{
     build_signed_message_simple, node_with_links, ping, ConnectToExplicit,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
     InMemorySubscriptionRegistry, Message, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
     PeerId, PublisherAdmission, TopicId,
 };
@@ -64,7 +64,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         "a",
         &topics,
         publisher_only(),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::OwnerOnly,
         0,
     )
@@ -75,7 +75,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         "b",
         &topics,
         publisher_only(),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::OwnerOnly,
         0,
     )
@@ -86,7 +86,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         "c",
         &topics,
         publisher_only(),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::OwnerOnly,
         0,
     )

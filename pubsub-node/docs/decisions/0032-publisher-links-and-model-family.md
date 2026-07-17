@@ -49,10 +49,11 @@ superseded by it and remain reference-only (they never merged).
    publisher instance's picks are dialed *downstream*).
 4. **Origin-aware fan-out.** `FanoutStrategy::targets` takes the downstream
    link map and the recorded message's `Origin`, returning per-peer
-   deduplicated targets. `ForwardToAll` (default) sends to relay downstream
-   always, and to `Active` publisher links **only** for local-origin messages —
-   which *is* M3's exclusivity rule (`m3/README.md`); `AllLinks` (M5) unions
-   both kinds for every origin.
+   deduplicated targets. `ForwardToRelays` (default) *forwards* held messages
+   to relay downstream only and additionally *seeds* local-origin messages
+   over `Active` publisher links — which *is* M3's exclusivity rule
+   (`m3/README.md`, forwarding vs initiation); `ForwardToAll` (M5) sends
+   every held message — any origin — over both kinds.
 5. **Publisher admission is a config enum, not a seam.**
    `PublisherAdmission { OwnerOnly (default), AnyVerified }` on `NodeState`
    governs the receive gate for inbound publisher links (M3's owner-binding vs
@@ -77,7 +78,7 @@ superseded by it and remain reference-only (they never merged).
 
 - M2/M3/M4/M5 are per-node flag combinations (documented in the feature's
   quickstart); no `--model` preset — the axes stay independently sweepable.
-  M5's two switches (`all-links` fan-out, `any-verified` admission) must be
+  M5's two switches (`forward-to-all` fan-out, `any-verified` admission) must be
   paired network-wide.
 - The wire layout changed (appended kind byte): the layout-pin test was
   updated in the same commit — the one deliberate behavioural test edit.

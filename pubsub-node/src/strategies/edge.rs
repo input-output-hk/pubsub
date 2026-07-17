@@ -11,12 +11,15 @@ use crate::message::push_len_prefixed;
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
-/// Domain-separation tag so the edge predicate never shares a hash domain with
-/// any other SHA-256 use in the crate (e.g. `MessageHash`). The version suffix
-/// is the predicate's version knob — the one place a pre-image change is
-/// recorded once the protocol has released peers to stay compatible with
-/// (pre-release iterations keep it at `v1`).
-const EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge/v1";
+/// Domain-separation tag for the directional **relay** edge predicate —
+/// exclusively the relay seams' draw (publisher and symmetric edges have
+/// their own tags below), and never shared with any other SHA-256 use in the
+/// crate (e.g. `MessageHash`). Renamed from `…/edge/v1` alongside the 015
+/// link-kind split, before any experiment results existed to keep
+/// reproducible; the version suffix is the predicate's version knob — the one
+/// place a pre-image change is recorded once the protocol has released peers
+/// to stay compatible with (pre-release iterations keep it at `v1`).
+const RELAY_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/relay-edge/v1";
 
 /// Domain tag for **publisher-link** edges: an independent draw from the relay
 /// domain, so a node's publisher targets are uncorrelated with its relay
@@ -102,7 +105,14 @@ pub fn is_valid_edge(
     candidate: &PeerId,
     buckets: usize,
 ) -> bool {
-    is_valid_edge_in(EDGE_DOMAIN, nonce, topic, requester, candidate, buckets)
+    is_valid_edge_in(
+        RELAY_EDGE_DOMAIN,
+        nonce,
+        topic,
+        requester,
+        candidate,
+        buckets,
+    )
 }
 
 /// The publisher-link twin of [`is_valid_edge`]: the same directional

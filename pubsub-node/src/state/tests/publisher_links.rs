@@ -348,7 +348,7 @@ fn any_verified_admits_foreign_publisher_over_publisher_link() {
     assert!(!has_upstream_publisher(&state, "a", "t1"));
 }
 
-// FR-007/011: the AllLinks fan-out sends EVERY held message — peer origin
+// FR-007/011: the ForwardToAll fan-out sends EVERY held message — peer origin
 // included — over relay downstream and Active publisher links, deduplicated.
 #[test]
 fn all_links_fanout_unions_both_kinds_for_any_origin() {
@@ -359,7 +359,7 @@ fn all_links_fanout_unions_both_kinds_for_any_origin() {
         Arc::new(TestVerifier),
         alias_signer("self"),
         NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
-        Arc::new(AllLinks),
+        Arc::new(ForwardToAll),
         PublisherAdmission::AnyVerified,
     );
     state

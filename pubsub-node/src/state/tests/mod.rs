@@ -33,7 +33,7 @@ pub(crate) use crate::strategies::acceptance::{
     AcceptFromAllCandidates, HashGatedBoundedAcceptance,
 };
 pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
-pub(crate) use crate::strategies::fanout::{AllLinks, ForwardToAll};
+pub(crate) use crate::strategies::fanout::{ForwardToAll, ForwardToRelays};
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
 pub(crate) use std::collections::BTreeSet;
@@ -79,7 +79,7 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         Arc::new(TestVerifier),
         alias_signer(self_id),
         NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     );
     for t in subscriptions {
@@ -322,7 +322,7 @@ fn node_state_with_publishers(
             publisher_connection: Some(publisher_strategy),
             publisher_acceptance: Some(publisher_acceptance),
         },
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         admission,
     );
     for t in subscriptions {

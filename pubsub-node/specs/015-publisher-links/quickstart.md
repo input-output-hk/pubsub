@@ -58,12 +58,12 @@ pubsub-node … \
   --relay-degree 6 \
   --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded \
   --publisher-degree 6 \
-  --fanout-strategy all-links --publisher-admission any-verified
+  --fanout-strategy forward-to-all --publisher-admission any-verified
 ```
 
-`all-links` sends every held message over both downstream classes;
+`forward-to-all` sends every held message over both downstream classes;
 `any-verified` admits foreign publishers' messages over inbound publisher
-links. **Pair the two network-wide** — `all-links` senders against
+links. **Pair the two network-wide** — `forward-to-all` senders against
 `owner-only` receivers lose every publisher-link hop.
 
 ## Observing topology

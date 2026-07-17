@@ -144,7 +144,7 @@ impl NetworkHandle {
 /// ```no_run
 /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 /// # use std::sync::Arc;
-/// # use pubsub_node::{AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node, NodeConfig, NodeStrategies, PeerId, PublisherAdmission, Signer, TestVerifier, Verifier};
+/// # use pubsub_node::{AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, MockCryptoScheme, Node, NodeConfig, NodeStrategies, PeerId, PublisherAdmission, Signer, TestVerifier, Verifier};
 /// # let self_id: PeerId = "node-a".parse()?;
 /// # let config = NodeConfig::default();
 /// let network = Arc::new(InMemoryNetwork::new());
@@ -154,7 +154,7 @@ impl NetworkHandle {
 /// let registry = Arc::new(InMemorySubscriptionRegistry::new());
 /// let topic_registry = Arc::new(InMemoryTopicRegistry::new());
 /// let strategies = NodeStrategies::relay_only(Arc::new(ConnectToAllCandidates), Arc::new(AcceptFromAllCandidates));
-/// let fanout = Arc::new(ForwardToAll);
+/// let fanout = Arc::new(ForwardToRelays);
 /// let genesis = 0; // the initial epoch nonce for the verifiable edge predicate
 /// let node = Node::new(self_id, config, genesis, network.clone(), signer, verifier, registry, topic_registry, strategies, fanout, PublisherAdmission::default()).await?;
 /// # Ok(())

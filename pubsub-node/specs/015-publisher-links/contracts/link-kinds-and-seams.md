@@ -76,7 +76,7 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 | `--publisher-strategy` | absent (default) \| `connect-to-all` \| `hash-gated` | absent ⇒ node never dials publisher links |
 | `--publisher-acceptance-strategy` | absent (default) \| same four kinds | absent ⇒ inbound publisher requests silently dropped |
 | `--publisher-degree` | int | required by publisher `hash-gated` / bounded acceptance |
-| `--fanout-strategy` | `forward-to-all` (default) \| `all-links` | M3 vs M5 send side |
+| `--fanout-strategy` | `forward-to-relays` (default) \| `forward-to-all` | M3 vs M5 send side |
 | `--publisher-admission` | `owner-only` (default) \| `any-verified` | M3 vs M5 receive side |
 | `--symmetric-edges` | flag | symmetric predicate on relay selection **and** acceptance together |
 | `--genesis`, `--bucket-count`, `--cap-buffer` | unchanged | shared across seams |
@@ -85,12 +85,12 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 
 | Model | Flags |
 |---|---|
-| **M2** (baseline) | defaults — no publisher flags, `forward-to-all`, `owner-only` |
+| **M2** (baseline) | defaults — no publisher flags, `forward-to-relays`, `owner-only` |
 | **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S_LINKS` |
 | **M4** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) |
-| **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy all-links --publisher-admission any-verified` |
+| **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all --publisher-admission any-verified` |
 
-M5's two switches must be paired network-wide (`all-links` ⇄ `any-verified`);
+M5's two switches must be paired network-wide (`forward-to-all` ⇄ `any-verified`);
 deliberately not fused — the axes stay independently sweepable.
 
 **Parameter mapping caveat**: `--publisher-degree` is the expected number of
@@ -103,7 +103,7 @@ parameterising from the model's tables.
 - Publisher dials fire on the readiness heartbeat, unconditionally (FR-002).
 - Owner-binding under `owner-only`: a message over a publisher link from a
   non-owner is dropped `not_connected`-class, never recorded (FR-006).
-- Publisher links never carry relayed traffic under `forward-to-all` (FR-005).
+- Publisher links never carry relayed traffic under `forward-to-relays` (FR-005).
 - Invalid signature severs the admitting link kind (FR-010).
 - One send per peer regardless of coexisting link kinds (FR-011).
 - Relay and publisher acceptance caps count independently (FR-004).

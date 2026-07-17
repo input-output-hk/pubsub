@@ -13,7 +13,7 @@ use common::{
     await_upstream_active, node_with_links, ping, trigger_setup, ConnectToExplicit,
 };
 use pubsub_node::{
-    is_valid_edge_sym, AcceptFromAllCandidates, AllLinks, FanoutStrategy, ForwardToAll,
+    is_valid_edge_sym, AcceptFromAllCandidates, FanoutStrategy, ForwardToAll, ForwardToRelays,
     HashGatedAcceptance, HashGatedConnection, InMemoryNetwork, InMemorySubscriptionRegistry,
     Message, Node, NodeStrategies, PeerId, PublisherAdmission, TopicId,
 };
@@ -111,7 +111,7 @@ async fn m4_symmetric_edges_form_reciprocal_pairs_and_flood() {
                 id,
                 std::slice::from_ref(&t),
                 m4_strategies(id),
-                Arc::new(ForwardToAll),
+                Arc::new(ForwardToRelays),
                 PublisherAdmission::default(),
                 genesis,
             )
@@ -307,7 +307,7 @@ async fn chain_fleet(
 // a→b→c over standing publisher links only — b relays a's message to c.
 #[tokio::test]
 async fn m5_chain_relays_foreign_publisher_over_standing_links() {
-    let (a, _b, c) = chain_fleet(|| Arc::new(AllLinks), PublisherAdmission::AnyVerified).await;
+    let (a, _b, c) = chain_fleet(|| Arc::new(ForwardToAll), PublisherAdmission::AnyVerified).await;
     let t = topic("t1");
 
     let message = alias_ping_m5("a", &t, 5);
@@ -326,7 +326,7 @@ async fn m5_chain_relays_foreign_publisher_over_standing_links() {
 // (and owner-only would drop the b→c hop anyway).
 #[tokio::test]
 async fn m3_defaults_do_not_relay_over_the_chain() {
-    let (a, b, c) = chain_fleet(|| Arc::new(ForwardToAll), PublisherAdmission::OwnerOnly).await;
+    let (a, b, c) = chain_fleet(|| Arc::new(ForwardToRelays), PublisherAdmission::OwnerOnly).await;
     let t = topic("t1");
 
     let message = alias_ping_m5("a", &t, 6);

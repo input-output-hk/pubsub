@@ -10,11 +10,12 @@ use std::time::Duration;
 
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, FanoutStrategy,
-    ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState,
-    Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeStrategies,
-    NodeView, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey, PublisherAdmission, PublisherId,
-    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
-    Timestamp, TopicId, TopicRegistryControl, Verifier,
+    ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    LinkState, Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeConfig,
+    NodeStrategies, NodeView, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey,
+    PublisherAdmission, PublisherId, ReceivedDelivery, SignedMessage, Signer,
+    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
+    TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -200,7 +201,7 @@ pub async fn two_node_fixture_with_subscriptions(
             Arc::new(ConnectToAllCandidates),
             Arc::new(AcceptFromAllCandidates),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     )
     .await
@@ -221,7 +222,7 @@ pub async fn two_node_fixture_with_subscriptions(
             Arc::new(ConnectToAllCandidates),
             Arc::new(AcceptFromAllCandidates),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     )
     .await
@@ -328,7 +329,7 @@ pub async fn node_with_strategy(
         registry.clone(),
         topic_registry,
         NodeStrategies::relay_only(strategy, Arc::new(AcceptFromAllCandidates)),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     )
     .await
@@ -381,7 +382,7 @@ pub async fn node_sharing(
             Arc::new(ConnectToAllCandidates),
             Arc::new(AcceptFromAllCandidates),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     )
     .await

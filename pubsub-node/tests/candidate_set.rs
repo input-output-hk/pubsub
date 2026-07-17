@@ -9,7 +9,7 @@ use common::{
     ping, shared_test_verifier,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToAll, InMemoryNetwork,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
     InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, NodeStrategies, PeerId,
     PublisherAdmission, SubscriptionRegistryControl, TopicId,
 };
@@ -45,7 +45,7 @@ async fn node_with_no_registry_entry_derives_empty_state() {
             Arc::new(ConnectToAllCandidates),
             Arc::new(AcceptFromAllCandidates),
         ),
-        Arc::new(ForwardToAll),
+        Arc::new(ForwardToRelays),
         PublisherAdmission::default(),
     )
     .await

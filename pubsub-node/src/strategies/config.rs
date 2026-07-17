@@ -13,7 +13,7 @@
 //!
 //! Each kind reads only the params for its own seam (no shared grab-bag), so
 //! construction *and* required-parameter validation live with the strategy, not
-//! scattered across the edge. (Fan-out stays `ForwardToAll`, injected separately;
+//! scattered across the edge. (Fan-out stays `ForwardToRelays`, injected separately;
 //! it is not built through this two-phase seam.)
 
 use std::sync::Arc;
@@ -168,8 +168,8 @@ pub struct NodeStrategies {
 /// Phase 1 of construction: the resolved per-seam strategy *kinds*, awaiting
 /// their parameters. Create it with [`NodeStrategies::builder`].
 pub struct NodeStrategiesBuilder {
-    connection: ConnectionStrategyKind,
-    acceptance: AcceptanceStrategyKind,
+    relay_connection: ConnectionStrategyKind,
+    relay_acceptance: AcceptanceStrategyKind,
 }
 
 impl NodeStrategies {
@@ -177,12 +177,12 @@ impl NodeStrategies {
     /// constructed until [`NodeStrategiesBuilder::build`].
     #[must_use]
     pub fn builder(
-        connection: ConnectionStrategyKind,
-        acceptance: AcceptanceStrategyKind,
+        relay_connection: ConnectionStrategyKind,
+        relay_acceptance: AcceptanceStrategyKind,
     ) -> NodeStrategiesBuilder {
         NodeStrategiesBuilder {
-            connection,
-            acceptance,
+            relay_connection,
+            relay_acceptance,
         }
     }
 
@@ -210,12 +210,12 @@ impl NodeStrategiesBuilder {
     /// `None` here; the edge fills it when publisher flags are configured.
     pub fn build(
         self,
-        connection: &ConnectionParams,
-        acceptance: &AcceptanceParams,
+        relay_connection: &ConnectionParams,
+        relay_acceptance: &AcceptanceParams,
     ) -> Result<NodeStrategies, StrategyConfigError> {
         Ok(NodeStrategies {
-            relay_connection: self.connection.build(connection)?,
-            relay_acceptance: self.acceptance.build(acceptance)?,
+            relay_connection: self.relay_connection.build(relay_connection)?,
+            relay_acceptance: self.relay_acceptance.build(relay_acceptance)?,
             publisher_connection: None,
             publisher_acceptance: None,
         })

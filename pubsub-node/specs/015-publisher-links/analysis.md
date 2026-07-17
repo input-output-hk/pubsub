@@ -102,12 +102,27 @@ pair (maintainer-requested; mechanical at all construction sites), and the M4
 comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
 "publisher links stay directional" phrasing contradicting `m4/README.md`.
 
+**A9 — review round 3 (maintainer read-through, 2026-07-17).**
+1. *Fan-out kind names*: `forward-to-all`/`all-links` sounded interchangeable.
+   Renamed (maintainer's proposal): `forward-to-relays` (default — forwards
+   held messages to relay downstream only; publisher links carry just the
+   node's own publications, i.e. seeding) and `forward-to-all` (M5 — every
+   held message over all Active links). Two-step type rename
+   (`ForwardToAll`→`ForwardToRelays`, then `AllLinks`→`ForwardToAll`) so no
+   call site could silently keep the old name with the new semantics.
+2. *`EDGE_DOMAIN` scope*: since 015 the tag is relay-exclusive; renamed const
+   to `RELAY_EDGE_DOMAIN` **and** — per maintainer, no experiment results
+   exist yet to keep reproducible — the tag string itself to
+   `pubsub/bucketed-pull/relay-edge/v1`.
+3. *`NodeStrategiesBuilder`*: fields/params renamed `relay_connection`/
+   `relay_acceptance` to match the A8 struct rename.
+
 ## Verification notes
 
 - `main.rs --help` output matches contracts §5 flag-for-flag (checked at
   polish); quickstart recipes use only shipped flags.
 - `lib.rs` re-exports match contracts §2–§4: `LinkKind`/`LinkKey`/`LinkState`/
-  `PublisherAdmission` (+ unknown-name error), `AllLinks`/`FanoutStrategyKind`,
+  `PublisherAdmission` (+ unknown-name error), `ForwardToRelays`/`ForwardToAll`/`FanoutStrategyKind`,
   `is_valid_edge_sym`; `is_valid_edge_publisher` stays crate-internal (no
   external consumer).
 - Suite at completion: 243 tests, clippy pedantic clean, fmt clean.

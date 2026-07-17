@@ -137,7 +137,10 @@ message's origin (already computed at both call sites).
   `Active` **iff** `origin == Local`) — this *is* M3 per `m3/README.md`
   (an M2 node simply has no publisher entries, so behaviour is unchanged).
 - `AllLinks` (CLI `all-links`, M5): relay ∪ publisher-Active for **every**
-  origin.
+  origin. *(Superseded in review round 3: the pair shipped as
+  `ForwardToRelays`/`forward-to-relays` (default) and
+  `ForwardToAll`/`forward-to-all` (M5) — "forward" names the relayed-traffic
+  path; the publisher-link sends of the default kind are seeding.)*
 Both dedup per peer by collecting into a `BTreeSet<PeerId>` before the exclude
 filter. A `FanoutStrategyKind` (`forward-to-all` | `all-links`) parses the CLI
 value; fan-out stays injected directly (as today), not routed through the

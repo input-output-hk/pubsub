@@ -88,7 +88,7 @@ pub use strategies::connection::{
 };
 pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_sym};
 pub use strategies::fanout::{
-    AllLinks, FanoutStrategy, FanoutStrategyKind, ForwardToAll, UnknownFanoutStrategy,
+    FanoutStrategy, FanoutStrategyKind, ForwardToAll, ForwardToRelays, UnknownFanoutStrategy,
 };
 pub use strategies::view::NodeView;
 pub use subscription_registry::{

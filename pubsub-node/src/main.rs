@@ -106,16 +106,17 @@ struct Args {
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
 
-    /// Fan-out strategy (case-insensitive): `forward-to-all` (the default —
-    /// relay downstream always, publisher links only for locally-published
-    /// messages) or `all-links` (every held message over both link classes).
-    #[arg(long, default_value = "forward-to-all")]
+    /// Fan-out strategy (case-insensitive): `forward-to-relays` (the default —
+    /// held messages are forwarded to relay downstream only; publisher links
+    /// carry just the node's own publications) or `forward-to-all` (every held
+    /// message over both link classes).
+    #[arg(long, default_value = "forward-to-relays")]
     fanout_strategy: FanoutStrategyKind,
 
     /// Receive-gate policy for inbound publisher links (case-insensitive):
     /// `owner-only` (the default — a publisher link admits only its owner's
     /// own publications) or `any-verified` (admits any verified message).
-    /// Pair `any-verified` with `--fanout-strategy all-links` network-wide.
+    /// Pair `any-verified` with `--fanout-strategy forward-to-all` network-wide.
     #[arg(long, default_value = "owner-only")]
     publisher_admission: PublisherAdmission,
 
@@ -173,7 +174,7 @@ async fn main() {
     // keys); phase 2 binds each seam's own params and builds them all, validating
     // the parameters each chosen strategy requires. The edge stays lean — it maps
     // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
-    // unchanged; fan-out stays `ForwardToAll`, injected separately below.
+    // unchanged; fan-out stays `ForwardToRelays`, injected separately below.
     let strategies = NodeStrategies::builder(args.relay_strategy, args.relay_acceptance_strategy)
         .build(
             &ConnectionParams {

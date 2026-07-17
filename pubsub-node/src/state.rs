@@ -94,7 +94,7 @@ pub(crate) struct NodeState {
     connection_strategy: Arc<dyn ConnectionStrategy>,
     /// The fan-out policy consulted at the record point to choose which
     /// downstream peers receive a forward of a recorded message. The deliberate
-    /// twin of `connection_strategy`; the v1 implementor is `ForwardToAll` (ADR 0021).
+    /// twin of `connection_strategy`; the v1 implementor is `ForwardToRelays` (ADR 0021).
     fanout_strategy: Arc<dyn FanoutStrategy>,
     /// The relay-link acceptance policy consulted on a verified relay `Request`
     /// to decide whether to accept the emitter as downstream on the topic. The

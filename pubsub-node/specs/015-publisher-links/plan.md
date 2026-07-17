@@ -37,7 +37,7 @@ and transitions: [data-model.md](data-model.md); observable surface:
 
 **Constraints**: minimal-shapes constraint from the spec Input (binding); pre-existing tests untouched except the mechanical getter rename + the deliberate wire-layout pin update (research R3); every commit a green checkpoint
 
-**Scale/Scope**: ~12 source files touched, 2 new strategy files (`all_links.rs`, fan-out kind), 1 ADR, 2 ported integration test files
+**Scale/Scope**: ~12 source files touched, 2 new strategy files (the M5 fan-out kind + its selector), 1 ADR, 2 ported integration test files
 
 ## Constitution Check
 
@@ -82,7 +82,7 @@ src/
     ├── config.rs              # four-slot NodeStrategies; params gain symmetric + publisher degree
     ├── connection/            # expected_links rename; HashGatedConnection kind/symmetric fields
     ├── acceptance/            # link_scan; kind-aware admit_prelude; kind/symmetric fields
-    └── fanout/                # trait signature (+origin, map); forward_to_all update; all_links.rs; kind.rs
+    └── fanout/                # trait signature (+origin, map); forward_to_relays.rs update; forward_to_all.rs (M5); kind.rs
 
 tests/
 ├── connections.rs, bounded_selection.rs, … # getter renames only
