@@ -27,6 +27,17 @@ pub enum LinkKind {
     Publisher,
 }
 
+impl LinkKind {
+    /// The lower-case operator-facing name (log fields, error text).
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Relay => "relay",
+            Self::Publisher => "publisher",
+        }
+    }
+}
+
 /// The key of one link: `(topic, peer, kind)`.
 ///
 /// Topic-first field order on purpose — the derived `Ord` clusters a topic's

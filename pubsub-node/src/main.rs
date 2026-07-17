@@ -127,6 +127,7 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    validate_flag_combinations(&args);
 
     tracing_subscriber::fmt()
         .with_max_level(args.log_level)
@@ -225,6 +226,42 @@ async fn main() {
     }
 
     drop(node);
+}
+
+/// Reject flag combinations that would silently do nothing — a
+/// mis-parameterised experiment run must fail at startup, not produce
+/// quietly-wrong topology data.
+fn validate_flag_combinations(args: &Args) {
+    let die = |msg: &str| {
+        eprintln!("pubsub-node: {msg}");
+        std::process::exit(2);
+    };
+    if args.publisher_degree.is_some()
+        && args.publisher_strategy.is_none()
+        && args.publisher_acceptance_strategy.is_none()
+    {
+        die(
+            "--publisher-degree has no effect without --publisher-strategy or \
+             --publisher-acceptance-strategy",
+        );
+    }
+    let relay_selection_gated = args.relay_strategy == ConnectionStrategyKind::HashGated;
+    let relay_acceptance_gated = matches!(
+        args.relay_acceptance_strategy,
+        AcceptanceStrategyKind::HashGated | AcceptanceStrategyKind::HashGatedBounded
+    );
+    if args.symmetric_edges && !relay_selection_gated && !relay_acceptance_gated {
+        die(
+            "--symmetric-edges has no effect: it requires a hash-gated relay strategy \
+             (--relay-strategy hash-gated and/or a hash-gated --relay-acceptance-strategy)",
+        );
+    }
+    if args.publisher_admission == PublisherAdmission::AnyVerified
+        && args.publisher_acceptance_strategy.is_none()
+    {
+        die("--publisher-admission any-verified has no effect without \
+             --publisher-acceptance-strategy (the node accepts no inbound publisher links)");
+    }
 }
 
 /// Build the optional publisher selection/acceptance instances from the

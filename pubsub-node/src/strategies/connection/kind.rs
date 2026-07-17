@@ -43,7 +43,8 @@ impl ConnectionStrategyKind {
         match self {
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
             Self::HashGated => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedConnection::new(params.self_id.clone(), target_degree)

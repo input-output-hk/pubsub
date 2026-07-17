@@ -237,8 +237,8 @@ async fn await_content(node: &Node, message: &Message, timeout: Duration) {
 /// target list (the directed `k_out` picks); publisher acceptance open.
 fn chain_strategies(targets: &[(&str, &TopicId)]) -> NodeStrategies {
     NodeStrategies {
-        connection: Arc::new(ConnectToExplicit(Vec::new())),
-        acceptance: Arc::new(AcceptFromAllCandidates),
+        relay_connection: Arc::new(ConnectToExplicit(Vec::new())),
+        relay_acceptance: Arc::new(AcceptFromAllCandidates),
         publisher_connection: Some(Arc::new(ConnectToExplicit(
             targets
                 .iter()

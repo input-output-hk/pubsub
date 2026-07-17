@@ -77,6 +77,31 @@ experiment needs them (no consumer today).
 archive-branch artifact). Creating one for this PR would be unrelated churn —
 deferred; ADR 0032 stands alone like 0024–0031 do.
 
+**A8 — review round 2 (in-chat PR review, 2026-07-17).** Four findings, all
+addressed in one follow-up commit:
+1. *M3 parameter-mapping off-by-one (docs)*: the recipe wrote
+   `--publisher-degree S`, but the model's *s* counts the publisher **plus**
+   its s−1 targets — the flag is the link count. Contracts §6 and the
+   quickstart now state `S_LINKS = s − 1` explicitly.
+2. *Latent flake in `tests/publisher_links.rs`*: the fleet triggered its retry
+   heartbeat without awaiting candidate convergence (the M4 test did). A
+   candidate barrier now precedes the trigger.
+3. *Silent no-op flag combinations*: per maintainer direction, misconfigured
+   flags now **fail at startup** (`validate_flag_combinations` in `main.rs`,
+   exit 2): `--publisher-degree` without a publisher seam, `--symmetric-edges`
+   without any hash-gated relay seam, `any-verified` without publisher
+   acceptance. Relatedly, the degree-missing build errors now name the actual
+   flag per seam (`--relay-degree` / `--publisher-degree`) instead of the
+   retired `--target-degree`.
+4. *Severed-link observability*: `Effect::Misbehaved` now carries the admitting
+   link's `LinkKind`; the `connection_severed` log gains `link_kind`, and the
+   severance tests pin the kind.
+Also from the same review: `NodeStrategies.connection`/`.acceptance` renamed to
+`relay_connection`/`relay_acceptance` for naming symmetry with the publisher
+pair (maintainer-requested; mechanical at all construction sites), and the M4
+comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
+"publisher links stay directional" phrasing contradicting `m4/README.md`.
+
 ## Verification notes
 
 - `main.rs --help` output matches contracts §5 flag-for-flag (checked at

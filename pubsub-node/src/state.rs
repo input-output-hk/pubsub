@@ -156,9 +156,9 @@ impl NodeState {
             downstream: BTreeMap::new(),
             epoch_nonce: genesis,
             signer,
-            connection_strategy: strategies.connection,
+            connection_strategy: strategies.relay_connection,
             fanout_strategy,
-            acceptance_strategy: strategies.acceptance,
+            acceptance_strategy: strategies.relay_acceptance,
             publisher_strategy: strategies.publisher_connection,
             publisher_acceptance: strategies.publisher_acceptance,
             publisher_admission,
@@ -287,8 +287,10 @@ pub(crate) enum Effect {
     Misbehaved {
         /// The offending peer.
         peer: PeerId,
-        /// The topic the severed connection was for.
+        /// The topic the severed link was for.
         topic: TopicId,
+        /// Which link class was severed (the admitting link's kind).
+        kind: LinkKind,
         /// A static cause tag for the operator log.
         cause: &'static str,
     },
@@ -1200,10 +1202,12 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         // the entry that admitted the message and raise the misbehavior signal
         // (the executor logs `connection_severed`); no Terminated is sent.
         let topic = signed.plain.topic.clone();
+        let kind = admitting_key.kind;
         state.upstream.remove(&admitting_key);
         return vec![Effect::Misbehaved {
             peer: from,
             topic,
+            kind,
             cause: "invalid_signature",
         }];
     }

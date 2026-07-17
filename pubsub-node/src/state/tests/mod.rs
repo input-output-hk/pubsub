@@ -265,9 +265,20 @@ fn misbehaved(effects: &[Effect]) -> Vec<(PeerId, TopicId, &'static str)> {
     effects
         .iter()
         .filter_map(|effect| match effect {
-            Effect::Misbehaved { peer, topic, cause } => {
-                Some((peer.clone(), topic.clone(), *cause))
-            }
+            Effect::Misbehaved {
+                peer, topic, cause, ..
+            } => Some((peer.clone(), topic.clone(), *cause)),
+            Effect::Send { .. } => None,
+        })
+        .collect()
+}
+
+/// The link kind of every `Misbehaved` effect — which class was severed.
+fn severed_kinds(effects: &[Effect]) -> Vec<LinkKind> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Misbehaved { kind, .. } => Some(*kind),
             Effect::Send { .. } => None,
         })
         .collect()
@@ -306,8 +317,8 @@ fn node_state_with_publishers(
         Arc::new(TestVerifier),
         alias_signer(self_id),
         NodeStrategies {
-            connection: strategy(),
-            acceptance: Arc::new(AcceptFromAllCandidates),
+            relay_connection: strategy(),
+            relay_acceptance: Arc::new(AcceptFromAllCandidates),
             publisher_connection: Some(publisher_strategy),
             publisher_acceptance: Some(publisher_acceptance),
         },

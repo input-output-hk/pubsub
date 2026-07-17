@@ -42,8 +42,8 @@ const T: Duration = Duration::from_secs(2);
 /// fleet can only have crossed a publisher link.
 fn publisher_only() -> NodeStrategies {
     NodeStrategies {
-        connection: Arc::new(ConnectToExplicit(Vec::new())),
-        acceptance: Arc::new(AcceptFromAllCandidates),
+        relay_connection: Arc::new(ConnectToExplicit(Vec::new())),
+        relay_acceptance: Arc::new(AcceptFromAllCandidates),
         publisher_connection: Some(Arc::new(ConnectToAllCandidates)),
         publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
     }
@@ -91,6 +91,14 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         0,
     )
     .await;
+    // Candidate barrier before the retry heartbeat: without it the Heartbeat
+    // can beat the last membership delta into a node's queue, and with no
+    // further retry the fleet would strand a pending dial.
+    for (node, others) in [(&a, ["b", "c"]), (&b, ["a", "c"]), (&c, ["a", "b"])] {
+        common::await_candidates(node, &topic("t1"), &others, T)
+            .await
+            .expect("candidates converge");
+    }
     for node in [&a, &b, &c] {
         common::trigger_setup(node);
     }

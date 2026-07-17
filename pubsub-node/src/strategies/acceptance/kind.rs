@@ -54,13 +54,15 @@ impl AcceptanceStrategyKind {
         match self {
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::Bounded => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
                 Ok(Arc::new(
                     BoundedAcceptance::new(target_degree, params.cap_buffer).for_kind(params.kind),
                 ))
             }
             Self::HashGated => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedAcceptance::new(params.self_id.clone(), target_degree)
@@ -70,7 +72,8 @@ impl AcceptanceStrategyKind {
                 ))
             }
             Self::HashGatedBounded => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedBoundedAcceptance::new(

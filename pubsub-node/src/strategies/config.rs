@@ -118,16 +118,29 @@ pub(crate) fn validate_bucket_count(
 /// seams' `build` arms so the two cannot drift on what a valid degree is.
 pub(crate) fn require_target_degree(
     strategy: &'static str,
+    kind: LinkKind,
     target_degree: Option<usize>,
 ) -> Result<usize, StrategyConfigError> {
+    // The flag that supplies the degree differs per seam family; the error
+    // must name the one the operator actually has to set.
+    let (missing, invalid) = match kind {
+        LinkKind::Relay => (
+            "a relay degree (--relay-degree)",
+            "the relay degree (--relay-degree)",
+        ),
+        LinkKind::Publisher => (
+            "a publisher degree (--publisher-degree)",
+            "the publisher degree (--publisher-degree)",
+        ),
+    };
     let target_degree = target_degree.ok_or(StrategyConfigError::MissingParameter {
         strategy,
-        parameter: "a target degree (--target-degree)",
+        parameter: missing,
     })?;
     if target_degree == 0 {
         return Err(StrategyConfigError::InvalidParameter {
             strategy,
-            parameter: "the target degree (--target-degree)",
+            parameter: invalid,
             constraint: "greater than 0",
         });
     }
@@ -143,9 +156,9 @@ pub(crate) fn require_target_degree(
 /// seam.
 pub struct NodeStrategies {
     /// The relay-link selection (dial/upstream) strategy.
-    pub connection: Arc<dyn ConnectionStrategy>,
+    pub relay_connection: Arc<dyn ConnectionStrategy>,
     /// The relay-link acceptance (downstream) strategy.
-    pub acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    pub relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
     /// The publisher-link selection strategy (standing initiation dials).
     pub publisher_connection: Option<Arc<dyn ConnectionStrategy>>,
     /// The publisher-link acceptance strategy (inbound initiation links).
@@ -178,12 +191,12 @@ impl NodeStrategies {
     /// tests that inject concrete strategies directly.
     #[must_use]
     pub fn relay_only(
-        connection: Arc<dyn ConnectionStrategy>,
-        acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+        relay_connection: Arc<dyn ConnectionStrategy>,
+        relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
     ) -> Self {
         Self {
-            connection,
-            acceptance,
+            relay_connection,
+            relay_acceptance,
             publisher_connection: None,
             publisher_acceptance: None,
         }
@@ -201,8 +214,8 @@ impl NodeStrategiesBuilder {
         acceptance: &AcceptanceParams,
     ) -> Result<NodeStrategies, StrategyConfigError> {
         Ok(NodeStrategies {
-            connection: self.connection.build(connection)?,
-            acceptance: self.acceptance.build(acceptance)?,
+            relay_connection: self.connection.build(connection)?,
+            relay_acceptance: self.acceptance.build(acceptance)?,
             publisher_connection: None,
             publisher_acceptance: None,
         })

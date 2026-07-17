@@ -220,6 +220,7 @@ fn tampered_payload_severs_the_admitting_publisher_link() {
     // admission), so the relay link is the admitting link here.
     let effects = apply(&mut state, tampered_payload_from("a", "t1", 7));
     assert_eq!(misbehaved(&effects).len(), 1);
+    assert_eq!(severed_kinds(&effects), vec![LinkKind::Relay]);
     assert_eq!(
         upstream_state(&state, "a", "t1"),
         None,
@@ -235,6 +236,7 @@ fn tampered_payload_severs_the_admitting_publisher_link() {
     with_upstream_publisher(&mut state, "a", "t1");
     let effects = apply(&mut state, tampered_payload_from("a", "t1", 8));
     assert_eq!(misbehaved(&effects).len(), 1);
+    assert_eq!(severed_kinds(&effects), vec![LinkKind::Publisher]);
     assert!(
         !has_upstream_publisher(&state, "a", "t1"),
         "the admitting publisher link is severed",

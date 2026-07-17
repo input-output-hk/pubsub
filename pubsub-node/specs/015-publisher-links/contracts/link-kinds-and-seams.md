@@ -86,12 +86,17 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 | Model | Flags |
 |---|---|
 | **M2** (baseline) | defaults — no publisher flags, `forward-to-all`, `owner-only` |
-| **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S` |
+| **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S_LINKS` |
 | **M4** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) |
 | **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy all-links --publisher-admission any-verified` |
 
 M5's two switches must be paired network-wide (`all-links` ⇄ `any-verified`);
 deliberately not fused — the axes stay independently sweepable.
+
+**Parameter mapping caveat**: `--publisher-degree` is the expected number of
+standing publisher **links**. The M3 model's *s* counts the intended initial
+holders — the publisher **plus** its s−1 targets — so `S_LINKS = s − 1` when
+parameterising from the model's tables.
 
 ## 7. Behavioural guarantees (test anchors)
 

@@ -516,12 +516,18 @@ async fn execute_effect(sender: &NetworkSender, self_id: &PeerId, effect: Effect
                 );
             }
         }
-        Effect::Misbehaved { peer, topic, cause } => {
+        Effect::Misbehaved {
+            peer,
+            topic,
+            kind,
+            cause,
+        } => {
             tracing::warn!(
                 target: "pubsub_node::node",
                 event = "connection_severed",
                 peer = %peer,
                 topic = %topic,
+                link_kind = kind.name(),
                 cause,
                 "connection severed",
             );

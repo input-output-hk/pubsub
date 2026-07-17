@@ -32,6 +32,10 @@ links (independent hash domain). Locally-published messages go out over relay
 downstream **and** active publisher links; relayed messages over relay links
 only; a publisher link admits only its owner's publications.
 
+Model-parameter mapping: the M3 model's *s* counts the publisher **plus** its
+targets, so set `--publisher-degree` to **s − 1** when reproducing the model's
+tables.
+
 ## M4 — bidirectional relay links
 
 ```sh
