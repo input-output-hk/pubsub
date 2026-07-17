@@ -40,7 +40,7 @@ async fn ping_delivered_when_a_lists_b() {
 async fn empty_peer_set_cannot_originate() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    let a = node_with(&registry, &network, "node-a", &[], &[test_topic()]).await;
+    let a = node_with(&registry, &network, "node-a", &[test_topic()]).await;
 
     let ghost = PeerId::from_str("ghost").unwrap();
     let outcome = a.send(&ghost, common::ping(test_topic(), 0)).await;

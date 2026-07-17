@@ -3,24 +3,21 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
-    ConnectionStrategyKind, FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId,
-    PublisherAdmission, Signer, TestVerifier, Verifier,
+    AcceptanceParams, AcceptanceStrategyKind, ConnectionParams, ConnectionStrategyKind,
+    FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId, PublisherAdmission, Signer,
+    TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
-/// in-memory network, loads its peer set from TOML, and waits for Ctrl-C.
+/// in-memory network, derives its peers from the subscription registry, and
+/// waits for Ctrl-C.
 #[derive(Parser)]
 #[command(name = "pubsub-node", version, about, long_about = None)]
 struct Args {
     /// This node's identifier (non-empty UTF-8, no internal NUL bytes).
     #[arg(long)]
     self_id: PeerId,
-
-    /// Path to the TOML node-config file.
-    #[arg(long)]
-    config: PathBuf,
 
     /// Path to the TOML subscription-list file (the mock subscription registry
     /// the node reads its topics and peer membership from).
@@ -136,11 +133,6 @@ async fn main() {
         .with_writer(std::io::stderr)
         .init();
 
-    let cfg = load_node_config(&args.config).unwrap_or_else(|e| {
-        eprintln!("pubsub-node: {e}");
-        std::process::exit(2);
-    });
-
     // The mock subscription registry, seeded from the subscription-list file
     // (the stand-in for the on-chain subscription list / operator registration).
     let registry = Arc::new(
@@ -205,7 +197,6 @@ async fn main() {
 
     let node = Node::new(
         args.self_id,
-        cfg,
         args.genesis,
         network,
         signer,

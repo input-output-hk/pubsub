@@ -97,30 +97,6 @@ impl<'de> serde::Deserialize<'de> for PeerId {
     }
 }
 
-/// Abstract handle for addressing a peer.
-///
-/// Exposes an [`id`](PeerDescriptor::id) accessor; future iterations may add
-/// network-level information (addresses, public keys) on richer implementors
-/// without breaking callers that only need to address a peer by its id.
-pub trait PeerDescriptor: Clone + Send + Sync + 'static {
-    /// Return the peer's logical identifier.
-    fn id(&self) -> &PeerId;
-}
-
-/// The v1 concrete [`PeerDescriptor`] implementation — a thin wrapper around
-/// a [`PeerId`] with no other fields.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BasicPeerDescriptor {
-    /// The peer's identifier.
-    pub id: PeerId,
-}
-
-impl PeerDescriptor for BasicPeerDescriptor {
-    fn id(&self) -> &PeerId {
-        &self.id
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{PeerId, PeerIdError};

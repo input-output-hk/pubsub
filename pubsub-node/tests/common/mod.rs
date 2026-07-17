@@ -11,11 +11,10 @@ use std::time::Duration;
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, FanoutStrategy,
     ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    LinkState, Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeConfig,
-    NodeStrategies, NodeView, Origin, PeerEntry, PeerId, PlainMessage, PrivateKey,
-    PublisherAdmission, PublisherId, ReceivedDelivery, SignedMessage, Signer,
-    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
-    TopicRegistryControl, Verifier,
+    LinkState, Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
+    NodeView, Origin, PeerId, PlainMessage, PrivateKey, PublisherAdmission, PublisherId,
+    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
+    Timestamp, TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -188,9 +187,6 @@ pub async fn two_node_fixture_with_subscriptions(
 
     let a = Node::new(
         a_id.clone(),
-        NodeConfig {
-            peers: vec![PeerEntry { id: b_id.clone() }],
-        },
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&a_id.to_string()),
@@ -209,9 +205,6 @@ pub async fn two_node_fixture_with_subscriptions(
 
     let b = Node::new(
         b_id.clone(),
-        NodeConfig {
-            peers: vec![PeerEntry { id: a_id }],
-        },
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&b_id.to_string()),
@@ -259,20 +252,18 @@ pub async fn two_node_fixture_with_subscriptions(
 }
 
 /// Build a node sharing `registry` and `network`, with its subscription-list
-/// entry seeded with `topics` and a config peer list of `peers`. Centralises
-/// the registry-seed-then-construct dance for the inline multi-node tests.
+/// entry seeded with `topics`. Centralises the registry-seed-then-construct
+/// dance for the inline multi-node tests.
 pub async fn node_with(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
     id: &str,
-    peers: &[&str],
     topics: &[TopicId],
 ) -> Node {
     node_with_strategy(
         registry,
         network,
         id,
-        peers,
         topics,
         Arc::new(ConnectToAllCandidates),
         0, // genesis: the default initial epoch nonce
@@ -287,12 +278,10 @@ pub async fn node_with(
 /// can be built on a shared topic — the all-candidates policy over one topic can
 /// only build a full mesh. Acceptance is unaffected (it still uses the real
 /// candidate set).
-#[allow(clippy::too_many_arguments)]
 pub async fn node_with_strategy(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
     id: &str,
-    peers: &[&str],
     topics: &[TopicId],
     strategy: Arc<dyn ConnectionStrategy>,
     genesis: u64,
@@ -312,16 +301,9 @@ pub async fn node_with_strategy(
             .await
             .expect("register topic open");
     }
-    let peers = peers
-        .iter()
-        .map(|p| PeerEntry {
-            id: PeerId::from_str(p).expect("valid peer id"),
-        })
-        .collect();
     let signer = alias_signer(&id.to_string());
     let node = Node::new(
         id,
-        NodeConfig { peers },
         genesis,
         network.clone(),
         signer,
@@ -350,28 +332,20 @@ pub async fn node_with_strategy(
     node
 }
 
-/// Construct a node sharing the given subscription **and** topic registries,
-/// with config `peers`. Unlike [`node_with`], this seeds **neither** registry —
-/// the caller sets up membership (`set_topics`) and topic registration
-/// (`set_topic`) explicitly, and awaits convergence itself. Used by the
-/// topic-validity and multi-node topic-registry tests, which need a node
-/// subscribed to more (or other) topics than are registered.
+/// Construct a node sharing the given subscription **and** topic registries.
+/// Unlike [`node_with`], this seeds **neither** registry — the caller sets up
+/// membership (`set_topics`) and topic registration (`set_topic`) explicitly,
+/// and awaits convergence itself. Used by the topic-validity and multi-node
+/// topic-registry tests, which need a node subscribed to more (or other)
+/// topics than are registered.
 pub async fn node_sharing(
     registry: &Arc<InMemorySubscriptionRegistry>,
     topic_registry: &Arc<InMemoryTopicRegistry>,
     network: &Arc<InMemoryNetwork>,
     id: &str,
-    peers: &[&str],
 ) -> Node {
-    let peers = peers
-        .iter()
-        .map(|p| PeerEntry {
-            id: PeerId::from_str(p).expect("valid peer id"),
-        })
-        .collect();
     let node = Node::new(
         PeerId::from_str(id).expect("valid id"),
-        NodeConfig { peers },
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(id),
@@ -425,7 +399,6 @@ pub async fn node_with_links(
     let signer = alias_signer(&id.to_string());
     let node = Node::new(
         id,
-        NodeConfig { peers: Vec::new() },
         genesis,
         network.clone(),
         signer,
@@ -884,7 +857,7 @@ impl ConnectionStrategy for ConnectToExplicit {
 
 /// A fluent builder for a test node on a shared subscription registry + network
 /// — the declarative front end to [`node_with_strategy`] for scripting exact
-/// topologies. Defaults: no config peers, the all-candidates dial policy. The
+/// topologies. Default dial policy: all candidates. The
 /// dial policy is overridden by [`dials`](NodeSpec::dials) (one explicit edge) or
 /// [`dials_nobody`](NodeSpec::dials_nobody) (accept-only), which is how an acyclic
 /// star/line is built on a single shared topic.
@@ -897,7 +870,6 @@ pub struct NodeSpec<'a> {
     registry: &'a Arc<InMemorySubscriptionRegistry>,
     network: &'a Arc<InMemoryNetwork>,
     id: String,
-    peers: Vec<String>,
     topics: Vec<TopicId>,
     strategy: Arc<dyn ConnectionStrategy>,
 }
@@ -912,7 +884,6 @@ pub fn node<'a>(
         registry,
         network,
         id: id.to_string(),
-        peers: Vec::new(),
         topics: Vec::new(),
         strategy: Arc::new(ConnectToAllCandidates),
     }
@@ -930,14 +901,6 @@ impl NodeSpec<'_> {
     #[must_use]
     pub fn topics(mut self, topics: &[TopicId]) -> Self {
         self.topics = topics.to_vec();
-        self
-    }
-
-    /// Set the config peer list (rarely needed — candidates come from the
-    /// registry, not this list).
-    #[must_use]
-    pub fn peers(mut self, peers: &[&str]) -> Self {
-        self.peers = peers.iter().map(|p| (*p).to_string()).collect();
         self
     }
 
@@ -969,12 +932,10 @@ impl NodeSpec<'_> {
 
     /// Construct the node and await its subscription convergence.
     pub async fn build(self) -> Node {
-        let peers: Vec<&str> = self.peers.iter().map(String::as_str).collect();
         node_with_strategy(
             self.registry,
             self.network,
             &self.id,
-            &peers,
             &self.topics,
             self.strategy,
             0, // genesis: the default initial epoch nonce

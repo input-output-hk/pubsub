@@ -77,9 +77,9 @@ async fn network_enforces_legitimacy_and_authorization_uniformly() {
         .await
         .unwrap();
 
-    let a = node_sharing(&subs, &topics, &network, "node-a", &["node-b"]).await;
-    let b = node_sharing(&subs, &topics, &network, "node-b", &["node-a", "node-c"]).await;
-    let c = node_sharing(&subs, &topics, &network, "node-c", &["node-b"]).await;
+    let a = node_sharing(&subs, &topics, &network, "node-a").await;
+    let b = node_sharing(&subs, &topics, &network, "node-b").await;
+    let c = node_sharing(&subs, &topics, &network, "node-c").await;
 
     // Per-node effective sets: the registered subset of each subscription entry.
     await_subscriptions(&a, &[topic("weather")], Duration::from_secs(1))

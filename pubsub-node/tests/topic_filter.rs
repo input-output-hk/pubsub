@@ -68,22 +68,8 @@ async fn own_emission_not_in_local_snapshot() {
     let t1 = topic("t1");
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    let a = node_with(
-        &registry,
-        &network,
-        "node-a",
-        &["node-b"],
-        std::slice::from_ref(&t1),
-    )
-    .await;
-    let b = node_with(
-        &registry,
-        &network,
-        "node-b",
-        &["node-a"],
-        std::slice::from_ref(&t1),
-    )
-    .await;
+    let a = node_with(&registry, &network, "node-a", std::slice::from_ref(&t1)).await;
+    let b = node_with(&registry, &network, "node-b", std::slice::from_ref(&t1)).await;
 
     // Establishment preamble: B dials A so A's emission is admitted at B.
     establish_upstreams(&b, &[&a], &t1).await;

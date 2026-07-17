@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 
 use tokio::task::JoinHandle;
 
-use crate::config::NodeConfig;
 use crate::connection_state::{LinkState, PublisherAdmission};
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
@@ -15,7 +14,7 @@ use crate::strategies::fanout::FanoutStrategy;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::network::{Network, NetworkHandle, NetworkSender, RoutingFrame};
-use crate::peer::{BasicPeerDescriptor, PeerId};
+use crate::peer::PeerId;
 use crate::received::ReceivedDelivery;
 use crate::state::{apply, Effect, NodeState};
 use crate::subscription_registry::{MembershipEvent, SubscriptionRegistry};
@@ -35,7 +34,6 @@ use crate::topic_registry::{TopicRegistry, TopicRegistryEvent};
 /// A node carries:
 /// - its own [`PeerId`] (a public key) and a signing identity that signs the
 ///   connection-control messages it emits,
-/// - a static peer set (no peer-set mutation API at this stage),
 /// - a registry-derived subscription set — the topics it accepts on — queryable
 ///   via [`subscriptions`](Node::subscriptions) (the topics it both declared in
 ///   its subscription-list entry **and** that are registered in the topic
@@ -69,7 +67,6 @@ use crate::topic_registry::{TopicRegistry, TopicRegistryEvent};
 /// drop is the abrupt, no-notice path.
 pub struct Node {
     handle: NetworkHandle,
-    peers: Vec<BasicPeerDescriptor>,
     // The node's full mutable state as one value (see `crate::state`). The
     // event loop is the sole event-driven writer; the public getters and
     // subscription mutators take the same lock. The verifier's canonical
@@ -132,7 +129,6 @@ impl Node {
     #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
-        config: NodeConfig,
         genesis: u64,
         network: Arc<N>,
         signer: Arc<dyn Signer>,
@@ -206,15 +202,8 @@ impl Node {
             }
         });
 
-        let peers = config
-            .peers
-            .into_iter()
-            .map(|entry| BasicPeerDescriptor { id: entry.id })
-            .collect();
-
         let mut node = Self {
             handle,
-            peers,
             state,
             events,
             event_loop,
@@ -315,22 +304,11 @@ impl Node {
         self.handle.id()
     }
 
-    /// Return the node's configured peer set in declaration order.
-    ///
-    /// The set is static for the node's lifetime; there is no peer-set
-    /// mutation API at this stage.
-    #[must_use]
-    pub fn peers(&self) -> &[BasicPeerDescriptor] {
-        &self.peers
-    }
-
     /// Return the candidate peers for `topic` — the topic-derived membership
     /// the node folded from the subscription registry, with the node's own id
     /// excluded. Order is unspecified; empty if the topic has no members.
     ///
-    /// This is distinct from [`peers`](Self::peers) (the static config
-    /// bootstrap list); the candidate set is what a future sampler/dialer
-    /// draws from.
+    /// The candidate set is what the selection strategies draw from.
     #[must_use]
     pub fn candidates(&self, topic: &TopicId) -> Vec<PeerId> {
         self.state
