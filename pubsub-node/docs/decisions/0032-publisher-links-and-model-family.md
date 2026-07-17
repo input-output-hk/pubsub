@@ -76,10 +76,13 @@ superseded by it and remain reference-only (they never merged).
 
 ## Consequences
 
-- M2/M3/M4/M5 are per-node flag combinations (documented in the feature's
+- M1–M5 are per-node flag combinations (documented in the feature's
   quickstart); no `--model` preset — the axes stay independently sweepable.
-  M5's two switches (`forward-to-all` fan-out, `any-verified` admission) must be
-  paired network-wide.
+  `none` relay kinds (`DialNone`/`AcceptNone`) switch the relay seams off,
+  making push-only M1 the M5 `k_in = 0` boundary. M5's two switches
+  (`forward-to-all` fan-out, `any-verified` admission) must be paired
+  network-wide; `--symmetric-edges` with a capped acceptance is rejected at
+  startup (one-sided capacity refusals would break pair reciprocity).
 - The wire layout changed (appended kind byte): the layout-pin test was
   updated in the same commit — the one deliberate behavioural test edit.
 - CLI: `--connection-strategy`/`--acceptance-strategy`/`--target-degree` are

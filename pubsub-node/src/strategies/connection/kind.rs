@@ -9,7 +9,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{ConnectToAllCandidates, ConnectionStrategy, HashGatedConnection};
+use super::{ConnectToAllCandidates, ConnectionStrategy, DialNone, HashGatedConnection};
 use crate::strategies::config::{
     require_target_degree, validate_bucket_count, ConnectionParams, StrategyConfigError,
 };
@@ -21,6 +21,9 @@ pub enum ConnectionStrategyKind {
     ConnectToAll,
     /// The verifiable hash-gated policy ([`HashGatedConnection`](super::HashGatedConnection)).
     HashGated,
+    /// The off-switch: dial nothing ([`DialNone`](super::DialNone)) — push-only
+    /// configurations (M1 / the M5 `k_in = 0` boundary).
+    None,
 }
 
 impl ConnectionStrategyKind {
@@ -30,6 +33,7 @@ impl ConnectionStrategyKind {
         match self {
             Self::ConnectToAll => "connect-to-all",
             Self::HashGated => "hash-gated",
+            Self::None => "none",
         }
     }
 
@@ -41,6 +45,7 @@ impl ConnectionStrategyKind {
         params: &ConnectionParams,
     ) -> Result<Arc<dyn ConnectionStrategy>, StrategyConfigError> {
         match self {
+            Self::None => Ok(Arc::new(DialNone)),
             Self::ConnectToAll => Ok(Arc::new(ConnectToAllCandidates)),
             Self::HashGated => {
                 let target_degree =
@@ -60,7 +65,7 @@ impl ConnectionStrategyKind {
 /// The error returned when a configuration string names no known connection
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown connection strategy '{0}' (expected one of: connect-to-all, hash-gated)")]
+#[error("unknown connection strategy '{0}' (expected one of: connect-to-all, hash-gated, none)")]
 pub struct UnknownConnectionStrategy(pub String);
 
 impl FromStr for ConnectionStrategyKind {
@@ -71,6 +76,7 @@ impl FromStr for ConnectionStrategyKind {
         match s.to_ascii_lowercase().as_str() {
             "connect-to-all" => Ok(Self::ConnectToAll),
             "hash-gated" => Ok(Self::HashGated),
+            "none" => Ok(Self::None),
             _ => Err(UnknownConnectionStrategy(s.to_string())),
         }
     }
@@ -159,6 +165,7 @@ mod tests {
         for kind in [
             ConnectionStrategyKind::ConnectToAll,
             ConnectionStrategyKind::HashGated,
+            ConnectionStrategyKind::None,
         ] {
             assert_eq!(ConnectionStrategyKind::from_str(kind.name()).unwrap(), kind);
         }

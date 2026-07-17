@@ -33,9 +33,9 @@ struct Args {
     topic_registry: PathBuf,
 
     /// Relay-link selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to
+    /// mesh, the default), `hash-gated` (verifiable bucketed selection to
     /// ~--relay-degree upstreams per topic, gated by the edge predicate over
-    /// --genesis).
+    /// --genesis), or `none` (dials no relay links — push-only configurations).
     #[arg(long, default_value = "connect-to-all")]
     relay_strategy: ConnectionStrategyKind,
 
@@ -65,11 +65,12 @@ struct Args {
     #[arg(long)]
     bucket_count: Option<usize>,
 
-    /// Relay-link acceptance strategy (case-insensitive), the four
-    /// one-dimensional baselines: `accept-from-all` (the default; membership
-    /// only), `bounded` (caps accepted relay downstreams per topic, refusing
-    /// over-capacity with `Rejected`), `hash-gated` (verifies the edge
-    /// predicate, no cap), or `hash-gated-bounded` (predicate + cap).
+    /// Relay-link acceptance strategy (case-insensitive): `accept-from-all`
+    /// (the default; membership only), `bounded` (caps accepted relay
+    /// downstreams per topic, refusing over-capacity with `Rejected`),
+    /// `hash-gated` (verifies the edge predicate, no cap),
+    /// `hash-gated-bounded` (predicate + cap), or `none` (accepts no relay
+    /// links — push-only configurations).
     #[arg(long, default_value = "accept-from-all")]
     relay_acceptance_strategy: AcceptanceStrategyKind,
 
@@ -255,6 +256,18 @@ fn validate_flag_combinations(args: &Args) {
         die(
             "--symmetric-edges has no effect: it requires a hash-gated relay strategy \
              (--relay-strategy hash-gated and/or a hash-gated --relay-acceptance-strategy)",
+        );
+    }
+    if args.symmetric_edges
+        && matches!(
+            args.relay_acceptance_strategy,
+            AcceptanceStrategyKind::Bounded | AcceptanceStrategyKind::HashGatedBounded
+        )
+    {
+        die(
+            "--symmetric-edges cannot be combined with a capped acceptance strategy: a \
+             capacity refusal on one end of a symmetric edge silently breaks the pair's \
+             reciprocity (the bidirectional model has no caps)",
         );
     }
     if args.publisher_admission == PublisherAdmission::AnyVerified

@@ -9,8 +9,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{
-    AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy, HashGatedAcceptance,
-    HashGatedBoundedAcceptance,
+    AcceptFromAllCandidates, AcceptNone, BoundedAcceptance, ConnectionAcceptanceStrategy,
+    HashGatedAcceptance, HashGatedBoundedAcceptance,
 };
 use crate::strategies::config::{
     require_target_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
@@ -30,6 +30,9 @@ pub enum AcceptanceStrategyKind {
     /// Verifiable, bucketed, bounded acceptance — gate **and** cap
     /// ([`HashGatedBoundedAcceptance`](super::HashGatedBoundedAcceptance)).
     HashGatedBounded,
+    /// The off-switch: accept nothing ([`AcceptNone`](super::AcceptNone)) —
+    /// push-only configurations (M1 / the M5 `k_in = 0` boundary).
+    None,
 }
 
 impl AcceptanceStrategyKind {
@@ -41,6 +44,7 @@ impl AcceptanceStrategyKind {
             Self::Bounded => "bounded",
             Self::HashGated => "hash-gated",
             Self::HashGatedBounded => "hash-gated-bounded",
+            Self::None => "none",
         }
     }
 
@@ -52,6 +56,7 @@ impl AcceptanceStrategyKind {
         params: &AcceptanceParams,
     ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
         match self {
+            Self::None => Ok(Arc::new(AcceptNone)),
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::Bounded => {
                 let target_degree =
@@ -93,7 +98,7 @@ impl AcceptanceStrategyKind {
 /// The error returned when a configuration string names no known acceptance
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, bounded, hash-gated, hash-gated-bounded)")]
+#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, bounded, hash-gated, hash-gated-bounded, none)")]
 pub struct UnknownAcceptanceStrategy(pub String);
 
 impl FromStr for AcceptanceStrategyKind {
@@ -106,6 +111,7 @@ impl FromStr for AcceptanceStrategyKind {
             "bounded" => Ok(Self::Bounded),
             "hash-gated" => Ok(Self::HashGated),
             "hash-gated-bounded" => Ok(Self::HashGatedBounded),
+            "none" => Ok(Self::None),
             _ => Err(UnknownAcceptanceStrategy(s.to_string())),
         }
     }
@@ -215,6 +221,7 @@ mod tests {
             AcceptanceStrategyKind::Bounded,
             AcceptanceStrategyKind::HashGated,
             AcceptanceStrategyKind::HashGatedBounded,
+            AcceptanceStrategyKind::None,
         ] {
             assert_eq!(AcceptanceStrategyKind::from_str(kind.name()).unwrap(), kind);
         }

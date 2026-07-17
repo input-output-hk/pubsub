@@ -13,9 +13,10 @@ use common::{
     await_upstream_active, node_with_links, ping, trigger_setup, ConnectToExplicit,
 };
 use pubsub_node::{
-    is_valid_edge_sym, AcceptFromAllCandidates, FanoutStrategy, ForwardToAll, ForwardToRelays,
-    HashGatedAcceptance, HashGatedConnection, InMemoryNetwork, InMemorySubscriptionRegistry,
-    Message, Node, NodeStrategies, PeerId, PublisherAdmission, TopicId,
+    is_valid_edge_sym, AcceptFromAllCandidates, AcceptNone, DialNone, FanoutStrategy, ForwardToAll,
+    ForwardToRelays, HashGatedAcceptance, HashGatedConnection, InMemoryNetwork,
+    InMemorySubscriptionRegistry, Message, Node, NodeStrategies, PeerId, PublisherAdmission,
+    TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -237,8 +238,8 @@ async fn await_content(node: &Node, message: &Message, timeout: Duration) {
 /// target list (the directed `k_out` picks); publisher acceptance open.
 fn chain_strategies(targets: &[(&str, &TopicId)]) -> NodeStrategies {
     NodeStrategies {
-        relay_connection: Arc::new(ConnectToExplicit(Vec::new())),
-        relay_acceptance: Arc::new(AcceptFromAllCandidates),
+        relay_connection: Arc::new(DialNone),
+        relay_acceptance: Arc::new(AcceptNone),
         publisher_connection: Some(Arc::new(ConnectToExplicit(
             targets
                 .iter()

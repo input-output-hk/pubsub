@@ -11,12 +11,12 @@ use std::time::Duration;
 
 use common::{
     assert_no_new_deliveries, await_delivery, await_publisher_target_active,
-    build_signed_message_simple, node_with_links, ping, ConnectToExplicit,
+    build_signed_message_simple, node_with_links, ping,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
-    InMemorySubscriptionRegistry, Message, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
-    PeerId, PublisherAdmission, TopicId,
+    AcceptFromAllCandidates, AcceptNone, ConnectToAllCandidates, DialNone, ForwardToRelays,
+    InMemoryNetwork, InMemorySubscriptionRegistry, Message, MessagePayload, MockCryptoScheme, Node,
+    NodeStrategies, PeerId, PublisherAdmission, TopicId,
 };
 
 /// A `Ping(n)` on `t` signed with `alias`'s own key — the message an
@@ -42,8 +42,8 @@ const T: Duration = Duration::from_secs(2);
 /// fleet can only have crossed a publisher link.
 fn publisher_only() -> NodeStrategies {
     NodeStrategies {
-        relay_connection: Arc::new(ConnectToExplicit(Vec::new())),
-        relay_acceptance: Arc::new(AcceptFromAllCandidates),
+        relay_connection: Arc::new(DialNone),
+        relay_acceptance: Arc::new(AcceptNone),
         publisher_connection: Some(Arc::new(ConnectToAllCandidates)),
         publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
     }

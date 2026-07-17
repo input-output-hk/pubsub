@@ -1,6 +1,7 @@
 # Quickstart: running the dissemination models (015)
 
-Every model is a per-node flag combination — no `--model` preset. Shared
+Every model is a per-node flag combination — no `--model` preset; M1–M5 are
+all expressible. Shared
 setup (registries, config) is unchanged from the 005 quickstart; only the
 strategy flags differ. `--genesis` seeds the epoch nonce (same genesis ⇒ same
 topology, reproducible experiments).
@@ -65,6 +66,21 @@ pubsub-node … \
 `any-verified` admits foreign publishers' messages over inbound publisher
 links. **Pair the two network-wide** — `forward-to-all` senders against
 `owner-only` receivers lose every publisher-link hop.
+
+## M1 — push-only (the M5 `k_in = 0` boundary)
+
+```sh
+pubsub-node … \
+  --relay-strategy none --relay-acceptance-strategy none \
+  --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded \
+  --publisher-degree 8 \
+  --fanout-strategy forward-to-all --publisher-admission any-verified
+```
+
+No relay links at all: every node pushes over its ~`--publisher-degree`
+standing out-links, which carry every held message (`forward-to-all` +
+`any-verified`) — RF-out push gossip. Structurally this is the M5 recipe with
+the relay seams switched `none`.
 
 ## Observing topology
 

@@ -19,10 +19,12 @@ use crate::topic::TopicId;
 mod connect_to_all;
 mod hash_gated;
 mod kind;
+mod none;
 
 pub use connect_to_all::ConnectToAllCandidates;
 pub use hash_gated::HashGatedConnection;
 pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
+pub use none::DialNone;
 
 /// The link-selection policy a node consults on a dial event.
 ///

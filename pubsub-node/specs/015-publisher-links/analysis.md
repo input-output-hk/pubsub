@@ -117,6 +117,19 @@ comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
 3. *`NodeStrategiesBuilder`*: fields/params renamed `relay_connection`/
    `relay_acceptance` to match the A8 struct rename.
 
+**A10 — review round 4 (in-depth harness-readiness review, 2026-07-17).**
+1. *`k_in = 0` inexpressible / M1*: added `none` relay selection
+   (`DialNone`) and acceptance (`AcceptNone`) kinds — push-only M1 (and M5
+   `k_in`-sweeps to zero) are now CLI recipes; the M5/M1-shaped integration
+   fleets use them instead of the test-only explicit-empty strategy.
+2. *M4 + capped acceptance*: rejected at startup (one-sided capacity refusals
+   silently break symmetric-pair reciprocity; the model has no caps).
+3. Deferred with rationale: harness access to the `pub(crate)` pure core
+   (decision parked with the harness owner — in-crate vs feature-gated
+   export); epoch link *rotation* (teardown of stale predicate edges) — the
+   heartbeat diff only adds, so sims are one-epoch-per-run until a rotation
+   feature lands; `seen` bounding stays N-021.
+
 ## Verification notes
 
 - `main.rs --help` output matches contracts §5 flag-for-flag (checked at

@@ -70,8 +70,8 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 
 | Flag | Values / default | Semantics |
 |---|---|---|
-| `--relay-strategy` | `connect-to-all` (default) \| `hash-gated` | rename of `--connection-strategy` |
-| `--relay-acceptance-strategy` | `accept-from-all` (default) \| `bounded` \| `hash-gated` \| `hash-gated-bounded` | rename of `--acceptance-strategy` |
+| `--relay-strategy` | `connect-to-all` (default) \| `hash-gated` \| `none` | rename of `--connection-strategy`; `none` = push-only |
+| `--relay-acceptance-strategy` | `accept-from-all` (default) \| `bounded` \| `hash-gated` \| `hash-gated-bounded` \| `none` | rename of `--acceptance-strategy`; `none` = push-only |
 | `--relay-degree` | int | rename of `--target-degree` |
 | `--publisher-strategy` | absent (default) \| `connect-to-all` \| `hash-gated` | absent ⇒ node never dials publisher links |
 | `--publisher-acceptance-strategy` | absent (default) \| same four kinds | absent ⇒ inbound publisher requests silently dropped |
@@ -85,12 +85,16 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 
 | Model | Flags |
 |---|---|
+| **M1** (boundary) | `--relay-strategy none --relay-acceptance-strategy none` + the M5 publisher/fan-out/admission flags (push-only = M5 at `k_in = 0`) |
 | **M2** (baseline) | defaults — no publisher flags, `forward-to-relays`, `owner-only` |
 | **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S_LINKS` |
 | **M4** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) |
 | **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all --publisher-admission any-verified` |
 
-M5's two switches must be paired network-wide (`forward-to-all` ⇄ `any-verified`);
+`--symmetric-edges` combined with a capped acceptance strategy is rejected at
+startup (a one-sided capacity refusal would silently break edge reciprocity —
+the bidirectional model has no caps). M5's two switches must be paired
+network-wide (`forward-to-all` ⇄ `any-verified`);
 deliberately not fused — the axes stay independently sweepable.
 
 **Parameter mapping caveat**: `--publisher-degree` is the expected number of

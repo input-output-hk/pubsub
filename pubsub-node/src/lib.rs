@@ -75,7 +75,7 @@ pub use node::Node;
 pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
 pub use strategies::acceptance::{
-    AcceptFromAllCandidates, AcceptanceStrategyKind, Admission, BoundedAcceptance,
+    AcceptFromAllCandidates, AcceptNone, AcceptanceStrategyKind, Admission, BoundedAcceptance,
     ConnectionAcceptanceStrategy, HashGatedAcceptance, HashGatedBoundedAcceptance,
     UnknownAcceptanceStrategy,
 };
@@ -83,8 +83,8 @@ pub use strategies::config::{
     AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
 };
 pub use strategies::connection::{
-    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, HashGatedConnection,
-    UnknownConnectionStrategy,
+    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, DialNone,
+    HashGatedConnection, UnknownConnectionStrategy,
 };
 pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_sym};
 pub use strategies::fanout::{
