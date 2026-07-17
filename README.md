@@ -12,7 +12,6 @@ The project is currently in **Phase 2 — empirically-driven architecture** ([#4
 | [`docs/`](docs/) | Design documents: technical reviews, gap analyses, design synthesis, extension proposals |
 | [`formal_spec/`](formal_spec/) | Formal models (Quint, PRISM): peer sampling, hybrid dissemination (the [M models](formal_spec/hybrid_dissemination/models/README.md)), topic registry |
 | [`pubsub-node/`](pubsub-node/) | Rust prototype of the PubSub node — see its [README](pubsub-node/README.md) for the spec-driven workflow |
-| [`proposal/`](proposal/) | Project proposal documents and pitch material |
 | [`logbook.md`](logbook.md) | Running log of technical decisions and progress, most recent first |
 | [`biweekly-reports/`](biweekly-reports/) | Biweekly progress reports |
 
@@ -37,3 +36,13 @@ Protocol design background lives in [`docs/`](docs/) and [`formal_spec/`](formal
 ## Website & documentation
 
 The [public site](https://input-output-hk.github.io/pubsub/) is deployed from [`web/`](web/) on every merge to `main`. The earlier MkDocs documentation (product vision, use cases, architecture, economics) is retired and preserved on the [`archive/mkdocs-site`](https://github.com/input-output-hk/pubsub/tree/archive/mkdocs-site/site) branch.
+
+## Contributing & security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
+
+Copyright 2026 Input Output Global, Inc.
