@@ -152,7 +152,7 @@ Technical decisions and progress. Most recent first.
 
 ---
 
-## 2026-06-16 — Weekly session: monetisation pivot, node strategy modules, GossipSub findings, CSM framing
+## 2026-06-16 — Weekly session: monetisation pivot, node strategy modules, GossipSub findings
 
 **Monetisation pivot — from public goods toward revenue.** Dana reported on the incentive-model investigation, shifting focus from a public-goods framing (SPOs, DReps, ecosystem entities) toward identifying customers and revenue-generating use cases, as requested by management. Push Protocol served as the primary case study: a decentralised push-notification system on Ethereum whose low 50-token channel-creation fee is a Sybil-resistance measure rather than a revenue lever, since expanded to multi-chain with fees routed to stakers — suggesting the original Ethereum revenue model proved insufficient. Dana proposed monetising around trading influencers (à la Telegram/Discord), integrated into wallets such as Lace to enable direct trading and transaction fees. Will pushed for a use case requiring reliable, trustless information distribution, not necessarily blockchain-bound. Group leaned toward building pub-sub messaging directly into wallets — not Cardano-restricted, allowing fee collection across cryptocurrencies.
 
@@ -160,11 +160,9 @@ Technical decisions and progress. Most recent first.
 
 **GossipSub literature findings.** Denis updated on the peer-to-peer pub-sub survey, with inclusion criteria settled: Byzantine resilience, non-broker-based design, and peer-reviewed or archival publication. GossipSub is the contemporary reference and gets the deep-dive; older 2000s protocols get a superficial pass to avoid missing related work. GossipSub claims four properties — liveness, fairness, monotonicity, misbehaviour detection — but formal-methods analysis shows liveness and misbehaviour detection are violated in certain configurations, specifically the one Ethereum uses. The critical weakness is the scoring function: it is **averaged over all topics rather than per-topic**, so a node can behave well across most topics while acting maliciously on one. DHT-based peer discovery lacks Byzantine resilience and is susceptible to eclipse attacks. Protocol Labs' adversarial model (every honest node outnumbered four-to-one) was judged less impressive as a worst case, since an adversary behaving honestly before switching is not captured — the good-then-malicious worst case lacks empirical study. Team conclusion: the scoring function is the critical element to evaluate; the discovery layer is secondary to current objectives.
 
-**CSM presentation framing.** Jesus relayed that managers want ARC's gossip-stream findings presented at this week's Customer Success Meeting. With the scope unclear (philosophical overview vs technical deep-dive), the group agreed on a neutral high-level summary of the most relevant findings, with details offered on request. Peer-sampling critiques will be framed as an opportunity for better formalisation and proof generation rather than criticism of existing work, clearly distinguishing correctness problems (e.g. uniformity) from security problems (e.g. silent attacks). To manage the social sensitivity of presenting negative results on others' work, Will suggested repurposing 3–5 slides from prior presentations; Denis will present neutrally, with Will and Jesus supporting.
+**Decisions.** *Aligned:* three node strategy modules defined — peer-view, connection-acceptance, fan-out dissemination; flat dissemination (forward to all peers except source) as the default; literature inclusion criteria (Byzantine resilience, non-broker, peer-reviewed/archival); review depth — deep on GossipSub, superficial on older protocols. *Open:* how a node estimates network size to bound connection count; which revenue/customer use case to pursue (wallet-integrated messaging vs dApp-subsidised public goods).
 
-**Decisions.** *Aligned:* three node strategy modules defined — peer-view, connection-acceptance, fan-out dissemination; flat dissemination (forward to all peers except source) as the default; literature inclusion criteria (Byzantine resilience, non-broker, peer-reviewed/archival); review depth — deep on GossipSub, superficial on older protocols; CSM delivery — neutral high-level ARC summary, Denis presenting. *Open:* how a node estimates network size to bound connection count; which revenue/customer use case to pursue (wallet-integrated messaging vs dApp-subsidised public goods).
-
-**Next.** Dana to research the push-protocol 300k-subscriber figure and post findings to the project thread, review Ezequiel's referenced protocol, and continue developing the wallet influencer-trading concept for the next meeting. Group to perform a superficial review of the remaining pub-sub literature. Denis to draft 3–5 neutral slides summarising the GossipSub findings and recommendations. Will and Denis to hold a 1-hour sync to finalise the CSM delivery approach. Jesus to notify Miriam that Denis will lead the topic introduction at the CSM.
+**Next.** Dana to research the push-protocol 300k-subscriber figure and post findings to the project thread, review Ezequiel's referenced protocol, and continue developing the wallet influencer-trading concept for the next meeting. Group to perform a superficial review of the remaining pub-sub literature. Denis to draft a neutral summary of the GossipSub findings and recommendations.
 
 ---
 
@@ -206,19 +204,20 @@ Technical decisions and progress. Most recent first.
 
 **Monday SecureCyclon presentation.** Denis planning a presentation on SecureCyclon for next Monday. Suggested use cases to illustrate practical applications: notifications, security alerts, governance signals. Denis and Ezequiel agreed to frame the narrative around the project's evolution — identifying issues in the original architecture, applying fixes to the dissemination layer, analysing SecureCyclon's residual limitations and excluded attack classes. Ezequiel emphasised the methodology itself is the core value: pen-and-paper analysis, model checking, and simulations used to validate the protocol and its improved dissemination layer.
 
+
 **Protocol analysis findings to highlight.** The discovery: the original protocol was not well-studied with respect to its composition. Through formal model checking, simulations, and manual analysis, the team identified critical issues and proposed adjusting edge priorities as a defence. These findings were derived systematically from the models rather than being random observations; the original paper's model lacked sufficient strictness. Denis and Ezequiel agreed to revise slides so the value comes across — the contribution went beyond identifying a broken protocol: they successfully formalised the lower layers and implemented fixes. Ezequiel stressed conveying the risk of rushing implementation without proper modelling.
 
 **Decisions.** *Aligned:* defer standardising key derivation; continue ED25519-malleability discussion on GitHub; Monday presentation framed around methodology and evolution narrative. *Open:* whether to adopt key-evolving / forward-secure signatures, and how to prove intentional vs accidental sequence-number gaps.
 
-**Next.** Denis to refine the SecureCyclon presentation slides — simplified problem statement, methodology-first framing — and share next day. Ezequiel available for feedback around 11:00 local after a medical appointment. Both to stay in sync on the final shape ahead of Monday.
+**Next.** Denis to refine the SecureCyclon presentation slides — simplified problem statement, methodology-first framing — and share next day. Ezequiel available for feedback the following morning. Both to stay in sync on the final shape ahead of Monday.
 
 ---
 
 ## 2026-06-02 — PubSub working session: state-machine refactor, gap validation deferred
 
-**Technical report over CIP for July.** Team prioritised a technical report rather than a formal CIP for the July deliverable. David framed the CPS plus a secondary technical report as the value demonstration — it shows the team has identified concrete research use cases and is working toward real-world Cardano applications. Will confirmed a report focused on ideas and solutions (not a formal CIP) is feasible by end of July, reusing the existing CPS structure and current prototype outcomes to validate the use cases.
+**Technical report over CIP for July.** Team prioritised a technical report rather than a formal CIP for the July deliverable — the CPS plus a secondary technical report demonstrate concrete research use cases and progress toward real-world Cardano applications. Will confirmed a report focused on ideas and solutions (not a formal CIP) is feasible by end of July, reusing the existing CPS structure and current prototype outcomes to validate the use cases.
 
-**Timeline tightened.** David: the deadline was cut from nine months to six, ending in September, but the team should prioritise completing by end of August. David to confirm the completion deadline with Nicolas and align everyone on the end date.
+**Timeline.** The workstream runs to September, with the team prioritising completion by end of August.
 
 **Second technical report as a collective design doc.** Will proposed the second report serve as a shared document gathering designs and ideas across all topics — prototype details, node lifecycle flows, protocol extensions, and research on prototype developments. Group effort to compile.
 
@@ -234,7 +233,7 @@ Technical decisions and progress. Most recent first.
 
 **Node lifecycle and on-chain contracts.** Will reviewed the lifecycle flows. Architecture relies on two on-chain contracts: a Topic Registry (authorised publisher keys) and a Subscription List (node registration). Setup: operators generate identity off-chain, fetch registered topics, register public keys and deposits on-chain. Startup: node reads the registered-peer list from chain, filters by topic, and connects via signed descriptors proving public-key ownership. Brief discussion of transaction-size constraints and future options (Merkle trees, minting policies) for managing topic subscriptions. Ezequiel questioned whether the subscription list could move off-chain to reduce on-chain complexity; the group also weighed the bootstrap-node dependency in the current topology.
 
-**Next.** David to confirm the completion deadline with Nicolas. Denis and Sandro to study the Basalt paper independently and share assessments next week. The group to compile the second technical report. Will to re-evaluate the protocol structure and paper around the hash-chain / gap concerns and judge whether more formal modelling is needed. Ezequiel to submit the PR with the new structure and implementation. Will to notify the team about the Thursday meeting (note: availability limited to 30 minutes).
+**Next.** Denis and Sandro to study the Basalt paper independently and share assessments next week. The group to compile the second technical report. Will to re-evaluate the protocol structure and paper around the hash-chain / gap concerns and judge whether more formal modelling is needed. Ezequiel to submit the PR with the new structure and implementation. Will to notify the team about the Thursday meeting (note: availability limited to 30 minutes).
 
 ---
 
@@ -264,7 +263,7 @@ Technical decisions and progress. Most recent first.
 
 **Project workstream clarification.** Will distinguished the two threads currently in play: improving the stack from the paper Spyros previously discussed, and a list-based implementation approach for surfacing concrete issues in the current system. The PR being shared is the latter and is unrelated to peer sampling.
 
-**Next.** Will to add Spyros (GitHub handle provided) as reviewer on the architecture PR. Spyros to review the technical report and PR offline, simulate the bias-view behaviour against the reported malicious-node percentages, and examine the subscription-list prototype after his teaching class concludes. Spyros to share the older mathematical-analysis paper on the standard Cyclon protocol (Denis confirmed it has been located). The group to develop a testable formula sufficient to establish dissemination-layer security.
+**Next.** Will to add Spyros (GitHub handle provided) as reviewer on the architecture PR. Spyros to review the technical report and PR offline, simulate the bias-view behaviour against the reported malicious-node percentages, and examine the subscription-list prototype. Spyros to share the older mathematical-analysis paper on the standard Cyclon protocol (Denis confirmed it has been located). The group to develop a testable formula sufficient to establish dissemination-layer security.
 
 ---
 
@@ -286,11 +285,11 @@ Technical decisions and progress. Most recent first.
 
 **Publishers run a subscribed node.** Will's working position for the publishing spec: a publisher runs a node subscribed to the relevant topics so signing and routing inherit the dissemination layer's guarantees. Ezequiel agreed this is the logical shape for the dissemination layer. Will to draft the spec and circulate.
 
-**June scope: prototype plus technical report, not a CIP.** Team agreed an end-of-June CIP is not achievable; the deliverable is a working prototype plus a technical report capturing the research findings. Funding for the work stream is unsettled — Will may need to present to leadership on Thursday to justify continuation. Ezequiel flagged the broader governance backdrop: of roughly 20–30B in distributed voting power, only ~4–5B is actively voting, and weight is currently a function of financial contribution rather than expertise.
+**June scope: prototype plus technical report, not a CIP.** Team agreed an end-of-June CIP is not achievable; the deliverable is a working prototype plus a technical report capturing the research findings. Ezequiel flagged the broader governance backdrop: of roughly 20–30B in distributed voting power, only ~4–5B is actively voting, and weight is currently a function of financial contribution rather than expertise.
 
 **Decisions.** *Aligned:* node-flow specs to be co-developed via Spec Kit; June deliverable is prototype + technical report, not a full CIP. *Open:* whether to patch or abandon SecureCyclon, pending Spyros's input.
 
-**Next.** Will + Ezequiel to define sequence diagrams for joining, leaving, and publishing, aligned with the scaffolding. Ezequiel to merge the scaffolding PR, publish the meta-spec, and implement topics, message structure, cryptography, and connection logic. Dana to research incentive models. Denis to analyse SecureCyclon mitigation strategies ahead of the Spyros session. Will to document IP discovery in the technical report, share project specs on Slack, consult David on whether a full CIP is expected, distribute the internal stream report, and notify the team after Thursday on funding and direction. Ezequiel to review existing project documentation and connect current coding work to the established requirements.
+**Next.** Will + Ezequiel to define sequence diagrams for joining, leaving, and publishing, aligned with the scaffolding. Ezequiel to merge the scaffolding PR, publish the meta-spec, and implement topics, message structure, cryptography, and connection logic. Dana to research incentive models. Denis to analyse SecureCyclon mitigation strategies ahead of the Spyros session. Will to document IP discovery in the technical report and share project specs. Ezequiel to review existing project documentation and connect current coding work to the established requirements.
 
 ---
 

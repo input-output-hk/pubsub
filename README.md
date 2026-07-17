@@ -12,7 +12,6 @@ The project is currently in **Phase 2 — empirically-driven architecture** ([#4
 | [`docs/`](docs/) | Design documents: technical reviews, gap analyses, design synthesis, extension proposals |
 | [`formal_spec/`](formal_spec/) | Formal models (Quint, PRISM): peer sampling, hybrid dissemination (the [M models](formal_spec/hybrid_dissemination/models/README.md)), topic registry |
 | [`pubsub-node/`](pubsub-node/) | Rust prototype of the PubSub node — see its [README](pubsub-node/README.md) for the spec-driven workflow |
-| [`proposal/`](proposal/) | Project proposal documents and pitch material |
 | [`logbook.md`](logbook.md) | Running log of technical decisions and progress, most recent first |
 | [`biweekly-reports/`](biweekly-reports/) | Biweekly progress reports |
 
