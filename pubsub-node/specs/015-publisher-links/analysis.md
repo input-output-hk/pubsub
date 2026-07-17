@@ -124,11 +124,15 @@ comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
    fleets use them instead of the test-only explicit-empty strategy.
 2. *M4 + capped acceptance*: rejected at startup (one-sided capacity refusals
    silently break symmetric-pair reciprocity; the model has no caps).
-3. Deferred with rationale: harness access to the `pub(crate)` pure core
-   (decision parked with the harness owner — in-crate vs feature-gated
-   export); epoch link *rotation* (teardown of stale predicate edges) — the
-   heartbeat diff only adds, so sims are one-epoch-per-run until a rotation
-   feature lands; `seen` bounding stays N-021.
+3. Deferred with rationale: epoch link *rotation* (teardown of stale
+   predicate edges) — the heartbeat diff only adds, so sims are
+   one-epoch-per-run until a rotation feature lands; `seen` bounding stays
+   N-021. Harness access to the `pub(crate)` pure core is **resolved**: the
+   experiments framework will live inside the `pubsub-node` crate (harness
+   owner's choice, 2026-07-17), i.e. a module in the library tree — note
+   that same-package bins/tests/examples are separate crates and see only
+   the public API, so the framework must be a `src/` module (a feature-gated
+   `sim` module keeps the default build lean); no 015 change required.
 
 ## Verification notes
 
