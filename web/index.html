@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cardano PubSub — A verifiable communication layer for Cardano</title>
-<meta name="description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain topic commitments, and an economic cost to creating publisher identities.">
+<meta name="description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain registered topics, and an economic cost to creating publisher identities.">
 <link rel="icon" href="assets/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,6 +70,18 @@
 
   /* ---------- Hero ---------- */
   section.hero { padding: 72px 0 64px; }
+  .hero .container {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: clamp(32px, 5vw, 64px);
+    align-items: center;
+  }
+  .hero-visual { justify-self: center; width: 100%; max-width: 420px; }
+  .hero-visual svg { width: 100%; height: auto; display: block; }
+  @media (max-width: 860px) {
+    .hero .container { grid-template-columns: 1fr; }
+    .hero-visual { display: none; }
+  }
   .hero-logo { height: clamp(44px, 5vw, 72px); width: auto; margin-bottom: 48px; }
   .hero h1 {
     font-family: var(--font-display);
@@ -80,8 +92,6 @@
     margin-bottom: 20px;
   }
   .hero h1 .accent { color: var(--iog-infared); }
-  /* The headline's manual break is tuned for wide screens; let narrow ones wrap naturally. */
-  @media (max-width: 640px) { .hero h1 br { display: none; } }
   .hero-tagline {
     font-family: var(--font-mono);
     font-size: 0.82rem;
@@ -120,6 +130,8 @@
 
   /* ---------- Sections ---------- */
   section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+  /* Alternating section backgrounds — the hero counts as the first section */
+  main > section:nth-of-type(even) { background: var(--bg-soft); }
   .section-head { margin-bottom: 32px; }
   .section-head h2 {
     font-family: var(--font-display);
@@ -157,12 +169,57 @@
     margin-bottom: 10px;
   }
 
+  /* ---------- Experiments teaser ---------- */
+  .model-strip {
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    overflow: hidden;
+  }
+  .model-row {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+    padding: 16px 22px;
+    text-decoration: none;
+    color: inherit;
+    transition: background .15s ease;
+  }
+  .model-row + .model-row { border-top: 1px solid var(--card-stroke-faint); }
+  .model-row:hover { background: var(--bg-soft); }
+  .model-arrow {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--text-faint);
+    align-self: center;
+    transition: color .15s ease, transform .15s ease;
+  }
+  .model-row:hover .model-arrow { color: var(--iog-infared); transform: translateX(3px); }
+  .model-row:hover .model-mech strong { color: var(--iog-infared); }
+  .model-id {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--iog-infared);
+  }
+  .model-mech { font-size: 0.92rem; color: var(--text-mute); line-height: 1.55; }
+  .model-mech strong { color: var(--text); font-weight: 600; }
+  .model-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
+  @media (max-width: 480px) {
+    .model-row { grid-template-columns: 1fr; gap: 4px; }
+    .model-arrow { display: none; }
+  }
+
   /* ---------- Research timeline ---------- */
+  /* Base = compact single-column layout (mobile); the alternating
+     centred layout is layered on at min-width: 641px below. */
   .timeline { position: relative; max-width: 860px; }
   .timeline::before {
     content: "";
     position: absolute;
-    left: 96px;
+    left: 5px;
     top: 8px;
     bottom: 8px;
     width: 2px;
@@ -170,15 +227,15 @@
   }
   .timeline-entry {
     position: relative;
-    padding-left: 136px;
-    padding-bottom: 44px;
+    padding-left: 30px;
+    padding-bottom: 36px;
   }
   .timeline-entry:last-child { padding-bottom: 0; }
   .timeline-entry::before {
     content: "";
     position: absolute;
     box-sizing: border-box;
-    left: 91px;
+    left: 0;
     top: 5px;
     width: 12px;
     height: 12px;
@@ -192,7 +249,7 @@
     content: "";
     position: absolute;
     box-sizing: border-box;
-    left: 91px;
+    left: 0;
     top: 5px;
     width: 12px;
     height: 12px;
@@ -209,12 +266,22 @@
   }
   @media (prefers-reduced-motion: reduce) { .timeline-entry.active::after { animation: none; } }
   .timeline-entry.ahead::before { background: var(--bg); border: 2px solid var(--line-strong); }
-  .timeline-marker {
+  /* Completed stretch of the line — translucent infrared over the base line */
+  .timeline-entry.done::after {
+    content: "";
     position: absolute;
-    left: 0;
-    top: 3px;
-    width: 78px;
-    text-align: right;
+    left: 5px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--iog-infared);
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .timeline-entry.done:first-child::after { top: 8px; }
+  .timeline-marker {
+    display: block;
+    margin-bottom: 6px;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     font-weight: 600;
@@ -234,19 +301,52 @@
   .status-active { color: var(--info); }
   .status-ahead { color: var(--text-faint); }
   .timeline-entry h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+  .timeline-entry p a {
+    color: var(--text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line-strong);
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .timeline-entry p a:hover { color: var(--iog-infared); border-color: var(--iog-infared); }
   .timeline-entry p { font-size: 0.94rem; color: var(--text-mute); line-height: 1.6; max-width: 62ch; }
-  @media (max-width: 640px) {
-    .timeline::before { left: 5px; }
-    .timeline-entry { padding-left: 30px; padding-bottom: 36px; }
-    .timeline-entry::before,
-    .timeline-entry.active::after { left: 0; }
-    .timeline-marker {
-      position: static;
-      display: block;
-      width: auto;
-      text-align: left;
-      margin-bottom: 6px;
+  @media (min-width: 641px) {
+    .timeline { margin: 0 auto; }
+    .timeline::before { left: calc(50% - 1px); }
+    .timeline-entry {
+      width: 50%;
+      padding-left: 0;
+      padding-bottom: 44px;
     }
+    .timeline-entry:nth-child(odd) {
+      padding-right: 40px;
+      text-align: right;
+    }
+    .timeline-entry:nth-child(even) {
+      margin-left: 50%;
+      padding-left: 40px;
+    }
+    .timeline-entry:nth-child(odd)::before,
+    .timeline-entry:nth-child(odd).active::after { left: auto; right: -6px; }
+    .timeline-entry:nth-child(even)::before,
+    .timeline-entry:nth-child(even).active::after { left: -6px; right: auto; }
+    .timeline-marker {
+      position: absolute;
+      top: 3px;
+      width: 78px;
+      margin-bottom: 0;
+    }
+    .timeline-entry:nth-child(odd) .timeline-marker {
+      left: calc(100% + 28px);
+      text-align: left;
+    }
+    .timeline-entry:nth-child(even) .timeline-marker {
+      right: calc(100% + 28px);
+      left: auto;
+      text-align: right;
+    }
+    .timeline-entry:nth-child(odd) p { margin-left: auto; }
+    .timeline-entry:nth-child(odd).done::after { left: auto; right: -1px; }
+    .timeline-entry:nth-child(even).done::after { left: -1px; right: auto; }
   }
 
   /* ---------- Materials ---------- */
@@ -358,6 +458,7 @@
   <div class="navbar-links">
     <a href="#scenarios">Scenarios</a>
     <a href="#research">Research</a>
+    <a href="#experiments">Experiments</a>
     <a href="#materials">Materials</a>
     <a href="slides/midyear-2026.html">Presentation</a>
   </div>
@@ -377,22 +478,77 @@
 <main>
   <section class="hero">
     <div class="container">
-      <img class="hero-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
-      <img class="hero-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
-      <div class="hero-tagline">Cardano PubSub</div>
-      <h1>A verifiable communication layer<br>for the <span class="accent">Cardano</span> ecosystem</h1>
-      <p class="hero-lede">
-        A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication:
-        identifiable publishers, verifiable events, on-chain topic commitments, and an
-        economic cost to creating publisher identities.
-      </p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="slides/midyear-2026.html">Midyear presentation</a>
-        <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
-          <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
-          Repository
-          <span class="badge-soon">Soon</span>
-        </a>
+      <div class="hero-copy">
+        <img class="hero-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
+        <img class="hero-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
+        <div class="hero-tagline">Cardano PubSub</div>
+        <h1>A verifiable communication layer for the <span class="accent">Cardano</span> ecosystem</h1>
+        <p class="hero-lede">
+          A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication:
+          identifiable publishers, verifiable events, on-chain registered topics, and an
+          economic cost to creating publisher identities.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="slides/midyear-2026.html">Midyear presentation</a>
+          <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+            Repository
+            <span class="badge-soon">Soon</span>
+          </a>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">PUBLISHERS</text>
+          <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">SUBSCRIBERS</text>
+
+          <!-- flows in, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M43,52 C110,52 130,166 163,170" stroke="var(--info)"/>
+            <path d="M43,145 C105,145 130,178 163,180" stroke="var(--warn)"/>
+            <path d="M43,239 C105,239 130,194 163,192" stroke="var(--warn)"/>
+            <path d="M43,332 C110,332 130,206 163,202" stroke="var(--good)"/>
+          </g>
+          <!-- flows out, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M281,172 C330,168 350,82 397,82" stroke="var(--info)"/>
+            <path d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
+            <path d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
+          </g>
+          <!-- publisher nodes, colored by the topic they publish to -->
+          <g>
+            <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="145" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="239" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="332" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- subscriber nodes, colored by the topic they subscribe to -->
+          <g>
+            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="82" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="192" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- PubSub hub -->
+          <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+
+          <!-- topic color legend -->
+          <g font-size="10" letter-spacing="1" fill="var(--text-faint)">
+            <circle cx="112" cy="388" r="4.5" fill="var(--info-soft)" stroke="var(--info)"/>
+            <text x="123" y="392">TOPIC 1</text>
+            <circle cx="197" cy="388" r="4.5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <text x="208" y="392">TOPIC 2</text>
+            <circle cx="282" cy="388" r="4.5" fill="var(--good-soft)" stroke="var(--good)"/>
+            <text x="293" y="392">TOPIC 3</text>
+          </g>
+        </svg>
       </div>
     </div>
   </section>
@@ -403,33 +559,33 @@
         <div class="section-kind">Why it matters</div>
         <h2>Critical communication deserves the same guarantees as transactions</h2>
         <p>
-          Today, ecosystem-critical messages travel over social platforms and chat servers —
-          unauthenticated, unverifiable, and open to impersonation. PubSub extends Cardano's
-          trust guarantees to the messages that coordinate the ecosystem.
+          Ecosystem-critical messages today travel over social platforms and chat servers —
+          unauthenticated and open to impersonation. PubSub extends Cardano's trust guarantees
+          to the messages that coordinate the ecosystem.
         </p>
       </header>
       <div class="card-grid">
-        <div class="card">
-          <div class="card-kicker">Node operations</div>
-          <h3>Emergency alerts for node operators</h3>
-          <p>Node builders and maintainers — teams like IOG, Amaru, and the Cardano Foundation — reach node operators with authenticated emergency and operational alerts.</p>
+          <div class="card">
+            <div class="card-kicker">Node operations</div>
+            <h3>Emergency alerts for node operators</h3>
+            <p>Node builders — teams like IOG, Amaru, and the Cardano Foundation — reach node operators with authenticated emergency and operational alerts.</p>
+          </div>
+          <div class="card">
+            <div class="card-kicker">Stake pools</div>
+            <h3>SPO-to-delegator communication</h3>
+            <p>Stake pool operators reach their delegators through a topic that provably belongs to the pool.</p>
+          </div>
+          <div class="card">
+            <div class="card-kicker">Governance</div>
+            <h3>dRep-to-delegator communication</h3>
+            <p>dReps share voting intent and rationale with the delegators they represent under CIP-1694.</p>
+          </div>
+          <div class="card">
+            <div class="card-kicker">Applications</div>
+            <h3>dApp-to-user announcements</h3>
+            <p>dApps reach their users with critical alerts and per-user notifications, published under on-chain identities with spam resisted by real stake.</p>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-kicker">Stake pools</div>
-          <h3>SPO-to-delegator communication</h3>
-          <p>Stake pool operators reach their delegators through a topic that provably belongs to the pool — no spoofed announcements.</p>
-        </div>
-        <div class="card">
-          <div class="card-kicker">Governance</div>
-          <h3>dRep-to-delegator communication</h3>
-          <p>dReps share voting intent and rationale with the delegators they represent, verifiably, in the CIP-1694 governance system.</p>
-        </div>
-        <div class="card">
-          <div class="card-kicker">Applications</div>
-          <h3>dApp-to-user announcements</h3>
-          <p>dApps reach their users with critical alerts and notifications tailored to the dApp's purpose — from protocol updates to user-specific events such as open positions — published under on-chain identities with spam resisted by real stake.</p>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -444,17 +600,17 @@
         </p>
       </header>
       <div class="timeline">
-        <div class="timeline-entry">
+        <div class="timeline-entry done">
           <div class="timeline-marker">Jul 2023</div>
           <div class="timeline-tag">Foundations</div>
           <h3>SecureCyclon published</h3>
           <p>
-            Antonov &amp; Voulgaris publish SecureCyclon at ICDCS 2023 — a Byzantine-hardened
-            peer-sampling protocol, proposed as the decentralised foundation the PubSub
-            workstream would build on.
+            Antonov &amp; Voulgaris publish SecureCyclon at ICDCS 2023 — a peer-sampling
+            protocol with defences against protocol-violating peers, proposed as the
+            decentralised foundation the PubSub workstream would build on.
           </p>
         </div>
-        <div class="timeline-entry">
+        <div class="timeline-entry done">
           <div class="timeline-marker">Feb 2026</div>
           <div class="timeline-tag">Phase 1 · <span class="status-done">Complete</span> · Feb – Jul 2026</div>
           <h3>Exploratory research</h3>
@@ -471,7 +627,7 @@
           <div class="timeline-tag">Phase 2 · <span class="status-active">Active</span> · Jul – Sep 2026</div>
           <h3>Empirically-driven architecture</h3>
           <p>
-            Five candidate dissemination models, from simple push to hybrid designs, analysed
+            <a href="#experiments">Five candidate dissemination models</a>, from simple push to hybrid designs, analysed
             formally and measured empirically against a silent Byzantine adversary — so the
             final design is the one the data supports, not the one intuition favours. A Rust
             prototype node implements topics, subscriptions, publishing, and fan-out forwarding,
@@ -491,6 +647,47 @@
             decentralised peer sampling at scales where the on-chain list no longer suffices.
           </p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="experiments">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Experiments</div>
+        <h2>Five candidate models, one bar</h2>
+        <p>
+          We are not proposing a dissemination design — we are deriving one. Five candidate
+          models, each a different rule set for how nodes connect to their peers and forward
+          messages, are measured against one shared bar: every message of every honest
+          publisher must reach all other honest nodes — with a fraction μ of silent
+          Byzantine nodes receiving everything and relaying nothing.
+        </p>
+      </header>
+      <div class="model-strip">
+        <a class="model-row" href="experiments/#m1">
+          <span class="model-id">M1</span>
+          <span class="model-mech"><strong>Push</strong> — every node, on first receipt, pushes the message to F random peers.</span>
+        <span class="model-arrow">›</span></a>
+        <a class="model-row" href="experiments/#m2">
+          <span class="model-id">M2</span>
+          <span class="model-mech"><strong>Pull</strong> — each node pulls from RF forwarders, redrawn every epoch.</span>
+        <span class="model-arrow">›</span></a>
+        <a class="model-row" href="experiments/#m3">
+          <span class="model-id">M3</span>
+          <span class="model-mech"><strong>Pull + publishing links</strong> — per-epoch pull plus s−1 publishing links carrying only the node's own publications.</span>
+        <span class="model-arrow">›</span></a>
+        <a class="model-row" href="experiments/#m4">
+          <span class="model-id">M4</span>
+          <span class="model-mech"><strong>Bidirectional</strong> — each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.</span>
+        <span class="model-arrow">›</span></a>
+        <a class="model-row" href="experiments/#m5">
+          <span class="model-id">M5</span>
+          <span class="model-mech"><strong>Directed</strong> — k_in inbound + k_out outbound links, both the node's own picks.</span>
+        <span class="model-arrow">›</span></a>
+      </div>
+      <div class="model-cta">
+        <a class="btn btn-primary" href="experiments/">Explore the models</a>
       </div>
     </div>
   </section>

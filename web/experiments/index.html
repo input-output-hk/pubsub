@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Experiments — Five dissemination models · Cardano PubSub</title>
+<meta name="description" content="The five candidate dissemination models of the Cardano PubSub phase-2 research — M1 to M5 — with their graph-construction and forwarding rules animated at toy scale.">
+<link rel="icon" href="../assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  body { font-size: 17px; line-height: 1.65; min-height: 100vh; display: flex; flex-direction: column; }
+  main { flex: 1; }
+  .navbar { padding-right: clamp(24px, 5vw, 80px); }
+  .navbar-icons { display: flex; align-items: center; gap: 10px; }
+  .nav-icon-btn {
+    position: relative; top: auto; right: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--line-strong); background: var(--bg); color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    text-decoration: none; flex-shrink: 0;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
+
+  /* Collapsible navigation — links and icon buttons fold into a dropdown on small screens */
+  .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
+  .nav-menu-btn { display: none; }
+  .nav-menu-btn .icon-close { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-burger { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
+  @media (max-width: 1040px) {
+    .nav-menu-btn { display: flex; }
+    .nav-collapse {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      padding: 4px clamp(24px, 5vw, 80px) 18px;
+      z-index: 10;
+    }
+    .navbar.menu-open .nav-collapse { display: flex; }
+    .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
+    .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .navbar-icons { padding-top: 16px; }
+  }
+  @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
+
+  /* ---------- Page head ---------- */
+  section.page-head { padding: 56px 0 8px; }
+  .section-kind {
+    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
+    margin-bottom: 14px;
+  }
+  .page-head h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 4vw, 3rem);
+    font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;
+    margin-bottom: 18px;
+  }
+  .page-head .lede { color: var(--text-mute); max-width: 74ch; }
+  .page-head .lede + .lede { margin-top: 12px; }
+
+  /* ---------- Model tabs ---------- */
+  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 34px 0 22px; }
+  .model-tab {
+    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 9px 16px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--text-mute);
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .model-tab.active { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
+    gap: 28px; align-items: stretch;
+  }
+  .stage-canvas {
+    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 22px 22px 16px;
+  }
+  .stage-canvas svg { width: 100%; height: auto; display: block; max-width: 660px; margin: 0 auto; }
+
+  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+
+  /* The step card fills the column so the buttons keep a fixed position
+     regardless of how long the step description is. */
+  .stage-side { display: flex; flex-direction: column; gap: 14px; }
+  .step-card {
+    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 20px 22px; flex: 1;
+  }
+  .step-desc { min-height: 8em; }
+  .step-count {
+    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .step-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
+  .step-desc { font-size: 0.92rem; color: var(--text-mute); line-height: 1.6; }
+  .step-desc strong { color: var(--text); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .controls .ctl-btn { flex: 1 1 auto; }
+  .ctl-btn {
+    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 9px 14px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--text);
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .ctl-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .ctl-btn:disabled { opacity: 0.35; cursor: default; }
+  .ctl-btn:disabled:hover { border-color: var(--line-strong); color: var(--text); }
+
+  .legend { padding: 12px 0 0; }
+  .legend-items { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-mute); }
+  .legend-item svg { width: 26px; height: 14px; flex-shrink: 0; }
+
+  /* ---------- Model notes — directly below the tab bar ---------- */
+  .model-notes {
+    margin: 0 0 24px; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 22px 24px;
+  }
+  .model-notes.swap { animation: notes-fade .4s ease; }
+  @keyframes notes-fade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .model-notes.swap { animation: none; } }
+  .model-notes .card-kicker {
+    font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--iog-infared); font-weight: 600; margin-bottom: 10px;
+  }
+  .model-notes h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+  .model-notes p { font-size: 0.93rem; color: var(--text-mute); line-height: 1.6; max-width: 90ch; }
+  .model-notes p + p { margin-top: 8px; }
+  .model-notes .knobs {
+    font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-faint);
+    letter-spacing: 0.04em; margin-top: 14px;
+  }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 36px; margin-top: 40px; }
+  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .footer-logo { height: 26px; width: auto; }
+  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; }
+
+  /* ---------- SVG element states ---------- */
+  .node { fill: var(--card-fill); stroke: var(--line-strong); stroke-width: 1.5; transition: fill .35s ease, stroke .35s ease; }
+  .node.adv { fill: var(--text-faint); stroke: var(--text-faint); }
+  .node.informed { fill: var(--info-soft); stroke: var(--info); }
+  .node.missed { stroke: var(--bad); stroke-dasharray: 3 3; }
+  .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 1.5; opacity: 0; transition: opacity .35s ease; }
+  .pub-ring.on { opacity: 1; }
+  .node-label { font-family: var(--font-mono); font-size: 9px; fill: var(--iog-infared); font-weight: 600; opacity: 0; transition: opacity .35s ease; }
+  .node-label.on { opacity: 1; }
+
+  .edge { fill: none; stroke: var(--text-faint); stroke-width: 1; opacity: 0; transition: opacity .4s ease, stroke .4s ease; }
+  .edge.shown { opacity: 0.22; }
+  .edge.dead { stroke: var(--bad); stroke-dasharray: 4 4; }
+  .edge.dead.shown { opacity: 0.3; }
+  .edge.seed { stroke: var(--iog-infared); stroke-dasharray: 5 4; stroke-width: 1.4; }
+  .edge.seed.shown { opacity: 0.75; }
+  .edge.inpick { stroke-dasharray: 5 4; }
+  .edge.traversed { stroke: var(--info); opacity: 0.55; stroke-width: 1.4; }
+  .edge.hot { stroke: var(--info); opacity: 1; stroke-width: 2; }
+  .edge.absorbed { stroke: var(--bad); opacity: 0.8; stroke-width: 1.6; }
+
+  /* Hover focus — bold: the hovered node's own picks; thin: links others made to it */
+  .edge.dim { opacity: 0.05; }
+  .edge.focus-own { opacity: 1; stroke-width: 2.2; }
+  .edge.focus-other { opacity: 0.55; stroke-width: 1.1; }
+  .node:hover { stroke-width: 2.5; cursor: default; }
+
+  .hover-hint {
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
+    letter-spacing: 0.05em; text-align: center; margin-top: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .node, .edge, .pub-ring, .node-label { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+</svg>
+
+<nav class="navbar" aria-label="Primary">
+  <a class="navbar-brand" href="../">CARDANO PUBSUB <span class="brand-tag">RESEARCH &amp; DEVELOPMENT</span></a>
+  <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
+    <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+  </button>
+  <div class="nav-collapse">
+  <div class="navbar-links">
+    <a href="../#scenarios">Scenarios</a>
+    <a href="../#research">Research</a>
+    <a href="../#experiments" class="active">Experiments</a>
+    <a href="../#materials">Materials</a>
+    <a href="../slides/midyear-2026.html">Presentation</a>
+  </div>
+  <div class="navbar-icons">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+    </a>
+    <button class="nav-icon-btn theme-toggle" type="button" aria-label="Toggle color theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+  </div>
+</nav>
+
+<main>
+  <section class="page-head">
+    <div class="container">
+      <div class="section-kind">Experiments</div>
+      <h1>Five candidate dissemination models</h1>
+      <p class="lede">
+        We are not proposing a dissemination design — we are deriving one. Five candidate
+        models, M1 to M5, each define a different rule set for how nodes connect to their
+        peers and forward messages. All are measured against one shared bar, the
+        <strong>good graph</strong>: every message of every honest publisher must reach all
+        other honest nodes. And all face the same adversary — a fraction μ of silent
+        Byzantine nodes that receive every message and never relay one.
+      </p>
+      <p class="lede">
+        The guarantee has to come from links that are drawn <strong>once per epoch</strong>
+        and then serve every message of every publisher for that whole epoch — the formal
+        analyses call this the <em>standing</em> structure, and it covers both link kinds:
+        relay links and publishing links. Only a structure that persists across messages can
+        promise <em>every</em> message; per-message randomness cannot. The prototype node
+        works exactly this way: it establishes its links during a sync phase, and only then
+        accepts messages for propagation.
+      </p>
+      <p class="lede">
+        The animation below plays each model's construction and forwarding rules at toy scale.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <div class="model-tabs" role="tablist" id="tabs"></div>
+
+      <div class="model-notes">
+        <div class="card-kicker" id="note-kicker"></div>
+        <h3 id="note-title"></h3>
+        <p id="note-mech"></p>
+        <p id="note-watch"></p>
+        <div class="knobs" id="note-knobs"></div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-canvas">
+          <svg id="graph" viewBox="0 0 520 520" role="img" aria-label="Animated network graph illustrating the selected dissemination model">
+            <defs>
+              <marker id="arr-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--info)"/>
+              </marker>
+              <marker id="arr-faint" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+              </marker>
+              <marker id="arr-dead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/>
+              </marker>
+              <marker id="arr-seed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--iog-infared)"/>
+              </marker>
+            </defs>
+            <g id="g-edges"></g>
+            <g id="g-nodes"></g>
+          </svg>
+          <div class="canvas-footer">
+            <div class="legend">
+              <div class="legend-items" id="legend-items"></div>
+            </div>
+            <div class="hover-hint">Hover a node to isolate its links — bold: chosen by the node · thin: chosen by its peers.</div>
+          </div>
+        </div>
+
+        <div class="stage-side">
+          <div class="step-card">
+            <div class="step-count" id="step-count"></div>
+            <div class="step-title" id="step-title"></div>
+            <div class="step-desc" id="step-desc"></div>
+          </div>
+          <div class="controls">
+            <button class="ctl-btn" id="btn-prev" aria-label="Previous step">‹ Prev</button>
+            <button class="ctl-btn" id="btn-play" aria-label="Play or pause">Pause</button>
+            <button class="ctl-btn" id="btn-next" aria-label="Next step">Next ›</button>
+            <button class="ctl-btn" id="btn-replay" aria-label="Replay from the start">Replay</button>
+            <button class="ctl-btn" id="btn-shuffle" aria-label="Draw a new random graph">Reshuffle</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container footer-row">
+    <img class="footer-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+    <img class="footer-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+    <p>INPUT OUTPUT · CARDANO PUBSUB · 2026</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ---------- Theme toggle (same behaviour as the landing page) ----------
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+  if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+  document.querySelector('.theme-toggle').addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+  });
+
+  var navbar = document.querySelector('.navbar');
+  var menuBtn = document.querySelector('.nav-menu-btn');
+  menuBtn.addEventListener('click', function () {
+    var open = navbar.classList.toggle('menu-open');
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.querySelectorAll('.navbar-links a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      navbar.classList.remove('menu-open');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // ---------- Scenario construction ----------
+  const N = 16, ADV_COUNT = 3, PUB = 0, DEFAULT_SEED = 12;
+  const PARAMS = { m1: { F: 3 }, m2: { RF: 3 }, m3: { RF: 3, S1: 2 }, m4: { RF: 2 }, m5: { KIN: 2, KOUT: 2 } };
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function sampleDistinct(rng, k, exclude) {
+    const pool = [];
+    for (let i = 0; i < N; i++) if (i !== exclude) pool.push(i);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, k);
+  }
+
+  function pickAdversaries(rng) {
+    const pool = [];
+    for (let i = 0; i < N; i++) if (i !== PUB) pool.push(i);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return new Set(pool.slice(0, ADV_COUNT));
+  }
+
+  // Breadth-first dissemination over directed flow edges: adversaries
+  // receive but never relay.
+  function disseminate(adv, flowTargets) {
+    const informed = new Set([PUB]);
+    let frontier = [PUB];
+    const hops = [];
+    while (frontier.length) {
+      const nextSet = new Set();
+      const hopEdges = [];
+      for (const x of frontier) {
+        if (adv.has(x)) continue;
+        for (const t of flowTargets(x)) {
+          hopEdges.push([x, t]);
+          if (!informed.has(t)) { informed.add(t); nextSet.add(t); }
+        }
+      }
+      if (nextSet.size === 0) break;
+      hops.push({ edges: hopEdges, reached: [...nextSet] });
+      frontier = [...nextSet];
+      if (hops.length > 12) break;
+    }
+    return { informed, hops };
+  }
+
+  // Returns { adv, standing: [{from,to,kind,dead,undirected}], hops, informed }.
+  // Standing-edge direction is always the direction messages flow.
+  function buildScenario(model, seed) {
+    const rng = mulberry32(seed);
+    const adv = pickAdversaries(rng);
+
+    if (model === 'm1') {
+      const informed = new Set([PUB]);
+      let frontier = [PUB];
+      const hops = [];
+      while (frontier.length) {
+        const nextSet = new Set();
+        const hopEdges = [];
+        for (const x of frontier) {
+          if (adv.has(x)) continue;
+          for (const t of sampleDistinct(rng, PARAMS.m1.F, x)) {
+            hopEdges.push([x, t]);
+            if (!informed.has(t)) { informed.add(t); nextSet.add(t); }
+          }
+        }
+        if (nextSet.size === 0) break;
+        hops.push({ edges: hopEdges, reached: [...nextSet] });
+        frontier = [...nextSet];
+        if (hops.length > 12) break;
+      }
+      return { adv, standing: [], hops, informed };
+    }
+
+    if (model === 'm2' || model === 'm3') {
+      const picks = [];
+      for (let r = 0; r < N; r++) picks.push(sampleDistinct(rng, PARAMS[model].RF, r));
+      const seeds = model === 'm3' ? sampleDistinct(rng, PARAMS.m3.S1, PUB) : [];
+      const standing = [];
+      picks.forEach((p, r) => p.forEach(f => standing.push({ from: f, to: r, kind: 'pull', dead: adv.has(f), picker: r })));
+      seeds.forEach(t => standing.push({ from: PUB, to: t, kind: 'seed', dead: false, picker: PUB }));
+      const requesters = f => picks.flatMap((p, r) => (p.includes(f) ? [r] : []));
+      const flow = x => (x === PUB ? [...new Set([...requesters(x), ...seeds])] : requesters(x));
+      const { informed, hops } = disseminate(adv, flow);
+      return { adv, standing, hops, informed };
+    }
+
+    if (model === 'm4') {
+      const nbrs = Array.from({ length: N }, () => new Set());
+      const standing = [];
+      for (let x = 0; x < N; x++) {
+        for (const t of sampleDistinct(rng, PARAMS.m4.RF, x)) {
+          if (!nbrs[x].has(t)) standing.push({ from: x, to: t, kind: 'sym', dead: false, undirected: true, picker: x });
+          nbrs[x].add(t); nbrs[t].add(x);
+        }
+      }
+      const { informed, hops } = disseminate(adv, x => [...nbrs[x]]);
+      return { adv, standing, hops, informed };
+    }
+
+    // m5
+    const inPicks = [], outPicks = [];
+    for (let x = 0; x < N; x++) {
+      inPicks.push(sampleDistinct(rng, PARAMS.m5.KIN, x));
+      outPicks.push(sampleDistinct(rng, PARAMS.m5.KOUT, x));
+    }
+    const standing = [];
+    outPicks.forEach((p, x) => p.forEach(t => standing.push({ from: x, to: t, kind: 'out', dead: false, picker: x })));
+    inPicks.forEach((p, j) => p.forEach(f => standing.push({ from: f, to: j, kind: 'in', dead: adv.has(f), picker: j })));
+    const flow = x => {
+      const t = new Set(outPicks[x]);
+      inPicks.forEach((p, j) => { if (p.includes(x)) t.add(j); });
+      return [...t];
+    };
+    const { informed, hops } = disseminate(adv, flow);
+    return { adv, standing, hops, informed };
+  }
+
+  // ---------- Model copy ----------
+  const MODELS = {
+    m1: {
+      tab: 'M1 · Push',
+      title: 'Random push gossip',
+      mech: 'Every node, on first receipt, pushes the message to F random peers. There is no standing graph at all — links are drawn fresh for every message.',
+      watch: 'The cascade fans out fast, but each message gambles anew: per-message randomness cannot promise that every message of every publisher gets through, so the good-graph guarantee has to come from a large fanout.',
+      knobs: 'Knob: F = 3 (demo) · push targets per receipt',
+      standingTitle: 'No sync phase',
+      standingDesc: 'M1 keeps <strong>no per-epoch links</strong> — nothing is drawn at sync that later messages could reuse. It is the only model whose links form at publish time: every node draws fresh random targets each time a message first reaches it.',
+      pubDesc: 'The <strong>publisher</strong> signs a message for its topic and pushes it out — in M1 the links really are drawn now, at publish time, fresh for this message.',
+      hopDesc: 'Every newly reached honest node pushes to F fresh random targets — new links, drawn on the spot. Copies pushed into silent adversaries are absorbed (red).',
+      legend: []
+    },
+    m2: {
+      tab: 'M2 · Pull',
+      title: 'Pull relaying',
+      mech: 'Each node pulls from RF forwarders, redrawn every epoch; a forwarder relays every message it holds to its requesters. All propagation runs on these relay links.',
+      watch: 'Pull keeps adversaries from pushing themselves into anyone’s view — but a publisher only enters the network through its serving set, the nodes whose pulls happened to land on it. An unlucky publisher has none, and is muted. In the node implementation these are the relay links: a node’s own picks are its upstream, and the nodes that picked it are its downstream.',
+      knobs: 'Knob: RF = 3 (demo) · relay forwarders pulled from per node',
+      standingDesc: 'Every node establishes <strong>RF relay links</strong> by pulling — it picks the forwarders it wants to hear from. Arrows point the way messages flow, from forwarder to requester. A pick that lands on a silent adversary is a <strong>dead link</strong> (red, dashed) — that forwarder will never relay.',
+      hopDesc: 'Every holder forwards along its per-epoch relay links to the nodes that pull from it — no new links form. Relays into adversaries are absorbed (red).',
+      legend: [
+        { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
+        { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' }
+      ]
+    },
+    m3: {
+      tab: 'M3 · Pull + publishing links',
+      title: 'Pull relaying with publishing links',
+      mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications — the publisher plus its targets form the initial holders.',
+      watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype — not yet the validated final design; the data decides that.',
+      knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
+      standingDesc: 'The same <strong>relay links</strong> as M2, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long). Every node holds its own publishing links; only the publisher’s matter for its message, so only those are drawn.',
+      hopDesc: 'Every holder forwards along its relay links; the publisher additionally sent its message directly over its publishing links at hop one.',
+      legend: [
+        { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
+        { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' },
+        { kind: 'edge-seed', label: 'publishing link (own publications only)' }
+      ]
+    },
+    m4: {
+      tab: 'M4 · Bidirectional',
+      title: 'Bidirectional flooding',
+      mech: 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.',
+      watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out — there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
+      knobs: 'Knob: RF = 2 (demo) · symmetric links per node',
+      standingDesc: 'Every node draws <strong>RF picks</strong>, and every pick becomes one <strong>symmetric link</strong> — no arrows, because the same link carries traffic both ways.',
+      hopDesc: 'Every holder floods along its symmetric links, except the one the message arrived on. Adversaries absorb their copies and stay silent.',
+      legend: [
+        { kind: 'edge-sym', label: 'symmetric link' }
+      ]
+    },
+    m5: {
+      tab: 'M5 · Directed',
+      title: 'Directed k-in/k-out gossip',
+      mech: 'Every node opens k_in inbound + k_out outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
+      watch: 'The general case of the family: k_out = 0 recovers pull-only M2, k_in = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy — both directions are the node’s own uniform picks.',
+      knobs: 'Knobs: k_in = 2, k_out = 2 (demo) · inbound and outbound links per node',
+      standingDesc: 'Two directed link kinds, both the node’s own picks: <strong>solid arrows</strong> are outbound links (the sender chose its target), <strong>dashed arrows</strong> are inbound links (the receiver chose its forwarder). Messages flow the same way on both.',
+      hopDesc: 'Every holder relays along its epoch links — its own outbound links, plus the inbound links of every node that chose it as forwarder. Relays into adversaries are absorbed (red).',
+      legend: [
+        { kind: 'edge-out', label: 'outbound link (sender’s own pick)' },
+        { kind: 'edge-in', label: 'inbound link (receiver’s own pick)' },
+        { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' }
+      ]
+    }
+  };
+  const MODEL_ORDER = ['m1', 'm2', 'm3', 'm4', 'm5'];
+
+  const NODE_LEGEND = [
+    { kind: 'node-honest', label: 'honest node' },
+    { kind: 'node-adv', label: 'silent adversary' },
+    { kind: 'node-pub', label: 'publisher' },
+    { kind: 'node-informed', label: 'message received' }
+  ];
+
+  // ---------- Geometry ----------
+  const CX = 260, CY = 260, R = 212, NODE_R = 11;
+  const pos = [];
+  for (let i = 0; i < N; i++) {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / N;
+    pos.push({ x: CX + R * Math.cos(a), y: CY + R * Math.sin(a) });
+  }
+
+  // Gentle chord curve: control point pulled toward the centre, endpoints
+  // trimmed to the node circle so arrowheads sit on the rim.
+  function edgePath(a, b) {
+    const p = pos[a], q = pos[b];
+    const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+    const cx = mx + (CX - mx) * 0.25, cy = my + (CY - my) * 0.25;
+    const trim = (from, toX, toY, r) => {
+      const d = Math.hypot(toX - from.x, toY - from.y) || 1;
+      return { x: from.x + ((toX - from.x) / d) * r, y: from.y + ((toY - from.y) / d) * r };
+    };
+    const s = trim(p, cx, cy, NODE_R + 2);
+    const e = trim(q, cx, cy, NODE_R + 5);
+    return `M ${s.x.toFixed(1)} ${s.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${e.x.toFixed(1)} ${e.y.toFixed(1)}`;
+  }
+
+  // ---------- Rendering ----------
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const gEdges = document.getElementById('g-edges');
+  const gNodes = document.getElementById('g-nodes');
+
+  let model = 'm3';
+  let seed = DEFAULT_SEED;
+  let scen = null;
+  let scenes = [];
+  let sceneIdx = 0;
+  let timer = null;
+  let focusNode = null;
+
+  let edgeEls = [];        // { el, from, to, base(kind), hop, absorbed }
+  let nodeEls = [];        // circle per node
+  let pubRing = null, pubLabel = null;
+
+  function edgeKey(a, b) { return a + '>' + b; }
+
+  function buildSvg() {
+    gEdges.innerHTML = '';
+    gNodes.innerHTML = '';
+    edgeEls = [];
+
+    // Standing edges (plus, for M1, the per-hop push edges as latent elements).
+    const latent = scen.standing.map(e => ({ ...e, latent: false }));
+    if (model === 'm1') {
+      scen.hops.forEach((h, hi) => h.edges.forEach(([f, t]) => latent.push({ from: f, to: t, kind: 'push', dead: false, latent: true, hop: hi, picker: f })));
+    }
+    // Map flow traversals onto standing edges.
+    const hopOf = new Map(), absorbed = new Set();
+    scen.hops.forEach((h, hi) => h.edges.forEach(([f, t]) => {
+      const k = edgeKey(f, t), ku = edgeKey(t, f);
+      if (!hopOf.has(k)) hopOf.set(k, hi);
+      if (scen.adv.has(t)) absorbed.add(k), absorbed.add(ku);
+    }));
+
+    for (const e of latent) {
+      const el = document.createElementNS(SVG_NS, 'path');
+      el.setAttribute('d', edgePath(e.from, e.to));
+      el.setAttribute('class', 'edge' + (e.kind === 'seed' ? ' seed' : '') + (e.kind === 'in' ? ' inpick' : '') + (e.dead ? ' dead' : ''));
+      const k = edgeKey(e.from, e.to), ku = edgeKey(e.to, e.from);
+      const hop = e.latent ? e.hop : (hopOf.has(k) ? hopOf.get(k) : (e.undirected && hopOf.has(ku) ? hopOf.get(ku) : null));
+      edgeEls.push({ el, e, hop, absorbed: absorbed.has(k) || (e.undirected && absorbed.has(ku)) });
+      gEdges.appendChild(el);
+    }
+
+    nodeEls = [];
+    for (let i = 0; i < N; i++) {
+      const c = document.createElementNS(SVG_NS, 'circle');
+      c.setAttribute('cx', pos[i].x); c.setAttribute('cy', pos[i].y); c.setAttribute('r', NODE_R);
+      c.setAttribute('class', 'node');
+      c.addEventListener('mouseenter', () => { focusNode = i; render(); });
+      c.addEventListener('mouseleave', () => { focusNode = null; render(); });
+      gNodes.appendChild(c);
+      nodeEls.push(c);
+    }
+    pubRing = document.createElementNS(SVG_NS, 'circle');
+    pubRing.setAttribute('cx', pos[PUB].x); pubRing.setAttribute('cy', pos[PUB].y);
+    pubRing.setAttribute('r', NODE_R + 4.5); pubRing.setAttribute('class', 'pub-ring');
+    gNodes.appendChild(pubRing);
+    pubLabel = document.createElementNS(SVG_NS, 'text');
+    pubLabel.setAttribute('x', pos[PUB].x); pubLabel.setAttribute('y', pos[PUB].y - NODE_R - 9);
+    pubLabel.setAttribute('text-anchor', 'middle'); pubLabel.setAttribute('class', 'node-label');
+    pubLabel.textContent = 'PUBLISHER';
+    gNodes.appendChild(pubLabel);
+  }
+
+  function buildScenes() {
+    const m = MODELS[model];
+    const honest = N - scen.adv.size;
+    const reached = [...scen.informed].filter(i => !scen.adv.has(i)).length;
+    scenes = [];
+    scenes.push({
+      title: 'The network',
+      desc: `${N} nodes, drawn from the on-chain registry. Three of them (μ ≈ 0.2) are <strong>silent adversaries</strong>: they accept every message and never forward one. Nobody knows which.`,
+      phase: 'setup'
+    });
+    scenes.push({ title: m.standingTitle || 'Sync — the epoch’s links form', desc: m.standingDesc, phase: 'standing' });
+    scenes.push({
+      title: 'Publication',
+      desc: m.pubDesc || 'The <strong>publisher</strong> signs a message for its topic and hands it to the network. The topology is already in place — from here on, no new links form; the message only travels over the links drawn at sync.',
+      phase: 'publish'
+    });
+    scen.hops.forEach((h, hi) => scenes.push({
+      title: `Hop ${hi + 1}`,
+      desc: m.hopDesc + ` <strong>${h.reached.length}</strong> node${h.reached.length === 1 ? '' : 's'} newly reached.`,
+      phase: 'hop', hop: hi
+    }));
+    scenes.push({
+      title: 'Coverage',
+      desc: reached === honest
+        ? `All <strong>${honest} honest nodes</strong> reached in ${scen.hops.length} hops — this sampled graph was <strong>good</strong>. Whether an epoch’s graph is good is probabilistic; the analysis pins the failure probability below 10⁻⁴ at the real operating point.`
+        : `<strong>${honest - reached} honest node${honest - reached === 1 ? '' : 's'}</strong> never reached — this sampled graph was <strong>bad</strong>. The analysis chooses parameters so this happens with probability below 10⁻⁴.`,
+      phase: 'verdict'
+    });
+  }
+
+  function render() {
+    const sc = scenes[sceneIdx];
+    const showStanding = sc.phase !== 'setup';
+    const curHop = sc.phase === 'hop' ? sc.hop : (sc.phase === 'verdict' ? scen.hops.length - 1 : -1);
+    const showFlowUpTo = sc.phase === 'hop' || sc.phase === 'verdict' ? curHop : -1;
+
+    for (const { el, e, hop, absorbed } of edgeEls) {
+      let cls = 'edge' + (e.kind === 'seed' ? ' seed' : '') + (e.kind === 'in' ? ' inpick' : '') + (e.dead ? ' dead' : '');
+      const isLatent = !!e.latent;
+      const visible = isLatent ? (showFlowUpTo >= 0 && hop <= showFlowUpTo) : showStanding;
+      if (visible) cls += ' shown';
+      if (visible && hop !== null && showFlowUpTo >= 0 && hop <= showFlowUpTo) {
+        if (absorbed && hop <= showFlowUpTo) cls += hop === curHop && sc.phase === 'hop' ? ' absorbed' : ' traversed';
+        else cls += hop === curHop && sc.phase === 'hop' ? ' hot' : ' traversed';
+        el.setAttribute('marker-end', absorbed ? 'url(#arr-dead)' : 'url(#arr-flow)');
+      } else {
+        if (e.undirected || sc.phase === 'setup') el.removeAttribute('marker-end');
+        else el.setAttribute('marker-end', e.kind === 'seed' ? 'url(#arr-seed)' : (e.dead ? 'url(#arr-dead)' : 'url(#arr-faint)'));
+        if (e.undirected) el.removeAttribute('marker-end');
+      }
+      if (focusNode !== null && visible) {
+        if (e.picker === focusNode) cls += ' focus-own';
+        else if (e.from === focusNode || e.to === focusNode) cls += ' focus-other';
+        else cls += ' dim';
+      }
+      el.setAttribute('class', cls);
+    }
+
+    // Nodes: informed set grows hop by hop.
+    const informed = new Set([PUB]);
+    if (showFlowUpTo >= 0) {
+      for (let hi = 0; hi <= showFlowUpTo; hi++) scen.hops[hi].edges.forEach(([, t]) => informed.add(t));
+    }
+    for (let i = 0; i < N; i++) {
+      let cls = 'node';
+      if (scen.adv.has(i)) cls += ' adv';
+      else if (sc.phase !== 'setup' && sc.phase !== 'standing' && informed.has(i)) cls += ' informed';
+      if (sc.phase === 'verdict' && !scen.adv.has(i) && !scen.informed.has(i)) cls += ' missed';
+      nodeEls[i].setAttribute('class', cls);
+    }
+    const pubOn = sc.phase === 'publish' || sc.phase === 'hop' || sc.phase === 'verdict';
+    pubRing.setAttribute('class', 'pub-ring' + (pubOn ? ' on' : ''));
+    pubLabel.setAttribute('class', 'node-label' + (pubOn ? ' on' : ''));
+
+    document.getElementById('step-count').textContent = `Step ${sceneIdx + 1} / ${scenes.length}`;
+    document.getElementById('step-title').textContent = sc.title;
+    document.getElementById('step-desc').innerHTML = sc.desc;
+    document.getElementById('btn-prev').disabled = sceneIdx === 0;
+    document.getElementById('btn-next').disabled = sceneIdx === scenes.length - 1;
+  }
+
+  // ---------- Legend ----------
+  function legendSwatch(kind) {
+    const s = document.createElementNS(SVG_NS, 'svg');
+    s.setAttribute('viewBox', '0 0 26 14');
+    const put = html => { s.innerHTML = html; return s; };
+    switch (kind) {
+      case 'node-honest': return put('<circle cx="13" cy="7" r="5.5" fill="var(--card-fill)" stroke="var(--line-strong)" stroke-width="1.5"/>');
+      case 'node-adv': return put('<circle cx="13" cy="7" r="5.5" fill="var(--text-faint)"/>');
+      case 'node-pub': return put('<circle cx="13" cy="7" r="4" fill="var(--card-fill)" stroke="var(--line-strong)" stroke-width="1.2"/><circle cx="13" cy="7" r="6.5" fill="none" stroke="var(--iog-infared)" stroke-width="1.2"/>');
+      case 'node-informed': return put('<circle cx="13" cy="7" r="5.5" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.5"/>');
+      case 'edge-pull': case 'edge-out': return put('<line x1="1" y1="7" x2="25" y2="7" stroke="var(--text-faint)" stroke-width="1.4"/>');
+      case 'edge-in': return put('<line x1="1" y1="7" x2="25" y2="7" stroke="var(--text-faint)" stroke-width="1.4" stroke-dasharray="4 3"/>');
+      case 'edge-dead': return put('<line x1="1" y1="7" x2="25" y2="7" stroke="var(--bad)" stroke-width="1.4" stroke-dasharray="3 3"/>');
+      case 'edge-seed': return put('<line x1="1" y1="7" x2="25" y2="7" stroke="var(--iog-infared)" stroke-width="1.4" stroke-dasharray="5 3"/>');
+      case 'edge-sym': return put('<line x1="1" y1="7" x2="25" y2="7" stroke="var(--text-faint)" stroke-width="1.6"/>');
+    }
+    return s;
+  }
+
+  function renderLegend() {
+    const box = document.getElementById('legend-items');
+    box.innerHTML = '';
+    for (const item of [...NODE_LEGEND, ...MODELS[model].legend]) {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.appendChild(legendSwatch(item.kind));
+      const span = document.createElement('span');
+      span.textContent = item.label;
+      div.appendChild(span);
+      box.appendChild(div);
+    }
+  }
+
+  function renderNotes() {
+    const m = MODELS[model];
+    document.getElementById('note-kicker').textContent = model.toUpperCase();
+    document.getElementById('note-title').textContent = m.title;
+    document.getElementById('note-mech').textContent = m.mech;
+    document.getElementById('note-watch').textContent = m.watch;
+    document.getElementById('note-knobs').textContent = m.knobs;
+    const box = document.querySelector('.model-notes');
+    box.classList.remove('swap');
+    void box.offsetWidth;
+    box.classList.add('swap');
+  }
+
+  // ---------- Playback ----------
+  const PLAY_MS = 1900;
+  function setPlaying(on) {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (on) {
+      timer = setInterval(() => {
+        if (sceneIdx < scenes.length - 1) { sceneIdx++; render(); }
+        else setPlaying(false);
+      }, PLAY_MS);
+    }
+    document.getElementById('btn-play').textContent = on ? 'Pause' : 'Play';
+  }
+
+  function loadModel(next, newSeed) {
+    model = next;
+    if (newSeed !== undefined) seed = newSeed;
+    focusNode = null;
+    scen = buildScenario(model, seed);
+    buildSvg();
+    buildScenes();
+    sceneIdx = 0;
+    render();
+    renderLegend();
+    renderNotes();
+    document.querySelectorAll('.model-tab').forEach(b => b.classList.toggle('active', b.dataset.model === model));
+    try { history.replaceState(null, '', '#' + model); } catch (e) {}
+    setPlaying(true);
+  }
+
+  // ---------- Wiring ----------
+  const tabs = document.getElementById('tabs');
+  for (const id of MODEL_ORDER) {
+    const b = document.createElement('button');
+    b.className = 'model-tab'; b.dataset.model = id; b.setAttribute('role', 'tab');
+    b.textContent = MODELS[id].tab;
+    b.addEventListener('click', () => loadModel(id));
+    tabs.appendChild(b);
+  }
+  document.getElementById('btn-prev').addEventListener('click', () => { setPlaying(false); if (sceneIdx > 0) { sceneIdx--; render(); } });
+  document.getElementById('btn-next').addEventListener('click', () => { setPlaying(false); if (sceneIdx < scenes.length - 1) { sceneIdx++; render(); } });
+  document.getElementById('btn-play').addEventListener('click', () => setPlaying(!timer));
+  document.getElementById('btn-replay').addEventListener('click', () => { sceneIdx = 0; render(); setPlaying(true); });
+  document.getElementById('btn-shuffle').addEventListener('click', () => loadModel(model, 1 + Math.floor(Math.random() * 100000)));
+
+  const requested = window.location.hash.replace('#', '').toLowerCase();
+  loadModel(MODEL_ORDER.includes(requested) ? requested : 'm3');
+})();
+</script>
+
+</body>
+</html>
