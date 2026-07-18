@@ -426,6 +426,33 @@ demonstrate the instrument end to end, not to run the program. Scope
 boundaries, dependencies, and the full design rationale are carried in the
 Input above; the requirements below normatively restate them.
 
+## Clarifications
+
+### Session 2026-07-17
+
+- Q: What happens when a long sweep is interrupted (Ctrl-C, crash)? → A: No
+  resume in v1 — interrupted sweeps are re-run from scratch (determinism
+  makes that cheap and correct); records stream in canonical order, so an
+  interrupted run-records file is a readable prefix, but carries no
+  completion claim.
+- Q: Does the M2-comparison worked example ship the bulk-regime P(good)
+  configuration too, or only the operating point? → A: Ship both — the
+  operating point (cost/latency means) and a named bulk-regime point from
+  m2's full-coverage validation grid (the P(good)-vs-law check), so the
+  documented comparison is fully reproducible from shipped configurations.
+- Q: Uniform sampler when target_degree ≥ available candidates? → A: Degrade
+  gracefully — sample min(target_degree, |candidates|), dialing all
+  candidates when fewer (mirrors the hash-gated small-topic connect-to-all
+  degeneracy); experiment scenarios are not expected to hit it, but the
+  smoke variant is well-defined without scaled-down parameters.
+- Q: Which uncertainty convention for P(good)? → A: Raw counts (good runs,
+  total runs) always, plus a Wilson score interval at 95% as the reported
+  uncertainty — fixed convention, no knob. The formal models folder reports
+  plain ±1σ binomial standard errors, which degenerate to zero width at
+  all-good samples (our common case); their convention stays derivable from
+  the counts, and the documented M2 comparison carries a methodology note on
+  this difference to raise with the formal-methods team.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Run one reproducible experiment and read its delivery metrics (Priority: P1)
@@ -541,8 +568,9 @@ A researcher runs the shipped worked-example configuration — the
 experiments-only uniform sampler with accept-from-all and forward-to-all at
 the formal M2 operating point (N = 20 000, μ = 0.2, RF = 24) — manually, and
 documents the measured message counts, copies per honest node, and hop depth
-alongside the formal simulators' published values, plus P(good) at a
-bulk-regime parameter point. A tiny smoke variant of the same configuration
+alongside the formal simulators' published values, plus P(good) at the
+shipped bulk-regime parameter point (both comparison configurations ship
+with the example). A tiny smoke variant of the same configuration
 runs inside the automated test suite and asserts pipeline health only.
 
 **Why this priority**: it demonstrates the M2 model class is representable
@@ -594,6 +622,9 @@ comparison table can be filled from the artifacts.
   and test suite are unchanged; nothing of the framework is compiled in.
 - **Repeated Heartbeats within the dial phase**: idempotent at quiescence —
   re-dialing the same expected set adds nothing once established.
+- **Interrupted sweep**: no resume in v1 — the partial artifacts are a valid
+  canonical-order prefix with no completion claim; the sweep is re-run from
+  scratch (same master seed reproduces it exactly).
 
 ## Requirements *(mandatory)*
 
@@ -659,10 +690,11 @@ comparison table can be filled from the artifacts.
   (selects no targets), experiments-only — available to experiment
   configurations, never a protocol CLI kind.
 - **FR-013**: The framework MUST ship a uniform-sampler dial strategy —
-  dial exactly target_degree candidates sampled uniformly without
-  replacement, from a seed derived from the master seed — experiments-only,
-  never a protocol CLI kind; the protocol's own strategy kinds and injection
-  shape are unchanged.
+  dial min(target_degree, |candidates|) candidates sampled uniformly without
+  replacement (all candidates when fewer than target_degree are available),
+  from a seed derived from the master seed — experiments-only, never a
+  protocol CLI kind; the protocol's own strategy kinds and injection shape
+  are unchanged.
 - **FR-014**: Honest churn MUST be a first-class parameter (count or
   proportion): a seeded draw marks the configured number of honest nodes
   down after topology formation and before publish. Down nodes MUST NOT be
@@ -719,8 +751,12 @@ comparison table can be filled from the artifacts.
 - **FR-023**: Per experiment, the framework MUST report distributions and
   percentiles, not just means: coverage histogram, missed-count
   distribution, depth histogram, message-cost histograms and means, P(full
-  coverage), P(good topology) with a binomial confidence interval, and
-  histograms of the graded goodness refinements.
+  coverage), P(good topology), and histograms of the graded goodness
+  refinements. Probability estimates MUST be reported as raw counts
+  (successes, total runs) plus a Wilson score interval at the fixed 95%
+  level — well-defined at all-good/all-bad samples, where a plain ±1σ
+  standard error degenerates to zero width; any other convention (including
+  the formal folder's ±1σ) is derivable from the counts.
 
 **Reproducibility & execution**
 
@@ -751,9 +787,11 @@ comparison table can be filled from the artifacts.
 - **FR-028**: A sweep MUST emit exactly three data artifacts (no plotting):
   a manifest (tool commit, master seed and derivation rule, fixed
   parameters, axes, expanded experiment list referenced by index), run
-  records (one row per run, in canonical order, containing only scalars and
-  degree/depth-bounded vectors — nothing sized by the population), and a
-  per-experiment aggregates file.
+  records (one row per run, streamed in canonical order, containing only
+  scalars and degree/depth-bounded vectors — nothing sized by the
+  population), and a per-experiment aggregates file. There is no
+  interruption resume in v1: a partial output is a valid prefix without a
+  completion claim, and interrupted sweeps are re-run.
 - **FR-029**: The aggregates file MUST be a pure function of the run
   records, so external tooling can recompute and diff it.
 - **FR-030**: Per-run per-node detail (first-receipt wave, first-delivery
@@ -770,12 +808,18 @@ comparison table can be filled from the artifacts.
 - **FR-032**: The framework MUST be able to construct scripted topologies
   with hand-computable metrics (e.g. line, star, full mesh) for its own
   validation, via the direct pre-population setup mode.
-- **FR-033**: The framework MUST ship the M2-comparison worked example: the
-  full-size configuration (uniform sampler + accept-from-all +
-  forward-to-all at N = 20 000, μ = 0.2, RF = 24) for manual execution and
-  documented comparison, and a suite-sized smoke variant of the same
-  configuration that runs in the automated tests asserting pipeline health
-  only (never numeric agreement).
+- **FR-033**: The framework MUST ship the M2-comparison worked example as
+  two configurations plus a smoke variant: (a) the operating point (uniform
+  sampler + accept-from-all + forward-to-all at N = 20 000, μ = 0.2,
+  RF = 24) for the cost/latency means; (b) a named bulk-regime point (P(bad)
+  ~ 1e-2..1e-3, taken from m2's full-coverage validation grid) for the
+  P(good)-vs-law check — both executed manually with the comparison
+  documented; and (c) a suite-sized smoke variant that runs in the automated
+  tests asserting pipeline health only (never numeric agreement). The
+  documented comparison MUST include a short uncertainty-methodology note —
+  the formal folder's ±1σ standard errors vs this framework's counts +
+  Wilson 95%, why the difference matters at all-good samples, and how the
+  conventions map — as an item to raise with the formal-methods team.
 
 ### Key Entities
 
@@ -834,8 +878,9 @@ comparison table can be filled from the artifacts.
   under one hour and yields every quantity the documented comparison table
   needs (honest-to-honest sends, copies per honest node, depth
   distribution).
-- **SC-007**: An experiment's aggregates report P(good) with a binomial
-  confidence interval in all cases, including all-good and all-bad samples.
+- **SC-007**: An experiment's aggregates report P(good) as raw counts plus a
+  Wilson 95% interval in all cases — including all-good and all-bad samples,
+  where the interval has nonzero width.
 - **SC-008**: With the `experiments` feature disabled, the crate's build,
   public API surface, and test results are unchanged from before the
   feature.
