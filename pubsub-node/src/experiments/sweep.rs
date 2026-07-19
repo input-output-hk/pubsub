@@ -25,7 +25,9 @@ use crate::topic::TopicId;
 use super::config::{StrategyTable, SweepDescription};
 use super::driver::{Driver, RunObservation, SetupMode};
 use super::graph::{ChurnPhase, DisseminationModel};
-use super::metrics::{assemble_run_record, RunIdentity, RunRecord};
+use super::metrics::{
+    assemble_per_node_detail, assemble_run_record, PerNodeDetail, RunIdentity, RunRecord,
+};
 use super::population::{derive_seed, Population, PopulationConfig, PopulationSeeds};
 use super::statistics::{fold_aggregates, ExperimentAggregates};
 
@@ -169,6 +171,31 @@ pub fn execute_run_from_seed(
     run: u64,
     seed: [u8; 32],
 ) -> RunRecord {
+    execute_run_inner(params, experiment, run, seed, false).0
+}
+
+/// Execute one run and its opt-in per-node dissection table (016-FR-030):
+/// the same pure function as [`execute_run_from_seed`] — the record is
+/// identical whether or not detail is requested — plus one detail row per
+/// (publish, node).
+#[must_use]
+pub fn execute_run_and_detail_from_seed(
+    params: &ExperimentParameters,
+    experiment: u64,
+    run: u64,
+    seed: [u8; 32],
+) -> (RunRecord, Vec<PerNodeDetail>) {
+    let (record, detail) = execute_run_inner(params, experiment, run, seed, true);
+    (record, detail.expect("detail was requested"))
+}
+
+fn execute_run_inner(
+    params: &ExperimentParameters,
+    experiment: u64,
+    run: u64,
+    seed: [u8; 32],
+    want_detail: bool,
+) -> (RunRecord, Option<Vec<PerNodeDetail>>) {
     let population_seeds = PopulationSeeds {
         keys: derive_seed(&seed, "keys", 0),
         classes: derive_seed(&seed, "classes", 0),
@@ -219,7 +246,7 @@ pub fn execute_run_from_seed(
         publishes: outcomes,
     };
 
-    assemble_run_record(
+    let record = assemble_run_record(
         &RunIdentity {
             run,
             experiment,
@@ -229,7 +256,10 @@ pub fn execute_run_from_seed(
         &observation,
         &post_churn,
         pre_churn.as_ref(),
-    )
+    );
+    let detail = want_detail
+        .then(|| assemble_per_node_detail(driver.population(), &observation, &post_churn));
+    (record, detail)
 }
 
 /// Execute canonical run `run_index` of a sweep: derive its seed from the
@@ -247,6 +277,27 @@ pub fn execute_run_record(
         run_index,
         run_seed(master_seed, run_index),
     )
+}
+
+/// Invocation options for a sweep execution — never result-affecting and
+/// never in the manifest (contracts/sweep-config.md).
+#[derive(Clone, Copy, Debug)]
+pub struct SweepOptions {
+    /// Worker-pool size: the maximum in-flight runs (the memory knob).
+    pub workers: usize,
+    /// Emit the opt-in per-node dissection table per run (016-FR-030).
+    /// Adds `run-NNNNNN-detail.jsonl` files; the three artifacts are
+    /// byte-identical either way.
+    pub per_node_detail: bool,
+}
+
+impl Default for SweepOptions {
+    fn default() -> Self {
+        Self {
+            workers: 1,
+            per_node_detail: false,
+        }
+    }
 }
 
 /// What a completed sweep produced (operator summary).
@@ -285,6 +336,17 @@ struct AggregatesArtifact {
     experiments: Vec<ExperimentAggregates>,
 }
 
+/// Write one run's per-node dissection table: JSONL, one row per
+/// (publish, node), in publish then peer-id order.
+fn write_detail_file(path: &Path, rows: &[PerNodeDetail]) -> Result<(), std::io::Error> {
+    let mut writer = BufWriter::new(File::create(path)?);
+    for row in rows {
+        let line = serde_json::to_string(row).expect("detail row serializes");
+        writeln!(writer, "{line}")?;
+    }
+    writer.flush()
+}
+
 /// The worker-shared write-side state: the pre-sized results vector and the
 /// in-order streaming cursor. Workers complete runs in any order; the drain
 /// after each completion writes every consecutively-ready record, so
@@ -293,27 +355,30 @@ struct SweepProgress {
     records: Vec<Option<RunRecord>>,
     next_to_write: usize,
     writer: BufWriter<File>,
-    failure: Option<std::io::Error>,
+    failure: Option<SweepError>,
 }
 
 /// Execute a whole sweep and write the three artifacts into `out_dir`
 /// (016-FR-028): `manifest.json` first, `runs.jsonl` streamed in canonical
 /// run-index order, then `aggregates.json` folded in that same order.
 ///
-/// `workers` bounds the in-flight runs (each holds a full population — the
-/// memory knob); a `std::thread::scope` pool pulls run indices from a
-/// shared counter and writes into the pre-sized results vector, so the
-/// artifacts are byte-identical at any worker count (016-FR-025/FR-026).
+/// `options.workers` bounds the in-flight runs (each holds a full
+/// population — the memory knob); a `std::thread::scope` pool pulls run
+/// indices from a shared counter and writes into the pre-sized results
+/// vector, so the artifacts are byte-identical at any worker count
+/// (016-FR-025/FR-026). With `options.per_node_detail` on, each run's
+/// dissection table is written as `run-NNNNNN-detail.jsonl` beside the
+/// three artifacts — which stay byte-identical either way.
 pub fn run_sweep(
     description: &SweepDescription,
     out_dir: &Path,
     tool_commit: &str,
-    workers: usize,
+    options: &SweepOptions,
 ) -> Result<SweepSummary, SweepError> {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
-    let workers = workers.max(1);
+    let workers = options.workers.max(1);
     std::fs::create_dir_all(out_dir).map_err(io_error(out_dir))?;
 
     let manifest = build_manifest(description, tool_commit);
@@ -344,18 +409,33 @@ pub fn run_sweep(
                         return;
                     }
                     let experiment = run_index / runs_per_experiment;
-                    let record = execute_run_record(
-                        &manifest.experiments
-                            [usize::try_from(experiment).expect("experiment count fits usize")],
-                        experiment,
-                        run_index,
-                        description.master_seed,
-                    );
+                    let params = &manifest.experiments
+                        [usize::try_from(experiment).expect("experiment count fits usize")];
+                    let seed = run_seed(description.master_seed, run_index);
+                    let (record, detail_failure) = if options.per_node_detail {
+                        let (record, detail) =
+                            execute_run_and_detail_from_seed(params, experiment, run_index, seed);
+                        // Detail files are per-run and written by the run's
+                        // own worker — independent files need no ordering.
+                        let detail_path = out_dir.join(format!("run-{run_index:06}-detail.jsonl"));
+                        let failure = write_detail_file(&detail_path, &detail)
+                            .map_err(io_error(&detail_path))
+                            .err();
+                        (record, failure)
+                    } else {
+                        (
+                            execute_run_from_seed(params, experiment, run_index, seed),
+                            None,
+                        )
+                    };
 
                     let mut guard = progress
                         .lock()
                         .expect("a worker panicked while holding the progress lock");
                     let state = &mut *guard;
+                    if let Some(source) = detail_failure {
+                        state.failure.get_or_insert(source);
+                    }
                     if state.failure.is_some() {
                         return;
                     }
@@ -366,7 +446,7 @@ pub fn run_sweep(
                     while let Some(Some(ready)) = state.records.get(state.next_to_write) {
                         let line = serde_json::to_string(ready).expect("record serializes");
                         if let Err(source) = writeln!(state.writer, "{line}") {
-                            state.failure = Some(source);
+                            state.failure = Some(io_error(&runs_path)(source));
                             return;
                         }
                         state.next_to_write += 1;
@@ -382,8 +462,8 @@ pub fn run_sweep(
     let mut state = progress
         .into_inner()
         .expect("a worker panicked while holding the progress lock");
-    if let Some(source) = state.failure.take() {
-        return Err(io_error(&runs_path)(source));
+    if let Some(failure) = state.failure.take() {
+        return Err(failure);
     }
     state.writer.flush().map_err(io_error(&runs_path))?;
 

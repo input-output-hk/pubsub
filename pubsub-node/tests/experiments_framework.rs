@@ -14,9 +14,17 @@ use pubsub_node::experiments::population::{
 };
 use pubsub_node::experiments::scripted;
 use pubsub_node::experiments::sweep::{
-    execute_run_from_seed, execute_run_record, expand_experiments, run_sweep, seed_from_hex,
+    execute_run_and_detail_from_seed, execute_run_from_seed, execute_run_record,
+    expand_experiments, run_sweep, seed_from_hex, SweepOptions,
 };
 use pubsub_node::TopicId;
+
+fn workers(count: usize) -> SweepOptions {
+    SweepOptions {
+        workers: count,
+        per_node_detail: false,
+    }
+}
 
 fn population(size: usize, adversarial: usize) -> Population {
     let honest = StrategySpec {
@@ -159,8 +167,8 @@ fn twice_written_sweep_is_byte_identical() {
     let description = parse_sweep_description(&sweep_toml(30, 7, 5)).expect("valid description");
     let dirs = tempfile::tempdir().expect("temp dir");
     let (a, b) = (dirs.path().join("a"), dirs.path().join("b"));
-    run_sweep(&description, &a, "test-commit", 1).expect("sweep runs");
-    run_sweep(&description, &b, "test-commit", 1).expect("sweep runs");
+    run_sweep(&description, &a, "test-commit", &workers(1)).expect("sweep runs");
+    run_sweep(&description, &b, "test-commit", &workers(1)).expect("sweep runs");
     for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
         let left = std::fs::read(a.join(artifact)).expect("artifact written");
         let right = std::fs::read(b.join(artifact)).expect("artifact written");
@@ -256,8 +264,8 @@ fn workers_one_and_many_produce_byte_identical_artifacts() {
     let description = parse_sweep_description(&two_axis_toml()).expect("valid description");
     let dirs = tempfile::tempdir().expect("temp dir");
     let (serial, parallel) = (dirs.path().join("serial"), dirs.path().join("parallel"));
-    run_sweep(&description, &serial, "test-commit", 1).expect("sweep runs");
-    run_sweep(&description, &parallel, "test-commit", 8).expect("sweep runs");
+    run_sweep(&description, &serial, "test-commit", &workers(1)).expect("sweep runs");
+    run_sweep(&description, &parallel, "test-commit", &workers(8)).expect("sweep runs");
     for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
         assert_eq!(
             std::fs::read(serial.join(artifact)).expect("artifact written"),
@@ -274,7 +282,8 @@ fn workers_one_and_many_produce_byte_identical_artifacts() {
 fn grid_row_and_aggregate_counts_line_up() {
     let description = parse_sweep_description(&two_axis_toml()).expect("valid description");
     let out = tempfile::tempdir().expect("temp dir");
-    let summary = run_sweep(&description, out.path(), "test-commit", 4).expect("sweep runs");
+    let summary =
+        run_sweep(&description, out.path(), "test-commit", &workers(4)).expect("sweep runs");
     assert_eq!(summary.experiments, 4, "2 × 2 grid");
     assert_eq!(summary.runs, 12, "3 runs per grid point");
 
@@ -333,7 +342,7 @@ fn p_good_is_counts_plus_wilson_including_all_good() {
         .replace("target_degree = 4\n", "");
     let description = parse_sweep_description(&toml).expect("valid description");
     let out = tempfile::tempdir().expect("temp dir");
-    run_sweep(&description, out.path(), "test-commit", 2).expect("sweep runs");
+    run_sweep(&description, out.path(), "test-commit", &workers(2)).expect("sweep runs");
 
     let aggregates: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(out.path().join("aggregates.json")).expect("aggregates written"),
@@ -352,6 +361,156 @@ fn p_good_is_counts_plus_wilson_including_all_good() {
     // The structural invariant holds in the artifact too.
     let full = &aggregates["experiments"][0]["full_coverage"];
     assert_eq!(full["count"], 6);
+}
+
+// 016-FR-030 / 016-SC-004 (US3): replaying a run's recorded seed with detail
+// on reproduces the record exactly — detail is a pure add-on, and the rows
+// regenerate from the seed alone.
+#[test]
+fn replay_with_detail_reproduces_the_record() {
+    let description = parse_sweep_description(&sweep_toml(24, 33, 1)).expect("valid description");
+    let params = &expand_experiments(&description)[0];
+    let original = execute_run_record(params, 0, 2, description.master_seed);
+
+    let seed = seed_from_hex(&original.seed).expect("recorded seed parses");
+    let (replayed, detail) = execute_run_and_detail_from_seed(params, 0, 2, seed);
+    assert_eq!(original, replayed, "detail never alters the record");
+    assert_eq!(detail.len(), 24, "one row per node per publish");
+    let (again, detail_again) = execute_run_and_detail_from_seed(params, 0, 2, seed);
+    assert_eq!(replayed, again);
+    assert_eq!(detail, detail_again, "detail replays exactly too");
+}
+
+// 016-FR-030 (US3): the detail rows are consistent with the recorded
+// topology and drain — degrees re-sum into the record's histograms, and
+// every row's receipt/miss fields respect the node's class and liveness.
+#[test]
+fn detail_is_consistent_with_the_recorded_topology() {
+    let description = parse_sweep_description(&sweep_toml(24, 33, 1)).expect("valid description");
+    let params = &expand_experiments(&description)[0];
+    let seed_source = execute_run_record(params, 0, 0, description.master_seed);
+    let seed = seed_from_hex(&seed_source.seed).expect("recorded seed parses");
+    let (record, detail) = execute_run_and_detail_from_seed(params, 0, 0, seed);
+
+    // Degrees over up-honest rows reproduce the record's histograms.
+    let mut in_hist = vec![0u64; record.in_degree_hist.len()];
+    let mut out_hist = vec![0u64; record.out_degree_hist.len()];
+    let mut receipts = 0u64;
+    let mut misses = 0u64;
+    for row in &detail {
+        let up_honest = !row.down
+            && row.class == pubsub_node::experiments::population::ParticipantClass::Honest;
+        assert_eq!(
+            row.in_degree.is_some(),
+            up_honest,
+            "degrees exactly on digraph vertices",
+        );
+        if let Some(degree) = row.in_degree {
+            in_hist[usize::try_from(degree).expect("bounded degree")] += 1;
+        }
+        if let Some(degree) = row.out_degree {
+            out_hist[usize::try_from(degree).expect("bounded degree")] += 1;
+        }
+
+        let is_publisher = row.node == record.publisher;
+        if row.down {
+            assert!(
+                row.first_receipt_wave.is_none(),
+                "down nodes are not stepped"
+            );
+            assert!(row.miss_cause.is_none());
+        }
+        if is_publisher {
+            assert_eq!(row.first_receipt_wave, Some(0));
+            assert_eq!(row.first_delivery_origin.as_deref(), Some("local"));
+        }
+        assert_eq!(
+            row.first_receipt_wave.is_some(),
+            row.first_delivery_origin.is_some(),
+            "a receipt has an origin; a miss has none",
+        );
+        if up_honest && !is_publisher {
+            assert_ne!(
+                row.first_receipt_wave.is_some(),
+                row.miss_cause.is_some(),
+                "an eligible receiver either received or has a classified cause",
+            );
+            if row.first_receipt_wave.is_some() {
+                receipts += 1;
+            } else {
+                misses += 1;
+            }
+        } else {
+            assert!(
+                row.miss_cause.is_none(),
+                "causes only on eligible receivers"
+            );
+        }
+    }
+    assert_eq!(in_hist, record.in_degree_hist);
+    assert_eq!(out_hist, record.out_degree_hist);
+    assert_eq!(receipts, record.publishes[0].received);
+    assert_eq!(misses, record.publishes[0].missed);
+}
+
+// 016-FR-030 / contracts/output-artifacts.md guarantee 1: --per-node-detail
+// is result-neutral — the three artifacts are byte-identical with the flag
+// on or off; detail only ADDS files.
+#[test]
+fn detail_never_alters_the_three_artifacts() {
+    let description = parse_sweep_description(&sweep_toml(24, 44, 3)).expect("valid description");
+    let dirs = tempfile::tempdir().expect("temp dir");
+    let (plain, detailed) = (dirs.path().join("plain"), dirs.path().join("detailed"));
+    run_sweep(&description, &plain, "test-commit", &workers(2)).expect("sweep runs");
+    run_sweep(
+        &description,
+        &detailed,
+        "test-commit",
+        &SweepOptions {
+            workers: 2,
+            per_node_detail: true,
+        },
+    )
+    .expect("sweep runs");
+
+    for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
+        assert_eq!(
+            std::fs::read(plain.join(artifact)).expect("artifact written"),
+            std::fs::read(detailed.join(artifact)).expect("artifact written"),
+            "{artifact} must not depend on the detail flag",
+        );
+    }
+    let detail_files = |dir: &std::path::Path| {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("output dir readable")
+            .map(|entry| {
+                entry
+                    .expect("entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .filter(|name| name.contains("-detail"))
+            .collect();
+        names.sort();
+        names
+    };
+    assert!(detail_files(&plain).is_empty(), "off by default");
+    assert_eq!(
+        detail_files(&detailed),
+        (0..3)
+            .map(|run| format!("run-{run:06}-detail.jsonl"))
+            .collect::<Vec<_>>(),
+        "one detail table per run",
+    );
+    // The detail rows themselves are well-formed JSONL.
+    let first =
+        std::fs::read_to_string(detailed.join("run-000000-detail.jsonl")).expect("detail written");
+    assert_eq!(first.lines().count(), 24, "one row per node");
+    for line in first.lines() {
+        let row: serde_json::Value = serde_json::from_str(line).expect("row parses");
+        assert!(row.get("node").is_some() && row.get("class").is_some());
+    }
 }
 
 // Research R9: the golden serialization test — pins the record encoding and

@@ -37,7 +37,8 @@ use super::strategies::{SilentRelay, UniformSampler};
 /// draw. Adversarial participants are Level-1 in v1: they run the honest
 /// transition with a hostile strategy bundle. The enum shape admits a future
 /// protocol-violating (Level-2) variant without reworking storage.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ParticipantClass {
     /// Runs the honest strategy bundle; counted in coverage/goodness
     /// denominators.
@@ -181,6 +182,24 @@ impl Participant {
     #[must_use]
     pub fn received_count(&self) -> usize {
         self.state.received_len()
+    }
+
+    /// Where the node's recorded delivery of the given content came from —
+    /// [`Origin::Local`](crate::Origin::Local) for its own publish, the
+    /// delivering peer otherwise. `None` if the node never recorded it.
+    #[must_use]
+    pub fn delivery_origin(&self, hash: &MessageHash) -> Option<crate::received::Origin> {
+        self.state
+            .received()
+            .iter()
+            .find_map(|delivery| match &delivery.message {
+                crate::message::Message::Dissemination(signed)
+                    if MessageHash::of(&signed.plain) == *hash =>
+                {
+                    Some(delivery.origin.clone())
+                }
+                _ => None,
+            })
     }
 
     /// The node's current epoch nonce.

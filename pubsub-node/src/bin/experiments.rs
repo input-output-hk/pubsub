@@ -11,7 +11,7 @@ use std::process::Command;
 use clap::Parser;
 
 use pubsub_node::experiments::config::parse_sweep_description;
-use pubsub_node::experiments::sweep::run_sweep;
+use pubsub_node::experiments::sweep::{run_sweep, SweepOptions};
 
 /// Run a deterministic dissemination sweep and write its three artifacts.
 #[derive(Parser)]
@@ -28,6 +28,10 @@ struct Invocation {
     /// memory knob at large population sizes.
     #[arg(long, default_value_t = default_workers())]
     workers: usize,
+    /// Also write each run's per-node dissection table
+    /// (run-NNNNNN-detail.jsonl). Never changes the three main artifacts.
+    #[arg(long)]
+    per_node_detail: bool,
 }
 
 fn default_workers() -> usize {
@@ -77,7 +81,10 @@ fn main() {
         &description,
         &invocation.out,
         &tool_commit(),
-        invocation.workers,
+        &SweepOptions {
+            workers: invocation.workers,
+            per_node_detail: invocation.per_node_detail,
+        },
     ) {
         Ok(summary) => {
             eprintln!(

@@ -203,7 +203,7 @@ correct, rows reference experiments by index, artifacts identical (spec US2).
 **Independent test**: replay a non-full-coverage run's seed with detail on —
 record identical, per-node miss causes consistent with the topology (spec US3).
 
-- [ ] T021 [US3] Per-node detail: `--per-node-detail` flag through
+- [X] T021 [US3] Per-node detail: `--per-node-detail` flag through
       `src/bin/experiments.rs` and `src/experiments/sweep.rs`;
       `PerNodeDetail` emission (first-receipt wave, first-delivery origin,
       degrees, miss cause, class) in `src/experiments/metrics.rs`; test:

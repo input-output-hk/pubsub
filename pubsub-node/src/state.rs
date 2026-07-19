@@ -349,6 +349,11 @@ impl NodeState {
     pub(crate) fn received_len(&self) -> usize {
         self.received.len()
     }
+
+    /// Borrow the recorded deliveries (processing order), without cloning.
+    pub(crate) fn received(&self) -> &[ReceivedDelivery] {
+        &self.received
+    }
 }
 
 /// Outbound commands the shell executes on the transition's behalf.

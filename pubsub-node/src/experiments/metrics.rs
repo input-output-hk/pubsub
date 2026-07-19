@@ -22,7 +22,8 @@ use super::population::{Participant, Population};
 
 /// Why an eligible receiver missed the message, classified from driver-owned
 /// state (016-FR-017).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MissCause {
     /// Every upstream source the node holds is adversarial or down.
     AllUpstreamsAdversarialOrDown,
@@ -138,6 +139,88 @@ pub struct RunRecord {
     pub sinks_pre_churn: Option<u64>,
     /// One measured slice per publish phase, in publish order.
     pub publishes: Vec<PublishRecord>,
+}
+
+/// One node's opt-in dissection row (016-FR-030): regenerable exactly from
+/// the run's recorded seed, never part of the three default artifacts.
+///
+/// Degrees are the node's post-churn propagation-digraph degrees, so
+/// summing rows reproduces the run record's degree histograms; adversarial
+/// and down nodes are not digraph vertices and carry no degrees (absent ≠
+/// zero, like every opt-in field here).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct PerNodeDetail {
+    /// Which publish phase the row describes.
+    pub publish: u64,
+    /// The node.
+    pub node: PeerId,
+    /// The node's class.
+    pub class: super::population::ParticipantClass,
+    /// Whether the churn draw marked the node down.
+    pub down: bool,
+    /// Post-churn digraph in-degree (up-honest vertices only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_degree: Option<u64>,
+    /// Post-churn digraph out-degree (up-honest vertices only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_degree: Option<u64>,
+    /// The wave of the node's first receipt (0 = the publisher's record).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_receipt_wave: Option<u64>,
+    /// Who delivered the node's recorded copy: `local` for the publisher's
+    /// own record, the delivering peer otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_delivery_origin: Option<String>,
+    /// Why the node missed — present only on up-honest non-publishers that
+    /// missed the message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miss_cause: Option<MissCause>,
+}
+
+/// Assemble the opt-in per-node dissection table for a run: one row per
+/// (publish, node), in publish then peer-id order (016-FR-030). Pure over
+/// the same inputs as the run record — the detail never alters the record.
+#[must_use]
+pub fn assemble_per_node_detail(
+    population: &Population,
+    observation: &RunObservation,
+    post_churn: &GraphAnalysis,
+) -> Vec<PerNodeDetail> {
+    let reachable = post_churn.digraph.reachable_from(&observation.publisher);
+    let mut rows = Vec::new();
+    for (publish_index, publish) in observation.publishes.iter().enumerate() {
+        for (id, participant) in population.participants() {
+            let received = participant.has_seen(&publish.message);
+            let first_delivery_origin = if received {
+                participant
+                    .delivery_origin(&publish.message)
+                    .map(|origin| match origin {
+                        crate::received::Origin::Local => "local".to_string(),
+                        crate::received::Origin::Peer(peer) => peer.to_string(),
+                    })
+            } else {
+                None
+            };
+            let miss_cause =
+                (participant.is_up_honest() && id != &observation.publisher && !received)
+                    .then(|| classify_miss(id, participant, population, &reachable));
+            rows.push(PerNodeDetail {
+                publish: publish_index as u64,
+                node: id.clone(),
+                class: participant.class(),
+                down: participant.is_down(),
+                in_degree: post_churn.digraph.in_degree(id).map(|degree| degree as u64),
+                out_degree: post_churn
+                    .digraph
+                    .out_degree(id)
+                    .map(|degree| degree as u64),
+                first_receipt_wave: publish.drain.first_receipt.get(id).copied(),
+                first_delivery_origin,
+                miss_cause,
+            });
+        }
+    }
+    rows
 }
 
 /// A run's identity within its sweep.
