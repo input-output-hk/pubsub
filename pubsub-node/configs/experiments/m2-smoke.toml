@@ -1,0 +1,32 @@
+# Suite-sized smoke variant of the M2-comparison shape: the same strategy
+# triads and adversarial fraction as the two manual comparison
+# configurations, with the population, fanout, and run count scaled down so
+# the automated suite can execute it end to end in seconds.
+#
+# The suite asserts pipeline health only - the configuration parses, the
+# sweep executes, the artifacts are well-formed, and the identities and
+# determinism guarantees hold. It never asserts numeric agreement with the
+# formal model; that is the manual comparison's job.
+
+model = "m2"
+master_seed = 7
+
+[population]
+size = 100
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+connection = "uniform-sampler"
+target_degree = 8
+acceptance = "accept-from-all"
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+connection = "uniform-sampler"
+target_degree = 8
+acceptance = "accept-from-all"
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 15

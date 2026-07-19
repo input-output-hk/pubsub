@@ -513,6 +513,90 @@ fn detail_never_alters_the_three_artifacts() {
     }
 }
 
+fn shipped_config(name: &str) -> String {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("configs/experiments")
+        .join(name);
+    std::fs::read_to_string(&path).expect("shipped configuration exists")
+}
+
+// 016-FR-033 (US4): the shipped suite-sized smoke variant runs the whole
+// pipeline end to end — the configuration parses, the sweep executes, the
+// artifacts are well-formed, and the identities and determinism guarantees
+// hold. Pipeline health ONLY: no assertion here compares any number with
+// the formal model (that is the manual comparison's job), and the whole
+// test stays far inside the 30-second budget.
+#[test]
+fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
+    // The two manual comparison configurations must at least validate — a
+    // shipped config that no longer parses is a broken deliverable.
+    for name in ["m2-operating-point.toml", "m2-bulk-regime.toml"] {
+        parse_sweep_description(&shipped_config(name))
+            .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
+    }
+
+    let description =
+        parse_sweep_description(&shipped_config("m2-smoke.toml")).expect("smoke config parses");
+    let dirs = tempfile::tempdir().expect("temp dir");
+    let (first, second) = (dirs.path().join("first"), dirs.path().join("second"));
+    let summary =
+        run_sweep(&description, &first, "test-commit", &workers(2)).expect("smoke sweep runs");
+    run_sweep(&description, &second, "test-commit", &workers(3)).expect("smoke sweep runs");
+
+    // Determinism holds across executions and worker counts.
+    for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
+        assert_eq!(
+            std::fs::read(first.join(artifact)).expect("artifact written"),
+            std::fs::read(second.join(artifact)).expect("artifact written"),
+            "{artifact} must reproduce",
+        );
+    }
+
+    // Well-formed artifacts: the manifest describes one experiment, every
+    // row parses and references it by index in canonical order, and the
+    // aggregates carry the probability fields as counts + Wilson 95%.
+    assert_eq!(summary.experiments, 1);
+    let manifest: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(first.join("manifest.json")).expect("manifest written"),
+    )
+    .expect("manifest parses");
+    assert_eq!(manifest["experiments"].as_array().expect("list").len(), 1);
+    assert!(manifest["seed_derivation"].is_string());
+
+    let rows: Vec<serde_json::Value> = std::fs::read_to_string(first.join("runs.jsonl"))
+        .expect("rows written")
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("row parses"))
+        .collect();
+    assert_eq!(rows.len() as u64, summary.runs);
+    for (index, row) in rows.iter().enumerate() {
+        assert_eq!(row["run"], index as u64);
+        assert_eq!(row["experiment"], 0);
+        assert!(row["seed"].is_string());
+        // The per-run accounting identity was asserted at assembly; its
+        // terms are present in every emitted row.
+        assert!(row["publishes"][0]["sends"]["honest"].is_u64());
+        assert!(row["publishes"][0]["suppressed"].is_u64());
+    }
+
+    let aggregates: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(first.join("aggregates.json")).expect("aggregates written"),
+    )
+    .expect("aggregates parse");
+    let entry = &aggregates["experiments"][0];
+    for estimate in ["good", "full_coverage"] {
+        assert!(
+            entry[estimate]["count"].is_u64(),
+            "{estimate} carries counts"
+        );
+        assert_eq!(entry[estimate]["runs"].as_u64(), Some(summary.runs));
+        assert_eq!(
+            entry[estimate]["wilson95"].as_array().map(Vec::len),
+            Some(2),
+        );
+    }
+}
+
 // Research R9: the golden serialization test — pins the record encoding and
 // the structural field inventory (spellings, order, optional-field
 // behaviour). A schema change must consciously update this string.

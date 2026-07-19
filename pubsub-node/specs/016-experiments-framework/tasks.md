@@ -225,13 +225,13 @@ checkpoint or the test suite.
 **Independent test**: smoke variant completes in seconds asserting pipeline
 health only (spec US4).
 
-- [ ] T022 [P] [US4] Shipped configurations in `configs/experiments/`:
+- [X] T022 [P] [US4] Shipped configurations in `configs/experiments/`:
       `m2-operating-point.toml` (N = 20 000, μ = 0.2, RF = 24;
       uniform-sampler + accept-from-all + forward-to-all),
       `m2-bulk-regime.toml` (named point from m2's full-coverage validation
       grid), `m2-smoke.toml` (suite-sized) (016-FR-033;
       contracts/sweep-config.md).
-- [ ] T023 [US4] Smoke test in `tests/experiments_framework.rs`: run
+- [X] T023 [US4] Smoke test in `tests/experiments_framework.rs`: run
       `m2-smoke.toml` end to end — config parses, sweep executes, artifacts
       well-formed, identities and determinism hold; < 30 s budget; never
       numeric agreement (016-FR-033; 016-SC-006 partial).

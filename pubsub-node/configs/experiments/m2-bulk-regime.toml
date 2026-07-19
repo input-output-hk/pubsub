@@ -1,0 +1,37 @@
+# M2-comparison bulk-regime point: N = 4 000, mu = 0.2, RF = 16.
+#
+# The named point from the formal M2 model's full-coverage validation
+# (formal_spec/hybrid_dissemination/models/m2/properties/full_coverage.md §3,
+# small-N tail ladder, `sweep_m2_cost.py --coverage`): P(bad) predicted
+# 0.0088, measured 0.0081 (65 bad / 8000 trials) - squarely in the
+# P(bad) ~ 1e-2..1e-3 regime where a finite run count resolves the law.
+# runs_per_experiment matches the ladder's trial count, so the P(good)
+# reported in this sweep's aggregates (raw counts + Wilson 95%) compares
+# like with like against the model's prediction and measurement.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/m2-bulk-regime.toml --out results/m2-bulk/
+
+model = "m2"
+master_seed = 4016
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+connection = "uniform-sampler" # exactly-RF uniform picks - M2's selection family
+target_degree = 16             # RF
+acceptance = "accept-from-all"
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+connection = "uniform-sampler"
+target_degree = 16
+acceptance = "accept-from-all"
+fanout = "silent-relay" # M2's non-forwarding (dead) relay
+
+[execution]
+runs_per_experiment = 8000
