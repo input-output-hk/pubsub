@@ -143,7 +143,11 @@ Cargo.toml                       # [features] experiments = ["dep:serde_json"];
                                  # [[bin]] experiments (required-features)
 src/
 ├── lib.rs                       # + #[cfg(feature = "experiments")] pub mod experiments;
-├── experiments/
+│                                #   (feature-gated public module — see note below)
+├── experiments/                 # the one feature-gated public addition:
+│   │                            #   `pub mod experiments` exists only under the
+│   │                            #   flag (the bin target consumes it); the
+│   │                            #   default build's surface is unchanged (FR-001)
 │   ├── mod.rs                   # module root; the experiments API surface
 │   ├── population.rs            # Participant, class, seeded population build,
 │   │                            #   registry pre-population / faithful-fold scripts

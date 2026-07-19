@@ -86,9 +86,12 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
   - population as drawn: `honest`, `adversarial`, `down`, `up_honest`,
     `publisher`;
   - dial phase: `dial_waves`, `dial_sends`, `rejected_over_capacity`;
-  - graph analytics: `good`, `good_pre_churn`, `min_publisher_coverage`
-    (+ `_pre_churn`), `sinks` (+ `_pre_churn`), `sccs`, `largest_scc`,
-    `in_degree_hist`, `out_degree_hist`;
+  - graph analytics: `good`, `min_publisher_coverage`, `sinks`, `sccs`,
+    `largest_scc`, `in_degree_hist`, `out_degree_hist`; the `_pre_churn`
+    counterparts (`good_pre_churn`, `min_publisher_coverage_pre_churn`,
+    `sinks_pre_churn`) are **present iff churn > 0** and absent otherwise
+    (spec edge case: churn = 0 runs one pass and records once; absent ≠
+    zero per the output contract);
   - publish drain (per publish; default one): `coverage`, `received`,
     `missed`, `max_depth`, `depth_hist` (index = wave; wave 0 = publisher),
     `miss_causes` (counts per `MissCause`), `sends` `{honest, adversarial,
@@ -104,10 +107,12 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
 ## 6. Statistics & aggregates
 
 - **CountEstimate** — `{ count, runs, p, wilson95: [lo, hi] }` (research
-  R7; used for `good`, `good_pre_churn`, `full_coverage`).
-  Structural invariant: `good ⇒ full coverage` per run under v1 relays
-  (drain coverage ≡ reachability), so `full_coverage.count ≥ good.count` —
-  asserted in the aggregates fold.
+  R7; used for `good`, `full_coverage`, and — for experiments with
+  churn > 0 — `good_pre_churn`, mirroring the per-run presence rule).
+  Structural invariant: `good ⇒ full coverage` per run under v1 relays —
+  drain coverage ≡ graph reachability (spec SC-003) and good means every
+  publisher reaches everyone (spec FR-020) — so
+  `full_coverage.count ≥ good.count`, asserted in the aggregates fold.
 - **Histograms** — sparse integer maps (`BTreeMap<u64, u64>`) for
   integer-valued metrics (missed count, max depth, sink count); fixed-width
   bins for coverage fractions (bin width a statistics-module constant, not
