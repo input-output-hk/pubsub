@@ -41,7 +41,7 @@ global ids (ADR NNNN) unprefixed.
 **Purpose**: everything later lands behind the flag; the default build is
 provably untouched.
 
-- [ ] T001 Gating scaffold: add `experiments = ["dep:serde_json"]` cargo
+- [X] T001 Gating scaffold: add `experiments = ["dep:serde_json"]` cargo
       feature and optional `serde_json` dependency in `Cargo.toml`;
       feature-gated `pub mod experiments;` in `src/lib.rs` with an empty
       `src/experiments/mod.rs`; `[[bin]] experiments`
@@ -49,7 +49,7 @@ provably untouched.
       `src/bin/experiments.rs`; verify the default build/test/clippy output
       is unaffected with the feature off (016-FR-001, 016-FR-002,
       016-FR-003; 016-SC-008).
-- [ ] T002 [P] Author ADR 0034 — serde_json as an optional feature-tied
+- [X] T002 [P] Author ADR 0034 — serde_json as an optional feature-tied
       dependency (Justified Dependencies standard) in
       `docs/decisions/0034-serde-json-optional-dependency.md` (plan
       Constitution Check III; research R4).

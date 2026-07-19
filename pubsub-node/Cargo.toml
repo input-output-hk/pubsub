@@ -10,9 +10,18 @@ rust-version = "1.75"
 name = "pubsub-node"
 path = "src/main.rs"
 
+[[bin]]
+name = "experiments"
+path = "src/bin/experiments.rs"
+required-features = ["experiments"]
+
+[features]
+experiments = ["dep:serde_json"]
+
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time", "signal"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", optional = true }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
