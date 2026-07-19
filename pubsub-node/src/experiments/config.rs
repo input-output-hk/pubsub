@@ -67,6 +67,34 @@ pub enum SweepConfigError {
         /// The offending field.
         field: &'static str,
     },
+    /// An axis named no sweepable parameter.
+    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, target_degree, publishes_per_run)")]
+    UnknownAxisParameter {
+        /// The offending parameter name.
+        name: String,
+    },
+    /// The same parameter appeared on two axes.
+    #[error("axis parameter '{parameter}' is declared twice")]
+    DuplicateAxis {
+        /// The duplicated parameter name.
+        parameter: &'static str,
+    },
+    /// An axis carried no values.
+    #[error("axis '{parameter}' needs at least one value")]
+    EmptyAxis {
+        /// The empty axis's parameter name.
+        parameter: &'static str,
+    },
+    /// An axis value had the wrong shape for its parameter.
+    #[error("axis '{parameter}' takes {expected} values (got {value})")]
+    AxisValueType {
+        /// The axis's parameter name.
+        parameter: &'static str,
+        /// What the parameter accepts.
+        expected: &'static str,
+        /// The rejected value.
+        value: String,
+    },
     /// The population leaves no publisher/receiver pair.
     #[error("the population must keep at least two honest participants up (a publisher and a receiver): size {size}, adversarial {adversarial}, churn {churn} leaves {remaining}")]
     TooFewUpHonest {
@@ -176,30 +204,264 @@ impl StrategyTable {
     }
 }
 
-/// A parsed, validated sweep description: every result-affecting input,
-/// with counts resolved (fractions applied) and strategy kinds checked.
+/// A population knob given as an absolute count or a fraction of its basis
+/// (adversarial: fraction of N; churn: fraction of the honest population).
+/// Kept unresolved so an axis that changes the basis (e.g. sweeping `size`)
+/// re-resolves per grid point.
+#[derive(Clone, Copy, Debug)]
+pub enum CountSpec {
+    /// An absolute count.
+    Count(usize),
+    /// A fraction of the knob's basis, rounded to the nearest count.
+    Fraction(f64),
+}
+
+impl CountSpec {
+    fn resolve(self, field: &'static str, basis: usize) -> Result<usize, SweepConfigError> {
+        match self {
+            Self::Count(count) => Ok(count),
+            Self::Fraction(fraction) => resolve_fraction(field, fraction, basis),
+        }
+    }
+}
+
+/// A sweepable parameter (016-FR-028's axes; contracts/sweep-config.md).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AxisParameter {
+    /// Population size N.
+    Size,
+    /// Adversarial count.
+    Adversarial,
+    /// Adversarial fraction of N.
+    AdversarialFraction,
+    /// Churn proportion of the honest population.
+    Churn,
+    /// Churn count.
+    ChurnCount,
+    /// Target degree, applied to both classes' strategy tables.
+    TargetDegree,
+    /// Publish phases per run.
+    PublishesPerRun,
+}
+
+impl AxisParameter {
+    /// The configuration spelling.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Size => "size",
+            Self::Adversarial => "adversarial",
+            Self::AdversarialFraction => "adversarial_fraction",
+            Self::Churn => "churn",
+            Self::ChurnCount => "churn_count",
+            Self::TargetDegree => "target_degree",
+            Self::PublishesPerRun => "publishes_per_run",
+        }
+    }
+
+    fn parse(name: &str) -> Result<Self, SweepConfigError> {
+        match name {
+            "size" => Ok(Self::Size),
+            "adversarial" => Ok(Self::Adversarial),
+            "adversarial_fraction" => Ok(Self::AdversarialFraction),
+            "churn" => Ok(Self::Churn),
+            "churn_count" => Ok(Self::ChurnCount),
+            "target_degree" => Ok(Self::TargetDegree),
+            "publishes_per_run" => Ok(Self::PublishesPerRun),
+            _ => Err(SweepConfigError::UnknownAxisParameter {
+                name: name.to_string(),
+            }),
+        }
+    }
+}
+
+/// One raw axis value: TOML integers and floats both appear in practice
+/// (`[0, 0.05]`); each parameter coerces what it accepts.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum AxisValue {
+    /// A TOML integer.
+    Integer(u64),
+    /// A TOML float.
+    Float(f64),
+}
+
+impl AxisValue {
+    fn as_count(self, parameter: &'static str) -> Result<usize, SweepConfigError> {
+        match self {
+            Self::Integer(value) => Ok(usize::try_from(value).expect("counts fit usize")),
+            Self::Float(value) => Err(SweepConfigError::AxisValueType {
+                parameter,
+                expected: "integer",
+                value: value.to_string(),
+            }),
+        }
+    }
+
+    #[allow(clippy::cast_precision_loss)] // axis counts ≪ 2^52
+    fn as_fraction(self) -> f64 {
+        match self {
+            Self::Integer(value) => value as f64,
+            Self::Float(value) => value,
+        }
+    }
+}
+
+/// One validated axis: a sweepable parameter and its value list.
+#[derive(Clone, Debug)]
+pub struct Axis {
+    /// The swept parameter.
+    pub parameter: AxisParameter,
+    /// The values, in declaration order.
+    pub values: Vec<AxisValue>,
+}
+
+/// One fully-resolved grid point of the sweep: the per-experiment scalars
+/// after axis overrides and count resolution.
+#[derive(Clone, Debug)]
+pub struct ResolvedExperiment {
+    /// Population size N.
+    pub size: usize,
+    /// Resolved adversarial count.
+    pub adversarial: usize,
+    /// Resolved churn count.
+    pub churn_count: usize,
+    /// Honest-class strategy configuration (axis overrides applied).
+    pub honest_strategies: StrategyTable,
+    /// Adversarial-class strategy configuration (axis overrides applied).
+    pub adversarial_strategies: StrategyTable,
+    /// Publish phases per run.
+    pub publishes_per_run: u64,
+}
+
+/// A parsed, validated sweep description: every result-affecting input.
+/// Population knobs stay as count-or-fraction specs so each grid point
+/// resolves against its own basis; [`SweepDescription::resolved_experiments`]
+/// expands the axes' cross-product in declaration order.
 #[derive(Clone, Debug)]
 pub struct SweepDescription {
     /// The dissemination model.
     pub model: DisseminationModel,
     /// The sweep's master seed.
     pub master_seed: u64,
-    /// Population size N.
+    /// Population size N (base value; a `size` axis overrides it).
     pub size: usize,
-    /// Resolved adversarial count.
-    pub adversarial: usize,
-    /// Resolved churn count (honest nodes marked down per run).
-    pub churn_count: usize,
+    /// Adversarial knob (base value).
+    pub adversarial: CountSpec,
+    /// Churn knob (base value).
+    pub churn: CountSpec,
     /// The single topic.
     pub topic: TopicId,
-    /// Honest-class strategy configuration.
+    /// Honest-class strategy configuration (base).
     pub honest_strategies: StrategyTable,
-    /// Adversarial-class strategy configuration.
+    /// Adversarial-class strategy configuration (base).
     pub adversarial_strategies: StrategyTable,
     /// Runs per experiment R.
     pub runs_per_experiment: u64,
-    /// Publish phases per run (default 1).
+    /// Publish phases per run (base value; default 1).
     pub publishes_per_run: u64,
+    /// The sweep axes, in declaration order (empty ⇒ one experiment).
+    pub axes: Vec<Axis>,
+}
+
+impl SweepDescription {
+    /// Expand the axes' cross-product — first-declared axis varying slowest
+    /// — into fully-resolved, validated experiments. Called at parse time so
+    /// every grid point is rejected or accepted before anything runs.
+    pub fn resolved_experiments(&self) -> Result<Vec<ResolvedExperiment>, SweepConfigError> {
+        let mut combinations: Vec<Vec<(AxisParameter, AxisValue)>> = vec![Vec::new()];
+        for axis in &self.axes {
+            let mut expanded = Vec::with_capacity(combinations.len() * axis.values.len());
+            for combination in &combinations {
+                for &value in &axis.values {
+                    let mut next = combination.clone();
+                    next.push((axis.parameter, value));
+                    expanded.push(next);
+                }
+            }
+            combinations = expanded;
+        }
+
+        combinations
+            .into_iter()
+            .map(|combination| self.resolve_combination(&combination))
+            .collect()
+    }
+
+    /// Apply one grid point's overrides and resolve/validate it.
+    fn resolve_combination(
+        &self,
+        overrides: &[(AxisParameter, AxisValue)],
+    ) -> Result<ResolvedExperiment, SweepConfigError> {
+        let mut size = self.size;
+        let mut adversarial = self.adversarial;
+        let mut churn = self.churn;
+        let mut publishes_per_run = self.publishes_per_run;
+        let mut honest_strategies = self.honest_strategies.clone();
+        let mut adversarial_strategies = self.adversarial_strategies.clone();
+
+        for &(parameter, value) in overrides {
+            match parameter {
+                AxisParameter::Size => size = value.as_count(parameter.name())?,
+                AxisParameter::Adversarial => {
+                    adversarial = CountSpec::Count(value.as_count(parameter.name())?);
+                }
+                AxisParameter::AdversarialFraction => {
+                    adversarial = CountSpec::Fraction(value.as_fraction());
+                }
+                AxisParameter::Churn => churn = CountSpec::Fraction(value.as_fraction()),
+                AxisParameter::ChurnCount => {
+                    churn = CountSpec::Count(value.as_count(parameter.name())?);
+                }
+                AxisParameter::TargetDegree => {
+                    let degree = value.as_count(parameter.name())?;
+                    honest_strategies.target_degree = Some(degree);
+                    adversarial_strategies.target_degree = Some(degree);
+                }
+                AxisParameter::PublishesPerRun => {
+                    let publishes = value.as_count(parameter.name())?;
+                    if publishes == 0 {
+                        return Err(SweepConfigError::ZeroCount {
+                            field: "publishes_per_run",
+                        });
+                    }
+                    publishes_per_run = publishes as u64;
+                }
+            }
+        }
+
+        if size == 0 {
+            return Err(SweepConfigError::ZeroCount {
+                field: "population.size",
+            });
+        }
+        let adversarial = adversarial.resolve("population.adversarial_fraction", size)?;
+        let honest = size.saturating_sub(adversarial);
+        let churn_count = churn.resolve("population.churn", honest)?;
+        let remaining = honest.saturating_sub(churn_count);
+        if adversarial > size || remaining < 2 {
+            return Err(SweepConfigError::TooFewUpHonest {
+                size,
+                adversarial,
+                churn: churn_count,
+                remaining,
+            });
+        }
+
+        // Probe both tables per grid point (a target-degree override can
+        // change what a kind requires).
+        honest_strategies.to_spec()?;
+        adversarial_strategies.to_spec()?;
+
+        Ok(ResolvedExperiment {
+            size,
+            adversarial,
+            churn_count,
+            honest_strategies,
+            adversarial_strategies,
+            publishes_per_run,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -210,6 +472,15 @@ struct RawSweepConfig {
     population: RawPopulation,
     strategies: RawStrategies,
     execution: RawExecution,
+    #[serde(default)]
+    axes: Vec<RawAxis>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAxis {
+    parameter: String,
+    values: Vec<AxisValue>,
 }
 
 #[derive(Deserialize)]
@@ -301,57 +572,66 @@ pub fn parse_sweep_description(text: &str) -> Result<SweepDescription, SweepConf
                 b: "population.adversarial_fraction",
             })
         }
-        (Some(count), None) => count,
-        (None, Some(fraction)) => resolve_fraction(
-            "population.adversarial_fraction",
-            fraction,
-            raw.population.size,
-        )?,
-        (None, None) => 0,
+        (Some(count), None) => CountSpec::Count(count),
+        (None, Some(fraction)) => CountSpec::Fraction(fraction),
+        (None, None) => CountSpec::Count(0),
     };
 
-    let honest = raw.population.size.saturating_sub(adversarial);
-    let churn_count = match (raw.population.churn_count, raw.population.churn) {
+    // The churn proportion applies to the honest population — only honest
+    // nodes churn.
+    let churn = match (raw.population.churn_count, raw.population.churn) {
         (Some(_), Some(_)) => {
             return Err(SweepConfigError::ConflictingFields {
                 a: "population.churn_count",
                 b: "population.churn",
             })
         }
-        (Some(count), None) => count,
-        // The churn proportion applies to the honest population — only
-        // honest nodes churn.
-        (None, Some(fraction)) => resolve_fraction("population.churn", fraction, honest)?,
-        (None, None) => 0,
+        (Some(count), None) => CountSpec::Count(count),
+        (None, Some(fraction)) => CountSpec::Fraction(fraction),
+        (None, None) => CountSpec::Count(0),
     };
 
-    let remaining = honest.saturating_sub(churn_count);
-    if adversarial > raw.population.size || remaining < 2 {
-        return Err(SweepConfigError::TooFewUpHonest {
-            size: raw.population.size,
-            adversarial,
-            churn: churn_count,
-            remaining,
+    let mut axes = Vec::with_capacity(raw.axes.len());
+    for axis in raw.axes {
+        let parameter = AxisParameter::parse(&axis.parameter)?;
+        if axes
+            .iter()
+            .any(|existing: &Axis| existing.parameter == parameter)
+        {
+            return Err(SweepConfigError::DuplicateAxis {
+                parameter: parameter.name(),
+            });
+        }
+        if axis.values.is_empty() {
+            return Err(SweepConfigError::EmptyAxis {
+                parameter: parameter.name(),
+            });
+        }
+        axes.push(Axis {
+            parameter,
+            values: axis.values,
         });
     }
 
-    // Probe both strategy tables now so a bad kind or parameter rejects the
-    // sweep before anything runs.
-    raw.strategies.honest.to_spec()?;
-    raw.strategies.adversarial.to_spec()?;
-
-    Ok(SweepDescription {
+    let description = SweepDescription {
         model,
         master_seed: raw.master_seed,
         size: raw.population.size,
         adversarial,
-        churn_count,
+        churn,
         topic,
         honest_strategies: raw.strategies.honest,
         adversarial_strategies: raw.strategies.adversarial,
         runs_per_experiment: raw.execution.runs_per_experiment,
         publishes_per_run,
-    })
+        axes,
+    };
+
+    // Expand and validate every grid point (strategy probes included) so a
+    // bad combination rejects the sweep before anything runs.
+    description.resolved_experiments()?;
+
+    Ok(description)
 }
 
 #[cfg(test)]
@@ -393,12 +673,90 @@ mod tests {
     fn well_formed_description_parses() {
         let description = parse_sweep_description(&base_toml()).expect("valid description");
         assert_eq!(description.size, 20);
-        assert_eq!(description.adversarial, 2);
-        // churn 0.1 of 18 honest → 2 (nearest).
-        assert_eq!(description.churn_count, 2);
         assert_eq!(description.publishes_per_run, 1);
         assert_eq!(description.runs_per_experiment, 5);
         assert_eq!(description.model.name(), "m2");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved.len(), 1, "no axes ⇒ one experiment");
+        assert_eq!(resolved[0].adversarial, 2);
+        // churn 0.1 of 18 honest → 2 (nearest).
+        assert_eq!(resolved[0].churn_count, 2);
+    }
+
+    // 016-FR-028 / contracts/sweep-config.md: axes expand as a cross-product
+    // in declaration order — the first-declared axis varies slowest — with
+    // per-grid-point count resolution.
+    #[test]
+    fn axes_expand_as_a_cross_product_in_declaration_order() {
+        let toml = base_toml()
+            + r#"
+            [[axes]]
+            parameter = "churn"
+            values = [0.0, 0.25]
+
+            [[axes]]
+            parameter = "target_degree"
+            values = [3, 5]
+        "#;
+        let description = parse_sweep_description(&toml).expect("valid description");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved.len(), 4);
+        // churn varies slowest: (0.0,3), (0.0,5), (0.25,3), (0.25,5).
+        // churn 0.25 of 18 honest → 4 or 5 (round(4.5)); pin the resolution.
+        let grid: Vec<(usize, Option<usize>)> = resolved
+            .iter()
+            .map(|point| (point.churn_count, point.honest_strategies.target_degree))
+            .collect();
+        assert_eq!(grid[0], (0, Some(3)));
+        assert_eq!(grid[1], (0, Some(5)));
+        assert_eq!(grid[2].1, Some(3));
+        assert_eq!(grid[3].1, Some(5));
+        assert_eq!(grid[2].0, grid[3].0);
+        assert!(grid[2].0 == 4 || grid[2].0 == 5, "0.25 of 18 honest");
+        // The target-degree override lands on BOTH classes' tables.
+        assert_eq!(resolved[1].adversarial_strategies.target_degree, Some(5));
+    }
+
+    // Axis validation: unknown parameters, duplicates, empty value lists,
+    // wrong value shapes, and grid points that strand the population are all
+    // rejected at parse — before any run executes.
+    #[test]
+    fn invalid_axes_are_rejected_at_parse() {
+        let with_axis = |axis: &str| base_toml() + axis;
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"gravity\"\nvalues = [1]\n"
+            )),
+            Err(SweepConfigError::UnknownAxisParameter { .. }),
+        ));
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"churn\"\nvalues = [0.0]\n\n[[axes]]\nparameter = \"churn\"\nvalues = [0.1]\n"
+            )),
+            Err(SweepConfigError::DuplicateAxis { .. }),
+        ));
+        assert!(matches!(
+            parse_sweep_description(&with_axis("[[axes]]\nparameter = \"churn\"\nvalues = []\n")),
+            Err(SweepConfigError::EmptyAxis { .. }),
+        ));
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"target_degree\"\nvalues = [3.5]\n"
+            )),
+            Err(SweepConfigError::AxisValueType { .. }),
+        ));
+        // The second grid point (churn_count 17 of 18 honest) leaves one
+        // up-honest node — the whole sweep is rejected up front.
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"churn_count\"\nvalues = [0, 17]\n"
+            )),
+            Err(SweepConfigError::TooFewUpHonest { remaining: 1, .. }),
+        ));
     }
 
     #[test]

@@ -180,14 +180,14 @@ output.
 **Independent test**: two-axis small sweep at workers 1 and 8 — grid counts
 correct, rows reference experiments by index, artifacts identical (spec US2).
 
-- [ ] T018 [US2] Axes expansion in `src/experiments/config.rs` +
+- [X] T018 [US2] Axes expansion in `src/experiments/config.rs` +
       manifest experiment list in `src/experiments/sweep.rs`; per-experiment
       aggregates entries (016-FR-028, 016-FR-031; contracts/sweep-config.md).
-- [ ] T019 [US2] Worker pool in `src/experiments/sweep.rs`:
+- [X] T019 [US2] Worker pool in `src/experiments/sweep.rs`:
       `std::thread::scope` over a run-index queue, pre-sized results vector,
       canonical write/fold order, `--workers` knob bounding in-flight runs
       (016-FR-025, 016-FR-026; research R3).
-- [ ] T020 [US2] Sweep integration tests in `tests/experiments_framework.rs`:
+- [X] T020 [US2] Sweep integration tests in `tests/experiments_framework.rs`:
       workers 1 vs K byte-identical artifacts; grid/row/aggregate counts;
       P(good) reported as counts + Wilson 95% incl. the all-good sample
       (016-SC-001, 016-SC-007).

@@ -83,20 +83,32 @@ pub struct SweepManifest {
     pub experiments: Vec<ExperimentParameters>,
 }
 
-/// Expand a description into its experiment list. A description without
-/// axes is a single experiment. (Axes expansion is the US2 slice.)
+/// Expand a description into its experiment list: the axes' cross-product
+/// in declaration order (first-declared axis varying slowest); a
+/// description without axes is a single experiment.
+///
+/// # Panics
+///
+/// Panics on a description whose grid points do not all validate —
+/// descriptions from [`super::config::parse_sweep_description`] are
+/// pre-validated.
 #[must_use]
 pub fn expand_experiments(description: &SweepDescription) -> Vec<ExperimentParameters> {
-    vec![ExperimentParameters {
-        model: description.model,
-        size: description.size,
-        adversarial: description.adversarial,
-        churn_count: description.churn_count,
-        topic: description.topic.as_str().to_string(),
-        honest_strategies: description.honest_strategies.clone(),
-        adversarial_strategies: description.adversarial_strategies.clone(),
-        publishes_per_run: description.publishes_per_run,
-    }]
+    description
+        .resolved_experiments()
+        .expect("descriptions from the parser are pre-validated")
+        .into_iter()
+        .map(|resolved| ExperimentParameters {
+            model: description.model,
+            size: resolved.size,
+            adversarial: resolved.adversarial,
+            churn_count: resolved.churn_count,
+            topic: description.topic.as_str().to_string(),
+            honest_strategies: resolved.honest_strategies,
+            adversarial_strategies: resolved.adversarial_strategies,
+            publishes_per_run: resolved.publishes_per_run,
+        })
+        .collect()
 }
 
 /// Build the manifest for a description.
@@ -273,14 +285,35 @@ struct AggregatesArtifact {
     experiments: Vec<ExperimentAggregates>,
 }
 
+/// The worker-shared write-side state: the pre-sized results vector and the
+/// in-order streaming cursor. Workers complete runs in any order; the drain
+/// after each completion writes every consecutively-ready record, so
+/// `runs.jsonl` is always a canonical-order prefix (016-FR-026).
+struct SweepProgress {
+    records: Vec<Option<RunRecord>>,
+    next_to_write: usize,
+    writer: BufWriter<File>,
+    failure: Option<std::io::Error>,
+}
+
 /// Execute a whole sweep and write the three artifacts into `out_dir`
 /// (016-FR-028): `manifest.json` first, `runs.jsonl` streamed in canonical
 /// run-index order, then `aggregates.json` folded in that same order.
+///
+/// `workers` bounds the in-flight runs (each holds a full population — the
+/// memory knob); a `std::thread::scope` pool pulls run indices from a
+/// shared counter and writes into the pre-sized results vector, so the
+/// artifacts are byte-identical at any worker count (016-FR-025/FR-026).
 pub fn run_sweep(
     description: &SweepDescription,
     out_dir: &Path,
     tool_commit: &str,
+    workers: usize,
 ) -> Result<SweepSummary, SweepError> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Mutex;
+
+    let workers = workers.max(1);
     std::fs::create_dir_all(out_dir).map_err(io_error(out_dir))?;
 
     let manifest = build_manifest(description, tool_commit);
@@ -289,31 +322,81 @@ pub fn run_sweep(
     std::fs::write(&manifest_path, manifest_json + "\n").map_err(io_error(&manifest_path))?;
 
     let runs_path = out_dir.join("runs.jsonl");
-    let mut runs_file = BufWriter::new(File::create(&runs_path).map_err(io_error(&runs_path))?);
+    let runs_file = BufWriter::new(File::create(&runs_path).map_err(io_error(&runs_path))?);
 
     let runs_per_experiment = description.runs_per_experiment;
-    let mut aggregates = Vec::with_capacity(manifest.experiments.len());
-    let mut total_runs = 0u64;
-    for (experiment_index, params) in manifest.experiments.iter().enumerate() {
-        let experiment = experiment_index as u64;
-        let mut records = Vec::with_capacity(usize::try_from(runs_per_experiment).unwrap_or(0));
-        for run_within in 0..runs_per_experiment {
-            let run_index = experiment * runs_per_experiment + run_within;
-            let record = execute_run_record(params, experiment, run_index, description.master_seed);
-            let line = serde_json::to_string(&record).expect("record serializes");
-            writeln!(runs_file, "{line}").map_err(io_error(&runs_path))?;
-            records.push(record);
-            total_runs += 1;
+    let experiments = manifest.experiments.len() as u64;
+    let total_runs = experiments * runs_per_experiment;
+    let progress = Mutex::new(SweepProgress {
+        records: vec![None; usize::try_from(total_runs).expect("run count fits usize")],
+        next_to_write: 0,
+        writer: runs_file,
+        failure: None,
+    });
+    let next_run = AtomicU64::new(0);
+
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                loop {
+                    let run_index = next_run.fetch_add(1, Ordering::Relaxed);
+                    if run_index >= total_runs {
+                        return;
+                    }
+                    let experiment = run_index / runs_per_experiment;
+                    let record = execute_run_record(
+                        &manifest.experiments
+                            [usize::try_from(experiment).expect("experiment count fits usize")],
+                        experiment,
+                        run_index,
+                        description.master_seed,
+                    );
+
+                    let mut guard = progress
+                        .lock()
+                        .expect("a worker panicked while holding the progress lock");
+                    let state = &mut *guard;
+                    if state.failure.is_some() {
+                        return;
+                    }
+                    state.records[usize::try_from(run_index).expect("run index fits usize")] =
+                        Some(record);
+                    // Drain everything consecutively ready, in canonical
+                    // run-index order.
+                    while let Some(Some(ready)) = state.records.get(state.next_to_write) {
+                        let line = serde_json::to_string(ready).expect("record serializes");
+                        if let Err(source) = writeln!(state.writer, "{line}") {
+                            state.failure = Some(source);
+                            return;
+                        }
+                        state.next_to_write += 1;
+                        if state.next_to_write as u64 % runs_per_experiment == 0 {
+                            eprintln!("runs written: {}/{total_runs}", state.next_to_write);
+                        }
+                    }
+                }
+            });
         }
-        aggregates.push(fold_aggregates(experiment, &records));
-        eprintln!(
-            "experiment {}/{}: {} runs done",
-            experiment_index + 1,
-            manifest.experiments.len(),
-            runs_per_experiment,
-        );
+    });
+
+    let mut state = progress
+        .into_inner()
+        .expect("a worker panicked while holding the progress lock");
+    if let Some(source) = state.failure.take() {
+        return Err(io_error(&runs_path)(source));
     }
-    runs_file.flush().map_err(io_error(&runs_path))?;
+    state.writer.flush().map_err(io_error(&runs_path))?;
+
+    let records: Vec<RunRecord> = state
+        .records
+        .into_iter()
+        .map(|record| record.expect("every run index was executed"))
+        .collect();
+    let aggregates: Vec<ExperimentAggregates> = records
+        .chunks(usize::try_from(runs_per_experiment).expect("run count fits usize"))
+        .enumerate()
+        .map(|(experiment, chunk)| fold_aggregates(experiment as u64, chunk))
+        .collect();
 
     let aggregates_path = out_dir.join("aggregates.json");
     let aggregates_json = serde_json::to_string_pretty(&AggregatesArtifact {

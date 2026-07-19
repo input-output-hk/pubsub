@@ -23,6 +23,15 @@ struct Invocation {
     /// Output directory for manifest.json, runs.jsonl, and aggregates.json.
     #[arg(long)]
     out: PathBuf,
+    /// Worker-pool size: the maximum number of in-flight runs. Each
+    /// in-flight run holds a full population in memory, so this is also the
+    /// memory knob at large population sizes.
+    #[arg(long, default_value_t = default_workers())]
+    workers: usize,
+}
+
+fn default_workers() -> usize {
+    std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get)
 }
 
 /// The commit the artifacts should cite: the working tree's HEAD when
@@ -64,7 +73,12 @@ fn main() {
         "sweep: {} run(s) per experiment, master seed {}",
         description.runs_per_experiment, description.master_seed,
     );
-    match run_sweep(&description, &invocation.out, &tool_commit()) {
+    match run_sweep(
+        &description,
+        &invocation.out,
+        &tool_commit(),
+        invocation.workers,
+    ) {
         Ok(summary) => {
             eprintln!(
                 "done: {} experiment(s), {} run(s) → {}",

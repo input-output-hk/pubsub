@@ -159,8 +159,8 @@ fn twice_written_sweep_is_byte_identical() {
     let description = parse_sweep_description(&sweep_toml(30, 7, 5)).expect("valid description");
     let dirs = tempfile::tempdir().expect("temp dir");
     let (a, b) = (dirs.path().join("a"), dirs.path().join("b"));
-    run_sweep(&description, &a, "test-commit").expect("sweep runs");
-    run_sweep(&description, &b, "test-commit").expect("sweep runs");
+    run_sweep(&description, &a, "test-commit", 1).expect("sweep runs");
+    run_sweep(&description, &b, "test-commit", 1).expect("sweep runs");
     for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
         let left = std::fs::read(a.join(artifact)).expect("artifact written");
         let right = std::fs::read(b.join(artifact)).expect("artifact written");
@@ -233,6 +233,125 @@ fn record_size_is_bounded_by_degree_and_depth_not_population() {
         max_array_len(&value) < 30,
         "no record field may be sized by the population",
     );
+}
+
+fn two_axis_toml() -> String {
+    sweep_toml(24, 11, 3)
+        + r#"
+            [[axes]]
+            parameter = "churn"
+            values = [0.0, 0.15]
+
+            [[axes]]
+            parameter = "target_degree"
+            values = [3, 5]
+        "#
+}
+
+// 016-FR-026 / 016-SC-001: parallel execution never perturbs outputs —
+// workers 1 and K produce byte-identical artifacts (the float folds run in
+// canonical run-index order either way; reordering is the bug class here).
+#[test]
+fn workers_one_and_many_produce_byte_identical_artifacts() {
+    let description = parse_sweep_description(&two_axis_toml()).expect("valid description");
+    let dirs = tempfile::tempdir().expect("temp dir");
+    let (serial, parallel) = (dirs.path().join("serial"), dirs.path().join("parallel"));
+    run_sweep(&description, &serial, "test-commit", 1).expect("sweep runs");
+    run_sweep(&description, &parallel, "test-commit", 8).expect("sweep runs");
+    for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
+        assert_eq!(
+            std::fs::read(serial.join(artifact)).expect("artifact written"),
+            std::fs::read(parallel.join(artifact)).expect("artifact written"),
+            "{artifact} must not depend on the worker count",
+        );
+    }
+}
+
+// 016-FR-028 (US2): the two-axis grid expands into the manifest's experiment
+// list; rows reference experiments by index; aggregates carry one entry per
+// experiment.
+#[test]
+fn grid_row_and_aggregate_counts_line_up() {
+    let description = parse_sweep_description(&two_axis_toml()).expect("valid description");
+    let out = tempfile::tempdir().expect("temp dir");
+    let summary = run_sweep(&description, out.path(), "test-commit", 4).expect("sweep runs");
+    assert_eq!(summary.experiments, 4, "2 × 2 grid");
+    assert_eq!(summary.runs, 12, "3 runs per grid point");
+
+    let manifest: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(out.path().join("manifest.json")).expect("manifest written"),
+    )
+    .expect("manifest parses");
+    let experiments = manifest["experiments"].as_array().expect("experiment list");
+    assert_eq!(experiments.len(), 4);
+    // First axis (churn) varies slowest; second (target degree) fastest.
+    assert_eq!(experiments[0]["churn_count"], 0);
+    assert_eq!(experiments[1]["churn_count"], 0);
+    assert_eq!(experiments[0]["honest_strategies"]["target_degree"], 3);
+    assert_eq!(experiments[1]["honest_strategies"]["target_degree"], 5);
+    assert!(experiments[2]["churn_count"].as_u64().expect("count") > 0);
+
+    let rows: Vec<serde_json::Value> = std::fs::read_to_string(out.path().join("runs.jsonl"))
+        .expect("rows written")
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("row parses"))
+        .collect();
+    assert_eq!(rows.len(), 12);
+    for (index, row) in rows.iter().enumerate() {
+        assert_eq!(row["run"], index as u64, "canonical run-index order");
+        assert_eq!(
+            row["experiment"],
+            index as u64 / 3,
+            "rows reference experiments by index"
+        );
+    }
+    // Pre-churn fields follow the experiment's churn (absent ≠ zero).
+    assert!(rows[0].get("good_pre_churn").is_none());
+    assert!(rows[11].get("good_pre_churn").is_some());
+
+    let aggregates: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(out.path().join("aggregates.json")).expect("aggregates written"),
+    )
+    .expect("aggregates parse");
+    assert_eq!(
+        aggregates["experiments"].as_array().expect("entries").len(),
+        4,
+    );
+}
+
+// 016-SC-007: P(good) is reported as raw counts plus a Wilson 95% interval,
+// including at the all-good sample where the interval keeps nonzero width.
+#[test]
+fn p_good_is_counts_plus_wilson_including_all_good() {
+    // Churn-free connect-to-all: every run forms a complete (good) topology.
+    let toml = sweep_toml(12, 3, 6)
+        .replace("churn = 0.1", "churn = 0.0")
+        .replace(
+            "connection = \"uniform-sampler\"",
+            "connection = \"connect-to-all\"",
+        )
+        .replace("target_degree = 4\n", "");
+    let description = parse_sweep_description(&toml).expect("valid description");
+    let out = tempfile::tempdir().expect("temp dir");
+    run_sweep(&description, out.path(), "test-commit", 2).expect("sweep runs");
+
+    let aggregates: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(out.path().join("aggregates.json")).expect("aggregates written"),
+    )
+    .expect("aggregates parse");
+    let good = &aggregates["experiments"][0]["good"];
+    assert_eq!(good["count"], 6);
+    assert_eq!(good["runs"], 6);
+    assert_eq!(good["p"], 1.0);
+    let interval = good["wilson95"].as_array().expect("interval");
+    let low = interval[0].as_f64().expect("finite bound");
+    let high = interval[1].as_f64().expect("finite bound");
+    assert!((high - 1.0).abs() < 1e-12);
+    assert!(low < 1.0, "nonzero width at the all-good sample");
+    assert!(low > 0.5, "6/6 lower bound ≈ 0.61");
+    // The structural invariant holds in the artifact too.
+    let full = &aggregates["experiments"][0]["full_coverage"];
+    assert_eq!(full["count"], 6);
 }
 
 // Research R9: the golden serialization test — pins the record encoding and
