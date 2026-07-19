@@ -46,7 +46,7 @@ pub type Wave = Vec<Delivery>;
 
 /// Dissemination sends split by recipient class (016-FR-018). `down` is the
 /// sent-to-down term of the accounting identity.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
 pub struct SendTally {
     /// Sends addressed to up honest recipients.
     pub honest: u64,

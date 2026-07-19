@@ -112,17 +112,17 @@ artifacts; same seed ⇒ byte-identical outputs.
 churn > 0, R = 20) twice with the same master seed; artifacts well-formed
 and identical; per-run identity holds (spec US1).
 
-- [ ] T009 [US1] **[TDD test-first]** Graph-analytics tests in
+- [X] T009 [US1] **[TDD test-first]** Graph-analytics tests in
       `src/experiments/graph.rs` test module: M2 extraction from node
       states, iterative Kosaraju + condensation on hand-built digraphs
       (incl. the multi-component worked example), goodness pre/post churn,
       min-publisher-coverage = (smallest sink component − 1)/(up-honest − 1),
       degree/sink statistics — failing before T010 (016-FR-019…016-FR-022).
-- [ ] T010 [US1] Graph analytics in `src/experiments/graph.rs`:
+- [X] T010 [US1] Graph analytics in `src/experiments/graph.rs`:
       `DisseminationModel` dispatch (M2 variant) owning extraction,
       iterative Kosaraju, condensation, `GoodnessVerdict`, topology shape,
       making T009 pass (016-FR-019…016-FR-022; research R5/R8; data-model §4).
-- [ ] T011 [US1] **[TDD test-first]** Metrics tests (unit +
+- [X] T011 [US1] **[TDD test-first]** Metrics tests (unit +
       `tests/experiments_framework.rs`): coverage with excluded-publisher
       denominator, per-node first-receipt waves + depth distribution,
       miss-cause decomposition on a scripted silent-adversary topology with
@@ -131,27 +131,27 @@ and identical; per-run identity holds (spec US1).
       sends = first receipts + suppressed + sent-to-down, and the
       two-instrument cross-check (drain coverage ≡ graph reachability) —
       failing before T012 (016-FR-015…016-FR-018; 016-SC-002, 016-SC-003).
-- [ ] T012 [US1] Metrics implementation in `src/experiments/metrics.rs`:
+- [X] T012 [US1] Metrics implementation in `src/experiments/metrics.rs`:
       drain observation, classification, tallies, identity assertion,
       run-record assembly (pre-churn fields present iff churn > 0), making
       T011 pass (016-FR-015…016-FR-018; data-model §5).
-- [ ] T013 [P] [US1] Statistics in `src/experiments/statistics.rs` with
+- [X] T013 [P] [US1] Statistics in `src/experiments/statistics.rs` with
       tests: sparse integer histograms, fixed-width coverage bins,
       means/percentiles, closed-form Wilson 95%, aggregates fold in
       run-index order incl. the full_coverage ≥ good assertion
       (016-FR-023; 016-SC-007; data-model §6).
-- [ ] T014 [US1] Single-experiment sweep path in `src/experiments/sweep.rs`:
+- [X] T014 [US1] Single-experiment sweep path in `src/experiments/sweep.rs`:
       manifest construction, SHA-256 seed derivation with domain labels,
       run-as-pure-function orchestration, canonical-order JSONL streaming,
       aggregates emission (016-FR-024…016-FR-026, 016-FR-028, 016-FR-029;
       research R6; contracts/output-artifacts.md).
-- [ ] T015 [US1] Config + front end: parsed sweep-description types incl.
+- [X] T015 [US1] Config + front end: parsed sweep-description types incl.
       publishes-per-run (default 1) and
       validation in `src/experiments/config.rs` (single topic; eligible
       receivers nonempty; up-honest publisher exists), TOML + clap edge in
       `src/bin/experiments.rs`, wired end to end for a single experiment;
       tests-with (016-FR-031; contracts/sweep-config.md).
-- [ ] T016 [US1] Determinism integration tests in
+- [X] T016 [US1] Determinism integration tests in
       `tests/experiments_framework.rs`: value-level record equality across
       repeated executions; one file-level byte diff of a tiny sweep written
       twice to temp dirs; replay-by-seed record equality; record
@@ -161,7 +161,7 @@ and identical; per-run identity holds (spec US1).
       with N (the structural field inventory is pinned by the golden
       serialization test)
       (016-SC-001 partial, 016-SC-004, 016-SC-005; research R9).
-- [ ] T017 [US1] Author ADR 0033 — experiment output contract & statistics
+- [X] T017 [US1] Author ADR 0033 — experiment output contract & statistics
       conventions (three artifacts, derivability invariant, counts + Wilson
       95%, excluded-publisher denominator) in
       `docs/decisions/0033-experiment-output-contract.md` (plan Constitution

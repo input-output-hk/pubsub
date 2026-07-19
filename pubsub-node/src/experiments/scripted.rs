@@ -35,6 +35,13 @@ fn alias(index: usize) -> String {
     format!("n{index:06}")
 }
 
+/// `n` nodes with no links: the fully-custom starting point — chain
+/// [`ScriptedTopology::link`] calls to hand-build a worked example.
+#[must_use]
+pub fn nodes(n: usize) -> ScriptedTopology {
+    ScriptedTopology::new(n, Vec::new())
+}
+
 /// A line of `n` nodes: consecutive nodes linked in both directions, so a
 /// publish at node `k` reaches node `i` at depth `|i − k|`.
 #[must_use]

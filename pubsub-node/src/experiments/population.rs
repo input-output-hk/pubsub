@@ -201,6 +201,18 @@ pub struct StrategySpec {
     pub fanout: FanoutSpec,
 }
 
+impl StrategySpec {
+    /// Validate the spec by constructing every strategy once with a
+    /// placeholder identity: parameter errors surface at configuration
+    /// validation, before any population is built.
+    pub fn probe(&self, self_id: &PeerId) -> Result<(), StrategyConfigError> {
+        self.connection.build(self_id, [0u8; 32])?;
+        self.acceptance.build(self_id)?;
+        let _ = self.fanout.build();
+        Ok(())
+    }
+}
+
 /// A dial policy specification: a protocol kind (005's CLI kinds) or the
 /// experiments-only uniform sampler.
 #[derive(Clone, Debug)]
