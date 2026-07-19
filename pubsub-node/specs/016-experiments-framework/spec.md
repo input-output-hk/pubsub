@@ -453,6 +453,18 @@ Input above; the requirements below normatively restate them.
   the counts, and the documented M2 comparison carries a methodology note on
   this difference to raise with the formal-methods team.
 
+### Session 2026-07-18
+
+- Q: Does 016 still perform the core ordered-collection conversion
+  (upstream/downstream to ordered types)? → A: No — removed from this
+  feature. The in-flight connection-link strategies work (PR #77 family)
+  refactors exactly those link-record collections and incorporates the
+  ordering there (coordination note to that PR). 016 stays deterministic
+  without it: the driver canonicalises each wave's collected sends before
+  routing and builds its extraction structures in sorted form, so byte-
+  identical outputs do not depend on the core's iteration order. 016 now
+  touches the node core only for crate-internal read/construction access.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Run one reproducible experiment and read its delivery metrics (Priority: P1)
@@ -775,12 +787,15 @@ comparison table can be filled from the artifacts.
   written in canonical run-index order and aggregation folds in that same
   order, producing byte-identical artifacts at any worker count; a
   parallelism-degree parameter MUST bound the number of in-flight runs.
-- **FR-027**: The two iterated core collections still hash-based — the
-  connection records for dialed upstreams and accepted downstreams — MUST
-  become ordered collections so their iteration order no longer varies per
-  process; this change MUST be behaviour-preserving for the node (public
-  API, strategy seams, and injection shape unchanged; lookup-only
-  collections stay as they are).
+- **FR-027**: The driver MUST NOT depend on the core's collection iteration
+  order for determinism: each wave's collected sends are canonicalised into
+  a deterministic order before routing, and all driver-side extraction and
+  tally structures are built in sorted or index-keyed form — so whole-run
+  byte-determinism holds while the core's connection-record collections
+  remain hash-based. The ordered-collection conversion of those core
+  collections is delegated to the in-flight connection-link strategies work
+  (coordination note), and this feature makes no core changes beyond the
+  crate-internal access the experiments module needs.
 
 **Output contract**
 
@@ -926,6 +941,8 @@ comparison table can be filled from the artifacts.
   values the demonstration compares against.
 - **Deliberately untouched**: N-020 (readiness-dial coupling), N-011/N-012
   (add-only connections — the reason runs are single-epoch), the strategy
-  injection shape (constructor-injected, per 005), and the node's public
-  API apart from the behaviour-preserving ordered-collection change
-  (FR-027).
+  injection shape (constructor-injected, per 005), and the node core
+  entirely — the experiments module needs only crate-internal
+  read/construction access; the ordered-collection conversion of the
+  connection records is delegated to the in-flight connection-link
+  strategies work (per Clarifications, Session 2026-07-18).
