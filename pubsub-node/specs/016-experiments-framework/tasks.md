@@ -62,21 +62,21 @@ provably untouched.
 
 **Purpose**: population + driver + fixtures every story runs on.
 
-- [ ] T003 Population layer in `src/experiments/population.rs`: `Participant`
+- [X] T003 Population layer in `src/experiments/population.rs`: `Participant`
       (class, down, `NodeState`, strategy triad), seeded population build
       (keys via the seeded mock crypto scheme, class assignment), registry
       pre-population and faithful-fold event scripts, build validation
       (016-FR-004, 016-FR-008, 016-FR-011, 016-FR-031; data-model §1).
-- [ ] T004 [P] Scripted-topology builders in `src/experiments/scripted.rs`:
+- [X] T004 [P] Scripted-topology builders in `src/experiments/scripted.rs`:
       `line(n)`, `star(n)`, `full_mesh(n)` + per-node class overrides via
       the pre-population path — declarative test-construction standard
       (016-FR-032; data-model §8).
-- [ ] T005 [P] Experiments-only strategies in
+- [X] T005 [P] Experiments-only strategies in
       `src/experiments/strategies.rs`: `SilentRelay` fan-out and
       `UniformSampler` dial (seeded, without replacement,
       min(target_degree, |candidates|) degeneracy), with unit tests
       (016-FR-012, 016-FR-013; research R10).
-- [ ] T006 **[TDD test-first]** Driver tests (unit in
+- [X] T006 **[TDD test-first]** Driver tests (unit in
       `src/experiments/driver.rs` test module + integration skeleton in
       `tests/experiments_framework.rs`): delivery semantics on scripted
       topologies (dedup, fire-once, exact quiescence), wave-canonicalisation
@@ -86,14 +86,14 @@ provably untouched.
       and publish repetition per the publishes-per-run knob (fresh messages,
       distinct content hashes, no state reset) — written and failing before
       T007 (016-FR-005…016-FR-010, 016-FR-014; 016-SC-002 partial).
-- [ ] T007 Driver implementation in `src/experiments/driver.rs`: wavefront
+- [X] T007 Driver implementation in `src/experiments/driver.rs`: wavefront
       scheduler with canonical content-keyed wave sort, `Effect::Send`
       routing, `Misbehaved` consumption/tally, per-phase drains, phase
       orchestration (registration → dial → churn draw → publish, repeated
       per the publishes-per-run knob, default 1), making
       T006 pass (016-FR-004…016-FR-010, 016-FR-014, 016-FR-027; research
       R1/R2; data-model §2/§3).
-- [ ] T008 Author ADR 0032 — deterministic experiments driver (wavefront
+- [X] T008 Author ADR 0032 — deterministic experiments driver (wavefront
       scheduler, driver-owned canonicalisation, participant model, phase
       orchestration) in
       `docs/decisions/0032-deterministic-experiments-driver.md` (plan

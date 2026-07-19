@@ -112,8 +112,9 @@ impl Message {
 
     /// The handshake kind and control content of a connection variant, or
     /// `None` for a dissemination message — the variant→kind inverse, used
-    /// by tests that assert on emitted control effects.
-    #[cfg(test)]
+    /// by tests that assert on emitted control effects and by the
+    /// experiments driver's kind-agnostic message routing.
+    #[cfg(any(test, feature = "experiments"))]
     pub(crate) fn connection_parts(&self) -> Option<(HandshakeKind, &ConnectionMessage)> {
         match self {
             Self::Dissemination(_) => None,
