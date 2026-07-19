@@ -82,13 +82,15 @@ provably untouched.
       topologies (dedup, fire-once, exact quiescence), wave-canonicalisation
       determinism (double-run value equality), faithful-mode barrier (all
       registry folds before Synced; all Synced one wave), single-epoch
-      behaviour, churn draw semantics (no events; down nodes not stepped) —
-      written and failing before T007 (016-FR-005…016-FR-010, 016-FR-014;
-      016-SC-002 partial).
+      behaviour, churn draw semantics (no events; down nodes not stepped),
+      and publish repetition per the publishes-per-run knob (fresh messages,
+      distinct content hashes, no state reset) — written and failing before
+      T007 (016-FR-005…016-FR-010, 016-FR-014; 016-SC-002 partial).
 - [ ] T007 Driver implementation in `src/experiments/driver.rs`: wavefront
       scheduler with canonical content-keyed wave sort, `Effect::Send`
       routing, `Misbehaved` consumption/tally, per-phase drains, phase
-      orchestration (registration → dial → churn draw → publish), making
+      orchestration (registration → dial → churn draw → publish, repeated
+      per the publishes-per-run knob, default 1), making
       T006 pass (016-FR-004…016-FR-010, 016-FR-014, 016-FR-027; research
       R1/R2; data-model §2/§3).
 - [ ] T008 Author ADR 0032 — deterministic experiments driver (wavefront
@@ -143,7 +145,8 @@ and identical; per-run identity holds (spec US1).
       run-as-pure-function orchestration, canonical-order JSONL streaming,
       aggregates emission (016-FR-024…016-FR-026, 016-FR-028, 016-FR-029;
       research R6; contracts/output-artifacts.md).
-- [ ] T015 [US1] Config + front end: parsed sweep-description types and
+- [ ] T015 [US1] Config + front end: parsed sweep-description types incl.
+      publishes-per-run (default 1) and
       validation in `src/experiments/config.rs` (single topic; eligible
       receivers nonempty; up-honest publisher exists), TOML + clap edge in
       `src/bin/experiments.rs`, wired end to end for a single experiment;
@@ -151,8 +154,13 @@ and identical; per-run identity holds (spec US1).
 - [ ] T016 [US1] Determinism integration tests in
       `tests/experiments_framework.rs`: value-level record equality across
       repeated executions; one file-level byte diff of a tiny sweep written
-      twice to temp dirs; replay-by-seed record equality
-      (016-SC-001 partial, 016-SC-004; research R9).
+      twice to temp dirs; replay-by-seed record equality; record
+      boundedness (016-SC-005) — two runs differing only in N at fixed
+      target_degree: histogram lengths bounded by realised max degree/depth
+      + 1 and near-constant across the two N values, no array field scaling
+      with N (the structural field inventory is pinned by the golden
+      serialization test)
+      (016-SC-001 partial, 016-SC-004, 016-SC-005; research R9).
 - [ ] T017 [US1] Author ADR 0033 — experiment output contract & statistics
       conventions (three artifacts, derivability invariant, counts + Wilson
       95%, excluded-publisher denominator) in

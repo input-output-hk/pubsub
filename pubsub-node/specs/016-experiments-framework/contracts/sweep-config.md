@@ -63,7 +63,7 @@ experiments --config <sweep.toml> --out <dir> [--workers N] [--per-node-detail]
 |---|---|---|
 | `--config` | sweep-description TOML path | required |
 | `--out` | output directory (three artifacts) | required |
-| `--workers` | worker-pool size = max in-flight runs | number of cores, capped |
+| `--workers` | worker-pool size = max in-flight runs (each in-flight run holds a full population — size explicitly for memory at large N) | available cores |
 | `--per-node-detail` | emit the opt-in per-node tables | off |
 
 Progress reporting goes to stderr (operator UX; never a measurement or test

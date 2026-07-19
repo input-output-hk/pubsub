@@ -175,6 +175,11 @@ configs/experiments/             # shipped M2-comparison sweep descriptions
 ├── m2-bulk-regime.toml          # named point from m2's validation grid (manual)
 └── m2-smoke.toml                # suite-sized smoke variant
 
+docs/experiments/                # experiment write-ups (results documents)
+└── m2-comparison.md             # T026's documented comparison (tasks
+                                 #   amendment 2026-07-19; seeds + tool commit
+                                 #   cited for reproducibility)
+
 tests/
 └── experiments_framework.rs     # feature-gated integration suite: scripted-topology
                                  #   exactness, determinism (value-level; one file-level

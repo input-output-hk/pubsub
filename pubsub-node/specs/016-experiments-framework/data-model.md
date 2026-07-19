@@ -97,7 +97,8 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
     `miss_causes` (counts per `MissCause`), `sends` `{honest, adversarial,
     down}`, `suppressed`, `severed`.
   - **Invariant asserted before emission**: `sends_total = first_receipts +
-    suppressed + sends.down` (spec FR-018).
+    suppressed + sends.down` — `sends.down` is the record field realising
+    the spec's "sent-to-down" term; one concept, one field (spec FR-018).
   - **Size invariant**: scalars + degree/depth-bounded vectors only —
     nothing O(N) (spec FR-028; SC-005).
 - **PerNodeDetail** (opt-in, off by default): per node — first-receipt wave,
