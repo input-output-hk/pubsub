@@ -250,7 +250,7 @@ health only (spec US4).
       (implemented status), record any deferrals accrued during
       implementation in `specs/IMPLEMENTATION_NOTES.md`, final green sweep
       without and with `--features experiments`.
-- [ ] T026 M2-comparison execution & write-up (manual; the feature's closing
+- [X] T026 M2-comparison execution & write-up (manual; the feature's closing
       artifact — amended in 2026-07-19: 016-FR-033's "comparison documented"
       is in-scope work, not post-feature usage): run
       `configs/experiments/m2-operating-point.toml` and
