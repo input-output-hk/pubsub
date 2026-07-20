@@ -13,9 +13,9 @@ use common::{
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, Node, NodeConfig,
-    NodeError, NodeStrategies, Origin, PeerId, PublisherAdmission, SubscriptionRegistryControl,
-    TopicId, TopicRegistryControl,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, Node, NodeError,
+    NodeStrategies, Origin, PeerId, PublisherAdmission, SubscriptionRegistryControl, TopicId,
+    TopicRegistryControl,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -37,9 +37,9 @@ async fn full_bidirectional_graph_for_three_nodes() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t = topic("t");
 
-    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
-    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
-    let c = node_with(&registry, &network, "c", &[], std::slice::from_ref(&t)).await;
+    let a = node_with(&registry, &network, "a", std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", std::slice::from_ref(&t)).await;
+    let c = node_with(&registry, &network, "c", std::slice::from_ref(&t)).await;
 
     // Each node's candidate view converges to the other two before setup.
     await_candidates(&a, &t, &["b", "c"], TIMEOUT)
@@ -88,8 +88,8 @@ async fn partial_convergence_stays_static_across_membership_change() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t = topic("t");
 
-    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
-    let _b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    let a = node_with(&registry, &network, "a", std::slice::from_ref(&t)).await;
+    let _b = node_with(&registry, &network, "b", std::slice::from_ref(&t)).await;
     await_candidates(&a, &t, &["b"], TIMEOUT).await.unwrap();
 
     trigger_setup(&a);
@@ -98,7 +98,7 @@ async fn partial_convergence_stays_static_across_membership_change() {
         .unwrap();
 
     // A third member appears after a's single setup.
-    let _c = node_with(&registry, &network, "c", &[], std::slice::from_ref(&t)).await;
+    let _c = node_with(&registry, &network, "c", std::slice::from_ref(&t)).await;
     await_candidates(&a, &t, &["b", "c"], TIMEOUT)
         .await
         .unwrap();
@@ -121,8 +121,8 @@ async fn node_that_dialed_nothing_still_accepts_inbound() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t = topic("t");
 
-    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
-    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    let a = node_with(&registry, &network, "a", std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", std::slice::from_ref(&t)).await;
     // a knows b as a member (so it can validate b's request), but a is never
     // triggered — only b dials.
     await_candidates(&a, &t, &["b"], TIMEOUT).await.unwrap();
@@ -150,8 +150,8 @@ async fn two_topics_yield_two_independent_connections() {
     let t1 = topic("t1");
     let t2 = topic("t2");
 
-    let a = node_with(&registry, &network, "a", &[], &[t1.clone(), t2.clone()]).await;
-    let b = node_with(&registry, &network, "b", &[], &[t1.clone(), t2.clone()]).await;
+    let a = node_with(&registry, &network, "a", &[t1.clone(), t2.clone()]).await;
+    let b = node_with(&registry, &network, "b", &[t1.clone(), t2.clone()]).await;
     await_candidates(&a, &t1, &["b"], TIMEOUT).await.unwrap();
     await_candidates(&a, &t2, &["b"], TIMEOUT).await.unwrap();
 
@@ -181,9 +181,9 @@ async fn unconnected_sender_is_not_recorded() {
     // s (receiver) and b (connected sender) share t. ghost is a member of no
     // topic, so it is not a t candidate and s never dials it — yet it can still
     // send (sending is decoupled from subscription, FR-023).
-    let s = node_with(&registry, &network, "s", &[], std::slice::from_ref(&t)).await;
-    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
-    let ghost = node_with(&registry, &network, "ghost", &[], &[]).await;
+    let s = node_with(&registry, &network, "s", std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", std::slice::from_ref(&t)).await;
+    let ghost = node_with(&registry, &network, "ghost", &[]).await;
 
     // s dials its only t candidate, b — ghost stays unconnected to s.
     establish_upstreams(&s, &[&b], &t).await;
@@ -224,8 +224,8 @@ async fn misbehavior_severs_one_connection_silently() {
     let t2 = topic("t2");
 
     // s (receiver) dials the offender b on both topics they share.
-    let s = node_with(&registry, &network, "s", &[], &[t1.clone(), t2.clone()]).await;
-    let b = node_with(&registry, &network, "b", &[], &[t1.clone(), t2.clone()]).await;
+    let s = node_with(&registry, &network, "s", &[t1.clone(), t2.clone()]).await;
+    let b = node_with(&registry, &network, "b", &[t1.clone(), t2.clone()]).await;
     establish_upstreams(&s, &[&b], &t1).await;
     await_upstream_active(&s, b.id(), &t2, TIMEOUT)
         .await
@@ -281,8 +281,8 @@ async fn graceful_shutdown_clears_counterpart_entries() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t = topic("t");
 
-    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
-    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    let a = node_with(&registry, &network, "a", std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", std::slice::from_ref(&t)).await;
     establish_mutual(&a, &b, std::slice::from_ref(&t)).await;
     assert!(
         !a.upstream_relays().is_empty() && !a.downstream_relays().is_empty(),
@@ -305,8 +305,8 @@ async fn abrupt_drop_leaves_stale_entries() {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
     let t = topic("t");
 
-    let a = node_with(&registry, &network, "a", &[], std::slice::from_ref(&t)).await;
-    let b = node_with(&registry, &network, "b", &[], std::slice::from_ref(&t)).await;
+    let a = node_with(&registry, &network, "a", std::slice::from_ref(&t)).await;
+    let b = node_with(&registry, &network, "b", std::slice::from_ref(&t)).await;
     establish_mutual(&a, &b, std::slice::from_ref(&t)).await;
 
     // Abrupt teardown — no shutdown call, no notices.
@@ -351,7 +351,7 @@ async fn pending_connection_is_a_visible_stable_diagnostic() {
         .set_topics(peer("ghost"), [t.clone()].into_iter().collect())
         .await
         .unwrap();
-    let s = node_with(&registry, &network, "s", &[], std::slice::from_ref(&t)).await;
+    let s = node_with(&registry, &network, "s", std::slice::from_ref(&t)).await;
     await_candidates(&s, &t, &["ghost"], TIMEOUT)
         .await
         .expect("s knows ghost as a candidate");
@@ -414,7 +414,6 @@ async fn readiness_establishes_autonomously() {
 
     let a = Node::new(
         peer("a"),
-        NodeConfig::default(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
@@ -432,7 +431,6 @@ async fn readiness_establishes_autonomously() {
     .expect("construct a");
     let b = Node::new(
         peer("b"),
-        NodeConfig::default(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("b"),
@@ -479,7 +477,6 @@ async fn construction_fails_on_duplicate_registration() {
 
     let _first = Node::new(
         peer("a"),
-        NodeConfig::default(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
@@ -499,7 +496,6 @@ async fn construction_fails_on_duplicate_registration() {
     // `Node` is not `Debug`, so match on the result rather than `expect_err`.
     let result = Node::new(
         peer("a"),
-        NodeConfig::default(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),
@@ -536,7 +532,6 @@ async fn construction_fails_on_identity_mismatch() {
     // so match on the result rather than `expect_err`.)
     let result = Node::new(
         peer("a"),
-        NodeConfig::default(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("b"),
@@ -560,7 +555,6 @@ async fn construction_fails_on_identity_mismatch() {
     // And nothing was registered, so a coherent node can still take the id.
     let _ok = Node::new(
         peer("a"),
-        NodeConfig::default(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer("a"),

@@ -69,7 +69,6 @@ async fn selected_upstreams(
         &registry,
         &network,
         "self",
-        &[],
         std::slice::from_ref(&t),
         strategy,
         genesis,

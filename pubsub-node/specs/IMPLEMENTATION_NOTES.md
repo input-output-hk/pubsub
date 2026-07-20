@@ -139,6 +139,11 @@ At each trigger, weigh whether option (a) still serves, or whether a parallel "w
 
 ## N-007 — `peers` placement: shell field today, `NodeState` when a transition consumes peer data
 
+> **Closed (016, 2026-07-17)**: the config bootstrap `peers` list (and the
+> whole TOML node-config subsystem, `PeerDescriptor`/`BasicPeerDescriptor`,
+> `Node::peers()`) was removed — ADR 0033. Registry-derived candidates fully
+> replaced it; the anticipated dialer consumer never materialised.
+
 **Surfaced during**: 004 (node event-loop refactor) checkpoint-2 review — maintainer asked whether the static `peers` list should live in `NodeState` alongside the rest of the node's state.
 
 **Question**: `Node.peers` (`Vec<BasicPeerDescriptor>`, config-derived) stayed on the shell when 004 consolidated mutable state into `NodeState`. Shouldn't peer knowledge be part of the node's state value?

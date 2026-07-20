@@ -10,8 +10,8 @@ use common::{
 };
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeConfig, NodeStrategies, PeerId,
-    PublisherAdmission, SubscriptionRegistryControl, TopicId,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeStrategies, PeerId,
+    PublisherAdmission, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -34,7 +34,6 @@ async fn node_with_no_registry_entry_derives_empty_state() {
     let topic_registry = Arc::new(InMemoryTopicRegistry::new()); // empty — no registered topics
     let node = Node::new(
         peer("ghost"),
-        NodeConfig { peers: vec![] },
         0, // genesis: the default initial epoch nonce
         network,
         alias_signer("ghost"),
@@ -76,8 +75,8 @@ async fn node_with_no_registry_entry_derives_empty_state() {
 async fn effective_topics_come_from_registry_entry() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    let s = node_with(&registry, &network, "node-s", &[], &[topic("t1")]).await;
-    let b = node_with(&registry, &network, "node-b", &["node-s"], &[topic("t1")]).await;
+    let s = node_with(&registry, &network, "node-s", &[topic("t1")]).await;
+    let b = node_with(&registry, &network, "node-b", &[topic("t1")]).await;
 
     // Establishment preamble: s dials b on t1 so b's t1 message is admitted.
     establish_upstreams(&s, &[&b], &topic("t1")).await;
@@ -103,32 +102,6 @@ async fn effective_topics_come_from_registry_entry() {
     assert_eq!(record[0].message, on_topic);
 }
 
-// SC-009 / FR-017: the registry-derived candidate set is distinct from the
-// config bootstrap `peers` and does not alter it.
-#[tokio::test]
-async fn candidate_set_is_distinct_from_config_peers() {
-    let network = Arc::new(InMemoryNetwork::new());
-    let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    // node-b is a t1 member in the registry (a candidate), but not a config peer.
-    registry
-        .set_topics(peer("node-b"), [topic("t1")].into_iter().collect())
-        .await
-        .unwrap();
-    // node-s has a config bootstrap peer "boot-x" (not a t1 member) and is registered for t1.
-    let s = node_with(&registry, &network, "node-s", &["boot-x"], &[topic("t1")]).await;
-
-    await_candidates(&s, &topic("t1"), &["node-b"], Duration::from_secs(1))
-        .await
-        .expect("candidate set converges to the registry member node-b");
-
-    let bootstrap: Vec<String> = s.peers().iter().map(|p| p.id.to_string()).collect();
-    assert_eq!(
-        bootstrap,
-        vec!["boot-x".to_string()],
-        "config bootstrap peers are unchanged and distinct from the candidate set",
-    );
-}
-
 // US4: an in-memory network of nodes sharing one registry discovers itself —
 // each node's candidate set converges to the topic-scoped, self-excluded view
 // of the others.
@@ -136,16 +109,9 @@ async fn candidate_set_is_distinct_from_config_peers() {
 async fn network_discovers_itself_from_shared_registry() {
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
-    let a = node_with(&registry, &network, "node-a", &[], &[topic("t1")]).await;
-    let b = node_with(
-        &registry,
-        &network,
-        "node-b",
-        &[],
-        &[topic("t1"), topic("t2")],
-    )
-    .await;
-    let c = node_with(&registry, &network, "node-c", &[], &[topic("t2")]).await;
+    let a = node_with(&registry, &network, "node-a", &[topic("t1")]).await;
+    let b = node_with(&registry, &network, "node-b", &[topic("t1"), topic("t2")]).await;
+    let c = node_with(&registry, &network, "node-c", &[topic("t2")]).await;
 
     let timeout = Duration::from_secs(1);
     await_candidates(&a, &topic("t1"), &["node-b"], timeout)

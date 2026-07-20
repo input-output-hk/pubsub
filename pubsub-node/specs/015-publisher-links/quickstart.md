@@ -9,7 +9,7 @@ topology, reproducible experiments).
 ## M2 — pull baseline (pre-015 behaviour; the defaults)
 
 ```sh
-pubsub-node --self-id a --config node.toml \
+pubsub-node --self-id a \
   --subscription-list subs.toml --topic-registry topics.toml \
   --relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded \
   --relay-degree 8

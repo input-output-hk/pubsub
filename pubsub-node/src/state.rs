@@ -42,8 +42,7 @@ use crate::topic_registry::{TopicEntry, TopicRegistryEvent};
 /// message-received transition consults.
 ///
 /// Holds what the transition reads or writes — nothing more: static
-/// shell concerns (the network handle, the config-derived peer list) stay on
-/// the node. Peer or registry-derived data joins this struct when a
+/// shell concerns (the network handle) stay on the node. Peer or registry-derived data joins this struct when a
 /// transition first consumes it.
 // FR-008: single explicit state value; crate-internal (Clarifications
 // 2026-06-09). Field set per the seam contract §1.1 / data-model.md; the
@@ -54,9 +53,8 @@ pub(crate) struct NodeState {
     received: Vec<ReceivedDelivery>,
     verifier: Arc<dyn Verifier>,
     /// Per-topic candidate peers, folded from the subscription-registry stream
-    /// (`Event::MembershipUpdate`). The node's own id is never present. This is
-    /// the topic-derived peer set, distinct from the shell's static config
-    /// `peers` bootstrap list (`IMPLEMENTATION_NOTES` N-007).
+    /// (`Event::MembershipUpdate`). The node's own id is never present
+    /// (`IMPLEMENTATION_NOTES` N-007, closed by the config-peers removal).
     candidates: BTreeMap<TopicId, BTreeSet<PeerId>>,
     /// Registered topics → their authorized publisher keys (empty ⇒ open),
     /// folded from the topic-registry stream (`Event::TopicRegistryUpdate`).

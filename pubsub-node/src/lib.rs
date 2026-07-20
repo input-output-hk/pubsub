@@ -6,8 +6,7 @@
 //! - [`Node`] — a network participant that originates and observes messages.
 //! - [`Network`], [`InMemoryNetwork`], [`NetworkHandle`] — the routing layer
 //!   that connects nodes within a single process.
-//! - [`PeerId`], [`PeerDescriptor`], [`BasicPeerDescriptor`] — identity types
-//!   for addressing peers.
+//! - [`PeerId`] — the identity type for addressing peers.
 //! - [`TopicId`] — the topic carried on every [`Message`]; opaque newtype
 //!   parallel to [`PeerId`].
 //! - [`Message`], [`SignedMessage`], [`PlainMessage`], [`MessagePayload`] —
@@ -35,12 +34,9 @@
 //!   [`Event`]s via a cloned [`EventQueue`]; the node drains them in one loop.
 //! - [`ReceivedDelivery`] — one observed delivery returned by
 //!   [`Node::received_messages`].
-//! - [`NodeConfig`], [`PeerEntry`], [`load_node_config`] — TOML-driven
-//!   configuration.
 //! - [`ConfigError`], [`NetworkError`], [`NodeError`], [`PeerIdError`],
 //!   [`TopicIdError`] — typed failure modes.
 
-mod config;
 mod connection_state;
 pub mod crypto;
 mod error;
@@ -56,7 +52,6 @@ mod subscription_registry;
 mod topic;
 mod topic_registry;
 
-pub use config::{load_node_config, NodeConfig, PeerEntry};
 pub use connection_state::{
     LinkKey, LinkKind, LinkState, PublisherAdmission, UnknownPublisherAdmission,
 };
@@ -72,7 +67,7 @@ pub use message::{
 };
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
-pub use peer::{BasicPeerDescriptor, PeerDescriptor, PeerId, PeerIdError};
+pub use peer::{PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
 pub use strategies::acceptance::{
     AcceptFromAllCandidates, AcceptNone, AcceptanceStrategyKind, Admission, BoundedAcceptance,
