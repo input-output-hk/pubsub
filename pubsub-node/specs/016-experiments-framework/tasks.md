@@ -242,11 +242,11 @@ health only (spec US4).
 
 ## Phase 7: Polish & cross-cutting
 
-- [ ] T024 Docs alignment: rustdoc for the experiments API surface
+- [X] T024 Docs alignment: rustdoc for the experiments API surface
       (implementation-neutral, no FR citations), quickstart verified against
       the built binary (flags, file names, procedure), fmt/clippy sweep in
       both configurations (Engineering Standards; quickstart.md).
-- [ ] T025 Wrap-up: update the `CLAUDE.md` active-feature stanza
+- [X] T025 Wrap-up: update the `CLAUDE.md` active-feature stanza
       (implemented status), record any deferrals accrued during
       implementation in `specs/IMPLEMENTATION_NOTES.md`, final green sweep
       without and with `--features experiments`.

@@ -19,7 +19,7 @@ use super::population::Population;
 
 /// The dissemination model an experiment runs under: the dispatch that owns
 /// propagation-graph extraction, the per-publisher seed-set rule, and the
-/// goodness criterion (016-FR-022). v1 ships exactly one variant; the
+/// goodness criterion. v1 ships exactly one variant; the
 /// dispatch shape is what the experiment program's later stages and the
 /// in-flight publisher-links work extend.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -46,7 +46,7 @@ impl DisseminationModel {
     }
 
     /// The per-publisher seed set: the vertices assumed to hold the message
-    /// at wave 0 (016-FR-022's parameterisation point). M2 seeds the
+    /// at wave 0 — the dispatch's parameterisation point. M2 seeds the
     /// publisher alone.
     #[must_use]
     pub fn publisher_seeds(self, publisher: &PeerId) -> Vec<PeerId> {
@@ -121,7 +121,7 @@ impl FromStr for DisseminationModel {
     }
 }
 
-/// Which vertex set a graph pass runs over (016-FR-020): the post-churn
+/// Which vertex set a graph pass runs over: the post-churn
 /// up-honest graph is the primary; the pre-churn graph (down honest nodes
 /// included) is the paired formation diagnostic.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -216,7 +216,7 @@ impl PropagationDigraph {
 
     /// Every vertex reachable from `seed` (including `seed` itself when it is
     /// a vertex) — iterative traversal, the reachability half of the
-    /// two-instrument cross-check (016-SC-003).
+    /// two-instrument cross-check.
     #[must_use]
     pub fn reachable_from(&self, seed: &PeerId) -> BTreeSet<PeerId> {
         let Ok(seed) = self.vertices.binary_search(seed) else {
@@ -346,7 +346,7 @@ pub struct Condensation {
     pub sinks: BTreeSet<usize>,
 }
 
-/// The good-topology verdict and its graded refinements (016-FR-020/FR-021).
+/// The good-topology verdict and its graded refinements.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GoodnessVerdict {
     /// One SCC ⟺ every up-honest publisher reaches every up-honest node.
@@ -360,7 +360,7 @@ pub struct GoodnessVerdict {
     pub largest_scc: u64,
 }
 
-/// Degree/sink statistics over the extracted digraph (016-FR-019).
+/// Degree/sink statistics over the extracted digraph.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TopologyShape {
     /// Vertex count per in-degree (index = degree).
@@ -382,7 +382,7 @@ pub struct GraphAnalysis {
     pub shape: TopologyShape,
 }
 
-/// The goodness verdict from one condensation pass (016-FR-020/FR-021).
+/// The goodness verdict from one condensation pass.
 ///
 /// Degenerate inputs (which configuration validation excludes from real
 /// runs): a single-vertex graph is one SCC and vacuously fully covered
@@ -417,7 +417,7 @@ pub fn goodness(digraph: &PropagationDigraph) -> GoodnessVerdict {
     }
 }
 
-/// Degree/sink statistics over the digraph (016-FR-019).
+/// Degree/sink statistics over the digraph.
 #[must_use]
 pub fn topology_shape(digraph: &PropagationDigraph) -> TopologyShape {
     let n = digraph.vertex_count();

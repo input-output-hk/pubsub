@@ -9,6 +9,13 @@ cargo test                                    # default build — must be unaffe
 cargo test --features experiments             # + framework suite (incl. smoke)
 ```
 
+For the M2-comparison sweeps (large populations, thousands of runs) build
+the binary in release mode:
+
+```sh
+cargo build --release --features experiments --bins
+```
+
 ## Run a single experiment
 
 Write a sweep description (see `contracts/sweep-config.md` for the shape;
@@ -25,11 +32,13 @@ config and master seed reproduces the files byte-for-byte.
 
 ## Sweep a parameter
 
-Add axes to the same file:
+Add axes to the same file (each `[[axes]]` entry is one swept parameter;
+the cross-product expands in declaration order):
 
 ```toml
-[axes]
-churn = [0.0, 0.05, 0.10]
+[[axes]]
+parameter = "churn"
+values = [0.0, 0.05, 0.10]
 ```
 
 Each grid point becomes one experiment in the manifest; `aggregates.json`
@@ -46,11 +55,13 @@ tracing which cluster missed and why.
 
 ## The M2-comparison demonstration (manual procedure)
 
-1. `experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/`
-   (N = 20 000, μ = 0.2, RF = 24; expect ≲ 1 h — pick `--workers` for your
-   memory budget; ~40+ runs).
+1. `experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/ --workers 1`
+   (N = 20 000, μ = 0.2, RF = 24; 40 runs, ≲ 1 h with the release build.
+   Each in-flight run holds the full 20 000-node population — ~30 GB — so
+   pick `--workers` for your memory budget).
 2. `experiments --config configs/experiments/m2-bulk-regime.toml --out results/m2-bulk/`
-   (the named bulk-regime point; R ~ 10⁴ cheap small-N runs).
+   (the named bulk-regime point: N = 4 000, μ = 0.2, RF = 16; 8000 small-N
+   runs at ~1 GB each — the default worker count is fine).
 3. Fill the comparison table against the formal simulators' published
    values (`../formal_spec/hybrid_dissemination/models/comparison.md` and
    m2's `full_coverage.md`):

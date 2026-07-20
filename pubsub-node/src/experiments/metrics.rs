@@ -21,7 +21,7 @@ use super::graph::GraphAnalysis;
 use super::population::{Participant, Population};
 
 /// Why an eligible receiver missed the message, classified from driver-owned
-/// state (016-FR-017).
+/// state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MissCause {
@@ -88,7 +88,7 @@ pub struct PublishRecord {
     pub severed: u64,
 }
 
-/// One run's JSONL row (016-FR-028; data-model §5): scalars and
+/// One run's JSONL row: scalars and
 /// degree/depth-bounded vectors only — nothing sized by the population.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RunRecord {
@@ -141,7 +141,7 @@ pub struct RunRecord {
     pub publishes: Vec<PublishRecord>,
 }
 
-/// One node's opt-in dissection row (016-FR-030): regenerable exactly from
+/// One node's opt-in dissection row: regenerable exactly from
 /// the run's recorded seed, never part of the three default artifacts.
 ///
 /// Degrees are the node's post-churn propagation-digraph degrees, so
@@ -178,7 +178,7 @@ pub struct PerNodeDetail {
 }
 
 /// Assemble the opt-in per-node dissection table for a run: one row per
-/// (publish, node), in publish then peer-id order (016-FR-030). Pure over
+/// (publish, node), in publish then peer-id order. Pure over
 /// the same inputs as the run record — the detail never alters the record.
 #[must_use]
 pub fn assemble_per_node_detail(
@@ -235,7 +235,7 @@ pub struct RunIdentity {
 }
 
 /// Assemble one run record from the run's driver observation and graph
-/// passes (016-FR-015…FR-018).
+/// passes.
 ///
 /// `pre_churn` carries the formed-topology diagnostic pass — `Some` exactly
 /// when the run drew churn; its fields are then present in the record and
@@ -383,7 +383,7 @@ fn assemble_publish_record(
 }
 
 /// Classify why the up-honest non-publisher `participant` missed the
-/// message (016-FR-017), from its connection state and the post-churn
+/// message, from its connection state and the post-churn
 /// digraph's publisher reachability.
 fn classify_miss(
     id: &PeerId,

@@ -279,11 +279,12 @@ impl NodeState {
 
 /// Crate-internal access for the experiments framework (feature
 /// `experiments`; never compiled into the default build): direct state writes
-/// for the driver's pre-population fast path (016-FR-008/FR-032) and cheap
-/// read accessors for driver-owned measurement (016-FR-017 — measurement never
-/// reads logs). The writes mirror what the real folds produce; they perform no
-/// validation and emit no effects, which is exactly the fast path's contract —
-/// the faithful mode exists to assert the equivalence on small populations.
+/// for the driver's pre-population fast path and cheap read accessors for
+/// driver-owned measurement (measurement never reads logs). The writes mirror
+/// what the real folds produce; they perform no validation and emit no
+/// effects, which is exactly the fast path's contract — the faithful mode
+/// exists to assert the equivalence on small populations.
+// 016-FR-008, 016-FR-017, 016-FR-027 (crate-internal access only), 016-FR-032.
 #[cfg(feature = "experiments")]
 impl NodeState {
     /// Register `topic` directly — the pre-population counterpart of folding
@@ -340,7 +341,7 @@ impl NodeState {
         self.seen.contains(hash)
     }
 
-    /// The current epoch nonce (single-epoch assertion surface, 016-FR-009).
+    /// The current epoch nonce (the single-epoch assertion surface).
     pub(crate) fn epoch_nonce(&self) -> u64 {
         self.epoch_nonce
     }

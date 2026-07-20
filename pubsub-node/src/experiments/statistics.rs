@@ -123,7 +123,7 @@ fn percentiles(series: &[f64]) -> Percentiles {
 }
 
 /// Per-experiment aggregates: a pure fold of the experiment's run records in
-/// run-index order (016-FR-029; data-model §6).
+/// run-index order.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ExperimentAggregates {
     /// Index into the manifest's experiment list.
@@ -166,13 +166,13 @@ pub struct ExperimentAggregates {
 }
 
 /// Fold one experiment's run records — **in canonical run-index order** —
-/// into its aggregates (016-FR-029; research R3).
+/// into its aggregates.
 ///
 /// # Panics
 ///
 /// Panics if `records` is empty, or if the structural invariant
 /// `full_coverage.count ≥ good.count` fails — under v1 relays a good
-/// topology delivers everything (016-SC-007 / SC-003), so a good run that
+/// topology delivers everything, so a good run that
 /// missed coverage means the instruments disagree.
 #[must_use]
 pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggregates {

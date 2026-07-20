@@ -6,7 +6,7 @@
 //! validated here, before any run executes; invocation flags (output
 //! directory, worker count, detail) stay on the binary and never reach the
 //! manifest.
-// 016-FR-031; contracts/sweep-config.md.
+// 016-FR-028 (axes), 016-FR-031; contracts/sweep-config.md.
 
 use std::str::FromStr;
 
@@ -225,7 +225,7 @@ impl CountSpec {
     }
 }
 
-/// A sweepable parameter (016-FR-028's axes; contracts/sweep-config.md).
+/// A sweepable parameter: one axis of the sweep's grid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AxisParameter {
     /// Population size N.

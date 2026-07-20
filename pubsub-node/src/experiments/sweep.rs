@@ -31,7 +31,7 @@ use super::metrics::{
 use super::population::{derive_seed, Population, PopulationConfig, PopulationSeeds};
 use super::statistics::{fold_aggregates, ExperimentAggregates};
 
-/// The recorded seed-derivation rule (016-FR-024): embedded in every
+/// The recorded seed-derivation rule: embedded in every
 /// manifest so a sweep is self-describing.
 pub const SEED_DERIVATION_RULE: &str = "run_seed = SHA-256('experiments/run-seed/v1' || \
      master_seed_be8 || run_index_be8); sub_seed(label) = SHA-256(label || run_seed || 0_be8) \
@@ -69,7 +69,7 @@ fn serialize_model<S: serde::Serializer>(
     serializer.serialize_str(model.name())
 }
 
-/// The sweep manifest (016-FR-028): tool commit, master seed and derivation
+/// The sweep manifest: tool commit, master seed and derivation
 /// rule, and the expanded experiment list run records reference by index.
 #[derive(Clone, Debug, Serialize)]
 pub struct SweepManifest {
@@ -125,8 +125,7 @@ pub fn build_manifest(description: &SweepDescription, tool_commit: &str) -> Swee
     }
 }
 
-/// Derive the pre-derived run seed of canonical run index `run_index`
-/// (016-FR-024; research R6).
+/// Derive the pre-derived run seed of canonical run index `run_index`.
 #[must_use]
 pub fn run_seed(master_seed: u64, run_index: u64) -> [u8; 32] {
     let mut hasher = Sha256::new();
@@ -162,7 +161,7 @@ pub fn seed_from_hex(hex: &str) -> Option<[u8; 32]> {
 }
 
 /// Execute one run as a pure function of (parameters, run seed) — no I/O,
-/// no shared state (016-FR-025). `run` and `experiment` are recorded
+/// no shared state. `run` and `experiment` are recorded
 /// identity only; every random draw stems from `seed`.
 #[must_use]
 pub fn execute_run_from_seed(
@@ -174,7 +173,7 @@ pub fn execute_run_from_seed(
     execute_run_inner(params, experiment, run, seed, false).0
 }
 
-/// Execute one run and its opt-in per-node dissection table (016-FR-030):
+/// Execute one run and its opt-in per-node dissection table:
 /// the same pure function as [`execute_run_from_seed`] — the record is
 /// identical whether or not detail is requested — plus one detail row per
 /// (publish, node).
@@ -280,12 +279,12 @@ pub fn execute_run_record(
 }
 
 /// Invocation options for a sweep execution — never result-affecting and
-/// never in the manifest (contracts/sweep-config.md).
+/// never in the manifest.
 #[derive(Clone, Copy, Debug)]
 pub struct SweepOptions {
     /// Worker-pool size: the maximum in-flight runs (the memory knob).
     pub workers: usize,
-    /// Emit the opt-in per-node dissection table per run (016-FR-030).
+    /// Emit the opt-in per-node dissection table per run.
     /// Adds `run-NNNNNN-detail.jsonl` files; the three artifacts are
     /// byte-identical either way.
     pub per_node_detail: bool,
@@ -330,10 +329,16 @@ fn io_error(path: &Path) -> impl FnOnce(std::io::Error) -> SweepError + '_ {
 }
 
 /// The aggregates artifact's top-level shape: one entry per experiment, in
-/// experiment-index order — a pure function of the run records (016-FR-029).
+/// experiment-index order — a pure function of the run records.
 #[derive(Serialize)]
 struct AggregatesArtifact {
     experiments: Vec<ExperimentAggregates>,
+}
+
+/// Write one pretty-printed JSON artifact (the manifest / aggregates shape).
+fn write_pretty_json<T: Serialize>(path: &Path, value: &T) -> Result<(), SweepError> {
+    let json = serde_json::to_string_pretty(value).expect("artifact serializes");
+    std::fs::write(path, json + "\n").map_err(io_error(path))
 }
 
 /// Write one run's per-node dissection table: JSONL, one row per
@@ -350,7 +355,7 @@ fn write_detail_file(path: &Path, rows: &[PerNodeDetail]) -> Result<(), std::io:
 /// The worker-shared write-side state: the pre-sized results vector and the
 /// in-order streaming cursor. Workers complete runs in any order; the drain
 /// after each completion writes every consecutively-ready record, so
-/// `runs.jsonl` is always a canonical-order prefix (016-FR-026).
+/// `runs.jsonl` is always a canonical-order prefix.
 struct SweepProgress {
     records: Vec<Option<RunRecord>>,
     next_to_write: usize,
@@ -358,15 +363,15 @@ struct SweepProgress {
     failure: Option<SweepError>,
 }
 
-/// Execute a whole sweep and write the three artifacts into `out_dir`
-/// (016-FR-028): `manifest.json` first, `runs.jsonl` streamed in canonical
+/// Execute a whole sweep and write the three artifacts into `out_dir`:
+/// `manifest.json` first, `runs.jsonl` streamed in canonical
 /// run-index order, then `aggregates.json` folded in that same order.
 ///
 /// `options.workers` bounds the in-flight runs (each holds a full
 /// population — the memory knob); a `std::thread::scope` pool pulls run
 /// indices from a shared counter and writes into the pre-sized results
-/// vector, so the artifacts are byte-identical at any worker count
-/// (016-FR-025/FR-026). With `options.per_node_detail` on, each run's
+/// vector, so the artifacts are byte-identical at any worker count.
+/// With `options.per_node_detail` on, each run's
 /// dissection table is written as `run-NNNNNN-detail.jsonl` beside the
 /// three artifacts — which stay byte-identical either way.
 pub fn run_sweep(
@@ -382,9 +387,7 @@ pub fn run_sweep(
     std::fs::create_dir_all(out_dir).map_err(io_error(out_dir))?;
 
     let manifest = build_manifest(description, tool_commit);
-    let manifest_path = out_dir.join("manifest.json");
-    let manifest_json = serde_json::to_string_pretty(&manifest).expect("manifest serializes");
-    std::fs::write(&manifest_path, manifest_json + "\n").map_err(io_error(&manifest_path))?;
+    write_pretty_json(&out_dir.join("manifest.json"), &manifest)?;
 
     let runs_path = out_dir.join("runs.jsonl");
     let runs_file = BufWriter::new(File::create(&runs_path).map_err(io_error(&runs_path))?);
@@ -399,6 +402,9 @@ pub fn run_sweep(
         failure: None,
     });
     let next_run = AtomicU64::new(0);
+    // Progress cadence: roughly twenty lines per sweep, at least one per
+    // experiment, so long single-experiment sweeps stay visibly alive.
+    let progress_interval = (total_runs / 20).clamp(1, runs_per_experiment);
 
     std::thread::scope(|scope| {
         for _ in 0..workers {
@@ -450,7 +456,7 @@ pub fn run_sweep(
                             return;
                         }
                         state.next_to_write += 1;
-                        if state.next_to_write as u64 % runs_per_experiment == 0 {
+                        if state.next_to_write as u64 % progress_interval == 0 {
                             eprintln!("runs written: {}/{total_runs}", state.next_to_write);
                         }
                     }
@@ -478,12 +484,12 @@ pub fn run_sweep(
         .map(|(experiment, chunk)| fold_aggregates(experiment as u64, chunk))
         .collect();
 
-    let aggregates_path = out_dir.join("aggregates.json");
-    let aggregates_json = serde_json::to_string_pretty(&AggregatesArtifact {
-        experiments: aggregates,
-    })
-    .expect("aggregates serialize");
-    std::fs::write(&aggregates_path, aggregates_json + "\n").map_err(io_error(&aggregates_path))?;
+    write_pretty_json(
+        &out_dir.join("aggregates.json"),
+        &AggregatesArtifact {
+            experiments: aggregates,
+        },
+    )?;
 
     Ok(SweepSummary {
         experiments: manifest.experiments.len(),

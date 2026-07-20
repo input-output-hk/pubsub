@@ -5,7 +5,7 @@
 //! A [`Population`] owns one driver-side node core per participant. Every
 //! participant runs the real transition function; an adversarial (Level-1)
 //! participant differs only in its strategy bundle — the driver never
-//! branches on class when delivering events (016-FR-004, 016-FR-011).
+//! branches on class when delivering events.
 // 016-FR-004, 016-FR-008, 016-FR-011, 016-FR-031; data-model §1.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -358,7 +358,7 @@ impl FanoutSpec {
     }
 }
 
-/// The build inputs of a seeded population (016-FR-004, 016-FR-031).
+/// The build inputs of a seeded population.
 #[derive(Clone, Debug)]
 pub struct PopulationConfig {
     /// The single topic the whole population subscribes to.
@@ -374,7 +374,7 @@ pub struct PopulationConfig {
 }
 
 /// The seeds a population build consumes. Derived from the master seed by the
-/// sweep layer (research R6); explicit here so a run stays a pure function of
+/// sweep layer; explicit here so a run stays a pure function of
 /// its inputs.
 #[derive(Clone, Copy, Debug)]
 pub struct PopulationSeeds {
@@ -386,7 +386,7 @@ pub struct PopulationSeeds {
     pub sampler: [u8; 32],
 }
 
-/// Rejected population-build inputs (016-FR-031).
+/// Rejected population-build inputs.
 #[derive(Debug, thiserror::Error)]
 pub enum PopulationBuildError {
     /// Fewer than two honest participants: no publisher/receiver pair exists.
@@ -418,7 +418,7 @@ impl Population {
     /// `adversarial` of the `size` participants (uniform, seeded); each
     /// participant's sampler seed is derived from the sampler root and the
     /// participant's build index. The population is **not** registered yet —
-    /// registration is a driver phase with two setup modes (016-FR-008).
+    /// registration is a driver phase with two setup modes.
     pub fn build(
         config: &PopulationConfig,
         seeds: &PopulationSeeds,
@@ -531,8 +531,8 @@ impl Population {
             .collect()
     }
 
-    /// Direct state pre-population — the fast-path registration mode
-    /// (016-FR-008): every participant gets the topic registered open, its own
+    /// Direct state pre-population — the fast-path registration mode:
+    /// every participant gets the topic registered open, its own
     /// subscription, the full candidate set (self excluded), and readiness,
     /// with no folds and no readiness dial.
     pub fn prepopulate_registration(&mut self) {
@@ -553,7 +553,7 @@ impl Population {
     /// entry sets its subscriptions; the others fold the candidate set). The
     /// readiness event is deliberately absent — the driver injects all
     /// `Synced` events as one wave, after every node has folded these
-    /// (016-FR-008's barrier).
+    /// (the registration barrier).
     pub(crate) fn faithful_registration_events(&self) -> Vec<Event> {
         let mut events = vec![Event::TopicRegistryUpdate(TopicRegistryEvent::Registered {
             topic: self.topic.clone(),
@@ -570,7 +570,7 @@ impl Population {
 }
 
 /// Derive a labelled sub-seed: `SHA-256(label ‖ parent ‖ index)`. The domain
-/// label keeps independently-purposed draws uncorrelated (research R6).
+/// label keeps independently-purposed draws uncorrelated.
 pub(crate) fn derive_seed(parent: &[u8; 32], label: &str, index: u64) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(label.as_bytes());

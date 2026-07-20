@@ -44,7 +44,7 @@ pub struct Delivery {
 /// A wave: the deliveries of one round, canonicalised before routing.
 pub type Wave = Vec<Delivery>;
 
-/// Dissemination sends split by recipient class (016-FR-018). `down` is the
+/// Dissemination sends split by recipient class. `down` is the
 /// sent-to-down term of the accounting identity.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
 pub struct SendTally {
@@ -64,7 +64,7 @@ impl SendTally {
     }
 }
 
-/// The driver's per-phase observation of one drain (data-model §3).
+/// The driver's per-phase observation of one drain.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DrainOutcome {
     /// Number of non-empty waves processed.
@@ -92,7 +92,7 @@ pub struct PublishOutcome {
     pub drain: DrainOutcome,
 }
 
-/// How the registration phase installs the registered view (016-FR-008).
+/// How the registration phase installs the registered view.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SetupMode {
     /// Feed membership, topic-registry, and readiness events through the real
@@ -164,7 +164,7 @@ impl Driver {
     /// The registration + dial phase: install the registered view per the
     /// setup mode, then establish the topology by draining the handshake
     /// waves to quiescence against the epoch nonce already on state
-    /// (016-FR-008, 016-FR-009).
+    /// (the genesis value).
     ///
     /// Faithful mode applies every registry fold to every node first, then
     /// injects all `Synced` events as one wave — their readiness dials are
@@ -200,7 +200,7 @@ impl Driver {
         outcome
     }
 
-    /// The churn draw (016-FR-014): mark `count` up-honest nodes down,
+    /// The churn draw: mark `count` up-honest nodes down,
     /// uniformly from the seed. Generates no events and drains nothing; down
     /// nodes stay registered and present in peers' connection state. Returns
     /// the drawn peers, sorted.
@@ -231,8 +231,7 @@ impl Driver {
         down
     }
 
-    /// Draw the run's publisher uniformly from the up-honest nodes
-    /// (016-FR-010).
+    /// Draw the run's publisher uniformly from the up-honest nodes.
     ///
     /// # Panics
     ///
@@ -246,7 +245,7 @@ impl Driver {
         honest[rng.gen_range(0..honest.len())].clone()
     }
 
-    /// One publish phase (016-FR-010): inject a fresh signed message at the
+    /// One publish phase: inject a fresh signed message at the
     /// publisher and drain the dissemination waves to quiescence. Repeated
     /// phases pass distinct `publish_index` values, yielding distinct
     /// content hashes with no state reset.
@@ -274,7 +273,7 @@ impl Driver {
     }
 
     /// The full phase sequence of one run: registration/dial → churn draw →
-    /// publisher draw → publish drain × `publishes_per_run` (data-model §2).
+    /// publisher draw → publish drain × `publishes_per_run`.
     pub fn execute_run(&mut self, plan: &RunPlan, seeds: &RunSeeds) -> RunObservation {
         let dial = self.establish(plan.setup);
         let down = self.churn_draw(seeds.churn, plan.churn_count);
@@ -322,10 +321,9 @@ impl Driver {
     }
 
     /// Route the collected sends of one node into the next wave, tallying
-    /// each send by recipient class at emission (016-FR-018). A send to a
+    /// each send by recipient class at emission. A send to a
     /// down recipient is tallied `sent-to-down` and never enqueued — down
-    /// nodes are not stepped (016-FR-014). `Misbehaved` effects are consumed
-    /// and tallied (016-FR-006).
+    /// nodes are not stepped. `Misbehaved` effects are consumed and tallied.
     fn collect_effects(
         &self,
         from: &PeerId,
@@ -360,8 +358,8 @@ impl Driver {
     }
 
     /// Drain waves to quiescence, starting at `wave_index` for the given
-    /// initial wave. Each wave is canonicalised before routing (016-FR-007);
-    /// a wave producing no new sends ends the drain exactly (016-FR-005).
+    /// initial wave. Each wave is canonicalised before routing; a wave
+    /// producing no new sends ends the drain exactly.
     fn drain(&mut self, mut wave: Wave, mut wave_index: u64, outcome: &mut DrainOutcome) {
         while !wave.is_empty() {
             canonicalise(&mut wave);
@@ -423,7 +421,7 @@ impl Driver {
 /// Stable-sort a wave by the canonical content key (sender, addressee,
 /// message identity): the within-wave tie-break that makes routing order a
 /// function of wave *content*, independent of the core's hash-based
-/// collection iteration order (016-FR-007/FR-027; research R2). This sort is
+/// collection iteration order. This sort is
 /// permanent and load-bearing for byte-determinism.
 fn canonicalise(wave: &mut Wave) {
     wave.sort_by_cached_key(|delivery| {
