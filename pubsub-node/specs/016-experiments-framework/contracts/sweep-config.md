@@ -3,8 +3,9 @@
 The `experiments` binary's input surface: a TOML sweep-description file
 (result-affecting; embedded in the manifest) plus clap invocation flags
 (result-neutral; never in the manifest). Parse-at-the-edge: the experiments
-API takes the parsed `SweepDescription`; the binary owns file I/O and
-argument parsing (FR-031).
+API takes the parsed `SweepDescription`; the binary owns argument parsing
+and reading the config file (FR-031). Output artifacts are written by the
+sweep layer (contracts/output-artifacts.md).
 
 ## TOML sweep description (illustrative shape)
 
@@ -35,8 +36,9 @@ fanout = "silent-relay"            # experiments-only kind
 runs_per_experiment = 200
 publishes_per_run = 1              # default 1
 
-[axes]                             # optional; absent ⇒ single experiment
-churn = [0.0, 0.05, 0.10]
+[[axes]]                           # optional; none ⇒ single experiment
+parameter = "churn"
+values = [0.0, 0.05, 0.10]
 ```
 
 Rules:
@@ -44,12 +46,21 @@ Rules:
 - Strategy `connection`/`acceptance` kinds accept the protocol kinds (005's)
   plus the experiments-only kinds (`uniform-sampler`, `silent-relay` on the
   fan-out seam); experiments-only kinds never appear in the node's own CLI.
-- Axes expand as a cross-product into the manifest's experiment list, in
-  declaration order.
+- Strategy tables also accept the 005 per-seam parameters where the kind
+  needs them: `bucket_count` (optional pinned B, hash-gated kinds) and
+  `cap_buffer` (bounded acceptance kinds; default 3).
+- Axes are an array of tables (`[[axes]]`, one swept `parameter` + its
+  `values` each) — the shape that preserves declaration order, which is
+  load-bearing: the cross-product expands into the manifest's experiment
+  list in declaration order, first-declared axis varying slowest. (A plain
+  TOML table would not preserve key order.)
 - Validation errors (rejected before any run executes): unknown model or
-  strategy kind; zero eligible receivers; churn exceeding the honest
-  population or leaving no up-honest publisher; more than one topic;
-  `runs_per_experiment` or population size of zero.
+  strategy kind; conflicting count/fraction spellings (`adversarial` vs
+  `adversarial_fraction`, `churn` vs `churn_count`); zero eligible
+  receivers; churn exceeding the honest population or leaving no up-honest
+  publisher; `runs_per_experiment` or population size of zero. (The schema
+  admits exactly one topic — a multi-topic request is a parse error, not a
+  semantic validation.)
 - Error messages are operator-facing: implementation-neutral, no FR/spec
   citations (Engineering Standards).
 

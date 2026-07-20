@@ -10,8 +10,9 @@
 # copies per honest node, and the depth distribution, against the values
 # published in formal_spec/hybrid_dissemination/models/comparison.md.
 #
-# Run manually (expect up to ~1 h; each in-flight run holds a full
-# 20 000-node population, so pick --workers for your memory budget):
+# Run manually (~15 min release at --workers 1; each in-flight run holds a
+# full 20 000-node population — ~30 GB — so pick --workers for your memory
+# budget):
 #
 #   experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/
 

@@ -51,9 +51,11 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
   first-receipt wave (`BTreeMap<PeerId, u32>`), sends tally split by
   recipient class, suppressed count, severance tally. The publish drain's
   outcome feeds metrics; the dial drain contributes tallies only.
-- **Seed derivation** — `run_seed = truncate(SHA-256(master_seed ||
-  run_index))`; sub-seeds by domain label: `keys`, `classes`, `churn`,
-  `publisher`, `sampler` (research R6). Recorded in the manifest.
+- **Seed derivation** — `run_seed = SHA-256("experiments/run-seed/v1" ||
+  master_seed || run_index)` (domain-separated, full digest); sub-seeds by
+  domain label: `keys`, `classes`, `churn`, `publisher`, `sampler`
+  (research R6). The rule is recorded verbatim in the manifest, which is
+  the normative spelling.
 
 ## 4. Graph analytics
 
@@ -101,9 +103,10 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
     the spec's "sent-to-down" term; one concept, one field (spec FR-018).
   - **Size invariant**: scalars + degree/depth-bounded vectors only —
     nothing O(N) (spec FR-028; SC-005).
-- **PerNodeDetail** (opt-in, off by default): per node — first-receipt wave,
-  first-delivery origin, in/out degree, miss cause (if missed), class/down.
-  Regenerable exactly from `seed` (spec FR-030).
+- **PerNodeDetail** (opt-in, off by default): one row per (publish, node) —
+  `publish` index and `node` id, then first-receipt wave, first-delivery
+  origin, in/out degree, miss cause (if missed), class/down. Regenerable
+  exactly from `seed` (spec FR-030).
 
 ## 6. Statistics & aggregates
 
@@ -118,16 +121,19 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
   integer-valued metrics (missed count, max depth, sink count); fixed-width
   bins for coverage fractions (bin width a statistics-module constant, not
   config); pooled depth histogram = element-wise sum of in-run `depth_hist`.
-- **ExperimentAggregates** — per experiment: the three `CountEstimate`s,
-  the histograms above, message-cost means/percentiles (incl. per-class
-  send means, duplication ratio), min-publisher-coverage histogram.
+- **ExperimentAggregates** — per experiment: its manifest index
+  (`experiment`) and fold counts (`runs`, `publishes`), the three
+  `CountEstimate`s, the histograms above, message-cost means/percentiles
+  (incl. per-class send means, duplication ratio),
+  min-publisher-coverage histogram.
   **Derivability invariant**: a pure fold of the run records in run-index
   order (spec FR-029); float folds in canonical order (research R3).
 - **SweepManifest** — tool commit, master seed + derivation rule
-  description, fixed parameters, axes, expanded experiment list (index →
-  parameter set). Result-affecting inputs only; invocation surface (output
-  dir, worker count, detail flags) deliberately excluded (contracts/
-  sweep-config.md).
+  description, runs-per-experiment, expanded experiment list (index →
+  fully resolved parameter set; axes and fixed parameters are expanded
+  into it, not carried as separate fields). Result-affecting inputs only;
+  invocation surface (output dir, worker count, detail flags) deliberately
+  excluded (contracts/sweep-config.md).
 
 ## 7. Configuration
 
@@ -135,10 +141,12 @@ stays at genesis for the whole run (single-epoch, spec FR-009).
   dissemination model (v1: `m2` only accepted), population size, class
   counts, churn (count | proportion), topic, strategy parameters (per-class
   triads incl. `target_degree`), `runs_per_experiment`, `publishes_per_run`
-  (default 1), axes (parameter name → value list), master seed.
-- **Validation** (rejection at parse/build): unknown model; zero eligible
-  receivers; churn exceeding the honest population or leaving no up-honest
-  publisher; multi-topic requests.
+  (default 1), ordered axes (one swept parameter + its values each),
+  master seed.
+- **Validation** (rejection at parse/build): unknown model; conflicting
+  count/fraction spellings; zero eligible receivers; churn exceeding the
+  honest population or leaving no up-honest publisher. (The schema admits
+  exactly one topic — multi-topic is a parse error.)
 - **Invocation flags** (clap, outside the manifest): config path, output
   directory, `--workers`, `--per-node-detail`.
 

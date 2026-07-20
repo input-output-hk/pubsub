@@ -800,8 +800,10 @@ comparison table can be filled from the artifacts.
 **Output contract**
 
 - **FR-028**: A sweep MUST emit exactly three data artifacts (no plotting):
-  a manifest (tool commit, master seed and derivation rule, fixed
-  parameters, axes, expanded experiment list referenced by index), run
+  a manifest (tool commit, master seed and derivation rule, and the
+  expanded experiment list — one fully resolved parameter set per
+  experiment, referenced by index; axes and fixed parameters appear
+  expanded there), run
   records (one row per run, streamed in canonical order, containing only
   scalars and degree/depth-bounded vectors — nothing sized by the
   population), and a per-experiment aggregates file. There is no
@@ -850,8 +852,8 @@ comparison table can be filled from the artifacts.
 - **Sweep**: a set of experiments serving one question (typically one curve);
   the unit of execution, output, and provenance.
 - **Sweep manifest**: the self-description artifact — code identity, master
-  seed and derivation rule, fixed parameters, axes, expanded experiment
-  list.
+  seed and derivation rule, and the expanded experiment list (one fully
+  resolved parameter set per experiment).
 - **Run record**: one row per run — seed, population as drawn, dial tallies,
   graph-analytic results (pre/post churn), publish-drain results; bounded
   size independent of population.

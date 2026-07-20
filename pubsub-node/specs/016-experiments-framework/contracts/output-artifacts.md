@@ -29,8 +29,10 @@ PerNodeDetail). Never produced by default.
 3. **Bounded rows**: a run record contains scalars and degree/depth-bounded
    vectors only; size independent of population (FR-028, SC-005).
 4. **Self-description**: `manifest.json` carries tool commit, master seed,
-   the seed-derivation rule, fixed parameters, axes, and the expanded
-   experiment list; run records reference experiments by index into it.
+   the seed-derivation rule, runs-per-experiment, and the expanded
+   experiment list — one fully resolved parameter set per experiment (axes
+   and fixed parameters appear expanded there, not as separate fields);
+   run records reference experiments by index into it.
 5. **No plotting, no prose**: artifacts are data; interpretation lives in
    analysis tooling and write-ups.
 6. **Interruption**: an interrupted sweep leaves `runs.jsonl` as a valid

@@ -99,10 +99,12 @@ recursive DFS (stack overflow at scale).
 
 ## R6 — Seed derivation: SHA-256 over (master_seed, run_index)
 
-**Decision**: `run_seed = truncate(SHA-256(master_seed || run_index))`;
+**Decision**: `run_seed = SHA-256(domain-prefix || master_seed ||
+run_index)` (full digest, domain prefix `experiments/run-seed/v1`);
 per-run sub-seeds (key generation, class assignment, churn draw, publisher
 choice, sampler seed) derive from the run seed with domain-separating
-labels. The rule is recorded in the manifest.
+labels. The rule is recorded verbatim in the manifest, which is the
+normative spelling.
 
 **Rationale**: pre-derived seeds are independent of execution order (the
 parallelism prerequisite); `sha2` is already a dependency; domain separation

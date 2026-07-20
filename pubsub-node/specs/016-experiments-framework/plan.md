@@ -61,7 +61,7 @@ results unchanged; core touched only via crate-internal access (ordering of
 core collections delegated to the in-flight connection-link work — spec
 Clarifications 2026-07-18).
 
-**Scale/Scope**: eight submodules under `src/experiments/` + one binary;
+**Scale/Scope**: nine submodules under `src/experiments/` + one binary;
 two experiments-only strategy instances; three output artifact kinds; two
 shipped comparison configurations + smoke variant; no protocol changes.
 

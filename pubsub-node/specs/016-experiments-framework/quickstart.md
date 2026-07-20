@@ -3,8 +3,7 @@
 ## Build & test
 
 ```sh
-cargo build --features experiments            # library + experiments module
-cargo build --features experiments --bins    # + the `experiments` binary
+cargo build --features experiments            # library, module, and the `experiments` binary
 cargo test                                    # default build — must be unaffected
 cargo test --features experiments             # + framework suite (incl. smoke)
 ```
@@ -13,13 +12,13 @@ For the M2-comparison sweeps (large populations, thousands of runs) build
 the binary in release mode:
 
 ```sh
-cargo build --release --features experiments --bins
+cargo build --release --features experiments
 ```
 
 ## Run a single experiment
 
 Write a sweep description (see `contracts/sweep-config.md` for the shape;
-omit `[axes]` for a single experiment), then:
+omit the `[[axes]]` entries for a single experiment), then:
 
 ```sh
 experiments --config my-experiment.toml --out results/my-experiment/
@@ -56,9 +55,9 @@ tracing which cluster missed and why.
 ## The M2-comparison demonstration (manual procedure)
 
 1. `experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/ --workers 1`
-   (N = 20 000, μ = 0.2, RF = 24; 40 runs, ≲ 1 h with the release build.
-   Each in-flight run holds the full 20 000-node population — ~30 GB — so
-   pick `--workers` for your memory budget).
+   (N = 20 000, μ = 0.2, RF = 24; 40 runs, ~15 min at `--workers 1` with
+   the release build. Each in-flight run holds the full 20 000-node
+   population — ~30 GB — so pick `--workers` for your memory budget).
 2. `experiments --config configs/experiments/m2-bulk-regime.toml --out results/m2-bulk/`
    (the named bulk-regime point: N = 4 000, μ = 0.2, RF = 16; 8000 small-N
    runs at ~1 GB each — the default worker count is fine).
@@ -66,7 +65,9 @@ tracing which cluster missed and why.
    values (`../formal_spec/hybrid_dissemination/models/comparison.md` and
    m2's `full_coverage.md`):
    - from `results/m2-op/aggregates.json`: honest→honest sends
-     (`sends.honest` mean), copies per honest node, depth distribution;
+     (`sends_honest_mean`), copies per honest node (derived:
+     `sends_honest_mean` / honest count), depth distribution
+     (`depth_hist_pooled`);
    - from `results/m2-bulk/aggregates.json`: P(good) counts + Wilson 95%
      vs the coverage law's prediction at those parameters.
 4. Record agreement or explained deviation — the demonstration informs, it
