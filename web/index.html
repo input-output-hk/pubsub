@@ -209,8 +209,7 @@
   .model-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
   /* Scroll unfold — rows fold down one after another when the section is
      reached; applied only once JS opts in, so without JS (or with reduced
-     motion) the table renders complete. The strip's outline fades with the
-     trigger so no empty box shows while rows are folded. */
+     motion) the table renders complete. */
   .models-animate {
     perspective: 900px;
     opacity: 0;
@@ -396,6 +395,7 @@
     gap: 18px;
   }
   .material-tile {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -409,6 +409,17 @@
   }
   .material-tile:hover { border-color: var(--iog-infared); }
   .material-tile:hover .material-name { color: var(--iog-infared); }
+  .material-arrow {
+    position: absolute;
+    right: 20px;
+    bottom: 18px;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--iog-infared);
+    transition: color .15s ease, transform .15s ease;
+  }
+  .material-tile:hover .material-arrow { color: var(--iog-ember-orange); transform: translateX(4px); }
   .material-icon {
     width: 40px;
     height: 40px;
@@ -526,7 +537,6 @@
   footer {
     border-top: 1px solid var(--line);
     padding: 28px 0 36px;
-    margin-top: 40px;
   }
   .footer-row {
     display: flex;
@@ -807,6 +817,7 @@
           <span class="material-name">Midyear presentation</span>
           <p class="material-desc">The latest R&amp;D progress deck: findings from the exploratory phase and the plan for the empirically-driven architecture.</p>
           <span class="material-note">July 2026</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
         </a>
         <a class="material-tile" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
           <div class="material-icon">
@@ -815,6 +826,7 @@
           <span class="material-name">Source repository <span class="badge-soon">Open-sourcing soon</span></span>
           <p class="material-desc">The Rust prototype node, simulation framework, formal specifications, and analysis reports — currently private, to be opened.</p>
           <span class="material-note">GitHub</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
         </a>
         <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
           <div class="material-icon">
@@ -823,6 +835,7 @@
           <span class="material-name">Research logbook <span class="badge-soon">Public soon</span></span>
           <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen — public once the repository opens.</p>
           <span class="material-note">Ongoing</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
         </a>
       </div>
     </div>
