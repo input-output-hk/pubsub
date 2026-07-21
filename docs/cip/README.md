@@ -5,6 +5,10 @@ Category: Network
 Status: Proposed
 Authors:
     - Will Wolff <william.wolff@iohk.io>
+    - Ezequiel Postan <ezequiel.postan@iohk.io>
+    - Denis Firsov <denis.firsov@gmail.com>
+    - Jesus Diaz Vico <jesus.diaz.vico@gmail.com>
+    - Dana Alibrandi <dalibrandi@gmail.com>
 Implementors: []
 Discussions:
     - Original PR: https://github.com/cardano-foundation/CIPs/pull/?
