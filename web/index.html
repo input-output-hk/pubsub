@@ -401,6 +401,63 @@
     padding-top: 18px;
   }
 
+  /* ---------- Commit activity heatmap ---------- */
+  .heatmap {
+    --hm-l0: #EDEEEC;
+    --hm-l1: #C4E8D4;
+    --hm-l2: #83D0A8;
+    --hm-l3: #2FAE6E;
+    --hm-l4: #00994A;
+  }
+  html[data-theme="dark"] .heatmap {
+    --hm-l0: #1E1E1E;
+    --hm-l1: #0B3D26;
+    --hm-l2: #056B43;
+    --hm-l3: #03B168;
+    --hm-l4: #06FF89;
+  }
+  .heatmap-grid, .heatmap-months { display: flex; gap: 3px; width: 100%; }
+  .heatmap-months { margin-bottom: 4px; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 3px; flex: 1 1 0; min-width: 0; }
+  .heatmap-col.heatmap-labels { flex: 0 0 auto; }
+  .heatmap-cell { width: 100%; aspect-ratio: 1; border-radius: 3px; }
+  .heatmap-l0 { background: var(--hm-l0); }
+  .heatmap-l1 { background: var(--hm-l1); }
+  .heatmap-l2 { background: var(--hm-l2); }
+  .heatmap-l3 { background: var(--hm-l3); }
+  .heatmap-l4 { background: var(--hm-l4); }
+  .heatmap-blank { background: transparent; }
+  .heatmap-day-label, .heatmap-month-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
+  }
+  .heatmap-day-label {
+    width: 34px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+  }
+  .heatmap-months .heatmap-day-label { flex: 0 0 auto; }
+  .heatmap-month-label { flex: 1 1 0; min-width: 0; overflow: visible; white-space: nowrap; }
+  .heatmap-tooltip {
+    position: fixed;
+    z-index: 60;
+    display: none;
+    pointer-events: none;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    background: var(--text);
+    color: var(--bg);
+    padding: 5px 9px;
+    border-radius: 6px;
+  }
+
   /* ---------- "Soon" badge ---------- */
   .badge-soon {
     font-family: var(--font-mono);
@@ -459,6 +516,7 @@
     <a href="#scenarios">Scenarios</a>
     <a href="#research">Research</a>
     <a href="#experiments">Experiments</a>
+    <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
     <a href="slides/midyear-2026.html">Presentation</a>
   </div>
@@ -689,6 +747,16 @@
     </div>
   </section>
 
+  <section class="block" id="activity">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Development activity</div>
+        <h2 id="activity-title">Contributions over the last 6 months</h2>
+      </header>
+      <div class="heatmap" id="commit-heatmap"></div>
+    </div>
+  </section>
+
   <section class="block" id="materials">
     <div class="container">
       <header class="section-head">
@@ -757,6 +825,129 @@
         menuBtn.setAttribute('aria-expanded', 'false');
       });
     });
+  })();
+</script>
+
+<script>
+  /* Commit activity heatmap — GitHub-style year grid rendered from
+     assets/commit-activity.json (per-day commit counts, generated at deploy time). */
+  (function () {
+    var WEEKS = 26;
+    var DAY_MS = 24 * 60 * 60 * 1000;
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+
+    function isoDate(d) {
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    function level(count, max) {
+      if (count === 0) return 0;
+      var q = count / max;
+      return q <= 0.25 ? 1 : q <= 0.5 ? 2 : q <= 0.75 ? 3 : 4;
+    }
+
+    function render(container, data) {
+      var counts = data.counts || {};
+      var end = new Date();
+      end.setHours(0, 0, 0, 0);
+      var start = new Date(end.getTime() - (WEEKS * 7 - 1) * DAY_MS);
+      start = new Date(start.getTime() - start.getDay() * DAY_MS); // align to Sunday
+
+      var max = 0, total = 0;
+      for (var d = new Date(start); d <= end; d = new Date(d.getTime() + DAY_MS)) {
+        var c = counts[isoDate(d)] || 0;
+        if (c > max) max = c;
+        total += c;
+      }
+
+      var grid = document.createElement('div');
+      grid.className = 'heatmap-grid';
+
+      var labelCol = document.createElement('div');
+      labelCol.className = 'heatmap-col heatmap-labels';
+      DAY_LABELS.forEach(function (text) {
+        var cell = document.createElement('div');
+        cell.className = 'heatmap-day-label';
+        cell.textContent = text;
+        labelCol.appendChild(cell);
+      });
+      grid.appendChild(labelCol);
+
+      var months = document.createElement('div');
+      months.className = 'heatmap-months';
+      var spacer = document.createElement('div');
+      spacer.className = 'heatmap-day-label';
+      months.appendChild(spacer);
+
+      var lastMonth = -1;
+      for (var week = new Date(start); week <= end; week = new Date(week.getTime() + 7 * DAY_MS)) {
+        var monthCell = document.createElement('div');
+        monthCell.className = 'heatmap-month-label';
+        if (week.getMonth() !== lastMonth && week.getDate() <= 14) {
+          monthCell.textContent = MONTHS[week.getMonth()];
+        }
+        lastMonth = week.getMonth();
+        months.appendChild(monthCell);
+
+        var col = document.createElement('div');
+        col.className = 'heatmap-col';
+        for (var i = 0; i < 7; i++) {
+          var day = new Date(week.getTime() + i * DAY_MS);
+          var cell = document.createElement('div');
+          if (day > end) {
+            cell.className = 'heatmap-cell heatmap-blank';
+          } else {
+            var n = counts[isoDate(day)] || 0;
+            cell.className = 'heatmap-cell heatmap-l' + level(n, max);
+            cell.dataset.count = n;
+            cell.dataset.date = isoDate(day);
+          }
+          col.appendChild(cell);
+        }
+        grid.appendChild(col);
+      }
+
+      var title = document.getElementById('activity-title');
+      if (title) title.textContent = total + ' contributions over the last 6 months';
+
+      container.appendChild(months);
+      container.appendChild(grid);
+
+      var tip = document.createElement('div');
+      tip.className = 'heatmap-tooltip';
+      document.body.appendChild(tip);
+      container.addEventListener('mouseover', function (e) {
+        var cell = e.target.closest('.heatmap-cell');
+        if (!cell || !cell.dataset.date) { tip.style.display = 'none'; return; }
+        var parts = cell.dataset.date.split('-');
+        var n = Number(cell.dataset.count);
+        tip.textContent = n + ' commit' + (n === 1 ? '' : 's') + ' on ' +
+          MONTHS[Number(parts[1]) - 1] + ' ' + Number(parts[2]) + ', ' + parts[0];
+        var r = cell.getBoundingClientRect();
+        var above = r.top > 44;
+        tip.style.left = (r.left + r.width / 2) + 'px';
+        tip.style.top = (above ? r.top - 8 : r.bottom + 8) + 'px';
+        tip.style.transform = above ? 'translate(-50%, -100%)' : 'translate(-50%, 0)';
+        tip.style.display = 'block';
+      });
+      container.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+    }
+
+    var container = document.getElementById('commit-heatmap');
+    if (!container) return;
+    fetch('assets/commit-activity.json')
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) { render(container, data); })
+      .catch(function (err) {
+        console.warn('commit heatmap: could not load activity data:', err);
+      });
   })();
 </script>
 
