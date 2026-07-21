@@ -207,6 +207,26 @@
   .model-mech { font-size: 0.92rem; color: var(--text-mute); line-height: 1.55; }
   .model-mech strong { color: var(--text); font-weight: 600; }
   .model-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
+  /* Scroll unfold — rows fold down one after another when the section is
+     reached; applied only once JS opts in, so without JS (or with reduced
+     motion) the table renders complete. */
+  .models-animate {
+    perspective: 900px;
+    opacity: 0;
+    transition: opacity .3s ease;
+  }
+  .models-animate.models-in { opacity: 1; }
+  .models-animate .model-row {
+    opacity: 0;
+    transform: rotateX(-65deg);
+    transform-origin: 50% 0;
+    transition: opacity .45s ease, transform .45s ease;
+  }
+  .models-animate .model-row:nth-child(2) { transition-delay: .09s; }
+  .models-animate .model-row:nth-child(3) { transition-delay: .18s; }
+  .models-animate .model-row:nth-child(4) { transition-delay: .27s; }
+  .models-animate .model-row:nth-child(5) { transition-delay: .36s; }
+  .models-animate.models-in .model-row { opacity: 1; transform: none; }
   @media (max-width: 480px) {
     .model-row { grid-template-columns: 1fr; gap: 4px; }
     .model-arrow { display: none; }
@@ -266,19 +286,35 @@
   }
   @media (prefers-reduced-motion: reduce) { .timeline-entry.active::after { animation: none; } }
   .timeline-entry.ahead::before { background: var(--bg); border: 2px solid var(--line-strong); }
-  /* Completed stretch of the line — translucent infrared over the base line */
-  .timeline-entry.done::after {
-    content: "";
+  /* Scroll-drawn line — the gray track and its infrared completed stretch are
+     both grown by JS as the page scrolls; the infrared part stops at the
+     active entry's dot while the track continues to the planned entry. */
+  .timeline-track,
+  .timeline-progress {
     position: absolute;
     left: 5px;
-    top: 0;
-    bottom: 0;
+    top: 8px;
     width: 2px;
-    background: var(--iog-infared);
-    opacity: 0.35;
+    height: 0;
     pointer-events: none;
   }
-  .timeline-entry.done:first-child::after { top: 8px; }
+  .timeline-track { background: var(--line); }
+  .timeline-progress { background: var(--iog-infared); opacity: 0.35; }
+  /* Scroll reveal — applied only once JS opts in; without JS (or with reduced
+     motion) the static line and all entries stay visible */
+  .timeline-animate::before { display: none; }
+  .timeline-animate .timeline-entry > * {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity .55s ease, transform .55s ease;
+  }
+  .timeline-animate .timeline-entry.in-view > * { opacity: 1; transform: none; }
+  .timeline-animate .timeline-entry::before {
+    transform: scale(0);
+    transition: transform .35s ease;
+  }
+  .timeline-animate .timeline-entry.in-view::before { transform: scale(1); }
+  .timeline-animate .timeline-entry.active:not(.in-view)::after { display: none; }
   .timeline-marker {
     display: block;
     margin-bottom: 6px;
@@ -345,8 +381,11 @@
       text-align: right;
     }
     .timeline-entry:nth-child(odd) p { margin-left: auto; }
-    .timeline-entry:nth-child(odd).done::after { left: auto; right: -1px; }
-    .timeline-entry:nth-child(even).done::after { left: -1px; right: auto; }
+    .timeline-track, .timeline-progress { left: calc(50% - 1px); }
+    /* Two-column layout: entries slide in from their own side */
+    .timeline-animate .timeline-entry:nth-child(odd) > * { transform: translateX(-28px); }
+    .timeline-animate .timeline-entry:nth-child(even) > * { transform: translateX(28px); }
+    .timeline-animate .timeline-entry.in-view > * { transform: none; }
   }
 
   /* ---------- Materials ---------- */
@@ -356,6 +395,7 @@
     gap: 18px;
   }
   .material-tile {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -369,6 +409,17 @@
   }
   .material-tile:hover { border-color: var(--iog-infared); }
   .material-tile:hover .material-name { color: var(--iog-infared); }
+  .material-arrow {
+    position: absolute;
+    right: 20px;
+    bottom: 18px;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--iog-infared);
+    transition: color .15s ease, transform .15s ease;
+  }
+  .material-tile:hover .material-arrow { color: var(--iog-ember-orange); transform: translateX(4px); }
   .material-icon {
     width: 40px;
     height: 40px;
@@ -401,6 +452,63 @@
     padding-top: 18px;
   }
 
+  /* ---------- Commit activity heatmap ---------- */
+  .heatmap {
+    --hm-l0: #EDEEEC;
+    --hm-l1: #C4E8D4;
+    --hm-l2: #83D0A8;
+    --hm-l3: #2FAE6E;
+    --hm-l4: #00994A;
+  }
+  html[data-theme="dark"] .heatmap {
+    --hm-l0: #1E1E1E;
+    --hm-l1: #0B3D26;
+    --hm-l2: #056B43;
+    --hm-l3: #03B168;
+    --hm-l4: #06FF89;
+  }
+  .heatmap-grid, .heatmap-months { display: flex; gap: 3px; width: 100%; }
+  .heatmap-months { margin-bottom: 4px; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 3px; flex: 1 1 0; min-width: 0; }
+  .heatmap-col.heatmap-labels { flex: 0 0 auto; }
+  .heatmap-cell { width: 100%; aspect-ratio: 1; border-radius: 3px; }
+  .heatmap-l0 { background: var(--hm-l0); }
+  .heatmap-l1 { background: var(--hm-l1); }
+  .heatmap-l2 { background: var(--hm-l2); }
+  .heatmap-l3 { background: var(--hm-l3); }
+  .heatmap-l4 { background: var(--hm-l4); }
+  .heatmap-blank { background: transparent; }
+  .heatmap-day-label, .heatmap-month-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
+  }
+  .heatmap-day-label {
+    width: 34px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+  }
+  .heatmap-months .heatmap-day-label { flex: 0 0 auto; }
+  .heatmap-month-label { flex: 1 1 0; min-width: 0; overflow: visible; white-space: nowrap; }
+  .heatmap-tooltip {
+    position: fixed;
+    z-index: 60;
+    display: none;
+    pointer-events: none;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    background: var(--text);
+    color: var(--bg);
+    padding: 5px 9px;
+    border-radius: 6px;
+  }
+
   /* ---------- "Soon" badge ---------- */
   .badge-soon {
     font-family: var(--font-mono);
@@ -429,7 +537,6 @@
   footer {
     border-top: 1px solid var(--line);
     padding: 28px 0 36px;
-    margin-top: 40px;
   }
   .footer-row {
     display: flex;
@@ -459,6 +566,7 @@
     <a href="#scenarios">Scenarios</a>
     <a href="#research">Research</a>
     <a href="#experiments">Experiments</a>
+    <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
     <a href="slides/midyear-2026.html">Presentation</a>
   </div>
@@ -559,9 +667,8 @@
         <div class="section-kind">Why it matters</div>
         <h2>Critical communication deserves the same guarantees as transactions</h2>
         <p>
-          Ecosystem-critical messages today travel over social platforms and chat servers —
-          unauthenticated and open to impersonation. PubSub extends Cardano's trust guarantees
-          to the messages that coordinate the ecosystem.
+          Today these messages travel over social platforms and chat servers, open to
+          impersonation. PubSub brings them under Cardano's trust guarantees.
         </p>
       </header>
       <div class="card-grid">
@@ -594,10 +701,6 @@
       <header class="section-head">
         <div class="section-kind">Research programme</div>
         <h2>From proposed design to evidence-based architecture</h2>
-        <p>
-          The workstream moves in phases: rigorous analysis of the proposed foundations first,
-          then an architecture built on what the evidence supports.
-        </p>
       </header>
       <div class="timeline">
         <div class="timeline-entry done">
@@ -612,7 +715,7 @@
         </div>
         <div class="timeline-entry done">
           <div class="timeline-marker">Feb 2026</div>
-          <div class="timeline-tag">Phase 1 · <span class="status-done">Complete</span> · Feb – Jul 2026</div>
+          <div class="timeline-tag">Phase 1 · <span class="status-done">Complete</span></div>
           <h3>Exploratory research</h3>
           <p>
             Use-case and requirements analysis, cryptographic key-material study, and formal plus
@@ -624,7 +727,7 @@
         </div>
         <div class="timeline-entry active">
           <div class="timeline-marker">Jul 2026</div>
-          <div class="timeline-tag">Phase 2 · <span class="status-active">Active</span> · Jul – Sep 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">Active</span></div>
           <h3>Empirically-driven architecture</h3>
           <p>
             <a href="#experiments">Five candidate dissemination models</a>, from simple push to hybrid designs, analysed
@@ -657,11 +760,9 @@
         <div class="section-kind">Experiments</div>
         <h2>Five candidate models, one bar</h2>
         <p>
-          We are not proposing a dissemination design — we are deriving one. Five candidate
-          models, each a different rule set for how nodes connect to their peers and forward
-          messages, are measured against one shared bar: every message of every honest
-          publisher must reach all other honest nodes — with a fraction μ of silent
-          Byzantine nodes receiving everything and relaying nothing.
+          We are not proposing a dissemination design — we are deriving one. All five
+          models face the same bar: every honest publisher's message reaches every honest
+          node, despite silent Byzantine peers.
         </p>
       </header>
       <div class="model-strip">
@@ -692,6 +793,16 @@
     </div>
   </section>
 
+  <section class="block" id="activity">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Development activity</div>
+        <h2 id="activity-title">Contributions over the last 6 months</h2>
+      </header>
+      <div class="heatmap" id="commit-heatmap"></div>
+    </div>
+  </section>
+
   <section class="block" id="materials">
     <div class="container">
       <header class="section-head">
@@ -706,6 +817,7 @@
           <span class="material-name">Midyear presentation</span>
           <p class="material-desc">The latest R&amp;D progress deck: findings from the exploratory phase and the plan for the empirically-driven architecture.</p>
           <span class="material-note">July 2026</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
         </a>
         <a class="material-tile" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
           <div class="material-icon">
@@ -714,6 +826,7 @@
           <span class="material-name">Source repository <span class="badge-soon">Open-sourcing soon</span></span>
           <p class="material-desc">The Rust prototype node, simulation framework, formal specifications, and analysis reports — currently private, to be opened.</p>
           <span class="material-note">GitHub</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
         </a>
         <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
           <div class="material-icon">
@@ -722,6 +835,7 @@
           <span class="material-name">Research logbook <span class="badge-soon">Public soon</span></span>
           <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen — public once the repository opens.</p>
           <span class="material-note">Ongoing</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
         </a>
       </div>
     </div>
@@ -760,6 +874,193 @@
         menuBtn.setAttribute('aria-expanded', 'false');
       });
     });
+  })();
+</script>
+
+<script>
+  /* Research timeline — everything is drawn by scroll: a fill front tied to
+     the scroll position grows the gray track, grows the infrared stretch up
+     to the active (today) entry's dot, and pops each dot and entry into view
+     as the front reaches it. Scrolling back up reverses the whole drawing. */
+  (function () {
+    var timeline = document.querySelector('.timeline');
+    if (!timeline) return;
+    var entries = Array.prototype.slice.call(timeline.querySelectorAll('.timeline-entry'));
+    var active = timeline.querySelector('.timeline-entry.active');
+    var LINE_TOP = 8;       // matches .timeline::before top/bottom inset
+    var DOT_CENTER = 11;    // dot top (5px) + half its 12px height
+
+    var progress = document.createElement('div');
+    progress.className = 'timeline-progress';
+    timeline.appendChild(progress);
+
+    function cap() {
+      return active ? active.offsetTop + DOT_CENTER : timeline.offsetHeight - LINE_TOP;
+    }
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      progress.style.height = (cap() - LINE_TOP) + 'px';
+      return;
+    }
+
+    timeline.classList.add('timeline-animate');
+    var track = document.createElement('div');
+    track.className = 'timeline-track';
+    timeline.appendChild(track);
+
+    function update() {
+      var rect = timeline.getBoundingClientRect();
+      var front = window.innerHeight * 0.65 - rect.top;
+      var trackEnd = timeline.offsetHeight - LINE_TOP;
+      track.style.height = Math.max(0, Math.min(front, trackEnd) - LINE_TOP) + 'px';
+      progress.style.height = Math.max(0, Math.min(front, cap()) - LINE_TOP) + 'px';
+      entries.forEach(function (el) {
+        el.classList.toggle('in-view', front >= el.offsetTop + DOT_CENTER);
+      });
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  })();
+
+  /* Candidate models — the table unfolds row by row once the scroll front
+     (same 65%-of-viewport line the timeline uses) reaches it, and folds
+     back up when scrolling away. */
+  (function () {
+    var strip = document.querySelector('.model-strip');
+    if (!strip) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    strip.classList.add('models-animate');
+    function update() {
+      var rect = strip.getBoundingClientRect();
+      strip.classList.toggle('models-in', window.innerHeight * 0.65 > rect.top);
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  })();
+</script>
+
+<script>
+  /* Commit activity heatmap — GitHub-style year grid rendered from
+     assets/commit-activity.json (per-day commit counts, generated at deploy time). */
+  (function () {
+    var WEEKS = 26;
+    var DAY_MS = 24 * 60 * 60 * 1000;
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+
+    function isoDate(d) {
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    function level(count, max) {
+      if (count === 0) return 0;
+      var q = count / max;
+      return q <= 0.25 ? 1 : q <= 0.5 ? 2 : q <= 0.75 ? 3 : 4;
+    }
+
+    function render(container, data) {
+      var counts = data.counts || {};
+      var end = new Date();
+      end.setHours(0, 0, 0, 0);
+      var start = new Date(end.getTime() - (WEEKS * 7 - 1) * DAY_MS);
+      start = new Date(start.getTime() - start.getDay() * DAY_MS); // align to Sunday
+
+      var max = 0, total = 0;
+      for (var d = new Date(start); d <= end; d = new Date(d.getTime() + DAY_MS)) {
+        var c = counts[isoDate(d)] || 0;
+        if (c > max) max = c;
+        total += c;
+      }
+
+      var grid = document.createElement('div');
+      grid.className = 'heatmap-grid';
+
+      var labelCol = document.createElement('div');
+      labelCol.className = 'heatmap-col heatmap-labels';
+      DAY_LABELS.forEach(function (text) {
+        var cell = document.createElement('div');
+        cell.className = 'heatmap-day-label';
+        cell.textContent = text;
+        labelCol.appendChild(cell);
+      });
+      grid.appendChild(labelCol);
+
+      var months = document.createElement('div');
+      months.className = 'heatmap-months';
+      var spacer = document.createElement('div');
+      spacer.className = 'heatmap-day-label';
+      months.appendChild(spacer);
+
+      var lastMonth = -1;
+      for (var week = new Date(start); week <= end; week = new Date(week.getTime() + 7 * DAY_MS)) {
+        var monthCell = document.createElement('div');
+        monthCell.className = 'heatmap-month-label';
+        if (week.getMonth() !== lastMonth && week.getDate() <= 14) {
+          monthCell.textContent = MONTHS[week.getMonth()];
+        }
+        lastMonth = week.getMonth();
+        months.appendChild(monthCell);
+
+        var col = document.createElement('div');
+        col.className = 'heatmap-col';
+        for (var i = 0; i < 7; i++) {
+          var day = new Date(week.getTime() + i * DAY_MS);
+          var cell = document.createElement('div');
+          if (day > end) {
+            cell.className = 'heatmap-cell heatmap-blank';
+          } else {
+            var n = counts[isoDate(day)] || 0;
+            cell.className = 'heatmap-cell heatmap-l' + level(n, max);
+            cell.dataset.count = n;
+            cell.dataset.date = isoDate(day);
+          }
+          col.appendChild(cell);
+        }
+        grid.appendChild(col);
+      }
+
+      var title = document.getElementById('activity-title');
+      if (title) title.textContent = total + ' contributions over the last 6 months';
+
+      container.appendChild(months);
+      container.appendChild(grid);
+
+      var tip = document.createElement('div');
+      tip.className = 'heatmap-tooltip';
+      document.body.appendChild(tip);
+      container.addEventListener('mouseover', function (e) {
+        var cell = e.target.closest('.heatmap-cell');
+        if (!cell || !cell.dataset.date) { tip.style.display = 'none'; return; }
+        var parts = cell.dataset.date.split('-');
+        var n = Number(cell.dataset.count);
+        tip.textContent = n + ' commit' + (n === 1 ? '' : 's') + ' on ' +
+          MONTHS[Number(parts[1]) - 1] + ' ' + Number(parts[2]) + ', ' + parts[0];
+        var r = cell.getBoundingClientRect();
+        var above = r.top > 44;
+        tip.style.left = (r.left + r.width / 2) + 'px';
+        tip.style.top = (above ? r.top - 8 : r.bottom + 8) + 'px';
+        tip.style.transform = above ? 'translate(-50%, -100%)' : 'translate(-50%, 0)';
+        tip.style.display = 'block';
+      });
+      container.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+    }
+
+    var container = document.getElementById('commit-heatmap');
+    if (!container) return;
+    fetch('assets/commit-activity.json')
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) { render(container, data); })
+      .catch(function (err) {
+        console.warn('commit heatmap: could not load activity data:', err);
+      });
   })();
 </script>
 
