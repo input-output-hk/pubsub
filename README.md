@@ -4,6 +4,10 @@ A native publish/subscribe communication layer for the Cardano ecosystem: nodes 
 
 The project is currently in **Phase 2 — empirically-driven architecture** ([#46](https://github.com/input-output-hk/pubsub/issues/46)): candidate dissemination topologies (the [*M models*](formal_spec/hybrid_dissemination/models/README.md)) are analysed formally and validated experimentally, converging on a design proposal by mid-August 2026.
 
+> **Important Disclaimer & Acceptance of Risk**
+>
+> This is a proof-of-concept implementation that has not undergone security auditing. This code is provided "as is" for research and educational purposes only. It has not been subjected to a formal security review or audit and may contain vulnerabilities. **Do not use this code in production systems or any environment where security is critical without conducting your own thorough security assessment.** By using this code, you acknowledge and accept all associated risks, and our company disclaims any liability for damages or losses.
+
 ## Repository map
 
 | Path | What it holds |
@@ -43,6 +47,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved and [SECURITY.md]
 
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE).
+Copyright 2025 Input Output Global
 
-Copyright 2026 Input Output Global, Inc.
+Licensed under the Apache License, Version 2.0 (the "License"). You may not use this repository except in compliance
+with the License. You may obtain a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the [License](LICENSE) for
+the specific language governing permissions and limitations under the License.
