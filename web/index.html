@@ -207,6 +207,27 @@
   .model-mech { font-size: 0.92rem; color: var(--text-mute); line-height: 1.55; }
   .model-mech strong { color: var(--text); font-weight: 600; }
   .model-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
+  /* Scroll unfold — rows fold down one after another when the section is
+     reached; applied only once JS opts in, so without JS (or with reduced
+     motion) the table renders complete. The strip's outline fades with the
+     trigger so no empty box shows while rows are folded. */
+  .models-animate {
+    perspective: 900px;
+    opacity: 0;
+    transition: opacity .3s ease;
+  }
+  .models-animate.models-in { opacity: 1; }
+  .models-animate .model-row {
+    opacity: 0;
+    transform: rotateX(-65deg);
+    transform-origin: 50% 0;
+    transition: opacity .45s ease, transform .45s ease;
+  }
+  .models-animate .model-row:nth-child(2) { transition-delay: .09s; }
+  .models-animate .model-row:nth-child(3) { transition-delay: .18s; }
+  .models-animate .model-row:nth-child(4) { transition-delay: .27s; }
+  .models-animate .model-row:nth-child(5) { transition-delay: .36s; }
+  .models-animate.models-in .model-row { opacity: 1; transform: none; }
   @media (max-width: 480px) {
     .model-row { grid-template-columns: 1fr; gap: 4px; }
     .model-arrow { display: none; }
@@ -883,6 +904,23 @@
       entries.forEach(function (el) {
         el.classList.toggle('in-view', front >= el.offsetTop + DOT_CENTER);
       });
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  })();
+
+  /* Candidate models — the table unfolds row by row once the scroll front
+     (same 65%-of-viewport line the timeline uses) reaches it, and folds
+     back up when scrolling away. */
+  (function () {
+    var strip = document.querySelector('.model-strip');
+    if (!strip) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    strip.classList.add('models-animate');
+    function update() {
+      var rect = strip.getBoundingClientRect();
+      strip.classList.toggle('models-in', window.innerHeight * 0.65 > rect.top);
     }
     window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
