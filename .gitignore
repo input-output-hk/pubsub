@@ -29,3 +29,6 @@ target/
 
 # Local-only design notes (per-session scratch, not for version control)
 pubsub-node/notes/
+
+# Generated at deploy time by .github/workflows/docs.yml
+web/assets/commit-activity.json

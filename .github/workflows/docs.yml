@@ -25,6 +25,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for the commit activity heatmap
+      - name: Generate commit activity data
+        run: |
+          python3 - <<'EOF'
+          import json, subprocess
+          from collections import Counter
+          dates = subprocess.run(
+              ["git", "log", "--format=%as"],
+              capture_output=True, text=True, check=True,
+          ).stdout.split()
+          counts = Counter(dates)
+          with open("web/assets/commit-activity.json", "w") as f:
+              json.dump({"counts": dict(sorted(counts.items())), "total": len(dates)}, f)
+          EOF
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web
