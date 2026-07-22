@@ -16,18 +16,21 @@ mod publisher_links;
 mod setup;
 mod severance;
 mod shutdown;
+mod symmetric_links;
 
 use super::*;
 
 pub(crate) use crate::connection_state::test_support::{
     accepted_from, membership_joined, misattributed_request, payload_from, payload_via,
     publisher_accepted_from, publisher_rejected_from, publisher_request_from,
-    publisher_terminated_from, rejected_from, request_from, tampered_payload_from, terminated_from,
-    ConnectionScript,
+    publisher_terminated_from, rejected_from, request_from, symmetric_accepted_from,
+    symmetric_rejected_from, symmetric_request_from, symmetric_terminated_from,
+    tampered_payload_from, terminated_from, ConnectionScript,
 };
 pub(crate) use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
 pub(crate) use crate::crypto::PublicKey;
 pub(crate) use crate::crypto::{Signer, Timestamp};
+pub(crate) use crate::message::HandshakeKind;
 pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
 pub(crate) use crate::strategies::acceptance::{
     AcceptFromAllCandidates, HashGatedBoundedAcceptance,
@@ -197,36 +200,34 @@ fn has_downstream(state: &NodeState, p: &str, t: &str) -> bool {
     state.downstream_relays().contains(&(peer(p), topic(t)))
 }
 
-/// The `(to, topic)` of every `Request` send effect (asserting emitter == self).
+/// The `(to, topic)` of every `Request` send effect, any handshake kind
+/// (asserting emitter == self).
 fn request_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if let ConnectionAction::Request { topic } = &cm.plain.action {
-                assert_eq!(cm.plain.emitter, peer(expected_emitter), "request emitter");
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((_, cm)) = message.connection_parts() {
+                if let ConnectionAction::Request { topic } = &cm.plain.action {
+                    assert_eq!(cm.plain.emitter, peer(expected_emitter), "request emitter");
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }
     out
 }
 
-/// The `(to, topic)` of every `Accepted` send effect (asserting emitter == self).
+/// The `(to, topic)` of every `Accepted` send effect, any handshake kind
+/// (asserting emitter == self).
 fn accepted_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if let ConnectionAction::Accepted { topic } = &cm.plain.action {
-                assert_eq!(cm.plain.emitter, peer(expected_emitter), "accepted emitter");
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((_, cm)) = message.connection_parts() {
+                if let ConnectionAction::Accepted { topic } = &cm.plain.action {
+                    assert_eq!(cm.plain.emitter, peer(expected_emitter), "accepted emitter");
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }
@@ -321,9 +322,38 @@ fn node_state_with_publishers(
             relay_acceptance: Arc::new(AcceptFromAllCandidates),
             publisher_connection: Some(publisher_strategy),
             publisher_acceptance: Some(publisher_acceptance),
+            symmetric_edges: false,
         },
         Arc::new(ForwardToRelays),
         admission,
+    );
+    for t in subscriptions {
+        state
+            .registered_topics
+            .insert(t, TopicEntry::from_publishers(BTreeSet::new()));
+    }
+    state
+}
+
+// ---- 015 review round 5: symmetric (M4) handshake — helpers -----------------
+
+/// Construct a `NodeState` like [`node_state`] but in **symmetric** (M4)
+/// mode, with an explicit relay acceptance instance (the policy the symmetric
+/// handshake consults).
+fn node_state_symmetric(
+    self_id: &str,
+    subscriptions: HashSet<TopicId>,
+    relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+) -> NodeState {
+    let mut state = NodeState::new(
+        peer(self_id),
+        subscriptions.iter().cloned().collect(),
+        0,
+        Arc::new(TestVerifier),
+        alias_signer(self_id),
+        NodeStrategies::relay_only(strategy(), relay_acceptance).with_symmetric_edges(true),
+        Arc::new(ForwardToRelays),
+        PublisherAdmission::default(),
     );
     for t in subscriptions {
         state
@@ -351,41 +381,46 @@ fn with_publisher_target(state: &mut NodeState, peer_alias: &str, t: &str, st: L
     );
 }
 
-/// The `(to, topic)` of every **publisher-kind** `Request` send effect.
+/// The `(to, topic)` of every **publisher-handshake** `Request` send effect.
 fn publisher_request_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
-    kind_sends(effects, expected_emitter, LinkKind::Publisher, |action| {
-        matches!(action, ConnectionAction::Request { .. })
-    })
+    kind_sends(
+        effects,
+        expected_emitter,
+        HandshakeKind::Publisher,
+        |action| matches!(action, ConnectionAction::Request { .. }),
+    )
 }
 
-/// The `(to, topic)` of every **publisher-kind** `Accepted` send effect.
+/// The `(to, topic)` of every **publisher-handshake** `Accepted` send effect.
 fn publisher_accepted_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
-    kind_sends(effects, expected_emitter, LinkKind::Publisher, |action| {
-        matches!(action, ConnectionAction::Accepted { .. })
-    })
+    kind_sends(
+        effects,
+        expected_emitter,
+        HandshakeKind::Publisher,
+        |action| matches!(action, ConnectionAction::Accepted { .. }),
+    )
 }
 
-/// The `(to, topic)` of every control send of `kind` matching `select`.
+/// The `(to, topic)` of every control send under the `kind` handshake's
+/// vocabulary matching `select`.
 fn kind_sends(
     effects: &[Effect],
     expected_emitter: &str,
-    kind: LinkKind,
+    kind: HandshakeKind,
     select: impl Fn(&ConnectionAction) -> bool,
 ) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if cm.plain.kind == kind && select(&cm.plain.action) {
-                assert_eq!(cm.plain.emitter, peer(expected_emitter), "control emitter");
-                let (ConnectionAction::Request { topic }
-                | ConnectionAction::Accepted { topic }
-                | ConnectionAction::Terminated { topic }
-                | ConnectionAction::Rejected { topic }) = &cm.plain.action;
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((sent_kind, cm)) = message.connection_parts() {
+                if sent_kind == kind && select(&cm.plain.action) {
+                    assert_eq!(cm.plain.emitter, peer(expected_emitter), "control emitter");
+                    let (ConnectionAction::Request { topic }
+                    | ConnectionAction::Accepted { topic }
+                    | ConnectionAction::Terminated { topic }
+                    | ConnectionAction::Rejected { topic }) = &cm.plain.action;
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }
@@ -406,22 +441,21 @@ fn has_upstream_publisher(state: &NodeState, p: &str, t: &str) -> bool {
     state.upstream_publishers().contains(&(peer(p), topic(t)))
 }
 
-/// The `(to, topic)` of every `Terminated` send effect (asserting emitter).
+/// The `(to, topic)` of every `Terminated` send effect, any handshake kind
+/// (asserting emitter).
 fn terminated_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if let ConnectionAction::Terminated { topic } = &cm.plain.action {
-                assert_eq!(
-                    cm.plain.emitter,
-                    peer(expected_emitter),
-                    "terminated emitter"
-                );
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((_, cm)) = message.connection_parts() {
+                if let ConnectionAction::Terminated { topic } = &cm.plain.action {
+                    assert_eq!(
+                        cm.plain.emitter,
+                        peer(expected_emitter),
+                        "terminated emitter"
+                    );
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }

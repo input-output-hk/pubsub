@@ -14,9 +14,12 @@
 //!   [`Message::Dissemination`] carries a [`SignedMessage`] (signed-over
 //!   [`PlainMessage`] content plus a signature, with a [`TopicId`], a
 //!   [`PublisherId`], and a [`MessagePayload`] body — currently only
-//!   [`MessagePayload::Ping`]), and [`Message::Connection`] carries a
-//!   [`ConnectionMessage`] (a signed [`PlainConnection`] — the carried emitter
-//!   plus a [`ConnectionAction`]).
+//!   [`MessagePayload::Ping`]), and one connection variant per
+//!   [`HandshakeKind`] ([`Message::RelayConnection`] /
+//!   [`Message::PublisherConnection`] / [`Message::SymmetricConnection`])
+//!   carries a [`ConnectionMessage`] (a signed [`PlainConnection`] — the
+//!   carried emitter plus a [`ConnectionAction`]; the handshake kind is bound
+//!   into the preimage).
 //! - [`LinkKind`], [`LinkKey`], [`LinkState`], [`PublisherAdmission`],
 //!   [`ConnectionStrategy`], [`ConnectToAllCandidates`],
 //!   [`ConnectionAcceptanceStrategy`], [`AcceptFromAllCandidates`] —
@@ -62,8 +65,8 @@ pub use crypto::{
 pub use error::{ConfigError, NetworkError, NodeError};
 pub use event::{Event, EventQueue};
 pub use message::{
-    ConnectionAction, ConnectionMessage, Message, MessagePayload, PlainConnection, PlainMessage,
-    PublisherId, SignedMessage,
+    ConnectionAction, ConnectionMessage, HandshakeKind, Message, MessagePayload, PlainConnection,
+    PlainMessage, PublisherId, SignedMessage,
 };
 pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;

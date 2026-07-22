@@ -11,13 +11,16 @@
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
-/// Which dissemination class a link belongs to.
+/// Which dissemination class a **stored link** belongs to — its traffic
+/// class: what the link admits on the receive gate and carries on fan-out.
 ///
-/// Carried on every connection-control message (inside the signed bytes), so
-/// the acceptor applies the matching acceptance policy, hash domain, and
-/// capacity. The kind implies the data direction of the link being set up: a
-/// relay request's dialer will *receive* from the acceptor; a publisher
-/// request's dialer will *send* its own publications to the acceptor.
+/// Deliberately distinct from the connection-message vocabulary
+/// ([`HandshakeKind`](crate::message::HandshakeKind), ADR 0033), which names
+/// the *establishment protocol* — the two do not map 1:1: the symmetric
+/// handshake establishes ordinary `Relay`-class links, in both directions.
+/// The kind implies the data direction of a dialed link: a relay dialer will
+/// *receive* from the acceptor; a publisher dialer will *send* its own
+/// publications to the acceptor.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum LinkKind {
     /// The pull-based relay mesh: links that carry relayed traffic.
@@ -140,13 +143,12 @@ impl std::str::FromStr for PublisherAdmission {
 pub(crate) mod test_support {
     use std::str::FromStr;
 
-    use super::LinkKind;
     use crate::crypto::mock::MockCryptoScheme;
     use crate::crypto::{Signer, Timestamp};
     use crate::event::Event;
     use crate::message::{
-        ConnectionAction, ConnectionMessage, Message, MessagePayload, PlainConnection,
-        PlainMessage, PublisherId, SignedMessage,
+        ConnectionAction, ConnectionMessage, HandshakeKind, Message, MessagePayload,
+        PlainConnection, PlainMessage, PublisherId, SignedMessage,
     };
     use crate::peer::PeerId;
     use crate::subscription_registry::MembershipEvent;
@@ -167,25 +169,24 @@ pub(crate) mod test_support {
         scheme.signer(scheme.keypair_from_alias(alias).private)
     }
 
-    /// A signed control message from `emitter` carrying `action` for a link of
-    /// `kind`.
-    fn control(emitter: &str, kind: LinkKind, action: ConnectionAction) -> Message {
+    /// A signed control message from `emitter` carrying `action` under the
+    /// `kind` handshake's vocabulary.
+    fn control(emitter: &str, kind: HandshakeKind, action: ConnectionAction) -> Message {
         let plain = PlainConnection {
             emitter: peer(emitter),
-            kind,
             action,
         };
-        let signature = alias_signer(emitter).sign(&plain.signed_bytes());
-        Message::Connection(ConnectionMessage { plain, signature })
+        let signature = alias_signer(emitter).sign(&plain.signed_bytes(kind));
+        Message::connection(kind, ConnectionMessage { plain, signature })
     }
 
     /// A control-message `Event` (the frame `from` is set to the emitter; the
-    /// control path keys on the carried emitter, not the frame). Relay-kind —
-    /// the pre-015 default every existing script step uses.
+    /// control path keys on the carried emitter, not the frame). Relay
+    /// handshake — the pre-015 default every existing script step uses.
     fn control_event(emitter: &str, action: ConnectionAction) -> Event {
         Event::MessageReceived {
             from: peer(emitter),
-            message: control(emitter, LinkKind::Relay, action),
+            message: control(emitter, HandshakeKind::Relay, action),
         }
     }
 
@@ -235,12 +236,61 @@ pub(crate) mod test_support {
         )
     }
 
-    /// A publisher-kind control-message `Event` (feature 015).
+    /// A publisher-handshake control-message `Event` (feature 015).
     fn publisher_control_event(emitter: &str, action: ConnectionAction) -> Event {
         Event::MessageReceived {
             from: peer(emitter),
-            message: control(emitter, LinkKind::Publisher, action),
+            message: control(emitter, HandshakeKind::Publisher, action),
         }
+    }
+
+    /// A symmetric-handshake control-message `Event` (M4, ADR 0033).
+    fn symmetric_control_event(emitter: &str, action: ConnectionAction) -> Event {
+        Event::MessageReceived {
+            from: peer(emitter),
+            message: control(emitter, HandshakeKind::Symmetric, action),
+        }
+    }
+
+    /// A symmetric `Request{topic}` control event from `emitter` — the
+    /// emitter asks for a bidirectional relay-class link.
+    pub(crate) fn symmetric_request_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Request {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A symmetric `Accepted{topic}` control event from `emitter`.
+    pub(crate) fn symmetric_accepted_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Accepted {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A symmetric `Terminated{topic}` control event from `emitter`.
+    pub(crate) fn symmetric_terminated_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Terminated {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A symmetric `Rejected{topic}` control event from `emitter`.
+    pub(crate) fn symmetric_rejected_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Rejected {
+                topic: topic(topic_id),
+            },
+        )
     }
 
     /// A publisher-kind `Request{topic}` control event from `emitter` — the
@@ -294,15 +344,14 @@ pub(crate) mod test_support {
     ) -> Event {
         let plain = PlainConnection {
             emitter: peer(emitter_alias),
-            kind: LinkKind::Relay,
             action: ConnectionAction::Request {
                 topic: topic(topic_id),
             },
         };
-        let signature = alias_signer(signing_alias).sign(&plain.signed_bytes());
+        let signature = alias_signer(signing_alias).sign(&plain.signed_bytes(HandshakeKind::Relay));
         Event::MessageReceived {
             from: peer(emitter_alias),
-            message: Message::Connection(ConnectionMessage { plain, signature }),
+            message: Message::RelayConnection(ConnectionMessage { plain, signature }),
         }
     }
 

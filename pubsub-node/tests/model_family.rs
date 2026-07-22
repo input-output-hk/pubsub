@@ -85,6 +85,9 @@ fn m4_strategies(id: &str) -> NodeStrategies {
                 .with_symmetric(true),
         ),
     )
+    // The symmetric handshake: picks dial under the symmetric vocabulary and
+    // one accept decision records each edge in both directions on both ends.
+    .with_symmetric_edges(true)
 }
 
 // SC-002: 100% link reciprocity and 100% delivery over a predicate-connected
@@ -247,6 +250,7 @@ fn chain_strategies(targets: &[(&str, &TopicId)]) -> NodeStrategies {
                 .collect(),
         ))),
         publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
+        symmetric_edges: false,
     }
 }
 

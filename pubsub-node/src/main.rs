@@ -89,13 +89,14 @@ struct Args {
     #[arg(long)]
     publisher_degree: Option<usize>,
 
-    /// Draw relay edges with the symmetric (unordered-pair) predicate: both
-    /// ends of a valid edge dial each other and every link forms as a
-    /// reciprocal pair. Applies to the relay selection AND acceptance
-    /// hash-gated strategies together (the two sides must agree). The
-    /// bidirectional model uses no publisher links (a publisher's own
-    /// symmetric links carry its message out); publisher strategies, if
-    /// configured anyway, are unaffected by this flag.
+    /// Establish relay links with the symmetric (bidirectional) handshake:
+    /// edges are drawn with the unordered-pair predicate and one accept
+    /// decision records each link in both directions on both ends —
+    /// reciprocity is constructed by the handshake, not dependent on the two
+    /// ends' draws agreeing. Applies to the relay seams; the bidirectional
+    /// model uses no publisher links (a publisher's own symmetric links carry
+    /// its message out), and publisher strategies, if configured anyway, are
+    /// unaffected by this flag.
     #[arg(long)]
     symmetric_edges: bool,
 
@@ -247,18 +248,6 @@ fn validate_flag_combinations(args: &Args) {
         die(
             "--symmetric-edges has no effect: it requires a hash-gated relay strategy \
              (--relay-strategy hash-gated and/or a hash-gated --relay-acceptance-strategy)",
-        );
-    }
-    if args.symmetric_edges
-        && matches!(
-            args.relay_acceptance_strategy,
-            AcceptanceStrategyKind::Bounded | AcceptanceStrategyKind::HashGatedBounded
-        )
-    {
-        die(
-            "--symmetric-edges cannot be combined with a capped acceptance strategy: a \
-             capacity refusal on one end of a symmetric edge silently breaks the pair's \
-             reciprocity (the bidirectional model has no caps)",
         );
     }
     if args.publisher_admission == PublisherAdmission::AnyVerified

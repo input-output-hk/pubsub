@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::connection_state::LinkKind;
 use crate::crypto::{MessageHash, PublicKey, Signature, Timestamp};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -72,21 +71,98 @@ pub enum MessagePayload {
 
 /// A protocol message exchanged between nodes.
 ///
-/// Two variants exist: [`Message::Dissemination`], a signed dissemination
-/// message, and [`Message::Connection`], a signed connection-control message.
-/// Both are signed; the variant axis is dissemination-vs-control. The enum
-/// is `#[non_exhaustive]` so future protocol-message kinds (peer sampling,
-/// registry lookups, …) can be added as sibling variants without breaking
-/// external consumers — pattern-matches outside this crate must include a
-/// catch-all arm.
+/// One dissemination variant plus one connection-control variant **per
+/// handshake kind** — the vocabulary names the establishment protocol, so the
+/// receive path routes each control message to its handshake's handler
+/// without interrogating a kind field (ADR 0033). All variants are signed;
+/// the handshake kind is bound into the control preimage (see
+/// [`PlainConnection::signed_bytes`]), so a message cannot be replayed across
+/// vocabularies. The enum is `#[non_exhaustive]` so future protocol-message
+/// kinds (peer sampling, registry lookups, …) can be added as sibling
+/// variants without breaking external consumers — pattern-matches outside
+/// this crate must include a catch-all arm.
 #[non_exhaustive]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Message {
     /// A signed dissemination message: signed-over content plus a signature.
     Dissemination(SignedMessage),
-    /// A signed connection-control message: a handshake action
-    /// (`Request`/`Accepted`/`Terminated`) plus a signature over its content.
-    Connection(ConnectionMessage),
+    /// A signed **relay**-handshake control message: the dialer asks to
+    /// receive the acceptor's relayed traffic.
+    RelayConnection(ConnectionMessage),
+    /// A signed **publisher**-handshake control message: the dialer asks to
+    /// push its own publications to the acceptor.
+    PublisherConnection(ConnectionMessage),
+    /// A signed **symmetric**-handshake control message: the dialer asks for
+    /// a bidirectional relay-class link — one handshake establishes the link
+    /// in both directions on both ends (M4).
+    SymmetricConnection(ConnectionMessage),
+}
+
+impl Message {
+    /// Wrap a connection-control message in the variant for its handshake
+    /// kind — the single kind→variant mapping.
+    #[must_use]
+    pub fn connection(kind: HandshakeKind, message: ConnectionMessage) -> Self {
+        match kind {
+            HandshakeKind::Relay => Self::RelayConnection(message),
+            HandshakeKind::Publisher => Self::PublisherConnection(message),
+            HandshakeKind::Symmetric => Self::SymmetricConnection(message),
+        }
+    }
+
+    /// The handshake kind and control content of a connection variant, or
+    /// `None` for a dissemination message — the variant→kind inverse, used
+    /// by tests that assert on emitted control effects.
+    #[cfg(test)]
+    pub(crate) fn connection_parts(&self) -> Option<(HandshakeKind, &ConnectionMessage)> {
+        match self {
+            Self::Dissemination(_) => None,
+            Self::RelayConnection(m) => Some((HandshakeKind::Relay, m)),
+            Self::PublisherConnection(m) => Some((HandshakeKind::Publisher, m)),
+            Self::SymmetricConnection(m) => Some((HandshakeKind::Symmetric, m)),
+        }
+    }
+}
+
+/// Which establishment protocol a connection-control message speaks — the
+/// message-vocabulary axis (ADR 0033).
+///
+/// Deliberately distinct from [`LinkKind`](crate::connection_state::LinkKind),
+/// which names a **stored link's traffic class**: the two do not map 1:1 —
+/// the symmetric handshake is a different establishment protocol for
+/// ordinary relay-class links (its accepted links are stored as
+/// `LinkKind::Relay` in both directions).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum HandshakeKind {
+    /// The pull-based relay handshake: the dialer will receive.
+    Relay,
+    /// The publisher (initiation) handshake: the dialer will send its own
+    /// publications.
+    Publisher,
+    /// The bidirectional handshake (M4): one accept decision establishes the
+    /// relay-class link in both directions on both ends.
+    Symmetric,
+}
+
+impl HandshakeKind {
+    /// The lower-case operator-facing name (log fields, error text).
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Relay => "relay",
+            Self::Publisher => "publisher",
+            Self::Symmetric => "symmetric",
+        }
+    }
+
+    /// The 1-byte preimage tag (see [`PlainConnection::signed_bytes`]).
+    const fn tag(self) -> u8 {
+        match self {
+            Self::Relay => 0x00,
+            Self::Publisher => 0x01,
+            Self::Symmetric => 0x02,
+        }
+    }
 }
 
 /// A complete signed dissemination message: the signed-over [`PlainMessage`]
@@ -191,21 +267,19 @@ pub struct ConnectionMessage {
 }
 
 /// The signed-over content of a connection-control message: the emitting
-/// node's identity, the link kind the action concerns, and the handshake
-/// action.
+/// node's identity and the handshake action.
 ///
-/// The canonical signing-byte encoding lives on this type
-/// ([`PlainConnection::signed_bytes`]); the signature binds the emitter, the
-/// action, the topic, and the link kind together.
+/// The handshake kind is **not** a field — it lives on the enclosing
+/// [`Message`] variant (the vocabulary) and is bound into the preimage at
+/// signing time ([`PlainConnection::signed_bytes`] takes it as a parameter),
+/// so the signature still commits emitter, action, topic, and handshake kind
+/// together without the kind being representable inconsistently with the
+/// variant.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlainConnection {
     /// The node that emitted (and signs) this message — the control-path
     /// identity, carried inside the signed content.
     pub emitter: PeerId,
-    /// Which link class the action concerns. Every control action names one
-    /// link, and a link has exactly one kind; the acceptor dispatches its
-    /// acceptance policy, hash domain, and capacity on this.
-    pub kind: LinkKind,
     /// The handshake action and its topic.
     pub action: ConnectionAction,
 }
@@ -246,7 +320,8 @@ pub enum ConnectionAction {
 }
 
 impl PlainConnection {
-    /// Encode the canonical signing bytes for this control message.
+    /// Encode the canonical signing bytes for this control message, for the
+    /// handshake `kind` of the enclosing [`Message`] variant.
     ///
     /// Hand-rolled, length-prefixed concatenation in the
     /// [`PlainMessage::signed_bytes`] style. There is no leading version tag.
@@ -257,30 +332,29 @@ impl PlainConnection {
     ///    bytes. Tags are assigned explicitly so future variants append new
     ///    values without disturbing the existing ones: `0x00` Request,
     ///    `0x01` Accepted, `0x02` Terminated, `0x03` Rejected.
-    /// 3. link kind — a 1-byte tag: `0x00` Relay, `0x01` Publisher.
+    /// 3. handshake kind — a 1-byte tag: `0x00` Relay, `0x01` Publisher,
+    ///    `0x02` Symmetric. Relay and publisher preimages are byte-identical
+    ///    to the pre-vocabulary-split kind-field encoding.
     ///
     /// The signature is produced over exactly these bytes, binding emitter
-    /// identity, action, topic, and link kind together — a relay control
-    /// message cannot be replayed as a publisher one. Any layout change is a
-    /// protocol change and must update this documentation in the same commit.
+    /// identity, action, topic, and handshake kind together — a control
+    /// message cannot be replayed under a different vocabulary. Any layout
+    /// change is a protocol change and must update this documentation in the
+    /// same commit.
     #[must_use]
-    pub fn signed_bytes(&self) -> Vec<u8> {
+    pub fn signed_bytes(&self, kind: HandshakeKind) -> Vec<u8> {
         let (tag, topic) = match &self.action {
             ConnectionAction::Request { topic } => (0x00u8, topic),
             ConnectionAction::Accepted { topic } => (0x01u8, topic),
             ConnectionAction::Terminated { topic } => (0x02u8, topic),
             ConnectionAction::Rejected { topic } => (0x03u8, topic),
         };
-        let kind_tag = match self.kind {
-            LinkKind::Relay => 0x00u8,
-            LinkKind::Publisher => 0x01u8,
-        };
 
         let mut out = Vec::new();
         push_len_prefixed(&mut out, self.emitter.as_public_key().as_bytes());
         out.push(tag);
         push_len_prefixed(&mut out, topic.as_str().as_bytes());
-        out.push(kind_tag);
+        out.push(kind.tag());
         out
     }
 }
@@ -289,7 +363,7 @@ impl PlainConnection {
 mod tests {
     use std::str::FromStr;
 
-    use super::{ConnectionAction, LinkKind, PlainConnection};
+    use super::{ConnectionAction, HandshakeKind, PlainConnection};
     use crate::crypto::mock::MockCryptoScheme;
     use crate::crypto::mock::TestVerifier;
     use crate::crypto::{Signer, Verifier};
@@ -304,16 +378,16 @@ mod tests {
         TopicId::from_str(s).expect("valid topic id")
     }
 
-    // Contracts §1: the signing-byte layout is stable and explicit.
+    // Contracts §1: the signing-byte layout is stable and explicit. The relay
+    // preimage is byte-identical to the pre-vocabulary-split encoding.
     #[test]
     fn signed_bytes_layout_is_stable() {
         let plain = PlainConnection {
             emitter: peer("a"),
-            kind: LinkKind::Relay,
             action: ConnectionAction::Request { topic: topic("t1") },
         };
         // emitter key = alias bytes + mock public suffix = b"a_public" (len 8);
-        // tag 0x00 (Request); topic "t1" (len 2); link-kind tag 0x00 (Relay).
+        // tag 0x00 (Request); topic "t1" (len 2); handshake-kind tag 0x00 (Relay).
         let mut expected = Vec::new();
         expected.extend_from_slice(&8u32.to_be_bytes());
         expected.extend_from_slice(b"a_public");
@@ -321,41 +395,46 @@ mod tests {
         expected.extend_from_slice(&2u32.to_be_bytes());
         expected.extend_from_slice(b"t1");
         expected.push(0x00);
-        assert_eq!(plain.signed_bytes(), expected);
+        assert_eq!(plain.signed_bytes(HandshakeKind::Relay), expected);
     }
 
-    // The action tag distinguishes the action kinds on the wire; the link-kind
-    // tag distinguishes relay from publisher for one action.
+    // The action tag distinguishes the action kinds on the wire; the
+    // handshake-kind tag distinguishes the three vocabularies for one action.
     #[test]
-    fn action_and_link_kind_tags_are_distinct() {
+    fn action_and_handshake_kind_tags_are_distinct() {
         let bytes = |kind, action| {
             PlainConnection {
                 emitter: peer("a"),
-                kind,
                 action,
             }
-            .signed_bytes()
+            .signed_bytes(kind)
         };
         let req = bytes(
-            LinkKind::Relay,
+            HandshakeKind::Relay,
             ConnectionAction::Request { topic: topic("t1") },
         );
         let acc = bytes(
-            LinkKind::Relay,
+            HandshakeKind::Relay,
             ConnectionAction::Accepted { topic: topic("t1") },
         );
         let term = bytes(
-            LinkKind::Relay,
+            HandshakeKind::Relay,
             ConnectionAction::Terminated { topic: topic("t1") },
         );
         let pub_req = bytes(
-            LinkKind::Publisher,
+            HandshakeKind::Publisher,
+            ConnectionAction::Request { topic: topic("t1") },
+        );
+        let sym_req = bytes(
+            HandshakeKind::Symmetric,
             ConnectionAction::Request { topic: topic("t1") },
         );
         assert_ne!(req, acc);
         assert_ne!(acc, term);
         assert_ne!(req, term);
         assert_ne!(req, pub_req);
+        assert_ne!(req, sym_req);
+        assert_ne!(pub_req, sym_req);
     }
 
     // An emitter signs its own control message and it verifies under the
@@ -367,17 +446,20 @@ mod tests {
         let signer = scheme.signer(kp.private);
         let plain = PlainConnection {
             emitter: peer("a"),
-            kind: LinkKind::Relay,
             action: ConnectionAction::Request { topic: topic("t1") },
         };
-        let sig = signer.sign(&plain.signed_bytes());
+        let sig = signer.sign(&plain.signed_bytes(HandshakeKind::Relay));
         assert!(TestVerifier
-            .verify(plain.emitter.as_public_key(), &plain.signed_bytes(), &sig)
+            .verify(
+                plain.emitter.as_public_key(),
+                &plain.signed_bytes(HandshakeKind::Relay),
+                &sig
+            )
             .is_ok());
     }
 
-    // The signature binds emitter, action, topic, and link kind — tampering
-    // with any one makes the original signature no longer verify.
+    // The signature binds emitter, action, topic, and handshake kind —
+    // tampering with any one makes the original signature no longer verify.
     #[test]
     fn tamper_on_any_bound_field_breaks_signature() {
         let scheme = MockCryptoScheme::with_seed([0u8; 32]);
@@ -385,10 +467,9 @@ mod tests {
         let signer = scheme.signer(kp.private);
         let original = PlainConnection {
             emitter: peer("a"),
-            kind: LinkKind::Relay,
             action: ConnectionAction::Request { topic: topic("t1") },
         };
-        let sig = signer.sign(&original.signed_bytes());
+        let sig = signer.sign(&original.signed_bytes(HandshakeKind::Relay));
         let key = original.emitter.as_public_key().clone();
 
         // Tamper the emitter (the field bound into the bytes).
@@ -397,7 +478,11 @@ mod tests {
             ..original.clone()
         };
         assert!(TestVerifier
-            .verify(&key, &tampered_emitter.signed_bytes(), &sig)
+            .verify(
+                &key,
+                &tampered_emitter.signed_bytes(HandshakeKind::Relay),
+                &sig
+            )
             .is_err());
 
         // Tamper the action.
@@ -406,7 +491,11 @@ mod tests {
             ..original.clone()
         };
         assert!(TestVerifier
-            .verify(&key, &tampered_action.signed_bytes(), &sig)
+            .verify(
+                &key,
+                &tampered_action.signed_bytes(HandshakeKind::Relay),
+                &sig
+            )
             .is_err());
 
         // Tamper the topic.
@@ -415,17 +504,19 @@ mod tests {
             ..original.clone()
         };
         assert!(TestVerifier
-            .verify(&key, &tampered_topic.signed_bytes(), &sig)
+            .verify(
+                &key,
+                &tampered_topic.signed_bytes(HandshakeKind::Relay),
+                &sig
+            )
             .is_err());
 
-        // Tamper the link kind — a relay control message cannot be replayed as
-        // a publisher one.
-        let tampered_link_kind = PlainConnection {
-            kind: LinkKind::Publisher,
-            ..original
-        };
-        assert!(TestVerifier
-            .verify(&key, &tampered_link_kind.signed_bytes(), &sig)
-            .is_err());
+        // Re-tag the handshake kind — a control message signed under one
+        // vocabulary cannot be replayed under another.
+        for kind in [HandshakeKind::Publisher, HandshakeKind::Symmetric] {
+            assert!(TestVerifier
+                .verify(&key, &original.signed_bytes(kind), &sig)
+                .is_err());
+        }
     }
 }

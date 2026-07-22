@@ -163,6 +163,12 @@ pub struct NodeStrategies {
     pub publisher_connection: Option<Arc<dyn ConnectionStrategy>>,
     /// The publisher-link acceptance strategy (inbound initiation links).
     pub publisher_acceptance: Option<Arc<dyn ConnectionAcceptanceStrategy>>,
+    /// Whether relay links are established with the **symmetric**
+    /// (bidirectional) handshake — M4 (ADR 0033): the dial pass speaks the
+    /// symmetric vocabulary and one accept decision records each link in both
+    /// directions on both ends. `false` (the default) on every directional
+    /// model; inbound symmetric handshakes are then dropped outright.
+    pub symmetric_edges: bool,
 }
 
 /// Phase 1 of construction: the resolved per-seam strategy *kinds*, awaiting
@@ -199,7 +205,16 @@ impl NodeStrategies {
             relay_acceptance,
             publisher_connection: None,
             publisher_acceptance: None,
+            symmetric_edges: false,
         }
+    }
+
+    /// Switch the set to the symmetric (bidirectional) relay handshake — M4.
+    /// Pair it with relay strategies drawing the symmetric predicate.
+    #[must_use]
+    pub fn with_symmetric_edges(mut self, symmetric: bool) -> Self {
+        self.symmetric_edges = symmetric;
+        self
     }
 }
 
@@ -218,6 +233,10 @@ impl NodeStrategiesBuilder {
             relay_acceptance: self.relay_acceptance.build(relay_acceptance)?,
             publisher_connection: None,
             publisher_acceptance: None,
+            // One flag configures the predicate on the relay params AND the
+            // handshake vocabulary: a symmetric dial pass is what makes the
+            // symmetric draws materialise as constructed pairs.
+            symmetric_edges: relay_connection.symmetric,
         })
     }
 }

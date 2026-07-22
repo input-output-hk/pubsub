@@ -222,14 +222,13 @@ fn scripted_establishment_reaches_active() {
 // ---- feature 005 (US2): bounded acceptance + rejected-dial back-fill --------
 
 /// The destination and connection action of a `Send` effect carrying a
-/// connection-control message, if any.
+/// connection-control message (any handshake kind), if any.
 fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
     match effect {
-        Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } => Some((to, &cm.plain.action)),
-        _ => None,
+        Effect::Send { to, message } => message
+            .connection_parts()
+            .map(|(_, cm)| (to, &cm.plain.action)),
+        Effect::Misbehaved { .. } => None,
     }
 }
 

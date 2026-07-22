@@ -46,6 +46,7 @@ fn publisher_only() -> NodeStrategies {
         relay_acceptance: Arc::new(AcceptNone),
         publisher_connection: Some(Arc::new(ConnectToAllCandidates)),
         publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
+        symmetric_edges: false,
     }
 }
 
