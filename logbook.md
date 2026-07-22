@@ -4,6 +4,28 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-07-21 — Weekly session: simulation framework validated for M2–M5, robustness via condensation sets, publisher/relay split proposal
+
+**Simulation framework validated across M2–M5.** Ezequiel reported the experimentation framework now handles Monte Carlo evaluations for models M2 through M5, and results align with the prior analytical findings — the cross-validation loop is working as designed. Potential memory optimisations were identified along the way (peer cloning, message caching) but judged non-urgent; the group agreed to prioritise completing all experiment simulations before touching engineering optimisations, keeping the framework stable through the data-collection phase. Experiments are being rerun at 150 rounds, with the five identified experiments targeted within days and raw data files committed once sizes are verified.
+
+**Reference parameters and the M3-vs-M5 puzzle.** Denis pinned the working simulation parameters: network size 20,000, adversarial fraction 20%, target degree 24, with the goal of keeping the probability of a bad graph at or below 10⁻⁴. Discussion continues on why M3 comes out unexpectedly efficient compared to M5 — still unresolved and worth watching as experiment data lands.
+
+**Robustness: measuring the collapse, not just the threshold.** Beyond the operating point, the group wants to know how fast security degrades once the adversarial fraction μ exceeds the optimised level. A graph counts as *collapsed* at a 0.5 probability of a bad graph, and the derivative of the analytical model gives the degradation rate. Importantly, model failures manifest mostly as isolated nodes rather than large-scale disconnections, so the framework measures strongly connected components and *condensation sets* to quantify partial collapse. Condensation-set-size data will be generated and visualised for the CIP.
+
+**Engineering bounds: message complexity and bandwidth.** Denis raised the constraint side: the models must stay within reasonable message-complexity and bandwidth budgets, and the current prototype lacks per-link bandwidth metrics, so per-node traffic measurements are needed. Will is digging up previous topology simulation data on bandwidth properties per link; Ezequiel is evaluating message complexity against engineering bounds; Denis adds a per-model throughput paragraph to the node-degrees property file. On capacity modelling, the group debated message processing time and cross-continental latency; Will suggested large messages could be handled via sharding or parallel processing rather than blocking entire links.
+
+**Proposal: separate publisher and relay nodes.** Ezequiel proposed splitting designated *publisher* nodes from *relay* nodes: if only publishers use specific links, the system could retain M3-level security while relaxing requirements on relay-only nodes. Will and Denis saw this as a promising direction that could integrate naturally with an incentive layer — e.g. collateral posted by publishers.
+
+**Gossip-style hash exchanges deferred.** I-Have/I-Want hash exchanges (à la GossipSub) could cut bandwidth by fetching messages on demand rather than pushing them blindly, but Will flagged a potential new attack surface — nodes advertising messages they do not actually hold. Hash-based message fetching and similar advanced throughput optimisations are deferred to a future development phase.
+
+**CIP writing underway.** New GitHub tickets distribute the CIP sections (motivation, specification) and the identity-cost design question, with the aim of having sections drafted, reviewed, and finalised by mid-August.
+
+**Decisions.** *Aligned:* complete all experiment simulations before implementing memory optimisations; generate and visualise graph-collapse data via condensation-set sizes for the CIP; defer advanced throughput optimisations (hash-based message fetching) to a future phase. *Open:* why M3 outperforms M5 in efficiency; whether the publisher/relay node split holds up under analysis, and how it couples to incentives/collateral.
+
+**Next.** Group: run the five identified experiments within two days; rerun at 150 rounds; merge the open PRs — Ezequiel publishes the pending review and coordinates with Will on finalising the M4 implementation merge. Will: share previous topology simulation data on per-link bandwidth. Denis: per-model throughput paragraphs in the node-degrees property file. Scheduling: Will on PTO and Denis at a conference next week, so the near-term focus is landing the open PRs.
+
+---
+
 ## 2026-07-15 — Weekly session + working sessions: M3 as base model, node view split into relay/publishing sets, CIP downgraded to optional
 
 **M3 confirmed as the implementation base.** After evaluating the five network models, the group settled on M3 as the best balance of security and efficiency and prioritised its implementation as the base for M4 and M5. Peer terminology was sharpened along the way: *seed peers* exist for publishing only, with relaying handled separately — per Denis's Model 3 documentation. Model-specific strategy requirements were pinned down: M3 needs seed-specific publishing, while M5's fan-out is role-agnostic, publishing to all available downstreams regardless of whether they are publishers or relays. Hash-gating of connection requests remains a requirement for both M3 and M5, even though earlier simulation analyses may not have included it. One open question went to Denis — whether M5's symmetric K-degree configuration is a deliberate design requirement — alongside the correct RF/S parameter combination for M3 optimisation.
