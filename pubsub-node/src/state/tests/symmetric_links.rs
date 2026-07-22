@@ -185,6 +185,23 @@ fn symmetric_request_on_directional_node_is_dropped() {
     assert!(!has_downstream(&state, "b", "t1"));
 }
 
+// Shutdown on a symmetric node: a symmetric link lives in both collections
+// but is ONE link — the peer gets exactly one Terminated, under the
+// symmetric vocabulary.
+#[test]
+fn symmetric_shutdown_notifies_each_link_once() {
+    let mut state = symmetric_state("self");
+    apply(&mut state, symmetric_request_from("b", "t1"));
+
+    let effects = apply(&mut state, Event::Shutdown);
+
+    let terminated = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Terminated { .. })
+    });
+    assert_eq!(terminated, vec![(peer("b"), topic("t1"))]);
+    assert_eq!(effects.len(), 1, "no redundant second notice");
+}
+
 // The dial side of the vocabulary: a symmetric node's relay picks go out as
 // symmetric-handshake Requests (the stored dial entries stay relay-class).
 #[test]

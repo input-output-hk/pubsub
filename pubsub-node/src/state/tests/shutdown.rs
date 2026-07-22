@@ -31,11 +31,11 @@ fn shutdown_notifies_every_entry_including_awaiting_accept() {
     );
 }
 
-// FR-020: a pair held in BOTH roles is notified once per structure (two
-// Terminated notices — the redundant one is absorbed by the counterpart's
-// unknown-termination rule).
+// FR-020: a pair held in BOTH roles is one link — the notices are
+// deduplicated by key, so the peer gets exactly one Terminated (its teardown
+// removes the entry from either role anyway).
 #[test]
-fn shutdown_notifies_each_role_of_a_both_roles_pair() {
+fn shutdown_notifies_a_both_roles_pair_once() {
     let mut state = node_state("self", HashSet::new());
     state.upstream.insert(
         LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
@@ -45,10 +45,11 @@ fn shutdown_notifies_each_role_of_a_both_roles_pair() {
 
     let effects = apply(&mut state, Event::Shutdown);
     assert_eq!(
-        terminated_sends(&effects, "self").len(),
-        2,
-        "both the upstream and downstream entry are notified",
+        terminated_sends(&effects, "self"),
+        vec![(peer("b"), topic("t1"))],
+        "one notice for the one link, not one per structure",
     );
+    assert!(state.upstream.is_empty() && state.downstream.is_empty());
 }
 
 // US4-AS2 / FR-014: a Terminated removes the matching entry in either role,

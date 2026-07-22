@@ -478,10 +478,12 @@ fn signed_connection(
 /// Transition for the graceful-shutdown trigger.
 ///
 /// Clears both link collections and emits one `Terminated` notice per held
-/// entry — both directions, both kinds, any state, including `AwaitingAccept`
-/// dials. An entry held in both directions is notified once per collection
-/// (two notices; the redundant one is absorbed by the counterpart's
-/// unknown-termination rule).
+/// **link** — both directions, both kinds, any state, including
+/// `AwaitingAccept` dials. The notices are deduplicated by [`LinkKey`]: a link
+/// held in both directions (every symmetric link, by construction) is one
+/// link and gets one notice — the counterpart's teardown removes both halves
+/// either way. A peer holding links of both kinds still gets one notice per
+/// kind (distinct keys).
 fn handle_shutdown(state: &mut NodeState) -> Vec<Effect> {
     let self_id = state.self_id.clone();
     let signer = Arc::clone(&state.signer);
@@ -505,13 +507,13 @@ fn handle_shutdown(state: &mut NodeState) -> Vec<Effect> {
         }
     };
 
-    let effects: Vec<Effect> = state
+    let keys: BTreeSet<LinkKey> = state
         .upstream
         .keys()
+        .chain(state.downstream.keys())
         .cloned()
-        .chain(state.downstream.keys().cloned())
-        .map(terminate)
         .collect();
+    let effects: Vec<Effect> = keys.into_iter().map(terminate).collect();
 
     state.upstream.clear();
     state.downstream.clear();

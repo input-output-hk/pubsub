@@ -198,6 +198,22 @@ Fixes from the audit:
    mismatch now costs dropped dials, never one-way links).
 4. The PR description was rewritten to the post-round-5 state (constructed
    reciprocity, vocabulary wire shape, M4-approximation label, ADR 0034).
+5. *Shutdown notices deduplicated by `LinkKey`* (follow-up from the audit
+   discussion): a link held in both collections — every symmetric link, by
+   construction — previously produced two `Terminated` notices to the same
+   peer (the second absorbed as `unknown_termination`). One link now gets
+   one notice; a peer with links of both kinds still gets one per kind.
+   **Deliberate behavioural test edit**: `shutdown_notifies_each_role_of_a_
+   both_roles_pair` (which pinned the two-notice behaviour) re-pinned as
+   `shutdown_notifies_a_both_roles_pair_once`; a symmetric-vocabulary
+   shutdown test added beside it.
+
+Raised with the maintainers rather than ledgered as decisions (design
+questions the model text cannot answer): whether M3's initiation-link
+owner-binding is identity-based or origination-based (proxy/submit-API
+publishing — three-option Slack thread), and what a capped acceptance should
+bound on a symmetric node (total degree vs peer-initiated edges; no published
+recipe combines caps with symmetric edges today).
 
 ## Verification notes
 
