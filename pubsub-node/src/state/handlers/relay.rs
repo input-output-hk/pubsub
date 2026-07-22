@@ -15,11 +15,25 @@ use crate::topic::TopicId;
 const KIND: HandshakeKind = HandshakeKind::Relay;
 
 /// Transition for an inbound relay-handshake control message: the shared
-/// verification prelude, then one arm per action.
+/// verification prelude, then one arm per action. A **symmetric** node drops
+/// relay handshakes outright — its relay-class links are established
+/// exclusively by the symmetric handshake, and admitting a directional
+/// request would record a one-way link on a node whose teardown/severance
+/// mechanics assume every relay link is mirrored (the reverse of the
+/// `symmetric_edges_disabled` guard; ADR 0034).
 pub(in crate::state) fn handle(
     state: &mut NodeState,
     connection: ConnectionMessage,
 ) -> Vec<Effect> {
+    if state.symmetric_edges {
+        tracing::info!(
+            target: "pubsub_node::node",
+            event = "message_dropped",
+            cause = "relay_handshake_disabled",
+            self_id = %state.self_id,
+        );
+        return Vec::new();
+    }
     let Some(plain) = super::verified(state, connection, KIND) else {
         return Vec::new();
     };

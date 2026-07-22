@@ -174,6 +174,31 @@ idempotency, unsolicited drop, mirror teardown, mirror severance,
 whole-edge capacity refusal, fail-closed on directional nodes, dial-side
 vocabulary), and the M4 integration test's assertions were untouched.
 
+**A12 — post-round-5 self-audit (model-by-model alignment pass, 2026-07-22).**
+Each M1–M5 definition (`formal_spec/hybrid_dissemination/models/`) was
+re-checked against the recipes, mechanics, and tests. M1 (as the M5
+`k_in = 0` boundary), M2 (serving-set-only seeding via relay downstream), M3
+(both sides of initiation exclusivity), and M5 (`ForwardToAll` = own k_out ∪
+in-pickers, split-horizon) align with their definitions, modulo the two
+documented global deviations (binomial hash-gated draws vs exactly-k uniform
+picks — all models, not only the symmetric case; single-epoch runs, A10.3).
+Fixes from the audit:
+1. *Mixed-vocabulary leftover*: a symmetric node accepted inbound **relay**
+   handshakes into `downstream` only — a one-way link on a node whose
+   teardown/severance assume every relay link is mirrored. Now dropped
+   (`relay_handshake_disabled`), the mutual guard of
+   `symmetric_edges_disabled`; ADR 0034 §4 amended; pinned by
+   `relay_request_on_symmetric_node_is_dropped`.
+2. *Dead code*: `HandshakeKind::name()` had no consumer — removed
+   (constitution: consumer-justified interfaces).
+3. *Operator text*: the `--symmetric-edges` hash-gate startup error claimed
+   "has no effect" — no longer literally true post-ADR-0034; reworded to name
+   the actual requirement (the predicate only the hash-gated strategies
+   evaluate). `AcceptanceParams::symmetric` doc similarly updated (a seam
+   mismatch now costs dropped dials, never one-way links).
+4. The PR description was rewritten to the post-round-5 state (constructed
+   reciprocity, vocabulary wire shape, M4-approximation label, ADR 0034).
+
 ## Verification notes
 
 - `main.rs --help` output matches contracts §5 flag-for-flag (checked at

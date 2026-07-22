@@ -66,8 +66,10 @@ pub struct AcceptanceParams {
     pub bucket_count: Option<usize>,
     /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3).
     pub cap_buffer: usize,
-    /// Use the symmetric edge predicate (M4) — must match the dial side (one
-    /// CLI flag sets both).
+    /// Use the symmetric edge predicate (M4) — set from the same CLI flag as
+    /// the dial side. Reciprocity is constructed by the symmetric handshake
+    /// (ADR 0034), so a predicate mismatch between the two seams costs
+    /// dropped dials at worst, never one-way links.
     pub symmetric: bool,
 }
 

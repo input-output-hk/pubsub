@@ -155,6 +155,21 @@ fn symmetric_rejected_drops_the_pending_dial() {
     assert!(!has_downstream(&state, "b", "t1"));
 }
 
+// The reverse guard: a symmetric node drops inbound RELAY handshakes
+// outright — admitting a directional request would record a one-way link on
+// a node whose teardown/severance mechanics assume every relay link is
+// mirrored.
+#[test]
+fn relay_request_on_symmetric_node_is_dropped() {
+    let mut state = symmetric_state("self");
+
+    let effects = apply(&mut state, request_from("b", "t1"));
+
+    assert!(effects.is_empty());
+    assert_eq!(upstream_state(&state, "b", "t1"), None);
+    assert!(!has_downstream(&state, "b", "t1"));
+}
+
 // Fail-closed: a node NOT in symmetric mode drops inbound symmetric
 // handshakes outright — a directional-model node never mirrors a link.
 #[test]

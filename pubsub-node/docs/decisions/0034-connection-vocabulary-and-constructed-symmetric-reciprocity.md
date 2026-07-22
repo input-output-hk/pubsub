@@ -60,9 +60,13 @@ a branch in a shared handler.
    with the symmetric predicate), and severance mirrors. `false` (default):
    inbound symmetric handshakes are dropped outright
    (`symmetric_edges_disabled`) — off by construction, like the publisher
-   seam. The CLI flag is unchanged (`--symmetric-edges` sets the predicate on
-   both relay seams and the vocabulary together), but the coupling is no
-   longer load-bearing for correctness.
+   seam. The guard is mutual: a **symmetric** node likewise drops inbound
+   *relay* handshakes (`relay_handshake_disabled`) — admitting a directional
+   request would record a one-way link on a node whose teardown/severance
+   mechanics assume every relay link is mirrored. The CLI flag is unchanged
+   (`--symmetric-edges` sets the predicate on both relay seams and the
+   vocabulary together), but the coupling is no longer load-bearing for
+   correctness.
 5. **Capped acceptance composes with symmetric mode.** A capacity refusal is
    a whole-edge refusal (explicit `Rejected`, nothing inserted on either
    end), so no one-sided half can survive it. The ADR 0032 startup

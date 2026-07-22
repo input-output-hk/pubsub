@@ -145,16 +145,6 @@ pub enum HandshakeKind {
 }
 
 impl HandshakeKind {
-    /// The lower-case operator-facing name (log fields, error text).
-    #[must_use]
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::Relay => "relay",
-            Self::Publisher => "publisher",
-            Self::Symmetric => "symmetric",
-        }
-    }
-
     /// The 1-byte preimage tag (see [`PlainConnection::signed_bytes`]).
     const fn tag(self) -> u8 {
         match self {

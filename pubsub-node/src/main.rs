@@ -246,8 +246,10 @@ fn validate_flag_combinations(args: &Args) {
     );
     if args.symmetric_edges && !relay_selection_gated && !relay_acceptance_gated {
         die(
-            "--symmetric-edges has no effect: it requires a hash-gated relay strategy \
-             (--relay-strategy hash-gated and/or a hash-gated --relay-acceptance-strategy)",
+            "--symmetric-edges requires a hash-gated relay seam (--relay-strategy \
+             hash-gated and/or a hash-gated --relay-acceptance-strategy): symmetric \
+             edges are drawn from the unordered-pair predicate, which only the \
+             hash-gated strategies evaluate",
         );
     }
     if args.publisher_admission == PublisherAdmission::AnyVerified
