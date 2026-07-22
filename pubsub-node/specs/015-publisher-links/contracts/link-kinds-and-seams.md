@@ -6,18 +6,25 @@ through logs.
 
 ## 1. Wire contract
 
-`PlainConnection { emitter, kind, action }`; `signed_bytes()` layout (all
-multi-byte integers big-endian, `push_len_prefixed` = u32 length + bytes):
+The handshake kind is **message vocabulary** (ADR 0033): one connection
+variant per handshake — `Message::RelayConnection` /
+`Message::PublisherConnection` / `Message::SymmetricConnection`, each
+carrying a `ConnectionMessage` over `PlainConnection { emitter, action }`.
+`signed_bytes(kind)` layout (all multi-byte integers big-endian,
+`push_len_prefixed` = u32 length + bytes):
 
 1. emitter public key — length-prefixed
 2. action tag — 1 byte: `0x00` Request, `0x01` Accepted, `0x02` Terminated, `0x03` Rejected
 3. topic — length-prefixed UTF-8
-4. **kind tag — 1 byte: `0x00` Relay, `0x01` Publisher** (new)
+4. **handshake-kind tag — 1 byte: `0x00` Relay, `0x01` Publisher, `0x02`
+   Symmetric** (supplied from the enclosing variant; relay/publisher
+   preimages byte-identical to the earlier kind-field encoding)
 
-The signature binds emitter, action, topic, **and kind**: a relay control
-message cannot be replayed as a publisher one. Kind implies data direction —
-Relay `Request`: dialer receives from acceptor; Publisher `Request`: dialer
-sends to acceptor.
+The signature binds emitter, action, topic, **and handshake kind**: a control
+message cannot be replayed under another vocabulary. The handshake implies
+data direction — Relay `Request`: dialer receives from acceptor; Publisher
+`Request`: dialer sends to acceptor; Symmetric `Request`: one accept
+establishes the relay-class link in both directions on both ends.
 
 ## 2. Strategy seams (existing traits, reused)
 
@@ -54,7 +61,7 @@ pub trait FanoutStrategy: Send + Sync {
 
 | Function | Domain tag | Draw |
 |---|---|---|
-| `is_valid_edge` (unchanged) | `pubsub/bucketed-pull/edge/v1` | directional relay |
+| `is_valid_edge` | `pubsub/bucketed-pull/relay-edge/v1` (renamed from `…/edge/v1` — the tag became relay-exclusive; no experiment results existed to keep reproducible) | directional relay |
 | `is_valid_edge_publisher` | `pubsub/bucketed-pull/publisher-edge/v1` | directional publisher |
 | `is_valid_edge_sym` | `pubsub/bucketed-pull/edge-sym/v1` | unordered pair (canonical byte order), relay symmetric |
 
@@ -88,14 +95,14 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 | **M1** (boundary) | `--relay-strategy none --relay-acceptance-strategy none` + the M5 publisher/fan-out/admission flags (push-only = M5 at `k_in = 0`) |
 | **M2** (baseline) | defaults — no publisher flags, `forward-to-relays`, `owner-only` |
 | **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S_LINKS` |
-| **M4** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) |
+| **M4 (approximation)** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) — constructed bidirectional links (ADR 0033), but binomial per-node degree; the exact M4 (min degree ≥ RF) additionally needs the uniform exactly-RF selection kind (follow-up feature) |
 | **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all --publisher-admission any-verified` |
 
-`--symmetric-edges` combined with a capped acceptance strategy is rejected at
-startup (a one-sided capacity refusal would silently break edge reciprocity —
-the bidirectional model has no caps). M5's two switches must be paired
-network-wide (`forward-to-all` ⇄ `any-verified`);
-deliberately not fused — the axes stay independently sweepable.
+`--symmetric-edges` composes with capped acceptance (a capacity refusal
+refuses the whole edge — one accept decision per symmetric link, ADR 0033).
+M5's two switches must be paired network-wide (`forward-to-all` ⇄
+`any-verified`); deliberately not fused — the axes stay independently
+sweepable.
 
 **Parameter mapping caveat**: `--publisher-degree` is the expected number of
 standing publisher **links**. The M3 model's *s* counts the intended initial
@@ -111,4 +118,6 @@ parameterising from the model's tables.
 - Invalid signature severs the admitting link kind (FR-010).
 - One send per peer regardless of coexisting link kinds (FR-011).
 - Relay and publisher acceptance caps count independently (FR-004).
-- `--symmetric-edges` yields reciprocal relay pairs on both ends (FR-009).
+- `--symmetric-edges` yields reciprocal relay pairs on both ends — constructed
+  by the handshake: one accept records both directions, teardown and
+  severance remove both halves (FR-009, ADR 0033).

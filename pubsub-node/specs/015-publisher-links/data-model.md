@@ -114,8 +114,12 @@ to the old getters — the pre-existing suite's only edit is the call rename.
 
 ## 6. Wire
 
-`PlainConnection` gains `kind: LinkKind`. `signed_bytes()` appends one tag
-byte after the topic: `0x00` Relay, `0x01` Publisher (inside the signature).
-Kind implies direction: a Relay `Request`'s dialer will receive; a Publisher
-`Request`'s dialer will send. Layout-pin test updated to the new layout
-(deliberate, R3).
+*(Amended in review round 5, ADR 0033.)* The handshake kind is message
+vocabulary: one connection `Message` variant per handshake
+(`RelayConnection` / `PublisherConnection` / `SymmetricConnection`) over
+`PlainConnection { emitter, action }`; `signed_bytes(kind: HandshakeKind)`
+appends one tag byte after the topic — `0x00` Relay, `0x01` Publisher, `0x02`
+Symmetric (inside the signature), supplied from the enclosing variant.
+Handshake implies direction: a Relay `Request`'s dialer will receive; a
+Publisher `Request`'s dialer will send; a Symmetric accept establishes both
+directions. Layout-pin test updated to the new layout (deliberate, R3).

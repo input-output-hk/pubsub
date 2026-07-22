@@ -1,7 +1,8 @@
 # Quickstart: running the dissemination models (015)
 
-Every model is a per-node flag combination — no `--model` preset; M1–M5 are
-all expressible. Shared
+Every model is a per-node flag combination — no `--model` preset; M1, M2, M3,
+and M5 are expressible exactly, M4 as an approximation pending a uniform
+selection kind (see its section). Shared
 setup (registries, config) is unchanged from the 005 quickstart; only the
 strategy flags differ. `--genesis` seeds the epoch nonce (same genesis ⇒ same
 topology, reproducible experiments).
@@ -37,7 +38,7 @@ Model-parameter mapping: the M3 model's *s* counts the publisher **plus** its
 targets, so set `--publisher-degree` to **s − 1** when reproducing the model's
 tables.
 
-## M4 — bidirectional relay links
+## Symmetric relay links — the M4 approximation
 
 ```sh
 pubsub-node … \
@@ -45,11 +46,20 @@ pubsub-node … \
   --relay-degree 8 --symmetric-edges
 ```
 
-The symmetric predicate (unordered pair, own domain) makes both ends of a
-valid edge dial each other; every link materialises as a reciprocal pair and
-`forward-to-all` floods all incident links. No publisher flags. Expected
-degree ≈ `--relay-degree` with binomial variance (no min-degree guarantee —
-the documented approximation of the models' exactly-k picks).
+Relay links are established with the **symmetric handshake** (ADR 0033):
+edges are drawn with the unordered-pair predicate under its own domain, and
+one accept decision records each link in both directions on both ends —
+reciprocity is constructed, not dependent on the two ends' draws agreeing.
+Flooding runs over the resulting bidirectional mesh. No publisher flags.
+
+**This is not yet the formal M4** and the recipe deliberately does not claim
+the label: hash-gated selection draws a binomial number of edges per node
+(expected degree ≈ `--relay-degree`, no minimum-degree floor), whereas M4's
+defining property is uniform exactly-RF picks — minimum degree ≥ RF, hence
+connectivity w.h.p. at RF ≥ 2 and no muted-publisher mode. A uniform
+exactly-RF selection kind (the (B = 1, K = RF) point) is a follow-up feature;
+once it lands, `--relay-strategy uniform … --symmetric-edges` will realise M4
+exactly.
 
 ## M5 — directed k_in/k_out, both classes carry everything
 

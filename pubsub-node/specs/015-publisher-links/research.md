@@ -53,6 +53,12 @@ in the type system — the minimal-shapes constraint. The rename is mechanical
 
 ## R3 — Wire: `kind` on `PlainConnection`, one trailing signed byte
 
+*(Superseded in review round 5 by ADR 0033: the kind is now message
+vocabulary — one `Message` variant per handshake, `PlainConnection` loses the
+field, and `signed_bytes(kind)` takes the tag from the variant context. The
+trailing-tag preimage layout below stands, relay/publisher byte-identical,
+plus a new `0x02` symmetric tag.)*
+
 **Decision**: add `kind: LinkKind` to `PlainConnection` (not to each
 `ConnectionAction` variant). `signed_bytes()` appends one tag byte after the
 topic: `0x00` Relay, `0x01` Publisher. All four actions carry it: `Terminated`
@@ -113,8 +119,11 @@ instance, and the rename is a two-impl mechanical edit.
 
 **Decision**: internal `is_valid_edge_in(domain, nonce, topic, a, b, buckets)`;
 public functions:
-- `is_valid_edge` — existing signature, existing relay domain
-  `pubsub/bucketed-pull/edge/v1` (all current callers and tests untouched);
+- `is_valid_edge` — existing signature; relay domain
+  `pubsub/bucketed-pull/relay-edge/v1` (renamed from `…/edge/v1` in review
+  round 3: the tag became relay-exclusive, and no experiment results existed
+  yet to keep reproducible — same genesis now yields a different M2 topology
+  than pre-015, deliberately);
 - `is_valid_edge_publisher` — domain `pubsub/bucketed-pull/publisher-edge/v1`
   (independent draw, so a node's publisher targets are uncorrelated with its
   relay upstreams);
@@ -163,6 +172,13 @@ kept). Severance is policy-independent: an invalid signature severs the
 admitting link under either policy.
 
 ## R9 — Symmetric edges: one flag, both relay seams, emergent pairs
+
+*(Superseded in review round 5 by ADR 0033: bidirectionality is now
+constructed by the symmetric handshake — one accept records both directions
+on both ends — so reciprocity no longer depends on the two ends' independent
+draws agreeing, and capped acceptance composes. The flag still sets the
+predicate on both relay seams and additionally switches the handshake
+vocabulary.)*
 
 **Decision**: `--symmetric-edges` sets `symmetric: bool` on **both**
 `ConnectionParams` and `AcceptanceParams` from the single CLI flag; the

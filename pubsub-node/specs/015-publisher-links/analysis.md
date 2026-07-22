@@ -134,6 +134,46 @@ comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
    the public API, so the framework must be a `src/` module (a feature-gated
    `sim` module keeps the default build lean); no 015 change required.
 
+**A11 — review round 5 (architecture review, EzequielPostan, 2026-07-22).**
+Changes-requested review; the kinded-key data model (A-series baseline)
+explicitly stands. Addressed in one code commit + this docs pass (ADR 0033):
+1. *"M4" was not M4 (the request-changes item)*: the symmetric-predicate
+   realisation drew unordered pairs i.i.d. — reciprocity *emergent* and
+   conditional on B-agreement, no minimum-degree floor, expected total degree
+   ≈ RF where the formal M4 has mean ≈ 2·RF / min ≥ RF. Fixed the mechanics
+   half: bidirectionality now lives in the **symmetric handshake** (acceptor
+   records both directions, dialer mirrors on Accepted, teardown/severance
+   remove both halves) — reciprocity unconditional, composing with any
+   selection. The remaining half — the uniform exactly-RF selection kind
+   ((B = 1, K = RF)) that restores the min-degree floor — is a **follow-up
+   feature** (belongs with the 005-lineage B-as-parameter fix); until it
+   lands the quickstart/contracts label the recipe an **approximation**, not
+   M4. The three compensating artifacts the review predicted deletable were
+   deleted: the capped-acceptance startup prohibition (+ its ADR bullet and
+   contracts note), the seam-coupling *rationale* (the single flag remains
+   as convenience), and the reliance on four-message emergent pairing.
+2. *Kind field → message vocabulary*: `Message::{Relay,Publisher,Symmetric}Connection`
+   route to `state/handlers/{relay,publisher,symmetric}.rs`; `PlainConnection`
+   loses `kind`; `signed_bytes(HandshakeKind)` binds the tag from the variant
+   (relay/publisher preimages byte-identical; symmetric `0x02` is new — the
+   pre-split symmetric mode spoke relay bytes, a nuance the review's
+   "byte-level free" skipped; flagged in the reply, cheap pre-009). Shared
+   lifecycle mechanics became composed helpers; the stored `LinkKind` stays
+   (traffic class vs establishment protocol — deliberately not 1:1).
+3. *Module organization*: handlers named by link class (not MX number), per
+   the review; per-vocabulary unit suites mirror the split
+   (`state/tests/symmetric_links.rs`).
+4. *Docs*: ADR 0033 authored; ADR 0032 amended (§2/§6 supersession, capped
+   bullet, M4-label deferral, relay-edge/v1 rename recorded); contracts §1/§3/§6/§7,
+   research R3/R6, data-model §6, quickstart M4 section corrected (the stale
+   "`edge/v1` unchanged" pins the review caught).
+*Process note*: the symmetric-handshake behaviours were implemented together
+with the vocabulary refactor in one commit; the new `symmetric_links` suite
+pins all nine behavioural claims (both-maps accept, dialer mirror, crossing
+idempotency, unsolicited drop, mirror teardown, mirror severance,
+whole-edge capacity refusal, fail-closed on directional nodes, dial-side
+vocabulary), and the M4 integration test's assertions were untouched.
+
 ## Verification notes
 
 - `main.rs --help` output matches contracts §5 flag-for-flag (checked at
@@ -142,4 +182,5 @@ comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
   `PublisherAdmission` (+ unknown-name error), `ForwardToRelays`/`ForwardToAll`/`FanoutStrategyKind`,
   `is_valid_edge_sym`; `is_valid_edge_publisher` stays crate-internal (no
   external consumer).
-- Suite at completion: 243 tests, clippy pedantic clean, fmt clean.
+- Suite at completion: 243 tests, clippy pedantic clean, fmt clean; after the
+  A11 round: 255 tests, clippy pedantic + fmt clean.

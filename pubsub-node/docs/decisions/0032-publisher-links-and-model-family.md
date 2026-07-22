@@ -1,6 +1,11 @@
 # 0032 — Publisher links and the dissemination-model family (M3/M4/M5) as a minimal extension
 
-**Status**: Accepted (feature 015)
+**Status**: Accepted (feature 015). **Amended by ADR 0033** (review round 5):
+§2's kind *field* on the connection message is superseded by one message
+variant per handshake (the kind tag stays inside the signed bytes, supplied
+from the variant); §6's emergent reciprocity is superseded by the constructed
+symmetric handshake, and the capped-acceptance prohibition is deleted. §1
+(kind-in-key state) stands unchanged.
 
 **Context**: the experiment program needs the node configurable to run the M3,
 M4, and M5 dissemination models (`../../../formal_spec/hybrid_dissemination/models/`)
@@ -61,13 +66,14 @@ superseded by it and remain reference-only (they never merged).
    variants — a trait would be unconsumed generality. Severance is
    policy-independent: an invalidly-signed payload severs the **admitting**
    link.
-6. **Symmetric edges (M4) as a predicate mode.** `is_valid_edge_sym` hashes the
+6. **Symmetric edges (M4) as a predicate mode.** *(Superseded by ADR 0033 §3:
+   bidirectionality is now constructed by the symmetric handshake — one
+   accept decision records the link in both directions on both ends — rather
+   than emergent from reciprocal dial pairs.)* `is_valid_edge_sym` hashes the
    canonically-ordered peer pair under a dedicated domain
    (`…/edge-sym/v1`, independent of the directional draws); one flag
-   (`--symmetric-edges`) drives relay selection **and** acceptance together —
-   a per-seam split would let the two sides disagree and silently drop every
-   dial. Bidirectionality is *emergent* reciprocal dial pairs; no stored
-   "both" direction, no wire change, no publisher links in M4.
+   (`--symmetric-edges`) drives relay selection **and** acceptance together.
+   No stored "both" direction, no publisher links in M4.
 7. **Per-class observability.** Snapshots/getters are renamed and split by
    class — `upstream_relays()` / `downstream_relays()` (exactly the pre-015
    snapshots on an M2 node) plus `upstream_publishers()` /
@@ -81,18 +87,28 @@ superseded by it and remain reference-only (they never merged).
   `none` relay kinds (`DialNone`/`AcceptNone`) switch the relay seams off,
   making push-only M1 the M5 `k_in = 0` boundary. M5's two switches
   (`forward-to-all` fan-out, `any-verified` admission) must be paired
-  network-wide; `--symmetric-edges` with a capped acceptance is rejected at
-  startup (one-sided capacity refusals would break pair reciprocity).
+  network-wide. *(The `--symmetric-edges` × capped-acceptance startup
+  rejection is deleted per ADR 0033 §5 — with constructed reciprocity a
+  capacity refusal refuses the whole edge.)*
 - The wire layout changed (appended kind byte): the layout-pin test was
   updated in the same commit — the one deliberate behavioural test edit.
+- Hash domains: the pre-015 relay tag `pubsub/bucketed-pull/edge/v1` was
+  renamed `…/relay-edge/v1` alongside the kind split (review round 3 — the
+  tag became relay-exclusive, and no experiment results existed yet to keep
+  reproducible), beside the new `…/publisher-edge/v1` and `…/edge-sym/v1`
+  domains. Same genesis therefore yields a different M2 topology than
+  pre-015 — deliberate.
 - CLI: `--connection-strategy`/`--acceptance-strategy`/`--target-degree` are
   renamed `--relay-strategy`/`--relay-acceptance-strategy`/`--relay-degree`,
   with publisher mirrors; `--genesis`/`--bucket-count`/`--cap-buffer` stay
   shared across seams (pre-release, no deprecation aliases).
 - Modelling caveat (inherited): the verifiable-hash realisation approximates
   the models' private exactly-k uniform picks with binomial-around-k predicate
-  draws; for M4 that means expected degree ≈ RF with no min-degree guarantee.
-  Quantifying the gap against the models' laws is the experiment harness's job.
+  draws; for the symmetric configuration that means expected degree ≈ RF with
+  no min-degree guarantee. ADR 0033 therefore defers the **M4 label** until a
+  uniform exactly-RF selection kind lands (follow-up feature); for the other
+  models quantifying the gap against the published laws is the experiment
+  harness's job.
 
 ## Alternatives rejected
 
