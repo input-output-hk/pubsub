@@ -6,7 +6,7 @@ through logs.
 
 ## 1. Wire contract
 
-The handshake kind is **message vocabulary** (ADR 0033): one connection
+The handshake kind is **message vocabulary** (ADR 0034): one connection
 variant per handshake — `Message::RelayConnection` /
 `Message::PublisherConnection` / `Message::SymmetricConnection`, each
 carrying a `ConnectionMessage` over `PlainConnection { emitter, action }`.
@@ -95,11 +95,11 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 | **M1** (boundary) | `--relay-strategy none --relay-acceptance-strategy none` + the M5 publisher/fan-out/admission flags (push-only = M5 at `k_in = 0`) |
 | **M2** (baseline) | defaults — no publisher flags, `forward-to-relays`, `owner-only` |
 | **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S_LINKS` |
-| **M4 (approximation)** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) — constructed bidirectional links (ADR 0033), but binomial per-node degree; the exact M4 (min degree ≥ RF) additionally needs the uniform exactly-RF selection kind (follow-up feature) |
+| **M4 (approximation)** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) — constructed bidirectional links (ADR 0034), but binomial per-node degree; the exact M4 (min degree ≥ RF) additionally needs the uniform exactly-RF selection kind (follow-up feature) |
 | **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all --publisher-admission any-verified` |
 
 `--symmetric-edges` composes with capped acceptance (a capacity refusal
-refuses the whole edge — one accept decision per symmetric link, ADR 0033).
+refuses the whole edge — one accept decision per symmetric link, ADR 0034).
 M5's two switches must be paired network-wide (`forward-to-all` ⇄
 `any-verified`); deliberately not fused — the axes stay independently
 sweepable.
@@ -120,4 +120,4 @@ parameterising from the model's tables.
 - Relay and publisher acceptance caps count independently (FR-004).
 - `--symmetric-edges` yields reciprocal relay pairs on both ends — constructed
   by the handshake: one accept records both directions, teardown and
-  severance remove both halves (FR-009, ADR 0033).
+  severance remove both halves (FR-009, ADR 0034).

@@ -114,7 +114,7 @@ to the old getters — the pre-existing suite's only edit is the call rename.
 
 ## 6. Wire
 
-*(Amended in review round 5, ADR 0033.)* The handshake kind is message
+*(Amended in review round 5, ADR 0034.)* The handshake kind is message
 vocabulary: one connection `Message` variant per handshake
 (`RelayConnection` / `PublisherConnection` / `SymmetricConnection`) over
 `PlainConnection { emitter, action }`; `signed_bytes(kind: HandshakeKind)`

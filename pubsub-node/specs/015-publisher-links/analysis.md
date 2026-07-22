@@ -136,7 +136,7 @@ comment wording fixed earlier (`6a11f6c`) after the maintainer caught the
 
 **A11 — review round 5 (architecture review, EzequielPostan, 2026-07-22).**
 Changes-requested review; the kinded-key data model (A-series baseline)
-explicitly stands. Addressed in one code commit + this docs pass (ADR 0033):
+explicitly stands. Addressed in one code commit + this docs pass (ADR 0034):
 1. *"M4" was not M4 (the request-changes item)*: the symmetric-predicate
    realisation drew unordered pairs i.i.d. — reciprocity *emergent* and
    conditional on B-agreement, no minimum-degree floor, expected total degree
@@ -163,7 +163,7 @@ explicitly stands. Addressed in one code commit + this docs pass (ADR 0033):
 3. *Module organization*: handlers named by link class (not MX number), per
    the review; per-vocabulary unit suites mirror the split
    (`state/tests/symmetric_links.rs`).
-4. *Docs*: ADR 0033 authored; ADR 0032 amended (§2/§6 supersession, capped
+4. *Docs*: ADR 0034 authored; ADR 0032 amended (§2/§6 supersession, capped
    bullet, M4-label deferral, relay-edge/v1 rename recorded); contracts §1/§3/§6/§7,
    research R3/R6, data-model §6, quickstart M4 section corrected (the stale
    "`edge/v1` unchanged" pins the review caught).

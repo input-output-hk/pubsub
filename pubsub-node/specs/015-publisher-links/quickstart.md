@@ -46,7 +46,7 @@ pubsub-node … \
   --relay-degree 8 --symmetric-edges
 ```
 
-Relay links are established with the **symmetric handshake** (ADR 0033):
+Relay links are established with the **symmetric handshake** (ADR 0034):
 edges are drawn with the unordered-pair predicate under its own domain, and
 one accept decision records each link in both directions on both ends —
 reciprocity is constructed, not dependent on the two ends' draws agreeing.

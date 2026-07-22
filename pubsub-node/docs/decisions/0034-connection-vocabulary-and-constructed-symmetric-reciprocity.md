@@ -1,4 +1,4 @@
-# 0033 — Connection-message vocabulary per handshake kind; constructed reciprocity for symmetric links
+# 0034 — Connection-message vocabulary per handshake kind; constructed reciprocity for symmetric links
 
 **Status**: Accepted (feature 015, review round 5). Amends ADR 0032 (§2, §6).
 

@@ -53,7 +53,7 @@ in the type system — the minimal-shapes constraint. The rename is mechanical
 
 ## R3 — Wire: `kind` on `PlainConnection`, one trailing signed byte
 
-*(Superseded in review round 5 by ADR 0033: the kind is now message
+*(Superseded in review round 5 by ADR 0034: the kind is now message
 vocabulary — one `Message` variant per handshake, `PlainConnection` loses the
 field, and `signed_bytes(kind)` takes the tag from the variant context. The
 trailing-tag preimage layout below stands, relay/publisher byte-identical,
@@ -173,7 +173,7 @@ admitting link under either policy.
 
 ## R9 — Symmetric edges: one flag, both relay seams, emergent pairs
 
-*(Superseded in review round 5 by ADR 0033: bidirectionality is now
+*(Superseded in review round 5 by ADR 0034: bidirectionality is now
 constructed by the symmetric handshake — one accept records both directions
 on both ends — so reciprocity no longer depends on the two ends' independent
 draws agreeing, and capped acceptance composes. The flag still sets the

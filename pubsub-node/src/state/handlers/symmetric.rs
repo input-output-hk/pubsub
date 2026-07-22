@@ -1,4 +1,4 @@
-//! The **symmetric** handshake (M4, ADR 0033): one accept decision
+//! The **symmetric** handshake (M4, ADR 0034): one accept decision
 //! establishes a bidirectional relay-class link. The acceptor records the
 //! peer in **both** `downstream` and `upstream`; the dialer mirrors on the
 //! acceptance. Reciprocity is *constructed* by these mechanics — not hoped

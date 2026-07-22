@@ -112,7 +112,7 @@ pub(crate) struct NodeState {
     /// link: owner-only (the default) or any-verified.
     publisher_admission: PublisherAdmission,
     /// Whether this node's relay links use the **symmetric** (bidirectional)
-    /// handshake — M4 (ADR 0033). When set, the relay dial pass speaks the
+    /// handshake — M4 (ADR 0034). When set, the relay dial pass speaks the
     /// symmetric vocabulary, inbound symmetric requests are admitted (one
     /// accept decision records the link in both directions), and severing a
     /// relay link removes its mirror — on a symmetric node every relay link
@@ -381,7 +381,7 @@ fn handle_heartbeat(state: &mut NodeState) -> Vec<Effect> {
     let signer = Arc::clone(&state.signer);
     // A symmetric node's relay picks are dialed under the symmetric
     // vocabulary — one handshake establishes the link in both directions
-    // (ADR 0033); the stored entries stay relay-class either way.
+    // (ADR 0034); the stored entries stay relay-class either way.
     let relay_handshake = if state.symmetric_edges {
         HandshakeKind::Symmetric
     } else {
@@ -679,7 +679,7 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
 
 /// Transition for an inbound network message: dispatches per message
 /// vocabulary — the connection variants route straight to their handshake's
-/// handler module (ADR 0033), so no handler recovers the handshake kind by
+/// handler module (ADR 0034), so no handler recovers the handshake kind by
 /// testing a field mid-flight.
 fn handle_message_received(state: &mut NodeState, from: PeerId, message: Message) -> Vec<Effect> {
     tracing::debug!(
@@ -944,7 +944,7 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
         state.upstream.remove(&admitting_key);
         // Teardown atomicity of the symmetric establishment protocol: on a
         // symmetric node every relay link is bidirectional by construction,
-        // so severing the admitting half removes its mirror too (ADR 0033).
+        // so severing the admitting half removes its mirror too (ADR 0034).
         if state.symmetric_edges && kind == LinkKind::Relay {
             state.downstream.remove(&admitting_key);
         }
@@ -964,7 +964,7 @@ fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessa
 }
 
 // Per-handshake connection-control handlers (relay / publisher / symmetric),
-// dispatched by message vocabulary from `handle_message_received` (ADR 0033).
+// dispatched by message vocabulary from `handle_message_received` (ADR 0034).
 mod handlers;
 
 // Synchronous state-machine tests: construct a NodeState, apply scripted

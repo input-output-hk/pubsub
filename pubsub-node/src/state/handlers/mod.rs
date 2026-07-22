@@ -1,4 +1,4 @@
-//! Per-handshake connection-control handlers (ADR 0033).
+//! Per-handshake connection-control handlers (ADR 0034).
 //!
 //! The message vocabulary names the establishment protocol —
 //! [`Message::RelayConnection`](crate::message::Message),

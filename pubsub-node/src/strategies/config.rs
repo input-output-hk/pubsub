@@ -164,7 +164,7 @@ pub struct NodeStrategies {
     /// The publisher-link acceptance strategy (inbound initiation links).
     pub publisher_acceptance: Option<Arc<dyn ConnectionAcceptanceStrategy>>,
     /// Whether relay links are established with the **symmetric**
-    /// (bidirectional) handshake — M4 (ADR 0033): the dial pass speaks the
+    /// (bidirectional) handshake — M4 (ADR 0034): the dial pass speaks the
     /// symmetric vocabulary and one accept decision records each link in both
     /// directions on both ends. `false` (the default) on every directional
     /// model; inbound symmetric handshakes are then dropped outright.

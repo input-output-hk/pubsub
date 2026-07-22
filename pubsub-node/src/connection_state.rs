@@ -15,7 +15,7 @@ use crate::topic::TopicId;
 /// class: what the link admits on the receive gate and carries on fan-out.
 ///
 /// Deliberately distinct from the connection-message vocabulary
-/// ([`HandshakeKind`](crate::message::HandshakeKind), ADR 0033), which names
+/// ([`HandshakeKind`](crate::message::HandshakeKind), ADR 0034), which names
 /// the *establishment protocol* — the two do not map 1:1: the symmetric
 /// handshake establishes ordinary `Relay`-class links, in both directions.
 /// The kind implies the data direction of a dialed link: a relay dialer will
@@ -244,7 +244,7 @@ pub(crate) mod test_support {
         }
     }
 
-    /// A symmetric-handshake control-message `Event` (M4, ADR 0033).
+    /// A symmetric-handshake control-message `Event` (M4, ADR 0034).
     fn symmetric_control_event(emitter: &str, action: ConnectionAction) -> Event {
         Event::MessageReceived {
             from: peer(emitter),

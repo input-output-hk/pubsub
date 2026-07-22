@@ -74,7 +74,7 @@ pub enum MessagePayload {
 /// One dissemination variant plus one connection-control variant **per
 /// handshake kind** — the vocabulary names the establishment protocol, so the
 /// receive path routes each control message to its handshake's handler
-/// without interrogating a kind field (ADR 0033). All variants are signed;
+/// without interrogating a kind field (ADR 0034). All variants are signed;
 /// the handshake kind is bound into the control preimage (see
 /// [`PlainConnection::signed_bytes`]), so a message cannot be replayed across
 /// vocabularies. The enum is `#[non_exhaustive]` so future protocol-message
@@ -125,7 +125,7 @@ impl Message {
 }
 
 /// Which establishment protocol a connection-control message speaks — the
-/// message-vocabulary axis (ADR 0033).
+/// message-vocabulary axis (ADR 0034).
 ///
 /// Deliberately distinct from [`LinkKind`](crate::connection_state::LinkKind),
 /// which names a **stored link's traffic class**: the two do not map 1:1 —

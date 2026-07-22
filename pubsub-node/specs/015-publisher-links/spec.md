@@ -29,7 +29,7 @@ An experimenter configures every node in a simulated network with the M3 recipe:
 
 ### User Story 2 - Configure a node fleet for bidirectional links (the M4 approximation) (Priority: P2)
 
-*(Amended in review round 5, A11/ADR 0033: reciprocity is constructed by a
+*(Amended in review round 5, A11/ADR 0034: reciprocity is constructed by a
 dedicated symmetric handshake — one accept decision records the link in both
 directions on both ends — rather than emerging from two independent
 directional handshakes. The recipe approximates M4 pending a uniform
@@ -83,7 +83,7 @@ A node configured without publisher links, without symmetric edges, and with the
 ### Edge Cases
 
 - A peer legitimately holds links of **both kinds in the same direction** on one topic (e.g. it is my relay pick and also pushes its publications to me): both must coexist without either evicting the other, and sends to that peer are deduplicated.
-- The two ends of a symmetric pair must never disagree about reciprocity: one accept decision records both directions on both ends (A11/ADR 0033), so a refused or dropped handshake leaves **no** one-sided half — at worst a dial is dropped and the edge does not form.
+- The two ends of a symmetric pair must never disagree about reciprocity: one accept decision records both directions on both ends (A11/ADR 0034), so a refused or dropped handshake leaves **no** one-sided half — at worst a dial is dropped and the edge does not form.
 - An invalidly-signed payload arriving over an inbound publisher link severs **that** link — not a relay entry that may not exist for the peer.
 - Publisher dials are unconditional: a node with zero relay downstream and a node with a full relay downstream establish the same publisher links.
 - Publisher degree exceeding the candidate set: the node establishes links to all matching candidates (same behaviour class as small-topic relay selection today).
@@ -102,7 +102,7 @@ A node configured without publisher links, without symmetric edges, and with the
 - **FR-006** (default admission — M3 owner-binding): A message arriving over an inbound publisher link MUST be admitted only when the message's publisher is the link's owner; otherwise it is dropped. Messages arriving over active relay links are admitted as today.
 - **FR-007** (M5 fan-out): A node MUST be configurable to send **every** held message — regardless of origin — over the union of relay downstream and active publisher links.
 - **FR-008** (M5 admission): A node MUST be configurable to admit any verified message arriving over an inbound publisher link, relaxing FR-006's owner-binding. The default remains owner-only.
-- **FR-009** (symmetric edges — the M4 approximation; amended A11/ADR 0033): The node MUST support a symmetric edge mode in which relay selection evaluates an order-independent predicate over the peer pair, under a randomness domain dedicated to symmetric evaluation (independent of the directional domains), and each valid edge is established by a dedicated symmetric handshake: one accept decision MUST record the relay-class link in both directions on both ends, and teardown/severance MUST remove both halves together. One configuration switch drives the predicate and the handshake together. No new stored link class is introduced (the entries are relay-class links present in both collections).
+- **FR-009** (symmetric edges — the M4 approximation; amended A11/ADR 0034): The node MUST support a symmetric edge mode in which relay selection evaluates an order-independent predicate over the peer pair, under a randomness domain dedicated to symmetric evaluation (independent of the directional domains), and each valid edge is established by a dedicated symmetric handshake: one accept decision MUST record the relay-class link in both directions on both ends, and teardown/severance MUST remove both halves together. One configuration switch drives the predicate and the handshake together. No new stored link class is introduced (the entries are relay-class links present in both collections).
 - **FR-010**: An invalidly-signed payload MUST sever the link that admitted it — the inbound publisher link when that was the admission path.
 - **FR-011**: When a peer is reachable over both downstream kinds, each outgoing message MUST be sent to that peer at most once.
 - **FR-012**: All axes (relay selection/acceptance, publisher selection/acceptance, fan-out behaviour, admission policy, symmetric mode, per-kind degrees) MUST be independently configurable per node; no bundled model preset is provided.

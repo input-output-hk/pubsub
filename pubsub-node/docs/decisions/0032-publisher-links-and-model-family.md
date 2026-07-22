@@ -1,6 +1,6 @@
 # 0032 — Publisher links and the dissemination-model family (M3/M4/M5) as a minimal extension
 
-**Status**: Accepted (feature 015). **Amended by ADR 0033** (review round 5):
+**Status**: Accepted (feature 015). **Amended by ADR 0034** (review round 5):
 §2's kind *field* on the connection message is superseded by one message
 variant per handshake (the kind tag stays inside the signed bytes, supplied
 from the variant); §6's emergent reciprocity is superseded by the constructed
@@ -66,7 +66,7 @@ superseded by it and remain reference-only (they never merged).
    variants — a trait would be unconsumed generality. Severance is
    policy-independent: an invalidly-signed payload severs the **admitting**
    link.
-6. **Symmetric edges (M4) as a predicate mode.** *(Superseded by ADR 0033 §3:
+6. **Symmetric edges (M4) as a predicate mode.** *(Superseded by ADR 0034 §3:
    bidirectionality is now constructed by the symmetric handshake — one
    accept decision records the link in both directions on both ends — rather
    than emergent from reciprocal dial pairs.)* `is_valid_edge_sym` hashes the
@@ -88,7 +88,7 @@ superseded by it and remain reference-only (they never merged).
   making push-only M1 the M5 `k_in = 0` boundary. M5's two switches
   (`forward-to-all` fan-out, `any-verified` admission) must be paired
   network-wide. *(The `--symmetric-edges` × capped-acceptance startup
-  rejection is deleted per ADR 0033 §5 — with constructed reciprocity a
+  rejection is deleted per ADR 0034 §5 — with constructed reciprocity a
   capacity refusal refuses the whole edge.)*
 - The wire layout changed (appended kind byte): the layout-pin test was
   updated in the same commit — the one deliberate behavioural test edit.
@@ -105,7 +105,7 @@ superseded by it and remain reference-only (they never merged).
 - Modelling caveat (inherited): the verifiable-hash realisation approximates
   the models' private exactly-k uniform picks with binomial-around-k predicate
   draws; for the symmetric configuration that means expected degree ≈ RF with
-  no min-degree guarantee. ADR 0033 therefore defers the **M4 label** until a
+  no min-degree guarantee. ADR 0034 therefore defers the **M4 label** until a
   uniform exactly-RF selection kind lands (follow-up feature); for the other
   models quantifying the gap against the published laws is the experiment
   harness's job.

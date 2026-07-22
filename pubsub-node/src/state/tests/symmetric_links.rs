@@ -1,5 +1,5 @@
 //! Unit tests for the **symmetric** (M4) handshake — constructed reciprocity
-//! (review round 5, ADR 0033): one accept decision records the link in both
+//! (review round 5, ADR 0034): one accept decision records the link in both
 //! directions on both ends; refusals leave no one-sided half; teardown and
 //! severance remove both halves together.
 
@@ -17,7 +17,7 @@ fn symmetric_state(self_id: &str) -> NodeState {
     state
 }
 
-// ADR 0033 §1: accepting a symmetric request records the emitter in BOTH
+// ADR 0034 §1: accepting a symmetric request records the emitter in BOTH
 // collections as an Active relay-class link, and replies Accepted under the
 // symmetric vocabulary.
 #[test]
