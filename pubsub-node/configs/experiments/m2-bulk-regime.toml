@@ -25,7 +25,7 @@ topic = "t0"
 connection = "uniform-sampler" # exactly-RF uniform picks - M2's selection family
 target_degree = 16             # RF
 acceptance = "accept-from-all"
-fanout = "forward-to-all"
+fanout = "forward-to-relays"
 
 [strategies.adversarial]
 connection = "uniform-sampler"

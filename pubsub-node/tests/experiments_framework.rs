@@ -30,7 +30,7 @@ fn population(size: usize, adversarial: usize) -> Population {
     let honest = StrategySpec {
         connection: ConnectionSpec::UniformSampler { target_degree: 3 },
         acceptance: AcceptanceSpec::accept_from_all(),
-        fanout: FanoutSpec::ForwardToAll,
+        fanout: FanoutSpec::ForwardToRelays,
     };
     let config = PopulationConfig {
         topic: TopicId::from_str("t0").expect("valid topic"),
@@ -128,7 +128,7 @@ fn sweep_toml(size: usize, master_seed: u64, runs: u64) -> String {
             connection = "uniform-sampler"
             target_degree = 4
             acceptance = "accept-from-all"
-            fanout = "forward-to-all"
+            fanout = "forward-to-relays"
 
             [strategies.adversarial]
             connection = "uniform-sampler"

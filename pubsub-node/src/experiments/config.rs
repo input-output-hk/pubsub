@@ -127,7 +127,7 @@ pub struct StrategyTable {
     /// Accept-cap buffer for the bounded acceptance kinds.
     #[serde(default = "default_cap_buffer")]
     pub cap_buffer: usize,
-    /// The fan-out kind: `forward-to-all` or `silent-relay`.
+    /// The fan-out kind: `forward-to-relays` or `silent-relay`.
     pub fanout: String,
 }
 
@@ -184,13 +184,13 @@ impl StrategyTable {
             cap_buffer: self.cap_buffer,
         };
         let fanout = match self.fanout.to_ascii_lowercase().as_str() {
-            "forward-to-all" => FanoutSpec::ForwardToAll,
+            "forward-to-relays" => FanoutSpec::ForwardToRelays,
             "silent-relay" => FanoutSpec::SilentRelay,
             _ => {
                 return Err(SweepConfigError::UnknownStrategy {
                     seam: "fan-out",
                     kind: self.fanout.clone(),
-                    expected: "forward-to-all, silent-relay",
+                    expected: "forward-to-relays, silent-relay",
                 })
             }
         };
@@ -653,7 +653,7 @@ mod tests {
             connection = "uniform-sampler"
             target_degree = 4
             acceptance = "accept-from-all"
-            fanout = "forward-to-all"
+            fanout = "forward-to-relays"
 
             [strategies.adversarial]
             connection = "uniform-sampler"

@@ -227,7 +227,7 @@ health only (spec US4).
 
 - [X] T022 [P] [US4] Shipped configurations in `configs/experiments/`:
       `m2-operating-point.toml` (N = 20 000, μ = 0.2, RF = 24;
-      uniform-sampler + accept-from-all + forward-to-all),
+      uniform-sampler + accept-from-all + forward-to-relays),
       `m2-bulk-regime.toml` (named point from m2's full-coverage validation
       grid), `m2-smoke.toml` (suite-sized) (016-FR-033;
       contracts/sweep-config.md).

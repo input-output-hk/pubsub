@@ -20,7 +20,7 @@ topic = "t0"
 connection = "uniform-sampler"
 target_degree = 8
 acceptance = "accept-from-all"
-fanout = "forward-to-all"
+fanout = "forward-to-relays"
 
 [strategies.adversarial]
 connection = "uniform-sampler"

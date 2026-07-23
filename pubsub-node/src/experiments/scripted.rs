@@ -136,7 +136,7 @@ impl ScriptedTopology {
                 ParticipantClass::Honest
             };
             let fanout = match class {
-                ParticipantClass::Honest => FanoutSpec::ForwardToAll,
+                ParticipantClass::Honest => FanoutSpec::ForwardToRelays,
                 ParticipantClass::Adversarial => FanoutSpec::SilentRelay,
             };
             let spec = StrategySpec {

@@ -34,7 +34,7 @@ separate churn term, so these configurations run churn-free.
 
 Population: 16 000 honest, 4 000 silent adversaries; uniform-sampler dial
 (exactly-RF picks, the model's selection family), accept-from-all,
-forward-to-all. All 40 runs formed good topologies and delivered full
+forward-to-relays. All 40 runs formed good topologies and delivered full
 coverage — consistent with the model's P(bad) ≈ 7.3×10⁻⁵ at this point
 (resolving that probability needs ~10⁴ runs; 40 runs certify only its
 order-of-magnitude absence).

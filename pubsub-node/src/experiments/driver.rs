@@ -478,7 +478,7 @@ mod tests {
         StrategySpec {
             connection: ConnectionSpec::connect_to_all(),
             acceptance: AcceptanceSpec::accept_from_all(),
-            fanout: FanoutSpec::ForwardToAll,
+            fanout: FanoutSpec::ForwardToRelays,
         }
     }
 
@@ -721,7 +721,7 @@ mod tests {
                     bucket_count: None,
                     cap_buffer: 0,
                 },
-                fanout: FanoutSpec::ForwardToAll,
+                fanout: FanoutSpec::ForwardToRelays,
             },
             adversarial_strategies: full_relay_spec(),
         };

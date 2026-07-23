@@ -45,7 +45,7 @@ topic = "t0"
 connection = "uniform-sampler"   # dial: protocol kinds or uniform-sampler
 target_degree = 8
 acceptance = "accept-from-all"   # protocol acceptance kinds
-fanout = "forward-to-all"
+fanout = "forward-to-relays"     # the protocol's default forwarding policy
 
 [strategies.adversarial]
 connection = "uniform-sampler"

@@ -26,7 +26,7 @@ use crate::strategies::config::{
     AcceptanceParams, ConnectionParams, NodeStrategies, StrategyConfigError,
 };
 use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
-use crate::strategies::fanout::{FanoutStrategy, ForwardToAll};
+use crate::strategies::fanout::{FanoutStrategy, ForwardToRelays};
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::TopicRegistryEvent;
@@ -343,8 +343,11 @@ impl AcceptanceSpec {
 /// A fan-out policy specification.
 #[derive(Clone, Copy, Debug)]
 pub enum FanoutSpec {
-    /// Forward to every downstream on the topic (the protocol policy).
-    ForwardToAll,
+    /// Forward held messages to every relay downstream on the topic — the
+    /// protocol's default policy. (Experiment populations are relay-only, so
+    /// this is the whole fan-out; the M5 all-links `forward-to-all` kind
+    /// waits for publisher-link experiment support.)
+    ForwardToRelays,
     /// Forward to no one (the experiments-only silent adversary).
     SilentRelay,
 }
@@ -352,7 +355,7 @@ pub enum FanoutSpec {
 impl FanoutSpec {
     fn build(self) -> Arc<dyn FanoutStrategy> {
         match self {
-            Self::ForwardToAll => Arc::new(ForwardToAll),
+            Self::ForwardToRelays => Arc::new(ForwardToRelays),
             Self::SilentRelay => Arc::new(SilentRelay),
         }
     }
@@ -602,7 +605,7 @@ mod tests {
             topic: TopicId::from_str("t0").expect("valid topic"),
             size,
             adversarial,
-            honest_strategies: spec(FanoutSpec::ForwardToAll),
+            honest_strategies: spec(FanoutSpec::ForwardToRelays),
             adversarial_strategies: spec(FanoutSpec::SilentRelay),
         }
     }

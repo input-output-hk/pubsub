@@ -577,8 +577,8 @@ recorded topology.
 ### User Story 4 - M2-comparison demonstration (Priority: P4)
 
 A researcher runs the shipped worked-example configuration — the
-experiments-only uniform sampler with accept-from-all and forward-to-all at
-the formal M2 operating point (N = 20 000, μ = 0.2, RF = 24) — manually, and
+experiments-only uniform sampler with accept-from-all and forward-to-relays
+at the formal M2 operating point (N = 20 000, μ = 0.2, RF = 24) — manually, and
 documents the measured message counts, copies per honest node, and hop depth
 alongside the formal simulators' published values, plus P(good) at the
 shipped bulk-regime parameter point (both comparison configurations ship
@@ -827,7 +827,7 @@ comparison table can be filled from the artifacts.
   validation, via the direct pre-population setup mode.
 - **FR-033**: The framework MUST ship the M2-comparison worked example as
   two configurations plus a smoke variant: (a) the operating point (uniform
-  sampler + accept-from-all + forward-to-all at N = 20 000, μ = 0.2,
+  sampler + accept-from-all + forward-to-relays at N = 20 000, μ = 0.2,
   RF = 24) for the cost/latency means; (b) a named bulk-regime point (P(bad)
   ~ 1e-2..1e-3, taken from m2's full-coverage validation grid) for the
   P(good)-vs-law check — both executed manually with the comparison

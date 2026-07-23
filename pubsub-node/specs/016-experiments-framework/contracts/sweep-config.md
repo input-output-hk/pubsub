@@ -24,7 +24,7 @@ topic = "t0"
 connection = "uniform-sampler"     # experiments-only kind, or "hash-gated", …
 target_degree = 12
 acceptance = "accept-from-all"
-fanout = "forward-to-all"
+fanout = "forward-to-relays"       # the protocol's default forwarding policy
 
 [strategies.adversarial]
 connection = "uniform-sampler"
