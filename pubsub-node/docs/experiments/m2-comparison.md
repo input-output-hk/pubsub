@@ -10,9 +10,9 @@ differences worth raising.
 
 | | |
 |---|---|
-| Tool commit | `e14a3f2ccaf78b249e87297a4942e23453bd1e01` (§1–§2; recorded in both manifests); `60b8e84341d3bff550090cb4a9f229ba49b47343` for the §3 grid-cell check (the intervening commits touch documentation and progress reporting only — artifact bytes are unchanged between the two) |
-| Operating point | `configs/experiments/m2-operating-point.toml`, master seed **42**, 40 runs, ~13 min at `--workers 1` (release build; ~30 GB peak per in-flight run) |
-| Bulk-regime point | `configs/experiments/m2-bulk-regime.toml`, master seed **4016**, 8000 runs, ~29 min at `--workers 8` (~1.3 GB per in-flight run) |
+| Tool commit | `493bb2f` (post-015-rebase; all three sections re-executed at this commit). The re-executed artifacts are **byte-identical** to the original execution's (tool commits `e14a3f2`/`60b8e84`, pre-rebase lineage): `runs.jsonl` and `aggregates.json` verified by direct diff for all three sections, manifests differing only in the tool commit and the fan-out kind's rename — the 015 integration (relay-only populations over the re-keyed link model, `forward-to-relays` fan-out) leaves the M2 instrument's output unchanged to the byte |
+| Operating point | `configs/experiments/m2-operating-point.toml`, master seed **42**, 40 runs, ~13–23 min at `--workers 1` (release build; ~30 GB peak per in-flight run) |
+| Bulk-regime point | `configs/experiments/m2-bulk-regime.toml`, master seed **4016**, 8000 runs, ~30 min at default workers (~1.3 GB per in-flight run) |
 | Grid-cell check | the operating-point configuration with `target_degree = 16` (both classes), `runs_per_experiment = 150`, `master_seed = 20016`; ~37 min at `--workers 1` |
 | Reference values | `formal_spec/hybrid_dissemination/models/comparison.md` §2 and `models/m2/properties/full_coverage.md` §2–§3 |
 
