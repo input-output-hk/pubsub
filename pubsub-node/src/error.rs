@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use crate::peer::PeerId;
 
-/// Failure modes returned by [`load_node_config`](crate::load_node_config).
+/// Failure modes returned by the TOML file loaders of the in-memory
+/// registries ([`InMemorySubscriptionRegistry::from_file`](crate::InMemorySubscriptionRegistry::from_file),
+/// [`InMemoryTopicRegistry::from_file`](crate::InMemoryTopicRegistry::from_file)).
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     /// The configuration file could not be read from disk.
@@ -21,7 +23,7 @@ pub enum ConfigError {
         source: toml::de::Error,
     },
 
-    /// A peer entry parsed successfully but its `id` failed the
+    /// An entry parsed successfully but its node id failed the
     /// [`PeerId`] validation rules.
     #[error("invalid peer entry: {0}")]
     InvalidPeer(String),

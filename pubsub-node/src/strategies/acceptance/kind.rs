@@ -9,8 +9,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{
-    AcceptFromAllCandidates, BoundedAcceptance, ConnectionAcceptanceStrategy, HashGatedAcceptance,
-    HashGatedBoundedAcceptance,
+    AcceptFromAllCandidates, AcceptNone, BoundedAcceptance, ConnectionAcceptanceStrategy,
+    HashGatedAcceptance, HashGatedBoundedAcceptance,
 };
 use crate::strategies::config::{
     require_target_degree, validate_bucket_count, AcceptanceParams, StrategyConfigError,
@@ -30,6 +30,9 @@ pub enum AcceptanceStrategyKind {
     /// Verifiable, bucketed, bounded acceptance — gate **and** cap
     /// ([`HashGatedBoundedAcceptance`](super::HashGatedBoundedAcceptance)).
     HashGatedBounded,
+    /// The off-switch: accept nothing ([`AcceptNone`](super::AcceptNone)) —
+    /// push-only configurations (M1 / the M5 `k_in = 0` boundary).
+    None,
 }
 
 impl AcceptanceStrategyKind {
@@ -41,6 +44,7 @@ impl AcceptanceStrategyKind {
             Self::Bounded => "bounded",
             Self::HashGated => "hash-gated",
             Self::HashGatedBounded => "hash-gated-bounded",
+            Self::None => "none",
         }
     }
 
@@ -52,24 +56,29 @@ impl AcceptanceStrategyKind {
         params: &AcceptanceParams,
     ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
         match self {
+            Self::None => Ok(Arc::new(AcceptNone)),
             Self::AcceptFromAll => Ok(Arc::new(AcceptFromAllCandidates)),
             Self::Bounded => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
-                Ok(Arc::new(BoundedAcceptance::new(
-                    target_degree,
-                    params.cap_buffer,
-                )))
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
+                Ok(Arc::new(
+                    BoundedAcceptance::new(target_degree, params.cap_buffer).for_kind(params.kind),
+                ))
             }
             Self::HashGated => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedAcceptance::new(params.self_id.clone(), target_degree)
-                        .with_bucket_override(bucket_override),
+                        .with_bucket_override(bucket_override)
+                        .for_kind(params.kind)
+                        .with_symmetric(params.symmetric),
                 ))
             }
             Self::HashGatedBounded => {
-                let target_degree = require_target_degree(self.name(), params.target_degree)?;
+                let target_degree =
+                    require_target_degree(self.name(), params.kind, params.target_degree)?;
                 let bucket_override = validate_bucket_count(self.name(), params.bucket_count)?;
                 Ok(Arc::new(
                     HashGatedBoundedAcceptance::new(
@@ -77,7 +86,9 @@ impl AcceptanceStrategyKind {
                         target_degree,
                         params.cap_buffer,
                     )
-                    .with_bucket_override(bucket_override),
+                    .with_bucket_override(bucket_override)
+                    .for_kind(params.kind)
+                    .with_symmetric(params.symmetric),
                 ))
             }
         }
@@ -87,7 +98,7 @@ impl AcceptanceStrategyKind {
 /// The error returned when a configuration string names no known acceptance
 /// strategy.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, bounded, hash-gated, hash-gated-bounded)")]
+#[error("unknown acceptance strategy '{0}' (expected one of: accept-from-all, bounded, hash-gated, hash-gated-bounded, none)")]
 pub struct UnknownAcceptanceStrategy(pub String);
 
 impl FromStr for AcceptanceStrategyKind {
@@ -100,6 +111,7 @@ impl FromStr for AcceptanceStrategyKind {
             "bounded" => Ok(Self::Bounded),
             "hash-gated" => Ok(Self::HashGated),
             "hash-gated-bounded" => Ok(Self::HashGatedBounded),
+            "none" => Ok(Self::None),
             _ => Err(UnknownAcceptanceStrategy(s.to_string())),
         }
     }
@@ -108,6 +120,7 @@ impl FromStr for AcceptanceStrategyKind {
 #[cfg(test)]
 mod tests {
     use super::AcceptanceStrategyKind;
+    use crate::connection_state::LinkKind;
     use crate::peer::PeerId;
     use crate::strategies::config::{AcceptanceParams, StrategyConfigError};
     use std::str::FromStr;
@@ -115,9 +128,11 @@ mod tests {
     fn params(target_degree: Option<usize>) -> AcceptanceParams {
         AcceptanceParams {
             self_id: PeerId::from_str("self").expect("valid peer id"),
+            kind: LinkKind::Relay,
             target_degree,
             bucket_count: None,
             cap_buffer: 3,
+            symmetric: false,
         }
     }
 
@@ -206,6 +221,7 @@ mod tests {
             AcceptanceStrategyKind::Bounded,
             AcceptanceStrategyKind::HashGated,
             AcceptanceStrategyKind::HashGatedBounded,
+            AcceptanceStrategyKind::None,
         ] {
             assert_eq!(AcceptanceStrategyKind::from_str(kind.name()).unwrap(), kind);
         }

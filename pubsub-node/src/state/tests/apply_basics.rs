@@ -182,14 +182,14 @@ fn transition_is_deterministic() {
     assert_eq!(
         sorted_pairs(
             first
-                .upstream_snapshot()
+                .upstream_relays()
                 .into_iter()
                 .map(|(p, t, _)| (p, t))
                 .collect()
         ),
         sorted_pairs(
             second
-                .upstream_snapshot()
+                .upstream_relays()
                 .into_iter()
                 .map(|(p, t, _)| (p, t))
                 .collect()

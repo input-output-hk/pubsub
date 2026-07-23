@@ -12,25 +12,31 @@ mod connection;
 mod fanout;
 mod gated_receive;
 mod membership;
+mod publisher_links;
 mod setup;
 mod severance;
 mod shutdown;
+mod symmetric_links;
 
 use super::*;
 
 pub(crate) use crate::connection_state::test_support::{
-    accepted_from, membership_joined, misattributed_request, payload_from, rejected_from,
-    request_from, tampered_payload_from, terminated_from, ConnectionScript,
+    accepted_from, membership_joined, misattributed_request, payload_from, payload_via,
+    publisher_accepted_from, publisher_rejected_from, publisher_request_from,
+    publisher_terminated_from, rejected_from, request_from, symmetric_accepted_from,
+    symmetric_rejected_from, symmetric_request_from, symmetric_terminated_from,
+    tampered_payload_from, terminated_from, ConnectionScript,
 };
 pub(crate) use crate::crypto::mock::{MockCryptoScheme, TestSigner, TestVerifier};
 pub(crate) use crate::crypto::PublicKey;
 pub(crate) use crate::crypto::{Signer, Timestamp};
+pub(crate) use crate::message::HandshakeKind;
 pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
 pub(crate) use crate::strategies::acceptance::{
     AcceptFromAllCandidates, HashGatedBoundedAcceptance,
 };
 pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
-pub(crate) use crate::strategies::fanout::ForwardToAll;
+pub(crate) use crate::strategies::fanout::{ForwardToAll, ForwardToRelays};
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
 pub(crate) use std::collections::BTreeSet;
@@ -75,9 +81,8 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer(self_id),
-        strategy(),
-        Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
+        Arc::new(ForwardToRelays),
     );
     for t in subscriptions {
         state
@@ -181,9 +186,9 @@ fn assert_invariants(state: &NodeState) {
 // ---- Connection lifecycle (US1): helpers ----------------------------------
 
 /// The upstream state recorded for `(p, t)`, if any.
-fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<UpstreamState> {
+fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<LinkState> {
     state
-        .upstream_snapshot()
+        .upstream_relays()
         .into_iter()
         .find(|(pp, tt, _)| pp == &peer(p) && tt == &topic(t))
         .map(|(_, _, st)| st)
@@ -191,39 +196,37 @@ fn upstream_state(state: &NodeState, p: &str, t: &str) -> Option<UpstreamState> 
 
 /// Whether a downstream entry is held for `(p, t)`.
 fn has_downstream(state: &NodeState, p: &str, t: &str) -> bool {
-    state.downstream_snapshot().contains(&(peer(p), topic(t)))
+    state.downstream_relays().contains(&(peer(p), topic(t)))
 }
 
-/// The `(to, topic)` of every `Request` send effect (asserting emitter == self).
+/// The `(to, topic)` of every `Request` send effect, any handshake kind
+/// (asserting emitter == self).
 fn request_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if let ConnectionAction::Request { topic } = &cm.plain.action {
-                assert_eq!(cm.plain.emitter, peer(expected_emitter), "request emitter");
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((_, cm)) = message.connection_parts() {
+                if let ConnectionAction::Request { topic } = &cm.plain.action {
+                    assert_eq!(cm.plain.emitter, peer(expected_emitter), "request emitter");
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }
     out
 }
 
-/// The `(to, topic)` of every `Accepted` send effect (asserting emitter == self).
+/// The `(to, topic)` of every `Accepted` send effect, any handshake kind
+/// (asserting emitter == self).
 fn accepted_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if let ConnectionAction::Accepted { topic } = &cm.plain.action {
-                assert_eq!(cm.plain.emitter, peer(expected_emitter), "accepted emitter");
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((_, cm)) = message.connection_parts() {
+                if let ConnectionAction::Accepted { topic } = &cm.plain.action {
+                    assert_eq!(cm.plain.emitter, peer(expected_emitter), "accepted emitter");
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }
@@ -237,13 +240,14 @@ fn sorted_pairs(mut v: Vec<(PeerId, TopicId)>) -> Vec<(PeerId, TopicId)> {
 
 // ---- T017: connection-gated delivery (US2, FR-016/019) --------------------
 
-/// Seed an Active upstream `(peer, topic)` directly — the declarative
+/// Seed an Active relay upstream `(peer, topic)` directly — the declarative
 /// stand-in for a full setup→accept handshake when a test only needs the
 /// gate to be open (the test module reaches `NodeState`'s private fields).
 fn with_active_upstream(state: &mut NodeState, peer_alias: &str, t: &str) {
-    state
-        .upstream
-        .insert((peer(peer_alias), topic(t)), UpstreamState::Active);
+    state.upstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Relay),
+        LinkState::Active,
+    );
 }
 
 // ---- T021: misbehavior severance (US3, FR-017/018) ------------------------
@@ -261,9 +265,20 @@ fn misbehaved(effects: &[Effect]) -> Vec<(PeerId, TopicId, &'static str)> {
     effects
         .iter()
         .filter_map(|effect| match effect {
-            Effect::Misbehaved { peer, topic, cause } => {
-                Some((peer.clone(), topic.clone(), *cause))
-            }
+            Effect::Misbehaved {
+                peer, topic, cause, ..
+            } => Some((peer.clone(), topic.clone(), *cause)),
+            Effect::Send { .. } => None,
+        })
+        .collect()
+}
+
+/// The link kind of every `Misbehaved` effect — which class was severed.
+fn severed_kinds(effects: &[Effect]) -> Vec<LinkKind> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Misbehaved { kind, .. } => Some(*kind),
             Effect::Send { .. } => None,
         })
         .collect()
@@ -276,27 +291,167 @@ fn has_send(effects: &[Effect]) -> bool {
 
 // ---- T024: graceful shutdown & Terminated reception (US4, FR-014/020) -----
 
-/// Seed a downstream entry `(peer, topic)` directly.
+/// Seed an accepted relay downstream entry `(peer, topic)` directly.
 fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
-    state.downstream.insert((peer(peer_alias), topic(t)));
+    state.downstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Relay),
+        LinkState::Active,
+    );
 }
 
-/// The `(to, topic)` of every `Terminated` send effect (asserting emitter).
+// ---- 015: publisher links — helpers ----------------------------------------
+
+/// Construct a `NodeState` like [`node_state`] but with the **publisher** seam
+/// pair configured (selection + acceptance).
+fn node_state_with_publishers(
+    self_id: &str,
+    subscriptions: HashSet<TopicId>,
+    publisher_strategy: Arc<dyn ConnectionStrategy>,
+    publisher_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+) -> NodeState {
+    let mut state = NodeState::new(
+        peer(self_id),
+        subscriptions.iter().cloned().collect(),
+        0,
+        Arc::new(TestVerifier),
+        alias_signer(self_id),
+        NodeStrategies {
+            relay_connection: strategy(),
+            relay_acceptance: Arc::new(AcceptFromAllCandidates),
+            publisher_connection: Some(publisher_strategy),
+            publisher_acceptance: Some(publisher_acceptance),
+            symmetric_edges: false,
+        },
+        Arc::new(ForwardToRelays),
+    );
+    for t in subscriptions {
+        state
+            .registered_topics
+            .insert(t, TopicEntry::from_publishers(BTreeSet::new()));
+    }
+    state
+}
+
+// ---- 015 review round 5: symmetric (M4) handshake — helpers -----------------
+
+/// Construct a `NodeState` like [`node_state`] but in **symmetric** (M4)
+/// mode, with an explicit relay acceptance instance (the policy the symmetric
+/// handshake consults).
+fn node_state_symmetric(
+    self_id: &str,
+    subscriptions: HashSet<TopicId>,
+    relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+) -> NodeState {
+    let mut state = NodeState::new(
+        peer(self_id),
+        subscriptions.iter().cloned().collect(),
+        0,
+        Arc::new(TestVerifier),
+        alias_signer(self_id),
+        NodeStrategies::relay_only(strategy(), relay_acceptance).with_symmetric_edges(true),
+        Arc::new(ForwardToRelays),
+    );
+    for t in subscriptions {
+        state
+            .registered_topics
+            .insert(t, TopicEntry::from_publishers(BTreeSet::new()));
+    }
+    state
+}
+
+/// Seed an accepted **publisher upstream** entry `(peer, topic)` directly —
+/// the declarative stand-in for an accepted inbound initiation link.
+fn with_upstream_publisher(state: &mut NodeState, peer_alias: &str, t: &str) {
+    state.upstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Publisher),
+        LinkState::Active,
+    );
+}
+
+/// Seed a **publisher downstream** entry `(peer, topic)` directly, in the
+/// given lifecycle state (the node's own initiation dial).
+fn with_publisher_target(state: &mut NodeState, peer_alias: &str, t: &str, st: LinkState) {
+    state.downstream.insert(
+        LinkKey::new(topic(t), peer(peer_alias), LinkKind::Publisher),
+        st,
+    );
+}
+
+/// The `(to, topic)` of every **publisher-handshake** `Request` send effect.
+fn publisher_request_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
+    kind_sends(
+        effects,
+        expected_emitter,
+        HandshakeKind::Publisher,
+        |action| matches!(action, ConnectionAction::Request { .. }),
+    )
+}
+
+/// The `(to, topic)` of every **publisher-handshake** `Accepted` send effect.
+fn publisher_accepted_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
+    kind_sends(
+        effects,
+        expected_emitter,
+        HandshakeKind::Publisher,
+        |action| matches!(action, ConnectionAction::Accepted { .. }),
+    )
+}
+
+/// The `(to, topic)` of every control send under the `kind` handshake's
+/// vocabulary matching `select`.
+fn kind_sends(
+    effects: &[Effect],
+    expected_emitter: &str,
+    kind: HandshakeKind,
+    select: impl Fn(&ConnectionAction) -> bool,
+) -> Vec<(PeerId, TopicId)> {
+    let mut out = Vec::new();
+    for effect in effects {
+        if let Effect::Send { to, message } = effect {
+            if let Some((sent_kind, cm)) = message.connection_parts() {
+                if sent_kind == kind && select(&cm.plain.action) {
+                    assert_eq!(cm.plain.emitter, peer(expected_emitter), "control emitter");
+                    let (ConnectionAction::Request { topic }
+                    | ConnectionAction::Accepted { topic }
+                    | ConnectionAction::Terminated { topic }
+                    | ConnectionAction::Rejected { topic }) = &cm.plain.action;
+                    out.push((to.clone(), topic.clone()));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The publisher-downstream state recorded for `(p, t)`, if any.
+fn publisher_target_state(state: &NodeState, p: &str, t: &str) -> Option<LinkState> {
+    state
+        .downstream_publishers()
+        .into_iter()
+        .find(|(pp, tt, _)| pp == &peer(p) && tt == &topic(t))
+        .map(|(_, _, st)| st)
+}
+
+/// Whether an accepted publisher upstream is held for `(p, t)`.
+fn has_upstream_publisher(state: &NodeState, p: &str, t: &str) -> bool {
+    state.upstream_publishers().contains(&(peer(p), topic(t)))
+}
+
+/// The `(to, topic)` of every `Terminated` send effect, any handshake kind
+/// (asserting emitter).
 fn terminated_sends(effects: &[Effect], expected_emitter: &str) -> Vec<(PeerId, TopicId)> {
     let mut out = Vec::new();
     for effect in effects {
-        if let Effect::Send {
-            to,
-            message: Message::Connection(cm),
-        } = effect
-        {
-            if let ConnectionAction::Terminated { topic } = &cm.plain.action {
-                assert_eq!(
-                    cm.plain.emitter,
-                    peer(expected_emitter),
-                    "terminated emitter"
-                );
-                out.push((to.clone(), topic.clone()));
+        if let Effect::Send { to, message } = effect {
+            if let Some((_, cm)) = message.connection_parts() {
+                if let ConnectionAction::Terminated { topic } = &cm.plain.action {
+                    assert_eq!(
+                        cm.plain.emitter,
+                        peer(expected_emitter),
+                        "terminated emitter"
+                    );
+                    out.push((to.clone(), topic.clone()));
+                }
             }
         }
     }

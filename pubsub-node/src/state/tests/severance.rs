@@ -82,7 +82,7 @@ fn no_severance_when_an_earlier_check_fails() {
     );
     assert_eq!(
         upstream_state(&state, "b", "t2"),
-        Some(UpstreamState::Active),
+        Some(LinkState::Active),
         "entry intact",
     );
 
@@ -98,10 +98,7 @@ fn no_severance_when_an_earlier_check_fails() {
         misbehaved(&effects).is_empty(),
         "not registered → no severance"
     );
-    assert_eq!(
-        upstream_state(&state, "b", "t1"),
-        Some(UpstreamState::Active)
-    );
+    assert_eq!(upstream_state(&state, "b", "t1"), Some(LinkState::Active));
 
     // (c) publisher not authorized — restricted topic, b's key not in the set.
     let weather = topic("weather");
@@ -121,7 +118,7 @@ fn no_severance_when_an_earlier_check_fails() {
     );
     assert_eq!(
         upstream_state(&state, "b", "weather"),
-        Some(UpstreamState::Active),
+        Some(LinkState::Active),
     );
 }
 
@@ -156,12 +153,12 @@ fn severance_isolates_other_topics_and_peers() {
     assert_eq!(upstream_state(&state, "b", "t1"), None, "severed pair gone");
     assert_eq!(
         upstream_state(&state, "b", "t2"),
-        Some(UpstreamState::Active),
+        Some(LinkState::Active),
         "offender's other topic intact",
     );
     assert_eq!(
         upstream_state(&state, "c", "t1"),
-        Some(UpstreamState::Active),
+        Some(LinkState::Active),
         "other peer intact",
     );
 }

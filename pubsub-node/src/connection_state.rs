@@ -1,27 +1,87 @@
-//! The connection-domain vocabulary the core owns: the upstream-connection state
-//! enum, plus test-only declarative builders for the events that drive the
-//! connection state machine.
+//! The connection-domain vocabulary the core owns: the link kind, key, and
+//! lifecycle-state types, plus test-only declarative builders for the events
+//! that drive the connection state machine.
 //!
 //! This is deliberately *not* a strategy — the connection-selection policy lives
-//! under [`crate::strategies::connection`]. What lives here is the lifecycle
-//! state the pure core (`crate::state`) assigns and stores: an upstream entry the
-//! node's strategy creates in [`AwaitingAccept`](UpstreamState::AwaitingAccept)
-//! advances to [`Active`](UpstreamState::Active) when the peer's `Accepted`
-//! arrives — plus the `test_support` harness that scripts lifecycle events.
+//! under [`crate::strategies::connection`]. What lives here is the vocabulary
+//! the pure core (`crate::state`) keys its two link collections on: a
+//! [`LinkKey`] names one link, a [`LinkState`] tracks a dialed link's
+//! lifecycle — plus the `test_support` harness that scripts lifecycle events.
 
-/// The state of an upstream (dialer-side) connection for one `(peer, topic)`.
+use crate::peer::PeerId;
+use crate::topic::TopicId;
+
+/// Which dissemination class a **stored link** belongs to — its traffic
+/// class: what the link admits on the receive gate and carries on fan-out.
 ///
-/// An upstream entry is created by the node's own strategy on a setup event in
-/// [`AwaitingAccept`](UpstreamState::AwaitingAccept); it advances to
-/// [`Active`](UpstreamState::Active) when the peer's `Accepted` arrives.
-/// Terminal outcomes are removals, not stored states — there is no
-/// closing/rejected variant.
+/// Deliberately distinct from the connection-message vocabulary
+/// ([`HandshakeKind`](crate::message::HandshakeKind), ADR 0034), which names
+/// the *establishment protocol* — the two do not map 1:1: the symmetric
+/// handshake establishes ordinary `Relay`-class links, in both directions.
+/// The kind implies the data direction of a dialed link: a relay dialer will
+/// *receive* from the acceptor; a publisher dialer will *send* its own
+/// publications to the acceptor.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum LinkKind {
+    /// The pull-based relay mesh: links that carry relayed traffic.
+    Relay,
+    /// A standing initiation link: under the default fan-out its dialer sends
+    /// only its own publications over it (a sender-side policy — the receive
+    /// gate is kind-agnostic).
+    Publisher,
+}
+
+impl LinkKind {
+    /// The lower-case operator-facing name (log fields, error text).
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Relay => "relay",
+            Self::Publisher => "publisher",
+        }
+    }
+}
+
+/// The key of one link: `(topic, peer, kind)`.
+///
+/// Topic-first field order on purpose — the derived `Ord` clusters a topic's
+/// links contiguously in a `BTreeMap`, so per-topic reads are range walks.
+/// Which *direction* a link runs is not part of the key: it is which of the
+/// two `NodeState` collections (`upstream` — peers the node receives from;
+/// `downstream` — peers it sends to) the entry lives in.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct LinkKey {
+    /// The topic the link is scoped to.
+    pub topic: TopicId,
+    /// The peer at the other end.
+    pub peer: PeerId,
+    /// The link's dissemination class.
+    pub kind: LinkKind,
+}
+
+impl LinkKey {
+    /// Construct a key from its parts.
+    #[must_use]
+    pub fn new(topic: TopicId, peer: PeerId, kind: LinkKind) -> Self {
+        Self { topic, peer, kind }
+    }
+}
+
+/// The lifecycle state of a link this node **dialed** (a relay upstream or a
+/// publisher downstream), for one [`LinkKey`].
+///
+/// A dialed entry is created by the node's own strategy on a dial event in
+/// [`AwaitingAccept`](LinkState::AwaitingAccept); it advances to
+/// [`Active`](LinkState::Active) when the peer's `Accepted` arrives. Links the
+/// node *accepted* (a relay downstream, a publisher upstream) are inserted
+/// directly as `Active` — presence means accepted. Terminal outcomes are
+/// removals, not stored states — there is no closing/rejected variant.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum UpstreamState {
+pub enum LinkState {
     /// A `Request` has been sent; the peer's `Accepted` has not yet arrived.
-    /// Admits no payload.
+    /// Admits and carries no payload.
     AwaitingAccept,
-    /// The peer accepted; payload it forwards on this topic is admitted.
+    /// The link is established.
     Active,
 }
 
@@ -55,8 +115,8 @@ pub(crate) mod test_support {
     use crate::crypto::{Signer, Timestamp};
     use crate::event::Event;
     use crate::message::{
-        ConnectionAction, ConnectionMessage, Message, MessagePayload, PlainConnection,
-        PlainMessage, PublisherId, SignedMessage,
+        ConnectionAction, ConnectionMessage, HandshakeKind, Message, MessagePayload,
+        PlainConnection, PlainMessage, PublisherId, SignedMessage,
     };
     use crate::peer::PeerId;
     use crate::subscription_registry::MembershipEvent;
@@ -77,22 +137,24 @@ pub(crate) mod test_support {
         scheme.signer(scheme.keypair_from_alias(alias).private)
     }
 
-    /// A signed control message from `emitter` carrying `action`.
-    fn control(emitter: &str, action: ConnectionAction) -> Message {
+    /// A signed control message from `emitter` carrying `action` under the
+    /// `kind` handshake's vocabulary.
+    fn control(emitter: &str, kind: HandshakeKind, action: ConnectionAction) -> Message {
         let plain = PlainConnection {
             emitter: peer(emitter),
             action,
         };
-        let signature = alias_signer(emitter).sign(&plain.signed_bytes());
-        Message::Connection(ConnectionMessage { plain, signature })
+        let signature = alias_signer(emitter).sign(&plain.signed_bytes(kind));
+        Message::connection(kind, ConnectionMessage { plain, signature })
     }
 
     /// A control-message `Event` (the frame `from` is set to the emitter; the
-    /// control path keys on the carried emitter, not the frame).
+    /// control path keys on the carried emitter, not the frame). Relay
+    /// handshake — the pre-015 default every existing script step uses.
     fn control_event(emitter: &str, action: ConnectionAction) -> Event {
         Event::MessageReceived {
             from: peer(emitter),
-            message: control(emitter, action),
+            message: control(emitter, HandshakeKind::Relay, action),
         }
     }
 
@@ -142,6 +204,104 @@ pub(crate) mod test_support {
         )
     }
 
+    /// A publisher-handshake control-message `Event` (feature 015).
+    fn publisher_control_event(emitter: &str, action: ConnectionAction) -> Event {
+        Event::MessageReceived {
+            from: peer(emitter),
+            message: control(emitter, HandshakeKind::Publisher, action),
+        }
+    }
+
+    /// A symmetric-handshake control-message `Event` (M4, ADR 0034).
+    fn symmetric_control_event(emitter: &str, action: ConnectionAction) -> Event {
+        Event::MessageReceived {
+            from: peer(emitter),
+            message: control(emitter, HandshakeKind::Symmetric, action),
+        }
+    }
+
+    /// A symmetric `Request{topic}` control event from `emitter` — the
+    /// emitter asks for a bidirectional relay-class link.
+    pub(crate) fn symmetric_request_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Request {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A symmetric `Accepted{topic}` control event from `emitter`.
+    pub(crate) fn symmetric_accepted_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Accepted {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A symmetric `Terminated{topic}` control event from `emitter`.
+    pub(crate) fn symmetric_terminated_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Terminated {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A symmetric `Rejected{topic}` control event from `emitter`.
+    pub(crate) fn symmetric_rejected_from(emitter: &str, topic_id: &str) -> Event {
+        symmetric_control_event(
+            emitter,
+            ConnectionAction::Rejected {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Request{topic}` control event from `emitter` — the
+    /// emitter asks to push its own publications to this node.
+    pub(crate) fn publisher_request_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Request {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Accepted{topic}` control event from `emitter`.
+    pub(crate) fn publisher_accepted_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Accepted {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Terminated{topic}` control event from `emitter`.
+    pub(crate) fn publisher_terminated_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Terminated {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
+    /// A publisher-kind `Rejected{topic}` control event from `emitter`.
+    pub(crate) fn publisher_rejected_from(emitter: &str, topic_id: &str) -> Event {
+        publisher_control_event(
+            emitter,
+            ConnectionAction::Rejected {
+                topic: topic(topic_id),
+            },
+        )
+    }
+
     /// A control message signed by `signing_alias` but claiming a different
     /// `emitter_alias` — its signature does not verify under the carried
     /// emitter's key (the control invalid-signature case).
@@ -156,10 +316,10 @@ pub(crate) mod test_support {
                 topic: topic(topic_id),
             },
         };
-        let signature = alias_signer(signing_alias).sign(&plain.signed_bytes());
+        let signature = alias_signer(signing_alias).sign(&plain.signed_bytes(HandshakeKind::Relay));
         Event::MessageReceived {
             from: peer(emitter_alias),
-            message: Message::Connection(ConnectionMessage { plain, signature }),
+            message: Message::RelayConnection(ConnectionMessage { plain, signature }),
         }
     }
 
@@ -187,6 +347,16 @@ pub(crate) mod test_support {
     pub(crate) fn payload_from(publisher: &str, topic_id: &str, n: u64) -> Event {
         Event::MessageReceived {
             from: peer(publisher),
+            message: signed_payload_message(publisher, topic_id, n, false),
+        }
+    }
+
+    /// A validly-signed payload `Ping(n)` published by `publisher` but
+    /// **delivered by** `from` — the frame sender differs from the message's
+    /// publisher (a relayed/foreign message).
+    pub(crate) fn payload_via(from: &str, publisher: &str, topic_id: &str, n: u64) -> Event {
+        Event::MessageReceived {
+            from: peer(from),
             message: signed_payload_message(publisher, topic_id, n, false),
         }
     }

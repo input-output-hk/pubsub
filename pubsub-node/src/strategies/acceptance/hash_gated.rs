@@ -4,8 +4,11 @@
 use std::collections::BTreeSet;
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, resolve_buckets};
+use crate::strategies::edge::{
+    is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, resolve_buckets,
+};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -22,6 +25,8 @@ pub struct HashGatedAcceptance {
     self_id: PeerId,
     target_degree: usize,
     bucket_override: Option<usize>,
+    kind: LinkKind,
+    symmetric: bool,
 }
 
 impl HashGatedAcceptance {
@@ -34,7 +39,28 @@ impl HashGatedAcceptance {
             self_id,
             target_degree,
             bucket_override: None,
+            kind: LinkKind::Relay,
+            symmetric: false,
         }
+    }
+
+    /// Verify inbound requests against the **symmetric** edge predicate (M4) —
+    /// must be enabled together with the dial side's symmetric mode, or the
+    /// two ends disagree and every dial is silently dropped (one CLI flag
+    /// drives both).
+    #[must_use]
+    pub fn with_symmetric(mut self, symmetric: bool) -> Self {
+        self.symmetric = symmetric;
+        self
+    }
+
+    /// Re-target the instance at a link kind (`Relay` is the constructor
+    /// default): the kind selects the hash domain the predicate is verified
+    /// under and which accepted-link class the prelude scans.
+    #[must_use]
+    pub fn for_kind(mut self, kind: LinkKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Pin the bucket count `B` used to verify the edge predicate (see
@@ -49,7 +75,7 @@ impl HashGatedAcceptance {
 
 impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        if let Err(decision) = admit_prelude(emitter, topic, view) {
+        if let Err(decision) = admit_prelude(self.kind, emitter, topic, view) {
             return decision;
         }
         // Same B-agreement assumption as the compound policy (see
@@ -58,7 +84,23 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // override removes the dependence.
         let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
-        if is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets) {
+        let valid = if self.symmetric {
+            is_valid_edge_sym(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+        } else {
+            match self.kind {
+                LinkKind::Relay => {
+                    is_valid_edge(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+                }
+                LinkKind::Publisher => is_valid_edge_publisher(
+                    view.epoch_nonce,
+                    topic,
+                    emitter,
+                    &self.self_id,
+                    buckets,
+                ),
+            }
+        };
+        if valid {
             Admission::Accept
         } else {
             Admission::RejectIllegitimate
@@ -74,14 +116,14 @@ mod tests {
     use crate::strategies::test_support::{
         candidates, downstream, peer, subscriptions, topic, view,
     };
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let got = HashGatedAcceptance::new(peer("self"), 1).admit(
             &peer("a"),
             &topic("t2"), // not subscribed

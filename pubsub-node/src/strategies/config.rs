@@ -13,11 +13,12 @@
 //!
 //! Each kind reads only the params for its own seam (no shared grab-bag), so
 //! construction *and* required-parameter validation live with the strategy, not
-//! scattered across the edge. (Fan-out stays `ForwardToAll`, injected separately;
+//! scattered across the edge. (Fan-out stays `ForwardToRelays`, injected separately;
 //! it is not built through this two-phase seam.)
 
 use std::sync::Arc;
 
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
 use crate::strategies::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
 use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
@@ -29,6 +30,9 @@ use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 pub struct ConnectionParams {
     /// The node's own identity (folded into the verifiable edge predicate).
     pub self_id: PeerId,
+    /// The link kind the built instance dials — selects the hash domain
+    /// (`Relay` for the relay seam, `Publisher` for the publisher seam).
+    pub kind: LinkKind,
     /// The fixed target connection degree `target_degree` — required by `hash-gated` (bucket count derives from it).
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B`. When set, it overrides the per-topic
@@ -36,6 +40,14 @@ pub struct ConnectionParams {
     /// predicate is verifiable by construction (no dependence on the two ends
     /// having folded the same candidate set). Must be `≥ 1` if supplied.
     pub bucket_count: Option<usize>,
+    /// Use the symmetric edge predicate (M4). One CLI flag sets this on the
+    /// relay selection AND acceptance params together. Publisher params leave
+    /// it `false`: M4 itself uses no publisher links at all ("no seeding
+    /// mechanism" — `m4/README.md`; a publisher's own symmetric relay links
+    /// carry its message out), and no published model defines symmetric
+    /// publisher links, so a publisher instance configured alongside the flag
+    /// stays directional.
+    pub symmetric: bool,
 }
 
 /// Already-parsed parameters for the acceptance (inbound/downstream) seam.
@@ -43,6 +55,9 @@ pub struct ConnectionParams {
 pub struct AcceptanceParams {
     /// The node's own identity (the candidate side of the verified edge).
     pub self_id: PeerId,
+    /// The link kind the built instance admits — selects the hash domain and
+    /// which accepted-link class its capacity counts.
+    pub kind: LinkKind,
     /// The fixed target connection degree `target_degree` — required by `hash-gated-bounded`.
     pub target_degree: Option<usize>,
     /// Optional pinned bucket count `B` (see [`ConnectionParams::bucket_count`]);
@@ -51,6 +66,11 @@ pub struct AcceptanceParams {
     pub bucket_count: Option<usize>,
     /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3).
     pub cap_buffer: usize,
+    /// Use the symmetric edge predicate (M4) — set from the same CLI flag as
+    /// the dial side. Reciprocity is constructed by the symmetric handshake
+    /// (ADR 0034), so a predicate mismatch between the two seams costs
+    /// dropped dials at worst, never one-way links.
+    pub symmetric: bool,
 }
 
 /// The error a strategy kind raises when the configuration lacks a parameter
@@ -100,16 +120,29 @@ pub(crate) fn validate_bucket_count(
 /// seams' `build` arms so the two cannot drift on what a valid degree is.
 pub(crate) fn require_target_degree(
     strategy: &'static str,
+    kind: LinkKind,
     target_degree: Option<usize>,
 ) -> Result<usize, StrategyConfigError> {
+    // The flag that supplies the degree differs per seam family; the error
+    // must name the one the operator actually has to set.
+    let (missing, invalid) = match kind {
+        LinkKind::Relay => (
+            "a relay degree (--relay-degree)",
+            "the relay degree (--relay-degree)",
+        ),
+        LinkKind::Publisher => (
+            "a publisher degree (--publisher-degree)",
+            "the publisher degree (--publisher-degree)",
+        ),
+    };
     let target_degree = target_degree.ok_or(StrategyConfigError::MissingParameter {
         strategy,
-        parameter: "a target degree (--target-degree)",
+        parameter: missing,
     })?;
     if target_degree == 0 {
         return Err(StrategyConfigError::InvalidParameter {
             strategy,
-            parameter: "the target degree (--target-degree)",
+            parameter: invalid,
             constraint: "greater than 0",
         });
     }
@@ -117,20 +150,34 @@ pub(crate) fn require_target_degree(
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
-/// by [`NodeStrategiesBuilder::build`]. (Fan-out stays `ForwardToAll`, injected
-/// separately — it is not built through this two-phase seam.)
+/// by [`NodeStrategiesBuilder::build`] (or [`NodeStrategies::relay_only`] for
+/// direct construction). Four link seams: the relay pair (required) and the
+/// publisher pair (optional — `None` disables publisher links: no dials on the
+/// selection side, inbound publisher requests dropped on the acceptance side).
+/// Fan-out stays injected separately — it is not built through this two-phase
+/// seam.
 pub struct NodeStrategies {
-    /// The connection (dial/upstream) strategy.
-    pub connection: Arc<dyn ConnectionStrategy>,
-    /// The inbound-acceptance (downstream) strategy.
-    pub acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The relay-link selection (dial/upstream) strategy.
+    pub relay_connection: Arc<dyn ConnectionStrategy>,
+    /// The relay-link acceptance (downstream) strategy.
+    pub relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    /// The publisher-link selection strategy (standing initiation dials).
+    pub publisher_connection: Option<Arc<dyn ConnectionStrategy>>,
+    /// The publisher-link acceptance strategy (inbound initiation links).
+    pub publisher_acceptance: Option<Arc<dyn ConnectionAcceptanceStrategy>>,
+    /// Whether relay links are established with the **symmetric**
+    /// (bidirectional) handshake — M4 (ADR 0034): the dial pass speaks the
+    /// symmetric vocabulary and one accept decision records each link in both
+    /// directions on both ends. `false` (the default) on every directional
+    /// model; inbound symmetric handshakes are then dropped outright.
+    pub symmetric_edges: bool,
 }
 
 /// Phase 1 of construction: the resolved per-seam strategy *kinds*, awaiting
 /// their parameters. Create it with [`NodeStrategies::builder`].
 pub struct NodeStrategiesBuilder {
-    connection: ConnectionStrategyKind,
-    acceptance: AcceptanceStrategyKind,
+    relay_connection: ConnectionStrategyKind,
+    relay_acceptance: AcceptanceStrategyKind,
 }
 
 impl NodeStrategies {
@@ -138,28 +185,60 @@ impl NodeStrategies {
     /// constructed until [`NodeStrategiesBuilder::build`].
     #[must_use]
     pub fn builder(
-        connection: ConnectionStrategyKind,
-        acceptance: AcceptanceStrategyKind,
+        relay_connection: ConnectionStrategyKind,
+        relay_acceptance: AcceptanceStrategyKind,
     ) -> NodeStrategiesBuilder {
         NodeStrategiesBuilder {
-            connection,
-            acceptance,
+            relay_connection,
+            relay_acceptance,
         }
+    }
+
+    /// A relay-only strategy set from already-constructed instances — the M2
+    /// baseline shape (publisher links disabled), and the concise form for
+    /// tests that inject concrete strategies directly.
+    #[must_use]
+    pub fn relay_only(
+        relay_connection: Arc<dyn ConnectionStrategy>,
+        relay_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
+    ) -> Self {
+        Self {
+            relay_connection,
+            relay_acceptance,
+            publisher_connection: None,
+            publisher_acceptance: None,
+            symmetric_edges: false,
+        }
+    }
+
+    /// Switch the set to the symmetric (bidirectional) relay handshake — M4.
+    /// Pair it with relay strategies drawing the symmetric predicate.
+    #[must_use]
+    pub fn with_symmetric_edges(mut self, symmetric: bool) -> Self {
+        self.symmetric_edges = symmetric;
+        self
     }
 }
 
 impl NodeStrategiesBuilder {
     /// Phase 2: bind each seam's params, validate the parameters each chosen
     /// strategy requires, and construct the whole set — surfacing the first
-    /// [`StrategyConfigError`] so the edge maps it once.
+    /// [`StrategyConfigError`] so the edge maps it once. The publisher pair is
+    /// `None` here; the edge fills it when publisher flags are configured.
     pub fn build(
         self,
-        connection: &ConnectionParams,
-        acceptance: &AcceptanceParams,
+        relay_connection: &ConnectionParams,
+        relay_acceptance: &AcceptanceParams,
     ) -> Result<NodeStrategies, StrategyConfigError> {
         Ok(NodeStrategies {
-            connection: self.connection.build(connection)?,
-            acceptance: self.acceptance.build(acceptance)?,
+            relay_connection: self.relay_connection.build(relay_connection)?,
+            relay_acceptance: self.relay_acceptance.build(relay_acceptance)?,
+            publisher_connection: None,
+            publisher_acceptance: None,
+            // One flag configures the predicate on the relay params AND the
+            // handshake vocabulary: a symmetric dial pass is what makes the
+            // symmetric draws materialise as constructed pairs.
+            symmetric_edges: relay_connection.symmetric,
         })
     }
 }

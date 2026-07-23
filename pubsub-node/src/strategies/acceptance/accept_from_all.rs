@@ -30,12 +30,12 @@ mod tests {
     use super::AcceptFromAllCandidates;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::test_support::{candidates, peer, subscriptions, topic, view};
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     fn admit(emitter: &str, topic_id: &str, subs: &[&str], cands: &[(&str, &[&str])]) -> Admission {
         let subs = subscriptions(subs);
         let cands = candidates(cands);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         AcceptFromAllCandidates.admit(
             &peer(emitter),
             &topic(topic_id),

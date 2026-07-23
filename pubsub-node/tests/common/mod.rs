@@ -9,12 +9,12 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, ForwardToAll,
-    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Message, MessageHash,
-    MessagePayload, MockCryptoScheme, Node, NodeConfig, NodeView, Origin, PeerEntry, PeerId,
-    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, SignedMessage, Signer,
-    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
-    TopicRegistryControl, UpstreamState, Verifier,
+    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, FanoutStrategy,
+    ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    LinkState, Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
+    NodeView, Origin, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -187,36 +187,34 @@ pub async fn two_node_fixture_with_subscriptions(
 
     let a = Node::new(
         a_id.clone(),
-        NodeConfig {
-            peers: vec![PeerEntry { id: b_id.clone() }],
-        },
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&a_id.to_string()),
         verifier.clone(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
-        Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
+        Arc::new(ForwardToRelays),
     )
     .await
     .expect("construct node A");
 
     let b = Node::new(
         b_id.clone(),
-        NodeConfig {
-            peers: vec![PeerEntry { id: a_id }],
-        },
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(&b_id.to_string()),
         verifier,
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
-        Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
+        Arc::new(ForwardToRelays),
     )
     .await
     .expect("construct node B");
@@ -252,20 +250,18 @@ pub async fn two_node_fixture_with_subscriptions(
 }
 
 /// Build a node sharing `registry` and `network`, with its subscription-list
-/// entry seeded with `topics` and a config peer list of `peers`. Centralises
-/// the registry-seed-then-construct dance for the inline multi-node tests.
+/// entry seeded with `topics`. Centralises the registry-seed-then-construct
+/// dance for the inline multi-node tests.
 pub async fn node_with(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
     id: &str,
-    peers: &[&str],
     topics: &[TopicId],
 ) -> Node {
     node_with_strategy(
         registry,
         network,
         id,
-        peers,
         topics,
         Arc::new(ConnectToAllCandidates),
         0, // genesis: the default initial epoch nonce
@@ -280,12 +276,10 @@ pub async fn node_with(
 /// can be built on a shared topic — the all-candidates policy over one topic can
 /// only build a full mesh. Acceptance is unaffected (it still uses the real
 /// candidate set).
-#[allow(clippy::too_many_arguments)]
 pub async fn node_with_strategy(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
     id: &str,
-    peers: &[&str],
     topics: &[TopicId],
     strategy: Arc<dyn ConnectionStrategy>,
     genesis: u64,
@@ -305,25 +299,17 @@ pub async fn node_with_strategy(
             .await
             .expect("register topic open");
     }
-    let peers = peers
-        .iter()
-        .map(|p| PeerEntry {
-            id: PeerId::from_str(p).expect("valid peer id"),
-        })
-        .collect();
     let signer = alias_signer(&id.to_string());
     let node = Node::new(
         id,
-        NodeConfig { peers },
         genesis,
         network.clone(),
         signer,
         shared_test_verifier(),
         registry.clone(),
         topic_registry,
-        strategy,
-        Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        NodeStrategies::relay_only(strategy, Arc::new(AcceptFromAllCandidates)),
+        Arc::new(ForwardToRelays),
     )
     .await
     .expect("construct node");
@@ -343,37 +329,31 @@ pub async fn node_with_strategy(
     node
 }
 
-/// Construct a node sharing the given subscription **and** topic registries,
-/// with config `peers`. Unlike [`node_with`], this seeds **neither** registry —
-/// the caller sets up membership (`set_topics`) and topic registration
-/// (`set_topic`) explicitly, and awaits convergence itself. Used by the
-/// topic-validity and multi-node topic-registry tests, which need a node
-/// subscribed to more (or other) topics than are registered.
+/// Construct a node sharing the given subscription **and** topic registries.
+/// Unlike [`node_with`], this seeds **neither** registry — the caller sets up
+/// membership (`set_topics`) and topic registration (`set_topic`) explicitly,
+/// and awaits convergence itself. Used by the topic-validity and multi-node
+/// topic-registry tests, which need a node subscribed to more (or other)
+/// topics than are registered.
 pub async fn node_sharing(
     registry: &Arc<InMemorySubscriptionRegistry>,
     topic_registry: &Arc<InMemoryTopicRegistry>,
     network: &Arc<InMemoryNetwork>,
     id: &str,
-    peers: &[&str],
 ) -> Node {
-    let peers = peers
-        .iter()
-        .map(|p| PeerEntry {
-            id: PeerId::from_str(p).expect("valid peer id"),
-        })
-        .collect();
     let node = Node::new(
         PeerId::from_str(id).expect("valid id"),
-        NodeConfig { peers },
         0, // genesis: the default initial epoch nonce
         network.clone(),
         alias_signer(id),
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        Arc::new(ConnectToAllCandidates),
-        Arc::new(ForwardToAll),
-        Arc::new(AcceptFromAllCandidates),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToAllCandidates),
+            Arc::new(AcceptFromAllCandidates),
+        ),
+        Arc::new(ForwardToRelays),
     )
     .await
     .expect("construct node");
@@ -384,6 +364,77 @@ pub async fn node_sharing(
         .await
         .expect("node reaches Synced");
     node
+}
+
+/// Like [`node_with_strategy`], but with the full four-slot strategy set and
+/// an explicit fan-out policy — the constructor for publisher-link /
+/// model-family fixtures (015).
+pub async fn node_with_links(
+    registry: &Arc<InMemorySubscriptionRegistry>,
+    network: &Arc<InMemoryNetwork>,
+    id: &str,
+    topics: &[TopicId],
+    strategies: NodeStrategies,
+    fanout: Arc<dyn FanoutStrategy>,
+    genesis: u64,
+) -> Node {
+    let id = PeerId::from_str(id).expect("valid id");
+    registry
+        .set_topics(id.clone(), topics.iter().cloned().collect())
+        .await
+        .expect("seed node topics");
+    let topic_registry = Arc::new(InMemoryTopicRegistry::new());
+    for t in topics {
+        topic_registry
+            .set_topic(t.clone(), BTreeSet::new())
+            .await
+            .expect("register topic open");
+    }
+    let signer = alias_signer(&id.to_string());
+    let node = Node::new(
+        id,
+        genesis,
+        network.clone(),
+        signer,
+        shared_test_verifier(),
+        registry.clone(),
+        topic_registry,
+        strategies,
+        fanout,
+    )
+    .await
+    .expect("construct node");
+    await_subscriptions(&node, topics, Duration::from_secs(1))
+        .await
+        .expect("node subscriptions converge");
+    await_synced(&node, Duration::from_secs(1))
+        .await
+        .expect("node reaches Synced");
+    node
+}
+
+/// Poll `node.downstream_publishers()` until it holds `(peer, topic)` as
+/// `Active`, or `timeout` elapses — the publisher-link establishment barrier.
+pub async fn await_publisher_target_active(
+    node: &Node,
+    peer: &PeerId,
+    topic: &TopicId,
+    timeout: Duration,
+) -> Result<(), AwaitError> {
+    let start = tokio::time::Instant::now();
+    loop {
+        let active = node
+            .downstream_publishers()
+            .into_iter()
+            .any(|(p, t, state)| &p == peer && &t == topic && state == LinkState::Active);
+        if active {
+            return Ok(());
+        }
+        if start.elapsed() >= timeout {
+            return Err(AwaitError::Timeout(timeout));
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -501,13 +552,13 @@ pub async fn assert_no_new_deliveries(nodes: &[&Node], window: Duration) {
 /// behaviour with no pure-core equivalent, it is the best available regression
 /// window).
 pub async fn assert_no_connection_change(node: &Node, window: Duration) {
-    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, UpstreamState)> {
-        let mut up = node.upstream_connections();
+    fn sorted_upstream(node: &Node) -> Vec<(PeerId, TopicId, LinkState)> {
+        let mut up = node.upstream_relays();
         up.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
         up
     }
     fn sorted_downstream(node: &Node) -> Vec<(PeerId, TopicId)> {
-        let mut down = node.downstream_connections();
+        let mut down = node.downstream_relays();
         down.sort_by(|a, b| (a.0.to_string(), a.1.as_str()).cmp(&(b.0.to_string(), b.1.as_str())));
         down
     }
@@ -566,7 +617,7 @@ pub fn trigger_setup(node: &Node) {
     node.events().push(Event::Heartbeat);
 }
 
-/// Poll `node.upstream_connections()` until it holds `(peer, topic)` as
+/// Poll `node.upstream_relays()` until it holds `(peer, topic)` as
 /// `Active`, or `timeout` elapses. Establishment is asynchronous (the request,
 /// its acceptance, and the activation each cross the event loop), so tests wait
 /// the same way they wait for delivery.
@@ -579,9 +630,9 @@ pub async fn await_upstream_active(
     let start = tokio::time::Instant::now();
     loop {
         let active = node
-            .upstream_connections()
+            .upstream_relays()
             .into_iter()
-            .any(|(p, t, state)| &p == peer && &t == topic && state == UpstreamState::Active);
+            .any(|(p, t, state)| &p == peer && &t == topic && state == LinkState::Active);
         if active {
             return Ok(());
         }
@@ -592,7 +643,7 @@ pub async fn await_upstream_active(
     }
 }
 
-/// Poll `node.downstream_connections()` until it holds `(peer, topic)`, or
+/// Poll `node.downstream_relays()` until it holds `(peer, topic)`, or
 /// `timeout` elapses.
 pub async fn await_downstream(
     node: &Node,
@@ -603,7 +654,7 @@ pub async fn await_downstream(
     let start = tokio::time::Instant::now();
     loop {
         if node
-            .downstream_connections()
+            .downstream_relays()
             .iter()
             .any(|(p, t)| p == peer && t == topic)
         {
@@ -632,7 +683,7 @@ pub async fn await_upstream_present(
     let start = tokio::time::Instant::now();
     loop {
         if node
-            .upstream_connections()
+            .upstream_relays()
             .iter()
             .any(|(p, t, _)| p == peer && t == topic)
         {
@@ -703,11 +754,8 @@ pub async fn await_peer_forgotten(
 ) -> Result<(), AwaitError> {
     let start = tokio::time::Instant::now();
     loop {
-        let in_upstream = node
-            .upstream_connections()
-            .iter()
-            .any(|(p, _, _)| p == peer);
-        let in_downstream = node.downstream_connections().iter().any(|(p, _)| p == peer);
+        let in_upstream = node.upstream_relays().iter().any(|(p, _, _)| p == peer);
+        let in_downstream = node.downstream_relays().iter().any(|(p, _)| p == peer);
         if !in_upstream && !in_downstream {
             return Ok(());
         }
@@ -795,14 +843,14 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 pub struct ConnectToExplicit(pub Vec<(PeerId, TopicId)>);
 
 impl ConnectionStrategy for ConnectToExplicit {
-    fn expected_upstream(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
+    fn expected_links(&self, _view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         self.0.iter().cloned().collect()
     }
 }
 
 /// A fluent builder for a test node on a shared subscription registry + network
 /// — the declarative front end to [`node_with_strategy`] for scripting exact
-/// topologies. Defaults: no config peers, the all-candidates dial policy. The
+/// topologies. Default dial policy: all candidates. The
 /// dial policy is overridden by [`dials`](NodeSpec::dials) (one explicit edge) or
 /// [`dials_nobody`](NodeSpec::dials_nobody) (accept-only), which is how an acyclic
 /// star/line is built on a single shared topic.
@@ -815,7 +863,6 @@ pub struct NodeSpec<'a> {
     registry: &'a Arc<InMemorySubscriptionRegistry>,
     network: &'a Arc<InMemoryNetwork>,
     id: String,
-    peers: Vec<String>,
     topics: Vec<TopicId>,
     strategy: Arc<dyn ConnectionStrategy>,
 }
@@ -830,7 +877,6 @@ pub fn node<'a>(
         registry,
         network,
         id: id.to_string(),
-        peers: Vec::new(),
         topics: Vec::new(),
         strategy: Arc::new(ConnectToAllCandidates),
     }
@@ -848,14 +894,6 @@ impl NodeSpec<'_> {
     #[must_use]
     pub fn topics(mut self, topics: &[TopicId]) -> Self {
         self.topics = topics.to_vec();
-        self
-    }
-
-    /// Set the config peer list (rarely needed — candidates come from the
-    /// registry, not this list).
-    #[must_use]
-    pub fn peers(mut self, peers: &[&str]) -> Self {
-        self.peers = peers.iter().map(|p| (*p).to_string()).collect();
         self
     }
 
@@ -887,12 +925,10 @@ impl NodeSpec<'_> {
 
     /// Construct the node and await its subscription convergence.
     pub async fn build(self) -> Node {
-        let peers: Vec<&str> = self.peers.iter().map(String::as_str).collect();
         node_with_strategy(
             self.registry,
             self.network,
             &self.id,
-            &peers,
             &self.topics,
             self.strategy,
             0, // genesis: the default initial epoch nonce

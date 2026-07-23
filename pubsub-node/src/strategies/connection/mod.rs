@@ -19,29 +19,35 @@ use crate::topic::TopicId;
 mod connect_to_all;
 mod hash_gated;
 mod kind;
+mod none;
 
 pub use connect_to_all::ConnectToAllCandidates;
 pub use hash_gated::HashGatedConnection;
 pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
+pub use none::DialNone;
 
-/// The connection-selection policy a node consults on a setup event.
+/// The link-selection policy a node consults on a dial event.
 ///
-/// `expected_upstream` is **pure and synchronous**: given the node's current
+/// `expected_links` is **pure and synchronous**: given the node's current
 /// view (the topics it is a member of and the per-topic candidate peers it has
-/// discovered), it returns the set of upstream `(peer, topic)` connections the
-/// node should hold. The node applies the result as a diff — it dials every
-/// expected pair it does not already hold `Active`, and never removes an entry
-/// on the strength of the strategy alone (selection only adds).
+/// discovered), it returns the set of `(peer, topic)` links the node should
+/// have dialed. Which direction the resulting links run is the *instance's*
+/// role, not the trait's: the relay instance's picks are dialed as upstream
+/// message sources; the publisher instance's picks as standing downstream
+/// targets for the node's own publications. The node applies the result as a
+/// diff — it dials every expected pair it does not already hold `Active`, and
+/// never removes an entry on the strength of the strategy alone (selection
+/// only adds).
 ///
 /// The trait is the seam future iterations vary (peer sampling, degree caps,
 /// topology policies); the v1 implementor is [`ConnectToAllCandidates`], and the
 /// verifiable hash-gated policy is [`HashGatedConnection`].
 pub trait ConnectionStrategy: Send + Sync {
-    /// The expected upstream set given the node's read-only [`NodeView`].
+    /// The expected dialed-link set given the node's read-only [`NodeView`].
     ///
     /// Reads `view.subscriptions` (the membership-derived topic set — not the
     /// registration-gated effective filter, mirroring the acceptance rule),
     /// `view.candidates` (per-topic discovered peers, self never present), and
     /// `view.epoch_nonce` (the randomness context for the edge predicate).
-    fn expected_upstream(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
+    fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
 }

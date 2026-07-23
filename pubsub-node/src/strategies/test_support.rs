@@ -5,9 +5,11 @@
 //! Test-only (`#[cfg(test)]` at the module declaration); adding a field to
 //! [`NodeView`] is a one-place change here rather than a per-test-module sweep.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
+use std::sync::OnceLock;
 
+use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::peer::PeerId;
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
@@ -35,16 +37,33 @@ pub(crate) fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTree
         .collect()
 }
 
-/// A downstream set from `(peer, topic)` entries.
-pub(crate) fn downstream(entries: &[(&str, &str)]) -> HashSet<(PeerId, TopicId)> {
-    entries.iter().map(|(p, t)| (peer(p), topic(t))).collect()
+/// A downstream link map of accepted **relay** entries (`Active`) from
+/// `(peer, topic)` pairs — the pre-015 "downstream set" fixture.
+pub(crate) fn downstream(entries: &[(&str, &str)]) -> BTreeMap<LinkKey, LinkState> {
+    links_of(entries, LinkKind::Relay)
 }
 
-/// A [`NodeView`] over the borrowed fixtures (epoch nonce 0 — the v1 default).
+/// A link map with one `Active` entry of `kind` per `(peer, topic)` pair.
+pub(crate) fn links_of(entries: &[(&str, &str)], kind: LinkKind) -> BTreeMap<LinkKey, LinkState> {
+    entries
+        .iter()
+        .map(|(p, t)| (LinkKey::new(topic(t), peer(p), kind), LinkState::Active))
+        .collect()
+}
+
+/// A shared empty link map for the (majority of) view fixtures that hold no
+/// upstream links — keeps the `view()` builder signatures unchanged.
+pub(crate) fn no_links() -> &'static BTreeMap<LinkKey, LinkState> {
+    static EMPTY: OnceLock<BTreeMap<LinkKey, LinkState>> = OnceLock::new();
+    EMPTY.get_or_init(BTreeMap::new)
+}
+
+/// A [`NodeView`] over the borrowed fixtures (epoch nonce 0 — the v1 default;
+/// no upstream links).
 pub(crate) fn view<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    down: &'a HashSet<(PeerId, TopicId)>,
+    down: &'a BTreeMap<LinkKey, LinkState>,
 ) -> NodeView<'a> {
     view_with_nonce(subs, cands, down, 0)
 }
@@ -53,13 +72,31 @@ pub(crate) fn view<'a>(
 pub(crate) fn view_with_nonce<'a>(
     subs: &'a BTreeSet<TopicId>,
     cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
-    down: &'a HashSet<(PeerId, TopicId)>,
+    down: &'a BTreeMap<LinkKey, LinkState>,
     epoch_nonce: u64,
 ) -> NodeView<'a> {
     NodeView {
         subscriptions: subs,
         candidates: cands,
+        upstream: no_links(),
         downstream: down,
         epoch_nonce,
+    }
+}
+
+/// A [`NodeView`] with an explicit **upstream** link map as well (publisher
+/// acceptance fixtures count publisher upstreams).
+pub(crate) fn view_with_upstream<'a>(
+    subs: &'a BTreeSet<TopicId>,
+    cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+    up: &'a BTreeMap<LinkKey, LinkState>,
+    down: &'a BTreeMap<LinkKey, LinkState>,
+) -> NodeView<'a> {
+    NodeView {
+        subscriptions: subs,
+        candidates: cands,
+        upstream: up,
+        downstream: down,
+        epoch_nonce: 0,
     }
 }

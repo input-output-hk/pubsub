@@ -2,6 +2,7 @@
 //! (one-dimensional baseline, ADR 0031).
 
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
+use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
 use crate::strategies::edge::accept_cap;
 use crate::strategies::view::NodeView;
@@ -18,6 +19,7 @@ use crate::topic::TopicId;
 pub struct BoundedAcceptance {
     target_degree: usize,
     cap_buffer: usize,
+    kind: LinkKind,
 }
 
 impl BoundedAcceptance {
@@ -28,18 +30,27 @@ impl BoundedAcceptance {
         Self {
             target_degree,
             cap_buffer,
+            kind: LinkKind::Relay,
         }
+    }
+
+    /// Re-target the instance at a link kind (`Relay` is the constructor
+    /// default): the kind names which accepted-link class the cap counts.
+    #[must_use]
+    pub fn for_kind(mut self, kind: LinkKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 
 impl ConnectionAcceptanceStrategy for BoundedAcceptance {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        let downstream_on_topic = match admit_prelude(emitter, topic, view) {
+        let accepted_on_topic = match admit_prelude(self.kind, emitter, topic, view) {
             Ok(count) => count,
             Err(decision) => return decision,
         };
         let cap = accept_cap(self.target_degree, self.cap_buffer);
-        if downstream_on_topic >= cap {
+        if accepted_on_topic >= cap {
             Admission::RejectOverCapacity
         } else {
             Admission::Accept
@@ -50,18 +61,19 @@ impl ConnectionAcceptanceStrategy for BoundedAcceptance {
 #[cfg(test)]
 mod tests {
     use super::BoundedAcceptance;
+    use crate::connection_state::LinkKind;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::test_support::{
-        candidates, downstream, peer, subscriptions, topic, view,
+        candidates, downstream, links_of, peer, subscriptions, topic, view, view_with_upstream,
     };
-    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     // Membership failure takes precedence and is a silent RejectMembership.
     #[test]
     fn membership_invalid_is_rejected() {
         let subs = subscriptions(&["t1"]);
         let cands = candidates(&[("t2", &["a"])]);
-        let down = HashSet::new();
+        let down = BTreeMap::new();
         let got = BoundedAcceptance::new(1, 3).admit(
             &peer("a"),
             &topic("t2"), // not subscribed
@@ -110,6 +122,61 @@ mod tests {
         assert_eq!(
             policy.admit(&peer("a"), &t, &view(&subs, &cands, &at_cap_with_a)),
             Admission::Accept,
+        );
+    }
+
+    // 015 FR-004: relay and publisher capacities are disjoint. A publisher
+    // instance counts publisher upstreams only — a relay downstream already at
+    // the relay cap does not consume publisher capacity, and vice versa.
+    #[test]
+    fn relay_and_publisher_caps_count_independently() {
+        let t = topic("t1");
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["a"])]);
+
+        // Relay downstream at the relay cap (target_degree=1 ⇒ cap 4).
+        let relay_down = downstream(&[("w", "t1"), ("x", "t1"), ("y", "t1"), ("z", "t1")]);
+        // Publisher upstream at the publisher cap.
+        let publisher_up = links_of(
+            &[("p", "t1"), ("q", "t1"), ("r", "t1"), ("s", "t1")],
+            LinkKind::Publisher,
+        );
+
+        // The PUBLISHER instance sees a full relay downstream but an empty
+        // publisher upstream — it accepts.
+        let empty = BTreeMap::new();
+        let publisher_policy = BoundedAcceptance::new(1, 3).for_kind(LinkKind::Publisher);
+        assert_eq!(
+            publisher_policy.admit(
+                &peer("a"),
+                &t,
+                &view_with_upstream(&subs, &cands, &empty, &relay_down),
+            ),
+            Admission::Accept,
+            "full relay downstream must not consume publisher capacity",
+        );
+
+        // With the publisher upstream at cap, the publisher instance refuses —
+        // even though the relay downstream is empty.
+        assert_eq!(
+            publisher_policy.admit(
+                &peer("a"),
+                &t,
+                &view_with_upstream(&subs, &cands, &publisher_up, &empty),
+            ),
+            Admission::RejectOverCapacity,
+        );
+
+        // And the RELAY instance ignores the publisher upstream entirely.
+        let relay_policy = BoundedAcceptance::new(1, 3);
+        assert_eq!(
+            relay_policy.admit(
+                &peer("a"),
+                &t,
+                &view_with_upstream(&subs, &cands, &publisher_up, &empty),
+            ),
+            Admission::Accept,
+            "publisher upstream at cap must not consume relay capacity",
         );
     }
 }

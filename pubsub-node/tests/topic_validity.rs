@@ -60,8 +60,8 @@ async fn unregistered_subscription_topic_is_strict_dropped() {
         .await
         .unwrap();
 
-    let s = node_sharing(&subs, &topics, &network, "node-s", &[]).await;
-    let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
+    let s = node_sharing(&subs, &topics, &network, "node-s").await;
+    let b = node_sharing(&subs, &topics, &network, "node-b").await;
 
     // Strict drop: only the registered topic is effective.
     await_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
@@ -161,8 +161,8 @@ async fn removing_a_topic_stops_acceptance() {
         .await
         .unwrap();
 
-    let s = node_sharing(&subs, &topics, &network, "node-s", &[]).await;
-    let b = node_sharing(&subs, &topics, &network, "node-b", &["node-s"]).await;
+    let s = node_sharing(&subs, &topics, &network, "node-s").await;
+    let b = node_sharing(&subs, &topics, &network, "node-b").await;
 
     await_subscriptions(&s, &[topic("weather")], Duration::from_secs(1))
         .await

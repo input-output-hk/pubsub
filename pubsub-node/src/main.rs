@@ -3,24 +3,20 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    load_node_config, AcceptanceParams, AcceptanceStrategyKind, ConnectionParams,
-    ConnectionStrategyKind, ForwardToAll, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, MockCryptoScheme, Node, NodeStrategies, PeerId, Signer, TestVerifier,
-    Verifier,
+    AcceptanceParams, AcceptanceStrategyKind, ConnectionParams, ConnectionStrategyKind,
+    FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
-/// in-memory network, loads its peer set from TOML, and waits for Ctrl-C.
+/// in-memory network, derives its peers from the subscription registry, and
+/// waits for Ctrl-C.
 #[derive(Parser)]
 #[command(name = "pubsub-node", version, about, long_about = None)]
 struct Args {
     /// This node's identifier (non-empty UTF-8, no internal NUL bytes).
     #[arg(long)]
     self_id: PeerId,
-
-    /// Path to the TOML node-config file.
-    #[arg(long)]
-    config: PathBuf,
 
     /// Path to the TOML subscription-list file (the mock subscription registry
     /// the node reads its topics and peer membership from).
@@ -32,18 +28,20 @@ struct Args {
     #[arg(long)]
     topic_registry: PathBuf,
 
-    /// Connection-selection strategy (case-insensitive): `connect-to-all` (full
-    /// mesh, the default) or `hash-gated` (verifiable bucketed selection to ~--target-degree
-    /// upstreams per topic, gated by the edge predicate over --genesis).
+    /// Relay-link selection strategy (case-insensitive): `connect-to-all` (full
+    /// mesh, the default), `hash-gated` (verifiable bucketed selection to
+    /// ~--relay-degree upstreams per topic, gated by the edge predicate over
+    /// --genesis), or `none` (dials no relay links — push-only configurations).
     #[arg(long, default_value = "connect-to-all")]
-    connection_strategy: ConnectionStrategyKind,
+    relay_strategy: ConnectionStrategyKind,
 
-    /// The fixed target connection degree `target_degree` — the target expected upstream degree per topic. Required
-    /// for every strategy except `connect-to-all` / `accept-from-all`; ignored by those.
-    /// The per-topic bucket count derives from it; with a derived bucket count,
-    /// small topics connect to all (see --bucket-count for the pinned case).
+    /// The fixed relay target degree — the target expected relay upstream degree
+    /// per topic. Required for every relay strategy except `connect-to-all` /
+    /// `accept-from-all`; ignored by those. The per-topic bucket count derives
+    /// from it; with a derived bucket count, small topics connect to all (see
+    /// --bucket-count for the pinned case).
     #[arg(long)]
-    target_degree: Option<usize>,
+    relay_degree: Option<usize>,
 
     /// Public genesis nonce (default 0): the node's initial **epoch nonce**, the
     /// randomness context the verifiable edge predicate hashes (the epoch-0
@@ -53,7 +51,7 @@ struct Args {
     genesis: u64,
 
     /// Optional pinned bucket count `B` for the edge predicate. When unset, `B`
-    /// is derived per topic from `--target-degree`. When set, both peers use this
+    /// is derived per topic from `--relay-degree`. When set, both peers use this
     /// exact value on both seams, so verification holds by construction (no
     /// dependence on the two ends having folded the same candidate set); a natural
     /// experiment axis. Applies to the hash-gated strategies; must be ≥ 1.
@@ -63,18 +61,55 @@ struct Args {
     #[arg(long)]
     bucket_count: Option<usize>,
 
-    /// Inbound-acceptance strategy (case-insensitive), the four one-dimensional
-    /// baselines: `accept-from-all` (the default; membership only), `bounded`
-    /// (caps downstream at `⌈target_degree + c·√target_degree⌉` per topic, refusing
-    /// over-capacity with `Rejected`), `hash-gated` (verifies the edge predicate,
-    /// no cap), or `hash-gated-bounded` (predicate + cap — the bucketed-pull compound).
+    /// Relay-link acceptance strategy (case-insensitive): `accept-from-all`
+    /// (the default; membership only), `bounded` (caps accepted relay
+    /// downstreams per topic, refusing over-capacity with `Rejected`),
+    /// `hash-gated` (verifies the edge predicate, no cap),
+    /// `hash-gated-bounded` (predicate + cap), or `none` (accepts no relay
+    /// links — push-only configurations).
     #[arg(long, default_value = "accept-from-all")]
-    acceptance_strategy: AcceptanceStrategyKind,
+    relay_acceptance_strategy: AcceptanceStrategyKind,
 
-    /// Accept-cap buffer `c` in `OC = ⌈target_degree + c·√target_degree⌉` (default 3). Only affects the
-    /// `bounded` / `hash-gated-bounded` acceptance strategies.
+    /// Publisher-link selection strategy (case-insensitive): `connect-to-all`
+    /// or `hash-gated`. When absent (the default) the node never dials
+    /// publisher links — the pre-publisher-links baseline.
+    #[arg(long)]
+    publisher_strategy: Option<ConnectionStrategyKind>,
+
+    /// Publisher-link acceptance strategy (case-insensitive), same four kinds
+    /// as --relay-acceptance-strategy. When absent (the default) inbound
+    /// publisher requests are silently dropped.
+    #[arg(long)]
+    publisher_acceptance_strategy: Option<AcceptanceStrategyKind>,
+
+    /// The fixed publisher target degree — the target expected number of
+    /// standing publisher links per topic. Required by the publisher
+    /// `hash-gated` / bounded kinds.
+    #[arg(long)]
+    publisher_degree: Option<usize>,
+
+    /// Establish relay links with the symmetric (bidirectional) handshake:
+    /// edges are drawn with the unordered-pair predicate and one accept
+    /// decision records each link in both directions on both ends —
+    /// reciprocity is constructed by the handshake, not dependent on the two
+    /// ends' draws agreeing. Applies to the relay seams; the bidirectional
+    /// model uses no publisher links (a publisher's own symmetric links carry
+    /// its message out), and publisher strategies, if configured anyway, are
+    /// unaffected by this flag.
+    #[arg(long)]
+    symmetric_edges: bool,
+
+    /// Accept-cap buffer `c` in the per-topic accept cap (default 3). Only
+    /// affects the `bounded` / `hash-gated-bounded` acceptance strategies.
     #[arg(long, default_value_t = 3)]
     cap_buffer: usize,
+
+    /// Fan-out strategy (case-insensitive): `forward-to-relays` (the default —
+    /// held messages are forwarded to relay downstream only; publisher links
+    /// carry just the node's own publications) or `forward-to-all` (every held
+    /// message over both link classes).
+    #[arg(long, default_value = "forward-to-relays")]
+    fanout_strategy: FanoutStrategyKind,
 
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
@@ -84,16 +119,12 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    validate_flag_combinations(&args);
 
     tracing_subscriber::fmt()
         .with_max_level(args.log_level)
         .with_writer(std::io::stderr)
         .init();
-
-    let cfg = load_node_config(&args.config).unwrap_or_else(|e| {
-        eprintln!("pubsub-node: {e}");
-        std::process::exit(2);
-    });
 
     // The mock subscription registry, seeded from the subscription-list file
     // (the stand-in for the on-chain subscription list / operator registration).
@@ -129,19 +160,23 @@ async fn main() {
     // keys); phase 2 binds each seam's own params and builds them all, validating
     // the parameters each chosen strategy requires. The edge stays lean — it maps
     // a single StrategyConfigError. The full-mesh / accept-from-all defaults are
-    // unchanged; fan-out stays `ForwardToAll`, injected separately below.
-    let strategies = NodeStrategies::builder(args.connection_strategy, args.acceptance_strategy)
+    // unchanged; fan-out stays `ForwardToRelays`, injected separately below.
+    let strategies = NodeStrategies::builder(args.relay_strategy, args.relay_acceptance_strategy)
         .build(
             &ConnectionParams {
                 self_id: args.self_id.clone(),
-                target_degree: args.target_degree,
+                kind: LinkKind::Relay,
+                target_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
+                symmetric: args.symmetric_edges,
             },
             &AcceptanceParams {
                 self_id: args.self_id.clone(),
-                target_degree: args.target_degree,
+                kind: LinkKind::Relay,
+                target_degree: args.relay_degree,
                 bucket_count: args.bucket_count,
                 cap_buffer: args.cap_buffer,
+                symmetric: args.symmetric_edges,
             },
         )
         .unwrap_or_else(|e| {
@@ -149,18 +184,20 @@ async fn main() {
             std::process::exit(2);
         });
 
+    // The optional publisher pair: second instances of the same seams, drawn
+    // from the publisher hash domain with their own degree.
+    let strategies = with_publisher_pair(strategies, &args);
+
     let node = Node::new(
         args.self_id,
-        cfg,
         args.genesis,
         network,
         signer,
         verifier,
         registry,
         topic_registry,
-        strategies.connection,
-        Arc::new(ForwardToAll),
-        strategies.acceptance,
+        strategies,
+        args.fanout_strategy.build(),
     )
     .await
     .unwrap_or_else(|e| {
@@ -174,4 +211,75 @@ async fn main() {
     }
 
     drop(node);
+}
+
+/// Reject flag combinations that would silently do nothing — a
+/// mis-parameterised experiment run must fail at startup, not produce
+/// quietly-wrong topology data.
+fn validate_flag_combinations(args: &Args) {
+    let die = |msg: &str| {
+        eprintln!("pubsub-node: {msg}");
+        std::process::exit(2);
+    };
+    if args.publisher_degree.is_some()
+        && args.publisher_strategy.is_none()
+        && args.publisher_acceptance_strategy.is_none()
+    {
+        die(
+            "--publisher-degree has no effect without --publisher-strategy or \
+             --publisher-acceptance-strategy",
+        );
+    }
+    let relay_selection_gated = args.relay_strategy == ConnectionStrategyKind::HashGated;
+    let relay_acceptance_gated = matches!(
+        args.relay_acceptance_strategy,
+        AcceptanceStrategyKind::HashGated | AcceptanceStrategyKind::HashGatedBounded
+    );
+    if args.symmetric_edges && !relay_selection_gated && !relay_acceptance_gated {
+        die(
+            "--symmetric-edges requires a hash-gated relay seam (--relay-strategy \
+             hash-gated and/or a hash-gated --relay-acceptance-strategy): symmetric \
+             edges are drawn from the unordered-pair predicate, which only the \
+             hash-gated strategies evaluate",
+        );
+    }
+}
+
+/// Build the optional publisher selection/acceptance instances from the
+/// publisher flags — second instances of the relay seams under the publisher
+/// hash domain, with their own degree. Absent flags leave the pair `None`
+/// (publisher links disabled).
+fn with_publisher_pair(mut strategies: NodeStrategies, args: &Args) -> NodeStrategies {
+    if let Some(kind) = args.publisher_strategy {
+        strategies.publisher_connection = Some(
+            kind.build(&ConnectionParams {
+                self_id: args.self_id.clone(),
+                kind: LinkKind::Publisher,
+                target_degree: args.publisher_degree,
+                bucket_count: args.bucket_count,
+                symmetric: false,
+            })
+            .unwrap_or_else(|e| {
+                eprintln!("pubsub-node: {e}");
+                std::process::exit(2);
+            }),
+        );
+    }
+    if let Some(kind) = args.publisher_acceptance_strategy {
+        strategies.publisher_acceptance = Some(
+            kind.build(&AcceptanceParams {
+                self_id: args.self_id.clone(),
+                kind: LinkKind::Publisher,
+                target_degree: args.publisher_degree,
+                bucket_count: args.bucket_count,
+                cap_buffer: args.cap_buffer,
+                symmetric: false,
+            })
+            .unwrap_or_else(|e| {
+                eprintln!("pubsub-node: {e}");
+                std::process::exit(2);
+            }),
+        );
+    }
+    strategies
 }

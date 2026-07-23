@@ -1,30 +1,40 @@
-//! The v1 fan-out policy: [`ForwardToAll`].
+//! The M5 fan-out policy: [`ForwardToAll`] — every held message on every link.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::FanoutStrategy;
+use crate::connection_state::{LinkKey, LinkState};
 use crate::peer::PeerId;
+use crate::received::Origin;
 use crate::topic::TopicId;
 
-/// The v1 fan-out policy: forward to **every** downstream peer on the topic,
-/// minus the split-horizon exclusion.
+/// The M5 fan-out policy: forward **every** held message — any origin — to
+/// the union of relay downstream peers and `Active` publisher links, minus
+/// the split-horizon exclusion, one send per peer.
 ///
-/// Returns each `peer` for which `(peer, topic)` is in `downstream` and
-/// `Some(peer) != exclude`. This maintains the full per-topic fan-out; degree
-/// limits and sampling are deferred to later strategies.
+/// This is M5's send side (`m5/README.md`): both link classes carry every
+/// message; origin plays no role. The receive gate is kind-agnostic (any
+/// Active upstream link admits), so this policy alone distinguishes M5 from
+/// the M3 defaults.
 pub struct ForwardToAll;
 
 impl FanoutStrategy for ForwardToAll {
     fn targets(
         &self,
         topic: &TopicId,
-        downstream: &HashSet<(PeerId, TopicId)>,
+        downstream: &BTreeMap<LinkKey, LinkState>,
+        _origin: &Origin,
         exclude: Option<&PeerId>,
     ) -> Vec<PeerId> {
-        downstream
-            .iter()
-            .filter(|(_, t)| t == topic)
-            .map(|(peer, _)| peer)
+        // One entry per peer: a peer reachable over both kinds gets one send.
+        let mut targets: BTreeSet<&PeerId> = BTreeSet::new();
+        for (key, state) in downstream {
+            if &key.topic == topic && *state == LinkState::Active {
+                targets.insert(&key.peer);
+            }
+        }
+        targets
+            .into_iter()
             .filter(|peer| Some(*peer) != exclude)
             .cloned()
             .collect()
@@ -34,62 +44,46 @@ impl FanoutStrategy for ForwardToAll {
 #[cfg(test)]
 mod tests {
     use super::ForwardToAll;
-    use crate::peer::PeerId;
+    use crate::connection_state::{LinkKey, LinkKind, LinkState};
+    use crate::received::Origin;
     use crate::strategies::fanout::FanoutStrategy;
-    use crate::strategies::test_support::{downstream, peer, topic};
-    use std::collections::HashSet;
+    use crate::strategies::test_support::{downstream, links_of, peer, topic};
 
-    fn sorted(mut v: Vec<PeerId>) -> Vec<PeerId> {
-        v.sort_by_key(ToString::to_string);
-        v
+    // M5: peer-origin messages ride publisher links too — the union, deduped.
+    #[test]
+    fn unions_relay_and_publisher_for_peer_origin() {
+        let mut down = downstream(&[("a", "t1"), ("b", "t1")]);
+        down.extend(links_of(&[("b", "t1"), ("c", "t1")], LinkKind::Publisher));
+        let targets = ForwardToAll.targets(&topic("t1"), &down, &Origin::Peer(peer("x")), None);
+        let mut got: Vec<String> = targets.iter().map(ToString::to_string).collect();
+        got.sort();
+        assert_eq!(got, vec!["a", "b", "c"], "union, one send per peer");
     }
 
-    // 006 FR-010: ForwardToAll returns every downstream peer on the topic.
+    // A pending (AwaitingAccept) publisher dial carries nothing.
     #[test]
-    fn forwards_to_every_downstream_on_the_topic() {
-        let down = downstream(&[("a", "t1"), ("b", "t1"), ("c", "t2")]);
-        let targets = ForwardToAll.targets(&topic("t1"), &down, None);
-        assert_eq!(
-            sorted(targets),
-            vec![peer("a"), peer("b")],
-            "only the t1 downstream peers, both of them",
+    fn pending_links_are_not_targets() {
+        let mut down = downstream(&[]);
+        down.insert(
+            LinkKey::new(topic("t1"), peer("d"), LinkKind::Publisher),
+            LinkState::AwaitingAccept,
         );
-    }
-
-    // 006 FR-009 split-horizon: the excluded peer is removed from the targets.
-    #[test]
-    fn exclude_removes_that_peer() {
-        let down = downstream(&[("a", "t1"), ("b", "t1")]);
-        let targets = ForwardToAll.targets(&topic("t1"), &down, Some(&peer("a")));
-        assert_eq!(
-            sorted(targets),
-            vec![peer("b")],
-            "the delivering peer is excluded (split-horizon)",
-        );
-    }
-
-    // 006 FR-016: empty downstream → no targets.
-    #[test]
-    fn empty_downstream_yields_no_targets() {
         assert!(ForwardToAll
-            .targets(&topic("t1"), &HashSet::new(), None)
+            .targets(&topic("t1"), &down, &Origin::Local, None)
             .is_empty());
     }
 
-    // A downstream set with no entry on the topic → no targets (subscriber-relay:
-    // a node only holds downstream on topics it is a member of).
+    // Split-horizon still applies.
     #[test]
-    fn other_topic_downstream_yields_no_targets() {
-        let down = downstream(&[("a", "t2"), ("b", "t2")]);
-        assert!(ForwardToAll.targets(&topic("t1"), &down, None).is_empty());
-    }
-
-    // The sole downstream being the excluded peer → no targets.
-    #[test]
-    fn sole_downstream_excluded_yields_no_targets() {
-        let down = downstream(&[("a", "t1")]);
+    fn exclude_removes_the_deliverer() {
+        let down = links_of(&[("a", "t1")], LinkKind::Publisher);
         assert!(ForwardToAll
-            .targets(&topic("t1"), &down, Some(&peer("a")))
+            .targets(
+                &topic("t1"),
+                &down,
+                &Origin::Peer(peer("a")),
+                Some(&peer("a"))
+            )
             .is_empty());
     }
 }
