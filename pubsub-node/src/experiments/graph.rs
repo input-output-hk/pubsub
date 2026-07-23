@@ -203,6 +203,10 @@ impl PropagationDigraph {
     }
 
     /// The in-degree of `peer`, if it is a vertex.
+    ///
+    /// This scans the whole adjacency structure — O(E) per call. To read
+    /// every node's degrees, use [`PropagationDigraph::degree_vectors`]
+    /// (one O(V+E) pass) instead of calling this per node.
     #[must_use]
     pub fn in_degree(&self, peer: &PeerId) -> Option<usize> {
         let index = self.vertices.binary_search(peer).ok()?;
@@ -212,6 +216,22 @@ impl PropagationDigraph {
                 .filter(|targets| targets.binary_search(&index).is_ok())
                 .count(),
         )
+    }
+
+    /// Every vertex's (in-degree, out-degree), indexed like
+    /// [`PropagationDigraph::vertices`] — computed in one O(V+E) pass, for
+    /// callers that need all nodes' degrees.
+    #[must_use]
+    pub fn degree_vectors(&self) -> (Vec<usize>, Vec<usize>) {
+        let mut out_degrees = Vec::with_capacity(self.vertices.len());
+        let mut in_degrees = vec![0usize; self.vertices.len()];
+        for targets in &self.adjacency {
+            out_degrees.push(targets.len());
+            for &to in targets {
+                in_degrees[to] += 1;
+            }
+        }
+        (in_degrees, out_degrees)
     }
 
     /// Every vertex reachable from `seed` (including `seed` itself when it is
@@ -420,15 +440,7 @@ pub fn goodness(digraph: &PropagationDigraph) -> GoodnessVerdict {
 /// Degree/sink statistics over the digraph.
 #[must_use]
 pub fn topology_shape(digraph: &PropagationDigraph) -> TopologyShape {
-    let n = digraph.vertex_count();
-    let mut out_degrees = Vec::with_capacity(n);
-    let mut in_degrees = vec![0usize; n];
-    for targets in &digraph.adjacency {
-        out_degrees.push(targets.len());
-        for &to in targets {
-            in_degrees[to] += 1;
-        }
-    }
+    let (in_degrees, out_degrees) = digraph.degree_vectors();
     TopologyShape {
         in_degree_hist: degree_histogram(&in_degrees),
         out_degree_hist: degree_histogram(&out_degrees),

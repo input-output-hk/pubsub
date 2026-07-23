@@ -9,7 +9,7 @@
 //! not a statistic.
 // 016-FR-015…FR-018; data-model §5.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 
@@ -187,9 +187,20 @@ pub fn assemble_per_node_detail(
     post_churn: &GraphAnalysis,
 ) -> Vec<PerNodeDetail> {
     let reachable = post_churn.digraph.reachable_from(&observation.publisher);
+    // One O(V+E) degree pass shared by every row — a per-node in-degree
+    // query would scan the whole adjacency structure each time.
+    let (in_degrees, out_degrees) = post_churn.digraph.degree_vectors();
+    let degree_of: BTreeMap<&PeerId, (usize, usize)> = post_churn
+        .digraph
+        .vertices()
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id, (in_degrees[index], out_degrees[index])))
+        .collect();
     let mut rows = Vec::new();
     for (publish_index, publish) in observation.publishes.iter().enumerate() {
         for (id, participant) in population.participants() {
+            let degrees = degree_of.get(id);
             let received = participant.has_seen(&publish.message);
             let first_delivery_origin = if received {
                 participant
@@ -209,11 +220,8 @@ pub fn assemble_per_node_detail(
                 node: id.clone(),
                 class: participant.class(),
                 down: participant.is_down(),
-                in_degree: post_churn.digraph.in_degree(id).map(|degree| degree as u64),
-                out_degree: post_churn
-                    .digraph
-                    .out_degree(id)
-                    .map(|degree| degree as u64),
+                in_degree: degrees.map(|&(in_degree, _)| in_degree as u64),
+                out_degree: degrees.map(|&(_, out_degree)| out_degree as u64),
                 first_receipt_wave: publish.drain.first_receipt.get(id).copied(),
                 first_delivery_origin,
                 miss_cause,
@@ -244,8 +252,10 @@ pub struct RunIdentity {
 /// # Panics
 ///
 /// Panics if a publish drain violates the accounting identity
-/// `sends = first receipts + suppressed + sent-to-down` — an unexplained
-/// drop inside the instrument.
+/// `sends = first receipts + suppressed + sent-to-down`, or if a
+/// graph-reachable node missed the drain (the two instruments must agree
+/// under all-or-nothing relays) — either is an unexplained inconsistency
+/// inside the instrument, never a measurement.
 #[must_use]
 pub fn assemble_run_record(
     identity: &RunIdentity,
@@ -391,7 +401,12 @@ fn classify_miss(
     population: &Population,
     reachable_from_publisher: &BTreeSet<PeerId>,
 ) -> MissCause {
-    debug_assert!(
+    // The two-instrument cross-check, always on (release sweeps included):
+    // under the all-or-nothing v1 relays, drain coverage must equal graph
+    // reachability, so a graph-reachable node that missed the drain is an
+    // instrument bug, not a measurement. The reachable set is already
+    // materialized once per record, so this costs one set lookup per miss.
+    assert!(
         !reachable_from_publisher.contains(id),
         "a graph-reachable node missed the drain — the two instruments disagree",
     );

@@ -467,3 +467,13 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 **Candidate directions when needed**: share the (identical) candidate view across driver-owned cores behind a read-only handle (an experiments-side optimization, but the core owns the `candidates` field type today); intern peer ids; or let the future discovery/view-sampling work (`H_v`, the 005 out-of-scope item) shrink the per-node view to a sample, which removes the O(N²) term for real nodes and driver alike.
 
 **Trigger to revisit**: the first experiment needing N ≫ 20 000, or the peer-sampling/view-discovery feature — whichever lands first.
+
+## N-033 — Experiment round budget: multi-round runs as an explicit, deterministic knob
+
+**Surfaced during**: 016 PR review (PR #102), a reviewer design suggestion.
+
+**Idea**: the run phase machine is hardcoded to a single establish + single measure. An explicit round budget (config knob, default 1 ≡ today's "measure the first graph" semantics) would let longer/dynamic experiments — epoch rotation, multi-heartbeat steady state — attach cleanly, with connection-lifecycle teardown activating only for budgets > 1. It would also make candidate-memory reclamation principled ("free after the last round that reads `candidates`" is result-neutral; a hardcoded free-after-establish would have to be reverted by any multi-round mode — relates to [[N-032]]). An unbounded "run forever" mode would fight the byte-reproducibility contract, so any extension must keep a deterministic stop (fixed rounds or a convergence rule).
+
+**Why deferred**: 016 deliberately pinned single-epoch runs (the driver never advances the nonce — a clarify-session resolution), and the core itself has no epoch rotation or connection teardown yet, so a budget knob today would be a result-affecting parameter whose values > 1 cannot be exercised meaningfully — the forward-compatible-interfaces standard wants the named consumer to exist first.
+
+**Trigger to revisit**: the epoch-advancement/rotation feature (the heartbeat/epoch seams from ADR 0031 are where it plugs in), or the first steady-state experiment need.
