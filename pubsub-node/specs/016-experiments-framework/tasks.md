@@ -49,9 +49,9 @@ provably untouched.
       `src/bin/experiments.rs`; verify the default build/test/clippy output
       is unaffected with the feature off (016-FR-001, 016-FR-002,
       016-FR-003; 016-SC-008).
-- [X] T002 [P] Author ADR 0034 — serde_json as an optional feature-tied
+- [X] T002 [P] Author ADR 0037 — serde_json as an optional feature-tied
       dependency (Justified Dependencies standard) in
-      `docs/decisions/0034-serde-json-optional-dependency.md` (plan
+      `docs/decisions/0037-serde-json-optional-dependency.md` (plan
       Constitution Check III; research R4).
 
 **Checkpoint**: both test configurations green; commit.
@@ -93,10 +93,10 @@ provably untouched.
       per the publishes-per-run knob, default 1), making
       T006 pass (016-FR-004…016-FR-010, 016-FR-014, 016-FR-027; research
       R1/R2; data-model §2/§3).
-- [X] T008 Author ADR 0032 — deterministic experiments driver (wavefront
+- [X] T008 Author ADR 0035 — deterministic experiments driver (wavefront
       scheduler, driver-owned canonicalisation, participant model, phase
       orchestration) in
-      `docs/decisions/0032-deterministic-experiments-driver.md` (plan
+      `docs/decisions/0035-deterministic-experiments-driver.md` (plan
       Constitution Check III; research R1/R2/R3).
 
 **Checkpoint**: both configurations green; commit.
@@ -161,10 +161,10 @@ and identical; per-run identity holds (spec US1).
       with N (the structural field inventory is pinned by the golden
       serialization test)
       (016-SC-001 partial, 016-SC-004, 016-SC-005; research R9).
-- [X] T017 [US1] Author ADR 0033 — experiment output contract & statistics
+- [X] T017 [US1] Author ADR 0036 — experiment output contract & statistics
       conventions (three artifacts, derivability invariant, counts + Wilson
       95%, excluded-publisher denominator) in
-      `docs/decisions/0033-experiment-output-contract.md` (plan Constitution
+      `docs/decisions/0036-experiment-output-contract.md` (plan Constitution
       Check III; research R7).
 
 **Checkpoint**: US1 independently deliverable (MVP); both configurations

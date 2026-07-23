@@ -1,4 +1,4 @@
-# ADR 0032: Deterministic experiments driver
+# ADR 0035: Deterministic experiments driver
 
 **Status**: Accepted
 **Date**: 2026-07-19

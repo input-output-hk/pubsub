@@ -86,9 +86,9 @@ rustdoc intra-doc-link commit (`25353de`, PR #74 lineage), which the
 planned rebase onto `main` removes from the 016 diff.
 
 Verified accurate against code (spot list): feature gate + optional
-`serde_json` + `required-features` binary (ADR 0034); the two
+`serde_json` + `required-features` binary (ADR 0037); the two
 experiments-only strategies incl. the `min(target_degree, available)`
-degeneracy; wavefront canonicalisation and the run phase order (ADR 0032);
+degeneracy; wavefront canonicalisation and the run phase order (ADR 0035);
 good ⟺ one SCC, pre/post-churn passes, condensation-sink
 min-publisher-coverage, M2-only dispatch; `{count, runs, p, wilson95}`
 estimates and the `full_coverage.count ≥ good.count` fold assertion (ADR

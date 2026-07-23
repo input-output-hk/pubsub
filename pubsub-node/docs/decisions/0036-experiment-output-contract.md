@@ -1,4 +1,4 @@
-# ADR 0033: Experiment output contract & statistics conventions
+# ADR 0036: Experiment output contract & statistics conventions
 
 **Status**: Accepted
 **Date**: 2026-07-19
@@ -60,7 +60,7 @@ parallelism — and the recorded hex seed alone replays any run.
   everything, so a good run without full coverage means the two instruments
   disagree and the sweep must fail loudly rather than emit.
 
-**Encoding**: `serde_json` (optional dependency, ADR 0034) over types whose
+**Encoding**: `serde_json` (optional dependency, ADR 0037) over types whose
 containers are order-stable (`Vec`, `BTreeMap` — never a `HashMap` field);
 byte-identity = value-determinism ∘ deterministic encoding. Determinism
 testing is layered per research R9: value-level equality is the workhorse,

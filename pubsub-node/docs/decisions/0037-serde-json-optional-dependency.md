@@ -1,4 +1,4 @@
-# ADR 0034: `serde_json` as an optional feature-tied dependency
+# ADR 0037: `serde_json` as an optional feature-tied dependency
 
 **Status**: Accepted
 **Date**: 2026-07-19

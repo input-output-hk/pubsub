@@ -65,7 +65,7 @@ is load-bearing for byte-identical aggregates.
 **Alternatives rejected**: `rayon` (generality unused; less direct in-flight
 control; new dependency).
 
-## R4 — Encoding: `serde_json`, optional, feature-tied (ADR 0034)
+## R4 — Encoding: `serde_json`, optional, feature-tied (ADR 0037)
 
 **Decision**: add `serde_json` as an optional dependency activated by the
 `experiments` feature; record/aggregate types derive `Serialize` and contain
@@ -75,7 +75,7 @@ only order-stable containers (`Vec`, `BTreeMap` — never a `HashMap` field).
 byte-reproducibility bugs live; ryu float output is deterministic
 shortest-form; value-determinism ∘ deterministic-encoding ⇒ byte-identical
 artifacts, so the file-level test surface shrinks to one or two anchors.
-Justified Dependencies standard satisfied by ADR 0034.
+Justified Dependencies standard satisfied by ADR 0037.
 
 **Alternatives rejected**: hand-rolled writers (relocates the risk into our
 own formatting code); non-optional dependency (would compile for all users

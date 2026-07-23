@@ -9,7 +9,7 @@
 //! same order, so the three artifacts are byte-identical for the same
 //! (description, master seed, tool commit) — an interrupted sweep leaves a
 //! valid canonical-order prefix with no completion claim (no resume; re-run).
-// 016-FR-024…FR-026, 016-FR-028, 016-FR-029; research R6; ADR 0033;
+// 016-FR-024…FR-026, 016-FR-028, 016-FR-029; research R6; ADR 0036;
 // contracts/output-artifacts.md.
 
 use std::fs::File;

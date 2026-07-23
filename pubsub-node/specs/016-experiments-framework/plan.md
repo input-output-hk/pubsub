@@ -114,7 +114,7 @@ and the in-flight 015-publisher-links feature; participant storage's
 Level-2 headroom is named by the program's adversary stages — spec FR-011,
 FR-022); **declarative test construction** (the `scripted` module is the
 test-only builder layer for topologies and event scripts); **justified
-dependencies** (ADR 0034); **reproducible tests and simulations** (the
+dependencies** (ADR 0037); **reproducible tests and simulations** (the
 feature's core requirement — FR-024/FR-026; no wall-clock anywhere).
 
 ## Project Structure
@@ -197,5 +197,5 @@ modules, integration suite under `tests/`, gated on the feature).
 ## Complexity Tracking
 
 No constitution violations to justify. The one new dependency (`serde_json`)
-is handled under the Justified Dependencies standard via ADR 0034 rather
+is handled under the Justified Dependencies standard via ADR 0037 rather
 than as a violation.

@@ -147,6 +147,6 @@ documented in [`docs/experiments/m2-comparison.md`](../../docs/experiments/m2-co
 
 - API documentation: `cargo doc --features experiments --open`, module
   `pubsub_node::experiments`.
-- Design records: ADR 0032 (the deterministic driver), ADR 0033 (the
-  output contract and statistics conventions), ADR 0034 (the optional
+- Design records: ADR 0035 (the deterministic driver), ADR 0036 (the
+  output contract and statistics conventions), ADR 0037 (the optional
   `serde_json` dependency) under [`docs/decisions/`](../../docs/decisions/).

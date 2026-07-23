@@ -9,7 +9,7 @@
 //! p̂ ∈ {0, 1} — the all-good sample is the common case — where a plain ±1σ
 //! standard error degenerates to zero width; any other convention stays
 //! derivable from the counts.
-// 016-FR-023; 016-SC-007; research R3/R7; data-model §6; ADR 0033.
+// 016-FR-023; 016-SC-007; research R3/R7; data-model §6; ADR 0036.
 
 use std::collections::BTreeMap;
 

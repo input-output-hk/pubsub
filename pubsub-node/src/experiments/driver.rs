@@ -11,7 +11,7 @@
 //! collection iteration order. All message kinds route identically —
 //! connection control and dissemination — and severance effects are
 //! consumed and tallied by the driver.
-// 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0032.
+// 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035.
 
 use std::collections::BTreeMap;
 
