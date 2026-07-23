@@ -104,3 +104,25 @@ eclipse-floor events (`sim_p03_tail.py`; RF × s grids in
 `sim_p03_full_coverage.py`). This metric is not the guarantee: summed over an
 epoch's many messages, only the standing structure of §2 bounds the worst
 publisher.
+
+## 6. Failure severity — what a bad graph costs
+
+Conditional on strict-bad, the failing set is almost always a single
+node. `sim_m3_severity.py` counts the actually failing nodes on bad
+graphs at elevated μ — deaf (some publisher cannot reach them even via
+seeding) vs mute (a publisher whose seed set cannot cover H):
+
+| μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | deaf : mute |
+|---|---|---|---|---|---|---|
+| 0.40 | 114 | 92 % | 6 % | 2 % | 3 | 110 : 15 |
+| 0.45 | 159 | 61 % | 29 % | 10 % | 5 | 222 : 20 |
+
+(The larger multiplicities just track E ≈ 0.2 / 0.8 at these μ — Poisson
+conditioned on ≥ 1; the operating point's E ≈ 8×10⁻⁵ collapses it to
+one.) **A δ-event is one eclipsed node** (the μ^RF class, ~90 % of
+failures); per the ×1.11 small-component factor (§3), roughly one bad
+graph in ten strands a 2-node islet instead. The seeding mechanism is
+directly visible: ~9–15 publishers per graph have no requester path to
+the giant SCC (mute under pure pull), and initiation links rescue
+> 99.5 % of them (5 832 → 15 and 4 247 → 20 actually mute at the two
+cells).

@@ -63,7 +63,33 @@ vs M3's 38 (2.4×) and M1/M2's 48 (3×), with the smallest worst-case node
 traffic, but still held state, connection slots, and churn surface. In M4
 and M5 every held link also carries relay traffic.
 
-## 4. Bottom line
+## 4. Degradation under μ-shift (frozen parameters)
+
+From each model's
+[`mu_shift_robustness.md`](m3/properties/mu_shift_robustness.md): the
+operating points frozen, the effective adversarial fraction swept upward
+(law-read, MC-validated at elevated μ). Reported: the **budget** (largest
+μ_eff keeping P(bad) ≤ 10⁻⁴; churn reading p_max = Δμ/(1−μ)) and the
+**collapse point** (P(bad) = ½):
+
+| model | parameters | budget μ_eff (Δμ) | churn p_max | collapse μ_eff |
+|---|---|---|---|---|
+| M5 | (9, 8) | 0.217 (+0.017) | ~2.2 % | 0.49 |
+| M1 | F = 24 | 0.214 (+0.014) | ~1.8 % | **0.61** |
+| M2 | RF = 24 | 0.214 (+0.014) | ~1.7 % | **0.61** |
+| M4 | RF = 8 | 0.209 (+0.009) | ~1.1 % | 0.50 |
+| **M3** | (12, 8) | **0.204 (+0.004)** | **~0.5 %** | 0.44 |
+
+**The robustness ordering is roughly the bandwidth ordering reversed: M3,
+the bandwidth winner, is the most μ-brittle** — its μ^RF in-term has
+log-sensitivity RF/μ = 60 vs 24 for M1/M2's exponential terms. M5's
+top budget is mostly margin (its cheapest integer point lands 2.3× under
+δ), not structure (sensitivity ≈ 50). M1/M2 degrade most gracefully
+(collapse ≈ 0.61) — a cushion bought by their 2× bandwidth. On the live
+frontier: **M4 tolerates ~2× more shift than M3** (~1.1 % vs ~0.5 % churn)
+before leaving the target.
+
+## 5. Bottom line
 
 At P(bad) ≤ 10⁻⁴, N = 20 000, μ = 0.2: **M3 (RF = 12, s = 8) is the most
 efficient model in bandwidth** — cheapest by 19–50 %, within ~1 hop

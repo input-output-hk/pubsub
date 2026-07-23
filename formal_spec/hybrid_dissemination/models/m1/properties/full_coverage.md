@@ -65,3 +65,22 @@ H-scaling (same F, ×5 N ⇒ E ×5).
 **F = 24**: P_bad ≈ 7.3×10⁻⁵ ≤ 10⁻⁴; F = 23 gives 1.6×10⁻⁴, above target.
 (The out-term is 8 orders of magnitude below the in-term here — M1's wall is
 entirely the seed-proof in-isolation.)
+
+## 5. Failure severity — what a bad graph costs
+
+Conditional on bad, the stranded set is almost always a single node.
+`sim_m1_severity.py` measures d = H − |giant SCC| on bad graphs at
+elevated μ (where they are collectable) and classifies the stranded
+nodes — deaf (unreachable from the giant) vs mute (cannot reach it):
+
+| μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | deaf : mute |
+|---|---|---|---|---|---|---|
+| 0.55 | 115 | 95 % | 4 % | 1 % | 3 | 116 : 6 |
+| 0.60 | 155 | 72 % | 25 % | 3 % | 4 | 191 : 14 |
+
+Multiplicity matches Poisson(E) conditioned on ≥ 1 defect; at the
+operating point E ≈ 7×10⁻⁵ collapses it to one: **a δ-event is one deaf
+node** (the seed-proof in-isolation class — 95 % of stranded nodes even
+at these μ), with the other H − 1 nodes operating normally. No fragment
+beyond 4 nodes appeared in 270 bad graphs; a partition needs Θ(H)
+simultaneous defects, unreachably far beyond the isolated-vertex regime.
