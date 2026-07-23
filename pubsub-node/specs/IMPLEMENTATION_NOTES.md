@@ -224,6 +224,8 @@ The next five entries are 004-connections' deferred-dynamics package — the del
 
 **Trigger to revisit**: feature **011** (real crypto) and/or **009** (real transport), where frame tampering enters the threat model. Decide whether a frame-vs-emitter cross-check, or authenticated transport framing, is required, and where it sits relative to signature verification.
 
+**Updated (015, post-round-5 — the owner-binding removal)**: the stakes are now recorded as a **transport obligation**, not just a hardening question. On the dissemination path the unsigned frame sender does real work: it keys the **receive-gate lookup** (which Active upstream admits) and it selects the **admitting link for signature-failure severance** — so under a transport without per-hop sender authentication, a spoofed frame could get a message admitted via another peer's link or get an innocent peer's link severed. The 015 review also removed the one check that leaned on this field *as enforcement* (the publisher-link owner-binding compared the signed `publisher_id` against the frame sender — unsound for exactly this reason; ADR 0032 §5 supersession note). The recorded rule: a receive-side **restriction** must be checkable from the signed bytes alone; frame-sender **authentication** (so the routing/severance uses of `from` stay sound) is an obligation on the real transport (009/011).
+
 ## N-014 — Misbehavior follow-ups: blacklist, re-selection, topic-scoped misbehavior
 
 **Surfaced during**: 004-connections — data-model staleness catalog **S6** (misbehavior asymmetry).
@@ -445,3 +447,13 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 **Trigger to revisit**: the experiment/testing-framework feature ([[N-028]]), after the experiments-document review.
 
 **Resolved (ADR 0031, 2026-07-07)**: implemented ahead of the experiments-document review per the agreed empirical one-dimensional-baseline approach — `BoundedAcceptance` (cap only) and `HashGatedAcceptance` (gate only) ship beside `accept-from-all` and the compound (renamed `hash-gated-bounded` for dial-seam naming symmetry). The **two concrete thin structs** shape won; the combinator was rejected as over-general for four fixed combinations, with the shared `admit_prelude` capturing the one invariant (membership → already-downstream re-Accept) that must not drift. Compounding beyond the four kinds (blacklists, deposits) stays deferred to the experiment framework.
+
+## N-032 — Capped acceptance on a symmetric node: what does the cap bound?
+
+**Surfaced during**: 015-publisher-links (PR #77), review round 5 / audit A12. Relates to ADR 0034 (constructed symmetric reciprocity legalised the capped × symmetric combination the earlier startup check had rejected) and [[N-029]] (retry/back-fill).
+
+**Question**: on a symmetric node every accepted edge is mirrored into both collections, and the node's **own** accepted dials bypass the acceptance gate while still occupying the capacity its scan counts. So what should a bounded acceptance strategy bound — the peer-initiated in-degree only, or the node's total degree — and should the node's own mirrored dials count toward it?
+
+**Working answer (015, per the maintainer's direction)**: **deferred — do not resolve, do not extend.** No experiment or published recipe needs a capped bidirectional strategy today (M4 defines no caps), so the combination must not grow semantics ahead of a consumer. On the substance the dilemma partly dissolves: an acceptance strategy structurally caps only **inbound requests** — it cannot instruct the dialer, so it never bounds out-degree; and an `Accepted` answering the node's own pending request is not an admission decision. What the current code does (recorded so the behaviour is not mistaken for a decision): the cap's link scan counts the whole mirrored link set — own-dial mirrors included — but the gate fires only on peer-initiated requests, so realised degree can exceed the cap and the outcome is arrival-order-dependent.
+
+**Trigger to revisit**: the first experiment that requires a capped bidirectional strategy (likely alongside the uniform exactly-RF selection kind that completes the real M4).

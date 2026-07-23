@@ -161,6 +161,18 @@ no published model behind it; drop it until a model needs it.
 
 ## R8 — Publisher admission: a config enum, not a seam
 
+*(Superseded after the round-5 audit by the maintainer answer to the
+owner-binding question: the receive gate is **kind-agnostic** — any Active
+upstream link admits, and a publisher-link arrival is validated exactly like
+any message. Owner-binding compared the signed `publisher_id` against the
+unsigned transport sender (spoofable under any real transport) and punched
+through the `PublisherId`/`PeerId` type distinction via raw key bytes; it also
+enforced nothing the relay channel doesn't already allow. M3's exclusivity
+lives at the sender (FR-005's fan-out). `PublisherAdmission`, the
+`--publisher-admission` flag, and its startup check are deleted; severance
+stays admitting-link-scoped. The general rule recorded: a receive-side
+restriction exists only if it is checkable from the signed bytes alone.)*
+
 **Decision**: `PublisherAdmission { OwnerOnly, AnyVerified }` (default
 `OwnerOnly`) as a plain `NodeState` field, CLI `--publisher-admission
 owner-only|any-verified`, `FromStr` at the edge. Owner-binding compares the
@@ -220,7 +232,7 @@ link classes exist.
 | — | `--publisher-acceptance-strategy` (optional; absent = inbound publisher requests dropped) |
 | — | `--publisher-degree` |
 | — | `--fanout-strategy` (`forward-to-all` default, `all-links`) |
-| — | `--publisher-admission` (`owner-only` default, `any-verified`) |
+| — | `--publisher-admission` (`owner-only` default, `any-verified`) — *removed with R8's supersession* |
 | — | `--symmetric-edges` (flag; both relay seams) |
 
 `--genesis`, `--bucket-count`, `--cap-buffer` stay shared across seams (the
@@ -237,9 +249,9 @@ the existing two-phase builder from the four kind selections (publisher kinds
 separate `publisher_degree` field on the params — one params struct per seam
 family, relay and publisher values side by side, rather than four params
 structs). `Node::new` takes `NodeStrategies` as one argument plus
-`fanout_strategy` and `publisher_admission` — call sites (main, integration
-test builders) restructure once instead of growing three more positional
-arguments.
+`fanout_strategy` (`publisher_admission` was a third argument until R8's
+supersession removed it) — call sites (main, integration test builders)
+restructure once instead of growing three more positional arguments.
 
 ## R13 — Correctness requirements carried from the exploration
 

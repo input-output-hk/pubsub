@@ -215,13 +215,52 @@ publishing — three-option Slack thread), and what a capped acceptance should
 bound on a symmetric node (total degree vs peer-initiated edges; no published
 recipe combines caps with symmetric edges today).
 
+**A13 — maintainer answers to the two A12 questions (2026-07-23).**
+1. *Owner-binding: removed entirely* (the answer was "neither option" — a
+   publisher-link arrival is validated **exactly like any message**:
+   publisher signature, topic registration, publisher authorization,
+   subscription, dedup; no receive-side owner check). Two independent
+   grounds, recorded in the ADR 0032 §5 supersession note: semantically the
+   binding only narrowed the publisher channel below what any Active relay
+   upstream already admits (M3's exclusivity is the *sender-side* fan-out
+   rule — honest-behaviour compliance, and the model's adversaries are
+   silent); mechanically it compared the signed `publisher_id` against the
+   **unsigned** frame sender (spoofable under a real transport — the
+   frame-sender-authentication transport obligation is now recorded in
+   N-013) and erased the `PublisherId`/`PeerId` type distinction via raw-key
+   comparison (breaks silently when publisher identity diverges from node
+   identity, N-009). Implementation: the receive gate collapsed to one
+   kind-agnostic lookup (any `Active` upstream entry for `(topic, from)`
+   admits — which also *tightened* the publisher arm from key-presence to
+   `Active`); `PublisherAdmission`, `UnknownPublisherAdmission`, the
+   `--publisher-admission` flag, and its startup check are deleted (the
+   enum never ships as public API). **Deliberate behavioural test edits**:
+   `publisher_link_admits_owner_only` re-pinned as
+   `publisher_link_admits_any_authentic_message`; the integration pin
+   `foreign_publisher_is_dropped_at_publisher_links` re-pinned as
+   `foreign_publisher_is_admitted_over_publisher_links`; the US3
+   `any_verified_…` unit test folded into the re-pinned FR-006 test (its
+   behaviour is now universal); the M5 chain test drops the flag — its M3
+   contrast run still stops at b, now provably via the sender side alone.
+   Spec FR-006 amended / FR-008 removed; R8 superseded; recipe table: M3 and
+   M5 now differ **only** in `--fanout-strategy` (stated deliberately, per
+   the maintainer's knock-on note).
+2. *Capped acceptance × symmetric: deferred without resolution* per the
+   maintainer — no consumer, so no semantics ahead of one. The current
+   behaviour (cap scan counts the whole mirrored set; the gate fires only on
+   peer-initiated requests) and the revisit trigger (first experiment
+   needing a capped bidirectional strategy) are recorded as **N-032**; no
+   code change.
+
 ## Verification notes
 
 - `main.rs --help` output matches contracts §5 flag-for-flag (checked at
   polish); quickstart recipes use only shipped flags.
-- `lib.rs` re-exports match contracts §2–§4: `LinkKind`/`LinkKey`/`LinkState`/
-  `PublisherAdmission` (+ unknown-name error), `ForwardToRelays`/`ForwardToAll`/`FanoutStrategyKind`,
+- `lib.rs` re-exports match contracts §2–§4: `LinkKind`/`LinkKey`/`LinkState`
+  (`PublisherAdmission` + its unknown-name error deleted at A13),
+  `ForwardToRelays`/`ForwardToAll`/`FanoutStrategyKind`,
   `is_valid_edge_sym`; `is_valid_edge_publisher` stays crate-internal (no
   external consumer).
 - Suite at completion: 243 tests, clippy pedantic clean, fmt clean; after the
-  A11 round: 255 tests, clippy pedantic + fmt clean.
+  A11 round: 255 tests, clippy pedantic + fmt clean; after A13: 252 tests
+  (one unit test folded into a re-pinned one), clippy pedantic + fmt clean.

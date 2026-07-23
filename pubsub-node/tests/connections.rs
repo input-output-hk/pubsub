@@ -14,8 +14,7 @@ use common::{
 use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
     InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, Node, NodeError,
-    NodeStrategies, Origin, PeerId, PublisherAdmission, SubscriptionRegistryControl, TopicId,
-    TopicRegistryControl,
+    NodeStrategies, Origin, PeerId, SubscriptionRegistryControl, TopicId, TopicRegistryControl,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -425,7 +424,6 @@ async fn readiness_establishes_autonomously() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("construct a");
@@ -442,7 +440,6 @@ async fn readiness_establishes_autonomously() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("construct b");
@@ -488,7 +485,6 @@ async fn construction_fails_on_duplicate_registration() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("first registration succeeds");
@@ -507,7 +503,6 @@ async fn construction_fails_on_duplicate_registration() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await;
 
@@ -543,7 +538,6 @@ async fn construction_fails_on_identity_mismatch() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await;
 
@@ -566,7 +560,6 @@ async fn construction_fails_on_identity_mismatch() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("the failed construction left the id free");

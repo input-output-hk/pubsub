@@ -253,7 +253,6 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
             Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     );
     // Synced first (requests are gated on readiness) and before any membership,
     // so the readiness dial pass sees no candidates and pollutes no upstream.
@@ -301,7 +300,6 @@ fn rejected_dial_removes_pending_upstream() {
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     );
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));

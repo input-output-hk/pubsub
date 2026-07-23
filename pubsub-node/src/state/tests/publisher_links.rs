@@ -1,6 +1,6 @@
 //! 015 publisher links: the M3 behaviours — unconditional strategy-driven
-//! establishment, kind-dispatched control handling, owner-bound admission,
-//! admitting-link severance, and the origin split in fan-out.
+//! establishment, kind-dispatched control handling, the kind-agnostic receive
+//! gate, admitting-link severance, and the origin split in fan-out.
 
 use super::super::*;
 use super::*;
@@ -18,7 +18,6 @@ fn publisher_dials_fire_unconditionally() {
             HashSet::from([topic("t1")]),
             Arc::new(ConnectToAllCandidates),
             Arc::new(AcceptFromAllCandidates),
-            PublisherAdmission::OwnerOnly,
         );
         apply(&mut state, membership_joined("self", ["t1"]));
         apply(&mut state, membership_joined("a", ["t1"]));
@@ -78,7 +77,6 @@ fn publisher_request_is_accepted_into_upstream_publishers() {
         HashSet::from([topic("t1")]),
         Arc::new(ConnectToAllCandidates),
         Arc::new(AcceptFromAllCandidates),
-        PublisherAdmission::OwnerOnly,
     );
     apply(&mut state, Event::Synced);
     apply(&mut state, membership_joined("a", ["t1"]));
@@ -174,10 +172,14 @@ fn publisher_rejected_removes_the_pending_publisher_dial() {
 
 // ---- T012: the receive gate + severance -------------------------------------
 
-// FR-006 owner-binding: over an inbound publisher link, the owner's own
-// publication is admitted; a message published by anyone else is dropped.
+// FR-006 (as amended): the receive gate is kind-agnostic — an Active inbound
+// publisher link admits any authentic message, the link owner's own
+// publication and a foreign publisher's alike. A receiver validates a
+// publisher-link arrival exactly like any message (signature, registration,
+// authorization, subscription, dedup); a link's kind restricts what its
+// holder sends, not what a receiver admits.
 #[test]
-fn publisher_link_admits_owner_only() {
+fn publisher_link_admits_any_authentic_message() {
     let mut state = node_state("self", HashSet::from([topic("t1")]));
     with_upstream_publisher(&mut state, "a", "t1");
 
@@ -189,13 +191,13 @@ fn publisher_link_admits_owner_only() {
         "owner's message admitted"
     );
 
-    // A message published by b, delivered by a over its publisher link: the
-    // owner-binding drops it.
+    // A message published by b, delivered by a over its publisher link:
+    // equally admitted — no owner-binding on the receive side.
     apply(&mut state, payload_via("a", "b", "t1", 2));
     assert_eq!(
         state.received_snapshot().len(),
-        1,
-        "foreign publisher over a publisher link is dropped",
+        2,
+        "foreign publisher over a publisher link is admitted",
     );
 }
 
@@ -317,36 +319,7 @@ fn topic_removal_cascades_over_publisher_links() {
     assert!(state.downstream_publishers().is_empty());
 }
 
-// ---- US3 (M5): relaxed admission + union fan-out ----------------------------
-
-// FR-008: under AnyVerified, a foreign publisher's message arriving over an
-// inbound publisher link is admitted; the OwnerOnly default drops the same
-// arrival (pinned above in publisher_link_admits_owner_only).
-#[test]
-fn any_verified_admits_foreign_publisher_over_publisher_link() {
-    let mut state = node_state_with_publishers(
-        "self",
-        HashSet::from([topic("t1")]),
-        Arc::new(ConnectToAllCandidates),
-        Arc::new(AcceptFromAllCandidates),
-        PublisherAdmission::AnyVerified,
-    );
-    with_upstream_publisher(&mut state, "a", "t1");
-
-    // Published by b, delivered by a over a's publisher link: admitted.
-    apply(&mut state, payload_via("a", "b", "t1", 21));
-    assert_eq!(
-        state.received_snapshot().len(),
-        1,
-        "any-verified admits the foreign hop",
-    );
-
-    // Severance stays policy-independent: a tampered payload over the same
-    // link still severs it.
-    let effects = apply(&mut state, tampered_payload_from("a", "t1", 22));
-    assert_eq!(misbehaved(&effects).len(), 1);
-    assert!(!has_upstream_publisher(&state, "a", "t1"));
-}
+// ---- US3 (M5): union fan-out -------------------------------------------------
 
 // FR-007/011: the ForwardToAll fan-out sends EVERY held message — peer origin
 // included — over relay downstream and Active publisher links, deduplicated.
@@ -360,7 +333,6 @@ fn all_links_fanout_unions_both_kinds_for_any_origin() {
         alias_signer("self"),
         NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
         Arc::new(ForwardToAll),
-        PublisherAdmission::AnyVerified,
     );
     state
         .registered_topics

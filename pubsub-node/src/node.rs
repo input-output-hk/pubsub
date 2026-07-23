@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::task::JoinHandle;
 
-use crate::connection_state::{LinkState, PublisherAdmission};
+use crate::connection_state::LinkState;
 use crate::crypto::{Signer, Verifier};
 use crate::error::NodeError;
 use crate::event::{Event, EventQueue};
@@ -111,9 +111,7 @@ impl Node {
     /// (`Request`/`Accepted`/`Terminated`/`Rejected`). `strategies` carries the
     /// four link seams: the relay selection/acceptance pair, plus the optional
     /// publisher pair (`None` disables publisher links). `fanout_strategy` is
-    /// the fan-out policy consulted at the record point; `publisher_admission`
-    /// is the receive-gate policy for inbound publisher links (owner-only by
-    /// default).
+    /// the fan-out policy consulted at the record point.
     ///
     /// Construction validates **identity/signer coherence before** registering
     /// on the network: if `self_id` does not match `signer`'s public key it
@@ -124,8 +122,8 @@ impl Node {
     /// Returns [`NodeError`] if the identity/signer check fails or network
     /// registration fails.
     // The parameter list is the specified construction contract: network +
-    // signer + verifier + two registries + the strategy set + fan-out +
-    // admission are each a distinct collaborator, not incidental sprawl.
+    // signer + verifier + two registries + the strategy set + fan-out are
+    // each a distinct collaborator, not incidental sprawl.
     #[allow(clippy::too_many_arguments)]
     pub async fn new<N: Network, R: SubscriptionRegistry, T: TopicRegistry>(
         self_id: PeerId,
@@ -137,7 +135,6 @@ impl Node {
         topic_registry: Arc<T>,
         strategies: NodeStrategies,
         fanout_strategy: Arc<dyn FanoutStrategy>,
-        publisher_admission: PublisherAdmission,
     ) -> Result<Self, NodeError> {
         // Identity/signer coherence, checked before registration so a mismatch
         // leaks nothing — no handle, no tasks (FR-024).
@@ -165,7 +162,6 @@ impl Node {
             signer,
             strategies,
             fanout_strategy,
-            publisher_admission,
         )));
         let state_for_task = Arc::clone(&state);
 
@@ -410,8 +406,7 @@ impl Node {
     }
 
     /// Return a snapshot of this node's **publisher upstream** links — the
-    /// `(peer, topic)` pairs whose inbound initiation links it accepted (each
-    /// owner may push its own publications over its link).
+    /// `(peer, topic)` pairs whose inbound initiation links it accepted.
     ///
     /// A stable clone of the node's record, unaffected by subsequent events;
     /// entry order is unspecified.

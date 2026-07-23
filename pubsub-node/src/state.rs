@@ -16,7 +16,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::connection_state::{LinkKey, LinkKind, LinkState, PublisherAdmission};
+use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::crypto::{MessageHash, Signer, Verifier};
 use crate::event::Event;
 use crate::message::{
@@ -108,9 +108,6 @@ pub(crate) struct NodeState {
     /// own disjoint capacity. `None` (the default) silently drops every inbound
     /// publisher request.
     publisher_acceptance: Option<Arc<dyn ConnectionAcceptanceStrategy>>,
-    /// The receive-gate policy for payloads arriving over an inbound publisher
-    /// link: owner-only (the default) or any-verified.
-    publisher_admission: PublisherAdmission,
     /// Whether this node's relay links use the **symmetric** (bidirectional)
     /// handshake — M4 (ADR 0034). When set, the relay dial pass speaks the
     /// symmetric vocabulary, inbound symmetric requests are admitted (one
@@ -150,7 +147,6 @@ impl NodeState {
         signer: Arc<dyn Signer>,
         strategies: NodeStrategies,
         fanout_strategy: Arc<dyn FanoutStrategy>,
-        publisher_admission: PublisherAdmission,
     ) -> Self {
         Self {
             self_id,
@@ -168,7 +164,6 @@ impl NodeState {
             acceptance_strategy: strategies.relay_acceptance,
             publisher_strategy: strategies.publisher_connection,
             publisher_acceptance: strategies.publisher_acceptance,
-            publisher_admission,
             symmetric_edges: strategies.symmetric_edges,
             seen: HashSet::new(),
             synced: false,
@@ -259,8 +254,7 @@ impl NodeState {
     }
 
     /// Snapshot of the **publisher upstream** links — `(peer, topic)` pairs
-    /// whose inbound initiation links the node accepted (each owner may push
-    /// its own publications here), in unspecified order.
+    /// whose inbound initiation links the node accepted, in unspecified order.
     #[must_use]
     pub(crate) fn upstream_publishers(&self) -> Vec<(PeerId, TopicId)> {
         self.upstream
@@ -853,10 +847,9 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 /// Transition for a signed dissemination message.
 ///
 /// Records the delivery when the delivering peer holds an **admitting link**
-/// for the message's topic — an Active relay upstream, or an inbound publisher
-/// link whose admission policy passes (owner-only by default) — its topic is
-/// subscribed **and** a registered (legitimate) topic, its publisher is
-/// authorized, and its signature verifies; otherwise the message is dropped
+/// for the message's topic — any `Active` upstream entry, either kind — its
+/// topic is subscribed **and** a registered (legitimate) topic, its publisher
+/// is authorized, and its signature verifies; otherwise the message is dropped
 /// (with an info-level `message_dropped` event carrying the cause). A recorded
 /// message is then fanned out per the fan-out strategy, excluding the
 /// deliverer (split-horizon) — the same record-and-forward tail the publish
@@ -868,31 +861,17 @@ fn handle_publish(state: &mut NodeState, signed: SignedMessage) -> Vec<Effect> {
 // ADMITTING link (ADR 0032 §5); the fan-out happens only past the record
 // point.
 fn handle_dissemination(state: &mut NodeState, from: PeerId, signed: SignedMessage) -> Vec<Effect> {
-    // The link gate: an Active relay upstream admits anything (checked first);
-    // failing that, an inbound publisher link admits per the node's publisher
-    // admission policy — owner-only (the message's publisher must be the link
-    // owner; M3's exclusivity) or any-verified (M5). The key that admitted the
-    // message is remembered: a signature failure past every later check severs
-    // exactly that link.
-    let relay_key = LinkKey::new(signed.plain.topic.clone(), from.clone(), LinkKind::Relay);
-    let publisher_key = LinkKey::new(
-        signed.plain.topic.clone(),
-        from.clone(),
-        LinkKind::Publisher,
-    );
-    let admitting_key = if matches!(state.upstream.get(&relay_key), Some(LinkState::Active)) {
-        Some(relay_key)
-    } else if state.upstream.contains_key(&publisher_key) {
-        let owner_bound = match state.publisher_admission {
-            PublisherAdmission::OwnerOnly => {
-                signed.plain.publisher_id.as_public_key() == from.as_public_key()
-            }
-            PublisherAdmission::AnyVerified => true,
-        };
-        owner_bound.then_some(publisher_key)
-    } else {
-        None
-    };
+    // The link gate is kind-agnostic: any Active upstream entry held with the
+    // delivering peer for the message's topic admits — the only restriction a
+    // receiver can soundly enforce is checkable from the signed bytes alone,
+    // and a link's kind restricts what its holder SENDS (M3's exclusivity is
+    // the sender-side fan-out policy), not what a receiver admits. The key
+    // that admitted the message is remembered: a signature failure past every
+    // later check severs exactly that link.
+    let admitting_key = [LinkKind::Relay, LinkKind::Publisher]
+        .into_iter()
+        .map(|kind| LinkKey::new(signed.plain.topic.clone(), from.clone(), kind))
+        .find(|key| matches!(state.upstream.get(key), Some(LinkState::Active)));
     let Some(admitting_key) = admitting_key else {
         tracing::info!(
             target: "pubsub_node::node",

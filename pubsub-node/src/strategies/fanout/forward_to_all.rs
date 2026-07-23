@@ -13,9 +13,9 @@ use crate::topic::TopicId;
 /// the split-horizon exclusion, one send per peer.
 ///
 /// This is M5's send side (`m5/README.md`): both link classes carry every
-/// message; origin plays no role. Pair it network-wide with the
-/// `any-verified` publisher admission — under the `owner-only` default the
-/// receive side drops exactly the foreign-publisher hops this policy emits.
+/// message; origin plays no role. The receive gate is kind-agnostic (any
+/// Active upstream link admits), so this policy alone distinguishes M5 from
+/// the M3 defaults.
 pub struct ForwardToAll;
 
 impl FanoutStrategy for ForwardToAll {

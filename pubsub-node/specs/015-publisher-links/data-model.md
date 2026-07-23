@@ -23,8 +23,8 @@ pub struct LinkKey {
 ```
 
 `UpstreamState` is renamed `LinkState` (same two variants, same semantics).
-`PublisherAdmission { OwnerOnly, AnyVerified }` is a config enum (R8), not a
-link shape.
+`PublisherAdmission { OwnerOnly, AnyVerified }` was a config enum (R8) —
+deleted with R8's supersession (the receive gate is kind-agnostic).
 
 ## 2. NodeState changes
 
@@ -34,7 +34,7 @@ link shape.
 | `downstream` | `HashSet<(PeerId, TopicId)>` | `BTreeMap<LinkKey, LinkState>` — peers the node **sends to** |
 | `publisher_strategy` | — | `Option<Arc<dyn ConnectionStrategy>>` |
 | `publisher_acceptance` | — | `Option<Arc<dyn ConnectionAcceptanceStrategy>>` |
-| `publisher_admission` | — | `PublisherAdmission` (default `OwnerOnly`) |
+| `publisher_admission` | — | ~~`PublisherAdmission`~~ — removed (R8 superseded; kind-agnostic gate) |
 
 ### Field × kind invariants (doc-comment contracts, enforced by the handlers)
 
@@ -68,13 +68,11 @@ they coexist and are mutated independently (spec FR-001/FR-015).
   Publisher: `downstream`).
 - **`handle_connection_terminated`** — removes the `(peer, topic, kind)` entry
   from both collections (whichever hold it); unknown termination drops.
-- **`handle_dissemination`** — the admission gate becomes:
-  1. `upstream` × Relay `Active` for `(from, topic)` → admitted (as today), or
-  2. `upstream` × Publisher present for `(from, topic)` **and**
-     (`publisher_admission == AnyVerified` or the message's publisher key ==
-     `from`'s key) → admitted;
-  otherwise `not_connected` drop. On signature failure past all checks, sever
-  the **admitting** `LinkKey` (FR-010) and emit `Misbehaved`.
+- **`handle_dissemination`** — the admission gate is **kind-agnostic**
+  (amended with R8's supersession): any `Active` upstream entry for
+  `(from, topic)` — either kind — admits; otherwise `not_connected` drop. On
+  signature failure past all checks, sever the **admitting** `LinkKey`
+  (FR-010) and emit `Misbehaved`.
 - **`handle_publish` / `record_and_fanout`** — unchanged flow; `fanout()`
   passes the delivery's `Origin` through to the strategy.
 - **`handle_topic_registry_update` (Removed cascade)** and

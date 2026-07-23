@@ -83,8 +83,8 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 | `--publisher-strategy` | absent (default) \| `connect-to-all` \| `hash-gated` | absent ⇒ node never dials publisher links |
 | `--publisher-acceptance-strategy` | absent (default) \| same four kinds | absent ⇒ inbound publisher requests silently dropped |
 | `--publisher-degree` | int | required by publisher `hash-gated` / bounded acceptance |
-| `--fanout-strategy` | `forward-to-relays` (default) \| `forward-to-all` | M3 vs M5 send side |
-| `--publisher-admission` | `owner-only` (default) \| `any-verified` | M3 vs M5 receive side |
+| `--fanout-strategy` | `forward-to-relays` (default) \| `forward-to-all` | M3 vs M5 — the **only** switch between them (the receive side is uniform) |
+| ~~`--publisher-admission`~~ | — | removed (kind-agnostic receive gate; R8 superseded) |
 | `--symmetric-edges` | flag | symmetric predicate on relay selection **and** acceptance together |
 | `--genesis`, `--bucket-count`, `--cap-buffer` | unchanged | shared across seams |
 
@@ -92,17 +92,17 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 
 | Model | Flags |
 |---|---|
-| **M1** (boundary) | `--relay-strategy none --relay-acceptance-strategy none` + the M5 publisher/fan-out/admission flags (push-only = M5 at `k_in = 0`) |
-| **M2** (baseline) | defaults — no publisher flags, `forward-to-relays`, `owner-only` |
+| **M1** (boundary) | `--relay-strategy none --relay-acceptance-strategy none` + the M5 publisher/fan-out flags (push-only = M5 at `k_in = 0`) |
+| **M2** (baseline) | defaults — no publisher flags, `forward-to-relays` |
 | **M3** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated-bounded --relay-degree RF --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded --publisher-degree S_LINKS` |
 | **M4 (approximation)** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) — constructed bidirectional links (ADR 0034), but binomial per-node degree; the exact M4 (min degree ≥ RF) additionally needs the uniform exactly-RF selection kind (follow-up feature) |
-| **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all --publisher-admission any-verified` |
+| **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all` |
 
 `--symmetric-edges` composes with capped acceptance (a capacity refusal
 refuses the whole edge — one accept decision per symmetric link, ADR 0034).
-M5's two switches must be paired network-wide (`forward-to-all` ⇄
-`any-verified`); deliberately not fused — the axes stay independently
-sweepable.
+M3 and M5 deliberately differ **only** in `--fanout-strategy`: the receive
+side is uniform across the models (the kind-agnostic gate), so the comparison
+isolates the fan-out axis.
 
 **Parameter mapping caveat**: `--publisher-degree` is the expected number of
 standing publisher **links**. The M3 model's *s* counts the intended initial
@@ -112,8 +112,9 @@ parameterising from the model's tables.
 ## 7. Behavioural guarantees (test anchors)
 
 - Publisher dials fire on the readiness heartbeat, unconditionally (FR-002).
-- Owner-binding under `owner-only`: a message over a publisher link from a
-  non-owner is dropped `not_connected`-class, never recorded (FR-006).
+- Kind-agnostic receive gate: any `Active` upstream entry admits; a
+  publisher-link arrival is validated exactly like any message (FR-006 as
+  amended — no owner-binding).
 - Publisher links never carry relayed traffic under `forward-to-relays` (FR-005).
 - Invalid signature severs the admitting link kind (FR-010).
 - One send per peer regardless of coexisting link kinds (FR-011).

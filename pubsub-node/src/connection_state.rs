@@ -25,8 +25,9 @@ use crate::topic::TopicId;
 pub enum LinkKind {
     /// The pull-based relay mesh: links that carry relayed traffic.
     Relay,
-    /// A standing link that carries, by default, only its owner's own
-    /// publications (the receive side may relax this per configuration).
+    /// A standing initiation link: under the default fan-out its dialer sends
+    /// only its own publications over it (a sender-side policy — the receive
+    /// gate is kind-agnostic).
     Publisher,
 }
 
@@ -82,39 +83,6 @@ pub enum LinkState {
     AwaitingAccept,
     /// The link is established.
     Active,
-}
-
-/// The receive-gate policy for messages arriving over an inbound publisher
-/// link (a per-node configuration value, not a strategy seam). Parses from
-/// its configuration names `owner-only` / `any-verified`.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum PublisherAdmission {
-    /// Admit a message only when its publisher is the link's owner — publisher
-    /// links carry exclusively their owner's own publications (the default).
-    #[default]
-    OwnerOnly,
-    /// Admit any message whose remaining checks pass, whoever published it —
-    /// publisher links carry everything their owner holds.
-    AnyVerified,
-}
-
-/// The error returned when a configuration string names no known publisher
-/// admission policy.
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown publisher admission '{0}' (expected one of: owner-only, any-verified)")]
-pub struct UnknownPublisherAdmission(pub String);
-
-impl std::str::FromStr for PublisherAdmission {
-    type Err = UnknownPublisherAdmission;
-
-    /// Parse a policy name case-insensitively.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "owner-only" => Ok(Self::OwnerOnly),
-            "any-verified" => Ok(Self::AnyVerified),
-            _ => Err(UnknownPublisherAdmission(s.to_string())),
-        }
-    }
 }
 
 /// Test-only declarative constructors for the events that drive the connection
@@ -385,7 +353,7 @@ pub(crate) mod test_support {
 
     /// A validly-signed payload `Ping(n)` published by `publisher` but
     /// **delivered by** `from` — the frame sender differs from the message's
-    /// publisher (a relayed/foreign message; the owner-binding cases).
+    /// publisher (a relayed/foreign message).
     pub(crate) fn payload_via(from: &str, publisher: &str, topic_id: &str, n: u64) -> Event {
         Event::MessageReceived {
             from: peer(from),

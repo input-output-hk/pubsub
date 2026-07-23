@@ -12,9 +12,9 @@ use pubsub_node::{
     AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, FanoutStrategy,
     ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
     LinkState, Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
-    NodeView, Origin, PeerId, PlainMessage, PrivateKey, PublisherAdmission, PublisherId,
-    ReceivedDelivery, SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier,
-    Timestamp, TopicId, TopicRegistryControl, Verifier,
+    NodeView, Origin, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
+    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
+    TopicId, TopicRegistryControl, Verifier,
 };
 
 /// Install a process-global `tracing` subscriber that routes events through
@@ -198,7 +198,6 @@ pub async fn two_node_fixture_with_subscriptions(
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("construct node A");
@@ -216,7 +215,6 @@ pub async fn two_node_fixture_with_subscriptions(
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("construct node B");
@@ -312,7 +310,6 @@ pub async fn node_with_strategy(
         topic_registry,
         NodeStrategies::relay_only(strategy, Arc::new(AcceptFromAllCandidates)),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("construct node");
@@ -357,7 +354,6 @@ pub async fn node_sharing(
             Arc::new(AcceptFromAllCandidates),
         ),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     )
     .await
     .expect("construct node");
@@ -371,9 +367,8 @@ pub async fn node_sharing(
 }
 
 /// Like [`node_with_strategy`], but with the full four-slot strategy set and
-/// an explicit publisher-admission policy — the constructor for
-/// publisher-link / model-family fixtures (015).
-#[allow(clippy::too_many_arguments)]
+/// an explicit fan-out policy — the constructor for publisher-link /
+/// model-family fixtures (015).
 pub async fn node_with_links(
     registry: &Arc<InMemorySubscriptionRegistry>,
     network: &Arc<InMemoryNetwork>,
@@ -381,7 +376,6 @@ pub async fn node_with_links(
     topics: &[TopicId],
     strategies: NodeStrategies,
     fanout: Arc<dyn FanoutStrategy>,
-    admission: PublisherAdmission,
     genesis: u64,
 ) -> Node {
     let id = PeerId::from_str(id).expect("valid id");
@@ -407,7 +401,6 @@ pub async fn node_with_links(
         topic_registry,
         strategies,
         fanout,
-        admission,
     )
     .await
     .expect("construct node");

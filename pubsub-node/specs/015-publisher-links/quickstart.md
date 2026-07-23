@@ -32,7 +32,9 @@ pubsub-node … \
 Each node unconditionally establishes ~`--publisher-degree` standing publisher
 links (independent hash domain). Locally-published messages go out over relay
 downstream **and** active publisher links; relayed messages over relay links
-only; a publisher link admits only its owner's publications.
+only. M3's exclusivity (publisher links carry only their owner's publications)
+is this **sender-side** fan-out default — the receive gate is kind-agnostic
+and validates a publisher-link arrival exactly like any message.
 
 Model-parameter mapping: the M3 model's *s* counts the publisher **plus** its
 targets, so set `--publisher-degree` to **s − 1** when reproducing the model's
@@ -69,13 +71,13 @@ pubsub-node … \
   --relay-degree 6 \
   --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded \
   --publisher-degree 6 \
-  --fanout-strategy forward-to-all --publisher-admission any-verified
+  --fanout-strategy forward-to-all
 ```
 
-`forward-to-all` sends every held message over both downstream classes;
-`any-verified` admits foreign publishers' messages over inbound publisher
-links. **Pair the two network-wide** — `forward-to-all` senders against
-`owner-only` receivers lose every publisher-link hop.
+`forward-to-all` sends every held message over both downstream classes. This
+is deliberately the **only** switch that separates M5 from M3: the receive
+side is uniform across the models (kind-agnostic gate), so the M3/M5
+comparison isolates the fan-out axis.
 
 ## M1 — push-only (the M5 `k_in = 0` boundary)
 
@@ -84,17 +86,17 @@ pubsub-node … \
   --relay-strategy none --relay-acceptance-strategy none \
   --publisher-strategy hash-gated --publisher-acceptance-strategy hash-gated-bounded \
   --publisher-degree 8 \
-  --fanout-strategy forward-to-all --publisher-admission any-verified
+  --fanout-strategy forward-to-all
 ```
 
 No relay links at all: every node pushes over its ~`--publisher-degree`
-standing out-links, which carry every held message (`forward-to-all` +
-`any-verified`) — RF-out push gossip. Structurally this is the M5 recipe with
-the relay seams switched `none`.
+standing out-links, which carry every held message (`forward-to-all`) —
+RF-out push gossip. Structurally this is the M5 recipe with the relay seams
+switched `none`.
 
 ## Observing topology
 
 `Node::upstream_relays()` / `downstream_relays()` / `upstream_publishers()` /
 `downstream_publishers()` snapshot the four link classes; the integration
 tests (`tests/model_family.rs`, `tests/publisher_links.rs`) show fleet-level
-assertions (reciprocity, coverage, owner-binding).
+assertions (reciprocity, coverage, sender-side exclusivity).

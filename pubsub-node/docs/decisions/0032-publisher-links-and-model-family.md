@@ -5,7 +5,10 @@
 variant per handshake (the kind tag stays inside the signed bytes, supplied
 from the variant); §6's emergent reciprocity is superseded by the constructed
 symmetric handshake, and the capped-acceptance prohibition is deleted. §1
-(kind-in-key state) stands unchanged.
+(kind-in-key state) stands unchanged. **§5 superseded** (post-round-5, per the
+maintainer answer to the A12 owner-binding question): the receive gate is
+kind-agnostic — `PublisherAdmission` and its configuration surface are
+deleted; see the note at §5.
 
 **Context**: the experiment program needs the node configurable to run the M3,
 M4, and M5 dissemination models (`../../../formal_spec/hybrid_dissemination/models/`)
@@ -59,13 +62,32 @@ superseded by it and remain reference-only (they never merged).
    over `Active` publisher links — which *is* M3's exclusivity rule
    (`m3/README.md`, forwarding vs initiation); `ForwardToAll` (M5) sends
    every held message — any origin — over both kinds.
-5. **Publisher admission is a config enum, not a seam.**
-   `PublisherAdmission { OwnerOnly (default), AnyVerified }` on `NodeState`
-   governs the receive gate for inbound publisher links (M3's owner-binding vs
-   M5's relaxation). Per-message admission with exactly two published-model
-   variants — a trait would be unconsumed generality. Severance is
-   policy-independent: an invalidly-signed payload severs the **admitting**
-   link.
+5. **Publisher admission is a config enum, not a seam.** *(Superseded per the
+   maintainer answer to the A12 owner-binding question: the receive gate is
+   **kind-agnostic** — any `Active` upstream entry for `(topic, from)` admits,
+   and a publisher-link arrival is validated exactly like any message
+   (publisher signature, topic registration, publisher authorization,
+   subscription, dedup). Owner-binding is removed for two independent
+   reasons: semantically, it only narrowed the publisher channel below what
+   any relay upstream already admits — M3's exclusivity is the sender-side
+   fan-out rule of §4, honest-behaviour compliance, and receivers enforcing
+   it bought nothing in-model; mechanically, it compared the signed
+   `publisher_id` against the unsigned routing-frame sender (spoofable under
+   any transport without per-hop sender authentication) and erased the
+   `PublisherId`/`PeerId` type distinction via raw-key comparison — exactly
+   the code that breaks silently when publisher identity diverges from node
+   identity (N-009). The recorded general rule: a receive-side restriction
+   exists only if it is checkable from the signed bytes alone; if
+   initiation-target binding is ever needed, the mechanism is the publisher
+   naming its targets inside the signed message, never transport metadata.
+   `PublisherAdmission`, the `--publisher-admission` flag, and its startup
+   check are deleted. Severance is unchanged: an invalidly-signed payload
+   severs the **admitting** link.)* `PublisherAdmission { OwnerOnly (default),
+   AnyVerified }` on `NodeState` governs the receive gate for inbound
+   publisher links (M3's owner-binding vs M5's relaxation). Per-message
+   admission with exactly two published-model variants — a trait would be
+   unconsumed generality. Severance is policy-independent: an
+   invalidly-signed payload severs the **admitting** link.
 6. **Symmetric edges (M4) as a predicate mode.** *(Superseded by ADR 0034 §3:
    bidirectionality is now constructed by the symmetric handshake — one
    accept decision records the link in both directions on both ends — rather
@@ -85,11 +107,11 @@ superseded by it and remain reference-only (they never merged).
 - M1–M5 are per-node flag combinations (documented in the feature's
   quickstart); no `--model` preset — the axes stay independently sweepable.
   `none` relay kinds (`DialNone`/`AcceptNone`) switch the relay seams off,
-  making push-only M1 the M5 `k_in = 0` boundary. M5's two switches
-  (`forward-to-all` fan-out, `any-verified` admission) must be paired
-  network-wide. *(The `--symmetric-edges` × capped-acceptance startup
-  rejection is deleted per ADR 0034 §5 — with constructed reciprocity a
-  capacity refusal refuses the whole edge.)*
+  making push-only M1 the M5 `k_in = 0` boundary. *(With §5 superseded, M5
+  differs from M3 in exactly one switch — `--fanout-strategy forward-to-all`;
+  the receive side is uniform across the models.)* *(The `--symmetric-edges`
+  × capped-acceptance startup rejection is deleted per ADR 0034 §5 — with
+  constructed reciprocity a capacity refusal refuses the whole edge.)*
 - The wire layout changed (appended kind byte): the layout-pin test was
   updated in the same commit — the one deliberate behavioural test edit.
 - Hash domains: the pre-015 relay tag `pubsub/bucketed-pull/edge/v1` was

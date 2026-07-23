@@ -23,7 +23,7 @@ An experimenter configures every node in a simulated network with the M3 recipe:
 1. **Given** a node with a publisher-link strategy and degree configured, **When** it reaches readiness and its dial event fires, **Then** it requests its expected publisher links unconditionally — even if it already has relay downstream peers.
 2. **Given** a node with active publisher links and relay downstream peers, **When** it publishes its own message, **Then** the message is sent over both its relay downstream and its active publisher links, with at most one send per peer.
 3. **Given** the same node, **When** it receives a message published by some other node (relaying), **Then** the message is forwarded over relay downstream links only — never over publisher links.
-4. **Given** a node that accepted an inbound publisher link from peer P, **When** a message arrives over that link whose publisher is P, **Then** it is admitted (subject to the existing verification chain); **When** the message's publisher is any other node, **Then** it is dropped (owner-binding).
+4. **Given** a node that accepted an inbound publisher link from peer P, **When** a message arrives over that link, **Then** it is validated exactly like any message (signature, topic registration, publisher authorization, subscription, dedup) — the receive gate is kind-agnostic. *(Amended per the maintainer answer to the A12 owner-binding question: M3's exclusivity is the sender-side fan-out policy — scenario 3 — not a receiver check; the original owner-binding clause compared signed content against an unsigned transport field and is removed.)*
 
 ---
 
@@ -51,23 +51,23 @@ An experimenter enables symmetric edges: relay-link selection evaluates an order
 
 ### User Story 3 - Configure a node fleet for M5 (directed k_in/k_out, everything-carrying) (Priority: P3)
 
-An experimenter configures directed in-links (relay, k_in) and out-links (publisher-shaped, k_out) where **both** classes carry every held message: fan-out sends everything to the union of both downstream kinds, and the receive gate admits any verified message over an inbound publisher link (owner-binding relaxed by configuration).
+An experimenter configures directed in-links (relay, k_in) and out-links (publisher-shaped, k_out) where **both** classes carry every held message: fan-out sends everything to the union of both downstream kinds. *(Amended: the receive gate is kind-agnostic for every model — M5 differs from M3 only in the fan-out switch.)*
 
 **Why this priority**: M5 (`models/m5/`) completes the target model family; it reuses every mechanism from stories 1–2 plus two configuration switches.
 
-**Independent Test**: Three nodes a→b→c connected only via publisher links with the relaxed admission; a publication by a traverses b to c — the exact hop the owner-binding default drops.
+**Independent Test**: Three nodes a→b→c connected only via publisher links with the union fan-out; a publication by a traverses b to c — the exact hop the default fan-out does not forward.
 
 **Acceptance Scenarios**:
 
 1. **Given** a node with the union fan-out configured, **When** it holds any message (own or relayed), **Then** the message is sent over relay downstream **and** active publisher links, deduplicated per peer.
-2. **Given** a node with relaxed publisher admission, **When** a verified message published by node X arrives over an inbound publisher link from node Y ≠ X, **Then** it is admitted.
-3. **Given** the default (owner-only) admission, the same arrival is dropped — confirming the relaxation is opt-in per node.
+2. **Given** any node, **When** a verified message published by node X arrives over an inbound publisher link from node Y ≠ X, **Then** it is admitted — the receive gate is kind-agnostic. *(Amended: formerly gated by a per-node admission policy, removed with FR-008.)*
+3. **Given** the default fan-out on the delivering side, the same message is never *sent* over a publisher link in the first place — the exclusivity lives at the sender.
 
 ---
 
 ### User Story 4 - M2 baseline unchanged (Priority: P1)
 
-A node configured without publisher links, without symmetric edges, and with the default fan-out and admission behaves exactly as before this feature: the M2 baseline the harness measures against must not shift.
+A node configured without publisher links, without symmetric edges, and with the default fan-out behaves exactly as before this feature: the M2 baseline the harness measures against must not shift.
 
 **Why this priority**: the experiment program's comparisons are only valid if the baseline is stable; regression here invalidates existing results.
 
@@ -99,13 +99,13 @@ A node configured without publisher links, without symmetric edges, and with the
 - **FR-003**: Connection control actions (request / accept / reject / terminate) MUST identify the link kind, covered by the message signature, so the acceptor applies the acceptance policy, randomness domain, and capacity of that kind. The kind implies the data direction: a relay request means the dialer will receive; a publisher request means the dialer will send.
 - **FR-004**: Acceptance capacity MUST be accounted per link kind — relay admissions never consume publisher capacity and vice versa.
 - **FR-005** (default fan-out — M3): A locally-published message MUST be sent over relay downstream links **and** active publisher links; a message received from a peer MUST be forwarded over relay downstream links **only**.
-- **FR-006** (default admission — M3 owner-binding): A message arriving over an inbound publisher link MUST be admitted only when the message's publisher is the link's owner; otherwise it is dropped. Messages arriving over active relay links are admitted as today.
+- **FR-006** (kind-agnostic receive gate; amended per the maintainer answer to the A12 owner-binding question): A message arriving over **any** Active upstream link — relay or publisher — MUST be validated exactly like any message (signature, topic registration, publisher authorization, subscription, dedup) and admitted when the chain passes. No owner-binding: a receive-side restriction exists only if it is checkable from the signed bytes alone, and the original owner-binding compared the signed publisher against the unsigned transport sender. M3's exclusivity is FR-005's sender-side fan-out, honest-behaviour compliance rather than receiver enforcement.
 - **FR-007** (M5 fan-out): A node MUST be configurable to send **every** held message — regardless of origin — over the union of relay downstream and active publisher links.
-- **FR-008** (M5 admission): A node MUST be configurable to admit any verified message arriving over an inbound publisher link, relaxing FR-006's owner-binding. The default remains owner-only.
+- **FR-008**: *Removed with FR-006's amendment* — with a kind-agnostic gate there is no owner-binding to relax; the former `any-verified` behaviour is every node's behaviour and the admission-policy configuration surface is deleted. M5 needs only FR-007.
 - **FR-009** (symmetric edges — the M4 approximation; amended A11/ADR 0034): The node MUST support a symmetric edge mode in which relay selection evaluates an order-independent predicate over the peer pair, under a randomness domain dedicated to symmetric evaluation (independent of the directional domains), and each valid edge is established by a dedicated symmetric handshake: one accept decision MUST record the relay-class link in both directions on both ends, and teardown/severance MUST remove both halves together. One configuration switch drives the predicate and the handshake together. No new stored link class is introduced (the entries are relay-class links present in both collections).
 - **FR-010**: An invalidly-signed payload MUST sever the link that admitted it — the inbound publisher link when that was the admission path.
 - **FR-011**: When a peer is reachable over both downstream kinds, each outgoing message MUST be sent to that peer at most once.
-- **FR-012**: All axes (relay selection/acceptance, publisher selection/acceptance, fan-out behaviour, admission policy, symmetric mode, per-kind degrees) MUST be independently configurable per node; no bundled model preset is provided.
+- **FR-012**: All axes (relay selection/acceptance, publisher selection/acceptance, fan-out behaviour, symmetric mode, per-kind degrees) MUST be independently configurable per node; no bundled model preset is provided. *(The admission-policy axis was removed with FR-008.)*
 - **FR-013**: Node state snapshots MUST expose the two link classes distinctly in both directions (upstream/downstream × relay/publisher) so tests and the experiment harness can observe topology per class.
 - **FR-014**: A node with no publisher strategy configured MUST neither dial publisher links nor accept inbound publisher requests, and its behaviour MUST be indistinguishable from the pre-feature node (M2 baseline preservation).
 - **FR-015**: Terminating or removing a link of one kind MUST NOT affect a coexisting link of the other kind to the same peer/topic; topic removal and shutdown cascade over both kinds.
@@ -115,7 +115,6 @@ A node configured without publisher links, without symmetric edges, and with the
 - **Link**: a per-(topic, peer, kind) relationship with a lifecycle (awaiting-accept for links the node dialed; active). Grouped by direction: **upstream** (peers the node receives from) and **downstream** (peers the node sends to).
 - **Link kind**: relay (the existing pull-based dissemination mesh) or publisher (standing links carrying, by default, only the owner's own publications).
 - **Message origin**: whether a held message was published locally or received from a peer — the discriminator the default fan-out uses.
-- **Publisher admission policy**: per-node setting — owner-only (default) or any-verified — governing what an inbound publisher link may deliver.
 
 ## Success Criteria *(mandatory)*
 
@@ -123,7 +122,7 @@ A node configured without publisher links, without symmetric edges, and with the
 
 - **SC-001**: A network configured with the M3 recipe delivers a message published by any node to 100% of subscribed nodes, with publisher links carrying only their owner's publications (zero foreign messages observed over publisher links).
 - **SC-002**: A network configured with the M4 recipe shows 100% link reciprocity (every relay link has its reverse) and 100% delivery over a predicate-connected graph.
-- **SC-003**: A network configured with the M5 recipe delivers a foreign publisher's message across a chain of standing publisher links (a→b→c) — the hop the M3 default provably drops under the same topology.
+- **SC-003**: A network configured with the M5 recipe delivers a foreign publisher's message across a chain of standing publisher links (a→b→c) — the hop the M3 default fan-out provably does not forward under the same topology.
 - **SC-004**: The pre-existing test suite passes with zero behavioural test edits; the only permitted change is a mechanical accessor rename.
 - **SC-005**: Every model axis is a per-node configuration switch; the three recipes are expressible as documented flag combinations with no code change.
 - **SC-006**: Each of the correctness requirements carried from the exploration (unconditional readiness-gated publisher dials, admitting-link severance, per-peer dedup, dedicated symmetric domains, constructed reciprocity) is pinned by at least one test.

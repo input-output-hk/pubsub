@@ -20,7 +20,7 @@
 //!   carries a [`ConnectionMessage`] (a signed [`PlainConnection`] — the
 //!   carried emitter plus a [`ConnectionAction`]; the handshake kind is bound
 //!   into the preimage).
-//! - [`LinkKind`], [`LinkKey`], [`LinkState`], [`PublisherAdmission`],
+//! - [`LinkKind`], [`LinkKey`], [`LinkState`],
 //!   [`ConnectionStrategy`], [`ConnectToAllCandidates`],
 //!   [`ConnectionAcceptanceStrategy`], [`AcceptFromAllCandidates`] —
 //!   the logical-link vocabulary: a node holds per-`(topic, peer, kind)` links
@@ -55,9 +55,7 @@ mod subscription_registry;
 mod topic;
 mod topic_registry;
 
-pub use connection_state::{
-    LinkKey, LinkKind, LinkState, PublisherAdmission, UnknownPublisherAdmission,
-};
+pub use connection_state::{LinkKey, LinkKind, LinkState};
 pub use crypto::mock::{derive_public, KeyPair, MockCryptoScheme, TestSigner, TestVerifier};
 pub use crypto::{
     MessageHash, PrivateKey, PublicKey, Signature, Signer, Timestamp, Verifier, VerifyError,

@@ -15,8 +15,7 @@ use common::{
 use pubsub_node::{
     is_valid_edge_sym, AcceptFromAllCandidates, AcceptNone, DialNone, FanoutStrategy, ForwardToAll,
     ForwardToRelays, HashGatedAcceptance, HashGatedConnection, InMemoryNetwork,
-    InMemorySubscriptionRegistry, Message, Node, NodeStrategies, PeerId, PublisherAdmission,
-    TopicId,
+    InMemorySubscriptionRegistry, Message, Node, NodeStrategies, PeerId, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -116,7 +115,6 @@ async fn m4_symmetric_edges_form_reciprocal_pairs_and_flood() {
                 std::slice::from_ref(&t),
                 m4_strategies(id),
                 Arc::new(ForwardToRelays),
-                PublisherAdmission::default(),
                 genesis,
             )
             .await,
@@ -254,12 +252,9 @@ fn chain_strategies(targets: &[(&str, &TopicId)]) -> NodeStrategies {
     }
 }
 
-/// Build the a→b→c publisher-link chain under the given fan-out + admission
-/// and return the three nodes with all links Active.
-async fn chain_fleet(
-    fanout: fn() -> Arc<dyn FanoutStrategy>,
-    admission: PublisherAdmission,
-) -> (Node, Node, Node) {
+/// Build the a→b→c publisher-link chain under the given fan-out and return
+/// the three nodes with all links Active.
+async fn chain_fleet(fanout: fn() -> Arc<dyn FanoutStrategy>) -> (Node, Node, Node) {
     let t = topic("t1");
     let network = Arc::new(InMemoryNetwork::new());
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
@@ -270,7 +265,6 @@ async fn chain_fleet(
         std::slice::from_ref(&t),
         chain_strategies(&[("b", &t)]),
         fanout(),
-        admission,
         0,
     )
     .await;
@@ -281,7 +275,6 @@ async fn chain_fleet(
         std::slice::from_ref(&t),
         chain_strategies(&[("c", &t)]),
         fanout(),
-        admission,
         0,
     )
     .await;
@@ -292,7 +285,6 @@ async fn chain_fleet(
         std::slice::from_ref(&t),
         chain_strategies(&[]),
         fanout(),
-        admission,
         0,
     )
     .await;
@@ -308,11 +300,12 @@ async fn chain_fleet(
     (a, b, c)
 }
 
-// SC-003: with all-links + any-verified, a foreign publisher's message hops
-// a→b→c over standing publisher links only — b relays a's message to c.
+// SC-003: with all-links fan-out, a foreign publisher's message hops a→b→c
+// over standing publisher links only — b relays a's message to c (the
+// receive gate is kind-agnostic; only the fan-out distinguishes M5 from M3).
 #[tokio::test]
 async fn m5_chain_relays_foreign_publisher_over_standing_links() {
-    let (a, _b, c) = chain_fleet(|| Arc::new(ForwardToAll), PublisherAdmission::AnyVerified).await;
+    let (a, _b, c) = chain_fleet(|| Arc::new(ForwardToAll)).await;
     let t = topic("t1");
 
     let message = alias_ping_m5("a", &t, 5);
@@ -326,12 +319,13 @@ async fn m5_chain_relays_foreign_publisher_over_standing_links() {
     await_content(&c, &message, T).await;
 }
 
-// The M3 exclusivity pin: the SAME topology under the defaults does NOT
-// deliver a's message to c — forward-to-all never relays over publisher links
-// (and owner-only would drop the b→c hop anyway).
+// The M3 exclusivity pin: the SAME topology under the default fan-out does
+// NOT deliver a's message to c — forward-to-relays never carries a held
+// (foreign) message over publisher links, so the sender side alone stops the
+// chain at b.
 #[tokio::test]
 async fn m3_defaults_do_not_relay_over_the_chain() {
-    let (a, b, c) = chain_fleet(|| Arc::new(ForwardToRelays), PublisherAdmission::OwnerOnly).await;
+    let (a, b, c) = chain_fleet(|| Arc::new(ForwardToRelays)).await;
     let t = topic("t1");
 
     let message = alias_ping_m5("a", &t, 6);

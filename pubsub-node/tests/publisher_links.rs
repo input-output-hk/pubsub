@@ -1,7 +1,7 @@
 //! 015 US1 integration: the M3 publisher-link behaviours end to end — standing
 //! links established unconditionally (with NO relay topology at all), delivery
-//! of a node's own publications over them, and the owner-binding that keeps
-//! foreign messages off them.
+//! of a node's own publications over them, and the kind-agnostic receive gate
+//! (M3's exclusivity is the sender's fan-out policy, not a receiver check).
 
 mod common;
 
@@ -16,11 +16,11 @@ use common::{
 use pubsub_node::{
     AcceptFromAllCandidates, AcceptNone, ConnectToAllCandidates, DialNone, ForwardToRelays,
     InMemoryNetwork, InMemorySubscriptionRegistry, Message, MessagePayload, MockCryptoScheme, Node,
-    NodeStrategies, PeerId, PublisherAdmission, TopicId,
+    NodeStrategies, PeerId, TopicId,
 };
 
-/// A `Ping(n)` on `t` signed with `alias`'s own key — the message an
-/// owner-bound publisher link admits from that alias.
+/// A `Ping(n)` on `t` signed with `alias`'s own key — the publication the
+/// default fan-out seeds over that alias's publisher links.
 fn alias_ping(alias: &str, t: TopicId, n: u64) -> Message {
     let scheme = MockCryptoScheme::with_seed([0u8; 32]);
     let signer = scheme.signer(scheme.keypair_from_alias(alias).private);
@@ -66,7 +66,6 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         &topics,
         publisher_only(),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::OwnerOnly,
         0,
     )
     .await;
@@ -77,7 +76,6 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         &topics,
         publisher_only(),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::OwnerOnly,
         0,
     )
     .await;
@@ -88,7 +86,6 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         &topics,
         publisher_only(),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::OwnerOnly,
         0,
     )
     .await;
@@ -147,10 +144,14 @@ async fn own_publication_rides_publisher_links() {
     assert_no_new_deliveries(&[&a, &b, &c], Duration::from_millis(50)).await;
 }
 
-// FR-006 owner-binding: a message published by a foreign key does NOT pass a
-// publisher link, while the same node's own-key publication does.
+// FR-006 (as amended): the receive gate is kind-agnostic — a message published
+// by a foreign key passes a publisher link like any authentic message. A
+// receiver validates publisher-link arrivals exactly like relay arrivals
+// (signature, registration, authorization, subscription, dedup); what keeps
+// foreign traffic OFF publisher links in M3 is the sender's default fan-out,
+// pinned in model_family's m3_defaults_do_not_relay_over_the_chain.
 #[tokio::test]
-async fn foreign_publisher_is_dropped_at_publisher_links() {
+async fn foreign_publisher_is_admitted_over_publisher_links() {
     let (_network, a, b, c) = publisher_only_fleet().await;
 
     // b publishes a message signed by the shared test fixture key — a valid,
@@ -161,10 +162,15 @@ async fn foreign_publisher_is_dropped_at_publisher_links() {
     };
     b.publish(signed);
 
-    // b records its own publish locally; a and c drop it at the owner gate.
-    assert_no_new_deliveries(&[&a, &c], Duration::from_millis(80)).await;
+    // a and c admit it over b's publisher links — no owner-binding.
+    await_delivery(&a, b.id(), &foreign, T)
+        .await
+        .expect("a admits the foreign-key publication");
+    await_delivery(&c, b.id(), &foreign, T)
+        .await
+        .expect("c admits the foreign-key publication");
 
-    // Control: b's own-key publication on the same links IS delivered.
+    // b's own-key publication on the same links is delivered identically.
     let own = alias_ping("b", topic("t1"), 3);
     let Message::Dissemination(signed) = own.clone() else {
         unreachable!()

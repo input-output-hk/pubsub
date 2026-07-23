@@ -83,7 +83,6 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         alias_signer(self_id),
         NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     );
     for t in subscriptions {
         state
@@ -303,13 +302,12 @@ fn with_downstream(state: &mut NodeState, peer_alias: &str, t: &str) {
 // ---- 015: publisher links — helpers ----------------------------------------
 
 /// Construct a `NodeState` like [`node_state`] but with the **publisher** seam
-/// pair configured (selection + acceptance) and an explicit admission policy.
+/// pair configured (selection + acceptance).
 fn node_state_with_publishers(
     self_id: &str,
     subscriptions: HashSet<TopicId>,
     publisher_strategy: Arc<dyn ConnectionStrategy>,
     publisher_acceptance: Arc<dyn ConnectionAcceptanceStrategy>,
-    admission: PublisherAdmission,
 ) -> NodeState {
     let mut state = NodeState::new(
         peer(self_id),
@@ -325,7 +323,6 @@ fn node_state_with_publishers(
             symmetric_edges: false,
         },
         Arc::new(ForwardToRelays),
-        admission,
     );
     for t in subscriptions {
         state
@@ -353,7 +350,6 @@ fn node_state_symmetric(
         alias_signer(self_id),
         NodeStrategies::relay_only(strategy(), relay_acceptance).with_symmetric_edges(true),
         Arc::new(ForwardToRelays),
-        PublisherAdmission::default(),
     );
     for t in subscriptions {
         state

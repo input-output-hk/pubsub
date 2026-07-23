@@ -5,8 +5,7 @@ use clap::Parser;
 use pubsub_node::{
     AcceptanceParams, AcceptanceStrategyKind, ConnectionParams, ConnectionStrategyKind,
     FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId, PublisherAdmission, Signer,
-    TestVerifier, Verifier,
+    LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -112,13 +111,6 @@ struct Args {
     #[arg(long, default_value = "forward-to-relays")]
     fanout_strategy: FanoutStrategyKind,
 
-    /// Receive-gate policy for inbound publisher links (case-insensitive):
-    /// `owner-only` (the default — a publisher link admits only its owner's
-    /// own publications) or `any-verified` (admits any verified message).
-    /// Pair `any-verified` with `--fanout-strategy forward-to-all` network-wide.
-    #[arg(long, default_value = "owner-only")]
-    publisher_admission: PublisherAdmission,
-
     /// Logging verbosity threshold (trace | debug | info | warn | error).
     #[arg(long, default_value = "info")]
     log_level: tracing::Level,
@@ -206,7 +198,6 @@ async fn main() {
         topic_registry,
         strategies,
         args.fanout_strategy.build(),
-        args.publisher_admission,
     )
     .await
     .unwrap_or_else(|e| {
@@ -251,12 +242,6 @@ fn validate_flag_combinations(args: &Args) {
              edges are drawn from the unordered-pair predicate, which only the \
              hash-gated strategies evaluate",
         );
-    }
-    if args.publisher_admission == PublisherAdmission::AnyVerified
-        && args.publisher_acceptance_strategy.is_none()
-    {
-        die("--publisher-admission any-verified has no effect without \
-             --publisher-acceptance-strategy (the node accepts no inbound publisher links)");
     }
 }
 
