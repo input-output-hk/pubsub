@@ -1,313 +1,279 @@
 # Dissemination experiment program
 
-**Status:** proposal for team review. This document lists the dissemination experiments we intend to
-run on the prototype, the order in which we propose to run them, how each compares to the analytical
-results we already have, and — for each — where the prototype produces data that the analysis cannot.
-It deliberately does **not** specify how the experiments are implemented; once the list and order are
-agreed, we translate it into an implementation plan.
+**Status:** program of record. This document describes the dissemination experiments we run on the
+deterministic experiments framework: the order they run in, the analytical results each compares
+against, what the framework produces that the analysis cannot, and — per experiment — what has been
+executed so far. It replaces the original proposal draft: the framework exists (the `experiments`
+module and binary), the first comparison is executed and documented
+([`docs/experiments/m2-comparison.md`](experiments/m2-comparison.md)), and the design decisions the
+proposal left open have been taken; where one shapes an experiment, the outcome is stated in place.
 
 ## 1. Purpose and scope
 
-The prototype is a discrete, deterministic model of the node protocol (connection establishment plus
-message dissemination). We want to use it to characterise dissemination behaviour — chiefly the
-**fraction of nodes that receive a published message** and the **longest hop path** a message takes —
-as the network grows and as adversaries deviate from the protocol.
+The framework drives populations of the crate's real node cores — the same transition function,
+strategy seams, and message vocabulary the node runs — under a deterministic round-based scheduler.
+We use it to characterise dissemination behaviour as the network grows and as adversaries deviate
+from the protocol: chiefly the **fraction of nodes that receive a published message**, the **hop
+depth** of delivery, whether the realised topology is **good** (every publisher can reach every
+up-honest node), and — for every node that misses — **why**.
 
-Two reference points already exist analytically (Section 2). The value of the prototype is twofold:
-it **validates** those analytical results in regimes they only describe asymptotically, and it
-**produces results in regimes where no closed form exists** — finite networks, the actual (non-ideal)
-topology the protocol builds, adversaries richer than the analytical worst case, and multi-round
-dynamics. Section 3 makes that division explicit; Sections 5–6 apply it experiment by experiment.
+Analytical reference points exist for much of this (Section 2). The framework's value is twofold: it
+**validates** those results in regimes they only describe asymptotically, and it **produces results
+where no closed form exists** — finite networks, the actual topology the protocol builds, adversaries
+richer than the analytical worst case, and multi-round dynamics. Section 3 makes that division
+explicit; Section 5 applies it experiment by experiment.
 
-In scope: single-topic dissemination over the pull topology, the golden push tier, adversarial nodes,
-and the deposit/slashing dynamics that enforcement introduces. Out of scope: a real network transport,
-on-chain integration, peer discovery/IP layers, and storage — the registry provides a global view, and
-the in-process model is sufficient for the statistics we care about.
+In scope: single-topic dissemination over the model-family topologies (pull relaying, initiation
+links, bidirectional links, k-in/k-out), the golden push tier, adversarial nodes, and the
+deposit/slashing dynamics enforcement introduces. Out of scope: a real network transport, on-chain
+integration, peer discovery/IP layers, and storage — the registry provides a global view, and the
+in-process model is sufficient for the statistics we care about.
 
 ## 2. Reference models (the analytical yardsticks)
 
-**M2 — per-target eclipse.** The M2 model (`formal_spec/hybrid_dissemination/partitioning/golden_tier/`)
-gives a closed form for the probability that one honest node receives no useful in-edge in a single
-round:
+**The M1–M5 dissemination-model family** (`formal_spec/hybrid_dissemination/models/`) is the primary
+reference set. Each model fixes a link discipline over N nodes with k = μN silent adversaries and
+publishes validated coverage laws, cost/latency values, and Monte-Carlo grids
+(`models/comparison.md`; per-model `properties/full_coverage.md`):
+
+- **M1 — push-only**: every node picks k_out targets and forwards everything to them.
+- **M2 — pull relaying**: every node picks RF forwarders that relay everything they hold to it. The
+  baseline all shipped experiments run on.
+- **M3 — pull + standing initiation links**: M2's relay mesh plus s−1 seeding links per node,
+  carrying only their owner's own publications (s counts the publisher itself). Eliminates the muted-
+  publisher failure mode that dominates M2's bad tail.
+- **M4 — bidirectional RF-out gossip**: every node picks RF peers, each pick a bidirectional link;
+  flooding minus the arrival link. Minimum degree ≥ RF by construction — connected w.h.p. at RF ≥ 2,
+  with no ignition failure mode at all.
+- **M5 — directed k-in/k-out gossip**: each node picks k_in forwarders and k_out targets; the
+  boundary cases recover M2 (k_out = 0) and M1 (k_in = 0) — built-in sanity checks for any M5 sweep.
+
+The node implements M2, M3, and M5; M4 lands with the uniform exactly-RF selection kind (the models'
+selection family), a planned follow-up.
+
+**Erdős–Rényi closed forms** remain the asymptotic yardstick for the honest metrics: eclipse rate,
+adversary tolerance `k_max(ε)`, coverage and its distribution, connectivity/partition thresholds,
+and diameter. The protocol does not build ER graphs (Section 3), so these are limits to measure
+deviation from, not ground truth.
+
+**The golden-tier eclipse formula** (`formal_spec/hybrid_dissemination/partitioning/golden_tier/`)
+covers the push-tier extension of Stage 6:
 
 ```
 P(eclipse) ≈ exp(−G·F_g/N) · (k/N)^RF
 ```
 
-with N nodes, G golden nodes pushing to F_g targets each, regular nodes pulling RF forwarders, and k
-silent adversaries. It is a **per-target, single-round, one-hop** quantity under a **silent,
-uniformly-placed** adversary and an honest sampling cache. Setting the golden parameters to zero
-(`G = 0` or `F_g = 0`) reduces it to the pure-pull eclipse `(k/N)^RF` — the regime our first
-experiments target.
+with G golden nodes pushing to F_g targets each; golden parameters at zero reduce it to the pure-pull
+eclipse `(k/N)^RF` the M2 stages target.
 
-**Erdős–Rényi closed forms.** For random graphs of the Erdős–Rényi family, closed forms are available
-(in the `N → ∞` limit) for the metrics that matter to us: per-target eclipse rate, adversary tolerance
-`k_max(ε)`, end-to-end coverage, the coverage distribution, connectivity/partition as a function of
-network size, and the longest hop path (graph diameter). These describe the **honest** dissemination
-metrics well in the asymptotic limit.
+## 3. What the framework adds beyond the analytics
 
-Together, M2 and the ER closed forms cover the honest and silent-uniform-adversary cases analytically.
-The prototype's job around those is validation; its unique contribution lies beyond them.
+For the metrics with closed forms, the framework contributes:
 
-## 3. What the prototype adds beyond the analytics
+- **Finite N.** The closed forms are asymptotic; real deployments are finite, and the finite-N
+  behaviour — especially near thresholds — is what the framework measures directly. The executed M2
+  comparison demonstrates the mode: depth means matched the published values exactly, and the bulk
+  P(good) point landed within ordinary sampling noise of both the coverage law and the formal
+  Monte Carlo.
+- **The actual topology, not ideal ER.** Each node dials a fixed RF upstreams, so the realised graph
+  is a k-out random digraph — regular out-degree, picks without replacement — not ER's independent
+  Poisson edges; later stages add a golden hub tier and load-dependent admission. Quantifying the gap
+  between the realised topology and the idealisation is itself a result.
+- **Distributions and correlation, not just means.** A closed form gives an expected value; the
+  operative question for a dissemination layer is the bad tail. Two configurations with the same 95 %
+  mean coverage can behave oppositely — one delivers ~95 % every run, the other delivers 100 % most
+  runs and occasionally collapses. Failures are also correlated: reception is a path property, so a
+  single cut orphans a downstream cluster at once — independence-based union bounds predict tight
+  concentration where the realised graph has fat tails. Sweeping seeds gives the full distribution
+  and the outage-size clustering the mean cannot express.
+- **Mechanism, not just rate.** For every node that misses, the instrument knows why — all upstreams
+  adversarial or down, no upstream at all, or no up-honest path — so a coverage shortfall decomposes
+  into causes. No closed form provides this.
 
-For the metrics with closed forms, the prototype contributes:
+Beyond the closed-form metrics, the framework is the **only** tool for: multi-round dynamics
+(healing across epochs, compounding attackers, budget depletion under slashing); churning
+populations; and whichever richer adversarial behaviours survive the relevance classification of
+Stage 5 — for one-shot dissemination most are bounded by the silent adversary (E15).
 
-- **Finite N.** The closed forms are asymptotic (`N → ∞`); real deployments are finite, and the
-  finite-N behaviour — especially near thresholds — is what the prototype measures directly.
-- **The actual topology, not ideal ER.** The protocol does not build `G(n,p)` graphs. Each node dials
-  a fixed RF upstreams, so the graph is a **k-out random digraph** — regular out-degree, not ER's
-  independent Poisson edges (and a node's RF picks are without replacement). On top of that there is a
-  golden hub tier (a heavy in-degree tail), non-uniform membership, and — once serving caps are on —
-  edge formation that depends on other nodes' load through rejection back-fill. The prototype measures
-  this realised topology; the ER results idealise it, and quantifying the gap is itself a result.
-- **Distributions and correlation, not just means.** A closed form usually gives an *expected value*
-  — expected coverage, or expected missed-node count — but the mean hides the spread. Two
-  configurations with the *same* 95% mean coverage can behave oppositely: one delivers ~95% on every
-  run, another delivers 100% most runs but occasionally collapses to 40%. For a dissemination layer the
-  operative question is the bad tail — the chance a message reaches fewer than, say, 80% of nodes —
-  which the mean cannot express. Running the model across many seeds gives the full distribution, not
-  just the average.
+## 4. Instruments and behaviour modeling
 
-  Correlation compounds this. To turn a per-node eclipse probability into a whole-network statement the
-  analytics assume independence (the union bound, ≈ N·ε missed). But failures are not independent:
-  reception is a path property — a node receives only via its upstream, and *its* upstream, back to the
-  publisher — so a single cut orphans an entire downstream cluster at once. Independence predicts the
-  missed-count is tightly concentrated around its mean; the reality has fat tails. Same 5% mean, two
-  different stories: independence says "≈5% miss, scattered, roughly 5% every run," while the realised
-  graph says "usually 0% miss, but occasionally a branch is cut and 30% miss together." The prototype
-  measures that clustering and the resulting outage-size distribution — the operational risk that the
-  mean and the union bound cannot show.
-- **Mechanism, not just rate.** For every node that fails to receive, the prototype knows *why* — its
-  in-edges were all adversarial, it sat in an unreachable region, or the golden tier missed it — so a
-  coverage shortfall decomposes into causes. No closed form provides this.
+**The framework** (ADR 0035/0036): a *run* is a pure function of (parameters, seed) — registration,
+dial drain, churn draw, SCC passes, publish drain, measurement; an *experiment* is R runs at one
+parameter set; a *sweep* is the experiments serving one question. Artifacts are byte-reproducible
+from the master seed and tool commit at any worker count. Two measurement instruments cross-check
+each other:
 
-Beyond the closed-form metrics, the prototype is the **only** tool for:
+- the **publish drain** — realised coverage (excluded-publisher denominator), per-node first-receipt
+  depth, miss-cause decomposition, and send accounting with a per-run identity check;
+- **realised-graph analytics** — good topology ⟺ one strongly connected component of the up-honest
+  propagation digraph, min-publisher-coverage from the condensation's sinks, degree and sink
+  statistics. Goodness must come from this pass, not from sampled drains: a muted publisher is
+  invisible to any other publisher's dissemination (the executed comparison's structural finding).
 
-- adversaries that are not silent and not uniformly placed (selective dropping, withholding,
-  equivocation, coordinated targeting);
-- multi-round dynamics (healing across epochs, an attacker compounding its effect, budget depletion
-  under slashing);
-- heterogeneous and churning populations.
+Probabilities are always reported as **raw counts plus a Wilson 95 % interval** — the ±1σ convention
+degenerates to zero width at all-good samples, which well-sized configurations make the common case
+(the methodology note in the M2 comparison, §4, records the convention mapping).
 
-## 4. How behaviour is modeled (brief)
+**Honest behaviour** is expressed through the node's injected strategy seams:
 
-Node behaviour is factored into three injected strategy seams — **connection** (which upstreams to
-dial), **acceptance** (which inbound requests to admit), and **fan-out** (which downstream to forward
-to). Honest behaviour is expressed as strategy instances; the bounded-topology strategies land in
-feature 005-peer-view:
+- **Connection** (dial): `connect-to-all`, `hash-gated` (bounded, verifiable, hash-derived selection
+  at `target_degree` = RF over a configured bucket count), `none`; plus the experiments-only
+  `uniform-sampler` (exactly-RF uniform picks — the models' selection family, needed wherever a
+  comparison must not conflate the selection-family gap with instrument error).
+- **Acceptance** (admission): `accept-from-all`, `bounded` (serving cap, no retry/back-fill in v1 —
+  a refused dial is simply not re-attempted), `hash-gated`, `hash-gated-bounded`, `none`.
+- **Fan-out**: `forward-to-relays` (the default — held messages to relay links, own publications
+  seeded over publisher links), `forward-to-all` (every held message over all links — M5's send
+  side), and the experiments-only `silent-relay`.
+- **Link kinds** realise the model family: the relay mesh (M2), the optional publisher pair for
+  standing initiation links (M3/M5), and the symmetric handshake whose one accept decision
+  establishes a bidirectional link on both ends (M4's mechanics, awaiting the uniform selection
+  kind).
 
-- **Connection:** `ConnectToAllCandidates` (the original full-mesh default, being superseded) and
-  `HashGatedConnection` — a bounded, verifiable, hash-derived selection whose `target_degree` is the
-  pull fan-out RF. Selection is reproducible from a per-network `genesis` seed.
-- **Acceptance:** `AcceptFromAllCandidates` and `VerifiableBoundedAcceptance`, which caps admitted
-  connections (`target_degree` plus a `cap_buffer`) and signals over-capacity with a rejection the
-  dialer back-fills.
-- **Fan-out:** `ForwardToAll`.
+**Adversaries** come in two tiers. Level-1 — a hostile strategy bundle on an otherwise-honest node —
+is implemented; the silent relay (the models' worst-case adversary) ships with the framework, and a
+population mixing several adversarial bundles is just configuration, not new machinery. Level-2 —
+coordinated adversaries with shared state and protocol-violating freedom (equivocation, flooding,
+Sybil coordination) — has a design sketch and remains out of scope for this document; Stage 5's
+relevance classification decides which adversarial behaviours, of either tier, are worth building an
+instrument for at all.
 
-Adversaries come in two tiers. Many are expressible as a **hostile strategy bundle** on an
-otherwise-honest node — a silent relay (forward to none), a selective dropper, or a node that refuses
-to serve — which covers the M2-style attacks and the bounded-acceptance flooding case. Others require
-**coordinated adversaries with shared state and greater behavioural freedom** — protocol-violating
-behaviour such as equivocation, indiscriminate flooding, or Sybils coordinating on a target. A design
-for that coordination model exists and is **out of scope for this document**; here it is enough to note
-which experiments need it.
+## 5. Experiment program (order and status)
 
-## 5. Experiment program (proposed order)
+Stages are ordered so each needs the least new machinery beyond the previous; experiments are
+numbered in presentation order. Status markers: **[done]** executed and documented, **[ready]**
+runnable with today's machinery, **[needs: X]** blocked on named machinery — qualified where an
+experiment is partially covered.
 
-The stages are ordered so each builds on the previous one, and so the earliest results need the least
-new machinery. Stages 1–3 run on the bounded topology and strategy seams of 005-peer-view with no new
-protocol feature; later stages add richer adversary machinery, connection rotation, the golden push
-feature, and enforcement in turn.
+Where an attacker's optimal move and its effect are analytically obvious, we **document the attack
+and its bound rather than simulate it**; simulation is reserved for configurations where a defence
+produces non-trivial dynamics.
 
-Where an attacker's optimal move and its effect are analytically obvious, we **document the attack and
-its bound rather than simulate it**; simulation is reserved for configurations where a defence produces
-non-trivial dynamics. Several Stage-3 cells fall into that documented category.
+### Stage 1 — Honest pull dissemination (M2, k = 0)
 
-### Stage 1 — Honest pull dissemination (M2 with golden parameters zero)
+- **E1 — Coverage and partition vs network size** [ready]. Sweep N at fixed RF; coverage and the
+  onset of partition. Goodness and component structure come directly from the SCC instrument.
+- **E2 — Propagation depth** [ready]. Depth distribution (not just the mean diameter) vs N and RF.
 
-**Goal.** Characterise the honest pull topology with no adversaries and no golden tier — M2 at `G = 0`,
-`k = 0`.
-
-**Experiments.**
-- **E1 — Coverage and partition vs network size.** Sweep N at fixed RF; measure the fraction of nodes
-  reached and the onset of partition (where RF must grow to keep the graph connected).
-- **E2 — Propagation depth.** Measure the longest hop path (rounds to full coverage / delivery-tree
-  depth) vs N and RF.
-
-**Vs analytics.** Both metrics have ER closed forms. These experiments are **finite-N and
-real-topology validation**: do the asymptotic connectivity threshold, coverage, and diameter hold at
-realistic N, and for the hash-gated, degree-balancing topology rather than an i.i.d.-edge ER graph?
-
-**Prototype adds.** The finite-N answer, the deviation of the realised topology from ideal ER, and the
-depth distribution (not just the mean diameter).
+**Vs analytics:** ER connectivity/diameter closed forms — finite-N, realised-topology validation.
 
 ### Stage 2 — The M2 attack: silent adversaries
 
-**Goal.** Reproduce M2's eclipse result on the pull layer and measure its end-to-end consequence.
+- **E3 — Per-target eclipse rate** [ready]. Compare to `(k/N)^RF`.
+- **E4 — Adversary tolerance `k_max(ε)`** [ready]. Sweep k; bulk ε only.
+- **E5 — End-to-end coverage under silent adversaries** [partially done]. Distribution, correlation,
+  and cause decomposition. The executed **M2 comparison** covers this stage's fixed points: the
+  N = 20 000 operating-point cost/latency means (exact agreement), the bulk-regime P(good) vs the
+  coverage law (within sampling noise, Wilson-quantified), and a full-N grid-cell cross-check —
+  see [`docs/experiments/m2-comparison.md`](experiments/m2-comparison.md). The k- and N-sweeps
+  around those points remain to run.
 
-**Experiments.**
-- **E3 — Per-target eclipse rate.** Fraction of nodes whose RF pull-upstreams are all adversarial;
-  compare to `(k/N)^RF`.
-- **E4 — Adversary tolerance `k_max(ε)`.** Sweep k; find where the eclipse rate crosses ε; compare to
-  the M2 tolerance formula (bulk ε only — Monte-Carlo cannot reach security-grade tails).
-- **E5 — End-to-end coverage under silent adversaries.** The fraction actually reached after full
-  multi-hop propagation, its distribution, and the per-node cause decomposition.
+### Stage 3 — Model-family cross-validation (M3, M4, M5)
 
-**Vs analytics.** E3/E4 confirm M2 (`G = 0`). E5's mean has an ER percolation closed form.
+The published per-model laws and grids (`models/comparison.md`) give each configuration its yardstick;
+the boundary reductions (M5 → M2 at k_out = 0, M5 → M1 at k_in = 0) are built-in sanity checks.
 
-**Prototype adds.** Confirmation at finite N; and for E5 specifically, the **coverage distribution and
-spatial correlation** (which the union bound misses) and the **mechanism decomposition** — separating
-pull-layer eclipse from unreachable-region failures. M2 gives the one-hop eclipse probability; the
-prototype gives the realised end-to-end coverage the eclipse rate only bounds.
+- **E6 — M3, initiation links** [needs: publisher-pair experiment configuration]. The s−1 mapping,
+  the seeding/relaying cost split, and the elimination of M2's muted-publisher tail; coverage law and
+  cost values vs the published M3 grids.
+- **E7 — M4, bidirectional links** [needs: uniform exactly-RF selection kind]. The minimum-degree
+  floor and connectivity at small RF vs the published M4 law.
+- **E8 — M5, the k-in/k-out grid** [needs: publisher-pair experiment configuration]. Sweep both
+  axes, verify the boundary reductions, compare the interior to the published values.
 
-### Stage 3 — Bucketed selection and bounded acceptance (separable layers)
+### Stage 4 — Selection and admission knobs (separable layers)
 
-**Goal.** Study the two topology-hardening knobs **separately**: a per-round bucketed pull-permission
-predicate on the connection side, and a serving cap on the acceptance side. They are not one layer —
-they defend against different things. Bucketing constrains *sampling* (and an attacker's ability to
-target); the serving cap bounds *fan-in*, which is what creates the surface a flooding attacker tries
-to exhaust. Both are strategy-level (no new protocol feature); the flooding attacker is a hostile
-connection strategy.
+Bucketing constrains *sampling*; the serving cap bounds *fan-in*. They defend against different
+things and are studied separately. The bucket count B is **configuration** — a deliberately chosen
+security trade-off, never derived from local state.
 
-**Experiments.**
-- **E6 — Bucketing, no cap.** A node may dial only same-bucket candidates; acceptance stays unbounded.
-  Re-run the eclipse/coverage metrics (E3/E5) with bucketing on vs off, sweeping the bucket count B.
-  The bucketed-pull analysis predicts the eclipse *fraction* is unchanged at the balanced B and shifts
-  off-balanced — confirm, then explore off-balanced.
-- **E7 — Serving cap, no bucketing (honest).** Bounded acceptance with uniform selection and no
-  attacker. With uniform dialing every node is dialed ~RF times on average, but the serving load
-  varies; when the cap sits close to RF, nodes in the upper tail of that (chance) variance reject some
-  honest dialers, who then back-fill. Measure whether that reduces effective in-degree and coverage
-  against the uncapped baseline, and how it depends on the cap headroom above RF (the variance buffer).
-- **E8 — Flooding mitigation under the cap.** With a serving cap and bucketing, adversarial Sybils dial
-  a victim to exhaust its slots and starve honest requests. Measure the concentration reduction (toward
-  ≈ K/B) and honest starvation. (The no-bucketing case is the obvious attack, documented below.)
+- **E9 — Bucketing, no cap** [ready]. Eclipse/coverage (the E3/E5 metrics) with bucketing on vs off,
+  sweeping B; the bucketed-pull analysis predicts the eclipse fraction unchanged at the balanced B —
+  confirm, then explore off-balanced.
+- **E10 — Selection-family fidelity** [needs: uniform exactly-RF selection kind]. Hash-gated
+  selection realises a binomial degree around RF where the models prescribe exactly-RF uniform picks.
+  Sweep the (bucket count, pick cap) plane and quantify the deviation from the models' laws — the
+  fidelity question ADR 0032/0034 defer to this harness.
+- **E11 — Serving cap, honest** [ready]. With uniform dialing, serving load varies by chance; when
+  the cap sits close to RF, upper-tail nodes refuse honest dials — and v1 has no retry, so a refused
+  dial is lost. Measure effective in-degree and coverage against the uncapped baseline as a function
+  of cap headroom. (A retry/back-fill variant re-runs this when that mechanism exists.)
+- **E12 — Flooding mitigation under the cap** [needs: Level-1 flooding dial kind]. Adversarial
+  Sybils exhaust a victim's slots; measure concentration reduction toward ≈ K/B and honest
+  starvation.
 
-**Vs analytics.** The bucketed-pull analysis gives the concentration reduction from bucketing and the
-cap relationship; E6/E8 confirm and extend it at finite N. E7's congestion effect has no closed form.
+**Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
+bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
+crowded out as K approaches the cap).
 
-**Prototype adds.** The separated effect of each knob, finite-N behaviour, and the interaction with the
-rejection/back-fill dynamics.
+### Stage 5 — Richer adversarial and dynamic behaviour
 
-**Obvious cases — documented, not simulated.**
-- **No cap ⇒ no flooding surface.** Without a serving cap there are no slots to exhaust, so a flooding
-  attacker gains nothing; recorded as a non-attack.
-- **Cap without bucketing ⇒ the obvious attack.** With no per-round gate, the optimal attacker requests
-  the victim from every Sybil, so concentration rises to ≈ K (bounded by the cap) and honest requests
-  are crowded out as K approaches the cap. The move and its bound are obvious; we document them as the
-  baseline vulnerability and reserve simulation for the bucketing mitigation (E8).
+- **E13 — Churn** [ready]. Coverage, goodness, and miss causes as a function of the down fraction;
+  seeded honest churn is a shipped first-class parameter (down ≠ unregistered; the adversary count
+  is unchanged by the draw).
+- **E14 — Multi-round healing and compounding** [needs: connection rotation]. Whether coverage
+  recovers as the topology re-samples across epochs, and whether a persistent adversary compounds.
+- **E15 — Adversarial-behaviour relevance classification** [analysis first; simulation for
+  survivors]. Before richer adversary machinery is built — of either tier — classify each candidate
+  behaviour by whether it can outperform the **silent** adversary at equal resources. Three
+  structural arguments bound most of the space: for one-shot dissemination a Level-1 active relay is,
+  per message, a mixture of silent and honest (a selective dropper is exactly a silent relay for the
+  messages it targets and honest for the rest, so its per-message harm never exceeds full silence);
+  enforcement pushes provable behaviours toward unprovable silence (the Stage-7 floor); and
+  grinding-resistant selection removes placement levers (an attacker coordinates its own actions,
+  never the victim's picks). Behaviours shown silent-bounded are documented with their argument, not
+  simulated. The expected survivors are the ones that attack something other than a single message's
+  dissemination — serving-capacity flooding (E12), detection evasion under enforcement (Stage 7,
+  where selective dropping matters precisely because it is unprovable), and timing/compounding
+  effects that only exist with rotation (E14). Their simulations join the stage that owns the
+  machinery they need.
 
-**Open decisions:** D1 (bucket smaller than target degree, E6) and D2 (dialer response to rejection,
-E7) — see §7.
+**No coordinated-eclipse experiment.** Eclipsing a receiver offers no coordination lever under
+grinding-resistant selection: the victim picks its own upstreams from a set the attacker cannot bias,
+so adding Sybils only raises the aggregate probability already measured by E3/E5. The one genuinely
+coordinated receiving-side attack is serving-slot flooding (E12).
 
-### Stage 4 — Richer adversarial and dynamic behaviour
+### Stage 6 — Golden nodes (push tier)
 
-**Goal.** Move past the silent, uniform, single-round adversary to behaviours the analytics cannot
-express: active (non-silent) adversaries, multi-round dynamics, and heterogeneous populations. Active
-adversaries are strategy-level; the multi-round experiments additionally need connection rotation (the
-current setup only adds connections).
+- **E16 — Full golden-tier model** [needs: golden push feature]. Re-run E3–E5 with G > 0, F_g > 0;
+  confirm the push × pull factorisation of the golden-tier eclipse formula, and measure the hubs'
+  effect on depth and on coverage under attack — which the per-target formula does not express. The
+  adversarial configurations that survive E15's classification re-run with the tier present, to
+  measure how much the push tier restores coverage under attack.
 
-**Experiments.**
-- **E9 — Active adversaries.** Coverage under selective dropping and message withholding rather than
-  pure silence.
-- **E10 — Multi-round healing and compounding.** Whether coverage recovers across epochs as the
-  topology re-samples, and whether a persistent adversary compounds its effect. *Requires connection
-  rotation.*
-- **E11 — Heterogeneous populations and churn.** Per-node RF, mixed behaviours, and nodes
-  failing/joining over time.
+### Stage 7 — Deposit and slashing dynamics
 
-**No coordinated-eclipse experiment.** Eclipsing a *receiver* offers no coordination lever under
-grinding-resistant selection: the victim picks its own upstreams uniformly from a set the attacker
-cannot bias, so adding Sybils only raises the aggregate probability `(k/N)^RF` already measured by
-E3/E5 — a quantity, not a coordinated attack. Attackers coordinate their own actions, not the victim's
-picks; the one would-be targeting lever, grinding identities into the victim's selected set, is
-precisely what the hash-gated selection defeats. The only genuinely coordinated receiving-side attack
-is serving-slot flooding (E8).
-
-**Vs analytics.** No closed form. **Prototype adds:** these results are only obtainable by simulation.
-
-### Stage 5 — Golden nodes (push tier)
-
-**Goal.** Introduce the golden push tier and study the full M2 model (push and pull together), then
-re-run the adversarial experiments with goldens present. *Requires the push-based connection feature
-(golden-connection-flow); a publisher delivers a message to a golden by publishing on it directly.*
-
-**Experiments.**
-- **E12 — Full M2.** Re-run E3–E5 with `G > 0`, `F_g > 0`; confirm the push × pull factorisation and
-  measure end-to-end coverage, depth, and mechanism with the golden hubs present.
-- Re-run the Stage-4 adversarial experiments with a golden tier, to measure how much the push tier
-  restores coverage under attack.
-
-**Vs analytics.** E12 confirms the full M2 closed form; the adversarial re-runs have no closed form.
-
-**Prototype adds.** Finite-N confirmation of the full model, and — since goldens are hubs — their effect
-on propagation depth and on coverage under attack, which the per-target formula does not express.
-
-### Stage 6 — Deposit and slashing dynamics
-
-**Goal.** Study enforcement as a feedback loop: provable misbehaviour is slashed, the offender is
-removed from the registry, and after synchronisation other nodes stop accepting from it — so the
-effective adversary count decays over time. *Requires provable-misbehaviour detection (e.g.
-equivocation), connection rotation, and a deposit field on registry entries; modelled at the level of
-consequence (removal) and cost (deposit burn), without on-chain proof cryptography.*
-
-**Experiments.**
-- **E13 — Slashing dynamics.** Effective-adversary-count decay across epochs, enforcement-driven
-  healing of coverage, and attacker budget depletion (a fixed budget funds a bounded number of provable
-  misbehaviours). Deposit sizing itself is a derived calculation from the tolerance and concentration
-  curves measured in Stages 2–3, not a separate simulation.
-
-**Vs analytics.** Deposit sizing is arithmetic over earlier measured curves; the dynamics have no closed
-form.
-
-**Prototype adds.** The entire dynamic story. A structural point frames it: slashing removes only
-*provable* misbehaviour, so a rational attacker is pushed toward unprovable silence — meaning the
-residual threat that survives enforcement is exactly M2's silent adversary. M2 is therefore the floor;
-enforcement handles everything provable above it.
+- **E17 — Slashing dynamics** [needs: provable-misbehaviour detection, rotation, registry deposit
+  field]. Effective-adversary decay across epochs, enforcement-driven healing, attacker budget
+  depletion. Deposit sizing itself is arithmetic over the tolerance and concentration curves of
+  Stages 2 and 4, not a separate simulation. A structural point frames the stage: slashing removes
+  only *provable* misbehaviour, so a rational attacker is pushed toward unprovable silence — the
+  residual threat surviving enforcement is exactly the silent adversary of Stage 2, which is
+  therefore the floor.
 
 ## 6. Summary table
 
-| # | Experiment | Stage | Analytical reference | What the prototype adds |
-|---|------------|:-----:|----------------------|-------------------------|
-| E1 | Coverage & partition vs network size | 1 | ER closed form | Finite-N + real (non-ER) topology validation |
-| E2 | Propagation depth (longest hop path) | 1 | ER diameter | Finite-N; depth distribution, not just the mean |
-| E3 | Per-target eclipse rate | 2 | M2 (`G=0`) | Finite-N confirmation |
-| E4 | Adversary tolerance `k_max(ε)` | 2 | M2 | Finite-N confirmation (bulk ε) |
-| E5 | End-to-end coverage under silent adversaries | 2 | ER percolation (mean) | Distribution + correlation + per-node mechanism |
-| E6 | Bucketing, no cap: eclipse/coverage vs B | 3 | Bucketed-pull (balanced B) | Off-balanced + finite-N; surfaces D1 |
-| E7 | Serving cap, honest: coverage under bounded fan-in | 3 | none (congestion) | Effect of cap + back-fill on coverage; surfaces D2 |
-| E8 | Flooding mitigation under cap (bucketing) | 3 | Bucketed-pull concentration | Finite-N K/B; interaction with back-fill |
-| E9 | Active adversaries (drop / withhold) | 4 | none | Simulation-only |
-| E10 | Multi-round healing & compounding | 4 | none | Simulation-only (needs rotation) |
-| E11 | Heterogeneous populations & churn | 4 | none | Simulation-only |
-| E12 | Full M2 with golden tier | 5 | M2 (full) | Finite-N confirmation; hub effect on depth & coverage |
-| E13 | Slashing dynamics | 6 | Deposit sizing (arithmetic) | The entire dynamic story |
+| # | Experiment | Stage | Analytical reference | Status |
+|---|------------|:-----:|----------------------|--------|
+| E1 | Coverage & partition vs N | 1 | ER closed form | ready |
+| E2 | Propagation depth | 1 | ER diameter | ready |
+| E3 | Per-target eclipse rate | 2 | M2 `(k/N)^RF` | ready |
+| E4 | Adversary tolerance `k_max(ε)` | 2 | M2 | ready |
+| E5 | End-to-end coverage, silent adversaries | 2 | M2 coverage law / ER percolation | **fixed points done** (M2 comparison); sweeps ready |
+| E6 | M3 — initiation links | 3 | M3 law + grids | needs publisher-pair config |
+| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | needs uniform selection kind |
+| E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | needs publisher-pair config |
+| E9 | Bucketing, no cap | 4 | bucketed-pull (balanced B) | ready |
+| E10 | Selection-family fidelity (B, K) | 4 | model selection family | needs uniform selection kind |
+| E11 | Serving cap, honest | 4 | none (congestion) | ready |
+| E12 | Flooding mitigation under cap | 4 | bucketed-pull concentration | needs flooding dial kind |
+| E13 | Churn | 5 | none | ready |
+| E14 | Multi-round healing | 5 | none | needs rotation |
+| E15 | Adversarial relevance classification | 5 | silent-adversary bound | analysis ready |
+| E16 | Golden push tier | 6 | golden-tier formula | needs golden feature |
+| E17 | Slashing dynamics | 7 | deposit arithmetic | needs detection + rotation |
 
-Two documented (not simulated) cells sit alongside Stage 3: flooding with **no serving cap** (no
-surface to exhaust) and flooding with a **cap but no bucketing** (the attacker trivially requests the
-victim from every Sybil, concentration ≈ K).
-
-Reading the table: the confirmation experiments (E1–E6, E8, E12) validate closed forms — ER, M2, or
-the bucketed-pull bound — at finite N and for the topology the protocol actually builds. The remainder
-(E7, E9–E11, E13) is where the prototype is the **primary instrument**: the questions have no closed
-form.
-
-## 7. Open decisions
-
-- **D1 — Bucket smaller than target degree** (Stage 3): accept fewer upstreams, widen the bucket, or
-  carry the deficit forward.
-- **D2 — Dialer response to rejection** (Stage 3): iterate back-fill until U upstreams, or cap the
-  rounds and accept fewer than U. Determines what "a completed connection round" means under bounded
-  acceptance.
-- **Prerequisite — connection rotation** (Stages 4 and 6): the current connection setup only adds
-  connections. Multi-round healing, compounding, and slashing removal all need the topology to re-sample
-  (drop and re-dial) across epochs.
-- **Prerequisite — golden push feature** (Stage 5) and **provable-misbehaviour detection** (Stage 6).
-
-## 8. Next steps
-
-Review and adjust the experiment list and its order. Once agreed, we translate the accepted stages into
-an implementation plan — the experiment/testing framework (topology builder, metrics, sweep harness),
-the adversarial strategies and coordination model, connection rotation, and the golden push feature,
-sequenced to match the stage order above.
+Reading the table: the confirmation experiments validate closed forms at finite N and for the
+topology the protocol actually builds; E11 and E13–E15 are where the framework is the primary
+instrument — the questions have no closed form, and E15 decides how much of the adversarial space
+needs an instrument at all.
