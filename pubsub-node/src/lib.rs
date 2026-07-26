@@ -44,6 +44,8 @@ mod connection_state;
 pub mod crypto;
 mod error;
 mod event;
+#[cfg(feature = "experiments")]
+pub mod experiments;
 mod message;
 mod network;
 mod node;

@@ -1,0 +1,40 @@
+# M2-comparison operating point: N = 20 000, mu = 0.2, RF = 24.
+#
+# This is the formal M2 model's full-coverage sizing answer
+# (formal_spec/hybrid_dissemination/models/m2/properties/full_coverage.md §4:
+# RF = 24 is the smallest fanout with P(bad) <= 1e-4 at N = 20 000,
+# mu = 0.2). mu is M2's adversarial fraction (mu = k/N): 20% of the
+# population are silent relays; the model has no separate churn term.
+#
+# Measured here for the documented comparison: honest-to-honest sends,
+# copies per honest node, and the depth distribution, against the values
+# published in formal_spec/hybrid_dissemination/models/comparison.md.
+#
+# Run manually (~15 min release at --workers 1; each in-flight run holds a
+# full 20 000-node population — ~30 GB — so pick --workers for your memory
+# budget):
+#
+#   experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/
+
+model = "m2"
+master_seed = 42
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+connection = "uniform-sampler" # exactly-RF uniform picks - M2's selection family
+target_degree = 24             # RF
+acceptance = "accept-from-all"
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+connection = "uniform-sampler"
+target_degree = 24
+acceptance = "accept-from-all"
+fanout = "silent-relay" # M2's non-forwarding (dead) relay
+
+[execution]
+runs_per_experiment = 40

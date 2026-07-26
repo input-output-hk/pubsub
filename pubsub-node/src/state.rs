@@ -277,6 +277,86 @@ impl NodeState {
     }
 }
 
+/// Crate-internal access for the experiments framework (feature
+/// `experiments`; never compiled into the default build): direct state writes
+/// for the driver's pre-population fast path and cheap read accessors for
+/// driver-owned measurement (measurement never reads logs). The writes mirror
+/// what the real folds produce; they perform no validation and emit no
+/// effects, which is exactly the fast path's contract — the faithful mode
+/// exists to assert the equivalence on small populations.
+// 016-FR-008, 016-FR-017, 016-FR-027 (crate-internal access only), 016-FR-032.
+#[cfg(feature = "experiments")]
+impl NodeState {
+    /// Register `topic` directly — the pre-population counterpart of folding
+    /// `TopicRegistryEvent::Registered` (empty `publishers` ⇒ open topic).
+    pub(crate) fn prepopulate_registered_topic(
+        &mut self,
+        topic: TopicId,
+        publishers: std::collections::BTreeSet<crate::crypto::PublicKey>,
+    ) {
+        self.registered_topics
+            .insert(topic, TopicEntry::from_publishers(publishers));
+    }
+
+    /// Add `topic` to the node's subscription set directly. The caller keeps
+    /// the maintained invariant: the topic must already be registered.
+    pub(crate) fn prepopulate_subscription(&mut self, topic: TopicId) {
+        self.subscriptions.insert(topic);
+    }
+
+    /// Install the full candidate set for `topic` directly. The caller keeps
+    /// the fold invariants: the node's own id is never in the set, and the
+    /// topic is already registered.
+    pub(crate) fn prepopulate_candidates(&mut self, topic: TopicId, peers: BTreeSet<PeerId>) {
+        self.candidates.insert(topic, peers);
+    }
+
+    /// Set the readiness flag directly. Unlike the `Synced` fold this runs no
+    /// readiness dial — firing the dial tick is the driver's own phase.
+    pub(crate) fn prepopulate_synced(&mut self) {
+        self.synced = true;
+    }
+
+    /// Install an already-`Active` relay upstream entry directly (the
+    /// scripted-topology path: the dial handshake is bypassed entirely).
+    pub(crate) fn prepopulate_active_upstream(&mut self, peer: PeerId, topic: TopicId) {
+        self.upstream.insert(
+            LinkKey::new(topic, peer, LinkKind::Relay),
+            LinkState::Active,
+        );
+    }
+
+    /// Install an `Active` relay downstream entry directly (scripted-topology
+    /// path).
+    pub(crate) fn prepopulate_downstream(&mut self, peer: PeerId, topic: TopicId) {
+        self.downstream.insert(
+            LinkKey::new(topic, peer, LinkKind::Relay),
+            LinkState::Active,
+        );
+    }
+
+    /// Whether the content hash is in the duplicate-suppression set — i.e. the
+    /// node has accepted a message with this content (published or received).
+    pub(crate) fn has_seen(&self, hash: &MessageHash) -> bool {
+        self.seen.contains(hash)
+    }
+
+    /// The current epoch nonce (the single-epoch assertion surface).
+    pub(crate) fn epoch_nonce(&self) -> u64 {
+        self.epoch_nonce
+    }
+
+    /// Number of recorded deliveries, without cloning the record list.
+    pub(crate) fn received_len(&self) -> usize {
+        self.received.len()
+    }
+
+    /// Borrow the recorded deliveries (processing order), without cloning.
+    pub(crate) fn received(&self) -> &[ReceivedDelivery] {
+        &self.received
+    }
+}
+
 /// Outbound commands the shell executes on the transition's behalf.
 ///
 /// The transition itself performs no protocol I/O; it returns these and the

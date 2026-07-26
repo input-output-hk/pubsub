@@ -457,3 +457,23 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 **Working answer (015, per the maintainer's direction)**: **deferred — do not resolve, do not extend.** No experiment or published recipe needs a capped bidirectional strategy today (M4 defines no caps), so the combination must not grow semantics ahead of a consumer. On the substance the dilemma partly dissolves: an acceptance strategy structurally caps only **inbound requests** — it cannot instruct the dialer, so it never bounds out-degree; and an `Accepted` answering the node's own pending request is not an admission decision. What the current code does (recorded so the behaviour is not mistaken for a decision): the cap's link scan counts the whole mirrored link set — own-dial mirrors included — but the gate fires only on peer-initiated requests, so realised degree can exceed the cap and the outcome is arrival-order-dependent.
 
 **Trigger to revisit**: the first experiment that requires a capped bidirectional strategy (likely alongside the uniform exactly-RF selection kind that completes the real M4).
+
+## N-033 — Experiment population memory: full candidate views bound N to ~20 000 per in-flight run
+
+**Surfaced during**: 016-experiments-framework implementation (T026 execution sizing).
+
+**Observation**: v1's "view = full candidate set" means every driver-owned node core holds all N−1 peer ids in its `candidates` map, so one experiment population costs O(N²) memory — measured ~30 GB peak RSS for one N = 20 000 run (release build; ~1.3 GB at N = 4 000). The worker count doubles as the memory knob (each in-flight run holds a full population), which makes the shipped operating point run at `--workers 1` on a 64 GB machine. The plan's "populations up to ~10⁵ nodes per run" is **not** reachable with per-node owned candidate sets (~750 GB).
+
+**Candidate directions when needed**: share the (identical) candidate view across driver-owned cores behind a read-only handle (an experiments-side optimization, but the core owns the `candidates` field type today); intern peer ids; or let the future discovery/view-sampling work (`H_v`, the 005 out-of-scope item) shrink the per-node view to a sample, which removes the O(N²) term for real nodes and driver alike.
+
+**Trigger to revisit**: the first experiment needing N ≫ 20 000, or the peer-sampling/view-discovery feature — whichever lands first.
+
+## N-033 — Experiment round budget: multi-round runs as an explicit, deterministic knob
+
+**Surfaced during**: 016 PR review (PR #102), a reviewer design suggestion.
+
+**Idea**: the run phase machine is hardcoded to a single establish + single measure. An explicit round budget (config knob, default 1 ≡ today's "measure the first graph" semantics) would let longer/dynamic experiments — epoch rotation, multi-heartbeat steady state — attach cleanly, with connection-lifecycle teardown activating only for budgets > 1. It would also make candidate-memory reclamation principled ("free after the last round that reads `candidates`" is result-neutral; a hardcoded free-after-establish would have to be reverted by any multi-round mode — relates to [[N-032]]). An unbounded "run forever" mode would fight the byte-reproducibility contract, so any extension must keep a deterministic stop (fixed rounds or a convergence rule).
+
+**Why deferred**: 016 deliberately pinned single-epoch runs (the driver never advances the nonce — a clarify-session resolution), and the core itself has no epoch rotation or connection teardown yet, so a budget knob today would be a result-affecting parameter whose values > 1 cannot be exercised meaningfully — the forward-compatible-interfaces standard wants the named consumer to exist first.
+
+**Trigger to revisit**: the epoch-advancement/rotation feature (the heartbeat/epoch seams from ADR 0031 are where it plugs in), or the first steady-state experiment need.
