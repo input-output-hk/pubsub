@@ -5,15 +5,17 @@
 //! Round r is the set of in-flight deliveries; applying them yields the
 //! sends forming round r+1; a round producing no new sends is quiescence —
 //! detected exactly, with no polling, sleeps, or timeouts. Before routing,
-//! every wave is stably sorted by a canonical content-derived key
-//! (sender, addressee, message identity), so a whole run is a deterministic
+//! every wave is stably sorted by a canonical content-derived key —
+//! (sender index, addressee index, message identity), where the identity is
+//! the content hash computed once at collection for dissemination and the
+//! signed bytes for connection control — so a whole run is a deterministic
 //! function of (configuration, seeds) regardless of the core's hash-based
 //! collection iteration order. All message kinds route identically —
 //! connection control and dissemination — and severance effects are
 //! consumed and tallied by the driver.
 // 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -39,6 +41,11 @@ pub struct Delivery {
     pub to: PeerId,
     /// The message in flight.
     pub message: Message,
+    /// The message's content hash, computed once when the send is collected
+    /// and reused for the wave sort and the suppressed-check. `None` exactly
+    /// for connection-control messages — `MessageHash` is content-only and
+    /// undefined for them (they keep a signed-bytes sort key).
+    pub dissemination_hash: Option<MessageHash>,
 }
 
 /// A wave: the deliveries of one round, canonicalised before routing.
@@ -140,13 +147,23 @@ pub struct RunObservation {
 /// The wavefront driver over one population.
 pub struct Driver {
     population: Population,
+    /// Each peer's rank in the population's canonical (sorted) order — the
+    /// wave sort compares these integers instead of cloning `PeerId`s; rank
+    /// order and `PeerId` order are the same order by construction.
+    index: HashMap<PeerId, usize>,
 }
 
 impl Driver {
     /// Take ownership of the population to drive.
     #[must_use]
     pub fn new(population: Population) -> Self {
-        Self { population }
+        let index = population
+            .peer_ids()
+            .into_iter()
+            .enumerate()
+            .map(|(rank, id)| (id, rank))
+            .collect();
+        Self { population, index }
     }
 
     /// Read the driven population.
@@ -346,10 +363,17 @@ impl Driver {
                         ParticipantClass::Honest => outcome.sends.honest += 1,
                         ParticipantClass::Adversarial => outcome.sends.adversarial += 1,
                     }
+                    // The one hash per delivery: computed here, reused by the
+                    // wave sort and the suppressed-check in `drain`.
+                    let dissemination_hash = match &message {
+                        Message::Dissemination(signed) => Some(MessageHash::of(&signed.plain)),
+                        _ => None,
+                    };
                     next.push(Delivery {
                         from: from.clone(),
                         to,
                         message,
+                        dissemination_hash,
                     });
                 }
                 Effect::Misbehaved { .. } => outcome.severed += 1,
@@ -362,9 +386,15 @@ impl Driver {
     /// producing no new sends ends the drain exactly.
     fn drain(&mut self, mut wave: Wave, mut wave_index: u64, outcome: &mut DrainOutcome) {
         while !wave.is_empty() {
-            canonicalise(&mut wave);
+            canonicalise(&mut wave, &self.index);
             let mut next = Wave::new();
-            for Delivery { from, to, message } in wave {
+            for Delivery {
+                from,
+                to,
+                message,
+                dissemination_hash,
+            } in wave
+            {
                 debug_assert!(
                     !self
                         .population
@@ -373,18 +403,14 @@ impl Driver {
                         .is_down(),
                     "down recipients are never enqueued",
                 );
-                let dissemination_hash = match &message {
-                    Message::Dissemination(signed) => Some(MessageHash::of(&signed.plain)),
-                    connection => {
-                        let (_, control) = connection
-                            .connection_parts()
-                            .expect("non-dissemination messages are connection control");
-                        if matches!(control.plain.action, ConnectionAction::Rejected { .. }) {
-                            outcome.rejected_over_capacity += 1;
-                        }
-                        None
+                if dissemination_hash.is_none() {
+                    let (_, control) = message
+                        .connection_parts()
+                        .expect("non-dissemination messages are connection control");
+                    if matches!(control.plain.action, ConnectionAction::Rejected { .. }) {
+                        outcome.rejected_over_capacity += 1;
                     }
-                };
+                }
                 let seen_before = dissemination_hash.as_ref().is_some_and(|hash| {
                     self.population
                         .participant(&to)
@@ -418,46 +444,56 @@ impl Driver {
     }
 }
 
-/// Stable-sort a wave by the canonical content key (sender, addressee,
+/// A message's canonical within-wave identity: the carried content hash for
+/// dissemination (variant order keeps dissemination ahead of control within a
+/// (sender, addressee) pair, as the old byte tags did), the signed bytes plus
+/// signature for connection control.
+///
+/// The dissemination key is content-only — safe because relays forward
+/// verbatim clones, so equal content means an identical signature too, and
+/// colliding keys are byte-identical deliveries where order cannot matter.
+/// Distinct contents order by hash rather than by raw signed bytes — a
+/// legitimate reordering of within-wave ties; the artifacts' values are
+/// interleaving-invariant.
+#[derive(Eq, Ord, PartialEq, PartialOrd)]
+enum MessageIdentity {
+    Dissemination([u8; 32]),
+    Control(Vec<u8>),
+}
+
+/// Stable-sort a wave by the canonical key (sender index, addressee index,
 /// message identity): the within-wave tie-break that makes routing order a
 /// function of wave *content*, independent of the core's hash-based
-/// collection iteration order. This sort is
-/// permanent and load-bearing for byte-determinism.
-fn canonicalise(wave: &mut Wave) {
+/// collection iteration order. Index order equals `PeerId` order (the ranks
+/// are drawn from the same sorted sequence), so the integer compare is the
+/// `PeerId` compare without the clones. This sort is permanent and
+/// load-bearing for byte-determinism.
+fn canonicalise(wave: &mut Wave, index: &HashMap<PeerId, usize>) {
     wave.sort_by_cached_key(|delivery| {
+        let rank = |id: &PeerId| *index.get(id).expect("delivery endpoints are members");
         (
-            delivery.from.clone(),
-            delivery.to.clone(),
-            message_key(&delivery.message),
+            rank(&delivery.from),
+            rank(&delivery.to),
+            match &delivery.dissemination_hash {
+                Some(hash) => MessageIdentity::Dissemination(*hash.as_bytes()),
+                None => MessageIdentity::Control(control_key(&delivery.message)),
+            },
         )
     });
 }
 
-/// The canonical identity bytes of a message: a kind tag, the signed-over
-/// content bytes, and the signature (distinct signed copies of identical
-/// content stay distinguishable, so the order is total in practice — and any
-/// remaining ties are byte-identical deliveries, where order cannot matter).
-fn message_key(message: &Message) -> Vec<u8> {
-    match message {
-        Message::Dissemination(signed) => {
-            let mut key = vec![0x00];
-            key.extend_from_slice(&signed.plain.signed_bytes());
-            key.extend_from_slice(signed.signature.as_bytes());
-            key
-        }
-        connection => {
-            // All connection variants share one canonical-key namespace: the
-            // handshake kind is inside the signed bytes (its preimage tag), so
-            // distinct handshakes never collide.
-            let (kind, control) = connection
-                .connection_parts()
-                .expect("non-dissemination messages are connection control");
-            let mut key = vec![0x01];
-            key.extend_from_slice(&control.plain.signed_bytes(kind));
-            key.extend_from_slice(control.signature.as_bytes());
-            key
-        }
-    }
+/// The canonical identity bytes of a connection-control message: the
+/// signed-over bytes and the signature. All connection variants share one
+/// namespace — the handshake kind is inside the signed bytes (its preimage
+/// tag), so distinct handshakes never collide; any remaining ties are
+/// byte-identical deliveries, where order cannot matter.
+fn control_key(message: &Message) -> Vec<u8> {
+    let (kind, control) = message
+        .connection_parts()
+        .expect("non-dissemination messages are connection control");
+    let mut key = control.plain.signed_bytes(kind);
+    key.extend_from_slice(control.signature.as_bytes());
+    key
 }
 
 #[cfg(test)]
