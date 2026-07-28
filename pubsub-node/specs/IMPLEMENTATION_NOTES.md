@@ -479,3 +479,13 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 **Why deferred**: 016 deliberately pinned single-epoch runs (the driver never advances the nonce — a clarify-session resolution), and the core itself has no epoch rotation or connection teardown yet, so a budget knob today would be a result-affecting parameter whose values > 1 cannot be exercised meaningfully — the forward-compatible-interfaces standard wants the named consumer to exist first.
 
 **Trigger to revisit**: the epoch-advancement/rotation feature (the heartbeat/epoch seams from ADR 0031 are where it plugs in), or the first steady-state experiment need.
+
+## N-035 — Experiment dial-drain time: the sampler's per-node candidate materialisation is the remaining O(N²) term
+
+**Surfaced during**: the PR #77/#102 instrument-performance follow-up (ADR 0038). Relates to [[N-033]] (resolved — the memory half of the same scaling story; this is the time half).
+
+**Observation**: `UniformSampler::expected_links` collects all N−1 candidate references into a `Vec` before drawing its RF index samples — O(N) per node, O(N²) per run across the dial drain. Invisible at today's populations (a fraction of a ~4.4 s run at N = 20 000), but it scales quadratically: at the plan's ~10⁵-node populations it is ~10¹⁰ pointer pushes per run — tens of seconds, the successor to the memory bound ADR 0038 removed as the thing that decides how large N can get.
+
+**Sketch when needed**: the driver already shares one sorted membership set per topic (ADR 0038); expose it (or a once-per-run sorted slice) to the sampler so it samples **indices** against `candidates_len` and maps them through skip-self index arithmetic (an index at or above the node's own rank shifts by one) instead of materialising the per-node list. Byte-identity is achievable — same sample length, same index→peer mapping — but the skip-self mapping is a razor edge of exactly the `stored_self_does_not_shift_the_sample` kind: land it against the recorded baselines (`notes/experiments-baselines/`, byte-diff must come out identical) and extend that test family.
+
+**Trigger to revisit**: the first experiment needing N ≫ 20 000 (the same trigger the resolved [[N-033]] carried for memory).
