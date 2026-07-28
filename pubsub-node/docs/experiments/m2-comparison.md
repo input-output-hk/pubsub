@@ -11,9 +11,10 @@ differences worth raising.
 | | |
 |---|---|
 | Tool commit | `493bb2f` (post-015-rebase; all three sections re-executed at this commit). The re-executed artifacts are **byte-identical** to the original execution's (tool commits `e14a3f2`/`60b8e84`, pre-rebase lineage): `runs.jsonl` and `aggregates.json` verified by direct diff for all three sections, manifests differing only in the tool commit and the fan-out kind's rename — the 015 integration (relay-only populations over the re-keyed link model, `forward-to-relays` fan-out) leaves the M2 instrument's output unchanged to the byte |
-| Operating point | `configs/experiments/m2-operating-point.toml`, master seed **42**, 40 runs, ~13–23 min at `--workers 1` (release build; ~30 GB peak per in-flight run) |
-| Bulk-regime point | `configs/experiments/m2-bulk-regime.toml`, master seed **4016**, 8000 runs, ~30 min at default workers (~1.3 GB per in-flight run) |
-| Grid-cell check | the operating-point configuration with `target_degree = 16` (both classes), `runs_per_experiment = 150`, `master_seed = 20016`; ~37 min at `--workers 1` |
+| Re-validated | `06b88aa` (the instrument-performance follow-up: shared candidate views, ADR 0038, and the wave sort-key change): all three sections re-executed, `runs.jsonl` and `aggregates.json` **byte-identical** again, manifests differing in the tool commit only; the operating point additionally verified identical across `--workers 1` and `--workers 10`. The cost figures below are from this commit — before it, each in-flight N = 20 000 run held ~30 GB (worker count doubled as the memory knob) and the operating point ran ~13–23 min at `--workers 1` |
+| Operating point | `configs/experiments/m2-operating-point.toml`, master seed **42**, 40 runs; ~25 s at `--workers 10` (release build; ~1 GB peak per in-flight run) |
+| Bulk-regime point | `configs/experiments/m2-bulk-regime.toml`, master seed **4016**, 8000 runs, ~6 min at default workers (~190 MB per in-flight run) |
+| Grid-cell check | the operating-point configuration with `target_degree = 16` (both classes), `runs_per_experiment = 150`, `master_seed = 20016`; ~72 s at `--workers 10` |
 | Reference values | `formal_spec/hybrid_dissemination/models/comparison.md` §2 and `models/m2/properties/full_coverage.md` §2–§3 |
 
 Raw artifacts are deliberately **not** committed: the tool commit and master
@@ -21,9 +22,12 @@ seeds above reproduce them byte-for-byte —
 
 ```sh
 cargo build --release --features experiments --bins
-./target/release/experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/ --workers 1
+./target/release/experiments --config configs/experiments/m2-operating-point.toml --out results/m2-op/
 ./target/release/experiments --config configs/experiments/m2-bulk-regime.toml  --out results/m2-bulk/
 ```
+
+(the artifacts are byte-identical at any `--workers` value, so the worker
+count is a wall-clock choice, not part of the reproduction contract)
 
 Parameter mapping: the model's μ is its adversarial fraction (μ = k/N; its
 "dead" relays accept and never forward), which maps to

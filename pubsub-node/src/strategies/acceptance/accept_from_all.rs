@@ -17,7 +17,7 @@ pub struct AcceptFromAllCandidates;
 
 impl ConnectionAcceptanceStrategy for AcceptFromAllCandidates {
     fn admit(&self, emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> Admission {
-        if is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
+        if is_membership_valid(emitter, topic, view) {
             Admission::Accept
         } else {
             Admission::RejectMembership

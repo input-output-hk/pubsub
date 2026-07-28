@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::peer::PeerId;
@@ -29,12 +29,22 @@ pub(crate) fn subscriptions(topics: &[&str]) -> BTreeSet<TopicId> {
     topics.iter().map(|t| topic(t)).collect()
 }
 
-/// A per-topic candidate map from `(topic, members)` entries.
-pub(crate) fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, BTreeSet<PeerId>> {
+/// A per-topic candidate map from `(topic, members)` entries — the stored
+/// (`Arc`-shared, full-membership) shape; include `"self"` among the members
+/// to exercise the view's read-time self-exclusion (ADR 0038).
+pub(crate) fn candidates(entries: &[(&str, &[&str])]) -> BTreeMap<TopicId, Arc<BTreeSet<PeerId>>> {
     entries
         .iter()
-        .map(|(t, peers)| (topic(t), peers.iter().map(|p| peer(p)).collect()))
+        .map(|(t, peers)| (topic(t), Arc::new(peers.iter().map(|p| peer(p)).collect())))
         .collect()
+}
+
+/// The id every `view()` fixture carries as the node's own — matches the
+/// `peer("self")` identity the strategy constructors use, so a fixture that
+/// lists `"self"` among a topic's members observes the read-time exclusion.
+pub(crate) fn view_self() -> &'static PeerId {
+    static SELF: OnceLock<PeerId> = OnceLock::new();
+    SELF.get_or_init(|| peer("self"))
 }
 
 /// A downstream link map of accepted **relay** entries (`Active`) from
@@ -62,7 +72,7 @@ pub(crate) fn no_links() -> &'static BTreeMap<LinkKey, LinkState> {
 /// no upstream links).
 pub(crate) fn view<'a>(
     subs: &'a BTreeSet<TopicId>,
-    cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+    cands: &'a BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
     down: &'a BTreeMap<LinkKey, LinkState>,
 ) -> NodeView<'a> {
     view_with_nonce(subs, cands, down, 0)
@@ -71,12 +81,13 @@ pub(crate) fn view<'a>(
 /// A [`NodeView`] over the borrowed fixtures at an explicit epoch nonce.
 pub(crate) fn view_with_nonce<'a>(
     subs: &'a BTreeSet<TopicId>,
-    cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+    cands: &'a BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
     down: &'a BTreeMap<LinkKey, LinkState>,
     epoch_nonce: u64,
 ) -> NodeView<'a> {
     NodeView {
         subscriptions: subs,
+        self_id: view_self(),
         candidates: cands,
         upstream: no_links(),
         downstream: down,
@@ -88,12 +99,13 @@ pub(crate) fn view_with_nonce<'a>(
 /// acceptance fixtures count publisher upstreams).
 pub(crate) fn view_with_upstream<'a>(
     subs: &'a BTreeSet<TopicId>,
-    cands: &'a BTreeMap<TopicId, BTreeSet<PeerId>>,
+    cands: &'a BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
     up: &'a BTreeMap<LinkKey, LinkState>,
     down: &'a BTreeMap<LinkKey, LinkState>,
 ) -> NodeView<'a> {
     NodeView {
         subscriptions: subs,
+        self_id: view_self(),
         candidates: cands,
         upstream: up,
         downstream: down,

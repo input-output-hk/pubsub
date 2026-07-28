@@ -88,15 +88,13 @@ impl ConnectionStrategy for UniformSampler {
     fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
         for topic in view.subscriptions {
-            let Some(candidates) = view.candidates.get(topic) else {
-                continue;
-            };
-            if candidates.is_empty() {
+            // Candidates iterate in sorted order (BTreeSet) with the node's
+            // own id excluded by the view's read seam, so index sampling over
+            // the ordered list is deterministic in (seed, candidate set).
+            let ordered: Vec<&PeerId> = view.candidates_for(topic).collect();
+            if ordered.is_empty() {
                 continue;
             }
-            // Candidates iterate in sorted order (BTreeSet), so index sampling
-            // over the ordered list is deterministic in (seed, candidate set).
-            let ordered: Vec<&PeerId> = candidates.iter().collect();
             let amount = self.target_degree.min(ordered.len());
             let mut rng = ChaCha20Rng::from_seed(self.topic_seed(topic));
             for index in rand::seq::index::sample(&mut rng, ordered.len(), amount) {
@@ -111,6 +109,7 @@ impl ConnectionStrategy for UniformSampler {
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::str::FromStr;
+    use std::sync::Arc;
 
     use super::{SilentRelay, UniformSampler};
     use crate::connection_state::{LinkKey, LinkKind, LinkState};
@@ -131,28 +130,49 @@ mod tests {
 
     type ViewFixture = (
         BTreeSet<TopicId>,
-        BTreeMap<TopicId, BTreeSet<PeerId>>,
+        BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
         BTreeMap<LinkKey, LinkState>,
     );
+
+    fn view_self() -> PeerId {
+        peer("sampler-self")
+    }
 
     fn view_fixture(candidates: usize) -> ViewFixture {
         let subscriptions: BTreeSet<TopicId> = [topic("t0")].into_iter().collect();
         let peers: BTreeSet<PeerId> = (0..candidates).map(|i| peer(&format!("c{i:03}"))).collect();
-        let candidate_map: BTreeMap<TopicId, BTreeSet<PeerId>> =
-            [(topic("t0"), peers)].into_iter().collect();
+        let candidate_map: BTreeMap<TopicId, Arc<BTreeSet<PeerId>>> =
+            [(topic("t0"), Arc::new(peers))].into_iter().collect();
         (subscriptions, candidate_map, BTreeMap::new())
+    }
+
+    fn expected_over(
+        sampler: &UniformSampler,
+        self_id: &PeerId,
+        subscriptions: &BTreeSet<TopicId>,
+        candidate_map: &BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
+        no_links: &BTreeMap<LinkKey, LinkState>,
+    ) -> BTreeSet<(PeerId, TopicId)> {
+        let view = NodeView {
+            subscriptions,
+            self_id,
+            candidates: candidate_map,
+            upstream: no_links,
+            downstream: no_links,
+            epoch_nonce: 0,
+        };
+        sampler.expected_links(&view)
     }
 
     fn expected_of(sampler: &UniformSampler, candidates: usize) -> BTreeSet<(PeerId, TopicId)> {
         let (subscriptions, candidate_map, no_links) = view_fixture(candidates);
-        let view = NodeView {
-            subscriptions: &subscriptions,
-            candidates: &candidate_map,
-            upstream: &no_links,
-            downstream: &no_links,
-            epoch_nonce: 0,
-        };
-        sampler.expected_links(&view)
+        expected_over(
+            sampler,
+            &view_self(),
+            &subscriptions,
+            &candidate_map,
+            &no_links,
+        )
     }
 
     // 016-FR-012: the silent relay selects no targets, whatever downstream
@@ -201,6 +221,31 @@ mod tests {
         let sampler = UniformSampler::new(8, [7u8; 32]);
         let expected = expected_of(&sampler, 3);
         assert_eq!(expected.len(), 3);
+    }
+
+    // ADR 0038: the node's own id in the stored membership set must not shift
+    // the sampled indices — the view excludes self before the list is ordered
+    // and indexed, so picks with self stored mid-range equal picks without it.
+    #[test]
+    fn stored_self_does_not_shift_the_sample() {
+        let sampler = UniformSampler::new(5, [7u8; 32]);
+        let (subscriptions, candidate_map, no_links) = view_fixture(20);
+        let baseline = expected_over(
+            &sampler,
+            &view_self(),
+            &subscriptions,
+            &candidate_map,
+            &no_links,
+        );
+
+        // The same candidates plus the node's own id, stored where it sorts
+        // between c010 and c011 — an unexcluded self would shift every index
+        // above it.
+        let self_id = peer("c010self");
+        let mut with_self = candidate_map.clone();
+        Arc::make_mut(with_self.get_mut(&topic("t0")).expect("t0 entry")).insert(self_id.clone());
+        let picked = expected_over(&sampler, &self_id, &subscriptions, &with_self, &no_links);
+        assert_eq!(picked, baseline);
     }
 
     // The retry primitive: the same seed and view yield the same expected set on

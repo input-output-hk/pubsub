@@ -468,12 +468,24 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 
 **Trigger to revisit**: the first experiment needing N ≫ 20 000, or the peer-sampling/view-discovery feature — whichever lands first.
 
-## N-033 — Experiment round budget: multi-round runs as an explicit, deterministic knob
+**Resolved (ADR 0038, 2026-07-27)**: the shared-view direction was implemented. `candidates` stores each topic's **full membership including the node itself** as `Arc<BTreeSet<PeerId>>` behind self-excluding `NodeView` read accessors, and the fast-path registration hands every core the same shared set — one N-element set per run instead of N of them, with registration work down from O(N²) to O(N) as well. Measured: one N = 20 000 operating-point run peaks at ~0.63 GB RSS (was ~30 GB), so the worker count stops being a memory knob and the plan's ~10⁵-node populations become reachable. The peer-id-interning direction is superseded; the `H_v`/view-sampling direction remains open as protocol work, now decoupled from the driver's memory budget.
+
+## N-034 — Experiment round budget: multi-round runs as an explicit, deterministic knob
 
 **Surfaced during**: 016 PR review (PR #102), a reviewer design suggestion.
 
-**Idea**: the run phase machine is hardcoded to a single establish + single measure. An explicit round budget (config knob, default 1 ≡ today's "measure the first graph" semantics) would let longer/dynamic experiments — epoch rotation, multi-heartbeat steady state — attach cleanly, with connection-lifecycle teardown activating only for budgets > 1. It would also make candidate-memory reclamation principled ("free after the last round that reads `candidates`" is result-neutral; a hardcoded free-after-establish would have to be reverted by any multi-round mode — relates to [[N-032]]). An unbounded "run forever" mode would fight the byte-reproducibility contract, so any extension must keep a deterministic stop (fixed rounds or a convergence rule).
+**Idea**: the run phase machine is hardcoded to a single establish + single measure. An explicit round budget (config knob, default 1 ≡ today's "measure the first graph" semantics) would let longer/dynamic experiments — epoch rotation, multi-heartbeat steady state — attach cleanly, with connection-lifecycle teardown activating only for budgets > 1. It would also make candidate-memory reclamation principled ("free after the last round that reads `candidates`" is result-neutral; a hardcoded free-after-establish would have to be reverted by any multi-round mode — relates to [[N-033]]). An unbounded "run forever" mode would fight the byte-reproducibility contract, so any extension must keep a deterministic stop (fixed rounds or a convergence rule).
 
 **Why deferred**: 016 deliberately pinned single-epoch runs (the driver never advances the nonce — a clarify-session resolution), and the core itself has no epoch rotation or connection teardown yet, so a budget knob today would be a result-affecting parameter whose values > 1 cannot be exercised meaningfully — the forward-compatible-interfaces standard wants the named consumer to exist first.
 
 **Trigger to revisit**: the epoch-advancement/rotation feature (the heartbeat/epoch seams from ADR 0031 are where it plugs in), or the first steady-state experiment need.
+
+## N-035 — Experiment dial-drain time: the sampler's per-node candidate materialisation is the remaining O(N²) term
+
+**Surfaced during**: the PR #77/#102 instrument-performance follow-up (ADR 0038). Relates to [[N-033]] (resolved — the memory half of the same scaling story; this is the time half).
+
+**Observation**: `UniformSampler::expected_links` collects all N−1 candidate references into a `Vec` before drawing its RF index samples — O(N) per node, O(N²) per run across the dial drain. Invisible at today's populations (a fraction of a ~4.4 s run at N = 20 000), but it scales quadratically: at the plan's ~10⁵-node populations it is ~10¹⁰ pointer pushes per run — tens of seconds, the successor to the memory bound ADR 0038 removed as the thing that decides how large N can get.
+
+**Sketch when needed**: the driver already shares one sorted membership set per topic (ADR 0038); expose it (or a once-per-run sorted slice) to the sampler so it samples **indices** against `candidates_len` and maps them through skip-self index arithmetic (an index at or above the node's own rank shifts by one) instead of materialising the per-node list. Byte-identity is achievable — same sample length, same index→peer mapping — but the skip-self mapping is a razor edge of exactly the `stored_self_does_not_shift_the_sample` kind: land it against the recorded baselines (`notes/experiments-baselines/`, byte-diff must come out identical) and extend that test family.
+
+**Trigger to revisit**: the first experiment needing N ≫ 20 000 (the same trigger the resolved [[N-033]] carried for memory).

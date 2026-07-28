@@ -17,7 +17,7 @@
 //! Registration gates delivery, not acceptance (the S7 pin), so this seam reads
 //! the membership-derived view only.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::peer::PeerId;
@@ -89,23 +89,16 @@ pub trait ConnectionAcceptanceStrategy: Send + Sync {
 /// Whether a verified `Request` from `emitter` on `topic` is membership-valid:
 /// the node is subscribed to the topic **and** the emitter is a known candidate
 /// (member) of it. Shared by the acceptance policies (the S7 pin: membership
-/// gates *acceptance*).
+/// gates *acceptance*). The view's candidate check excludes the node's own id
+/// (ADR 0038), so a request carrying the node itself as emitter is never
+/// membership-valid.
 ///
 /// This is a **subscription-registry** check (topic membership), distinct from
 /// **publisher authorization** — the topic-registry concern checked on the
 /// dissemination path (`topic_registry::TopicEntry::is_publisher_authorized`).
 /// The emitter here is a topic member/subscriber, not a publisher.
-pub(crate) fn is_membership_valid(
-    emitter: &PeerId,
-    topic: &TopicId,
-    subscriptions: &BTreeSet<TopicId>,
-    candidates: &BTreeMap<TopicId, BTreeSet<PeerId>>,
-) -> bool {
-    let is_subscribed = subscriptions.contains(topic);
-    let is_candidate = candidates
-        .get(topic)
-        .is_some_and(|peers| peers.contains(emitter));
-    is_subscribed && is_candidate
+pub(crate) fn is_membership_valid(emitter: &PeerId, topic: &TopicId, view: &NodeView<'_>) -> bool {
+    view.subscriptions.contains(topic) && view.is_candidate(topic, emitter)
 }
 
 /// One pass over a link map for the two facts a bounding policy needs: whether
@@ -156,7 +149,7 @@ pub(crate) fn admit_prelude(
     topic: &TopicId,
     view: &NodeView<'_>,
 ) -> Result<usize, Admission> {
-    if !is_membership_valid(emitter, topic, view.subscriptions, view.candidates) {
+    if !is_membership_valid(emitter, topic, view) {
         return Err(Admission::RejectMembership);
     }
     let accepted = match kind {

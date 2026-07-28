@@ -1,8 +1,6 @@
 //! The hash-gated-only inbound-acceptance policy: [`HashGatedAcceptance`]
 //! (one-dimensional baseline, ADR 0031).
 
-use std::collections::BTreeSet;
-
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
@@ -81,8 +79,9 @@ impl ConnectionAcceptanceStrategy for HashGatedAcceptance {
         // Same B-agreement assumption as the compound policy (see
         // `hash_gated_bounded.rs` for the full note): derived B matches the
         // dialer's only while both ends see the same candidate set; the pinned
-        // override removes the dependence.
-        let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
+        // override removes the dependence. The count is self-excluded via the
+        // view's read seam — the same input the dialer derives from.
+        let candidate_count = view.candidates_len(topic);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
         let valid = if self.symmetric {
             is_valid_edge_sym(view.epoch_nonce, topic, emitter, &self.self_id, buckets)

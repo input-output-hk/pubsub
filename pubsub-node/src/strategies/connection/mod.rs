@@ -47,7 +47,9 @@ pub trait ConnectionStrategy: Send + Sync {
     ///
     /// Reads `view.subscriptions` (the membership-derived topic set — not the
     /// registration-gated effective filter, mirroring the acceptance rule),
-    /// `view.candidates` (per-topic discovered peers, self never present), and
-    /// `view.epoch_nonce` (the randomness context for the edge predicate).
+    /// the per-topic candidate accessors ([`NodeView::candidates_for`] /
+    /// [`NodeView::candidates_len`] — the node's own id excluded at read
+    /// time), and `view.epoch_nonce` (the randomness context for the edge
+    /// predicate).
     fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)>;
 }

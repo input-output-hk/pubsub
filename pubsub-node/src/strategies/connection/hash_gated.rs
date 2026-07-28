@@ -97,15 +97,17 @@ impl ConnectionStrategy for HashGatedConnection {
     fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
         for topic in view.subscriptions {
-            let Some(peers) = view.candidates.get(topic) else {
-                continue;
-            };
-            // Derive B from the local candidate count, unless pinned. The
-            // derived value is only verifiable while the acceptor sees the same
-            // count (the B-agreement assumption on the type); a pinned override
-            // removes that dependence.
-            let buckets = resolve_buckets(self.bucket_override, peers.len(), self.target_degree);
-            for candidate in peers {
+            // Derive B from the local candidate count (self-excluded, via the
+            // view's read seam), unless pinned. The derived value is only
+            // verifiable while the acceptor sees the same count (the
+            // B-agreement assumption on the type); a pinned override removes
+            // that dependence.
+            let buckets = resolve_buckets(
+                self.bucket_override,
+                view.candidates_len(topic),
+                self.target_degree,
+            );
+            for candidate in view.candidates_for(topic) {
                 let valid = if self.symmetric {
                     is_valid_edge_sym(view.epoch_nonce, topic, &self.self_id, candidate, buckets)
                 } else {
