@@ -145,6 +145,14 @@ impl Participant {
         self.state.candidates_snapshot(topic)
     }
 
+    /// Whether the **stored** membership set for `topic` contains `peer` —
+    /// raw, no self-exclusion; lets the registration-mode equivalence test
+    /// pin the full-membership invariant the filtered snapshot cannot see.
+    #[cfg(test)]
+    pub(crate) fn candidate_set_contains(&self, topic: &TopicId, peer: &PeerId) -> bool {
+        self.state.candidate_set_contains(topic, peer)
+    }
+
     /// Whether the node has folded/been given readiness.
     #[must_use]
     pub fn is_synced(&self) -> bool {

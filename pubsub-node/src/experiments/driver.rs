@@ -623,6 +623,11 @@ mod tests {
             assert!(a.is_synced() && b.is_synced());
             assert_eq!(a.subscriptions(), b.subscriptions());
             assert_eq!(a.candidates(&topic), b.candidates(&topic));
+            // ADR 0038: the modes must agree on the STORED sets too — both
+            // hold the node's own id. The self-filtered snapshot above cannot
+            // see a divergence on exactly this point.
+            assert!(a.candidate_set_contains(&topic, id));
+            assert!(b.candidate_set_contains(&topic, id));
             assert_eq!(a.upstream(), b.upstream());
             assert_eq!(a.downstream(), b.downstream());
             // Connect-to-all over a synced barrier: every dial must land —

@@ -746,7 +746,11 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
                 // registered topics (strict drop of unregistered ones). The
                 // node is a member like any other, so it also enters the
                 // per-topic membership sets (the strategy view excludes it at
-                // read time).
+                // read time). A repeated own `Joined` naming fewer topics
+                // replaces the subscription set but leaves self in the dropped
+                // topics' stored sets — unobservable through the self-excluding
+                // readers, and the registry stream expresses a re-join as
+                // `Left` (which clears) followed by `Joined`.
                 let mut subscriptions = BTreeSet::new();
                 for topic in topics {
                     if state.registered_topics.contains_key(&topic) {
