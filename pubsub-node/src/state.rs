@@ -684,31 +684,41 @@ fn log_topic_not_registered(self_id: &PeerId, topic: &TopicId) {
     );
 }
 
-/// Insert `node` into `topic`'s stored membership set. The `contains` guard
-/// keeps a no-op insert from cloning a shared set (`Arc::make_mut` clones on
-/// shared mutation — ADR 0038).
-fn insert_candidate(
-    candidates: &mut BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
-    topic: TopicId,
-    node: &PeerId,
-) {
-    let peers = candidates.entry(topic).or_default();
+/// Add `node` to one stored membership set.
+fn insert_member(peers: &mut Arc<BTreeSet<PeerId>>, node: &PeerId) {
+    // Checked first because a no-op `Arc::make_mut` on a shared set would
+    // deep-copy it just to change nothing (ADR 0038).
     if !peers.contains(node) {
         Arc::make_mut(peers).insert(node.clone());
     }
 }
 
-/// Remove `node` from `topic`'s stored membership set, if both exist. Guarded
-/// like [`insert_candidate`] so a no-op removal never clones a shared set.
+/// Remove `node` from one stored membership set.
+fn remove_member(peers: &mut Arc<BTreeSet<PeerId>>, node: &PeerId) {
+    // Checked first because a no-op `Arc::make_mut` on a shared set would
+    // deep-copy it just to change nothing (ADR 0038).
+    if peers.contains(node) {
+        Arc::make_mut(peers).remove(node);
+    }
+}
+
+/// Insert `node` into `topic`'s stored membership set.
+fn insert_candidate(
+    candidates: &mut BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
+    topic: TopicId,
+    node: &PeerId,
+) {
+    insert_member(candidates.entry(topic).or_default(), node);
+}
+
+/// Remove `node` from `topic`'s stored membership set, if the topic has one.
 fn remove_candidate(
     candidates: &mut BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
     topic: &TopicId,
     node: &PeerId,
 ) {
     if let Some(peers) = candidates.get_mut(topic) {
-        if peers.contains(node) {
-            Arc::make_mut(peers).remove(node);
-        }
+        remove_member(peers, node);
     }
 }
 
@@ -796,9 +806,7 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
                 state.candidates.clear();
             } else {
                 for peers in state.candidates.values_mut() {
-                    if peers.contains(&node) {
-                        Arc::make_mut(peers).remove(&node);
-                    }
+                    remove_member(peers, &node);
                 }
             }
         }
