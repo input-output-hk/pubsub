@@ -53,10 +53,15 @@ pub(crate) struct NodeState {
     subscriptions: BTreeSet<TopicId>,
     received: Vec<ReceivedDelivery>,
     verifier: Arc<dyn Verifier>,
-    /// Per-topic candidate peers, folded from the subscription-registry stream
-    /// (`Event::MembershipUpdate`). The node's own id is never present
-    /// (`IMPLEMENTATION_NOTES` N-007, closed by the config-peers removal).
-    candidates: BTreeMap<TopicId, BTreeSet<PeerId>>,
+    /// Per-topic members of each registered topic, folded from the
+    /// subscription-registry stream (`Event::MembershipUpdate`). Each set is a
+    /// topic's **full membership including this node** (ADR 0038): identical
+    /// across subscribers, so driver-owned cores can share one `Arc` per topic
+    /// (the folds mutate via `Arc::make_mut` — a clone only when shared, which
+    /// a real node's maps never are). Self-exclusion is read-time: the
+    /// [`NodeView`] accessors and [`candidates_snapshot`](Self::candidates_snapshot)
+    /// never expose the node's own id.
+    candidates: BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
     /// Registered topics → their authorized publisher keys (empty ⇒ open),
     /// folded from the topic-registry stream (`Event::TopicRegistryUpdate`).
     /// Written only by `handle_topic_registry_update`. The node's **effective**
@@ -175,6 +180,7 @@ impl NodeState {
     fn view(&self) -> NodeView<'_> {
         NodeView {
             subscriptions: &self.subscriptions,
+            self_id: &self.self_id,
             candidates: &self.candidates,
             upstream: &self.upstream,
             downstream: &self.downstream,
@@ -219,13 +225,31 @@ impl NodeState {
     }
 
     /// Snapshot of the candidate peers for `topic` (unspecified order; the
-    /// node's own id is never included). Empty if the topic has no members.
+    /// node's own id is never included — the stored set holds the full
+    /// membership, the exclusion is read-time). Empty if the topic has no
+    /// members.
     #[must_use]
     pub(crate) fn candidates_snapshot(&self, topic: &TopicId) -> Vec<PeerId> {
         self.candidates
             .get(topic)
-            .map(|peers| peers.iter().cloned().collect())
+            .map(|peers| {
+                peers
+                    .iter()
+                    .filter(|peer| **peer != self.self_id)
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default()
+    }
+
+    /// Whether the **stored** candidate set for `topic` contains `peer` — the
+    /// raw set, no self-exclusion; lets tests pin the full-membership invariant
+    /// the self-excluding readers sit on.
+    #[cfg(test)]
+    pub(crate) fn candidate_set_contains(&self, topic: &TopicId, peer: &PeerId) -> bool {
+        self.candidates
+            .get(topic)
+            .is_some_and(|peers| peers.contains(peer))
     }
 
     /// Snapshot of the **relay upstream** links — `(peer, topic, state)`
@@ -304,10 +328,12 @@ impl NodeState {
         self.subscriptions.insert(topic);
     }
 
-    /// Install the full candidate set for `topic` directly. The caller keeps
-    /// the fold invariants: the node's own id is never in the set, and the
-    /// topic is already registered.
-    pub(crate) fn prepopulate_candidates(&mut self, topic: TopicId, peers: BTreeSet<PeerId>) {
+    /// Install the membership set for `topic` directly. The caller keeps the
+    /// fold invariants: the set is the topic's **full membership including
+    /// this node** (self-exclusion is read-time, ADR 0038), and the topic is
+    /// already registered. Taking the `Arc` lets the driver hand every core
+    /// the same shared set.
+    pub(crate) fn prepopulate_candidates(&mut self, topic: TopicId, peers: Arc<BTreeSet<PeerId>>) {
         self.candidates.insert(topic, peers);
     }
 
@@ -658,29 +684,63 @@ fn log_topic_not_registered(self_id: &PeerId, topic: &TopicId) {
     );
 }
 
+/// Insert `node` into `topic`'s stored membership set. The `contains` guard
+/// keeps a no-op insert from cloning a shared set (`Arc::make_mut` clones on
+/// shared mutation — ADR 0038).
+fn insert_candidate(
+    candidates: &mut BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
+    topic: TopicId,
+    node: &PeerId,
+) {
+    let peers = candidates.entry(topic).or_default();
+    if !peers.contains(node) {
+        Arc::make_mut(peers).insert(node.clone());
+    }
+}
+
+/// Remove `node` from `topic`'s stored membership set, if both exist. Guarded
+/// like [`insert_candidate`] so a no-op removal never clones a shared set.
+fn remove_candidate(
+    candidates: &mut BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
+    topic: &TopicId,
+    node: &PeerId,
+) {
+    if let Some(peers) = candidates.get_mut(topic) {
+        if peers.contains(node) {
+            Arc::make_mut(peers).remove(node);
+        }
+    }
+}
+
 /// Transition for a subscription-registry membership delta — **strict drop**.
 ///
-/// The node derives its membership-side state from this single stream: an event
-/// about the node's **own** id updates its subscription set; an event about
-/// **any other** node updates the per-topic candidate set. Both sides are gated
-/// on the registered-topics projection (the cross-registry invariant): a topic
-/// not currently registered is **dropped** — not admitted to `subscriptions`,
-/// not recorded as a `candidate` — and logged. There is no declared/pending
-/// buffer and no auto-promotion; under the chain follower's ordering (and the
-/// registry indexer folding the topic snapshot before the membership snapshot,
-/// see `crate::node`) a topic is registered before any membership event
-/// references it. The dial is triggered separately by `Event::Synced` once both
-/// snapshots are applied. Every arm returns no effects.
-// ADR 0020 (amends 0014); FR-001/FR-003/FR-003a.
+/// The node derives its membership-side state from this single stream: every
+/// event folds the named node into the per-topic membership sets (`candidates`
+/// — full membership, the node's own id included; ADR 0038), and an event
+/// about the node's **own** id additionally updates its subscription set. Both
+/// sides are gated on the registered-topics projection (the cross-registry
+/// invariant): a topic not currently registered is **dropped** — not admitted
+/// to `subscriptions`, not recorded as a `candidate` — and logged. There is no
+/// declared/pending buffer and no auto-promotion; under the chain follower's
+/// ordering (and the registry indexer folding the topic snapshot before the
+/// membership snapshot, see `crate::node`) a topic is registered before any
+/// membership event references it. The dial is triggered separately by
+/// `Event::Synced` once both snapshots are applied. Every arm returns no
+/// effects.
+// ADR 0020 (amends 0014), ADR 0038; FR-001/FR-003/FR-003a.
 fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Vec<Effect> {
     match event {
         MembershipEvent::Joined { node, topics } => {
             if node == state.self_id {
                 // The node's own entry *is* its subscription set — but only the
-                // registered topics (strict drop of unregistered ones).
+                // registered topics (strict drop of unregistered ones). The
+                // node is a member like any other, so it also enters the
+                // per-topic membership sets (the strategy view excludes it at
+                // read time).
                 let mut subscriptions = BTreeSet::new();
                 for topic in topics {
                     if state.registered_topics.contains_key(&topic) {
+                        insert_candidate(&mut state.candidates, topic.clone(), &node);
                         subscriptions.insert(topic);
                     } else {
                         log_topic_not_registered(&state.self_id, &topic);
@@ -690,11 +750,7 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             } else {
                 for topic in topics {
                     if state.registered_topics.contains_key(&topic) {
-                        state
-                            .candidates
-                            .entry(topic)
-                            .or_default()
-                            .insert(node.clone());
+                        insert_candidate(&mut state.candidates, topic, &node);
                     } else {
                         log_topic_not_registered(&state.self_id, &topic);
                     }
@@ -709,6 +765,7 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             if node == state.self_id {
                 for topic in added {
                     if state.registered_topics.contains_key(&topic) {
+                        insert_candidate(&mut state.candidates, topic.clone(), &node);
                         state.subscriptions.insert(topic);
                     } else {
                         log_topic_not_registered(&state.self_id, &topic);
@@ -722,19 +779,13 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
             } else {
                 for topic in added {
                     if state.registered_topics.contains_key(&topic) {
-                        state
-                            .candidates
-                            .entry(topic)
-                            .or_default()
-                            .insert(node.clone());
+                        insert_candidate(&mut state.candidates, topic, &node);
                     } else {
                         log_topic_not_registered(&state.self_id, &topic);
                     }
                 }
                 for topic in &removed {
-                    if let Some(peers) = state.candidates.get_mut(topic) {
-                        peers.remove(&node);
-                    }
+                    remove_candidate(&mut state.candidates, topic, &node);
                 }
             }
         }
@@ -745,7 +796,9 @@ fn handle_membership_update(state: &mut NodeState, event: MembershipEvent) -> Ve
                 state.candidates.clear();
             } else {
                 for peers in state.candidates.values_mut() {
-                    peers.remove(&node);
+                    if peers.contains(&node) {
+                        Arc::make_mut(peers).remove(&node);
+                    }
                 }
             }
         }

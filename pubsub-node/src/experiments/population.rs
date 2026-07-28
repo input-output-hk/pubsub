@@ -536,24 +536,26 @@ impl Population {
 
     /// Direct state pre-population — the fast-path registration mode:
     /// every participant gets the topic registered open, its own
-    /// subscription, the full candidate set (self excluded), and readiness,
-    /// with no folds and no readiness dial.
+    /// subscription, the topic's full membership set (self included — the
+    /// strategy view excludes the node's own id at read time, ADR 0038), and
+    /// readiness, with no folds and no readiness dial.
     pub fn prepopulate_registration(&mut self) {
-        let ids = self.peer_ids();
+        let members: BTreeSet<PeerId> = self.participants.keys().cloned().collect();
         let topic = self.topic.clone();
-        for (id, participant) in &mut self.participants {
-            let peers: BTreeSet<PeerId> = ids.iter().filter(|i| *i != id).cloned().collect();
+        for participant in self.participants.values_mut() {
             let state = participant.state_mut();
             state.prepopulate_registered_topic(topic.clone(), BTreeSet::new());
             state.prepopulate_subscription(topic.clone());
-            state.prepopulate_candidates(topic.clone(), peers);
+            state.prepopulate_candidates(topic.clone(), Arc::new(members.clone()));
             state.prepopulate_synced();
         }
     }
 
     /// The faithful-mode registration script for one target node: the topic
-    /// registration fold, then one membership fold per member (the node's own
-    /// entry sets its subscriptions; the others fold the candidate set). The
+    /// registration fold, then one membership fold per member — every entry
+    /// folds into the per-topic membership set (the node's own entry also
+    /// sets its subscriptions), reproducing the fast path's full-membership
+    /// content (ADR 0038). The
     /// readiness event is deliberately absent — the driver injects all
     /// `Synced` events as one wave, after every node has folded these
     /// (the registration barrier).
@@ -665,7 +667,8 @@ mod tests {
     }
 
     // 016-FR-008: the fast path pre-populates registration — topic registered,
-    // subscribed, full candidate set (self excluded), synced — with no folds.
+    // subscribed, the full membership set (self stored, excluded at read —
+    // ADR 0038), synced — with no folds.
     #[test]
     fn prepopulation_installs_the_registered_view() {
         let mut population = Population::build(&config(4, 0), &seeds()).expect("valid build");

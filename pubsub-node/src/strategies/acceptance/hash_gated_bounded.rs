@@ -1,8 +1,6 @@
 //! The verifiable, bounded inbound-acceptance policy:
 //! [`HashGatedBoundedAcceptance`] (bucketed-pull, ADR 0025).
 
-use std::collections::BTreeSet;
-
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
@@ -103,8 +101,10 @@ impl ConnectionAcceptanceStrategy for HashGatedBoundedAcceptance {
         // always-true and admitting edges the full view would reject (fail-open —
         // why the handler gates on `Synced`). A pinned `bucket_override` removes
         // the dependence entirely (both ends use the same configured B). The
-        // emitter is the requester, this node the candidate.
-        let candidate_count = view.candidates.get(topic).map_or(0, BTreeSet::len);
+        // emitter is the requester, this node the candidate. The count is
+        // self-excluded via the view's read seam — the same input the dialer
+        // derives from.
+        let candidate_count = view.candidates_len(topic);
         let buckets = resolve_buckets(self.bucket_override, candidate_count, self.target_degree);
         let valid = if self.symmetric {
             is_valid_edge_sym(view.epoch_nonce, topic, emitter, &self.self_id, buckets)

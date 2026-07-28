@@ -1,21 +1,24 @@
 use super::super::*;
 use super::*;
 
-// US3 / FR-013/015/016: MembershipUpdate folds into per-topic candidate
-// sets; the node's own id is excluded; the transition returns no effects.
+// US3 / FR-013/015/016: MembershipUpdate folds into per-topic membership
+// sets; the node's own id folds in like any member (ADR 0038) but the
+// snapshot excludes it; the transition returns no effects.
 #[test]
 fn membership_updates_fold_into_candidates_excluding_self() {
     let mut state = state_subscribed(vec![topic("t1"), topic("t2")]); // self_id = "self"
     let script = MembershipScript::new()
         .joined("a", ["t1"])
         .joined("b", ["t1", "t2"])
-        .joined("self", ["t1"]) // own id — must be ignored
+        .joined("self", ["t1"]) // own id — stored, never in the snapshot
         .topics_changed("a", ["t2"], ["t1"])
         .left("b");
     for ev in script {
         assert!(apply(&mut state, Event::MembershipUpdate(ev)).is_empty());
     }
-    // a moved t1->t2; b left; self never added.
+    // a moved t1->t2; b left; self folds into the stored set (the full-
+    // membership invariant, ADR 0038) but every snapshot excludes it.
+    assert!(state.candidate_set_contains(&topic("t1"), &peer("self")));
     assert!(state.candidates_snapshot(&topic("t1")).is_empty());
     assert_eq!(state.candidates_snapshot(&topic("t2")), vec![peer("a")]);
 }

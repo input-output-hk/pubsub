@@ -10,20 +10,19 @@ use crate::topic::TopicId;
 /// The v1 connection-selection policy: connect to **every** candidate on
 /// **every** topic the node is a member of.
 ///
-/// Self-exclusion is input-borne — the candidate sets the node folds from the
-/// subscription registry never contain its own id, so the expected set never
-/// does either. This policy maintains the full per-topic mesh; degree limits and
-/// the verifiable gate are the bounded policy's job ([`HashGatedConnection`](super::HashGatedConnection)).
+/// Self-exclusion is view-borne — the stored membership sets include the node
+/// itself (ADR 0038), and [`NodeView::candidates_for`] excludes it at read
+/// time, so the expected set never contains the node's own id. This policy
+/// maintains the full per-topic mesh; degree limits and the verifiable gate
+/// are the bounded policy's job ([`HashGatedConnection`](super::HashGatedConnection)).
 pub struct ConnectToAllCandidates;
 
 impl ConnectionStrategy for ConnectToAllCandidates {
     fn expected_links(&self, view: &NodeView<'_>) -> BTreeSet<(PeerId, TopicId)> {
         let mut expected = BTreeSet::new();
         for topic in view.subscriptions {
-            if let Some(peers) = view.candidates.get(topic) {
-                for peer in peers {
-                    expected.insert((peer.clone(), topic.clone()));
-                }
+            for peer in view.candidates_for(topic) {
+                expected.insert((peer.clone(), topic.clone()));
             }
         }
         expected
@@ -80,12 +79,12 @@ mod tests {
             .is_empty());
     }
 
-    // Self-exclusion is input-borne: the policy passes through whatever the
-    // candidate sets contain, so a self-excluded input yields a self-excluded set.
+    // Self-exclusion is view-borne (ADR 0038): the stored set includes the
+    // node's own id, and the view's read seam excludes it from the selection.
     #[test]
-    fn self_exclusion_is_input_borne() {
+    fn self_exclusion_is_view_borne() {
         let subs = subscriptions(&["t1"]);
-        let cands = candidates(&[("t1", &["a", "b"])]);
+        let cands = candidates(&[("t1", &["a", "b", "self"])]);
         let down = BTreeMap::new();
         let expected = ConnectToAllCandidates.expected_links(&view(&subs, &cands, &down));
         assert!(!expected.contains(&(peer("self"), topic("t1"))));
