@@ -468,6 +468,8 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 
 **Trigger to revisit**: the first experiment needing N ≫ 20 000, or the peer-sampling/view-discovery feature — whichever lands first.
 
+**Resolved (ADR 0038, 2026-07-27)**: the shared-view direction was implemented. `candidates` stores each topic's **full membership including the node itself** as `Arc<BTreeSet<PeerId>>` behind self-excluding `NodeView` read accessors, and the fast-path registration hands every core the same shared set — one N-element set per run instead of N of them, with registration work down from O(N²) to O(N) as well. Measured: one N = 20 000 operating-point run peaks at ~0.63 GB RSS (was ~30 GB), so the worker count stops being a memory knob and the plan's ~10⁵-node populations become reachable. The peer-id-interning direction is superseded; the `H_v`/view-sampling direction remains open as protocol work, now decoupled from the driver's memory budget.
+
 ## N-034 — Experiment round budget: multi-round runs as an explicit, deterministic knob
 
 **Surfaced during**: 016 PR review (PR #102), a reviewer design suggestion.

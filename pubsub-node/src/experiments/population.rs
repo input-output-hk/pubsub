@@ -539,14 +539,20 @@ impl Population {
     /// subscription, the topic's full membership set (self included — the
     /// strategy view excludes the node's own id at read time, ADR 0038), and
     /// readiness, with no folds and no readiness dial.
+    ///
+    /// Every core receives the **same** `Arc`-shared membership set — one
+    /// (N)-element set per run instead of N of them, the O(N²) → O(N)
+    /// collapse of N-033. Nothing mutates the sets after this point (churn
+    /// marks participants down without touching membership), so the sharing
+    /// survives the whole run.
     pub fn prepopulate_registration(&mut self) {
-        let members: BTreeSet<PeerId> = self.participants.keys().cloned().collect();
+        let members: Arc<BTreeSet<PeerId>> = Arc::new(self.participants.keys().cloned().collect());
         let topic = self.topic.clone();
         for participant in self.participants.values_mut() {
             let state = participant.state_mut();
             state.prepopulate_registered_topic(topic.clone(), BTreeSet::new());
             state.prepopulate_subscription(topic.clone());
-            state.prepopulate_candidates(topic.clone(), Arc::new(members.clone()));
+            state.prepopulate_candidates(topic.clone(), Arc::clone(&members));
             state.prepopulate_synced();
         }
     }
