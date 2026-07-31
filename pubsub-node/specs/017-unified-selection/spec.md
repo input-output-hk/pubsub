@@ -142,6 +142,20 @@
 >
 > Full pre-spec design record: notes/017-unified-selection-pre-spec.md.
 
+## Clarifications
+
+### Session 2026-07-31
+
+- Q: What does startup do when the publisher seam is activated solely by
+  acceptance-side knobs (e.g. `--publisher-accept-cap` with no publisher dial
+  knob)? → A: Reject at startup — activating the publisher seam requires at
+  least one dial knob (`--publisher-pick-count`, 0 permitted, or
+  `--publisher-bucket-count`); the error names the accept-only spelling
+  (pick count 0).
+- Q: The final spelling of the per-seam verification opt-out flag? → A:
+  `--relay-accept-unverified` / `--publisher-accept-unverified` (the
+  Assumptions default, confirmed).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configure selection as plane coordinates (Priority: P1)
@@ -353,6 +367,11 @@ determinism battery.
   healthy degree is ≈ 2× the pick count, so caps there anchor on ≈ 2K.
 - Verification opt-out on a seam with no bucket count: the flag consumes
   nothing (the gate is already vacuous) — rejected as unused.
+- Publisher seam activated by acceptance knobs alone (e.g.
+  `--publisher-accept-cap` with no publisher dial knob): rejected at startup
+  — the dial side's intent is ambiguous between accept-only and the
+  full-mesh default; the error names the accept-only spelling
+  (`--publisher-pick-count 0`).
 - A fleet sharing one selection-seed value: per-node draws remain independent
   by construction (self-identity in the derivation).
 - Epoch nonce change without teardown: picks and gated edges re-randomise
@@ -400,7 +419,11 @@ determinism battery.
   consumes MUST fail startup with an actionable message.
 - **FR-008**: The publisher seam MUST activate on the presence of any
   `--publisher-*` knob and remain off by construction otherwise (no dial
-  pass; inbound publisher requests dropped).
+  pass; inbound publisher requests dropped). A publisher seam activated
+  solely by acceptance-side knobs MUST fail startup: activation requires at
+  least one dial knob (`--publisher-pick-count`, 0 permitted, or
+  `--publisher-bucket-count`), and the error names the accept-only spelling
+  (pick count 0).
 - **FR-009**: The fan-out default MUST become forward-to-all;
   forward-to-relays remains available as the explicit M3-exclusivity flag.
 
@@ -550,8 +573,9 @@ determinism battery.
   across repeated heartbeats but change across an epoch-nonce change.
 - **SC-007**: Every misconfiguration named in this spec (bucket count < 2 on
   the CLI, sampling without a seed, a seed without sampling, verification
-  opt-out without gating, any unconsumed flag) fails startup with an
-  actionable message, verified by tests.
+  opt-out without gating, a publisher seam activated without a dial knob,
+  any unconsumed flag) fails startup with an actionable message, verified by
+  tests.
 - **SC-008**: The four dial strategy types, four acceptance strategy types,
   both kind enums, `resolve_buckets`, `bucket_count(len, target_degree)`,
   `accept_cap(K, c)`, and the `--cap-buffer` flag no longer exist in the
@@ -559,10 +583,10 @@ determinism battery.
 
 ## Assumptions
 
-- The verification opt-out flag spelling is `--relay-accept-unverified` /
-  `--publisher-accept-unverified` unless a clarification round settles a
-  different name; all other flag spellings are as decided in the pre-spec
-  round.
+- All flag spellings are as decided in the pre-spec round; the verification
+  opt-out spelling (`--relay-accept-unverified` /
+  `--publisher-accept-unverified`) was confirmed in the 2026-07-31
+  clarification session.
 - Implementation-note numbers (the two new notes) are assigned at
   implementation time as the next free N-numbers.
 - The experiments driver keeps deriving per-participant 32-byte seeds from
