@@ -98,6 +98,14 @@ All three share `resolve_buckets` / `bucket_count` / `accept_cap` untouched.
 | **M4 (approximation)** | `--relay-strategy hash-gated --relay-acceptance-strategy hash-gated --relay-degree RF --symmetric-edges` (no publisher flags) — constructed bidirectional links (ADR 0034), but binomial per-node degree; the exact M4 (min degree ≥ RF) additionally needs the uniform exactly-RF selection kind (follow-up feature) |
 | **M5** | M3 flags with `--relay-degree K_IN --publisher-degree K_OUT --fanout-strategy forward-to-all` |
 
+> **Amendment (2026-08-01, feature 017).** The uniform exactly-RF selection
+> landed as the selection plane's pick count and the M4 row's label is
+> claimed: the real M4 is `--relay-pick-count RF --relay-symmetric` (minimum
+> degree ≥ RF by construction). The kind and degree flags in this table were
+> replaced by the 017 knob surface in the same feature — the canonical
+> recipes are `specs/017-unified-selection/quickstart.md`; this table remains
+> the 015-era record.
+
 `--symmetric-edges` composes with capped acceptance (a capacity refusal
 refuses the whole edge — one accept decision per symmetric link, ADR 0034).
 M3 and M5 deliberately differ **only** in `--fanout-strategy`: the receive

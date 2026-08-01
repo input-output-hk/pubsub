@@ -654,3 +654,292 @@ async fn publisher_seam_presence_activates_acceptance() {
         "a node without the publisher seam must drop inbound publisher requests",
     );
 }
+
+// ---- 017 US2: the real M4 — uniform picks over the symmetric handshake -----
+//
+// (bucket count absent, pick count = K) + constructed reciprocity (ADR 0034)
+// is the formal M4 exactly: own picks all land (the acceptor has no cap), so
+// minimum degree ≥ K by construction, and mean degree ≈ 2K (own picks plus
+// inbound picks, less the mutual-pick overlap ≈ K²/(N−1), which the fleet
+// size keeps inside the 5% bound). 017 SC-003; spec US2 scenarios 1–2.
+
+const T_M4: Duration = Duration::from_secs(10);
+
+/// The deduplicated upstream/downstream peer-name sets of a node.
+fn peer_sets(node: &Node) -> (BTreeSet<String>, BTreeSet<String>) {
+    let up = node
+        .upstream_relays()
+        .into_iter()
+        .map(|(p, _, _)| p.to_string())
+        .collect();
+    let down = node
+        .downstream_relays()
+        .into_iter()
+        .map(|(p, _)| p.to_string())
+        .collect();
+    (up, down)
+}
+
+/// Poll until every node's upstream peer set equals its downstream peer set
+/// AND meets its expected minimum size — the symmetric fleet's quiescence
+/// signal (mid-handshake a dialer holds a pending upstream with no mirror
+/// yet) — then hold a short per-node no-change window.
+async fn await_symmetric_quiescence(nodes: &[Node], min_len: &[usize], timeout: Duration) {
+    let start = tokio::time::Instant::now();
+    loop {
+        let settled = nodes.iter().zip(min_len).all(|(node, min)| {
+            let entries = node.upstream_relays();
+            let all_active = entries
+                .iter()
+                .all(|(_, _, state)| *state == pubsub_node::LinkState::Active);
+            let (up, down) = peer_sets(node);
+            all_active && up == down && up.len() >= *min
+        });
+        if settled {
+            break;
+        }
+        assert!(
+            start.elapsed() < timeout,
+            "the symmetric fleet did not reach reciprocal quiescence within {timeout:?}",
+        );
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+    for node in nodes {
+        common::assert_no_connection_change(node, Duration::from_millis(30)).await;
+    }
+}
+
+// 017 SC-003 / US2 scenarios 1–2: a symmetric uniform-pick fleet exhibits
+// full reciprocity, minimum degree ≥ the pick count, and mean degree within
+// 5% of 2× the pick count.
+#[tokio::test]
+async fn m4_uniform_symmetric_fleet_meets_the_formal_floor() {
+    const N: usize = 41;
+    const PICKS: usize = 2;
+    let t = topic("t1");
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let names: Vec<String> = (0..N).map(|i| format!("m{i:02}")).collect();
+
+    // Seed EVERY membership before any node constructs, so each node's
+    // readiness dial already sees the full candidate view: a sampled pick set
+    // is a function of the candidate SET, and a partial-view readiness dial
+    // would union extra picks into the add-only dial model.
+    for name in &names {
+        registry
+            .set_topics(peer(name), std::iter::once(t.clone()).collect())
+            .await
+            .expect("pre-seed fleet membership");
+    }
+
+    let mut nodes: Vec<Node> = Vec::new();
+    for (i, name) in names.iter().enumerate() {
+        // Per-node sampling seeds (a fleet does not share one seed here; the
+        // fleet-shared-seed independence property is the commit-B derivation's
+        // and is unit-tested there).
+        let mut seed = [0u8; 32];
+        seed[0] = u8::try_from(i).expect("fleet fits u8");
+        let strategies = NodeStrategies::relay_only(
+            Arc::new(
+                Selection::new(peer(name), seed)
+                    .with_pick_count(Some(PICKS))
+                    .with_symmetric(true),
+            ),
+            accept_all(&peer(name)),
+        )
+        .with_symmetric_edges(true);
+        nodes.push(
+            node_with_links(
+                &registry,
+                &network,
+                name,
+                std::slice::from_ref(&t),
+                strategies,
+                Arc::new(ForwardToRelays),
+                0,
+            )
+            .await,
+        );
+    }
+
+    for (i, node) in nodes.iter().enumerate() {
+        let others: Vec<&str> = names
+            .iter()
+            .enumerate()
+            .filter(|(j, _)| *j != i)
+            .map(|(_, n)| n.as_str())
+            .collect();
+        await_candidates(node, &t, &others, T_M4)
+            .await
+            .expect("candidates converge");
+    }
+    for node in &nodes {
+        trigger_setup(node);
+    }
+
+    // Own picks all land: every node reaches degree ≥ PICKS.
+    await_symmetric_quiescence(&nodes, &vec![PICKS; N], T_M4).await;
+
+    let mut degrees: Vec<usize> = Vec::with_capacity(N);
+    let mut peer_map: Vec<BTreeSet<String>> = Vec::with_capacity(N);
+    for (i, node) in nodes.iter().enumerate() {
+        let (up, down) = peer_sets(node);
+        assert_eq!(
+            up, down,
+            "{}: every link must be recorded in both collections",
+            names[i],
+        );
+        assert!(
+            node.upstream_relays()
+                .iter()
+                .all(|(_, _, state)| *state == pubsub_node::LinkState::Active),
+            "{}: no half-open links at quiescence",
+            names[i],
+        );
+        degrees.push(up.len());
+        peer_map.push(up);
+    }
+
+    // Cross-end reciprocity: a link known to one end is known to the other.
+    for (i, peers) in peer_map.iter().enumerate() {
+        for other in peers {
+            let j = names.iter().position(|n| &peer(n).to_string() == other);
+            let j = j.expect("linked peer is a fleet member");
+            assert!(
+                peer_map[j].contains(&peer(&names[i]).to_string()),
+                "{} holds {} but not vice versa",
+                names[i],
+                names[j],
+            );
+        }
+    }
+
+    // The formal floor and the mean (017 SC-003).
+    let min_degree = *degrees.iter().min().expect("nonempty fleet");
+    assert!(
+        min_degree >= PICKS,
+        "minimum degree {min_degree} must be ≥ the pick count {PICKS}",
+    );
+    #[allow(clippy::cast_precision_loss)] // fleet-sized counts, ≪ 2^52
+    let (mean, target) = (
+        degrees.iter().sum::<usize>() as f64 / N as f64,
+        (2 * PICKS) as f64,
+    );
+    assert!(
+        (mean - target).abs() <= 0.05 * target,
+        "mean degree {mean:.3} must be within 5% of {target}",
+    );
+}
+
+// 017 US2 scenario 3: the symmetric flag with a bucket count — the
+// unordered-pair predicate gates candidates BEFORE the uniform draw, so
+// every realized edge passes it and reciprocity still holds (the
+// protocol-track symmetric point remains expressible as coordinates).
+#[tokio::test]
+async fn m4_symmetric_gate_composes_with_picks() {
+    const PICKS: usize = 2;
+    let names = ["g0", "g1", "g2", "g3", "g4", "g5", "g6", "g7"];
+    let t = topic("t1");
+
+    // A genesis with a non-trivial symmetric edge set at BUCKETS, so the
+    // fleet realises at least one gated link (predicate is public, so the
+    // survivor sets are computable offline).
+    let genesis = (0..512u64)
+        .find(|g| sym_edges(&names, *g, &t).len() >= 4)
+        .expect("some genesis under 512 yields at least four symmetric edges");
+    let edges = sym_edges(&names, genesis, &t);
+    let neighbors = |i: usize| -> BTreeSet<String> {
+        edges
+            .iter()
+            .filter_map(|&(a, b)| {
+                if a == i {
+                    Some(peer(names[b]).to_string())
+                } else if b == i {
+                    Some(peer(names[a]).to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    };
+
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    // Full candidate view before any readiness dial (see the fleet test).
+    for name in names {
+        registry
+            .set_topics(peer(name), std::iter::once(t.clone()).collect())
+            .await
+            .expect("pre-seed fleet membership");
+    }
+    let mut nodes: Vec<Node> = Vec::new();
+    for (i, id) in names.iter().enumerate() {
+        let mut seed = [7u8; 32];
+        seed[0] = u8::try_from(i).expect("fleet fits u8");
+        let strategies = NodeStrategies::relay_only(
+            Arc::new(
+                Selection::new(peer(id), seed)
+                    .with_bucket_count(Some(BUCKETS))
+                    .with_pick_count(Some(PICKS))
+                    .with_symmetric(true),
+            ),
+            Arc::new(
+                UnifiedAcceptance::new(peer(id))
+                    .with_gate(Some(BUCKETS))
+                    .with_symmetric(true),
+            ),
+        )
+        .with_symmetric_edges(true);
+        nodes.push(
+            node_with_links(
+                &registry,
+                &network,
+                id,
+                std::slice::from_ref(&t),
+                strategies,
+                Arc::new(ForwardToRelays),
+                genesis,
+            )
+            .await,
+        );
+    }
+
+    for (i, node) in nodes.iter().enumerate() {
+        let others: Vec<&str> = names
+            .iter()
+            .enumerate()
+            .filter(|(j, _)| *j != i)
+            .map(|(_, n)| *n)
+            .collect();
+        await_candidates(node, &t, &others, T_M4)
+            .await
+            .expect("candidates converge");
+    }
+    for node in &nodes {
+        trigger_setup(node);
+    }
+
+    // Each node's own picks — min(PICKS, survivors) — all land.
+    let min_len: Vec<usize> = (0..names.len())
+        .map(|i| PICKS.min(neighbors(i).len()))
+        .collect();
+    await_symmetric_quiescence(&nodes, &min_len, T_M4).await;
+
+    for (i, node) in nodes.iter().enumerate() {
+        let (up, down) = peer_sets(node);
+        assert_eq!(up, down, "{}: reciprocity holds under the gate", names[i]);
+        assert!(
+            up.is_subset(&neighbors(i)),
+            "{}: every realized edge must pass the unordered-pair predicate",
+            names[i],
+        );
+    }
+    assert!(
+        nodes
+            .iter()
+            .map(|n| n.upstream_relays().len())
+            .sum::<usize>()
+            > 0,
+        "the fixture genesis must realise at least one gated link",
+    );
+}

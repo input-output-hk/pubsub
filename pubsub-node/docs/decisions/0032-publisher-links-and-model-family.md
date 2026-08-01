@@ -131,6 +131,12 @@ superseded by it and remain reference-only (they never merged).
   uniform exactly-RF selection kind lands (follow-up feature); for the other
   models quantifying the gap against the published laws is the experiment
   harness's job.
+  *Amendment (2026-08-01, feature 017 / ADR 0039): the uniform exactly-RF
+  selection landed as the selection plane's pick count, and the deferred
+  label is claimed — (bucket count absent, pick count = RF) over the
+  symmetric handshake is the formal M4 exactly (minimum degree ≥ RF by
+  construction; fleet evidence in `tests/model_family.rs`). Hash-gated
+  configurations remain the protocol-track deviation to quantify.*
 
 ## Alternatives rejected
 

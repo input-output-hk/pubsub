@@ -196,13 +196,13 @@ fleet-level evidence; the deferral text is retired.
 floor, mean); no "approximation" disclaimer remains greppable in the named
 docs.
 
-- [ ] T019 [P] [US2] Write the failing M4 fleet tests in
+- [x] T019 [P] [US2] Write the failing M4 fleet tests in
       `tests/model_family.rs`: symmetric + pick count (no bucket count) ⇒
       full reciprocity (both maps, both ends), minimum degree ≥ pick count,
       mean degree within 5% of 2× pick count; plus the symmetric × gated
       composition case (unordered-pair predicate gates before the draw) —
       then make them pass (017 SC-003; spec US2 scenarios)
-- [ ] T020 [US2] Upgrade the M4 label where it is disclaimed: the M4 section
+- [x] T020 [US2] Upgrade the M4 label where it is disclaimed: the M4 section
       of `specs/015-publisher-links/quickstart.md` (recipe now claims the
       label via the 017 knobs), the modelling caveat consequence in
       `docs/decisions/0032-publisher-links-and-model-family.md` and the
