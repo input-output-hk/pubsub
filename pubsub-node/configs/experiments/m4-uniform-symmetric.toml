@@ -1,0 +1,38 @@
+# The M4-completing recipe: uniform exactly-RF picks over the constructed-
+# reciprocity symmetric handshake — the formal M4 exactly (minimum degree
+# >= RF by construction, mean degree ~ 2*RF fleet-wide). The first recorded
+# M4 baseline; the operating scale mirrors the bulk-regime point
+# (N = 4 000, mu = 0.2, RF = 16) at a run count sized for topology
+# structure rather than tail probabilities (M4's minimum-degree floor makes
+# bad graphs vanishingly rare at RF = 16).
+#
+# `model` names the graph-analytics extraction, and the M2 extraction is
+# the correct one here: on a symmetric population every relay link is
+# mirrored, so the extracted propagation digraph is symmetric by
+# construction and the one-SCC goodness criterion applies unchanged. A
+# separate M4 dispatch name would alias this extraction exactly.
+#
+# Run manually (~30 s release at default workers):
+#
+#   experiments --config configs/experiments/m4-uniform-symmetric.toml --out results/m4/
+
+model = "m2"
+master_seed = 44
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16 # RF - exactly-RF uniform picks
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 500

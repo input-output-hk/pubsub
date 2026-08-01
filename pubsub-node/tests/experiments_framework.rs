@@ -521,9 +521,13 @@ fn shipped_config(name: &str) -> String {
 // test stays far inside the 30-second budget.
 #[test]
 fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
-    // The two manual comparison configurations must at least validate — a
-    // shipped config that no longer parses is a broken deliverable.
-    for name in ["m2-operating-point.toml", "m2-bulk-regime.toml"] {
+    // The manual comparison/baseline configurations must at least validate —
+    // a shipped config that no longer parses is a broken deliverable.
+    for name in [
+        "m2-operating-point.toml",
+        "m2-bulk-regime.toml",
+        "m4-uniform-symmetric.toml",
+    ] {
         parse_sweep_description(&shipped_config(name))
             .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
     }
