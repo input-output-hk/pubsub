@@ -9,13 +9,30 @@ use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ConnectionStrategy, Event, FanoutStrategy,
-    ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    LinkState, Message, MessageHash, MessagePayload, MockCryptoScheme, Node, NodeStrategies,
-    NodeView, Origin, PeerId, PlainMessage, PrivateKey, PublisherId, ReceivedDelivery,
-    SignedMessage, Signer, SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp,
-    TopicId, TopicRegistryControl, Verifier,
+    ConnectionAcceptanceStrategy, ConnectionStrategy, Event, FanoutStrategy, ForwardToRelays,
+    InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, Message,
+    MessageHash, MessagePayload, MockCryptoScheme, Node, NodeStrategies, NodeView, Origin, PeerId,
+    PlainMessage, PrivateKey, PublisherId, ReceivedDelivery, Selection, SignedMessage, Signer,
+    SubscriptionRegistryControl, TestSigner, TestVerifier, Timestamp, TopicId,
+    TopicRegistryControl, UnifiedAcceptance, Verifier,
 };
+
+/// The plane-origin dial policy for `id` (both selection knobs absent): dial
+/// every candidate — the pre-017 connect-to-all shape.
+pub fn dial_all(id: &PeerId) -> Arc<dyn ConnectionStrategy> {
+    Arc::new(Selection::new(id.clone(), [0u8; 32]))
+}
+
+/// The plane-origin acceptance for `id` (no gate, no cap): accept every
+/// membership-valid request — the pre-017 accept-from-all shape.
+pub fn accept_all(id: &PeerId) -> Arc<dyn ConnectionAcceptanceStrategy> {
+    Arc::new(UnifiedAcceptance::new(id.clone()))
+}
+
+/// Parse a test alias into its [`PeerId`].
+pub fn peer_id(id: &str) -> PeerId {
+    PeerId::from_str(id).expect("valid id")
+}
 
 /// Install a process-global `tracing` subscriber that routes events through
 /// Rust's test capture (`with_test_writer`). With this in place, the
@@ -193,10 +210,7 @@ pub async fn two_node_fixture_with_subscriptions(
         verifier.clone(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&a_id), accept_all(&a_id)),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -210,10 +224,7 @@ pub async fn two_node_fixture_with_subscriptions(
         verifier,
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&b_id), accept_all(&b_id)),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -263,7 +274,7 @@ pub async fn node_with(
         network,
         id,
         topics,
-        Arc::new(ConnectToAllCandidates),
+        dial_all(&peer_id(id)),
         0, // genesis: the default initial epoch nonce
     )
     .await
@@ -300,6 +311,7 @@ pub async fn node_with_strategy(
             .expect("register topic open");
     }
     let signer = alias_signer(&id.to_string());
+    let acceptance = accept_all(&id);
     let node = Node::new(
         id,
         genesis,
@@ -308,7 +320,7 @@ pub async fn node_with_strategy(
         shared_test_verifier(),
         registry.clone(),
         topic_registry,
-        NodeStrategies::relay_only(strategy, Arc::new(AcceptFromAllCandidates)),
+        NodeStrategies::relay_only(strategy, acceptance),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -341,18 +353,16 @@ pub async fn node_sharing(
     network: &Arc<InMemoryNetwork>,
     id: &str,
 ) -> Node {
+    let id = peer_id(id);
     let node = Node::new(
-        PeerId::from_str(id).expect("valid id"),
+        id.clone(),
         0, // genesis: the default initial epoch nonce
         network.clone(),
-        alias_signer(id),
+        alias_signer(&id.to_string()),
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&id), accept_all(&id)),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -878,7 +888,7 @@ pub fn node<'a>(
         network,
         id: id.to_string(),
         topics: Vec::new(),
-        strategy: Arc::new(ConnectToAllCandidates),
+        strategy: dial_all(&peer_id(id)),
     }
 }
 

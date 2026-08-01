@@ -14,9 +14,9 @@ use common::{
     build_signed_message_simple, node_with_links, ping,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, AcceptNone, ConnectToAllCandidates, DialNone, ForwardToRelays,
-    InMemoryNetwork, InMemorySubscriptionRegistry, Message, MessagePayload, MockCryptoScheme, Node,
-    NodeStrategies, PeerId, TopicId,
+    ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, LinkKind, Message,
+    MessagePayload, MockCryptoScheme, Node, NodeStrategies, PeerId, Selection, TopicId,
+    UnifiedAcceptance,
 };
 
 /// A `Ping(n)` on `t` signed with `alias`'s own key — the publication the
@@ -37,15 +37,20 @@ fn peer(s: &str) -> PeerId {
 
 const T: Duration = Duration::from_secs(2);
 
-/// A publisher-only strategy set: NO relay dials at all (an explicit empty
-/// expected set), publisher links to every candidate. Any delivery in this
-/// fleet can only have crossed a publisher link.
-fn publisher_only() -> NodeStrategies {
+/// A publisher-only strategy set: NO relay links at all (pick count 0 dials
+/// none; a serve-none cap refuses inbound), publisher links to every
+/// candidate (the publisher instance at the plane origin). Any delivery in
+/// this fleet can only have crossed a publisher link.
+fn publisher_only(id: &str) -> NodeStrategies {
     NodeStrategies {
-        relay_connection: Arc::new(DialNone),
-        relay_acceptance: Arc::new(AcceptNone),
-        publisher_connection: Some(Arc::new(ConnectToAllCandidates)),
-        publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
+        relay_connection: Arc::new(Selection::new(peer(id), [0u8; 32]).with_pick_count(Some(0))),
+        relay_acceptance: Arc::new(UnifiedAcceptance::new(peer(id)).with_accept_cap(Some(0))),
+        publisher_connection: Some(Arc::new(
+            Selection::new(peer(id), [0u8; 32]).for_kind(LinkKind::Publisher),
+        )),
+        publisher_acceptance: Some(Arc::new(
+            UnifiedAcceptance::new(peer(id)).for_kind(LinkKind::Publisher),
+        )),
         symmetric_edges: false,
     }
 }
@@ -64,7 +69,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         &network,
         "a",
         &topics,
-        publisher_only(),
+        publisher_only("a"),
         Arc::new(ForwardToRelays),
         0,
     )
@@ -74,7 +79,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         &network,
         "b",
         &topics,
-        publisher_only(),
+        publisher_only("b"),
         Arc::new(ForwardToRelays),
         0,
     )
@@ -84,7 +89,7 @@ async fn publisher_only_fleet() -> (Arc<InMemoryNetwork>, Node, Node, Node) {
         &network,
         "c",
         &topics,
-        publisher_only(),
+        publisher_only("c"),
         Arc::new(ForwardToRelays),
         0,
     )

@@ -1,21 +1,23 @@
-//! 015 model-family integration: M4 — bidirectional relay links from the
-//! symmetric edge predicate. Every link forms as a reciprocal pair, and one
-//! publication floods the whole predicate-connected graph.
+//! Model-family integration: M4 — bidirectional relay links from the
+//! symmetric edge predicate (every link forms as a reciprocal pair, one
+//! publication floods the predicate-connected graph) — plus the 017 selection
+//! plane's coordinate points exercised through a real node and event loop.
 
 mod common;
 
+use std::collections::BTreeSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    assert_no_new_deliveries, await_candidates, await_publisher_target_active,
-    await_upstream_active, node_with_links, ping, trigger_setup, ConnectToExplicit,
+    accept_all, assert_no_new_deliveries, await_candidates, await_publisher_target_active,
+    await_upstream_active, dial_all, node_with_links, ping, trigger_setup, ConnectToExplicit,
 };
 use pubsub_node::{
-    is_valid_edge_sym, AcceptFromAllCandidates, AcceptNone, DialNone, FanoutStrategy, ForwardToAll,
-    ForwardToRelays, HashGatedAcceptance, HashGatedConnection, InMemoryNetwork,
-    InMemorySubscriptionRegistry, Message, Node, NodeStrategies, PeerId, TopicId,
+    is_valid_edge, is_valid_edge_sym, FanoutStrategy, ForwardToAll, ForwardToRelays,
+    InMemoryNetwork, InMemorySubscriptionRegistry, LinkKind, Message, Node, NodeStrategies, PeerId,
+    Selection, SubscriptionRegistryControl, TopicId, UnifiedAcceptance,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -27,8 +29,7 @@ fn peer(s: &str) -> PeerId {
 }
 
 const T: Duration = Duration::from_secs(2);
-const BUCKETS: usize = 2; // pinned on both seams AND in the offline sweep
-const DEGREE: usize = 3;
+const BUCKETS: usize = 2; // fed to both seams AND the offline sweep
 
 /// The symmetric-edge pairs (i < j) among `names` at `genesis` — the exact
 /// edge set the fleet must realise (the predicate is pure and public).
@@ -68,19 +69,19 @@ fn is_connected(names: &[&str], genesis: u64, t: &TopicId) -> bool {
     reached.into_iter().all(|r| r)
 }
 
-/// An M4 node: symmetric hash-gated relay selection AND acceptance (pinned
-/// B so the offline sweep and both seams agree by construction); no
-/// publisher links.
+/// A symmetric gated node: symmetric relay selection AND acceptance at one
+/// fed bucket count (so the offline sweep and both seams agree by
+/// construction); no publisher links.
 fn m4_strategies(id: &str) -> NodeStrategies {
     NodeStrategies::relay_only(
         Arc::new(
-            HashGatedConnection::new(peer(id), DEGREE)
-                .with_bucket_override(Some(BUCKETS))
+            Selection::new(peer(id), [0u8; 32])
+                .with_bucket_count(Some(BUCKETS))
                 .with_symmetric(true),
         ),
         Arc::new(
-            HashGatedAcceptance::new(peer(id), DEGREE)
-                .with_bucket_override(Some(BUCKETS))
+            UnifiedAcceptance::new(peer(id))
+                .with_gate(Some(BUCKETS))
                 .with_symmetric(true),
         ),
     )
@@ -235,19 +236,22 @@ async fn await_content(node: &Node, message: &Message, timeout: Duration) {
 
 // ---- M5: directed publisher chain, everything-carrying ----------------------
 
-/// An M5-chain node: no relay links at all; publisher links to an explicit
+/// An M5-chain node: no relay links at all (pick count 0 on the dial side,
+/// serve-none cap on the acceptance side); publisher links to an explicit
 /// target list (the directed `k_out` picks); publisher acceptance open.
-fn chain_strategies(targets: &[(&str, &TopicId)]) -> NodeStrategies {
+fn chain_strategies(id: &str, targets: &[(&str, &TopicId)]) -> NodeStrategies {
     NodeStrategies {
-        relay_connection: Arc::new(DialNone),
-        relay_acceptance: Arc::new(AcceptNone),
+        relay_connection: Arc::new(Selection::new(peer(id), [0u8; 32]).with_pick_count(Some(0))),
+        relay_acceptance: Arc::new(UnifiedAcceptance::new(peer(id)).with_accept_cap(Some(0))),
         publisher_connection: Some(Arc::new(ConnectToExplicit(
             targets
                 .iter()
                 .map(|(p, t)| (peer(p), (*t).clone()))
                 .collect(),
         ))),
-        publisher_acceptance: Some(Arc::new(AcceptFromAllCandidates)),
+        publisher_acceptance: Some(Arc::new(
+            UnifiedAcceptance::new(peer(id)).for_kind(LinkKind::Publisher),
+        )),
         symmetric_edges: false,
     }
 }
@@ -263,7 +267,7 @@ async fn chain_fleet(fanout: fn() -> Arc<dyn FanoutStrategy>) -> (Node, Node, No
         &network,
         "a",
         std::slice::from_ref(&t),
-        chain_strategies(&[("b", &t)]),
+        chain_strategies("a", &[("b", &t)]),
         fanout(),
         0,
     )
@@ -273,7 +277,7 @@ async fn chain_fleet(fanout: fn() -> Arc<dyn FanoutStrategy>) -> (Node, Node, No
         &network,
         "b",
         std::slice::from_ref(&t),
-        chain_strategies(&[("c", &t)]),
+        chain_strategies("b", &[("c", &t)]),
         fanout(),
         0,
     )
@@ -283,7 +287,7 @@ async fn chain_fleet(fanout: fn() -> Arc<dyn FanoutStrategy>) -> (Node, Node, No
         &network,
         "c",
         std::slice::from_ref(&t),
-        chain_strategies(&[]),
+        chain_strategies("c", &[]),
         fanout(),
         0,
     )
@@ -355,4 +359,298 @@ fn alias_ping_m5(alias: &str, t: &TopicId, n: u64) -> Message {
     };
     let signature = signer.sign(&plain.signed_bytes());
     Message::Dissemination(SignedMessage { plain, signature })
+}
+
+// ---- 017 US1: the selection plane's coordinate points -----------------------
+//
+// One selection implementation over two knobs, exercised through a real node
+// and event loop. The candidate ids are registry members only — not live
+// nodes — so dials stay `AwaitingAccept` and the node's upstream SET is
+// exactly its selection (the 005 bounded_selection harness pattern).
+
+fn candidate_names(n: usize) -> Vec<String> {
+    (0..n).map(|i| format!("c{i:02}")).collect()
+}
+
+/// Poll until the node holds exactly `n` upstream entries, or time out.
+async fn await_upstream_count(node: &Node, n: usize, timeout: Duration) {
+    let start = tokio::time::Instant::now();
+    loop {
+        let len = node.upstream_relays().len();
+        if len == n {
+            return;
+        }
+        assert!(
+            start.elapsed() < timeout,
+            "upstream count never reached {n} (last saw {len})",
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// Build one node running `strategies` on a topic with `candidates`
+/// pre-seeded registry members, await `expected_len` upstream entries, and
+/// return the selected peer set.
+async fn selected_upstreams(
+    id: &str,
+    candidates: &[String],
+    strategies: NodeStrategies,
+    expected_len: usize,
+) -> BTreeSet<PeerId> {
+    let t = topic("t1");
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let network = Arc::new(InMemoryNetwork::new());
+    for c in candidates {
+        registry
+            .set_topics(peer(c), std::iter::once(t.clone()).collect())
+            .await
+            .expect("seed candidate membership");
+    }
+    let node = node_with_links(
+        &registry,
+        &network,
+        id,
+        std::slice::from_ref(&t),
+        strategies,
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let names: Vec<&str> = candidates.iter().map(String::as_str).collect();
+    await_candidates(&node, &t, &names, T)
+        .await
+        .expect("candidates converge");
+    trigger_setup(&node); // the retry heartbeat over the full candidate view
+    await_upstream_count(&node, expected_len, T).await;
+    node.upstream_relays()
+        .into_iter()
+        .map(|(p, _, _)| p)
+        .collect()
+}
+
+/// The predicate-survivor set for `id` over `candidates` at bucket count `b`
+/// under genesis 0 — the offline twin of the gate.
+fn gate_survivors(id: &str, candidates: &[String], b: usize) -> BTreeSet<PeerId> {
+    candidates
+        .iter()
+        .map(|c| peer(c))
+        .filter(|c| is_valid_edge(0, &topic("t1"), &peer(id), c, b))
+        .collect()
+}
+
+// 017 US1 scenario 4: both knobs absent — every candidate is selected (the
+// pre-017 connect-to-all default, preserved as the default behaviour).
+#[tokio::test]
+async fn plane_origin_selects_every_candidate() {
+    let candidates = candidate_names(6);
+    let strategies =
+        NodeStrategies::relay_only(dial_all(&peer("origin")), accept_all(&peer("origin")));
+    let selected = selected_upstreams("origin", &candidates, strategies, 6).await;
+    assert_eq!(selected, candidates.iter().map(|c| peer(c)).collect());
+}
+
+// 017 US1 scenario 1: pick count only — exactly min(pick count, candidates)
+// uniform picks, and the same seed over the same membership reproduces the
+// identical set (repeated heartbeats within the epoch re-dial it).
+#[tokio::test]
+async fn pick_count_only_selects_exactly_that_many() {
+    let candidates = candidate_names(6);
+    let strategies = |seed: [u8; 32]| {
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("picker"), seed).with_pick_count(Some(3))),
+            accept_all(&peer("picker")),
+        )
+    };
+    let first = selected_upstreams("picker", &candidates, strategies([7u8; 32]), 3).await;
+    assert!(first.iter().all(|p| candidates.contains(&p.to_string())));
+    let again = selected_upstreams("picker", &candidates, strategies([7u8; 32]), 3).await;
+    assert_eq!(first, again, "same seed, same membership, same picks");
+}
+
+// 017 US1 scenario 2: bucket count only — exactly the predicate survivors
+// (the previous hash-gated behaviour, preserved as a plane point).
+#[tokio::test]
+async fn bucket_count_only_selects_the_predicate_survivors() {
+    let candidates = candidate_names(8);
+    let survivors = gate_survivors("gated", &candidates, BUCKETS);
+    let strategies = NodeStrategies::relay_only(
+        Arc::new(Selection::new(peer("gated"), [0u8; 32]).with_bucket_count(Some(BUCKETS))),
+        accept_all(&peer("gated")),
+    );
+    let selected = selected_upstreams("gated", &candidates, strategies, survivors.len()).await;
+    assert_eq!(selected, survivors);
+}
+
+// 017 US1 scenario 3: both knobs — min(pick count, survivors) picks, every
+// dialed edge inside the predicate-survivor set.
+#[tokio::test]
+async fn gated_picks_stay_inside_the_survivor_set() {
+    let candidates = candidate_names(8);
+    let survivors = gate_survivors("both", &candidates, BUCKETS);
+    let expected_len = 2.min(survivors.len());
+    let strategies = NodeStrategies::relay_only(
+        Arc::new(
+            Selection::new(peer("both"), [7u8; 32])
+                .with_bucket_count(Some(BUCKETS))
+                .with_pick_count(Some(2)),
+        ),
+        accept_all(&peer("both")),
+    );
+    let selected = selected_upstreams("both", &candidates, strategies, expected_len).await;
+    assert_eq!(selected.len(), expected_len);
+    assert!(
+        selected.is_subset(&survivors),
+        "every dialed edge must pass the predicate",
+    );
+}
+
+// 017 US1 scenario 5: pick count 0 dials no relay links while the acceptance
+// side still serves inbound requests (the push-only M1 shape).
+#[tokio::test]
+async fn pick_count_zero_dials_none_but_still_serves() {
+    let t = topic("t1");
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let network = Arc::new(InMemoryNetwork::new());
+    let m1 = node_with_links(
+        &registry,
+        &network,
+        "m1",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("m1"), [0u8; 32]).with_pick_count(Some(0))),
+            accept_all(&peer("m1")),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let dialer = node_with_links(
+        &registry,
+        &network,
+        "dialer",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToExplicit(vec![(peer("m1"), t.clone())])),
+            accept_all(&peer("dialer")),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    for node in [&m1, &dialer] {
+        await_candidates(
+            node,
+            &t,
+            &[if node.id() == m1.id() { "dialer" } else { "m1" }],
+            T,
+        )
+        .await
+        .expect("candidates converge");
+        trigger_setup(node);
+    }
+    // The M1 node's acceptance served the dial…
+    await_upstream_active(&dialer, m1.id(), &t, T)
+        .await
+        .expect("the pick-count-0 node still accepts inbound requests");
+    // …while its own dial side selected nothing.
+    assert!(
+        m1.upstream_relays().is_empty(),
+        "pick count 0 must dial no relay links",
+    );
+}
+
+// 017 US1 scenario 6: the publisher seam is off by construction without its
+// pair (inbound publisher requests are dropped) and active with it.
+#[tokio::test]
+async fn publisher_seam_presence_activates_acceptance() {
+    let t = topic("t1");
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let network = Arc::new(InMemoryNetwork::new());
+    // "served" carries the publisher pair; "off" does not.
+    let served = node_with_links(
+        &registry,
+        &network,
+        "served",
+        std::slice::from_ref(&t),
+        NodeStrategies {
+            relay_connection: Arc::new(
+                Selection::new(peer("served"), [0u8; 32]).with_pick_count(Some(0)),
+            ),
+            relay_acceptance: accept_all(&peer("served")),
+            publisher_connection: Some(Arc::new(
+                Selection::new(peer("served"), [0u8; 32])
+                    .for_kind(LinkKind::Publisher)
+                    .with_pick_count(Some(0)),
+            )),
+            publisher_acceptance: Some(Arc::new(
+                UnifiedAcceptance::new(peer("served")).for_kind(LinkKind::Publisher),
+            )),
+            symmetric_edges: false,
+        },
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let off = node_with_links(
+        &registry,
+        &network,
+        "off",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("off"), [0u8; 32]).with_pick_count(Some(0))),
+            accept_all(&peer("off")),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let dialer = node_with_links(
+        &registry,
+        &network,
+        "dialer",
+        std::slice::from_ref(&t),
+        NodeStrategies {
+            relay_connection: Arc::new(
+                Selection::new(peer("dialer"), [0u8; 32]).with_pick_count(Some(0)),
+            ),
+            relay_acceptance: accept_all(&peer("dialer")),
+            publisher_connection: Some(Arc::new(ConnectToExplicit(vec![
+                (peer("served"), t.clone()),
+                (peer("off"), t.clone()),
+            ]))),
+            publisher_acceptance: Some(Arc::new(
+                UnifiedAcceptance::new(peer("dialer")).for_kind(LinkKind::Publisher),
+            )),
+            symmetric_edges: false,
+        },
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    for (node, others) in [
+        (&served, ["off", "dialer"]),
+        (&off, ["served", "dialer"]),
+        (&dialer, ["served", "off"]),
+    ] {
+        await_candidates(node, &t, &others, T)
+            .await
+            .expect("candidates converge");
+    }
+    for node in [&served, &off, &dialer] {
+        trigger_setup(node);
+    }
+
+    // The seam-carrying node accepts the standing publisher link…
+    await_publisher_target_active(&dialer, served.id(), &t, T)
+        .await
+        .expect("the publisher-configured node accepts the initiation dial");
+    // …the seam-less node drops it silently: the dial never activates.
+    let still_pending = dialer
+        .downstream_publishers()
+        .into_iter()
+        .any(|(p, _, state)| &p == off.id() && state != pubsub_node::LinkState::Active);
+    assert!(
+        still_pending,
+        "a node without the publisher seam must drop inbound publisher requests",
+    );
 }

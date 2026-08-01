@@ -5,12 +5,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, await_candidates, await_delivery, await_synced, establish_upstreams, node_with,
-    ping, shared_test_verifier,
+    accept_all, alias_signer, await_candidates, await_delivery, await_synced, dial_all,
+    establish_upstreams, node_with, ping, shared_test_verifier,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node, NodeStrategies, PeerId, TopicId,
+    ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry, Node,
+    NodeStrategies, PeerId, TopicId,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -39,10 +39,7 @@ async fn node_with_no_registry_entry_derives_empty_state() {
         shared_test_verifier(),
         registry,
         topic_registry,
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("ghost")), accept_all(&peer("ghost"))),
         Arc::new(ForwardToRelays),
     )
     .await

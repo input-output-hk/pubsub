@@ -232,16 +232,15 @@ fn sent_action(effect: &Effect) -> Option<(&PeerId, &ConnectionAction)> {
     }
 }
 
-// FR-007/FR-008 / US2: at the per-topic cap, `HashGatedBoundedAcceptance`
-// refuses a further *legitimate* request with an explicit `Rejected` (not a
-// severance) and records no downstream entry. A small topic (a single candidate
-// ⇒ B=1) makes the edge predicate always hold, so this exercises the cap + the
-// handler wiring (the predicate/bucket math is covered by the strategy's own
-// unit tests).
+// FR-007/FR-008 / US2: at the per-topic cap, a capped acceptance refuses a
+// further *legitimate* request with an explicit `Rejected` (not a severance)
+// and records no downstream entry. No gate is configured, so this exercises
+// the cap + the handler wiring (the predicate math is covered by the
+// strategy's own unit tests).
 #[test]
 fn over_capacity_request_is_rejected_with_signal_not_severance() {
     let t = topic("t1");
-    // target_degree = 1 ⇒ cap = ⌈1 + 3·√1⌉ = 4.
+    // A fed absolute cap of 4.
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
@@ -249,8 +248,8 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
         Arc::new(TestVerifier),
         alias_signer("self"),
         NodeStrategies::relay_only(
-            strategy(),
-            Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 3)),
+            dial_all("self"),
+            Arc::new(UnifiedAcceptance::new(peer("self")).with_accept_cap(Some(4))),
         ),
         Arc::new(ForwardToRelays),
     );
@@ -259,14 +258,15 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
     apply(&mut state, Event::Synced);
     apply(&mut state, reg_open("t1"));
     apply(&mut state, membership_joined("self", ["t1"]));
-    apply(&mut state, membership_joined("a", ["t1"])); // sole candidate ⇒ B=1
+    apply(&mut state, membership_joined("a", ["t1"])); // the sole candidate
                                                        // Pre-seed downstream to the cap (4 already-accepted peers on t1).
     for p in ["w", "x", "y", "z"] {
         with_downstream(&mut state, p, "t1");
     }
 
-    // `a` is a member and B=1 (predicate holds), but the topic is at its cap ⇒
-    // refused with an explicit Rejected, no downstream entry, no Misbehaved.
+    // `a` is a member (and there is no gate to fail), but the topic is at its
+    // cap ⇒ refused with an explicit Rejected, no downstream entry, no
+    // Misbehaved.
     let reject = apply(&mut state, request_from("a", "t1"));
     assert!(!state
         .downstream
@@ -288,17 +288,14 @@ fn over_capacity_request_is_rejected_with_signal_not_severance() {
 #[test]
 fn rejected_dial_removes_pending_upstream() {
     let t = topic("t1");
-    // target_degree = 8 with 3 candidates ⇒ B = 1 ⇒ all three are dialed (small-topic path).
+    // Ungated dial-all: all three candidates are dialed.
     let mut state = NodeState::new(
         peer("self"),
         BTreeSet::from([t.clone()]),
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer("self"),
-        NodeStrategies::relay_only(
-            Arc::new(HashGatedConnection::new(peer("self"), 8)),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all("self"), accept_all("self")),
         Arc::new(ForwardToRelays),
     );
     apply(&mut state, reg_open("t1"));
@@ -307,9 +304,9 @@ fn rejected_dial_removes_pending_upstream() {
         apply(&mut state, membership_joined(c, ["t1"]));
     }
 
-    apply(&mut state, Event::Synced); // fires Heartbeat(0); B=1 dials all three
+    apply(&mut state, Event::Synced); // fires Heartbeat(0); ungated dials all three
     let dialed: Vec<PeerId> = state.upstream.keys().map(|k| k.peer.clone()).collect();
-    assert_eq!(dialed.len(), 3, "B=1 dials every candidate");
+    assert_eq!(dialed.len(), 3, "ungated selection dials every candidate");
     let rejected_peer = dialed[0].clone();
 
     // That peer rejects the dial: only its pending upstream is dropped; no

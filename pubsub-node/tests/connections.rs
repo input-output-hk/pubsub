@@ -6,15 +6,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{
-    alias_signer, assert_no_connection_change, assert_no_new_deliveries, await_candidates,
-    await_delivery, await_downstream, await_peer_forgotten, await_upstream_active,
-    await_upstream_present, establish_mutual, establish_upstreams, node_with, ping,
-    shared_test_verifier, tampered_ping, trigger_setup,
+    accept_all, alias_signer, assert_no_connection_change, assert_no_new_deliveries,
+    await_candidates, await_delivery, await_downstream, await_peer_forgotten,
+    await_upstream_active, await_upstream_present, dial_all, establish_mutual, establish_upstreams,
+    node_with, ping, shared_test_verifier, tampered_ping, trigger_setup,
 };
 use pubsub_node::{
-    AcceptFromAllCandidates, ConnectToAllCandidates, ForwardToRelays, InMemoryNetwork,
-    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkState, NetworkError, Node, NodeError,
-    NodeStrategies, Origin, PeerId, SubscriptionRegistryControl, TopicId, TopicRegistryControl,
+    ForwardToRelays, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
+    LinkState, NetworkError, Node, NodeError, NodeStrategies, Origin, PeerId,
+    SubscriptionRegistryControl, TopicId, TopicRegistryControl,
 };
 
 fn topic(s: &str) -> TopicId {
@@ -419,10 +419,7 @@ async fn readiness_establishes_autonomously() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("a")), accept_all(&peer("a"))),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -435,10 +432,7 @@ async fn readiness_establishes_autonomously() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("b")), accept_all(&peer("b"))),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -480,10 +474,7 @@ async fn construction_fails_on_duplicate_registration() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("a")), accept_all(&peer("a"))),
         Arc::new(ForwardToRelays),
     )
     .await
@@ -498,10 +489,7 @@ async fn construction_fails_on_duplicate_registration() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("a")), accept_all(&peer("a"))),
         Arc::new(ForwardToRelays),
     )
     .await;
@@ -533,10 +521,7 @@ async fn construction_fails_on_identity_mismatch() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("a")), accept_all(&peer("a"))),
         Arc::new(ForwardToRelays),
     )
     .await;
@@ -555,10 +540,7 @@ async fn construction_fails_on_identity_mismatch() {
         shared_test_verifier(),
         registry.clone(),
         topic_registry.clone(),
-        NodeStrategies::relay_only(
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
-        ),
+        NodeStrategies::relay_only(dial_all(&peer("a")), accept_all(&peer("a"))),
         Arc::new(ForwardToRelays),
     )
     .await

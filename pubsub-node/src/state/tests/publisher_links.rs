@@ -16,8 +16,8 @@ fn publisher_dials_fire_unconditionally() {
         let mut state = node_state_with_publishers(
             "self",
             HashSet::from([topic("t1")]),
-            Arc::new(ConnectToAllCandidates),
-            Arc::new(AcceptFromAllCandidates),
+            Arc::new(Selection::new(peer("self"), [0u8; 32]).for_kind(LinkKind::Publisher)),
+            Arc::new(UnifiedAcceptance::new(peer("self")).for_kind(LinkKind::Publisher)),
         );
         apply(&mut state, membership_joined("self", ["t1"]));
         apply(&mut state, membership_joined("a", ["t1"]));
@@ -75,8 +75,8 @@ fn publisher_request_is_accepted_into_upstream_publishers() {
     let mut state = node_state_with_publishers(
         "self",
         HashSet::from([topic("t1")]),
-        Arc::new(ConnectToAllCandidates),
-        Arc::new(AcceptFromAllCandidates),
+        Arc::new(Selection::new(peer("self"), [0u8; 32]).for_kind(LinkKind::Publisher)),
+        Arc::new(UnifiedAcceptance::new(peer("self")).for_kind(LinkKind::Publisher)),
     );
     apply(&mut state, Event::Synced);
     apply(&mut state, membership_joined("a", ["t1"]));
@@ -331,7 +331,7 @@ fn all_links_fanout_unions_both_kinds_for_any_origin() {
         0,
         Arc::new(TestVerifier),
         alias_signer("self"),
-        NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
+        NodeStrategies::relay_only(dial_all("self"), accept_all("self")),
         Arc::new(ForwardToAll),
     );
     state
