@@ -317,12 +317,12 @@ behaviours; the m2-comparison doc carries the re-validated values.
       follow-through), with tests covering boundary axis values
       (`bucket_count = 1` cell ≡ ungated; `pick_count = 0` cell ≡ seam off)
       (017 FR-018; spec US5 scenario 1)
-- [ ] T030 [US5] Ship the M4-completing sweep configuration under
+- [x] T030 [US5] Ship the M4-completing sweep configuration under
       `configs/experiments/` (`symmetric = true`, `pick_count` set, no
       `bucket_count`; existing M2 extraction per research R7) and record its
       baseline per the baselines README — the first M4 baseline
       (017 FR-027)
-- [ ] T031 [US5] Re-execute the m2-comparison operating points at the final
+- [x] T031 [US5] Re-execute the m2-comparison operating points at the final
       implementation; confirm statistical agreement per the document's
       recorded methodology (raw counts + Wilson 95%; exact-agreement checks
       where defined); update `docs/experiments/m2-comparison.md` with the
