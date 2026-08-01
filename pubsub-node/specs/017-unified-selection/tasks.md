@@ -349,7 +349,7 @@ fully discharged.
       strategy-inventory/machinery wording from the pre-017 kind vocabulary
       (uniform-sampler, target_degree, accept-from-all, …) to the plane
       coordinates (017 FR-022, FR-024)
-- [ ] T035 Refresh the `CLAUDE.md` active-work stanza to the completed-branch
+- [x] T035 Refresh the `CLAUDE.md` active-work stanza to the completed-branch
       form (017 delivered shape, ADR/N-note pointers, baselines note)
       (017 FR-024)
 - [x] T036 Declined (maintainer decision, 2026-07-31): the optional
