@@ -172,7 +172,7 @@ baselines.
       `runs.jsonl`/`aggregates.json` **identical** (manifests differ in tool
       commit + config text only); determinism battery green (replay-by-seed,
       workers 1 vs K) — quickstart validation step 1 (017 FR-026, FR-028)
-- [ ] T018 [US1] Author ADR 0039 — the unified selection plane — in
+- [x] T018 [US1] Author ADR 0039 — the unified selection plane — in
       `docs/decisions/0039-unified-selection-plane.md` (scope per research
       R11: fed knobs, type/enum collapse, acceptance merge +
       verification-follows-B, fed caps, knob-only CLI, fan-out default flip,
