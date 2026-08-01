@@ -11,10 +11,34 @@
 
 use std::sync::Arc;
 
+use sha2::{Digest, Sha256};
+
 use crate::connection_state::LinkKind;
+use crate::message::push_len_prefixed;
 use crate::peer::PeerId;
 use crate::strategies::acceptance::{ConnectionAcceptanceStrategy, UnifiedAcceptance};
 use crate::strategies::connection::{ConnectionStrategy, Selection};
+
+/// Expand an operator-supplied u64 sampling seed into the 32-byte
+/// constructor seed [`SelectionParams::seed`] takes:
+/// `SHA-256( lp("pubsub/selection-seed/v1") ‖ seed_le8 )` with `lp` the
+/// crate's one length-prefix primitive.
+///
+/// A pure format expansion: self-identity and the epoch nonce are **not**
+/// mixed here — they enter in the selection instance's per-topic draw
+/// preimage, so the independence and re-randomisation properties live in
+/// one place for every construction site (the experiments driver injects
+/// its own per-participant 32-byte seeds and never calls this).
+// 017-T025; research R8. The operator flag is a reproducibility knob, not
+// secret material — the privacy posture is recorded with the seed
+// derivation decision.
+#[must_use]
+pub fn selection_seed_bytes(seed: u64) -> [u8; 32] {
+    let mut preimage = Vec::new();
+    push_len_prefixed(&mut preimage, b"pubsub/selection-seed/v1");
+    preimage.extend_from_slice(&seed.to_le_bytes());
+    Sha256::digest(&preimage).into()
+}
 
 /// The error strategy construction raises when the configuration lacks or
 /// mis-values a parameter.
@@ -228,9 +252,29 @@ impl NodeStrategies {
 
 #[cfg(test)]
 mod tests {
-    use super::{AcceptanceParams, NodeStrategies, SelectionParams, StrategyConfigError};
+    use super::{
+        selection_seed_bytes, AcceptanceParams, NodeStrategies, SelectionParams,
+        StrategyConfigError,
+    };
     use crate::connection_state::LinkKind;
     use crate::strategies::test_support::peer;
+
+    // 017-T025 (research R8): the operator-seed expansion is the documented
+    // domain-separated derivation — deterministic, seed-sensitive, and
+    // byte-for-byte the length-prefixed construction.
+    #[test]
+    fn selection_seed_expansion_is_pinned() {
+        use sha2::{Digest, Sha256};
+
+        assert_eq!(selection_seed_bytes(7), selection_seed_bytes(7));
+        assert_ne!(selection_seed_bytes(7), selection_seed_bytes(8));
+
+        let mut preimage = Vec::new();
+        crate::message::push_len_prefixed(&mut preimage, b"pubsub/selection-seed/v1");
+        preimage.extend_from_slice(&7u64.to_le_bytes());
+        let expected: [u8; 32] = Sha256::digest(&preimage).into();
+        assert_eq!(selection_seed_bytes(7), expected);
+    }
 
     fn selection_params(kind: LinkKind) -> SelectionParams {
         SelectionParams {

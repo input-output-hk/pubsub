@@ -74,7 +74,7 @@ pub use peer::{PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
 pub use strategies::acceptance::{Admission, ConnectionAcceptanceStrategy, UnifiedAcceptance};
 pub use strategies::config::{
-    AcceptanceParams, NodeStrategies, SelectionParams, StrategyConfigError,
+    selection_seed_bytes, AcceptanceParams, NodeStrategies, SelectionParams, StrategyConfigError,
 };
 pub use strategies::connection::{ConnectionStrategy, Selection};
 pub use strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};

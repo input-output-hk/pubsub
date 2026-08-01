@@ -10,10 +10,23 @@ use sha2::{Digest, Sha256};
 
 use super::ConnectionStrategy;
 use crate::connection_state::LinkKind;
+use crate::message::push_len_prefixed;
 use crate::peer::PeerId;
 use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
+
+/// Domain tag for the **relay** instance's per-topic draw — the sampling
+/// twin of the edge predicate's per-seam domain split, so one node's two
+/// seam instances never derive the same RNG stream over a shared seed.
+const RELAY_DRAW_DOMAIN: &[u8] = b"pubsub/uniform-selection/relay/v1";
+
+/// Domain tag for the **publisher** instance's per-topic draw: an
+/// independent stream from the relay instance's over the same (seed,
+/// self-identity, nonce, topic). There is no symmetric draw domain — the
+/// symmetric switch changes the gate predicate and the handshake vocabulary,
+/// not the draw.
+const PUBLISHER_DRAW_DOMAIN: &[u8] = b"pubsub/uniform-selection/publisher/v1";
 
 /// The unified link-selection policy: per subscribed topic, **gate**
 /// candidates by the seam's verifiable edge predicate at the configured
@@ -92,9 +105,10 @@ impl Selection {
     }
 
     /// Re-target the instance at a link kind (`Relay` is the constructor
-    /// default): the kind selects the hash domain the gate filters under —
-    /// the publisher instance's gate is an independent draw from the relay
-    /// instance's over the same view.
+    /// default): the kind selects both the hash domain the gate filters
+    /// under and the domain the pick draw derives from — the publisher
+    /// instance's gate AND picks are independent draws from the relay
+    /// instance's over the same view and seed.
     #[must_use]
     pub fn for_kind(mut self, kind: LinkKind) -> Self {
         self.kind = kind;
@@ -112,21 +126,31 @@ impl Selection {
         self
     }
 
-    /// The per-topic sampling seed feeding the pick draw's RNG: the
-    /// instance seed domain-separated by the topic, so multi-topic views
-    /// never reuse one stream across topics.
-    // 017-FR-026 commit A: this reproduces the experiments uniform-sampler
-    // derivation byte-exactly (domain `experiments/uniform-sampler/v1`,
-    // concatenated preimage, no epoch nonce or self-identity), so the
-    // recorded M2 baselines byte-diff identical across the strategy
-    // collapse; the honest preimage is commit B's one deliberate,
-    // re-baselined change (research R2).
-    fn topic_seed(&self, topic: &TopicId) -> [u8; 32] {
-        let mut hasher = Sha256::new();
-        hasher.update(b"experiments/uniform-sampler/v1");
-        hasher.update(self.seed);
-        hasher.update(topic.as_str().as_bytes());
-        hasher.finalize().into()
+    /// The per-topic sampling seed feeding the pick draw's RNG:
+    /// `SHA-256( lp(domain) ‖ lp(seed) ‖ lp(self-id key bytes) ‖ nonce_le8 ‖
+    /// lp(topic) )` with `lp` the crate's one length-prefix primitive and the
+    /// domain selected per seam by the instance's link kind. Each component
+    /// carries a property: the per-seam domain → one node's relay and
+    /// publisher instances draw independently; self-identity → a
+    /// fleet-shared seed still yields per-node-independent draws; the epoch
+    /// nonce → picks re-randomise on an epoch change and stay stable across
+    /// heartbeats within one; the length prefixes → no concatenation
+    /// collisions across distinct tuples.
+    // 017-FR-015/FR-026 commit B (017-T024): supersedes the commit-A
+    // reproduction of the experiments sampler derivation — the one
+    // deliberate, re-baselined result change (research R2; analysis.md I2).
+    fn topic_seed(&self, nonce: u64, topic: &TopicId) -> [u8; 32] {
+        let domain = match self.kind {
+            LinkKind::Relay => RELAY_DRAW_DOMAIN,
+            LinkKind::Publisher => PUBLISHER_DRAW_DOMAIN,
+        };
+        let mut preimage = Vec::new();
+        push_len_prefixed(&mut preimage, domain);
+        push_len_prefixed(&mut preimage, &self.seed);
+        push_len_prefixed(&mut preimage, self.self_id.as_public_key().as_bytes());
+        preimage.extend_from_slice(&nonce.to_le_bytes());
+        push_len_prefixed(&mut preimage, topic.as_str().as_bytes());
+        Sha256::digest(&preimage).into()
     }
 
     /// Whether the gate admits `candidate` on `topic` at `buckets` — the
@@ -179,7 +203,7 @@ impl ConnectionStrategy for Selection {
                         continue;
                     }
                     let amount = pick_count.min(survivors.len());
-                    let mut rng = ChaCha20Rng::from_seed(self.topic_seed(topic));
+                    let mut rng = ChaCha20Rng::from_seed(self.topic_seed(view.epoch_nonce, topic));
                     for index in rand::seq::index::sample(&mut rng, survivors.len(), amount) {
                         expected.insert((survivors[index].clone(), topic.clone()));
                     }
@@ -414,15 +438,17 @@ mod tests {
     }
 }
 
-/// 017-T004 — the commit-A derivation pin, re-recorded as fixture values at
-/// the deletion sweep (017-T016): the picks below were produced by the
-/// experiments `UniformSampler` derivation and verified value-for-value
-/// against the sampler while it still existed, so they pin `Selection`'s
-/// (bucket count absent, pick count = K) point to the recorded-baseline
-/// derivation byte-exactly (017-FR-025, 017-FR-026; research R2). The
-/// commit-B derivation swap deliberately supersedes these values (017-T024).
+/// The derivation value pin (017-T004 lineage). The commit-A fixtures —
+/// verified value-for-value against the experiments `UniformSampler` before
+/// its deletion, and byte-identity-proven against the recorded baselines at
+/// the 017-T017 gate — were superseded **by design** at the commit-B
+/// derivation swap (017-T024, 017-FR-026): the values below pin the
+/// commit-B derivation (per-seam domain, self-identity, epoch nonce,
+/// length-prefixed preimage) as independent literals, guarding against
+/// silent drift; the layout itself is reconstructed end to end in
+/// `seed_properties::draw_preimage_layout_is_pinned`.
 #[cfg(test)]
-mod commit_a_derivation_pin {
+mod derivation_pin {
     use std::collections::BTreeSet;
 
     use super::Selection;
@@ -449,15 +475,142 @@ mod commit_a_derivation_pin {
             .collect()
     }
 
-    // The commit-A derivation has no self-identity or epoch nonce in the
-    // preimage, so these values hold for any instance identity over the same
-    // seed, pick count, and candidate set.
+    // Commit-B values: unlike the commit-A pin, these are specific to the
+    // instance identity ("pin"), the relay draw domain, and epoch nonce 0 —
+    // all now preimage components.
     #[test]
-    fn pick_sets_match_the_recorded_sampler_derivation() {
+    fn pick_sets_match_the_commit_b_derivation() {
         assert_eq!(
             picks([7u8; 32], 5, 20),
-            expected(&["c002", "c009", "c012", "c015", "c019"]),
+            expected(&["c007", "c011", "c013", "c014", "c018"]),
         );
-        assert_eq!(picks([9u8; 32], 3, 8), expected(&["c001", "c002", "c007"]));
+        assert_eq!(picks([9u8; 32], 3, 8), expected(&["c001", "c005", "c006"]));
+    }
+}
+
+/// 017-T023 — the seed-property battery for the commit-B draw derivation
+/// (017-FR-015; spec US4 scenarios): the per-topic draw is a pure function
+/// of (the seam's domain, seed, self-identity key bytes, epoch nonce,
+/// topic).
+#[cfg(test)]
+mod seed_properties {
+    use std::collections::BTreeSet;
+
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha20Rng;
+    use sha2::{Digest, Sha256};
+
+    use super::Selection;
+    use crate::connection_state::LinkKind;
+    use crate::message::push_len_prefixed;
+    use crate::peer::PeerId;
+    use crate::strategies::connection::ConnectionStrategy;
+    use crate::strategies::test_support::{
+        candidates, no_links, peer, subscriptions, view_with_nonce,
+    };
+    use crate::topic::TopicId;
+
+    /// Picks of `selection` over a fresh 20-candidate single-topic view at
+    /// `nonce`.
+    fn picks_at(selection: &Selection, nonce: u64) -> BTreeSet<(PeerId, TopicId)> {
+        let ids: Vec<String> = (0..20).map(|i| format!("c{i:03}")).collect();
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let subs = subscriptions(&["t0"]);
+        let cands = candidates(&[("t0", &refs)]);
+        selection.expected_links(&view_with_nonce(&subs, &cands, no_links(), nonce))
+    }
+
+    // Purity: the same (seed, self-identity, nonce, view) reproduces the
+    // identical picks on every call.
+    #[test]
+    fn identical_inputs_reproduce_identical_picks() {
+        let selection = Selection::new(peer("node"), [7u8; 32]).with_pick_count(Some(3));
+        assert_eq!(picks_at(&selection, 5), picks_at(&selection, 5));
+    }
+
+    // US4 scenario 2: two nodes sharing one seed value draw independently —
+    // self-identity is mixed into the draw preimage, so a fleet-shared seed
+    // never yields correlated topologies.
+    #[test]
+    fn fleet_shared_seed_draws_per_node_independent_picks() {
+        let one = Selection::new(peer("one"), [7u8; 32]).with_pick_count(Some(3));
+        let two = Selection::new(peer("two"), [7u8; 32]).with_pick_count(Some(3));
+        assert_ne!(
+            picks_at(&one, 0),
+            picks_at(&two, 0),
+            "self-identity must decorrelate a fleet-shared seed",
+        );
+    }
+
+    // Analysis I2: one node's relay and publisher instances draw under
+    // separate per-seam domains — the sampling analogue of edge.rs's
+    // publisher_domain_is_an_independent_draw — so an M3/M5 node's publisher
+    // targets are uncorrelated with its relay upstreams even over one shared
+    // seed, ungated seams, and equal pick counts.
+    #[test]
+    fn relay_and_publisher_instances_draw_independently() {
+        let relay = Selection::new(peer("node"), [7u8; 32]).with_pick_count(Some(3));
+        let publisher = Selection::new(peer("node"), [7u8; 32])
+            .for_kind(LinkKind::Publisher)
+            .with_pick_count(Some(3));
+        assert_ne!(
+            picks_at(&relay, 0),
+            picks_at(&publisher, 0),
+            "the two seam instances must not derive the same RNG stream",
+        );
+    }
+
+    // US4 scenario 3: picks are stable across repeated dial ticks within an
+    // epoch and re-drawn when the epoch nonce changes — exactly as the gate's
+    // edges re-shuffle.
+    #[test]
+    fn nonce_change_redraws_and_heartbeats_stay_stable() {
+        let selection = Selection::new(peer("node"), [9u8; 32]).with_pick_count(Some(3));
+        assert_eq!(
+            picks_at(&selection, 0),
+            picks_at(&selection, 0),
+            "a repeated heartbeat re-dials the same set",
+        );
+        assert_ne!(
+            picks_at(&selection, 0),
+            picks_at(&selection, 1),
+            "an epoch-nonce change must re-randomise the picks",
+        );
+    }
+
+    // The pinned preimage layout (017-FR-015; research R2): the per-topic
+    // draw seed is SHA-256( lp(per-seam domain) ‖ lp(seed) ‖ lp(self-id key
+    // bytes) ‖ nonce_le8 ‖ lp(topic) ) with lp the crate's one length-prefix
+    // primitive, and the draw is index sampling over the sorted survivor
+    // list from a ChaCha20 stream keyed by it. Reconstructed here
+    // independently, end to end.
+    #[test]
+    fn draw_preimage_layout_is_pinned() {
+        let self_id = peer("pin");
+        let seed = [7u8; 32];
+        let nonce = 5u64;
+        let ids: Vec<String> = (0..20).map(|i| format!("c{i:03}")).collect();
+
+        let mut preimage = Vec::new();
+        push_len_prefixed(&mut preimage, b"pubsub/uniform-selection/relay/v1");
+        push_len_prefixed(&mut preimage, &seed);
+        push_len_prefixed(&mut preimage, self_id.as_public_key().as_bytes());
+        preimage.extend_from_slice(&nonce.to_le_bytes());
+        push_len_prefixed(&mut preimage, b"t0");
+        let topic_seed: [u8; 32] = Sha256::digest(&preimage).into();
+
+        let mut rng = ChaCha20Rng::from_seed(topic_seed);
+        let expected: BTreeSet<(PeerId, TopicId)> = rand::seq::index::sample(&mut rng, 20, 3)
+            .into_iter()
+            .map(|index| {
+                (
+                    peer(&ids[index]),
+                    "t0".parse::<TopicId>().expect("valid topic id"),
+                )
+            })
+            .collect();
+
+        let selection = Selection::new(self_id, seed).with_pick_count(Some(3));
+        assert_eq!(picks_at(&selection, nonce), expected);
     }
 }

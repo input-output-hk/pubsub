@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    AcceptanceParams, FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry,
-    InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId,
-    SelectionParams, Signer, TestVerifier, Verifier,
+    selection_seed_bytes, AcceptanceParams, FanoutStrategyKind, InMemoryNetwork,
+    InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node,
+    NodeStrategies, PeerId, SelectionParams, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -163,7 +163,7 @@ async fn main() {
     // seam's bucket count, with an explicit opt-out" is resolved right here at
     // the edge. The publisher pair goes through the same fallible call.
     // 017-FR-011 (opt-out at construction), 017-FR-008 (presence activation).
-    let seed_bytes = args.selection_seed.map_or([0u8; 32], expand_selection_seed);
+    let seed_bytes = args.selection_seed.map_or([0u8; 32], selection_seed_bytes);
     let publisher_active = args.publisher_bucket_count.is_some()
         || args.publisher_pick_count.is_some()
         || args.publisher_accept_cap.is_some()
@@ -240,17 +240,6 @@ async fn main() {
     }
 
     drop(node);
-}
-
-/// Expand the operator's u64 sampling seed into the 32-byte constructor seed.
-// 017-T010: provisional format expansion — the final domain-separated
-// derivation lands with the commit-B seed chain (017-T025, research R8). The
-// node CLI has no recorded baselines, so this intermediate form is free to
-// change.
-fn expand_selection_seed(seed: u64) -> [u8; 32] {
-    let mut bytes = [0u8; 32];
-    bytes[..8].copy_from_slice(&seed.to_le_bytes());
-    bytes
 }
 
 /// A rejected flag combination. Messages are operator-facing and actionable;
