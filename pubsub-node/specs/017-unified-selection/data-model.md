@@ -60,10 +60,14 @@ re-drawn on `Epoch` (commit B, via the nonce in the preimage).
   self-id; value-identical to the deleted `UniformSampler`.
 - *Commit B (final)*: `SHA-256( lp(domain) ‖ lp(seed) ‖ lp(self-id key
   bytes) ‖ nonce_le8 ‖ lp(topic-bytes) )` with `lp` = `push_len_prefixed`
-  and `domain = "pubsub/uniform-selection/v1"`. Properties carried by each
-  component: self-id → fleet-shared-seed independence; nonce → epoch
-  re-randomisation + heartbeat stability; length prefixes → no
-  concatenation collisions across distinct tuples.
+  and the domain selected per seam by the instance's `LinkKind` — mirroring
+  the edge predicate's per-seam domains:
+  `pubsub/uniform-selection/relay/v1` /
+  `pubsub/uniform-selection/publisher/v1`. Properties carried by each
+  component: per-seam domain → the relay and publisher instances of one
+  node draw independently; self-id → fleet-shared-seed independence;
+  nonce → epoch re-randomisation + heartbeat stability; length prefixes →
+  no concatenation collisions across distinct tuples.
 
 ## `UnifiedAcceptance` (acceptance seam; implements `ConnectionAcceptanceStrategy`)
 
@@ -158,6 +162,10 @@ doc updated).
 - Seam agreement: one per-seam bucket-count value feeds both the dial gate
   and the acceptor's verification — the agreement condition, by
   construction at the edge.
+- Per-seam draw independence: a node's relay and publisher `Selection`
+  instances derive under separate domains, so their picks are uncorrelated
+  even with one shared seed, ungated seams, and equal pick counts — the
+  sampling twin of the edge predicate's relay/publisher domain split.
 - Publisher instances are never symmetric (no flag exists; params default
   `false`), preserving ADR 0034's boundary.
 - The M2 point (bucket absent, pick = RF) reproduces the formal selection

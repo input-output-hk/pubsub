@@ -454,10 +454,14 @@ determinism battery.
 
 - **FR-014**: The CLI MUST require `--selection-seed <u64>` iff any seam has
   pick count ≥ 1, and reject it as unused otherwise.
-- **FR-015**: The per-topic draw MUST be a pure function of (domain, seed,
-  self-identity key bytes, epoch nonce, topic): stable across heartbeats
-  within an epoch, re-drawn when the epoch nonce changes, and per-node
-  independent under a fleet-shared seed value.
+- **FR-015**: The per-topic draw MUST be a pure function of (the seam's
+  domain, seed, self-identity key bytes, epoch nonce, topic): stable across
+  heartbeats within an epoch, re-drawn when the epoch nonce changes,
+  per-node independent under a fleet-shared seed value, and per-seam
+  independent on one node — the relay and publisher instances draw under
+  separate domains, so an M3/M5 node's publisher targets are uncorrelated
+  with its relay upstreams (the same independence the edge predicate's
+  per-seam hash domains already provide for gated selection).
 - **FR-016**: The selection implementation's constructor MUST keep taking 32
   seed bytes so the experiments driver's per-participant seed injection is
   unchanged.

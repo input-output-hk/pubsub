@@ -254,13 +254,16 @@ variation) passes; regenerated baselines recorded.
       `src/strategies/connection/selection.rs`: same (seed, self-id, nonce,
       view) ⇒ identical picks; differing seed ⇒ differing picks (whp);
       **two nodes sharing one seed draw independently** (self-id in the
-      preimage); nonce change ⇒ re-draw; repeated heartbeats ⇒ stable; plus
-      a pinned preimage fixture (length-prefixed layout) (017 FR-015;
-      spec US4 scenarios)
+      preimage); **one node's relay and publisher instances draw
+      independently** (per-seam domains — the sampling analogue of edge.rs's
+      `publisher_domain_is_an_independent_draw`); nonce change ⇒ re-draw;
+      repeated heartbeats ⇒ stable; plus a pinned preimage fixture
+      (length-prefixed layout) (017 FR-015; spec US4 scenarios)
 - [ ] T024 [US4] Swap the derivation to commit B in
-      `src/strategies/connection/selection.rs`: domain
-      `pubsub/uniform-selection/v1`, preimage `lp(domain) ‖ lp(seed) ‖
-      lp(self-id key bytes) ‖ nonce_le8 ‖ lp(topic)` via
+      `src/strategies/connection/selection.rs`: per-seam domains selected by
+      the instance's `LinkKind` — `pubsub/uniform-selection/relay/v1` /
+      `pubsub/uniform-selection/publisher/v1` — preimage `lp(domain) ‖
+      lp(seed) ‖ lp(self-id key bytes) ‖ nonce_le8 ‖ lp(topic)` via
       `push_len_prefixed`; update the T004 equivalence fixtures to the new
       pinned values (the commit-A pin is superseded by design — note it in
       the test) (research R2)
@@ -269,8 +272,9 @@ variation) passes; regenerated baselines recorded.
       bytes; seed-required validation already live from T009 (research R8)
 - [ ] T026 [P] [US4] Author ADR 0040 — selection randomness derivation — in
       `docs/decisions/0040-selection-randomness-derivation.md` (seed chain,
-      preimage layout, domain strings, the privacy stand-in posture and its
-      trigger, the two-commit derivation swap) (research R11)
+      preimage layout, the per-seam draw domains and the correlation defect
+      they close, the privacy stand-in posture and its trigger, the
+      two-commit derivation swap) (research R11)
 - [ ] T027 [US4] Record the two new implementation notes in
       `specs/IMPLEMENTATION_NOTES.md` at the next free numbers: gate-failing
       dials as provable-but-unrecorded evidence (trigger: incentive/chain

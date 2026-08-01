@@ -24,8 +24,8 @@ realises the formal M4 exactly — the deferred label is upgraded and the
 experiments config gains the symmetric switch so the M4 recipe gets a
 recorded baseline. Approach per the plan input: A→B commit ordering —
 commit A reproduces the current sampler derivation byte-exactly (baseline
-byte-diff gate), commit B lands the honest preimage (new domain, epoch
-nonce + self-id, `push_len_prefixed`) with one re-baseline and a
+byte-diff gate), commit B lands the honest preimage (per-seam draw domains,
+epoch nonce + self-id, `push_len_prefixed`) with one re-baseline and a
 statistical m2-comparison re-run.
 
 ## Technical Context

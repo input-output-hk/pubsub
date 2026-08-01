@@ -53,3 +53,27 @@ critical 0.
 Gate clear for `/speckit-implement`. A post-implementation analyze round
 remains required (Development Workflow: spec fidelity is verified against
 code when code exists); its passes will be ledgered below.
+
+## Implementation-round findings
+
+### 2026-08-01 — Phase 2 checkpoint observation (correlated seam draws)
+
+- **I2 (HIGH, latent)** — the commit-B draw preimage as designed (research
+  R2 / data-model) carried no seam component, and the CLI expansion derives
+  one seed for both seams: an M3/M5 node's relay and publisher `Selection`
+  instances (same seed, self-id, nonce, topics) would derive identical
+  per-topic RNG streams — with both seams ungated and equal pick counts,
+  publisher targets identical to relay upstreams. Contradicts the models'
+  independent-draws assumption and the independence the edge predicate's
+  per-seam hash domains already provide for gated selection. Undetectable
+  by the commit-A gate (experiments are relay-only) — would have shipped
+  latent until the publisher-pair experiments feature. **Resolution**:
+  per-seam draw domains selected by the instance's `LinkKind`
+  (`pubsub/uniform-selection/relay/v1` / `…/publisher/v1`), the edge.rs
+  pattern; one shared `--selection-seed` stays (the `--genesis` analogy —
+  one value, decorrelated per seam by domains); no symmetric draw domain
+  (the switch changes the handshake, not the draw). Amended: spec FR-015
+  (purity tuple + per-seam independence property), research R2 (derivation
+  + rejected alternatives), data-model (derivation line + invariant),
+  tasks T023 (independence test) / T024 (both domains) / T026 (ADR 0040
+  scope), plan summary. Commit A unaffected by construction.

@@ -58,13 +58,22 @@ recorded M2 baselines byte-diff identical.
 **Commit B** replaces it with the honest derivation:
 `topic_seed = SHA-256(push_len_prefixed(domain) ‖ push_len_prefixed(seed) ‖
 push_len_prefixed(self-id key bytes) ‖ nonce_le8 ‖
-push_len_prefixed(topic-bytes))` under the new domain
-`pubsub/uniform-selection/v1` — the crate's one length-prefix primitive,
-mirroring the edge predicate's preimage conventions (variable-width
-components prefixed, the nonce fixed-width). Self-id lives in the
-strategy-level preimage (not only the CLI edge) so the fleet-shared-seed
-independence property (spec FR-015) holds for every construction site,
-driver included.
+push_len_prefixed(topic-bytes))` under **per-seam domains** selected by the
+instance's `LinkKind`, exactly as the gate selects its edge domain:
+`pubsub/uniform-selection/relay/v1` and
+`pubsub/uniform-selection/publisher/v1` — the crate's one length-prefix
+primitive, mirroring the edge predicate's preimage conventions
+(variable-width components prefixed, the nonce fixed-width). Self-id lives
+in the strategy-level preimage (not only the CLI edge) so the
+fleet-shared-seed independence property (spec FR-015) holds for every
+construction site, driver included. The per-seam split is what keeps an
+M3/M5 node's two `Selection` instances — same seed, same self-id, same
+nonce, same topics — from deriving the same RNG stream: with a single
+shared domain and both seams ungated, equal pick counts would make the
+publisher targets *identical* to the relay upstreams, which is neither the
+models' assumption nor what the gate's domain separation already
+guarantees for gated selection. No symmetric draw domain exists: the
+symmetric switch changes the handshake vocabulary, not the draw.
 
 **Rationale**: the byte-identity gate demands an exact reproduction first;
 the honest preimage then lands as one deliberate, re-baselined change
@@ -76,7 +85,12 @@ leaves the experiments path able to correlate picks if a config ever shares
 participant seeds — the property belongs to the draw itself); keeping the
 old domain string permanently (rejected: `experiments/…` becomes a misnomer
 the moment the sampler is a node capability; the re-baseline is already
-budgeted).
+budgeted); a single shared draw domain (rejected: correlates the two seam
+instances' draws on M3/M5 nodes — the latent defect surfaced during the
+Phase 2 implementation review); one domain plus a kind-tag preimage
+component (equivalent cryptographically; rejected in favour of the domain
+split because separate domain constants are the established edge.rs
+pattern for exactly this independence property).
 
 ## R3 — Dependencies: no manifest change
 
