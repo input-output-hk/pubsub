@@ -456,7 +456,7 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 
 **Working answer (015, per the maintainer's direction)**: **deferred — do not resolve, do not extend.** No experiment or published recipe needs a capped bidirectional strategy today (M4 defines no caps), so the combination must not grow semantics ahead of a consumer. On the substance the dilemma partly dissolves: an acceptance strategy structurally caps only **inbound requests** — it cannot instruct the dialer, so it never bounds out-degree; and an `Accepted` answering the node's own pending request is not an admission decision. What the current code does (recorded so the behaviour is not mistaken for a decision): the cap's link scan counts the whole mirrored link set — own-dial mirrors included — but the gate fires only on peer-initiated requests, so realised degree can exceed the cap and the outcome is arrival-order-dependent.
 
-**Trigger to revisit**: the first experiment that requires a capped bidirectional strategy (likely alongside the uniform exactly-RF selection kind that completes the real M4).
+**Trigger to revisit**: the first experiment that requires the symmetric × capped combination (an E11/E12 extension) — which may never arrive. (The uniform exactly-RF selection landed with 017 and completed the real M4; the combination is expressible as knobs — `--relay-symmetric` with `--relay-accept-cap` — with the recorded semantics above unchanged, and the 017 quickstart notes that a symmetric node's caps anchor on ≈ 2× the pick count.)
 
 ## N-033 — Experiment population memory: full candidate views bound N to ~20 000 per in-flight run
 
@@ -489,3 +489,38 @@ The dial seam's mirror is only a 2-way split (`ConnectToAll` / `HashGatedConnect
 **Sketch when needed**: the driver already shares one sorted membership set per topic (ADR 0038); expose it (or a once-per-run sorted slice) to the sampler so it samples **indices** against `candidates_len` and maps them through skip-self index arithmetic (an index at or above the node's own rank shifts by one) instead of materialising the per-node list. Byte-identity is achievable — same sample length, same index→peer mapping — but the skip-self mapping is a razor edge of exactly the `stored_self_does_not_shift_the_sample` kind: land it against the recorded baselines (`notes/experiments-baselines/`, byte-diff must come out identical) and extend that test family.
 
 **Trigger to revisit**: the first experiment needing N ≫ 20 000 (the same trigger the resolved [[N-033]] carried for memory).
+
+## N-036 — Gate-failing dials: provable misbehaviour, deliberately unrecorded
+
+**Surfaced during**: 017-unified-selection (the verifiable-region restatement; ADR 0039).
+
+**Observation**: with the bucket count fed on both ends, a dial whose edge fails the seam's predicate is **provable misbehaviour**: the request is signed and the predicate is publicly recomputable, so the pair (signed request, failed recomputation) is exactly the evidence shape the bucketed-pull slashing rule needs (`docs/extensions/bucketed-pull.md`, read-only). v1 deliberately does not collect it: a predicate-failing request is a silent `RejectIllegitimate` — no reply, no `Misbehaved` effect, no record — because the incentive/chain layer (deposits, reports, slashing) has been out of scope since 005.
+
+**Working answer (017 scope)**: keep the silent drop; name the acceptance gate — `UnifiedAcceptance`'s predicate check — as the future evidence-collection point. When evidence lands it is a strictly local change at that site: the decision input (the verified request plus the recomputed predicate) is already in hand there.
+
+**Trigger to revisit**: the incentive/chain layer (on-chain identity, deposits, over-capacity/misbehaviour reports).
+
+## N-037 — Selection-seed privacy: the operator flag is a prototype stand-in
+
+**Surfaced during**: 017-unified-selection (the seed chain; ADR 0040).
+
+**Observation**: the formal models prescribe *private, unpredictable* per-node selection randomness for uniform picks. `--selection-seed <u64>` is a low-entropy operator flag: reproducibility, not secrecy. Anyone who knows the seed (and the public self-identity, epoch nonce, and membership) can recompute a node's picks. Fleet-shared seed values still yield per-node-independent draws — self-identity is in the draw preimage — but independence is not privacy.
+
+**Working answer (017 scope)**: model-adequate against **oblivious adversaries**, which covers the entire current experiment program (silent relays do not choose victims by predicting picks). The experiments driver's per-participant seeds derived from a master seed have the same posture by design — reproducible science, not confidentiality.
+
+**Trigger to revisit**: the first adaptive-adversary experiment (Stage 5 / E15 survivors), or the real-crypto identity work — whichever lands first. Provisioning must then become per-node secret material, or derive from the identity key under proper domain separation.
+
+## N-038 — Sampled selection under view growth: pick sets are view-functions, and add-only dialing unions them
+
+**Surfaced during**: 017-unified-selection, Phase 4 checkpoint (the M4 fleet test's first failing run; analysis.md I3).
+
+**Observation**: a sampled pick set is a function of the **whole candidate view** — index sampling over the sorted survivor list means adding one candidate re-shuffles which K survive the draw. Two consequences, both distinct from hash-gating's behaviour:
+
+- **A single dial over a partial view draws subset-sized picks, not subset picks**: min(pick count, partial-view survivors) — below the pick count if the view is smaller than K, with no retry or back-fill; and the picks themselves need not be contained in what the full view would select.
+- **A re-dial after view growth draws a different sample, and the add-only dial model (selection only adds — [[N-011]]) unions the two**: realised out-degree inflates past the pick count. Measured: the 017 M4 fleet test's first run inflated mean degree beyond the 2K bound because each node's readiness dial fired against a partially-folded view and the retry heartbeat then drew a second, different sample over the full view.
+
+ADR 0031's "repeated heartbeats re-dial the SAME expected set" idempotence is therefore **conditional for the sampling arm**: it holds while the candidate view is stable within the epoch. Hash-gating keeps the stronger unconditional property — the predicate is per-candidate, so a partial-view gated dial is a *subset* of the full-view one and re-dials are monotone-consistent, never inflating.
+
+**Why today's surfaces are safe by construction**: the node fires exactly one readiness heartbeat, after `Synced` — i.e. after both registry snapshots are folded, so the view it samples is the full bootstrap membership; the experiments driver's establishment runs behind its all-synced registration barrier. Test fleets must reproduce that shape (seed every membership before constructing nodes — the driver's barrier applied to the harness), which the 017 fleet tests now do.
+
+**Trigger to revisit**: periodic heartbeats / epoch rotation (the ADR 0031 seams), or the first staggered-boot fleet or experiment — any surface where a sampling node re-dials across view growth. The remove-side of selection ([[N-011]]) is the natural companion: re-selection that prunes would restore exactly-K instead of unioning.

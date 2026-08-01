@@ -250,7 +250,7 @@ re-baseline.
 **Independent Test**: the seed-property test battery (identity/nonce/seed
 variation) passes; regenerated baselines recorded.
 
-- [ ] T023 [P] [US4] Write the failing seed-property tests in
+- [x] T023 [P] [US4] Write the failing seed-property tests in
       `src/strategies/connection/selection.rs`: same (seed, self-id, nonce,
       view) ⇒ identical picks; differing seed ⇒ differing picks (whp);
       **two nodes sharing one seed draw independently** (self-id in the
@@ -259,7 +259,7 @@ variation) passes; regenerated baselines recorded.
       `publisher_domain_is_an_independent_draw`); nonce change ⇒ re-draw;
       repeated heartbeats ⇒ stable; plus a pinned preimage fixture
       (length-prefixed layout) (017 FR-015; spec US4 scenarios)
-- [ ] T024 [US4] Swap the derivation to commit B in
+- [x] T024 [US4] Swap the derivation to commit B in
       `src/strategies/connection/selection.rs`: per-seam domains selected by
       the instance's `LinkKind` — `pubsub/uniform-selection/relay/v1` /
       `pubsub/uniform-selection/publisher/v1` — preimage `lp(domain) ‖
@@ -267,15 +267,15 @@ variation) passes; regenerated baselines recorded.
       `push_len_prefixed`; update the T004 equivalence fixtures to the new
       pinned values (the commit-A pin is superseded by design — note it in
       the test) (research R2)
-- [ ] T025 [US4] Finalise the CLI seed expansion in `src/main.rs`:
+- [x] T025 [US4] Finalise the CLI seed expansion in `src/main.rs`:
       `SHA-256(lp("pubsub/selection-seed/v1") ‖ seed_le8)` → constructor
       bytes; seed-required validation already live from T009 (research R8)
-- [ ] T026 [P] [US4] Author ADR 0040 — selection randomness derivation — in
+- [x] T026 [P] [US4] Author ADR 0040 — selection randomness derivation — in
       `docs/decisions/0040-selection-randomness-derivation.md` (seed chain,
       preimage layout, the per-seam draw domains and the correlation defect
       they close, the privacy stand-in posture and its trigger, the
       two-commit derivation swap) (research R11)
-- [ ] T027 [US4] Record the three new implementation notes in
+- [x] T027 [US4] Record the three new implementation notes in
       `specs/IMPLEMENTATION_NOTES.md` at the next free numbers: gate-failing
       dials as provable-but-unrecorded evidence (trigger: incentive/chain
       layer); selection-seed privacy (trigger: first adaptive-adversary

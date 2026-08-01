@@ -98,7 +98,7 @@ toward ≈ cap/B per victim.
   (add-only; measured: M4 fleet degrees exceed 2× the pick count until an
   epoch rotation). Today's single readiness heartbeat over a fully-synced
   snapshot avoids this by construction; the implementation note recorded
-  with this feature carries the revisit trigger.
+  with this feature (N-038) carries the revisit trigger.
 
 ## Verifiability
 
