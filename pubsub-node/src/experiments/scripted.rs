@@ -17,10 +17,7 @@ use crate::crypto::mock::MockCryptoScheme;
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
-use super::population::{
-    AcceptanceSpec, ConnectionSpec, FanoutSpec, Participant, ParticipantClass, Population,
-    StrategySpec,
-};
+use super::population::{FanoutSpec, Participant, ParticipantClass, Population, StrategySpec};
 
 /// The topic every scripted population runs on.
 const SCRIPTED_TOPIC: &str = "t0";
@@ -139,11 +136,7 @@ impl ScriptedTopology {
                 ParticipantClass::Honest => FanoutSpec::ForwardToRelays,
                 ParticipantClass::Adversarial => FanoutSpec::SilentRelay,
             };
-            let spec = StrategySpec {
-                connection: ConnectionSpec::connect_to_all(),
-                acceptance: AcceptanceSpec::accept_from_all(),
-                fanout,
-            };
+            let spec = StrategySpec::open(fanout);
             let key_pair = scheme.keypair_from_alias(&alias(index));
             let participant = Participant::scripted(class, key_pair, &spec)
                 .expect("scripted strategy specs are parameterless and always build");

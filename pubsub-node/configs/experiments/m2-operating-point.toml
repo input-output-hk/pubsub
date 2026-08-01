@@ -25,15 +25,11 @@ adversarial_fraction = 0.2
 topic = "t0"
 
 [strategies.honest]
-connection = "uniform-sampler" # exactly-RF uniform picks - M2's selection family
-target_degree = 24             # RF
-acceptance = "accept-from-all"
+pick_count = 24 # RF - exactly-RF uniform picks, M2's selection family (no gate, open acceptance)
 fanout = "forward-to-relays"
 
 [strategies.adversarial]
-connection = "uniform-sampler"
-target_degree = 24
-acceptance = "accept-from-all"
+pick_count = 24
 fanout = "silent-relay" # M2's non-forwarding (dead) relay
 
 [execution]

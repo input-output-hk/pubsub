@@ -41,16 +41,12 @@ churn = 0.05            # honest nodes marked down after topology formation,
                         # (or `churn_count = N`; omit for no churn)
 topic = "t0"
 
-[strategies.honest]     # the strategy triad each class runs
-connection = "uniform-sampler"   # dial: protocol kinds or uniform-sampler
-target_degree = 8
-acceptance = "accept-from-all"   # protocol acceptance kinds
-fanout = "forward-to-relays"     # the protocol's default forwarding policy
+[strategies.honest]     # the selection-plane coordinates each class runs
+pick_count = 8          # exact seeded uniform picks per topic (absent = every gate survivor; 0 = dial none)
+fanout = "forward-to-relays"     # the forwarding policy each class runs
 
 [strategies.adversarial]
-connection = "uniform-sampler"
-target_degree = 8
-acceptance = "accept-from-all"
+pick_count = 8
 fanout = "silent-relay"          # the non-forwarding worst-case adversary
 
 [execution]
@@ -58,9 +54,12 @@ runs_per_experiment = 100
 publishes_per_run = 1   # optional; fresh message each, no state reset
 ```
 
-Strategy tables also take the protocol's per-seam parameters where the
-kind needs them: `bucket_count` (optional pinned bucket count, hash-gated
-kinds) and `cap_buffer` (bounded acceptance kinds; default 3).
+Strategy tables take the full coordinate set: `bucket_count` (the
+hash-gate width; absent = ungated, and `1` is legal here as the ungated
+point on an axis), `accept_cap` (absolute per-topic serving cap; absent =
+unbounded, `0` = serve none), `accept_unverified` (default `false`:
+acceptors verify the gate iff `bucket_count` is present), and `symmetric`
+(default `false`: the bidirectional relay handshake).
 
 To sweep a parameter into a curve, add axes — each entry is one swept
 parameter, and the cross-product expands into the experiment grid in
@@ -72,7 +71,7 @@ parameter = "churn"     # size, adversarial, adversarial_fraction, churn,
 values = [0.0, 0.05, 0.1]   # churn_count, target_degree, publishes_per_run
 
 [[axes]]
-parameter = "target_degree"
+parameter = "target_degree" # sets pick_count on both classes' tables
 values = [4, 8, 16]
 ```
 

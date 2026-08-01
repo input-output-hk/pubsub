@@ -21,17 +21,15 @@ use crate::crypto::MessageHash;
 use crate::event::Event;
 use crate::peer::PeerId;
 use crate::state::NodeState;
-use crate::strategies::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
 use crate::strategies::config::{
-    AcceptanceParams, ConnectionParams, NodeStrategies, StrategyConfigError,
+    NodeStrategies, SelectionParams, StrategyConfigError, UnifiedAcceptanceParams,
 };
-use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
 use crate::strategies::fanout::{FanoutStrategy, ForwardToRelays};
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::TopicRegistryEvent;
 
-use super::strategies::{SilentRelay, UniformSampler};
+use super::strategies::SilentRelay;
 
 /// A participant's class, assigned at population build by the seeded class
 /// draw. Adversarial participants are Level-1 in v1: they run the honest
@@ -79,10 +77,7 @@ impl Participant {
             0,
             Arc::clone(verifier) as Arc<dyn crate::crypto::Verifier>,
             Arc::new(TestSigner::new(key_pair.private.clone())),
-            NodeStrategies::relay_only(
-                spec.connection.build(&peer, sampler_seed)?,
-                spec.acceptance.build(&peer)?,
-            ),
+            spec.node_strategies(&peer, sampler_seed)?,
             spec.fanout.build(),
         );
         Ok(Self {
@@ -217,134 +212,87 @@ impl Participant {
     }
 }
 
-/// The strategy triad one class of participants runs.
+/// The strategy configuration one class of participants runs: the selection
+/// plane's per-seam coordinates plus the fan-out policy. Populations are
+/// relay-only (the M2 baseline shape), so the coordinates configure the relay
+/// seam pair; publisher-pair configuration is a separate feature's surface.
+// 017-FR-017 (the config speaks coordinates), 017-FR-019 (relay-only).
 #[derive(Clone, Debug)]
 pub struct StrategySpec {
-    /// The dial (connection-selection) policy.
-    pub connection: ConnectionSpec,
-    /// The inbound-acceptance policy.
-    pub acceptance: AcceptanceSpec,
+    /// The pick count: `None` = dial every gate survivor; `Some(0)` = dial
+    /// none; `Some(k)` = exactly `min(k, survivors)` seeded uniform picks.
+    pub pick_count: Option<usize>,
+    /// The bucket count (hash-gate width): `None` = ungated; `1` is legal
+    /// here (≡ ungated — the boundary axis point the operator CLI rejects).
+    pub bucket_count: Option<usize>,
+    /// The absolute per-topic accept cap: `None` = unbounded; `Some(0)` =
+    /// serve none (explicit rejection).
+    pub accept_cap: Option<usize>,
+    /// Skip acceptor-side gate verification (the trusting-acceptors
+    /// comparison arm); acceptors otherwise verify iff `bucket_count` is set.
+    pub accept_unverified: bool,
+    /// Establish relay links with the symmetric (bidirectional) handshake.
+    pub symmetric: bool,
     /// The fan-out policy.
     pub fanout: FanoutSpec,
 }
 
 impl StrategySpec {
-    /// Validate the spec by constructing every strategy once with a
-    /// placeholder identity: parameter errors surface at configuration
-    /// validation, before any population is built.
-    pub fn probe(&self, self_id: &PeerId) -> Result<(), StrategyConfigError> {
-        self.connection.build(self_id, [0u8; 32])?;
-        self.acceptance.build(self_id)?;
-        let _ = self.fanout.build();
-        Ok(())
-    }
-}
-
-/// A dial policy specification: a protocol kind (005's CLI kinds) or the
-/// experiments-only uniform sampler.
-#[derive(Clone, Debug)]
-pub enum ConnectionSpec {
-    /// One of the protocol's own connection kinds, with its parameters.
-    Protocol {
-        /// The protocol strategy kind.
-        kind: ConnectionStrategyKind,
-        /// Target degree, where the kind requires one.
-        target_degree: Option<usize>,
-        /// Optional pinned bucket count.
-        bucket_count: Option<usize>,
-    },
-    /// The experiments-only uniform sampler: exactly
-    /// `min(target_degree, |candidates|)` uniform picks without replacement,
-    /// seeded per participant from the master seed.
-    UniformSampler {
-        /// Number of upstreams to sample per topic.
-        target_degree: usize,
-    },
-}
-
-impl ConnectionSpec {
-    /// The parameterless full-mesh protocol dial.
+    /// The plane origin with open acceptance: ungated dial-all, unbounded
+    /// membership-only accept, directional links.
     #[must_use]
-    pub fn connect_to_all() -> Self {
-        Self::Protocol {
-            kind: ConnectionStrategyKind::ConnectToAll,
-            target_degree: None,
+    pub fn open(fanout: FanoutSpec) -> Self {
+        Self {
+            pick_count: None,
             bucket_count: None,
+            accept_cap: None,
+            accept_unverified: false,
+            symmetric: false,
+            fanout,
         }
     }
 
-    fn build(
+    /// Build one participant's strategy set from the coordinates: the relay
+    /// `Selection`/`UnifiedAcceptance` pair (the acceptor's gate is the
+    /// seam's bucket count unless verification is opted out) with the
+    /// symmetric switch threaded into the handshake vocabulary; the
+    /// publisher pair stays off (relay-only populations).
+    fn node_strategies(
         &self,
         self_id: &PeerId,
         sampler_seed: [u8; 32],
-    ) -> Result<Arc<dyn ConnectionStrategy>, StrategyConfigError> {
-        match self {
-            Self::Protocol {
-                kind,
-                target_degree,
-                bucket_count,
-            } => kind.build(&ConnectionParams {
+    ) -> Result<NodeStrategies, StrategyConfigError> {
+        NodeStrategies::new(
+            SelectionParams {
                 self_id: self_id.clone(),
                 kind: LinkKind::Relay,
-                target_degree: *target_degree,
-                bucket_count: *bucket_count,
-                symmetric: false,
-            }),
-            Self::UniformSampler { target_degree } => {
-                Ok(Arc::new(UniformSampler::new(*target_degree, sampler_seed)))
-            }
-        }
-    }
-}
-
-/// An acceptance policy specification (the protocol's own kinds; there is no
-/// experiments-only acceptance strategy in v1).
-#[derive(Clone, Debug)]
-pub enum AcceptanceSpec {
-    /// One of the protocol's acceptance kinds, with its parameters.
-    Protocol {
-        /// The protocol acceptance kind.
-        kind: AcceptanceStrategyKind,
-        /// Target degree, where the kind requires one.
-        target_degree: Option<usize>,
-        /// Optional pinned bucket count.
-        bucket_count: Option<usize>,
-        /// Accept-cap buffer `c` (protocol default 3).
-        cap_buffer: usize,
-    },
-}
-
-impl AcceptanceSpec {
-    /// The parameterless membership-only protocol acceptance.
-    #[must_use]
-    pub fn accept_from_all() -> Self {
-        Self::Protocol {
-            kind: AcceptanceStrategyKind::AcceptFromAll,
-            target_degree: None,
-            bucket_count: None,
-            cap_buffer: 3,
-        }
-    }
-
-    fn build(
-        &self,
-        self_id: &PeerId,
-    ) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
-        match self {
-            Self::Protocol {
-                kind,
-                target_degree,
-                bucket_count,
-                cap_buffer,
-            } => kind.build(&AcceptanceParams {
+                symmetric: self.symmetric,
+                bucket_count: self.bucket_count,
+                pick_count: self.pick_count,
+                seed: sampler_seed,
+            },
+            UnifiedAcceptanceParams {
                 self_id: self_id.clone(),
                 kind: LinkKind::Relay,
-                target_degree: *target_degree,
-                bucket_count: *bucket_count,
-                cap_buffer: *cap_buffer,
-                symmetric: false,
-            }),
-        }
+                symmetric: self.symmetric,
+                bucket_count: if self.accept_unverified {
+                    None
+                } else {
+                    self.bucket_count
+                },
+                accept_cap: self.accept_cap,
+            },
+            None,
+        )
+    }
+
+    /// Validate the spec by constructing its strategy set once with a
+    /// placeholder identity: parameter errors surface at configuration
+    /// validation, before any population is built.
+    pub fn probe(&self, self_id: &PeerId) -> Result<(), StrategyConfigError> {
+        self.node_strategies(self_id, [0u8; 32]).map(|_| ())?;
+        let _ = self.fanout.build();
+        Ok(())
     }
 }
 
@@ -603,17 +551,13 @@ mod tests {
     use std::str::FromStr;
 
     use super::{
-        derive_seed, AcceptanceSpec, ConnectionSpec, FanoutSpec, ParticipantClass, Population,
-        PopulationBuildError, PopulationConfig, PopulationSeeds, StrategySpec,
+        derive_seed, FanoutSpec, ParticipantClass, Population, PopulationBuildError,
+        PopulationConfig, PopulationSeeds, StrategySpec,
     };
     use crate::topic::TopicId;
 
     fn spec(fanout: FanoutSpec) -> StrategySpec {
-        StrategySpec {
-            connection: ConnectionSpec::connect_to_all(),
-            acceptance: AcceptanceSpec::accept_from_all(),
-            fanout,
-        }
+        StrategySpec::open(fanout)
     }
 
     fn config(size: usize, adversarial: usize) -> PopulationConfig {

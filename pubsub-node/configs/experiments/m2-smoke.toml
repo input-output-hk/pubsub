@@ -17,15 +17,11 @@ adversarial_fraction = 0.2
 topic = "t0"
 
 [strategies.honest]
-connection = "uniform-sampler"
-target_degree = 8
-acceptance = "accept-from-all"
+pick_count = 8
 fanout = "forward-to-relays"
 
 [strategies.adversarial]
-connection = "uniform-sampler"
-target_degree = 8
-acceptance = "accept-from-all"
+pick_count = 8
 fanout = "silent-relay"
 
 [execution]

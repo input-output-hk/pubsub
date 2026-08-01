@@ -9,8 +9,7 @@ use std::str::FromStr;
 use pubsub_node::experiments::config::parse_sweep_description;
 use pubsub_node::experiments::driver::{Driver, RunPlan, RunSeeds, SetupMode};
 use pubsub_node::experiments::population::{
-    AcceptanceSpec, ConnectionSpec, FanoutSpec, ParticipantClass, Population, PopulationConfig,
-    PopulationSeeds, StrategySpec,
+    FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, StrategySpec,
 };
 use pubsub_node::experiments::scripted;
 use pubsub_node::experiments::sweep::{
@@ -27,10 +26,11 @@ fn workers(count: usize) -> SweepOptions {
 }
 
 fn population(size: usize, adversarial: usize) -> Population {
+    // The M2 selection family as coordinates: exactly-3 seeded uniform picks
+    // (no gate), open acceptance.
     let honest = StrategySpec {
-        connection: ConnectionSpec::UniformSampler { target_degree: 3 },
-        acceptance: AcceptanceSpec::accept_from_all(),
-        fanout: FanoutSpec::ForwardToRelays,
+        pick_count: Some(3),
+        ..StrategySpec::open(FanoutSpec::ForwardToRelays)
     };
     let config = PopulationConfig {
         topic: TopicId::from_str("t0").expect("valid topic"),
@@ -125,15 +125,11 @@ fn sweep_toml(size: usize, master_seed: u64, runs: u64) -> String {
             topic = "t0"
 
             [strategies.honest]
-            connection = "uniform-sampler"
-            target_degree = 4
-            acceptance = "accept-from-all"
+            pick_count = 4
             fanout = "forward-to-relays"
 
             [strategies.adversarial]
-            connection = "uniform-sampler"
-            target_degree = 4
-            acceptance = "accept-from-all"
+            pick_count = 4
             fanout = "silent-relay"
 
             [execution]
@@ -296,8 +292,8 @@ fn grid_row_and_aggregate_counts_line_up() {
     // First axis (churn) varies slowest; second (target degree) fastest.
     assert_eq!(experiments[0]["churn_count"], 0);
     assert_eq!(experiments[1]["churn_count"], 0);
-    assert_eq!(experiments[0]["honest_strategies"]["target_degree"], 3);
-    assert_eq!(experiments[1]["honest_strategies"]["target_degree"], 5);
+    assert_eq!(experiments[0]["honest_strategies"]["pick_count"], 3);
+    assert_eq!(experiments[1]["honest_strategies"]["pick_count"], 5);
     assert!(experiments[2]["churn_count"].as_u64().expect("count") > 0);
 
     let rows: Vec<serde_json::Value> = std::fs::read_to_string(out.path().join("runs.jsonl"))
@@ -332,14 +328,11 @@ fn grid_row_and_aggregate_counts_line_up() {
 // including at the all-good sample where the interval keeps nonzero width.
 #[test]
 fn p_good_is_counts_plus_wilson_including_all_good() {
-    // Churn-free connect-to-all: every run forms a complete (good) topology.
+    // Churn-free ungated dial-all (pick count absent): every run forms a
+    // complete (good) topology.
     let toml = sweep_toml(12, 3, 6)
         .replace("churn = 0.1", "churn = 0.0")
-        .replace(
-            "connection = \"uniform-sampler\"",
-            "connection = \"connect-to-all\"",
-        )
-        .replace("target_degree = 4\n", "");
+        .replace("pick_count = 4\n", "");
     let description = parse_sweep_description(&toml).expect("valid description");
     let out = tempfile::tempdir().expect("temp dir");
     run_sweep(&description, out.path(), "test-commit", &workers(2)).expect("sweep runs");
