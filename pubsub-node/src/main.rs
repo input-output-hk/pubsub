@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use clap::Parser;
 use pubsub_node::{
-    FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry, InMemoryTopicRegistry,
-    LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId, SelectionParams, Signer,
-    TestVerifier, UnifiedAcceptanceParams, Verifier,
+    AcceptanceParams, FanoutStrategyKind, InMemoryNetwork, InMemorySubscriptionRegistry,
+    InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node, NodeStrategies, PeerId,
+    SelectionParams, Signer, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -177,7 +177,7 @@ async fn main() {
             pick_count: args.relay_pick_count,
             seed: seed_bytes,
         },
-        UnifiedAcceptanceParams {
+        AcceptanceParams {
             self_id: args.self_id.clone(),
             kind: LinkKind::Relay,
             symmetric: args.relay_symmetric,
@@ -198,7 +198,7 @@ async fn main() {
                     pick_count: args.publisher_pick_count,
                     seed: seed_bytes,
                 },
-                UnifiedAcceptanceParams {
+                AcceptanceParams {
                     self_id: args.self_id.clone(),
                     kind: LinkKind::Publisher,
                     symmetric: false,

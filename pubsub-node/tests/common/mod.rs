@@ -841,7 +841,7 @@ pub async fn establish_upstreams(receiver: &Node, senders: &[&Node], topic: &Top
 /// A connection strategy that dials a fixed, **explicit** set of `(peer, topic)`
 /// edges, ignoring the discovered candidate set.
 ///
-/// The default all-candidates policy ([`ConnectToAllCandidates`]) over a single
+/// The plane-origin dial-all policy ([`dial_all`]) over a single
 /// shared topic dials every co-member, so it can only build a full mesh — and
 /// receive-path fan-out then circulates a payload around it (unbounded until
 /// dedup; a mesh also masks relay correctness, since every node gets a direct

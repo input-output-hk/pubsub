@@ -414,68 +414,50 @@ mod tests {
     }
 }
 
-/// 017-T004 — the commit-A equivalence pin: `Selection` at (bucket count
-/// absent, pick count = K) reproduces the experiments `UniformSampler`
-/// value-for-value over identical views and seeds (017-FR-025, 017-FR-026;
-/// research R2). Asserted directly against the still-present sampler; when
-/// the sampler is deleted (017-T016) this pin is re-recorded as fixture
-/// values.
-#[cfg(all(test, feature = "experiments"))]
-mod uniform_sampler_equivalence {
-    use std::collections::{BTreeMap, BTreeSet};
-    use std::sync::Arc;
+/// 017-T004 — the commit-A derivation pin, re-recorded as fixture values at
+/// the deletion sweep (017-T016): the picks below were produced by the
+/// experiments `UniformSampler` derivation and verified value-for-value
+/// against the sampler while it still existed, so they pin `Selection`'s
+/// (bucket count absent, pick count = K) point to the recorded-baseline
+/// derivation byte-exactly (017-FR-025, 017-FR-026; research R2). The
+/// commit-B derivation swap deliberately supersedes these values (017-T024).
+#[cfg(test)]
+mod commit_a_derivation_pin {
+    use std::collections::BTreeSet;
 
     use super::Selection;
-    use crate::experiments::strategies::UniformSampler;
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
     use crate::strategies::test_support::{candidates, no_links, peer, subscriptions, view};
     use crate::topic::TopicId;
 
-    fn candidate_map(entries: &[(&str, usize)]) -> BTreeMap<TopicId, Arc<BTreeSet<PeerId>>> {
-        let named: Vec<(String, Vec<String>)> = entries
-            .iter()
-            .map(|(t, n)| {
-                (
-                    (*t).to_string(),
-                    (0..*n).map(|i| format!("{t}-c{i:03}")).collect(),
-                )
-            })
-            .collect();
-        let borrowed: Vec<(&str, Vec<&str>)> = named
-            .iter()
-            .map(|(t, peers)| (t.as_str(), peers.iter().map(String::as_str).collect()))
-            .collect();
-        let entries: Vec<(&str, &[&str])> = borrowed
-            .iter()
-            .map(|(t, peers)| (*t, peers.as_slice()))
-            .collect();
-        candidates(&entries)
+    fn picks(seed: [u8; 32], pick_count: usize, n: usize) -> BTreeSet<(PeerId, TopicId)> {
+        let ids: Vec<String> = (0..n).map(|i| format!("c{i:03}")).collect();
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let subs = subscriptions(&["t0"]);
+        let cands = candidates(&[("t0", &refs)]);
+        let v = view(&subs, &cands, no_links());
+        Selection::new(peer("pin"), seed)
+            .with_pick_count(Some(pick_count))
+            .expected_links(&v)
     }
 
-    // The pin proper: identical picks for every (pick count, candidate
-    // count, seed) combination, including the min(K, candidates) degeneracy
-    // and multi-topic domain separation.
+    fn expected(names: &[&str]) -> BTreeSet<(PeerId, TopicId)> {
+        names
+            .iter()
+            .map(|n| (peer(n), "t0".parse::<TopicId>().expect("valid topic id")))
+            .collect()
+    }
+
+    // The commit-A derivation has no self-identity or epoch nonce in the
+    // preimage, so these values hold for any instance identity over the same
+    // seed, pick count, and candidate set.
     #[test]
-    fn selection_reproduces_the_uniform_sampler_value_for_value() {
-        let topics = ["t0", "t1"];
-        let subs = subscriptions(&topics);
-        for pick_count in [1usize, 5, 8] {
-            for n in [3usize, 20, 40] {
-                for seed in [[0u8; 32], [7u8; 32], [9u8; 32]] {
-                    let cands = candidate_map(&[("t0", n), ("t1", n / 2)]);
-                    let v = view(&subs, &cands, no_links());
-                    let sampler = UniformSampler::new(pick_count, seed);
-                    let selection =
-                        Selection::new(peer("self"), seed).with_pick_count(Some(pick_count));
-                    assert_eq!(
-                        selection.expected_links(&v),
-                        sampler.expected_links(&v),
-                        "pick_count={pick_count} n={n} seed={:?}",
-                        seed[0],
-                    );
-                }
-            }
-        }
+    fn pick_sets_match_the_recorded_sampler_derivation() {
+        assert_eq!(
+            picks([7u8; 32], 5, 20),
+            expected(&["c002", "c009", "c012", "c015", "c019"]),
+        );
+        assert_eq!(picks([9u8; 32], 3, 8), expected(&["c001", "c002", "c007"]));
     }
 }

@@ -21,8 +21,8 @@
 //!   carried emitter plus a [`ConnectionAction`]; the handshake kind is bound
 //!   into the preimage).
 //! - [`LinkKind`], [`LinkKey`], [`LinkState`],
-//!   [`ConnectionStrategy`], [`ConnectToAllCandidates`],
-//!   [`ConnectionAcceptanceStrategy`], [`AcceptFromAllCandidates`] —
+//!   [`ConnectionStrategy`], [`Selection`],
+//!   [`ConnectionAcceptanceStrategy`], [`UnifiedAcceptance`] —
 //!   the logical-link vocabulary: a node holds per-`(topic, peer, kind)` links
 //!   in two directions (upstream sources, downstream targets); injected
 //!   selection strategies dial relay and publisher links on a dial event, and
@@ -72,20 +72,12 @@ pub use network::{InMemoryNetwork, Network, NetworkHandle};
 pub use node::Node;
 pub use peer::{PeerId, PeerIdError};
 pub use received::{Origin, ReceivedDelivery};
-pub use strategies::acceptance::{
-    AcceptFromAllCandidates, AcceptNone, AcceptanceStrategyKind, Admission, BoundedAcceptance,
-    ConnectionAcceptanceStrategy, HashGatedAcceptance, HashGatedBoundedAcceptance,
-    UnifiedAcceptance, UnknownAcceptanceStrategy,
-};
+pub use strategies::acceptance::{Admission, ConnectionAcceptanceStrategy, UnifiedAcceptance};
 pub use strategies::config::{
-    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, SelectionParams,
-    StrategyConfigError, UnifiedAcceptanceParams,
+    AcceptanceParams, NodeStrategies, SelectionParams, StrategyConfigError,
 };
-pub use strategies::connection::{
-    ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, DialNone,
-    HashGatedConnection, Selection, UnknownConnectionStrategy,
-};
-pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_sym};
+pub use strategies::connection::{ConnectionStrategy, Selection};
+pub use strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
 pub use strategies::fanout::{
     FanoutStrategy, FanoutStrategyKind, ForwardToAll, ForwardToRelays, UnknownFanoutStrategy,
 };

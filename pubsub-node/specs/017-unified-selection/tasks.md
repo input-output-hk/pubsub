@@ -109,7 +109,7 @@ assert the selected upstream sets (spec US1 acceptance scenarios); the
 experiments M2 operating point byte-diffs identical against the recorded
 baselines.
 
-- [ ] T008 [US1] Rewrite `Args` in `src/main.rs` to the knob surface per
+- [x] T008 [US1] Rewrite `Args` in `src/main.rs` to the knob surface per
       `contracts/node-cli.md`: per-seam
       `--relay-{bucket-count,pick-count,accept-cap}` +
       `--relay-symmetric` (renames `--symmetric-edges`) +
@@ -117,7 +117,7 @@ baselines.
       `--selection-seed <u64>`, `--fanout-strategy` default
       `forward-to-all`; delete the kind/degree/shared flags (017 FR-006,
       FR-009)
-- [ ] T009 [US1] Rewrite flag validation as a testable
+- [x] T009 [US1] Rewrite flag validation as a testable
       pure function (startup maps its `Result` to exit 2) in `src/main.rs`,
       implementing the full matrix: bucket counts ≥ 2; seed required iff any
       pick count ≥ 1 and rejected when unused; publisher seam activated
@@ -126,11 +126,11 @@ baselines.
       seam's bucket count rejected; the old symmetric-requires-hash-gated
       rule deleted — with value-level unit tests (no stderr assertions)
       (017 FR-007, FR-008, FR-014; spec Clarifications 2026-07-31)
-- [ ] T010 [US1] Switch `src/main.rs` construction to the new params +
+- [x] T010 [US1] Switch `src/main.rs` construction to the new params +
       `NodeStrategies` constructor (loader expands the seed u64 → 32 bytes —
       provisional expansion; the final domain lands with T025), publisher
       pair through the same call (017 FR-016 seam; research R8)
-- [ ] T011 [P] [US1] Rewrite the experiments `StrategyTable` in
+- [x] T011 [P] [US1] Rewrite the experiments `StrategyTable` in
       `src/experiments/config.rs` to coordinates per
       `contracts/sweep-config.md`: `pick_count`, `bucket_count` (≥ 1 legal),
       `accept_cap`, `accept_unverified`, `symmetric`; kind strings
@@ -139,24 +139,24 @@ baselines.
       the boundary values; NO publisher-pair fields (the 017 FR-019
       boundary: population construction stays relay-only — that surface is
       the next feature's) (017 FR-017, FR-018 domains, FR-019; research R6)
-- [ ] T012 [US1] Update `src/experiments/population.rs`: build
+- [x] T012 [US1] Update `src/experiments/population.rs`: build
       `Selection`/`UnifiedAcceptance` from the spec'd coordinates, thread
       `symmetric` into the relay params and `NodeStrategies.symmetric_edges`
       (today hardcoded false), keep per-participant sampler-seed threading
       into `Selection.seed` (research R6)
-- [ ] T013 [P] [US1] Rewrite the shipped sweep configs under
+- [x] T013 [P] [US1] Rewrite the shipped sweep configs under
       `configs/experiments/` to the coordinate vocabulary (same operating
       points, same seeds — manifests may differ, values must not)
-- [ ] T014 [P] [US1] Rework `src/strategies/test_support.rs` fixtures to
+- [x] T014 [P] [US1] Rework `src/strategies/test_support.rs` fixtures to
       knob-built instances (declarative builders preserved), and migrate
       `tests/model_family.rs` + `tests/publisher_links.rs` recipes to knob
       construction — absorbing §1.2 items 12–13 (stale pre-A9/A13 comments;
       `no_links()` fixture adoption) (017 FR-023 dissolved items)
-- [ ] T015 [US1] Add the US1 plane-point integration coverage to
+- [x] T015 [US1] Add the US1 plane-point integration coverage to
       `tests/model_family.rs`: the four points + pick count 0 (M1 shape,
       acceptance still serving) + publisher-seam presence-activation
       on/off — the spec US1 acceptance scenarios
-- [ ] T016 [US1] Deletion sweep (SC-008): remove
+- [x] T016 [US1] Deletion sweep (SC-008): remove
       `src/strategies/connection/{connect_to_all,hash_gated,none,kind}.rs`,
       `src/strategies/acceptance/{accept_from_all,bounded,hash_gated,hash_gated_bounded,none,kind}.rs`,
       `UniformSampler` from `src/experiments/strategies.rs` (re-pin T004 to
@@ -167,7 +167,7 @@ baselines.
       `is_valid_edge_publisher` beside its siblings; update `src/lib.rs`
       re-exports and the `NodeView::candidates_len` doc (017 FR-005,
       FR-010, FR-012; research R10)
-- [ ] T017 [US1] **Commit A gate**: full suite green in both
+- [x] T017 [US1] **Commit A gate**: full suite green in both
       configurations; re-run the recorded baseline sweeps and byte-diff
       `runs.jsonl`/`aggregates.json` **identical** (manifests differ in tool
       commit + config text only); determinism battery green (replay-by-seed,

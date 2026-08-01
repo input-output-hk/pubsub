@@ -22,7 +22,7 @@ use crate::event::Event;
 use crate::peer::PeerId;
 use crate::state::NodeState;
 use crate::strategies::config::{
-    NodeStrategies, SelectionParams, StrategyConfigError, UnifiedAcceptanceParams,
+    AcceptanceParams, NodeStrategies, SelectionParams, StrategyConfigError,
 };
 use crate::strategies::fanout::{FanoutStrategy, ForwardToRelays};
 use crate::subscription_registry::MembershipEvent;
@@ -271,7 +271,7 @@ impl StrategySpec {
                 pick_count: self.pick_count,
                 seed: sampler_seed,
             },
-            UnifiedAcceptanceParams {
+            AcceptanceParams {
                 self_id: self_id.clone(),
                 kind: LinkKind::Relay,
                 symmetric: self.symmetric,

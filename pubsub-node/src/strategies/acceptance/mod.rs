@@ -9,11 +9,10 @@
 //! the idempotent downstream insert, the signed `Accepted` reply — and consults
 //! this seam only for the accept/reject *policy*.
 //!
-//! The trait lives here; each concrete policy is its own submodule — the four
-//! one-dimensional baselines of the empirical approach (ADR 0031):
-//! [`AcceptFromAllCandidates`] (membership only), [`BoundedAcceptance`] (cap
-//! only), [`HashGatedAcceptance`] (edge predicate only), and
-//! [`HashGatedBoundedAcceptance`] (both — the bucketed-pull compound).
+//! The trait lives here; the one concrete policy is [`UnifiedAcceptance`] in
+//! [`unified`] — gate verification and the serving cap as two independent,
+//! individually optional dimensions, whose knob combinations cover the four
+//! one-dimensional baselines this seam previously offered as named kinds.
 //! Registration gates delivery, not acceptance (the S7 pin), so this seam reads
 //! the membership-derived view only.
 
@@ -24,20 +23,8 @@ use crate::peer::PeerId;
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
-mod accept_from_all;
-mod bounded;
-mod hash_gated;
-mod hash_gated_bounded;
-mod kind;
-mod none;
 mod unified;
 
-pub use accept_from_all::AcceptFromAllCandidates;
-pub use bounded::BoundedAcceptance;
-pub use hash_gated::HashGatedAcceptance;
-pub use hash_gated_bounded::HashGatedBoundedAcceptance;
-pub use kind::{AcceptanceStrategyKind, UnknownAcceptanceStrategy};
-pub use none::AcceptNone;
 pub use unified::UnifiedAcceptance;
 
 /// The outcome of an acceptance decision on a verified connection `Request`
@@ -74,9 +61,7 @@ pub enum Admission {
 /// `subscriptions`/`candidates` are the **membership-derived** view, not the
 /// registration-gated effective filter — the accept side mirrors the dial side,
 /// where topic registration gates delivery rather than establishment (the S7
-/// pin). The implementors are the four one-dimensional baselines:
-/// [`AcceptFromAllCandidates`], [`BoundedAcceptance`], [`HashGatedAcceptance`],
-/// and the compound [`HashGatedBoundedAcceptance`].
+/// pin). The crate's implementor is [`UnifiedAcceptance`].
 pub trait ConnectionAcceptanceStrategy: Send + Sync {
     /// The admission decision for a verified `Request` from `emitter` on `topic`,
     /// given the node's read-only [`NodeView`].
@@ -143,8 +128,7 @@ pub(crate) fn link_scan(
 /// accepted count of that kind for a cap check, from the same single scan.
 ///
 /// Every refusing policy calls this first — the invariant lives here once, so a
-/// new bounding/gating strategy cannot forget it. (`AcceptFromAllCandidates`
-/// needs no prelude: it never refuses a member, so the re-Accept is implied.)
+/// new bounding/gating strategy cannot forget it.
 pub(crate) fn admit_prelude(
     kind: LinkKind,
     emitter: &PeerId,
