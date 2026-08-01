@@ -358,7 +358,7 @@ fully discharged.
       there is no flags-vs-TOML convention left to record; the remaining
       TOML surfaces (registry data files, sweep configs) are separate
       programs' inputs with their own contracts
-- [ ] T037 Final sweep: `cargo fmt`, `clippy --all-targets -- -D warnings`,
+- [x] T037 Final sweep: `cargo fmt`, `clippy --all-targets -- -D warnings`,
       full suite in both configurations; SC-008 symbol sweep (deleted
       types/functions/flags absent from `src/` and `--help`); SC-001 recipe
       verification (every quickstart command parses and boots against the

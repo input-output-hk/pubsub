@@ -50,9 +50,10 @@ fn population(size: usize, adversarial: usize) -> Population {
     Population::build(&config, &seeds).expect("valid build")
 }
 
-// 016-FR-003/FR-005: a full run over real node cores — uniform-sampler dial,
-// silent adversaries, churn — executes to exact quiescence through the public
-// surface, and every up-honest receiver the topology reaches is recorded.
+// 016-FR-003/FR-005: a full run over real node cores — the pick-count dial
+// (exactly-RF seeded uniform picks), silent adversaries, churn — executes to
+// exact quiescence through the public surface, and every up-honest receiver
+// the topology reaches is recorded.
 #[test]
 fn full_run_executes_on_real_cores() {
     let mut driver = Driver::new(population(12, 2));
