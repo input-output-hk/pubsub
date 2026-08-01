@@ -403,7 +403,7 @@ determinism battery.
   ADR 0034, regardless of coordinates).
 - **FR-005**: The four dial strategy types (connect-to-all, hash-gated,
   dial-none, and the experiments-only uniform sampler) and the dial-side
-  kind enums MUST be deleted; the strategy trait and injection seams are
+  kind enum MUST be deleted; the strategy trait and injection seams are
   unchanged.
 
 **Node configuration surface**
@@ -412,7 +412,8 @@ determinism battery.
   `--relay-pick-count`, `--relay-accept-cap`, `--relay-symmetric` (renaming
   `--symmetric-edges`), and `--publisher-bucket-count`,
   `--publisher-pick-count`, `--publisher-accept-cap`; the dial and acceptance
-  kind flags and the per-seam degree flags are deleted, with no deprecation
+  kind flags, the per-seam degree flags, and the shared `--bucket-count`
+  (superseded by the per-seam bucket counts) are deleted, with no deprecation
   aliases.
 - **FR-007**: Validation domains: bucket count ≥ 2 (the CLI rejects 0 and 1),
   pick count ≥ 0, accept cap ≥ 0. Any provided flag whose value nothing
@@ -431,8 +432,9 @@ determinism battery.
 
 - **FR-010**: The four acceptance baselines MUST merge into one
   implementation with two independent dimensions: gate verification and the
-  serving cap. The four previous behaviours remain expressible as knob
-  combinations.
+  serving cap. The four acceptance strategy types and the acceptance-side
+  kind enum are deleted; the four previous behaviours remain expressible as
+  knob combinations.
 - **FR-011**: Acceptor gate verification MUST follow the seam's bucket count
   (present ⇒ verify the same value the dialer uses; absent ⇒ vacuous), with
   one explicit per-seam opt-out flag (`--relay-accept-unverified` /
@@ -464,9 +466,9 @@ determinism battery.
 
 - **FR-017**: The sweep-config strategy table MUST speak the same
   coordinates as the CLI (`pick_count` replacing `target_degree`;
-  `bucket_count`; the accept cap; the symmetric switch), and the kind-name
-  vocabularies (`connection`/`acceptance` kind strings, `uniform-sampler`)
-  MUST be replaced accordingly.
+  `bucket_count`; the accept cap; the verification opt-out; the symmetric
+  switch), and the kind-name vocabularies (`connection`/`acceptance` kind
+  strings, `uniform-sampler`) MUST be replaced accordingly.
 - **FR-018**: `bucket_count` and `pick_count` MUST be sweepable axis
   parameters, and boundary values MUST be legal axis points in the sweep
   config even where the CLI rejects them: bucket count 1 (the ungated point)
@@ -505,9 +507,10 @@ determinism battery.
   rework; items 7 and 11 remain on the pickup list.
 - **FR-024**: Housekeeping on the first docs commit: refresh the
   `pubsub-node/CLAUDE.md` active-work stanza; the E12 status line in the
-  experiments program; optionally a short ADR recording the
-  configuration-placement rationale (CLI flags = one node's own knobs;
-  TOML = shared world state or declarative sweep definitions).
+  experiments program (the vehicle for FR-022's E12 disposition — one edit,
+  not two); optionally a short ADR recording the configuration-placement
+  rationale (CLI flags = one node's own knobs; TOML = shared world state or
+  declarative sweep definitions).
 
 **Validation contract**
 
@@ -522,9 +525,11 @@ determinism battery.
   domain, extends the preimage (epoch nonce, self-identity), lands the CLI
   seed derivation, and re-baselines.
 - **FR-027**: After landing: re-execute the m2-comparison, confirm
-  statistical agreement with the formal values, update its document, and
-  record fresh baseline generations per the baselines README, plus the first
-  recorded baseline for the M4-completing recipe.
+  statistical agreement with the formal values per that document's recorded
+  methodology (raw counts with Wilson 95% intervals; exact-agreement checks
+  where it defines them), update its document, and record fresh baseline
+  generations per the baselines README, plus the first recorded baseline
+  for the M4-completing recipe.
 - **FR-028**: The within-version determinism battery is mandatory and
   unchanged: value-level determinism, replay-by-seed, and worker-count
   invariance of the three artifacts.
@@ -561,9 +566,9 @@ determinism battery.
   with the formal values within the documented statistical bounds, and fresh
   baseline generations are recorded.
 - **SC-003**: The M4 configuration exhibits, fleet-wide in tests: full
-  reciprocity, minimum degree ≥ the pick count, and mean degree ≈ 2× the
-  pick count — and the M4 label is claimed (no remaining "approximation"
-  disclaimer in quickstart, contracts, or ADR caveats).
+  reciprocity, minimum degree ≥ the pick count, and mean degree within 5%
+  of 2× the pick count — and the M4 label is claimed (no remaining
+  "approximation" disclaimer in quickstart, contracts, or ADR caveats).
 - **SC-004**: The determinism battery passes: identical artifacts under
   replay-by-seed and across worker counts.
 - **SC-005**: E7 and E10 are runnable from shipped sweep configurations, and
@@ -578,8 +583,8 @@ determinism battery.
   tests.
 - **SC-008**: The four dial strategy types, four acceptance strategy types,
   both kind enums, `resolve_buckets`, `bucket_count(len, target_degree)`,
-  `accept_cap(K, c)`, and the `--cap-buffer` flag no longer exist in the
-  codebase.
+  `accept_cap(K, c)`, and the `--bucket-count` / `--cap-buffer` flags no
+  longer exist in the codebase.
 
 ## Assumptions
 

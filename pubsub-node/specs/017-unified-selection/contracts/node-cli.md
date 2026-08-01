@@ -42,7 +42,7 @@ Deleted (no aliases, pre-release): `--relay-strategy`,
 
 | condition | outcome |
 |---|---|
-| any bucket count = 0 or 1 | rejected (gating is signalled by the flag; a one-bucket gate is vacuous) |
+| any bucket count = 0 or 1 | rejected (gating is signalled by the flag; a one-bucket gate is vacuous). Deliberate divergence: the sweep config accepts `bucket_count = 1` as the ungated axis point — see `contracts/sweep-config.md` |
 | any seam pick count ≥ 1 and `--selection-seed` absent | rejected (names the missing flag) |
 | `--selection-seed` present and no seam has pick count ≥ 1 | rejected as unused |
 | publisher seam activated solely by acceptance-side knobs | rejected (names `--publisher-pick-count 0` as the accept-only spelling) |
