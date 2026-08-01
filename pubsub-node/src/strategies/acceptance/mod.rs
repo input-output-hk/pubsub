@@ -13,6 +13,9 @@
 //! [`unified`] — gate verification and the serving cap as two independent,
 //! individually optional dimensions, whose knob combinations cover the four
 //! one-dimensional baselines this seam previously offered as named kinds.
+//! The gate verifies at the same bucket count the seam's dialers use (fed
+//! once per seam at construction — the agreement condition); the cap is a
+//! fed absolute serving bound, never computed from other parameters.
 //! Registration gates delivery, not acceptance (the S7 pin), so this seam reads
 //! the membership-derived view only.
 

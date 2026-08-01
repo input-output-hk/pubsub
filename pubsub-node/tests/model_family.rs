@@ -943,3 +943,209 @@ async fn m4_symmetric_gate_composes_with_picks() {
         "the fixture genesis must realise at least one gated link",
     );
 }
+
+// ---- 017 US3: acceptance as two dimensions — connection scenarios ----------
+
+/// Poll until the dialer holds NO relay upstream entry for `(peer, topic)`.
+/// Sound as a removal detector only after the dial is known to have fired
+/// (the entry is created synchronously in the same heartbeat fold that dials
+/// a sibling target).
+async fn await_upstream_entry_gone(node: &Node, target: &PeerId, t: &TopicId, timeout: Duration) {
+    let start = tokio::time::Instant::now();
+    loop {
+        let held = node
+            .upstream_relays()
+            .into_iter()
+            .any(|(p, topic, _)| &p == target && &topic == t);
+        if !held {
+            return;
+        }
+        assert!(
+            start.elapsed() < timeout,
+            "the pending entry to {target} was never cleaned up within {timeout:?}",
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+// 017 FR-013 / US3 scenarios 2–3: an accept cap of 0 refuses every request
+// with an explicit rejection and the dialer removes its pending entry — the
+// deliberate change from the pre-017 disabled seam, whose silent drop left
+// the dialer's AwaitingAccept entry stranded.
+#[tokio::test]
+async fn relay_cap_zero_rejects_and_cleans_the_pending_dial() {
+    let t = topic("t1");
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+
+    // "full" serves no one (cap 0); "open" is the sequencing contrast.
+    let full = node_with_links(
+        &registry,
+        &network,
+        "full",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("full"), [0u8; 32]).with_pick_count(Some(0))),
+            Arc::new(UnifiedAcceptance::new(peer("full")).with_accept_cap(Some(0))),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let open = node_with_links(
+        &registry,
+        &network,
+        "open",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("open"), [0u8; 32]).with_pick_count(Some(0))),
+            accept_all(&peer("open")),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let dialer = node_with_links(
+        &registry,
+        &network,
+        "dialer",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToExplicit(vec![
+                (peer("full"), t.clone()),
+                (peer("open"), t.clone()),
+            ])),
+            accept_all(&peer("dialer")),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+
+    for (node, others) in [
+        (&full, ["open", "dialer"]),
+        (&open, ["full", "dialer"]),
+        (&dialer, ["full", "open"]),
+    ] {
+        await_candidates(node, &t, &others, T)
+            .await
+            .expect("candidates converge");
+    }
+    trigger_setup(&dialer);
+
+    // Both dials fired in the same heartbeat fold: once the open link is
+    // Active, the entry toward "full" existed — its disappearance can only
+    // be the routed Rejected's cleanup.
+    await_upstream_active(&dialer, open.id(), &t, T)
+        .await
+        .expect("the open acceptor admits the dial");
+    await_upstream_entry_gone(&dialer, full.id(), &t, T).await;
+    assert!(
+        full.downstream_relays().is_empty(),
+        "a serve-none acceptor must record no downstream",
+    );
+}
+
+// 017 FR-011 / US3 scenario 1: acceptor verification follows the seam's
+// bucket count — a predicate-failing dial is silently dropped by a verifying
+// acceptor (the pending entry stays AwaitingAccept: no reply, no cleanup —
+// contrast with the cap's explicit rejection) while the opt-out arm
+// (gate None under gated dialing) admits the same dial.
+#[tokio::test]
+async fn verifying_acceptor_drops_what_the_trusting_acceptor_admits() {
+    let t = topic("t1");
+    // A dialer alias whose directional edge fails the predicate toward BOTH
+    // acceptors at BUCKETS (robust to the exact hash).
+    let dialer_name = (0..10_000)
+        .map(|i| format!("d{i}"))
+        .find(|n| {
+            !is_valid_edge(0, &t, &peer(n), &peer("ver"), BUCKETS)
+                && !is_valid_edge(0, &t, &peer(n), &peer("unver"), BUCKETS)
+        })
+        .expect("some alias fails the predicate toward both acceptors");
+
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+    let ver = node_with_links(
+        &registry,
+        &network,
+        "ver",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("ver"), [0u8; 32]).with_pick_count(Some(0))),
+            Arc::new(UnifiedAcceptance::new(peer("ver")).with_gate(Some(BUCKETS))),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let unver = node_with_links(
+        &registry,
+        &network,
+        "unver",
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(Selection::new(peer("unver"), [0u8; 32]).with_pick_count(Some(0))),
+            // The trusting-acceptors comparison arm: gate None.
+            Arc::new(UnifiedAcceptance::new(peer("unver"))),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+    let dialer = node_with_links(
+        &registry,
+        &network,
+        &dialer_name,
+        std::slice::from_ref(&t),
+        NodeStrategies::relay_only(
+            Arc::new(ConnectToExplicit(vec![
+                (peer("ver"), t.clone()),
+                (peer("unver"), t.clone()),
+            ])),
+            accept_all(&peer(&dialer_name)),
+        ),
+        Arc::new(ForwardToAll),
+        0,
+    )
+    .await;
+
+    for (node, others) in [
+        (&ver, ["unver", dialer_name.as_str()]),
+        (&unver, ["ver", dialer_name.as_str()]),
+        (&dialer, ["ver", "unver"]),
+    ] {
+        await_candidates(node, &t, &others, T)
+            .await
+            .expect("candidates converge");
+    }
+    trigger_setup(&dialer);
+
+    // The trusting acceptor admits the predicate-failing dial…
+    await_upstream_active(&dialer, unver.id(), &t, T)
+        .await
+        .expect("the opt-out arm admits without verification");
+
+    // …the verifying acceptor silently dropped the same dial: no reply came
+    // back, so the pending entry stays AwaitingAccept and no downstream forms.
+    common::assert_no_connection_change(&dialer, Duration::from_millis(50)).await;
+    let toward_ver: Vec<_> = dialer
+        .upstream_relays()
+        .into_iter()
+        .filter(|(p, topic, _)| p == ver.id() && topic == &t)
+        .collect();
+    assert_eq!(
+        toward_ver.len(),
+        1,
+        "the silently-dropped dial keeps its pending entry",
+    );
+    assert_eq!(
+        toward_ver[0].2,
+        pubsub_node::LinkState::AwaitingAccept,
+        "silent drop: no reply, no cleanup, no activation",
+    );
+    assert!(
+        ver.downstream_relays().is_empty(),
+        "the verifying acceptor records nothing for a predicate-failing dial",
+    );
+}

@@ -222,7 +222,7 @@ machine, including the deliberate cap-0 semantics change.
 **Independent Test**: state-level handshake scenarios drive each acceptance
 configuration and assert admissions, replies, and dialer-side cleanup.
 
-- [ ] T021 [P] [US3] Write state-level integration tests (failing first)
+- [x] T021 [P] [US3] Write state-level integration tests (failing first)
       in `tests/publisher_links.rs` + the connection scenarios of
       `tests/model_family.rs`: cap 0 refuses with explicit `Rejected` and
       the dialer removes its pending entry (the old silent-drop contrast —
@@ -231,7 +231,7 @@ configuration and assert admissions, replies, and dialer-side cleanup.
       acceptors (`gate: None` under gated dialers) admit predicate-failing
       requests; gated acceptance drops them — then make them pass
       (017 FR-011, FR-013, FR-023)
-- [ ] T022 [US3] Update the acceptance-module rustdoc
+- [x] T022 [US3] Update the acceptance-module rustdoc
       (`src/strategies/acceptance/mod.rs`, `unified.rs`): the merged policy
       description (gate follows the seam's bucket count; caps fed
       absolutely; the four baselines as knob combinations),

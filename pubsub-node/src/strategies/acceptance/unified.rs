@@ -30,6 +30,15 @@ use crate::topic::TopicId;
 /// already-held re-Accept) → gate → cap, so a predicate-failing request is
 /// never reported as over-capacity and a re-dialed held link is re-affirmed
 /// ahead of both dimensions.
+///
+/// The four pre-017 acceptance baselines are knob combinations:
+///
+/// | previous baseline | gate | cap |
+/// |---|---|---|
+/// | membership only (accept-from-all) | `None` | `None` |
+/// | capped (bounded) | `None` | `Some(C)` |
+/// | verifying (hash-gated) | `Some(B)` | `None` |
+/// | verifying + capped (hash-gated-bounded) | `Some(B)` | `Some(C)` |
 // 017-FR-010, 017-FR-011, 017-FR-013; research R1; data-model decision order.
 pub struct UnifiedAcceptance {
     self_id: PeerId,

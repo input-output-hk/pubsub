@@ -188,3 +188,154 @@ async fn foreign_publisher_is_admitted_over_publisher_links() {
         .await
         .expect("c receives b's own");
 }
+
+// ---- 017 US3: publisher-seam over-capacity — the explicit Rejected,
+// end to end -----------------------------------------------------------------
+
+/// A node accepting at most `cap` inbound publisher links per topic; dials
+/// no links of its own.
+fn capped_publisher_acceptor(id: &str, cap: usize) -> NodeStrategies {
+    NodeStrategies {
+        relay_connection: Arc::new(Selection::new(peer(id), [0u8; 32]).with_pick_count(Some(0))),
+        relay_acceptance: Arc::new(UnifiedAcceptance::new(peer(id))),
+        publisher_connection: Some(Arc::new(
+            Selection::new(peer(id), [0u8; 32])
+                .for_kind(LinkKind::Publisher)
+                .with_pick_count(Some(0)),
+        )),
+        publisher_acceptance: Some(Arc::new(
+            UnifiedAcceptance::new(peer(id))
+                .for_kind(LinkKind::Publisher)
+                .with_accept_cap(Some(cap)),
+        )),
+        symmetric_edges: false,
+    }
+}
+
+/// A node whose publisher seam dials exactly `targets` and accepts openly.
+fn explicit_publisher_dialer(id: &str, targets: &[(&str, &TopicId)]) -> NodeStrategies {
+    NodeStrategies {
+        relay_connection: Arc::new(Selection::new(peer(id), [0u8; 32]).with_pick_count(Some(0))),
+        relay_acceptance: Arc::new(UnifiedAcceptance::new(peer(id))),
+        publisher_connection: Some(Arc::new(common::ConnectToExplicit(
+            targets
+                .iter()
+                .map(|(p, t)| (peer(p), (*t).clone()))
+                .collect(),
+        ))),
+        publisher_acceptance: Some(Arc::new(
+            UnifiedAcceptance::new(peer(id)).for_kind(LinkKind::Publisher),
+        )),
+        symmetric_edges: false,
+    }
+}
+
+/// Poll until the dialer holds NO downstream-publisher entry for
+/// `(target, topic)` — sound as a removal detector only once the dial is
+/// known to have fired (a sibling target from the same heartbeat fold went
+/// Active).
+async fn await_publisher_entry_gone(node: &Node, target: &PeerId, t: &TopicId, timeout: Duration) {
+    let start = tokio::time::Instant::now();
+    loop {
+        let held = node
+            .downstream_publishers()
+            .into_iter()
+            .any(|(p, topic, _)| &p == target && &topic == t);
+        if !held {
+            return;
+        }
+        assert!(
+            start.elapsed() < timeout,
+            "the pending publisher entry to {target} was never cleaned up within {timeout:?}",
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+// 017 FR-011/FR-013 + §1.2 item 2's missing coverage: a publisher-seam
+// over-capacity refusal emits the explicit publisher-kind Rejected end to
+// end — the refused dialer's pending entry is removed and the acceptor keeps
+// serving exactly its cap.
+#[tokio::test]
+async fn publisher_over_capacity_is_rejected_end_to_end() {
+    let t = topic("t1");
+    let network = Arc::new(InMemoryNetwork::new());
+    let registry = Arc::new(InMemorySubscriptionRegistry::new());
+
+    // "srv" caps inbound publisher links at 1; "spare" is the open sibling
+    // target proving the refused dialer's heartbeat fold ran.
+    let srv = node_with_links(
+        &registry,
+        &network,
+        "srv",
+        std::slice::from_ref(&t),
+        capped_publisher_acceptor("srv", 1),
+        Arc::new(ForwardToRelays),
+        0,
+    )
+    .await;
+    let spare = node_with_links(
+        &registry,
+        &network,
+        "spare",
+        std::slice::from_ref(&t),
+        capped_publisher_acceptor("spare", 1),
+        Arc::new(ForwardToRelays),
+        0,
+    )
+    .await;
+
+    // First dialer fills srv's cap.
+    let first = node_with_links(
+        &registry,
+        &network,
+        "first",
+        std::slice::from_ref(&t),
+        explicit_publisher_dialer("first", &[("srv", &t)]),
+        Arc::new(ForwardToRelays),
+        0,
+    )
+    .await;
+    common::await_candidates(&first, &t, &["srv", "spare"], T)
+        .await
+        .expect("candidates converge");
+    common::trigger_setup(&first);
+    await_publisher_target_active(&first, srv.id(), &t, T)
+        .await
+        .expect("the first initiation dial fills the cap");
+
+    // The second dialer targets srv (now at cap) and spare (open).
+    let second = node_with_links(
+        &registry,
+        &network,
+        "second",
+        std::slice::from_ref(&t),
+        explicit_publisher_dialer("second", &[("srv", &t), ("spare", &t)]),
+        Arc::new(ForwardToRelays),
+        0,
+    )
+    .await;
+    common::await_candidates(&second, &t, &["srv", "spare", "first"], T)
+        .await
+        .expect("candidates converge");
+    common::await_candidates(&srv, &t, &["spare", "first", "second"], T)
+        .await
+        .expect("acceptor membership view converges");
+    common::trigger_setup(&second);
+
+    // Both dials fired in one heartbeat fold: once spare is Active, the srv
+    // entry existed — its disappearance is the routed publisher-kind
+    // Rejected's cleanup (over capacity is the explicit refusal; membership
+    // and predicate failures stay silent).
+    await_publisher_target_active(&second, spare.id(), &t, T)
+        .await
+        .expect("the open sibling target admits the dial");
+    await_publisher_entry_gone(&second, srv.id(), &t, T).await;
+
+    // The acceptor still serves exactly its cap — the first link, untouched.
+    assert_eq!(
+        srv.upstream_publishers(),
+        vec![(first.id().clone(), t.clone())],
+        "the capped acceptor keeps exactly the one accepted initiation link",
+    );
+}
