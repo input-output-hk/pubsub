@@ -293,7 +293,7 @@ variation) passes; regenerated baselines recorded.
       or the first staggered-boot fleet or experiment. Also re-point
       N-032's trigger (first experiment needing symmetric × capped — may
       never arrive) (017 FR-022)
-- [ ] T028 [US4] **Commit B gate**: full suite + determinism battery green;
+- [x] T028 [US4] **Commit B gate**: full suite + determinism battery green;
       regenerate and record fresh baseline generations per
       `notes/experiments-baselines/README.md` (new tool commit, new values —
       deliberate) (017 FR-026)
