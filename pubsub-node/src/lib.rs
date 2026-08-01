@@ -75,14 +75,15 @@ pub use received::{Origin, ReceivedDelivery};
 pub use strategies::acceptance::{
     AcceptFromAllCandidates, AcceptNone, AcceptanceStrategyKind, Admission, BoundedAcceptance,
     ConnectionAcceptanceStrategy, HashGatedAcceptance, HashGatedBoundedAcceptance,
-    UnknownAcceptanceStrategy,
+    UnifiedAcceptance, UnknownAcceptanceStrategy,
 };
 pub use strategies::config::{
-    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, StrategyConfigError,
+    AcceptanceParams, ConnectionParams, NodeStrategies, NodeStrategiesBuilder, SelectionParams,
+    StrategyConfigError, UnifiedAcceptanceParams,
 };
 pub use strategies::connection::{
     ConnectToAllCandidates, ConnectionStrategy, ConnectionStrategyKind, DialNone,
-    HashGatedConnection, UnknownConnectionStrategy,
+    HashGatedConnection, Selection, UnknownConnectionStrategy,
 };
 pub use strategies::edge::{accept_cap, bucket_count, is_valid_edge, is_valid_edge_sym};
 pub use strategies::fanout::{

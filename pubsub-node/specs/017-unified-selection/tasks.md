@@ -29,7 +29,7 @@ compiling with the full suite green in both configurations.
 
 **Purpose**: pin the starting state the byte-identity gate measures against.
 
-- [ ] T001 Verify the branch-point state: full suite green in both
+- [x] T001 Verify the branch-point state: full suite green in both
       configurations (`cargo test`, `cargo test --features experiments`),
       `cargo fmt --check`, `clippy --all-targets -- -D warnings`; re-run the
       recorded baseline sweeps and byte-diff `runs.jsonl`/`aggregates.json`
@@ -45,7 +45,7 @@ every commit stays green) with their tests written first.
 
 **⚠️ CRITICAL**: no user story work begins until this phase is complete.
 
-- [ ] T002 [P] Write failing unit tests for `Selection` draw semantics in
+- [x] T002 [P] Write failing unit tests for `Selection` draw semantics in
       `src/strategies/connection/selection.rs` (test module): exactly
       min(pick count, survivors) without replacement; gate-then-pick
       composition (dialed ⊆ predicate survivors); order-independence in the
@@ -54,7 +54,7 @@ every commit stays green) with their tests written first.
       heartbeat re-dial primitive); per-kind hash domains; symmetric
       predicate composition — via `strategies/test_support` fixtures
       (017 FR-001, FR-002, FR-004)
-- [ ] T003 [P] Write failing unit tests for `UnifiedAcceptance` in
+- [x] T003 [P] Write failing unit tests for `UnifiedAcceptance` in
       `src/strategies/acceptance/unified.rs` (test module): the 2×2
       admission matrix (gate × cap); membership prelude reuse (idempotent
       re-accept, membership silent drop); gate `None` admits without
@@ -62,14 +62,14 @@ every commit stays green) with their tests written first.
       cap reached → `RejectOverCapacity`; cap 0 refuses every new link;
       per-kind disjoint capacity scan; symmetric predicate verification
       (017 FR-010, FR-011, FR-013)
-- [ ] T004 Write the failing commit-A equivalence pin: `Selection` at
+- [x] T004 Write the failing commit-A equivalence pin: `Selection` at
       (bucket count absent, pick count = K) reproduces
       `UniformSampler::expected_links` value-for-value over identical views
       and seeds (asserted directly against the still-present
       `UniformSampler`; re-pinned as fixture values in T016 when the sampler
       is deleted) in `src/strategies/connection/selection.rs` (017 FR-025,
       FR-026; research R2)
-- [ ] T005 Implement `Selection` in `src/strategies/connection/selection.rs`
+- [x] T005 Implement `Selection` in `src/strategies/connection/selection.rs`
       (+ export in `src/strategies/connection/mod.rs`): gate via
       `is_valid_edge`/`is_valid_edge_publisher`/`is_valid_edge_sym` at the
       stored bucket count, then the seeded draw with the **commit-A
@@ -77,12 +77,12 @@ every commit stays green) with their tests written first.
       no nonce/self-id, `ChaCha20Rng` + `rand::seq::index::sample` over the
       sorted self-excluded survivor order) — T002 + T004 pass (research R1,
       R2)
-- [ ] T006 Implement `UnifiedAcceptance` in
+- [x] T006 Implement `UnifiedAcceptance` in
       `src/strategies/acceptance/unified.rs` (+ export in
       `src/strategies/acceptance/mod.rs`): `admit_prelude` first, then gate
       (`gate: Option<usize>`), then cap (`accept_cap: Option<usize>`) —
       T003 passes (research R1; data-model decision order)
-- [ ] T007 Reshape construction in `src/strategies/config.rs`:
+- [x] T007 Reshape construction in `src/strategies/config.rs`:
       `SelectionParams { self_id, kind, symmetric, bucket_count, pick_count,
       seed }` and `AcceptanceParams { self_id, kind, symmetric,
       bucket_count, accept_cap }`; one fallible `NodeStrategies` constructor

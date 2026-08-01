@@ -20,11 +20,13 @@ mod connect_to_all;
 mod hash_gated;
 mod kind;
 mod none;
+mod selection;
 
 pub use connect_to_all::ConnectToAllCandidates;
 pub use hash_gated::HashGatedConnection;
 pub use kind::{ConnectionStrategyKind, UnknownConnectionStrategy};
 pub use none::DialNone;
+pub use selection::Selection;
 
 /// The link-selection policy a node consults on a dial event.
 ///

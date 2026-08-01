@@ -30,6 +30,7 @@ mod hash_gated;
 mod hash_gated_bounded;
 mod kind;
 mod none;
+mod unified;
 
 pub use accept_from_all::AcceptFromAllCandidates;
 pub use bounded::BoundedAcceptance;
@@ -37,6 +38,7 @@ pub use hash_gated::HashGatedAcceptance;
 pub use hash_gated_bounded::HashGatedBoundedAcceptance;
 pub use kind::{AcceptanceStrategyKind, UnknownAcceptanceStrategy};
 pub use none::AcceptNone;
+pub use unified::UnifiedAcceptance;
 
 /// The outcome of an acceptance decision on a verified connection `Request`
 /// (feature 005, ADR 0025).

@@ -15,13 +15,23 @@
 //! construction *and* required-parameter validation live with the strategy, not
 //! scattered across the edge. (Fan-out stays `ForwardToRelays`, injected separately;
 //! it is not built through this two-phase seam.)
+//!
+//! **Unified plane construction (017).** [`NodeStrategies::new`] builds the
+//! whole set from per-seam plane knobs ([`SelectionParams`] /
+//! [`UnifiedAcceptanceParams`]) in one fallible call — with no strategy kinds
+//! to resolve, the key-resolution phase has nothing to do there, and the
+//! publisher pair is built through the same call instead of bypassing
+//! construction. The two-phase builder above coexists until the strategy
+//! kinds are deleted (017-T016).
 
 use std::sync::Arc;
 
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::acceptance::{AcceptanceStrategyKind, ConnectionAcceptanceStrategy};
-use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind};
+use crate::strategies::acceptance::{
+    AcceptanceStrategyKind, ConnectionAcceptanceStrategy, UnifiedAcceptance,
+};
+use crate::strategies::connection::{ConnectionStrategy, ConnectionStrategyKind, Selection};
 
 /// Already-parsed parameters for the connection (dial/upstream) seam. A field a
 /// chosen kind requires but that is left `None` yields a [`StrategyConfigError`]
@@ -150,8 +160,9 @@ pub(crate) fn require_target_degree(
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
-/// by [`NodeStrategiesBuilder::build`] (or [`NodeStrategies::relay_only`] for
-/// direct construction). Four link seams: the relay pair (required) and the
+/// by [`NodeStrategies::new`] (the selection-plane construction), by
+/// [`NodeStrategiesBuilder::build`], or by [`NodeStrategies::relay_only`] for
+/// direct construction. Four link seams: the relay pair (required) and the
 /// publisher pair (optional — `None` disables publisher links: no dials on the
 /// selection side, inbound publisher requests dropped on the acceptance side).
 /// Fan-out stays injected separately — it is not built through this two-phase
@@ -240,5 +251,246 @@ impl NodeStrategiesBuilder {
             // symmetric draws materialise as constructed pairs.
             symmetric_edges: relay_connection.symmetric,
         })
+    }
+}
+
+/// Already-parsed parameters for one seam's [`Selection`] instance: the
+/// selection-plane knobs plus the sampling seed.
+// 017-FR-001/FR-002 knob domains; research R1/R5.
+#[derive(Clone, Debug)]
+pub struct SelectionParams {
+    /// The node's own identity (the requester side of the edge predicate).
+    pub self_id: PeerId,
+    /// The link kind the built instance dials — selects the hash domain.
+    pub kind: LinkKind,
+    /// Use the symmetric edge predicate on the gate. One flag sets this on
+    /// the relay selection AND acceptance params together; publisher params
+    /// leave it `false` (no published model defines symmetric publisher
+    /// links — ADR 0034's boundary).
+    pub symmetric: bool,
+    /// The bucket count (hash-gate width). `None` = ungated. `Some(0)` is
+    /// rejected at construction; `Some(1)` is legal here (≡ ungated — the
+    /// sweep config's axis point) even where the operator CLI rejects it.
+    pub bucket_count: Option<usize>,
+    /// The pick count: `None` = dial every gate survivor; `Some(0)` = dial
+    /// none; `Some(k)` = exactly `min(k, survivors)` seeded uniform picks.
+    pub pick_count: Option<usize>,
+    /// The 32-byte sampling seed; read only when the pick count is `≥ 1`.
+    pub seed: [u8; 32],
+}
+
+/// Already-parsed parameters for one seam's [`UnifiedAcceptance`] instance.
+///
+/// Takes the `AcceptanceParams` name once the two-phase builder and its
+/// param structs are deleted (017-T016).
+// 017-FR-010/FR-011/FR-012; research R1/R5.
+#[derive(Clone, Debug)]
+pub struct UnifiedAcceptanceParams {
+    /// The node's own identity (the candidate side of the verified edge).
+    pub self_id: PeerId,
+    /// The link kind the built instance admits — selects the hash domain and
+    /// which accepted-link class its capacity counts.
+    pub kind: LinkKind,
+    /// Verify with the symmetric edge predicate — set from the same flag as
+    /// the dial side (both relay seams switch together).
+    pub symmetric: bool,
+    /// The bucket count the acceptor verifies at — the **post-opt-out gate
+    /// value**: the edge passes the seam's bucket count so acceptors verify
+    /// exactly the `B` the dialers use, or `None` when verification is
+    /// opted out (or the seam is ungated). Domain as on
+    /// [`SelectionParams::bucket_count`].
+    pub bucket_count: Option<usize>,
+    /// The absolute per-topic serving cap: `None` = unbounded; `Some(0)` =
+    /// serve none (every new link refused with the explicit rejection).
+    pub accept_cap: Option<usize>,
+}
+
+/// Validate a plane bucket count for construction: `Some(0)` is rejected (a
+/// zero-bucket gate is meaningless); `Some(1)` is legal (≡ ungated — the
+/// sweep config's boundary axis point; the operator CLI applies its own
+/// stricter rule at the edge).
+fn validate_plane_bucket_count(
+    strategy: &'static str,
+    kind: LinkKind,
+    bucket_count: Option<usize>,
+) -> Result<Option<usize>, StrategyConfigError> {
+    if bucket_count == Some(0) {
+        return Err(StrategyConfigError::InvalidParameter {
+            strategy,
+            parameter: match kind {
+                LinkKind::Relay => "the relay bucket count",
+                LinkKind::Publisher => "the publisher bucket count",
+            },
+            constraint: "at least 1",
+        });
+    }
+    Ok(bucket_count)
+}
+
+/// Build one seam's [`Selection`] instance from its plane params.
+fn build_selection(
+    params: SelectionParams,
+) -> Result<Arc<dyn ConnectionStrategy>, StrategyConfigError> {
+    let bucket_count = validate_plane_bucket_count("selection", params.kind, params.bucket_count)?;
+    Ok(Arc::new(
+        Selection::new(params.self_id, params.seed)
+            .for_kind(params.kind)
+            .with_symmetric(params.symmetric)
+            .with_bucket_count(bucket_count)
+            .with_pick_count(params.pick_count),
+    ))
+}
+
+/// Build one seam's [`UnifiedAcceptance`] instance from its plane params.
+fn build_unified_acceptance(
+    params: UnifiedAcceptanceParams,
+) -> Result<Arc<dyn ConnectionAcceptanceStrategy>, StrategyConfigError> {
+    let gate = validate_plane_bucket_count("acceptance", params.kind, params.bucket_count)?;
+    Ok(Arc::new(
+        UnifiedAcceptance::new(params.self_id)
+            .for_kind(params.kind)
+            .with_symmetric(params.symmetric)
+            .with_gate(gate)
+            .with_accept_cap(params.accept_cap),
+    ))
+}
+
+impl NodeStrategies {
+    /// Construct the full strategy set from selection-plane knobs — one
+    /// fallible call building the relay pair always and the publisher pair
+    /// when its params are supplied (`None` keeps the publisher seam off by
+    /// construction: no dial pass, inbound publisher requests dropped). The
+    /// first [`StrategyConfigError`] surfaces here, so the edge maps it
+    /// once — the publisher pair no longer bypasses construction.
+    // 017-FR-008 (seam off by construction), 017-FR-016 (seed threading);
+    // research R5 (absorbs §1.2 item 6).
+    pub fn new(
+        relay_selection: SelectionParams,
+        relay_acceptance: UnifiedAcceptanceParams,
+        publisher: Option<(SelectionParams, UnifiedAcceptanceParams)>,
+    ) -> Result<Self, StrategyConfigError> {
+        // One flag configures the predicate on both relay params AND the
+        // handshake vocabulary (a symmetric dial pass is what makes the
+        // symmetric draws materialise as constructed pairs).
+        let symmetric_edges = relay_selection.symmetric;
+        let relay_connection = build_selection(relay_selection)?;
+        let relay_acceptance = build_unified_acceptance(relay_acceptance)?;
+        let (publisher_connection, publisher_acceptance) = match publisher {
+            None => (None, None),
+            Some((selection, acceptance)) => (
+                Some(build_selection(selection)?),
+                Some(build_unified_acceptance(acceptance)?),
+            ),
+        };
+        Ok(Self {
+            relay_connection,
+            relay_acceptance,
+            publisher_connection,
+            publisher_acceptance,
+            symmetric_edges,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{NodeStrategies, SelectionParams, StrategyConfigError, UnifiedAcceptanceParams};
+    use crate::connection_state::LinkKind;
+    use crate::strategies::test_support::peer;
+
+    fn selection_params(kind: LinkKind) -> SelectionParams {
+        SelectionParams {
+            self_id: peer("self"),
+            kind,
+            symmetric: false,
+            bucket_count: None,
+            pick_count: None,
+            seed: [0u8; 32],
+        }
+    }
+
+    fn acceptance_params(kind: LinkKind) -> UnifiedAcceptanceParams {
+        UnifiedAcceptanceParams {
+            self_id: peer("self"),
+            kind,
+            symmetric: false,
+            bucket_count: None,
+            accept_cap: None,
+        }
+    }
+
+    // 017-FR-008: no publisher params ⇒ the publisher seam stays off by
+    // construction; the relay pair always builds.
+    #[test]
+    fn relay_only_construction_leaves_the_publisher_seam_off() {
+        let strategies = NodeStrategies::new(
+            selection_params(LinkKind::Relay),
+            acceptance_params(LinkKind::Relay),
+            None,
+        )
+        .expect("plane origin builds");
+        assert!(strategies.publisher_connection.is_none());
+        assert!(strategies.publisher_acceptance.is_none());
+        assert!(!strategies.symmetric_edges);
+    }
+
+    // Publisher params supplied ⇒ both publisher seams are built through the
+    // same call (no bypass — one error-map site).
+    #[test]
+    fn publisher_params_build_the_publisher_pair() {
+        let strategies = NodeStrategies::new(
+            selection_params(LinkKind::Relay),
+            acceptance_params(LinkKind::Relay),
+            Some((
+                selection_params(LinkKind::Publisher),
+                acceptance_params(LinkKind::Publisher),
+            )),
+        )
+        .expect("publisher pair builds");
+        assert!(strategies.publisher_connection.is_some());
+        assert!(strategies.publisher_acceptance.is_some());
+    }
+
+    // The relay selection's symmetric knob drives the handshake vocabulary.
+    #[test]
+    fn symmetric_knob_threads_into_symmetric_edges() {
+        let mut relay_selection = selection_params(LinkKind::Relay);
+        relay_selection.symmetric = true;
+        let mut relay_acceptance = acceptance_params(LinkKind::Relay);
+        relay_acceptance.symmetric = true;
+        let strategies = NodeStrategies::new(relay_selection, relay_acceptance, None)
+            .expect("symmetric plane point builds");
+        assert!(strategies.symmetric_edges);
+    }
+
+    // Core-domain validation: a bucket count of 0 is rejected on either
+    // side of either seam; 1 is legal (≡ ungated — the sweep config's
+    // boundary axis point, rejected only by the operator CLI's own rule).
+    #[test]
+    fn zero_bucket_count_is_rejected_and_one_is_legal() {
+        let mut gated_zero = selection_params(LinkKind::Relay);
+        gated_zero.bucket_count = Some(0);
+        assert!(matches!(
+            NodeStrategies::new(gated_zero, acceptance_params(LinkKind::Relay), None),
+            Err(StrategyConfigError::InvalidParameter { .. }),
+        ));
+
+        let mut accept_zero = acceptance_params(LinkKind::Publisher);
+        accept_zero.bucket_count = Some(0);
+        assert!(matches!(
+            NodeStrategies::new(
+                selection_params(LinkKind::Relay),
+                acceptance_params(LinkKind::Relay),
+                Some((selection_params(LinkKind::Publisher), accept_zero)),
+            ),
+            Err(StrategyConfigError::InvalidParameter { .. }),
+        ));
+
+        let mut gated_one = selection_params(LinkKind::Relay);
+        gated_one.bucket_count = Some(1);
+        assert!(
+            NodeStrategies::new(gated_one, acceptance_params(LinkKind::Relay), None).is_ok(),
+            "bucket count 1 is the ungated axis point — legal in core construction",
+        );
     }
 }
