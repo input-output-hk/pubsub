@@ -106,7 +106,11 @@ struct Args {
     /// Fan-out strategy (case-insensitive): `forward-to-all` (the default —
     /// every held message over both link classes) or `forward-to-relays`
     /// (held messages to relay downstreams only; publisher links carry just
-    /// the node's own publications).
+    /// the node's own publications). Caution: a node with publisher links
+    /// and this flag omitted runs M5 semantics (relayed traffic rides its
+    /// publisher links too); M3 exclusivity requires the explicit
+    /// `forward-to-relays`.
+    // 017-FR-009: the default flip's footgun stated in help.
     #[arg(long, default_value = "forward-to-all")]
     fanout_strategy: FanoutStrategyKind,
 

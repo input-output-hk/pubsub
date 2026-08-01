@@ -338,7 +338,7 @@ fully discharged.
 - [x] T032 [P] Uniform `Active` check in
       `src/strategies/fanout/forward_to_relays.rs` (relay arm currently
       admits any `LinkState`) with a unit test (§1.2 item 1; 017 FR-023)
-- [ ] T033 [P] Fan-out docs: fix the `src/strategies/fanout/mod.rs`
+- [x] T033 [P] Fan-out docs: fix the `src/strategies/fanout/mod.rs`
       intra-doc link + pre-015 text (§1.2 item 9); flip the default
       documentation in `src/strategies/fanout/kind.rs`; add the M5-footgun
       line to the CLI help in `src/main.rs` (017 FR-009)
