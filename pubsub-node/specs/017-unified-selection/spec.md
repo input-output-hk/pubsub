@@ -522,8 +522,10 @@ determinism battery.
   no epoch nonce or self-identity in the preimage) and MUST byte-diff
   identical against the recorded baselines (run records and aggregates;
   manifests may differ in tool commit and config text); commit B renames the
-  domain, extends the preimage (epoch nonce, self-identity), lands the CLI
-  seed derivation, and re-baselines.
+  domain, extends the preimage (epoch nonce, self-identity), lands the
+  final CLI seed derivation (a provisional loader expansion may precede it —
+  the node CLI has no recorded baselines; only the experiments-facing
+  derivation is byte-identity-constrained), and re-baselines.
 - **FR-027**: After landing: re-execute the m2-comparison, confirm
   statistical agreement with the formal values per that document's recorded
   methodology (raw counts with Wilson 95% intervals; exact-agreement checks

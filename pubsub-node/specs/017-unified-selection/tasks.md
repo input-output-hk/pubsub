@@ -136,7 +136,9 @@ baselines.
       `accept_cap`, `accept_unverified`, `symmetric`; kind strings
       (`connection`/`acceptance`, `uniform-sampler`) removed;
       `forward-to-all` still rejected — with config-parsing tests including
-      the boundary values (017 FR-017, FR-018 domains; research R6)
+      the boundary values; NO publisher-pair fields (the 017 FR-019
+      boundary: population construction stays relay-only — that surface is
+      the next feature's) (017 FR-017, FR-018 domains, FR-019; research R6)
 - [ ] T012 [US1] Update `src/experiments/population.rs`: build
       `Selection`/`UnifiedAcceptance` from the spec'd coordinates, thread
       `symmetric` into the relay params and `NodeStrategies.symmetric_edges`
@@ -175,7 +177,10 @@ baselines.
       R11: fed knobs, type/enum collapse, acceptance merge +
       verification-follows-B, fed caps, knob-only CLI, fan-out default flip,
       the verifiable region; amendment notes against ADRs
-      0018/0023/0024/0025/0028/0031/0032/0034)
+      0018/0023/0024/0025/0028/0031/0032/0034; alternatives-rejected records
+      the balanced-B registry computation — rejected as mechanism, formula
+      retained as operator guidance, registry-as-carrier of a
+      governance-set B open as a separate future feature — 017 FR-022)
 
 **Checkpoint**: the plane is the only selection machinery; byte-identity
 proven — US1 is a shippable MVP.
