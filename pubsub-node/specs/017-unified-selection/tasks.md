@@ -335,7 +335,7 @@ fully discharged.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T032 [P] Uniform `Active` check in
+- [x] T032 [P] Uniform `Active` check in
       `src/strategies/fanout/forward_to_relays.rs` (relay arm currently
       admits any `LinkState`) with a unit test (§1.2 item 1; 017 FR-023)
 - [ ] T033 [P] Fan-out docs: fix the `src/strategies/fanout/mod.rs`
