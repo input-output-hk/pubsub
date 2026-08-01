@@ -334,11 +334,12 @@ fully discharged.
 - [ ] T035 Refresh the `CLAUDE.md` active-work stanza to the completed-branch
       form (017 delivered shape, ADR/N-note pointers, baselines note)
       (017 FR-024)
-- [ ] T036 Optional (maintainer's call, 017 FR-024): short ADR recording the
-      configuration-placement rationale in
-      `docs/decisions/0041-configuration-placement.md` (CLI flags = one
-      node's own knobs; TOML = shared world state or declarative sweep
-      definitions)
+- [x] T036 Declined (maintainer decision, 2026-07-31): the optional
+      configuration-placement ADR (017 FR-024) is not authored — the node
+      has no config file to regulate (ADR 0033 deleted its last field), so
+      there is no flags-vs-TOML convention left to record; the remaining
+      TOML surfaces (registry data files, sweep configs) are separate
+      programs' inputs with their own contracts
 - [ ] T037 Final sweep: `cargo fmt`, `clippy --all-targets -- -D warnings`,
       full suite in both configurations; SC-008 symbol sweep (deleted
       types/functions/flags absent from `src/` and `--help`); SC-001 recipe
