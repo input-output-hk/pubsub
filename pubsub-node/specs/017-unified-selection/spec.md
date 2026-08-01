@@ -577,8 +577,11 @@ determinism battery.
   "approximation" disclaimer in quickstart, contracts, or ADR caveats).
 - **SC-004**: The determinism battery passes: identical artifacts under
   replay-by-seed and across worker counts.
-- **SC-005**: E7 and E10 are runnable from shipped sweep configurations, and
-  E12's program status reads ready with no new machinery.
+- **SC-005**: E7 is runnable from the shipped M4 sweep configuration; E10's
+  plane axes (`pick_count`, `bucket_count`) are shipped and
+  boundary-verified down to run values — the E10 grid design itself (which
+  crossings, at what scale) remains the experiment program's work, not this
+  feature's; and E12's program status reads ready with no new machinery.
 - **SC-006**: Two nodes sharing one selection-seed value produce
   statistically independent pick sets, and a node's picks are unchanged
   across repeated heartbeats but change across an epoch-nonce change.

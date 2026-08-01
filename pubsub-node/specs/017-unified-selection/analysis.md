@@ -96,3 +96,20 @@ code when code exists); its passes will be ledgered below.
   staggered-boot fleet or experiment) and a caution added to the 017
   quickstart; the test harness seeds full membership before construction,
   matching the driver's documented barrier.
+
+### 2026-08-01 — Phase 7 checkpoint rulings
+
+- **I4 (LOW)** — SC-005's letter ("E7 and E10 are runnable from shipped
+  sweep configurations") overstated the E10 arm: the plane axes are shipped
+  and boundary-verified down to run values, but no config crosses the plane,
+  and shipping one would pre-empt the E10 grid design that the experiment
+  program (stage 4) owns — every value in a feature-shipped placeholder
+  would be an undesigned choice. The M4 config differs in kind: the
+  feature's validation contract required its baseline. **Resolution**
+  (maintainer ruling): SC-005 amended to capability-satisfied wording (E7
+  runnable from the shipped configuration; E10 axes shipped and verified;
+  the grid design stays program work); T037's SC sweep checks the amended
+  criterion.
+- Also ruled at this checkpoint: `docs/experiments-program.md`'s
+  strategy-inventory vocabulary refresh rides T034 (same file as its E12
+  status edit) — task text amended.
