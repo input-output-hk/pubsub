@@ -90,6 +90,15 @@ toward ≈ cap/B per victim.
 - **Trusting acceptors** (gated dialers, non-verifying acceptors — the
   comparison arm): `--relay-accept-unverified` beside
   `--relay-bucket-count`.
+- **Sampled picks assume a complete candidate view at dial time.** The pick
+  set is a function of the whole view: a node dialing on a partial view
+  (staggered boot) draws from the subset it sees — fewer than the pick
+  count if the subset is smaller, with no retry — and any re-dial after the
+  view grows draws a *different* sample whose union inflates degree
+  (add-only; measured: M4 fleet degrees exceed 2× the pick count until an
+  epoch rotation). Today's single readiness heartbeat over a fully-synced
+  snapshot avoids this by construction; the implementation note recorded
+  with this feature carries the revisit trigger.
 
 ## Verifiability
 

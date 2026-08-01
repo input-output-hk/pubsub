@@ -275,13 +275,24 @@ variation) passes; regenerated baselines recorded.
       preimage layout, the per-seam draw domains and the correlation defect
       they close, the privacy stand-in posture and its trigger, the
       two-commit derivation swap) (research R11)
-- [ ] T027 [US4] Record the two new implementation notes in
+- [ ] T027 [US4] Record the three new implementation notes in
       `specs/IMPLEMENTATION_NOTES.md` at the next free numbers: gate-failing
       dials as provable-but-unrecorded evidence (trigger: incentive/chain
-      layer) and selection-seed privacy (trigger: first adaptive-adversary
-      experiment or real-crypto identity work); re-point N-032's trigger
-      (first experiment needing symmetric × capped — may never arrive)
-      (017 FR-022)
+      layer); selection-seed privacy (trigger: first adaptive-adversary
+      experiment or real-crypto identity work); and sampled selection under
+      view growth — a pick set is a function of the whole candidate view, so
+      a re-dial after view growth draws a different sample and the add-only
+      model unions them (degree inflation, measured at the 017 M4 fleet
+      test), while a single dial over a partial view draws subset picks
+      (below the pick count if the view is smaller, no retry); ADR 0031's
+      heartbeat re-dial idempotence holds for sampling only while the view
+      is stable (hash-gating stays unconditionally monotone-consistent);
+      today's surfaces are safe by construction (single readiness heartbeat
+      over a fully-folded snapshot; the driver's all-synced barrier);
+      cross-reference N-011; trigger: periodic heartbeats / epoch rotation,
+      or the first staggered-boot fleet or experiment. Also re-point
+      N-032's trigger (first experiment needing symmetric × capped — may
+      never arrive) (017 FR-022)
 - [ ] T028 [US4] **Commit B gate**: full suite + determinism battery green;
       regenerate and record fresh baseline generations per
       `notes/experiments-baselines/README.md` (new tool commit, new values —

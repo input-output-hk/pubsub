@@ -77,3 +77,22 @@ code when code exists); its passes will be ledgered below.
   + rejected alternatives), data-model (derivation line + invariant),
   tasks T023 (independence test) / T024 (both domains) / T026 (ADR 0040
   scope), plan summary. Commit A unaffected by construction.
+
+### 2026-08-01 — Phase 4 checkpoint observation (sampled selection under view growth)
+
+- **I3 (MEDIUM, deferred-with-note)** — the T019 M4 fleet test's first
+  (failing) run measured a real interaction: a sampled pick set is a
+  function of the whole candidate view, so dials over partial views draw
+  subset picks (below the pick count if the view is smaller, no retry) and
+  re-dials after view growth draw *different* samples whose add-only union
+  inflates degree past 2× the pick count until rotation. ADR 0031's
+  heartbeat re-dial idempotence is thereby conditional for the sampling arm
+  (stable view), while hash-gating remains unconditionally
+  monotone-consistent. Not reachable today: the v1 node fires one readiness
+  heartbeat over a fully-folded snapshot, and the driver's faithful mode
+  has the all-synced barrier (the fast path pre-populates). **Resolution**:
+  third implementation note added to T027's scope (cross-referencing
+  N-011; trigger: periodic heartbeats / epoch rotation, or the first
+  staggered-boot fleet or experiment) and a caution added to the 017
+  quickstart; the test harness seeds full membership before construction,
+  matching the driver's documented barrier.
