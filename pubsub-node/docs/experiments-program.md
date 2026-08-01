@@ -48,8 +48,8 @@ publishes validated coverage laws, cost/latency values, and Monte-Carlo grids
 - **M5 — directed k-in/k-out gossip**: each node picks k_in forwarders and k_out targets; the
   boundary cases recover M2 (k_out = 0) and M1 (k_in = 0) — built-in sanity checks for any M5 sweep.
 
-The node implements M2, M3, and M5; M4 lands with the uniform exactly-RF selection kind (the models'
-selection family), a planned follow-up.
+The node implements all five: M4 is exactly-RF uniform picks (the models' selection family, the
+node's pick count) established over the symmetric handshake.
 
 **Erdős–Rényi closed forms** remain the asymptotic yardstick for the honest metrics: eclipse rate,
 adversary tolerance `k_max(ε)`, coverage and its distribution, connectivity/partition thresholds,
@@ -116,19 +116,24 @@ degenerates to zero width at all-good samples, which well-sized configurations m
 
 **Honest behaviour** is expressed through the node's injected strategy seams:
 
-- **Connection** (dial): `connect-to-all`, `hash-gated` (bounded, verifiable, hash-derived selection
-  at `target_degree` = RF over a configured bucket count), `none`; plus the experiments-only
-  `uniform-sampler` (exactly-RF uniform picks — the models' selection family, needed wherever a
-  comparison must not conflate the selection-family gap with instrument error).
-- **Acceptance** (admission): `accept-from-all`, `bounded` (serving cap, no retry/back-fill in v1 —
-  a refused dial is simply not re-attempted), `hash-gated`, `hash-gated-bounded`, `none`.
-- **Fan-out**: `forward-to-relays` (the default — held messages to relay links, own publications
-  seeded over publisher links), `forward-to-all` (every held message over all links — M5's send
-  side), and the experiments-only `silent-relay`.
+- **Connection** (dial): one selection implementation per seam over two knobs — the **bucket count**
+  (keep the candidates passing the verifiable edge predicate at B; absent = ungated) and the **pick
+  count** (exactly min(pick count, gate survivors) seeded uniform picks without replacement — the
+  models' selection family, needed wherever a comparison must not conflate the selection-family gap
+  with instrument error; absent = every survivor, 0 = dial none). The former strategy kinds are plane
+  points: connect-to-all (both absent), hash-gated (bucket count only), uniform picks (pick count
+  only), gated picks (both).
+- **Acceptance** (admission): the same two dimensions on the serving side — gate verification
+  follows the seam's bucket count (an `accept_unverified` opt-out preserves the trusting-acceptors
+  comparison arm) plus an absolute per-seam **accept cap** (no retry/back-fill in v1 — a refused
+  dial is simply not re-attempted).
+- **Fan-out**: `forward-to-all` (the default — every held message over all links, M5's send side),
+  `forward-to-relays` (M3's exclusivity: held messages to relay links only, own publications seeded
+  over publisher links), and the experiments-only `silent-relay`.
 - **Link kinds** realise the model family: the relay mesh (M2), the optional publisher pair for
   standing initiation links (M3/M5), and the symmetric handshake whose one accept decision
-  establishes a bidirectional link on both ends (M4's mechanics, awaiting the uniform selection
-  kind).
+  establishes a bidirectional link on both ends — with a pick count and no bucket count, exactly
+  M4.
 
 **Adversaries** come in two tiers. Level-1 — a hostile strategy bundle on an otherwise-honest node —
 is implemented; the silent relay (the models' worst-case adversary) ships with the framework, and a
@@ -176,8 +181,9 @@ the boundary reductions (M5 → M2 at k_out = 0, M5 → M1 at k_in = 0) are buil
 - **E6 — M3, initiation links** [needs: publisher-pair experiment configuration]. The s−1 mapping,
   the seeding/relaying cost split, and the elimination of M2's muted-publisher tail; coverage law and
   cost values vs the published M3 grids.
-- **E7 — M4, bidirectional links** [needs: uniform exactly-RF selection kind]. The minimum-degree
-  floor and connectivity at small RF vs the published M4 law.
+- **E7 — M4, bidirectional links** [ready]. The minimum-degree floor and connectivity at small RF vs
+  the published M4 law; the shipped M4 sweep configuration (pick count + symmetric handshake) is the
+  starting point, with its baseline recorded.
 - **E8 — M5, the k-in/k-out grid** [needs: publisher-pair experiment configuration]. Sweep both
   axes, verify the boundary reductions, compare the interior to the published values.
 
@@ -190,17 +196,20 @@ security trade-off, never derived from local state.
 - **E9 — Bucketing, no cap** [ready]. Eclipse/coverage (the E3/E5 metrics) with bucketing on vs off,
   sweeping B; the bucketed-pull analysis predicts the eclipse fraction unchanged at the balanced B —
   confirm, then explore off-balanced.
-- **E10 — Selection-family fidelity** [needs: uniform exactly-RF selection kind]. Hash-gated
-  selection realises a binomial degree around RF where the models prescribe exactly-RF uniform picks.
-  Sweep the (bucket count, pick cap) plane and quantify the deviation from the models' laws — the
-  fidelity question ADR 0032/0034 defer to this harness.
+- **E10 — Selection-family fidelity** [ready]. Hash-gated selection realises a binomial degree
+  around the pick count where the models prescribe exactly-RF uniform picks. Sweep the
+  (bucket count, pick count) plane — both are axis parameters, with the boundary points legal in the
+  sweep config — and quantify the deviation from the models' laws; the grid design (which crossings,
+  at what scale) is this program's work. The fidelity question ADR 0032/0034 defer to this harness.
 - **E11 — Serving cap, honest** [ready]. With uniform dialing, serving load varies by chance; when
   the cap sits close to RF, upper-tail nodes refuse honest dials — and v1 has no retry, so a refused
   dial is lost. Measure effective in-degree and coverage against the uncapped baseline as a function
   of cap headroom. (A retry/back-fill variant re-runs this when that mechanism exists.)
-- **E12 — Flooding mitigation under the cap** [needs: Level-1 flooding dial kind]. Adversarial
-  Sybils exhaust a victim's slots; measure concentration reduction toward ≈ K/B and honest
-  starvation.
+- **E12 — Flooding mitigation under the cap** [ready]. Adversarial Sybils exhaust a victim's slots;
+  measure concentration reduction toward ≈ K/B and honest starvation. No new machinery: the rational
+  level-1 flooder stays inside its valid edge set (an invalid dial is self-incriminating evidence),
+  and saturating that set is the (bucket count pinned, no pick count) plane point as the adversarial
+  bundle's dial coordinates, with silent-relay fan-out.
 
 **Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
 bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
@@ -261,12 +270,12 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E4 | Adversary tolerance `k_max(ε)` | 2 | M2 | ready |
 | E5 | End-to-end coverage, silent adversaries | 2 | M2 coverage law / ER percolation | **fixed points done** (M2 comparison); sweeps ready |
 | E6 | M3 — initiation links | 3 | M3 law + grids | needs publisher-pair config |
-| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | needs uniform selection kind |
+| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | ready |
 | E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | needs publisher-pair config |
 | E9 | Bucketing, no cap | 4 | bucketed-pull (balanced B) | ready |
-| E10 | Selection-family fidelity (B, K) | 4 | model selection family | needs uniform selection kind |
+| E10 | Selection-family fidelity (B, K) | 4 | model selection family | ready |
 | E11 | Serving cap, honest | 4 | none (congestion) | ready |
-| E12 | Flooding mitigation under cap | 4 | bucketed-pull concentration | needs flooding dial kind |
+| E12 | Flooding mitigation under cap | 4 | bucketed-pull concentration | ready |
 | E13 | Churn | 5 | none | ready |
 | E14 | Multi-round healing | 5 | none | needs rotation |
 | E15 | Adversarial relevance classification | 5 | silent-adversary bound | analysis ready |

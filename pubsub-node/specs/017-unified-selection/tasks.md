@@ -342,7 +342,7 @@ fully discharged.
       intra-doc link + pre-015 text (§1.2 item 9); flip the default
       documentation in `src/strategies/fanout/kind.rs`; add the M5-footgun
       line to the CLI help in `src/main.rs` (017 FR-009)
-- [ ] T034 [P] Correct the E12 status line in `docs/experiments-program.md`
+- [x] T034 [P] Correct the E12 status line in `docs/experiments-program.md`
       (ready; the flooding point = bucket count pinned, no pick count, with
       silent-relay fan-out — the FR-022 disposition's one edit) and, as the
       Phase 7 checkpoint rider, refresh the same document's
