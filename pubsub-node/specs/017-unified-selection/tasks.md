@@ -344,8 +344,11 @@ fully discharged.
       line to the CLI help in `src/main.rs` (017 FR-009)
 - [ ] T034 [P] Correct the E12 status line in `docs/experiments-program.md`
       (ready; the flooding point = bucket count pinned, no pick count, with
-      silent-relay fan-out — the FR-022 disposition's one edit)
-      (017 FR-022, FR-024)
+      silent-relay fan-out — the FR-022 disposition's one edit) and, as the
+      Phase 7 checkpoint rider, refresh the same document's
+      strategy-inventory/machinery wording from the pre-017 kind vocabulary
+      (uniform-sampler, target_degree, accept-from-all, …) to the plane
+      coordinates (017 FR-022, FR-024)
 - [ ] T035 Refresh the `CLAUDE.md` active-work stanza to the completed-branch
       form (017 delivered shape, ADR/N-note pointers, baselines note)
       (017 FR-024)
