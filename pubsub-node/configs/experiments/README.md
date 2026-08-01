@@ -68,11 +68,12 @@ declaration order (first-declared axis varying slowest):
 ```toml
 [[axes]]
 parameter = "churn"     # size, adversarial, adversarial_fraction, churn,
-values = [0.0, 0.05, 0.1]   # churn_count, target_degree, publishes_per_run
+values = [0.0, 0.05, 0.1]   # churn_count, pick_count, bucket_count,
+                            # publishes_per_run
 
 [[axes]]
-parameter = "target_degree" # sets pick_count on both classes' tables
-values = [4, 8, 16]
+parameter = "pick_count"    # sets both classes' tables; boundary values are
+values = [4, 8, 16]         # legal axis points (pick_count 0; bucket_count 1)
 ```
 
 Everything in this file is result-affecting and is embedded in the output

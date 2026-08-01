@@ -66,7 +66,7 @@ pub enum SweepConfigError {
         field: &'static str,
     },
     /// An axis named no sweepable parameter.
-    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, target_degree, publishes_per_run)")]
+    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, pick_count, bucket_count, publishes_per_run)")]
     UnknownAxisParameter {
         /// The offending parameter name.
         name: String,
@@ -211,8 +211,12 @@ pub enum AxisParameter {
     Churn,
     /// Churn count.
     ChurnCount,
-    /// Target degree, applied to both classes' strategy tables.
-    TargetDegree,
+    /// Pick count, applied to both classes' strategy tables (`0` is the
+    /// `k_in`/`k_out` = 0 boundary axis point).
+    PickCount,
+    /// Bucket count, applied to both classes' strategy tables (`1` is the
+    /// ungated boundary axis point; `0` rejected).
+    BucketCount,
     /// Publish phases per run.
     PublishesPerRun,
 }
@@ -227,7 +231,8 @@ impl AxisParameter {
             Self::AdversarialFraction => "adversarial_fraction",
             Self::Churn => "churn",
             Self::ChurnCount => "churn_count",
-            Self::TargetDegree => "target_degree",
+            Self::PickCount => "pick_count",
+            Self::BucketCount => "bucket_count",
             Self::PublishesPerRun => "publishes_per_run",
         }
     }
@@ -239,7 +244,8 @@ impl AxisParameter {
             "adversarial_fraction" => Ok(Self::AdversarialFraction),
             "churn" => Ok(Self::Churn),
             "churn_count" => Ok(Self::ChurnCount),
-            "target_degree" => Ok(Self::TargetDegree),
+            "pick_count" => Ok(Self::PickCount),
+            "bucket_count" => Ok(Self::BucketCount),
             "publishes_per_run" => Ok(Self::PublishesPerRun),
             _ => Err(SweepConfigError::UnknownAxisParameter {
                 name: name.to_string(),
@@ -386,14 +392,18 @@ impl SweepDescription {
                 AxisParameter::ChurnCount => {
                     churn = CountSpec::Count(value.as_count(parameter.name())?);
                 }
-                AxisParameter::TargetDegree => {
-                    // Transitional: the axis keeps its pre-017 spelling and
-                    // sets the pick count on both classes' tables (the axis
-                    // spelling rename + the bucket-count axis land with
-                    // 017-T029).
+                AxisParameter::PickCount => {
                     let picks = value.as_count(parameter.name())?;
                     honest_strategies.pick_count = Some(picks);
                     adversarial_strategies.pick_count = Some(picks);
+                }
+                AxisParameter::BucketCount => {
+                    // Domain enforcement (0 rejected, 1 the legal ungated
+                    // boundary point) happens at the per-grid-point table
+                    // probe below.
+                    let buckets = value.as_count(parameter.name())?;
+                    honest_strategies.bucket_count = Some(buckets);
+                    adversarial_strategies.bucket_count = Some(buckets);
                 }
                 AxisParameter::PublishesPerRun => {
                     let publishes = value.as_count(parameter.name())?;
@@ -670,7 +680,7 @@ mod tests {
             values = [0.0, 0.25]
 
             [[axes]]
-            parameter = "target_degree"
+            parameter = "pick_count"
             values = [3, 5]
         "#;
         let description = parse_sweep_description(&toml).expect("valid description");
@@ -718,7 +728,7 @@ mod tests {
         ));
         assert!(matches!(
             parse_sweep_description(&with_axis(
-                "[[axes]]\nparameter = \"target_degree\"\nvalues = [3.5]\n"
+                "[[axes]]\nparameter = \"pick_count\"\nvalues = [3.5]\n"
             )),
             Err(SweepConfigError::AxisValueType { .. }),
         ));
@@ -729,6 +739,49 @@ mod tests {
                 "[[axes]]\nparameter = \"churn_count\"\nvalues = [0, 17]\n"
             )),
             Err(SweepConfigError::TooFewUpHonest { remaining: 1, .. }),
+        ));
+    }
+
+    // 017-T029 / 017-FR-018: bucket_count and pick_count are axis
+    // parameters, and boundary values are legal axis points — bucket_count 1
+    // (the ungated cell) and pick_count 0 (the k_in/k_out = 0 boundary) —
+    // while bucket_count 0 stays rejected and the pre-017 target_degree
+    // spelling is retired.
+    #[test]
+    fn plane_axes_accept_boundary_points_and_reject_the_rest() {
+        let with_axis = |axis: &str| base_toml() + axis;
+
+        let toml = with_axis("[[axes]]\nparameter = \"bucket_count\"\nvalues = [1, 2]\n");
+        let description = parse_sweep_description(&toml).expect("valid description");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].honest_strategies.bucket_count, Some(1));
+        assert_eq!(resolved[0].adversarial_strategies.bucket_count, Some(1));
+        assert_eq!(resolved[1].honest_strategies.bucket_count, Some(2));
+
+        let toml = with_axis("[[axes]]\nparameter = \"pick_count\"\nvalues = [0, 4]\n");
+        let description = parse_sweep_description(&toml).expect("valid description");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved[0].honest_strategies.pick_count, Some(0));
+        assert_eq!(resolved[0].adversarial_strategies.pick_count, Some(0));
+
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"bucket_count\"\nvalues = [0, 2]\n"
+            )),
+            Err(SweepConfigError::ZeroCount {
+                field: "bucket_count",
+            }),
+        ));
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"target_degree\"\nvalues = [4]\n"
+            )),
+            Err(SweepConfigError::UnknownAxisParameter { .. }),
         ));
     }
 

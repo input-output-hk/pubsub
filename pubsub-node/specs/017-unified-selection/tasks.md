@@ -311,7 +311,7 @@ is re-validated at the new implementation, and the first M4 baseline exists.
 count (incl. 0) runs with boundary cells reproducing the off/ungated
 behaviours; the m2-comparison doc carries the re-validated values.
 
-- [ ] T029 [P] [US5] Rename the `target_degree` axis parameter to
+- [x] T029 [P] [US5] Rename the `target_degree` axis parameter to
       `pick_count` and add the `bucket_count` axis in
       `src/experiments/config.rs` (+ `src/experiments/sweep.rs`
       follow-through), with tests covering boundary axis values

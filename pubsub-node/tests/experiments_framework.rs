@@ -247,7 +247,7 @@ fn two_axis_toml() -> String {
             values = [0.0, 0.15]
 
             [[axes]]
-            parameter = "target_degree"
+            parameter = "pick_count"
             values = [3, 5]
         "#
 }
@@ -678,4 +678,51 @@ fn scripted_star_has_hand_computable_depths() {
         );
     }
     assert_eq!(outcome.drain.waves, 2);
+}
+
+// 017-T029 / spec US5 scenario 1: boundary axis cells reproduce the
+// off/ungated behaviours — the bucket_count = 1 cell's run records are
+// value-identical to the ungated configuration's (the CLI-rejected spelling
+// is a legal axis point here), and the pick_count = 0 cell forms no
+// topology at all (the k_in/k_out = 0 boundary: zero dial sends).
+#[test]
+fn boundary_axis_cells_reproduce_the_off_and_ungated_behaviours() {
+    // One config, a bucket_count axis crossing the ungated boundary point
+    // and a real gate; a second config with no bucket_count at all.
+    let with_axis = sweep_toml(30, 55, 3)
+        + r#"
+            [[axes]]
+            parameter = "bucket_count"
+            values = [1, 2]
+        "#;
+    let axed = parse_sweep_description(&with_axis).expect("valid description");
+    let ungated = parse_sweep_description(&sweep_toml(30, 55, 3)).expect("valid description");
+
+    let cells = expand_experiments(&axed);
+    assert_eq!(cells.len(), 2);
+    let baseline = &expand_experiments(&ungated)[0];
+    for run in 0..3 {
+        assert_eq!(
+            execute_run_record(&cells[0], 0, run, axed.master_seed),
+            execute_run_record(baseline, 0, run, ungated.master_seed),
+            "the bucket_count = 1 cell must behave identically to ungated",
+        );
+    }
+
+    // The pick_count = 0 boundary cell: every node dials nothing.
+    let zero_picks = sweep_toml(30, 56, 2)
+        + r#"
+            [[axes]]
+            parameter = "pick_count"
+            values = [0]
+        "#;
+    let description = parse_sweep_description(&zero_picks).expect("valid description");
+    let record = execute_run_record(
+        &expand_experiments(&description)[0],
+        0,
+        0,
+        description.master_seed,
+    );
+    assert_eq!(record.dial_sends, 0, "pick count 0 dials no relay links");
+    assert!(!record.good, "an edgeless topology is never good");
 }
