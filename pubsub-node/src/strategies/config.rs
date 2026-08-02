@@ -62,6 +62,12 @@ pub enum StrategyConfigError {
         /// The constraint the value violated, in operator-facing terms.
         constraint: &'static str,
     },
+    /// The relay pair's two sides disagree on the symmetric switch.
+    #[error("the relay selection and acceptance parameters must agree on the symmetric switch: one switch drives the dial gate, the verification predicate, and the handshake vocabulary together")]
+    SymmetricMismatch,
+    /// Publisher parameters carried the symmetric switch.
+    #[error("publisher parameters cannot be symmetric: publisher links are directional")]
+    SymmetricPublisher,
 }
 
 /// The concrete strategy set handed to [`Node::new`](crate::Node::new), produced
@@ -229,16 +235,29 @@ impl NodeStrategies {
     ) -> Result<Self, StrategyConfigError> {
         // One flag configures the predicate on both relay params AND the
         // handshake vocabulary (a symmetric dial pass is what makes the
-        // symmetric draws materialise as constructed pairs).
+        // symmetric draws materialise as constructed pairs) — so a pair
+        // disagreeing on the switch would dial symmetric while verifying
+        // directional (or vice versa), silently. Rejected here, where
+        // construction validates (ADR 0028's principle).
+        if relay_selection.symmetric != relay_acceptance.symmetric {
+            return Err(StrategyConfigError::SymmetricMismatch);
+        }
         let symmetric_edges = relay_selection.symmetric;
         let relay_connection = build_selection(relay_selection)?;
         let relay_acceptance = build_unified_acceptance(relay_acceptance)?;
         let (publisher_connection, publisher_acceptance) = match publisher {
             None => (None, None),
-            Some((selection, acceptance)) => (
-                Some(build_selection(selection)?),
-                Some(build_unified_acceptance(acceptance)?),
-            ),
+            Some((selection, acceptance)) => {
+                // Publisher instances are never symmetric (ADR 0034's
+                // boundary — no flag exists; params default false).
+                if selection.symmetric || acceptance.symmetric {
+                    return Err(StrategyConfigError::SymmetricPublisher);
+                }
+                (
+                    Some(build_selection(selection)?),
+                    Some(build_unified_acceptance(acceptance)?),
+                )
+            }
         };
         Ok(Self {
             relay_connection,
@@ -339,6 +358,55 @@ mod tests {
         let strategies = NodeStrategies::new(relay_selection, relay_acceptance, None)
             .expect("symmetric plane point builds");
         assert!(strategies.symmetric_edges);
+    }
+
+    // The relay pair must agree on the symmetric switch — a mismatched pair
+    // would dial symmetric while verifying directional (or vice versa),
+    // silently; construction rejects it in both directions.
+    #[test]
+    fn mismatched_relay_symmetric_is_rejected() {
+        let mut symmetric_dial = selection_params(LinkKind::Relay);
+        symmetric_dial.symmetric = true;
+        assert_eq!(
+            NodeStrategies::new(symmetric_dial, acceptance_params(LinkKind::Relay), None).err(),
+            Some(StrategyConfigError::SymmetricMismatch),
+        );
+
+        let mut symmetric_accept = acceptance_params(LinkKind::Relay);
+        symmetric_accept.symmetric = true;
+        assert_eq!(
+            NodeStrategies::new(selection_params(LinkKind::Relay), symmetric_accept, None).err(),
+            Some(StrategyConfigError::SymmetricMismatch),
+        );
+    }
+
+    // Publisher instances are never symmetric (params default false; no flag
+    // exists) — construction enforces the recorded invariant on either side.
+    #[test]
+    fn symmetric_publisher_params_are_rejected() {
+        let mut symmetric_dial = selection_params(LinkKind::Publisher);
+        symmetric_dial.symmetric = true;
+        assert_eq!(
+            NodeStrategies::new(
+                selection_params(LinkKind::Relay),
+                acceptance_params(LinkKind::Relay),
+                Some((symmetric_dial, acceptance_params(LinkKind::Publisher))),
+            )
+            .err(),
+            Some(StrategyConfigError::SymmetricPublisher),
+        );
+
+        let mut symmetric_accept = acceptance_params(LinkKind::Publisher);
+        symmetric_accept.symmetric = true;
+        assert_eq!(
+            NodeStrategies::new(
+                selection_params(LinkKind::Relay),
+                acceptance_params(LinkKind::Relay),
+                Some((selection_params(LinkKind::Publisher), symmetric_accept)),
+            )
+            .err(),
+            Some(StrategyConfigError::SymmetricPublisher),
+        );
     }
 
     // Core-domain validation: a bucket count of 0 is rejected on either
