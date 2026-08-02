@@ -71,8 +71,8 @@ pre-release — no deprecation aliases for deleted flags/config keys.
 
 **Scale/Scope**: ~10 strategy-layer files deleted, 2 added; `main.rs` Args +
 validation rewrite; 4 experiments files touched (config, population, sweep
-axis vocabulary, shipped TOMLs) + 1 new M4 config; 2 ADRs (0039, 0040) + 2
-implementation notes (N-036, N-037) + N-032 trigger update; quickstart +
+axis vocabulary, shipped TOMLs) + 1 new M4 config; 2 ADRs (0039, 0040) + 3
+implementation notes (N-036, N-037, N-038) + N-032 trigger update; quickstart +
 m2-comparison + program-doc E12 line + CLAUDE.md stanza; 20 recipe commands
 documented.
 

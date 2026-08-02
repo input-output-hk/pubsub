@@ -193,8 +193,9 @@ proven — US1 is a shippable MVP.
 fleet-level evidence; the deferral text is retired.
 
 **Independent Test**: the M4 fleet test suite passes (reciprocity, degree
-floor, mean); no "approximation" disclaimer remains greppable in the named
-docs.
+floor, mean); no un-amended "approximation" disclaimer remains in the named
+docs — each disclaiming site carries the dated amendment claiming the label
+(T020's amendment-not-rewrite convention).
 
 - [x] T019 [P] [US2] Write the failing M4 fleet tests in
       `tests/model_family.rs`: symmetric + pick count (no bucket count) ⇒

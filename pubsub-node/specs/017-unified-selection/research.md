@@ -293,10 +293,13 @@ present; supersedes the relevant parts of ADRs 0018/0023/0024/0025/0028/
 selection randomness derivation** (the seed chain: u64 flag → 32 bytes →
 per-topic preimage with self-id + epoch nonce under
 `pubsub/uniform-selection/v1`; the privacy stand-in posture; the two-commit
-derivation swap). Two implementation notes at the next free numbers
+derivation swap). Three implementation notes at the next free numbers
 (N-036: gate-failing dials as provable-but-unrecorded evidence, trigger the
 incentive/chain layer; N-037: selection-seed privacy, trigger the first
-adaptive-adversary experiment or real-crypto identity work). N-032's
+adaptive-adversary experiment or real-crypto identity work; N-038: sampled
+selection under view growth — added by the I3 ruling during
+implementation, trigger periodic heartbeats/epoch rotation or the first
+staggered-boot fleet or experiment). N-032's
 trigger text is re-pointed (first experiment needing symmetric × capped —
 may never arrive). The optional configuration-placement ADR (flags vs TOML)
 is carried as a docs-commit candidate, not a commitment.

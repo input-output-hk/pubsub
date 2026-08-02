@@ -113,3 +113,96 @@ code when code exists); its passes will be ledgered below.
 - Also ruled at this checkpoint: `docs/experiments-program.md`'s
   strategy-inventory vocabulary refresh rides T034 (same file as its E12
   status edit) — task text amended.
+
+## Pass 3 — 2026-08-01 (post-implementation: spec fidelity verified against code)
+
+Independent verification round (implementation-session reports treated as
+unverified input; every claim re-derived from the code and committed
+artifacts on the branch). Verified green: both suites (`cargo test`,
+`cargo test --features experiments`), `fmt --check`, `clippy --all-targets
+-- -D warnings`. Re-derived against code: the `Selection` draw semantics and
+commit-B preimage (per-seam domains, `lp` layout, nonce_le8 — pinned layout
+test reconstructs it end to end), the `UnifiedAcceptance` decision order and
+2×2 matrix, the construction layer (core bucket-0-rejected/1-legal split,
+seed expansion `SHA-256(lp("pubsub/selection-seed/v1") ‖ seed_le8)`), the
+full CLI knob surface + validation matrix (every SC-007 misconfiguration
+exercised live against the binary — all fail with actionable messages; the
+family-1 recipes and gated/capped variants all parse and boot to file
+loading), the SC-008 deletion sweep (symbol grep over `src/` + `--help`
+clean; residual mentions are negative tests and historical doc comments),
+the experiments coordinate surface (StrategyTable fields, `pick_count`/
+`bucket_count` axes with boundary points, old vocabulary rejected by test,
+`forward-to-all` still rejected, no publisher-pair fields per FR-019), the
+M4 fleet evidence (reciprocity both-ends/both-collections, min degree ≥
+pick count, mean within 5% of 2×, symmetric × gated composition), the US3
+state-level scenarios (cap 0 → explicit `Rejected` + dialer cleanup;
+publisher over-capacity end-to-end; trusting vs verifying acceptors),
+ADRs 0039/0040 (scope per T018/T026 incl. the G1 balanced-B record; 0040's
+u32-BE `lp` claim checked against `push_len_prefixed`), N-036/N-037/N-038 +
+the N-032 re-point, the four M4-label sites (all carry dated 2026-08-01
+amendments — including the 015 contracts table, which FR-021 names though
+T020's list omitted it), E7/E10/E12 read ready in the program doc with the
+coordinate vocabulary refresh, and the plan's core-untouched claim (zero
+diffs outside `src/state/tests/` under the core paths; no files outside
+`pubsub-node/` — Principle V clean). Verification boundary: the
+byte-identity and baseline claims (SC-002, FR-026/027) were verified as
+recorded-evidence consistency only — baseline sweeps are off-limits this
+round; the chain (baselines README generations `7e50e3a`/`d7e7132`,
+m2-comparison values, commit graph) is internally consistent (71/8000 ↔
+7929/8000; the commit-A parent hash `1c860e3` matches the log).
+
+**2 findings (0 CRITICAL, 0 HIGH, 0 MEDIUM, 2 LOW). Resolutions pending
+maintainer ruling.**
+
+### Inconsistency
+
+- **I5 (LOW)** — SC-003's letter ("no remaining 'approximation' disclaimer
+  in quickstart, contracts, or ADR caveats") and tasks.md Phase 4's
+  independent test ("no 'approximation' disclaimer remains greppable in the
+  named docs") conflict with T020's own convention ("dated amendment notes,
+  not rewrites"), which the implementation followed: all four sites (015
+  quickstart ×2, ADR 0032 caveat, ADR 0034 consequence, plus the 015
+  contracts recipe row) retain the original disclaimer text, each superseded
+  in place by a dated amendment claiming the label. Intent satisfied — every
+  disclaimed site now claims the label and the canonical 017 docs carry no
+  disclaimer — but the two greppability-style sentences fail their letter.
+  Pre-existing wording (passes 1–2 did not flag it); surfaced now because
+  this round greps. **Resolution** (maintainer ruling, 2026-08-01: reword):
+  SC-003's parenthetical amended to "no un-amended 'approximation'
+  disclaimer remains … every disclaiming site carries a dated amendment
+  claiming the label, per the amendment-not-rewrite convention"; tasks.md
+  Phase 4's independent test amended to match. The delivered docs already
+  satisfy the reworded criterion; no doc edits.
+- **I6 (LOW)** — implementation-note count drift: spec FR-022 enumerates
+  "Two implementation notes" and plan.md Scale/Scope says "2 implementation
+  notes (N-036, N-037)", while three landed — N-038 was added by the I3
+  ruling, which amended T027 (now "the three new implementation notes") and
+  the 017 quickstart but not FR-022 or the plan summary. FR-022's MUST is a
+  floor and is satisfied; the artifact set drifted around the I3 resolution.
+  **Resolution** (maintainer sign-off, 2026-08-01): FR-022 amended to "Three
+  implementation notes" with (c) sampled selection under view growth (the
+  I3 addition, its trigger carried); plan Scale/Scope updated to "3
+  implementation notes (N-036, N-037, N-038)"; research R11's count amended
+  identically (the same drift's third site, found by the pass-4 sweep and
+  fixed under this ruling). Normative content unchanged.
+
+## Pass 4 — 2026-08-01 (post-remediation re-run)
+
+Re-evaluated the pass-3 resolutions first: SC-003's reworded parenthetical
+and tasks.md Phase 4's independent test now state the amendment-not-rewrite
+criterion the delivered docs already satisfy (all four disclaiming sites
+verified carrying dated amendments in pass 3 — no doc edits were needed);
+FR-022's "(c)" matches N-038's recorded scope and trigger verbatim; the
+note-count sweep is clean across spec/plan/research/tasks/contracts/
+quickstart and both ADRs (the one residual — research R11 — was fixed under
+the I6 ruling; the ledger's own historical quotes are the only remaining
+occurrences of the old wording, correctly). Then the full detection set
+(duplication, ambiguity, underspecification, constitution alignment,
+coverage, inconsistency) over the amended artifacts. **Zero findings** —
+convergence recorded. Metrics: 28 FRs + 8 SCs, 37 tasks, coverage 100%,
+critical 0.
+
+The post-implementation analyze round is closed: spec fidelity verified
+against code (pass 3's evidence), both resolutions applied with maintainer
+sign-off, zero-finding pass recorded. The branch awaits maintainer review;
+nothing pushed.

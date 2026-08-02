@@ -494,12 +494,16 @@ determinism battery.
   the formal models (picks only), their hash-gated versions (plus bucket
   counts), their capped versions (plus accept caps), and gated+capped —
   with M1 as the pick-count-0 case of M5 and the fan-out footgun stated.
-- **FR-022**: Two implementation notes MUST be recorded: (a) gate-failing
+- **FR-022**: Three implementation notes MUST be recorded: (a) gate-failing
   dials as provable-but-unrecorded evidence (trigger: the incentive/chain
   layer); (b) selection-seed privacy (the models prescribe private
   unpredictable randomness; the flag is a prototype stand-in adequate
   against oblivious adversaries; trigger: first adaptive-adversary
-  experiment or real-crypto identity work). Dispositions MUST be updated:
+  experiment or real-crypto identity work); (c) sampled selection under
+  view growth (a pick set is a function of the whole candidate view, so
+  add-only dialing unions re-draws across view growth — the I3 ruling's
+  addition; trigger: periodic heartbeats / epoch rotation, or the first
+  staggered-boot fleet or experiment). Dispositions MUST be updated:
   N-032's trigger re-pointed to the first experiment needing symmetric ×
   capped; the balanced-B registry computation recorded as rejected
   (guidance only; registry-as-carrier open separately); E12's status
@@ -573,8 +577,10 @@ determinism battery.
   baseline generations are recorded.
 - **SC-003**: The M4 configuration exhibits, fleet-wide in tests: full
   reciprocity, minimum degree ≥ the pick count, and mean degree within 5%
-  of 2× the pick count — and the M4 label is claimed (no remaining
-  "approximation" disclaimer in quickstart, contracts, or ADR caveats).
+  of 2× the pick count — and the M4 label is claimed (no un-amended
+  "approximation" disclaimer remains in quickstart, contracts, or ADR
+  caveats: every disclaiming site carries a dated amendment claiming the
+  label, per the amendment-not-rewrite convention).
 - **SC-004**: The determinism battery passes: identical artifacts under
   replay-by-seed and across worker counts.
 - **SC-005**: E7 is runnable from the shipped M4 sweep configuration; E10's
