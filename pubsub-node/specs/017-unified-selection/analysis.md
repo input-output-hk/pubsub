@@ -235,3 +235,36 @@ examples + the operational hanging-dial symptom of cross-operator B/genesis
 mismatch); the PR body gains the matching one-bullet delta statement (what
 became loud vs what deliberately stayed silent). Presentation
 consolidation only — no normative change, no code change.
+
+## Addendum — 2026-08-02 (PR #119 review findings F1–F3)
+
+The review round reported three findings beyond the acceptance-outcomes
+rider; all three resolved on the branch under maintainer sign-off:
+
+- **F1 (LOW, docs)** — the CLAUDE.md active-work stanza was committed in
+  pre-analyze form (T035) and left stale by the branch's own later
+  history: "awaiting … the post-implementation `/speckit-analyze` round;
+  unpushed" (the round closed at zero findings on the branch, which is
+  pushed as PR #119) and "analysis ledger I1–I4" (the ledger runs I1–I6).
+  **Resolution**: stanza reworded to the closed/under-review form; the
+  ledger range corrected.
+- **F2 (LOW, test coverage)** — the ADR 0038 skip-self sample-shift guard
+  (`stored_self_does_not_shift_the_sample`) was deleted with the
+  `UniformSampler` it pinned, emptying the regression family N-035 names
+  as the byte-identity harness for its future index-sampling rework; the
+  property held only compositionally (view-accessor exclusion +
+  set-pure sampling). **Resolution**: re-added at the `Selection` level —
+  candidate names straddle the stored self (a-block below, z-block above)
+  with a fixture guard proving a pick lands above the stored position.
+- **F3 (nit)** — `NodeStrategies::new` did not validate the pair-level
+  symmetric invariants: a relay pair disagreeing on the switch built
+  successfully (it would dial symmetric while verifying directional, or
+  the reverse, silently — `symmetric_edges` was read from the selection
+  param alone), and publisher params could carry the switch despite the
+  recorded never-symmetric boundary (a symmetric publisher instance gates
+  under the symmetric domain, abandoning the publisher domain's per-seam
+  independence). No reachable configuration produced either state — both
+  edges set the pair from one flag — so the invariant lived only in doc
+  comments. **Resolution**: construction rejects both
+  (`SymmetricMismatch` / `SymmetricPublisher`), tested in both directions
+  on both seams.
