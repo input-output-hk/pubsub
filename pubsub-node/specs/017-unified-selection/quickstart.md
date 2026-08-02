@@ -100,6 +100,44 @@ toward ≈ cap/B per victim.
   snapshot avoids this by construction; the implementation note recorded
   with this feature (N-038) carries the revisit trigger.
 
+## Acceptance outcomes — what an inbound link request meets
+
+Exactly one refusal is answered on the wire: **over-capacity**, with the
+explicit `Rejected` the dialer cleans its pending entry up on. Every other
+refusal is a silent drop (logged by the acceptor, no reply):
+
+| condition | outcome |
+|---|---|
+| requester not a member on the topic | silent drop |
+| edge predicate fails at the seam's bucket count (gated seam, no opt-out) | silent drop (the provable-misbehaviour evidence point, N-036) |
+| at or over the accept cap (cap 0 = every request) | refused with the explicit `Rejected` — the dialer removes its pending entry, no retry |
+| publisher seam not configured (no `--publisher-*` flags) | silent drop of every inbound publisher request — seam off, no policy runs (publisher links only; the relay seam is always active) |
+| otherwise | accepted (`Accepted` reply) |
+
+Worked examples on the publisher seam:
+
+- **No publisher flags**: every inbound publisher link request is silently
+  dropped — the seam is off.
+- **`--publisher-pick-count $S1`, no acceptance flags**: the seam is
+  ungated — every membership-valid request accepted, uncapped.
+- **`--publisher-bucket-count $B_PUB`, no acceptance flags**: acceptors
+  verify at `$B_PUB` automatically — one fed bucket count drives the dial
+  gate AND acceptance verification (the agreement condition), so a dial
+  knob alone still gates acceptance; predicate-failing requests are
+  silently dropped. Non-verifying acceptance needs the explicit
+  `--publisher-accept-unverified`.
+- **`--publisher-pick-count 0`**: the accept-only seam — dials nothing,
+  accepts every member (compose a bucket count and/or accept cap to gate
+  or bound it).
+
+The same table governs the relay seam, whose no-flag default is the
+accept-all-members row (there is no relay seam-off state). Operationally:
+a dialer refused over capacity abandons that edge cleanly, while a dialer
+whose requests are silently dropped keeps pending entries with no reply —
+so mismatched bucket counts or `--genesis` values between two operators
+show up as dials hanging in `AwaitingAccept`, diagnosable from the
+**acceptor's** logs.
+
 ## Verifiability
 
 Every dialed edge under a present bucket count is acceptor-checkable —

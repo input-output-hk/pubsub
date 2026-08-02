@@ -217,3 +217,21 @@ kind vocabulary naming machinery 017 delivered as the pick count — with
 "ready" in the program document's no-machinery-dependency sense (the
 E9/E11/E13 sense) and I4's grid-design ownership boundary restated in the
 E10 entry.
+
+## Addendum — 2026-08-02 (PR #119 review rider: acceptance outcomes consolidated)
+
+Maintainer-ruled docs rider from the PR #119 review round. The
+silent/explicit acceptance split existed only as scattered single facts —
+cap 0's explicit `Rejected` (FR-013, contracts, ADR 0039), the seam-off
+publisher drop (`contracts/node-cli.md` seam activation), the gate-failure
+silent drop (quickstart Verifiability, N-036), membership silence (ADR
+0025 lineage, restated nowhere in 017) — with no consolidated
+per-configuration view, and the bucket-count coupling (one fed value
+drives the dial gate AND acceptance verification, so a dial knob alone
+still gates acceptance) was derivable from the contract's flag table but
+never stated as a consequence. Resolution: the quickstart gains an
+"Acceptance outcomes" section (outcome table + worked publisher-seam
+examples + the operational hanging-dial symptom of cross-operator B/genesis
+mismatch); the PR body gains the matching one-bullet delta statement (what
+became loud vs what deliberately stayed silent). Presentation
+consolidation only — no normative change, no code change.
