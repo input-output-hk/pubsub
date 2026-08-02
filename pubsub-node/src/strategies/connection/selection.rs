@@ -355,6 +355,44 @@ mod tests {
         assert_eq!(one, two, "selection must not depend on iteration order");
     }
 
+    // ADR 0038 (the N-035 regression family): the node's own id in the
+    // stored membership set must not shift the sampled indices — the view
+    // excludes self before the survivor list is ordered and indexed, so
+    // picks with self stored mid-range equal picks without it. The candidate
+    // names straddle "self" (a-block below, z-block above), so an unexcluded
+    // self would shift every z-block index by one.
+    #[test]
+    fn stored_self_does_not_shift_the_sample() {
+        let names: Vec<String> = (0..10)
+            .map(|i| format!("a{i:02}"))
+            .chain((0..10).map(|i| format!("z{i:02}")))
+            .collect();
+        let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+        let mut with_self_stored = refs.clone();
+        with_self_stored.push("self"); // sorts between the a- and z-blocks
+        let subs = subscriptions(&["t1"]);
+        let selection = Selection::new(peer("self"), [7u8; 32]).with_pick_count(Some(5));
+
+        let baseline =
+            selection.expected_links(&view(&subs, &candidates(&[("t1", &refs)]), no_links()));
+        assert!(
+            baseline
+                .iter()
+                .any(|(p, _)| names[10..].contains(&p.to_string())),
+            "fixture: some pick must land in the z-block, above the stored self",
+        );
+
+        let stored = selection.expected_links(&view(
+            &subs,
+            &candidates(&[("t1", &with_self_stored)]),
+            no_links(),
+        ));
+        assert_eq!(
+            baseline, stored,
+            "an unexcluded stored self would shift every index above it",
+        );
+    }
+
     // The heartbeat retry primitive: the same instance and view yield the
     // same expected set on every call (repeated heartbeats within an epoch
     // re-dial the SAME set).
