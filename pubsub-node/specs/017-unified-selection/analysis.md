@@ -206,3 +206,14 @@ The post-implementation analyze round is closed: spec fidelity verified
 against code (pass 3's evidence), both resolutions applied with maintainer
 sign-off, zero-finding pass recorded. The branch awaits maintainer review;
 nothing pushed.
+
+## Addendum — 2026-08-02 (T034 authorization chain)
+
+T034 scope note: E12's ready flip is the FR-022/FR-024 mandated edit (one
+edit, not two — FR-024's clause merges the FR-022 disposition and the E12
+status line into a single edit); the E7/E10 flips ride T034's Phase-7 rider
+— the retired `[needs: uniform exactly-RF selection kind]` tags are pre-017
+kind vocabulary naming machinery 017 delivered as the pick count — with
+"ready" in the program document's no-machinery-dependency sense (the
+E9/E11/E13 sense) and I4's grid-design ownership boundary restated in the
+E10 entry.
