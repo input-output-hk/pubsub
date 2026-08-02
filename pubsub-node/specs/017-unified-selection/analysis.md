@@ -268,3 +268,20 @@ rider; all three resolved on the branch under maintainer sign-off:
   comments. **Resolution**: construction rejects both
   (`SymmetricMismatch` / `SymmetricPublisher`), tested in both directions
   on both seams.
+
+## Addendum — 2026-08-02 (PR #119 review rider: N-039)
+
+The review round's design discussion of the gated-symmetric point — why
+symmetric hash gating draws the unordered pair under its own domain
+rather than reusing the directional predicate over the dialed direction —
+is recorded as implementation note N-039: the coherent-but-rejected
+directional alternative and its costs (initiation-dependent validity vs
+the initiation-erasing link model; ≈ 2/B pair density; doubled adversarial
+slot access), the two-sided input-matching principle (the inverse
+substitution — the pair draw on the directional seams — silently shifts
+the model family to M4-shaped, correlates in-degree with out-degree
+against the cap-headroom model, and couples the two adversarial
+surfaces), the honest boundary (no published model covers hash-gated
+bidirectional selection; the real M4 never touches the predicate), and
+the revisit trigger (the first gated-symmetric consumer). Record-keeping
+only — no code change.
