@@ -1,7 +1,8 @@
-//! Feature 005 (US1) integration: the verifiable hash-gated connection-selection
-//! policy, exercised through a real node + event loop, forms a partial topology
-//! whose edges match the public edge predicate (SC-002, verifiable) and is
-//! reproducible from the genesis (the initial epoch nonce, SC-001).
+//! Gated-selection integration (the 005 verifiable hash-gated behaviour as a
+//! 017 plane point): a real node + event loop running gate-only selection —
+//! the bucket count fed, no pick count — forms a partial topology whose edges
+//! are exactly the public edge predicate's, reproducibly from the genesis
+//! (the initial epoch nonce).
 
 mod common;
 
@@ -12,8 +13,8 @@ use std::time::Duration;
 
 use common::node_with_strategy;
 use pubsub_node::{
-    bucket_count, is_valid_edge, HashGatedConnection, InMemoryNetwork,
-    InMemorySubscriptionRegistry, PeerId, SubscriptionRegistryControl, TopicId,
+    is_valid_edge, InMemoryNetwork, InMemorySubscriptionRegistry, PeerId, Selection,
+    SubscriptionRegistryControl, TopicId,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(2);
@@ -26,13 +27,12 @@ fn peer(s: &str) -> PeerId {
     PeerId::from_str(s).expect("valid peer id")
 }
 
-/// The upstream set the hash-gated policy must produce for `self` on `topic`:
-/// exactly the candidates satisfying the edge predicate under the genesis nonce
-/// (the epoch v1 never advances), `B = max(1, round(candidates / target_degree))`.
-/// The strategy is deterministic, so this is the exact expected topology.
-fn expected_upstreams(genesis: u64, target_degree: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
+/// The upstream set gate-only selection must produce for `self` on `topic`:
+/// exactly the candidates satisfying the edge predicate under the genesis
+/// nonce (the epoch v1 never advances) at the fed bucket count. The
+/// selection is deterministic, so this is the exact expected topology.
+fn expected_upstreams(genesis: u64, buckets: usize, candidates: &[&str]) -> BTreeSet<PeerId> {
     let t = topic("topic");
-    let buckets = bucket_count(candidates.len(), target_degree);
     candidates
         .iter()
         .map(|c| peer(c))
@@ -40,17 +40,18 @@ fn expected_upstreams(genesis: u64, target_degree: usize, candidates: &[&str]) -
         .collect()
 }
 
-/// Build a single node running `HashGatedConnection { target_degree }` with the
+/// Build a single node running gate-only `Selection` at `buckets` with the
 /// given `genesis` (its initial epoch nonce) on one topic with `candidates`
-/// other members pre-seeded in the shared subscription registry (so the node's
-/// readiness heartbeat sees the full candidate set), await the node reaching its
-/// expected upstream count, and return the peers it selected.
+/// other members pre-seeded in the shared subscription registry (so the
+/// node's readiness heartbeat sees the full candidate set), await the node
+/// reaching its expected upstream count, and return the peers it selected.
 ///
-/// The candidate ids are registry members only — not real network nodes — so the
-/// dials stay `AwaitingAccept`; the upstream *set* is exactly the selection.
+/// The candidate ids are registry members only — not real network nodes — so
+/// the dials stay `AwaitingAccept`; the upstream *set* is exactly the
+/// selection.
 async fn selected_upstreams(
     genesis: u64,
-    target_degree: usize,
+    buckets: Option<usize>,
     candidates: &[&str],
 ) -> BTreeSet<PeerId> {
     let registry = Arc::new(InMemorySubscriptionRegistry::new());
@@ -64,7 +65,7 @@ async fn selected_upstreams(
             .expect("seed candidate membership");
     }
 
-    let strategy = Arc::new(HashGatedConnection::new(peer("self"), target_degree));
+    let strategy = Arc::new(Selection::new(peer("self"), [0u8; 32]).with_bucket_count(buckets));
     let node = node_with_strategy(
         &registry,
         &network,
@@ -75,7 +76,10 @@ async fn selected_upstreams(
     )
     .await;
 
-    let want = expected_upstreams(genesis, target_degree, candidates).len();
+    let want = match buckets {
+        Some(b) => expected_upstreams(genesis, b, candidates).len(),
+        None => candidates.len(),
+    };
     await_upstream_count(&node, want, TIMEOUT).await;
     node.upstream_relays()
         .into_iter()
@@ -99,20 +103,18 @@ async fn await_upstream_count(node: &pubsub_node::Node, n: usize, timeout: Durat
     }
 }
 
-// US1 / SC-001 + SC-002: the node's realized upstream set is exactly the edge
-// predicate's — verifiable and bounded — and reproduces identically across two
-// independent runs with the same genesis + membership.
+// 005 US1 lineage / 017-FR-001: the node's realized upstream set is exactly
+// the edge predicate's at the fed bucket count — verifiable — and reproduces
+// identically across two independent runs with the same genesis + membership.
 #[tokio::test]
-async fn hash_gated_selection_matches_predicate_and_reproduces() {
+async fn gated_selection_matches_predicate_and_reproduces() {
     let candidates = ["c0", "c1", "c2", "c3", "c4", "c5"];
-    let target_degree = 3;
-    let expected = expected_upstreams(7, target_degree, &candidates);
+    let buckets = 2;
+    let expected = expected_upstreams(7, buckets, &candidates);
 
-    let first = selected_upstreams(7, target_degree, &candidates).await;
-    let second = selected_upstreams(7, target_degree, &candidates).await;
+    let first = selected_upstreams(7, Some(buckets), &candidates).await;
+    let second = selected_upstreams(7, Some(buckets), &candidates).await;
 
-    // SC-002: the realized set is exactly the verifiable edge set (never exceeds
-    // the candidate set; bounded around target_degree via the bucket count).
     assert_eq!(
         first, expected,
         "the realized upstreams must be exactly the edge-predicate set",
@@ -120,22 +122,22 @@ async fn hash_gated_selection_matches_predicate_and_reproduces() {
     assert!(first
         .iter()
         .all(|p| candidates.contains(&p.to_string().as_str())));
-    // SC-001: same genesis + membership reproduces the identical selection.
     assert_eq!(
         first, second,
         "the same genesis must reproduce the identical upstream selection",
     );
 }
 
-// Small-topic path across the node boundary: candidates ≤ target_degree ⇒ B=1 ⇒ every
-// candidate is a valid edge (connect-to-all fallback).
+// The ungated contrast across the node boundary: the same membership with
+// the bucket count absent selects every candidate (there is no derived
+// small-topic floor any more — ungated is a configuration, not a fallback).
 #[tokio::test]
-async fn small_topic_selects_all_candidates() {
-    let candidates = ["c0", "c1"];
-    let selected = selected_upstreams(7, 5, &candidates).await;
+async fn ungated_selection_connects_to_all() {
+    let candidates = ["c0", "c1", "c2", "c3", "c4", "c5"];
+    let selected = selected_upstreams(7, None, &candidates).await;
     assert_eq!(
         selected,
-        BTreeSet::from([peer("c0"), peer("c1")]),
-        "with ≤ target_degree candidates B=1, so all are selected",
+        candidates.iter().map(|c| peer(c)).collect::<BTreeSet<_>>(),
+        "an absent bucket count selects every candidate",
     );
 }

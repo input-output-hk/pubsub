@@ -503,19 +503,13 @@ mod tests {
     use super::{Driver, RunPlan, RunSeeds, SetupMode};
     use crate::connection_state::LinkState;
     use crate::experiments::population::{
-        AcceptanceSpec, ConnectionSpec, FanoutSpec, ParticipantClass, Population, PopulationConfig,
-        PopulationSeeds, StrategySpec,
+        FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, StrategySpec,
     };
     use crate::experiments::scripted;
-    use crate::strategies::acceptance::AcceptanceStrategyKind;
     use crate::topic::TopicId;
 
     fn full_relay_spec() -> StrategySpec {
-        StrategySpec {
-            connection: ConnectionSpec::connect_to_all(),
-            acceptance: AcceptanceSpec::accept_from_all(),
-            fanout: FanoutSpec::ForwardToRelays,
-        }
+        StrategySpec::open(FanoutSpec::ForwardToRelays)
     }
 
     fn population(size: usize, adversarial: usize) -> Population {
@@ -755,14 +749,8 @@ mod tests {
             size: 4,
             adversarial: 0,
             honest_strategies: StrategySpec {
-                connection: ConnectionSpec::connect_to_all(),
-                acceptance: AcceptanceSpec::Protocol {
-                    kind: AcceptanceStrategyKind::Bounded,
-                    target_degree: Some(1),
-                    bucket_count: None,
-                    cap_buffer: 0,
-                },
-                fanout: FanoutSpec::ForwardToRelays,
+                accept_cap: Some(1),
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
             },
             adversarial_strategies: full_relay_spec(),
         };
@@ -773,7 +761,7 @@ mod tests {
         };
         let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
         let outcome = driver.establish(SetupMode::Prepopulated);
-        // Each node dials 3 peers; each acceptor caps at ⌈1 + 0·√1⌉ = 1:
+        // Each node dials 3 peers; each acceptor's fed cap is 1:
         // 4 accepts land in total, 8 dials are refused with a routed Rejected.
         assert_eq!(outcome.rejected_over_capacity, 8);
         let mut accepted_upstreams = 0;

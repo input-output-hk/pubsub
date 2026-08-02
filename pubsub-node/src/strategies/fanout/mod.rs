@@ -7,10 +7,12 @@
 //! `ConnectionStrategy` (same purity, same `Arc<dyn>`-at-storage shape, same
 //! "the trait is the variation point future strategies replace" intent).
 //!
-//! The trait lives here; each concrete policy is its own submodule. The v1
-//! implementor is [`ForwardToRelays`] in [`forward_to_all`] — forward to every
-//! downstream peer on the topic, minus the split-horizon exclusion. Degree caps
-//! and peer sampling are deferred to later strategies.
+//! The trait lives here; each concrete policy is its own submodule.
+//! [`ForwardToAll`] in [`forward_to_all`] (the default) forwards every held
+//! message over every `Active` downstream link, either kind; [`ForwardToRelays`]
+//! in [`forward_to_relays`] is the M3-exclusivity policy — held messages ride
+//! relay links only, publisher links carry just the node's own publications.
+//! Both apply the split-horizon exclusion and dedup per peer.
 
 use std::collections::BTreeMap;
 
@@ -37,7 +39,7 @@ pub use kind::{FanoutStrategyKind, UnknownFanoutStrategy};
 /// a peer reachable over both link kinds is returned once.
 ///
 /// `origin` is what lets a policy treat the node's own publications differently
-/// from relayed traffic (the default policy sends only local-origin messages
+/// from relayed traffic ([`ForwardToRelays`] sends only local-origin messages
 /// over publisher links). `exclude` is the split-horizon exclusion: on the
 /// **receive** path it is the delivering peer (a node never echoes a message
 /// back to the peer it received it from); on the **publish** path it is `None`

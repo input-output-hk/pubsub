@@ -1,4 +1,4 @@
-//! The default fan-out policy: [`ForwardToRelays`].
+//! The M3-exclusivity fan-out policy: [`ForwardToRelays`].
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -8,8 +8,8 @@ use crate::peer::PeerId;
 use crate::received::Origin;
 use crate::topic::TopicId;
 
-/// The default fan-out policy: **forward** held messages to every relay
-/// downstream peer on the topic — and additionally **seed** a
+/// The M3-exclusivity fan-out policy: **forward** held messages to every
+/// `Active` relay downstream peer on the topic — and additionally **seed** a
 /// locally-published message over the node's `Active` publisher links — minus
 /// the split-horizon exclusion, one send per peer.
 ///
@@ -36,10 +36,13 @@ impl FanoutStrategy for ForwardToRelays {
             if &key.topic != topic {
                 continue;
             }
-            let selected = match key.kind {
-                LinkKind::Relay => true,
-                LinkKind::Publisher => *origin == Origin::Local && *state == LinkState::Active,
-            };
+            // 017-FR-023 (§1.2 item 1): only `Active` links carry traffic,
+            // uniformly across kinds — a pending dial is not yet an edge.
+            let selected = *state == LinkState::Active
+                && match key.kind {
+                    LinkKind::Relay => true,
+                    LinkKind::Publisher => *origin == Origin::Local,
+                };
             if selected {
                 targets.insert(&key.peer);
             }
@@ -55,6 +58,7 @@ impl FanoutStrategy for ForwardToRelays {
 #[cfg(test)]
 mod tests {
     use super::ForwardToRelays;
+    use crate::connection_state::{LinkKey, LinkKind, LinkState};
     use crate::peer::PeerId;
     use crate::received::Origin;
     use crate::strategies::fanout::FanoutStrategy;
@@ -101,6 +105,23 @@ mod tests {
         assert!(ForwardToRelays
             .targets(&topic("t1"), &BTreeMap::new(), &Origin::Local, None)
             .is_empty());
+    }
+
+    // 017-FR-023 (§1.2 item 1): a pending (AwaitingAccept) relay dial is not a
+    // forwarding target — the Active requirement is uniform across link kinds.
+    #[test]
+    fn pending_relay_links_are_not_targets() {
+        let mut down = downstream(&[("a", "t1")]);
+        down.insert(
+            LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
+            LinkState::AwaitingAccept,
+        );
+        let targets = ForwardToRelays.targets(&topic("t1"), &down, &Origin::Local, None);
+        assert_eq!(
+            sorted(targets),
+            vec![peer("a")],
+            "the Active relay forwards; the pending dial does not",
+        );
     }
 
     // A downstream set with no entry on the topic → no targets (subscriber-relay:

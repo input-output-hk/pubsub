@@ -68,7 +68,7 @@ fn heartbeat_before_synced_is_dropped() {
 fn epoch_folds_nonce_for_the_next_heartbeat() {
     use crate::strategies::edge::is_valid_edge;
 
-    // 30 candidates at target_degree 6 ⇒ B = 5: selection varies by nonce.
+    // 30 candidates gated at a fed B = 5: selection varies by nonce.
     let names: Vec<String> = (0..30).map(|i| format!("c{i:02}")).collect();
     let t = topic("t");
     let selection = |nonce: u64| -> BTreeSet<PeerId> {
@@ -90,8 +90,8 @@ fn epoch_folds_nonce_for_the_next_heartbeat() {
         Arc::new(TestVerifier),
         alias_signer("self"),
         NodeStrategies::relay_only(
-            Arc::new(HashGatedConnection::new(peer("self"), 6)),
-            Arc::new(AcceptFromAllCandidates),
+            Arc::new(Selection::new(peer("self"), [0u8; 32]).with_bucket_count(Some(5))),
+            accept_all("self"),
         ),
         Arc::new(ForwardToRelays),
     );

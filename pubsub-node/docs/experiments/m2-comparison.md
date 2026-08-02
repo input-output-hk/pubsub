@@ -12,9 +12,10 @@ differences worth raising.
 |---|---|
 | Tool commit | `493bb2f` (post-015-rebase; all three sections re-executed at this commit). The re-executed artifacts are **byte-identical** to the original execution's (tool commits `e14a3f2`/`60b8e84`, pre-rebase lineage): `runs.jsonl` and `aggregates.json` verified by direct diff for all three sections, manifests differing only in the tool commit and the fan-out kind's rename — the 015 integration (relay-only populations over the re-keyed link model, `forward-to-relays` fan-out) leaves the M2 instrument's output unchanged to the byte |
 | Re-validated | `06b88aa` (the instrument-performance follow-up: shared candidate views, ADR 0038, and the wave sort-key change): all three sections re-executed, `runs.jsonl` and `aggregates.json` **byte-identical** again, manifests differing in the tool commit only; the operating point additionally verified identical across `--workers 1` and `--workers 10`. The cost figures below are from this commit — before it, each in-flight N = 20 000 run held ~30 GB (worker count doubled as the memory knob) and the operating point ran ~13–23 min at `--workers 1` |
+| Re-baselined | `7e50e3a` (feature 017, the unified selection plane — commit B): the selection draw derivation changed **deliberately** (per-seam draw domains, self-identity and the epoch nonce in the preimage; ADR 0040), so this document's measured values changed exactly once — the sections below are this generation's, with statistical agreement re-evaluated against the unchanged formal references. The refactor itself was byte-neutral (verified at the feature's commit-A gate); the operating point was verified identical across `--workers 1` and `--workers 10` at the re-baseline, and all three sections re-executed **byte-identically** at `d7e7132` (the 017 sweep-axis and M4-config follow-ups). Sweep configs now speak the 017 coordinate vocabulary (`pick_count` in place of the retired kind/degree fields) |
 | Operating point | `configs/experiments/m2-operating-point.toml`, master seed **42**, 40 runs; ~25 s at `--workers 10` (release build; ~1 GB peak per in-flight run) |
 | Bulk-regime point | `configs/experiments/m2-bulk-regime.toml`, master seed **4016**, 8000 runs, ~6 min at default workers (~190 MB per in-flight run) |
-| Grid-cell check | the operating-point configuration with `target_degree = 16` (both classes), `runs_per_experiment = 150`, `master_seed = 20016`; ~72 s at `--workers 10` |
+| Grid-cell check | the operating-point configuration with `pick_count = 16` (both classes), `runs_per_experiment = 150`, `master_seed = 20016`; ~72 s at `--workers 10` |
 | Reference values | `formal_spec/hybrid_dissemination/models/comparison.md` §2 and `models/m2/properties/full_coverage.md` §2–§3 |
 
 Raw artifacts are deliberately **not** committed: the tool commit and master
@@ -36,41 +37,41 @@ separate churn term, so these configurations run churn-free.
 
 ## 1. Operating point — cost and latency means (N = 20 000, μ = 0.2, RF = 24)
 
-Population: 16 000 honest, 4 000 silent adversaries; uniform-sampler dial
-(exactly-RF picks, the model's selection family), accept-from-all,
-forward-to-relays. All 40 runs formed good topologies and delivered full
-coverage — consistent with the model's P(bad) ≈ 7.3×10⁻⁵ at this point
-(resolving that probability needs ~10⁴ runs; 40 runs certify only its
-order-of-magnitude absence).
+Population: 16 000 honest, 4 000 silent adversaries; exactly-RF uniform
+picks (`pick_count = 24` — the model's selection family, the plane's
+pick-count knob), open acceptance, forward-to-relays. All 40 runs formed
+good topologies and delivered full coverage — consistent with the model's
+P(bad) ≈ 7.3×10⁻⁵ at this point (resolving that probability needs ~10⁴
+runs; 40 runs certify only its order-of-magnitude absence).
 
 | quantity | published (comparison.md, M2 row) | measured (mean over 40 runs) | deviation |
 |---|---|---|---|
-| honest→honest sends per message | 307 153 | **307 182.2** | +0.0095 % |
+| honest→honest sends per message | 307 153 | **307 162.1** | +0.003 % |
 | copies per honest node | 19.2 | **19.20** | — |
-| hops, full coverage | 4.8 | **4.80** (8 runs at 4, 32 at 5) | exact |
-| hops, mean first receipt | 3.6 | **3.59** | −0.3 % |
+| hops, full coverage | 4.8 | **4.78** (9 runs at 4, 31 at 5) | rounds to the published 4.8 |
+| hops, mean first receipt | 3.6 | **3.60** | exact at table precision |
 
 Depth distribution (pooled honest first receipts over all 40 runs; wave 0 =
 the publisher's own record, 640 000 receipts total):
 
 | wave | 0 | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|---|
-| receipts | 40 | 801 | 15 268 | 229 254 | 394 250 | 387 |
+| receipts | 40 | 789 | 14 773 | 222 697 | 401 253 | 448 |
 
-Supporting numbers: sends to adversarial recipients 76 820.8 per message
+Supporting numbers: sends to adversarial recipients 76 774.1 per message
 (expectation A·RF·H/(N−1) ≈ 76 804; the gap is within a 40-run mean's
 sampling noise); total sends p50/p90/p99 =
-383 971 / 384 337 / 384 621; duplication ratio (redundant arrivals over all
+383 982 / 384 228 / 384 280; duplication ratio (redundant arrivals over all
 arrivals) 0.948, the flooding-with-dedup cost the RF = 24 sizing implies.
 
 **Deviation notes.** The honest→honest sends figure differs from the
-published table by 29 messages in ~3×10⁵ (0.0095 %). The pre-split-horizon
+published table by 9 messages in ~3×10⁵ (0.003 %). The pre-split-horizon
 expectation for exactly-RF uniform picks is H·RF·(H−1)/(N−1) ≈ 307 196;
 split-horizon suppression (a node never echoes to its first deliverer, so
-mutual-pick pairs drop one send) accounts for the measured mean sitting
-~14 below it, and the residual 29-message gap to the published value is
-≈ 0.7σ of a 40-run mean — finite-sample noise, not a protocol difference.
-The depth means agree to the published table's precision.
+mutual-pick pairs drop one send) accounts for part of the measured mean's
+~34-message shortfall against it, and the residual gap is well under 1σ of
+a 40-run mean — finite-sample noise, not a protocol difference. The depth
+means agree to the published table's precision.
 
 ## 2. Bulk-regime point — P(good) vs the coverage law (N = 4 000, μ = 0.2, RF = 16)
 
@@ -82,22 +83,24 @@ The named validation point from `full_coverage.md` §3's small-N tail ladder
 |---|---|---|---|
 | coverage law (guiding formula) | — | 0.0088 | — |
 | formal Monte Carlo | 65 / 8000 | 0.0081 | — (±1σ ≈ ±0.0010) |
-| **this framework** | **76 / 8000** | **0.0095** | Wilson [0.0076, 0.0119] |
+| **this framework** | **71 / 8000** | **0.0089** | Wilson [0.0070, 0.0112] |
 
 Agreement: the law's prediction and the formal Monte-Carlo value both lie
 inside our Wilson 95 % interval. Against the law's expected 70.4 bad graphs
-the observed 76 is z ≈ +0.67; against the formal Monte Carlo, z ≈ +0.93 —
-both within one standard deviation, i.e. ordinary sampling noise.
+the observed 71 is z ≈ +0.07; against the formal Monte Carlo, the
+matched-sample two-sample z ≈ +0.52 — both well within one standard
+deviation, i.e. ordinary sampling noise.
 
 Two structural cross-checks land exactly as the model describes:
 
-- **The out-defect dominates.** All 76 bad graphs score
+- **The out-defect dominates.** All 71 bad graphs score
   min-publisher-coverage below 0.05 — muted publishers whose serving sets
-  are entirely dead (condensation singleton sinks) — matching the model's
-  claim that e^{−RF(1−μ)} ≫ μ^RF at every μ ≤ 0.2 regime.
+  are entirely dead (condensation singleton sinks, exactly one per bad
+  graph) — matching the model's claim that e^{−RF(1−μ)} ≫ μ^RF at every
+  μ ≤ 0.2 regime.
 - **A sink is exposed only by its own drain.** The sampled-publisher
   publish drain achieved full coverage in **all 8000 runs**, including the
-  76 bad graphs: a muted publisher is invisible to any other publisher's
+  71 bad graphs: a muted publisher is invisible to any other publisher's
   dissemination. Goodness therefore must come from the strong-connectivity
   pass over the realised graph, not from sampled drains — the framework's
   two-instrument design, and the reason its per-run structural invariant is
@@ -116,19 +119,20 @@ re-running a cell the formal N = 20 000 validation grid actually measured
 |---|---|---|
 | coverage law (guiding formula) | — | 0.957 |
 | formal Monte Carlo (150 graphs) | ≈ 146 / 150 (reported as 0.973) | 0.973 |
-| **this framework** | **145 / 150** | **0.9667**, Wilson 95 % [0.9243, 0.9857] |
+| **this framework** | **141 / 150** | **0.9400**, Wilson 95 % [0.8899, 0.9681] |
 
-The estimate lands between the law's prediction and the formal measurement,
-with both inside the Wilson interval (z = −0.58 against the law, +0.48
-against the formal Monte Carlo) — statistically indistinguishable at
-matched sample sizes, in a regime where 150 runs genuinely see failures.
-Like the formal measurement, ours sits on the good side of the prediction,
-consistent with the law's documented mild conservatism.
+The law's prediction lies inside the Wilson interval (z = −1.03); the
+formal measurement's point estimate sits just above its upper bound, but at
+matched sample sizes the two-sample z is −1.42 — ordinary noise in a regime
+where 150 graphs resolve failures only to ±4-ish (9 bad here vs the formal
+run's ≈4). Unlike the formal measurement this sample lands on the
+conservative side of the prediction; both readings are consistent with the
+law at this resolution.
 
-The §2 structure repeats at full N: every one of the 5 bad graphs has
+The §2 structure repeats at full N: every one of the 9 bad graphs has
 exactly one condensation sink with min-publisher-coverage 0.0 (a single
 muted publisher), and the sampled-publisher drain achieved full coverage
-in all 150 runs. Cost sanity holds too: honest→honest sends mean 204 810
+in all 150 runs. Cost sanity holds too: honest→honest sends mean 204 759
 vs the pre-split-horizon expectation H·RF·(H−1)/(N−1) ≈ 204 797.
 
 ## 4. Uncertainty methodology — to raise with the formal-methods team

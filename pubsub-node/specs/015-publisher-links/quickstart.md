@@ -7,6 +7,13 @@ setup (registries, config) is unchanged from the 005 quickstart; only the
 strategy flags differ. `--genesis` seeds the epoch nonce (same genesis ⇒ same
 topology, reproducible experiments).
 
+> **Amendment (2026-08-01, feature 017).** The uniform selection landed and
+> M4 is now exact (see the amendment in its section). The strategy kind and
+> degree flags this document's recipes use were replaced by the selection
+> plane's knob surface in the same feature — the canonical recipe set is
+> `specs/017-unified-selection/quickstart.md`; this document remains the
+> 015-era record.
+
 ## M2 — pull baseline (pre-015 behaviour; the defaults)
 
 ```sh
@@ -62,6 +69,15 @@ connectivity w.h.p. at RF ≥ 2 and no muted-publisher mode. A uniform
 exactly-RF selection kind (the (B = 1, K = RF) point) is a follow-up feature;
 once it lands, `--relay-strategy uniform … --symmetric-edges` will realise M4
 exactly.
+
+> **Amendment (2026-08-01, feature 017).** That follow-up landed as the
+> selection plane's pick count, and the label is claimed: the real M4 is
+> `--relay-pick-count $RF --relay-symmetric` (with `--selection-seed`) —
+> uniform exactly-RF picks over this section's constructed-reciprocity
+> handshake, minimum degree ≥ RF by construction and mean degree ≈ 2·RF,
+> evidenced fleet-wide in `tests/model_family.rs`. See
+> `specs/017-unified-selection/quickstart.md` (family 1) for the canonical
+> recipe.
 
 ## M5 — directed k_in/k_out, both classes carry everything
 

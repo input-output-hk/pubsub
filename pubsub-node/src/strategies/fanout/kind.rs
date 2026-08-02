@@ -12,11 +12,12 @@ use super::{FanoutStrategy, ForwardToAll, ForwardToRelays};
 /// A selectable fan-out strategy, identified by a readable name.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FanoutStrategyKind {
-    /// Relay downstream always; `Active` publisher links only for
-    /// locally-published messages ([`ForwardToRelays`] — the default, M3).
+    /// `Active` relay downstream always; `Active` publisher links only for
+    /// locally-published messages ([`ForwardToRelays`] — the explicit
+    /// M3-exclusivity choice).
     ForwardToRelays,
-    /// Every held message over relay downstream ∪ `Active` publisher links,
-    /// any origin ([`ForwardToAll`] — M5's send side).
+    /// Every held message over every `Active` downstream link, relay ∪
+    /// publisher, any origin ([`ForwardToAll`] — the default; M5's send side).
     ForwardToAll,
 }
 

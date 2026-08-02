@@ -13,12 +13,10 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::peer::PeerId;
-use crate::strategies::acceptance::AcceptanceStrategyKind;
-use crate::strategies::connection::ConnectionStrategyKind;
 use crate::topic::TopicId;
 
 use super::graph::DisseminationModel;
-use super::population::{AcceptanceSpec, ConnectionSpec, FanoutSpec, StrategySpec};
+use super::population::{FanoutSpec, StrategySpec};
 
 /// A rejected sweep description. Messages are operator-facing.
 #[derive(Debug, thiserror::Error)]
@@ -68,7 +66,7 @@ pub enum SweepConfigError {
         field: &'static str,
     },
     /// An axis named no sweepable parameter.
-    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, target_degree, publishes_per_run)")]
+    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, pick_count, bucket_count, publishes_per_run)")]
     UnknownAxisParameter {
         /// The offending parameter name.
         name: String,
@@ -110,79 +108,51 @@ pub enum SweepConfigError {
 }
 
 /// One class's strategy configuration, exactly as validated — kept in this
-/// raw-shaped form so the manifest can embed it verbatim.
+/// raw-shaped form so the manifest can embed it verbatim. The table speaks
+/// the selection plane's coordinates; there are no strategy kind names.
+// 017-FR-017, 017-FR-018 (boundary values legal here), 017-FR-019 (no
+// publisher-pair fields: population construction stays relay-only — that
+// surface belongs to the publisher-pair experiments feature, and
+// `deny_unknown_fields` rejects any attempt to configure it early).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrategyTable {
-    /// The dial kind: a protocol kind or `uniform-sampler`.
-    pub connection: String,
-    /// Target degree, where the dial or acceptance kind requires one.
+    /// The pick count: absent = dial every gate survivor; `0` = dial none
+    /// (the `k_in`/`k_out` = 0 boundary).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_degree: Option<usize>,
-    /// Optional pinned bucket count for the hash-gated kinds.
+    pub pick_count: Option<usize>,
+    /// The bucket count (hash-gate width): absent = ungated; **`1` is legal
+    /// here** (the ungated point on a bucket-count axis), unlike the
+    /// operator CLI; `0` is rejected.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bucket_count: Option<usize>,
-    /// The acceptance kind (protocol kinds only).
-    pub acceptance: String,
-    /// Accept-cap buffer for the bounded acceptance kinds.
-    #[serde(default = "default_cap_buffer")]
-    pub cap_buffer: usize,
+    /// The absolute per-topic accept cap: absent = unbounded; `0` = serve
+    /// none (explicit rejection).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_cap: Option<usize>,
+    /// Skip acceptor-side gate verification (the trusting-acceptors
+    /// comparison arm). Default `false`: acceptors verify iff `bucket_count`
+    /// is present.
+    #[serde(default)]
+    pub accept_unverified: bool,
+    /// Establish relay links with the symmetric (bidirectional) handshake.
+    /// Default `false` (directional links).
+    #[serde(default)]
+    pub symmetric: bool,
     /// The fan-out kind: `forward-to-relays` or `silent-relay`.
     pub fanout: String,
 }
 
-fn default_cap_buffer() -> usize {
-    3
-}
-
 impl StrategyTable {
-    /// Resolve the table into a buildable [`StrategySpec`], validating every
-    /// kind name and the parameters each kind requires (probed with a
-    /// placeholder identity so rejection happens before any run executes).
+    /// Resolve the table into a buildable [`StrategySpec`], validating the
+    /// coordinate domains and the fan-out kind (probed with a placeholder
+    /// identity so rejection happens before any run executes).
     pub fn to_spec(&self) -> Result<StrategySpec, SweepConfigError> {
-        let connection = match self.connection.to_ascii_lowercase().as_str() {
-            "uniform-sampler" => {
-                let target_degree = self.target_degree.ok_or(
-                    crate::strategies::config::StrategyConfigError::MissingParameter {
-                        strategy: "uniform-sampler",
-                        parameter: "a target degree (target_degree)",
-                    },
-                )?;
-                if target_degree == 0 {
-                    return Err(SweepConfigError::ZeroCount {
-                        field: "target_degree",
-                    });
-                }
-                ConnectionSpec::UniformSampler { target_degree }
-            }
-            other => {
-                let kind = ConnectionStrategyKind::from_str(other).map_err(|_| {
-                    SweepConfigError::UnknownStrategy {
-                        seam: "connection",
-                        kind: self.connection.clone(),
-                        expected: "connect-to-all, hash-gated, uniform-sampler",
-                    }
-                })?;
-                ConnectionSpec::Protocol {
-                    kind,
-                    target_degree: self.target_degree,
-                    bucket_count: self.bucket_count,
-                }
-            }
-        };
-        let acceptance_kind = AcceptanceStrategyKind::from_str(&self.acceptance).map_err(|_| {
-            SweepConfigError::UnknownStrategy {
-                seam: "acceptance",
-                kind: self.acceptance.clone(),
-                expected: "accept-from-all, bounded, hash-gated, hash-gated-bounded",
-            }
-        })?;
-        let acceptance = AcceptanceSpec::Protocol {
-            kind: acceptance_kind,
-            target_degree: self.target_degree,
-            bucket_count: self.bucket_count,
-            cap_buffer: self.cap_buffer,
-        };
+        if self.bucket_count == Some(0) {
+            return Err(SweepConfigError::ZeroCount {
+                field: "bucket_count",
+            });
+        }
         let fanout = match self.fanout.to_ascii_lowercase().as_str() {
             "forward-to-relays" => FanoutSpec::ForwardToRelays,
             "silent-relay" => FanoutSpec::SilentRelay,
@@ -195,8 +165,11 @@ impl StrategyTable {
             }
         };
         let spec = StrategySpec {
-            connection,
-            acceptance,
+            pick_count: self.pick_count,
+            bucket_count: self.bucket_count,
+            accept_cap: self.accept_cap,
+            accept_unverified: self.accept_unverified,
+            symmetric: self.symmetric,
             fanout,
         };
         spec.probe(&PeerId::from_str("probe").expect("static probe id"))?;
@@ -238,8 +211,12 @@ pub enum AxisParameter {
     Churn,
     /// Churn count.
     ChurnCount,
-    /// Target degree, applied to both classes' strategy tables.
-    TargetDegree,
+    /// Pick count, applied to both classes' strategy tables (`0` is the
+    /// `k_in`/`k_out` = 0 boundary axis point).
+    PickCount,
+    /// Bucket count, applied to both classes' strategy tables (`1` is the
+    /// ungated boundary axis point; `0` rejected).
+    BucketCount,
     /// Publish phases per run.
     PublishesPerRun,
 }
@@ -254,7 +231,8 @@ impl AxisParameter {
             Self::AdversarialFraction => "adversarial_fraction",
             Self::Churn => "churn",
             Self::ChurnCount => "churn_count",
-            Self::TargetDegree => "target_degree",
+            Self::PickCount => "pick_count",
+            Self::BucketCount => "bucket_count",
             Self::PublishesPerRun => "publishes_per_run",
         }
     }
@@ -266,7 +244,8 @@ impl AxisParameter {
             "adversarial_fraction" => Ok(Self::AdversarialFraction),
             "churn" => Ok(Self::Churn),
             "churn_count" => Ok(Self::ChurnCount),
-            "target_degree" => Ok(Self::TargetDegree),
+            "pick_count" => Ok(Self::PickCount),
+            "bucket_count" => Ok(Self::BucketCount),
             "publishes_per_run" => Ok(Self::PublishesPerRun),
             _ => Err(SweepConfigError::UnknownAxisParameter {
                 name: name.to_string(),
@@ -413,10 +392,18 @@ impl SweepDescription {
                 AxisParameter::ChurnCount => {
                     churn = CountSpec::Count(value.as_count(parameter.name())?);
                 }
-                AxisParameter::TargetDegree => {
-                    let degree = value.as_count(parameter.name())?;
-                    honest_strategies.target_degree = Some(degree);
-                    adversarial_strategies.target_degree = Some(degree);
+                AxisParameter::PickCount => {
+                    let picks = value.as_count(parameter.name())?;
+                    honest_strategies.pick_count = Some(picks);
+                    adversarial_strategies.pick_count = Some(picks);
+                }
+                AxisParameter::BucketCount => {
+                    // Domain enforcement (0 rejected, 1 the legal ungated
+                    // boundary point) happens at the per-grid-point table
+                    // probe below.
+                    let buckets = value.as_count(parameter.name())?;
+                    honest_strategies.bucket_count = Some(buckets);
+                    adversarial_strategies.bucket_count = Some(buckets);
                 }
                 AxisParameter::PublishesPerRun => {
                     let publishes = value.as_count(parameter.name())?;
@@ -650,15 +637,11 @@ mod tests {
             topic = "t0"
 
             [strategies.honest]
-            connection = "uniform-sampler"
-            target_degree = 4
-            acceptance = "accept-from-all"
+            pick_count = 4
             fanout = "forward-to-relays"
 
             [strategies.adversarial]
-            connection = "uniform-sampler"
-            target_degree = 4
-            acceptance = "accept-from-all"
+            pick_count = 4
             fanout = "silent-relay"
 
             [execution]
@@ -697,7 +680,7 @@ mod tests {
             values = [0.0, 0.25]
 
             [[axes]]
-            parameter = "target_degree"
+            parameter = "pick_count"
             values = [3, 5]
         "#;
         let description = parse_sweep_description(&toml).expect("valid description");
@@ -709,7 +692,7 @@ mod tests {
         // churn 0.25 of 18 honest → 4 or 5 (round(4.5)); pin the resolution.
         let grid: Vec<(usize, Option<usize>)> = resolved
             .iter()
-            .map(|point| (point.churn_count, point.honest_strategies.target_degree))
+            .map(|point| (point.churn_count, point.honest_strategies.pick_count))
             .collect();
         assert_eq!(grid[0], (0, Some(3)));
         assert_eq!(grid[1], (0, Some(5)));
@@ -717,8 +700,8 @@ mod tests {
         assert_eq!(grid[3].1, Some(5));
         assert_eq!(grid[2].0, grid[3].0);
         assert!(grid[2].0 == 4 || grid[2].0 == 5, "0.25 of 18 honest");
-        // The target-degree override lands on BOTH classes' tables.
-        assert_eq!(resolved[1].adversarial_strategies.target_degree, Some(5));
+        // The axis override lands on BOTH classes' tables.
+        assert_eq!(resolved[1].adversarial_strategies.pick_count, Some(5));
     }
 
     // Axis validation: unknown parameters, duplicates, empty value lists,
@@ -745,7 +728,7 @@ mod tests {
         ));
         assert!(matches!(
             parse_sweep_description(&with_axis(
-                "[[axes]]\nparameter = \"target_degree\"\nvalues = [3.5]\n"
+                "[[axes]]\nparameter = \"pick_count\"\nvalues = [3.5]\n"
             )),
             Err(SweepConfigError::AxisValueType { .. }),
         ));
@@ -759,6 +742,49 @@ mod tests {
         ));
     }
 
+    // 017-T029 / 017-FR-018: bucket_count and pick_count are axis
+    // parameters, and boundary values are legal axis points — bucket_count 1
+    // (the ungated cell) and pick_count 0 (the k_in/k_out = 0 boundary) —
+    // while bucket_count 0 stays rejected and the pre-017 target_degree
+    // spelling is retired.
+    #[test]
+    fn plane_axes_accept_boundary_points_and_reject_the_rest() {
+        let with_axis = |axis: &str| base_toml() + axis;
+
+        let toml = with_axis("[[axes]]\nparameter = \"bucket_count\"\nvalues = [1, 2]\n");
+        let description = parse_sweep_description(&toml).expect("valid description");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].honest_strategies.bucket_count, Some(1));
+        assert_eq!(resolved[0].adversarial_strategies.bucket_count, Some(1));
+        assert_eq!(resolved[1].honest_strategies.bucket_count, Some(2));
+
+        let toml = with_axis("[[axes]]\nparameter = \"pick_count\"\nvalues = [0, 4]\n");
+        let description = parse_sweep_description(&toml).expect("valid description");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved[0].honest_strategies.pick_count, Some(0));
+        assert_eq!(resolved[0].adversarial_strategies.pick_count, Some(0));
+
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"bucket_count\"\nvalues = [0, 2]\n"
+            )),
+            Err(SweepConfigError::ZeroCount {
+                field: "bucket_count",
+            }),
+        ));
+        assert!(matches!(
+            parse_sweep_description(&with_axis(
+                "[[axes]]\nparameter = \"target_degree\"\nvalues = [4]\n"
+            )),
+            Err(SweepConfigError::UnknownAxisParameter { .. }),
+        ));
+    }
+
     #[test]
     fn unknown_model_is_rejected() {
         let toml = base_toml().replace("\"m2\"", "\"m9\"");
@@ -769,7 +795,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_strategy_kinds_are_rejected() {
+    fn unknown_fanout_kinds_are_rejected() {
         let toml = base_toml().replace("\"silent-relay\"", "\"shout-relay\"");
         assert!(matches!(
             parse_sweep_description(&toml),
@@ -778,23 +804,77 @@ mod tests {
                 ..
             }),
         ));
-        let toml = base_toml().replacen("\"uniform-sampler\"", "\"random-walk\"", 1);
+        // 017 contracts/sweep-config.md: forward-to-all stays rejected —
+        // populations are relay-only until the publisher-pair feature.
+        let toml = base_toml().replace("\"forward-to-relays\"", "\"forward-to-all\"");
         assert!(matches!(
             parse_sweep_description(&toml),
             Err(SweepConfigError::UnknownStrategy {
-                seam: "connection",
+                seam: "fan-out",
                 ..
             }),
         ));
     }
 
+    // 017-FR-017: the kind-name vocabularies are gone — a table naming the
+    // old `connection`/`acceptance` kinds no longer parses (there is exactly
+    // one spelling per plane point).
     #[test]
-    fn uniform_sampler_requires_a_target_degree() {
-        let toml = base_toml().replace("target_degree = 4\n", "");
+    fn kind_name_fields_are_rejected() {
+        let toml = base_toml().replace(
+            "pick_count = 4",
+            "connection = \"uniform-sampler\"\ntarget_degree = 4",
+        );
         assert!(matches!(
             parse_sweep_description(&toml),
-            Err(SweepConfigError::Strategy(_)),
+            Err(SweepConfigError::Parse(_)),
         ));
+        let toml = base_toml().replace("pick_count = 4", "acceptance = \"accept-from-all\"");
+        assert!(matches!(
+            parse_sweep_description(&toml),
+            Err(SweepConfigError::Parse(_)),
+        ));
+    }
+
+    // 017-FR-018: boundary values are legal axis points in the sweep config
+    // even where the CLI rejects them — bucket_count = 1 is the ungated
+    // point, pick_count = 0 the k_in/k_out = 0 boundary; bucket_count = 0
+    // stays rejected.
+    #[test]
+    fn boundary_coordinates_are_legal_and_zero_buckets_are_not() {
+        let toml = base_toml().replace("pick_count = 4", "pick_count = 4\nbucket_count = 1");
+        assert!(parse_sweep_description(&toml).is_ok());
+
+        let toml = base_toml().replacen("pick_count = 4", "pick_count = 0", 1);
+        assert!(parse_sweep_description(&toml).is_ok());
+
+        let toml = base_toml().replace("pick_count = 4", "pick_count = 4\nbucket_count = 0");
+        assert!(matches!(
+            parse_sweep_description(&toml),
+            Err(SweepConfigError::ZeroCount {
+                field: "bucket_count",
+            }),
+        ));
+    }
+
+    // 017-FR-017: the acceptance dimensions and the symmetric switch parse
+    // with their documented defaults (verify-iff-gated, directional).
+    #[test]
+    fn acceptance_and_symmetric_coordinates_parse() {
+        let toml = base_toml().replacen(
+            "pick_count = 4",
+            "pick_count = 4\nbucket_count = 3\naccept_cap = 9\naccept_unverified = true\nsymmetric = true",
+            1,
+        );
+        let description = parse_sweep_description(&toml).expect("valid description");
+        let honest = &description.honest_strategies;
+        assert_eq!(honest.accept_cap, Some(9));
+        assert!(honest.accept_unverified);
+        assert!(honest.symmetric);
+        let adversarial = &description.adversarial_strategies;
+        assert_eq!(adversarial.accept_cap, None);
+        assert!(!adversarial.accept_unverified, "defaults to verifying");
+        assert!(!adversarial.symmetric, "defaults to directional");
     }
 
     #[test]

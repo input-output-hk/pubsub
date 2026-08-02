@@ -85,6 +85,14 @@ a branch in a shared handler.
   claim M4. Note the formal models specify *private, epoch-seeded uniform
   selection* — uniform picks in the node are what M4 prescribes; verifiable
   hash-gating is the protocol-track deviation to be quantified against it.
+  *Amendment (2026-08-01, feature 017 / ADR 0039): that follow-up landed —
+  the selection plane's pick count is the uniform exactly-RF selection, and
+  the label is claimed: `--relay-pick-count RF --relay-symmetric` realises
+  the formal M4 exactly, with the minimum-degree floor and mean ≈ 2·RF
+  evidenced fleet-wide in `tests/model_family.rs`. The privacy note stands:
+  the operator-supplied selection seed is a prototype stand-in for the
+  models' private randomness (recorded with the 017 seed-derivation
+  decision).*
 - Two signed messages per edge when only one end picks it; the four-message
   crossing case persists only under symmetric *predicate* selection (both
   ends see the edge) and resolves idempotently.

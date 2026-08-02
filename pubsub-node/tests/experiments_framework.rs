@@ -9,8 +9,7 @@ use std::str::FromStr;
 use pubsub_node::experiments::config::parse_sweep_description;
 use pubsub_node::experiments::driver::{Driver, RunPlan, RunSeeds, SetupMode};
 use pubsub_node::experiments::population::{
-    AcceptanceSpec, ConnectionSpec, FanoutSpec, ParticipantClass, Population, PopulationConfig,
-    PopulationSeeds, StrategySpec,
+    FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, StrategySpec,
 };
 use pubsub_node::experiments::scripted;
 use pubsub_node::experiments::sweep::{
@@ -27,10 +26,11 @@ fn workers(count: usize) -> SweepOptions {
 }
 
 fn population(size: usize, adversarial: usize) -> Population {
+    // The M2 selection family as coordinates: exactly-3 seeded uniform picks
+    // (no gate), open acceptance.
     let honest = StrategySpec {
-        connection: ConnectionSpec::UniformSampler { target_degree: 3 },
-        acceptance: AcceptanceSpec::accept_from_all(),
-        fanout: FanoutSpec::ForwardToRelays,
+        pick_count: Some(3),
+        ..StrategySpec::open(FanoutSpec::ForwardToRelays)
     };
     let config = PopulationConfig {
         topic: TopicId::from_str("t0").expect("valid topic"),
@@ -50,9 +50,10 @@ fn population(size: usize, adversarial: usize) -> Population {
     Population::build(&config, &seeds).expect("valid build")
 }
 
-// 016-FR-003/FR-005: a full run over real node cores — uniform-sampler dial,
-// silent adversaries, churn — executes to exact quiescence through the public
-// surface, and every up-honest receiver the topology reaches is recorded.
+// 016-FR-003/FR-005: a full run over real node cores — the pick-count dial
+// (exactly-RF seeded uniform picks), silent adversaries, churn — executes to
+// exact quiescence through the public surface, and every up-honest receiver
+// the topology reaches is recorded.
 #[test]
 fn full_run_executes_on_real_cores() {
     let mut driver = Driver::new(population(12, 2));
@@ -125,15 +126,11 @@ fn sweep_toml(size: usize, master_seed: u64, runs: u64) -> String {
             topic = "t0"
 
             [strategies.honest]
-            connection = "uniform-sampler"
-            target_degree = 4
-            acceptance = "accept-from-all"
+            pick_count = 4
             fanout = "forward-to-relays"
 
             [strategies.adversarial]
-            connection = "uniform-sampler"
-            target_degree = 4
-            acceptance = "accept-from-all"
+            pick_count = 4
             fanout = "silent-relay"
 
             [execution]
@@ -251,7 +248,7 @@ fn two_axis_toml() -> String {
             values = [0.0, 0.15]
 
             [[axes]]
-            parameter = "target_degree"
+            parameter = "pick_count"
             values = [3, 5]
         "#
 }
@@ -296,8 +293,8 @@ fn grid_row_and_aggregate_counts_line_up() {
     // First axis (churn) varies slowest; second (target degree) fastest.
     assert_eq!(experiments[0]["churn_count"], 0);
     assert_eq!(experiments[1]["churn_count"], 0);
-    assert_eq!(experiments[0]["honest_strategies"]["target_degree"], 3);
-    assert_eq!(experiments[1]["honest_strategies"]["target_degree"], 5);
+    assert_eq!(experiments[0]["honest_strategies"]["pick_count"], 3);
+    assert_eq!(experiments[1]["honest_strategies"]["pick_count"], 5);
     assert!(experiments[2]["churn_count"].as_u64().expect("count") > 0);
 
     let rows: Vec<serde_json::Value> = std::fs::read_to_string(out.path().join("runs.jsonl"))
@@ -332,14 +329,11 @@ fn grid_row_and_aggregate_counts_line_up() {
 // including at the all-good sample where the interval keeps nonzero width.
 #[test]
 fn p_good_is_counts_plus_wilson_including_all_good() {
-    // Churn-free connect-to-all: every run forms a complete (good) topology.
+    // Churn-free ungated dial-all (pick count absent): every run forms a
+    // complete (good) topology.
     let toml = sweep_toml(12, 3, 6)
         .replace("churn = 0.1", "churn = 0.0")
-        .replace(
-            "connection = \"uniform-sampler\"",
-            "connection = \"connect-to-all\"",
-        )
-        .replace("target_degree = 4\n", "");
+        .replace("pick_count = 4\n", "");
     let description = parse_sweep_description(&toml).expect("valid description");
     let out = tempfile::tempdir().expect("temp dir");
     run_sweep(&description, out.path(), "test-commit", &workers(2)).expect("sweep runs");
@@ -528,9 +522,13 @@ fn shipped_config(name: &str) -> String {
 // test stays far inside the 30-second budget.
 #[test]
 fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
-    // The two manual comparison configurations must at least validate — a
-    // shipped config that no longer parses is a broken deliverable.
-    for name in ["m2-operating-point.toml", "m2-bulk-regime.toml"] {
+    // The manual comparison/baseline configurations must at least validate —
+    // a shipped config that no longer parses is a broken deliverable.
+    for name in [
+        "m2-operating-point.toml",
+        "m2-bulk-regime.toml",
+        "m4-uniform-symmetric.toml",
+    ] {
         parse_sweep_description(&shipped_config(name))
             .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
     }
@@ -685,4 +683,51 @@ fn scripted_star_has_hand_computable_depths() {
         );
     }
     assert_eq!(outcome.drain.waves, 2);
+}
+
+// 017-T029 / spec US5 scenario 1: boundary axis cells reproduce the
+// off/ungated behaviours — the bucket_count = 1 cell's run records are
+// value-identical to the ungated configuration's (the CLI-rejected spelling
+// is a legal axis point here), and the pick_count = 0 cell forms no
+// topology at all (the k_in/k_out = 0 boundary: zero dial sends).
+#[test]
+fn boundary_axis_cells_reproduce_the_off_and_ungated_behaviours() {
+    // One config, a bucket_count axis crossing the ungated boundary point
+    // and a real gate; a second config with no bucket_count at all.
+    let with_axis = sweep_toml(30, 55, 3)
+        + r#"
+            [[axes]]
+            parameter = "bucket_count"
+            values = [1, 2]
+        "#;
+    let axed = parse_sweep_description(&with_axis).expect("valid description");
+    let ungated = parse_sweep_description(&sweep_toml(30, 55, 3)).expect("valid description");
+
+    let cells = expand_experiments(&axed);
+    assert_eq!(cells.len(), 2);
+    let baseline = &expand_experiments(&ungated)[0];
+    for run in 0..3 {
+        assert_eq!(
+            execute_run_record(&cells[0], 0, run, axed.master_seed),
+            execute_run_record(baseline, 0, run, ungated.master_seed),
+            "the bucket_count = 1 cell must behave identically to ungated",
+        );
+    }
+
+    // The pick_count = 0 boundary cell: every node dials nothing.
+    let zero_picks = sweep_toml(30, 56, 2)
+        + r#"
+            [[axes]]
+            parameter = "pick_count"
+            values = [0]
+        "#;
+    let description = parse_sweep_description(&zero_picks).expect("valid description");
+    let record = execute_run_record(
+        &expand_experiments(&description)[0],
+        0,
+        0,
+        description.master_seed,
+    );
+    assert_eq!(record.dial_sends, 0, "pick count 0 dials no relay links");
+    assert!(!record.good, "an edgeless topology is never good");
 }

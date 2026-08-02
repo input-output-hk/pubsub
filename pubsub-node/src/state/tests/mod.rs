@@ -32,10 +32,8 @@ pub(crate) use crate::crypto::PublicKey;
 pub(crate) use crate::crypto::{Signer, Timestamp};
 pub(crate) use crate::message::HandshakeKind;
 pub(crate) use crate::message::{MessagePayload, PlainMessage, SignedMessage};
-pub(crate) use crate::strategies::acceptance::{
-    AcceptFromAllCandidates, HashGatedBoundedAcceptance,
-};
-pub(crate) use crate::strategies::connection::{ConnectToAllCandidates, HashGatedConnection};
+pub(crate) use crate::strategies::acceptance::UnifiedAcceptance;
+pub(crate) use crate::strategies::connection::Selection;
 pub(crate) use crate::strategies::fanout::{ForwardToAll, ForwardToRelays};
 pub(crate) use crate::subscription_registry::MembershipScript;
 pub(crate) use crate::topic_registry::TopicRegistryScript;
@@ -54,9 +52,16 @@ fn pk(bytes: &[u8]) -> PublicKey {
     PublicKey::new(bytes.to_vec())
 }
 
-/// The v1 selection policy, as the transition-visible service handle.
-fn strategy() -> Arc<dyn ConnectionStrategy> {
-    Arc::new(ConnectToAllCandidates)
+/// The plane-origin dial policy for `id` (both selection knobs absent): dial
+/// every candidate.
+fn dial_all(id: &str) -> Arc<dyn ConnectionStrategy> {
+    Arc::new(Selection::new(peer(id), [0u8; 32]))
+}
+
+/// The plane-origin acceptance for `id` (no gate, no cap): accept every
+/// membership-valid request.
+fn accept_all(id: &str) -> Arc<dyn ConnectionAcceptanceStrategy> {
+    Arc::new(UnifiedAcceptance::new(peer(id)))
 }
 
 /// A signer for the alias's keypair — agrees with `PeerId::from_str(alias)`
@@ -81,7 +86,7 @@ fn node_state(self_id: &str, subscriptions: HashSet<TopicId>) -> NodeState {
         0, // genesis: the default initial epoch nonce
         Arc::new(TestVerifier),
         alias_signer(self_id),
-        NodeStrategies::relay_only(strategy(), Arc::new(AcceptFromAllCandidates)),
+        NodeStrategies::relay_only(dial_all(self_id), accept_all(self_id)),
         Arc::new(ForwardToRelays),
     );
     for t in subscriptions {
@@ -316,8 +321,8 @@ fn node_state_with_publishers(
         Arc::new(TestVerifier),
         alias_signer(self_id),
         NodeStrategies {
-            relay_connection: strategy(),
-            relay_acceptance: Arc::new(AcceptFromAllCandidates),
+            relay_connection: dial_all(self_id),
+            relay_acceptance: accept_all(self_id),
             publisher_connection: Some(publisher_strategy),
             publisher_acceptance: Some(publisher_acceptance),
             symmetric_edges: false,
@@ -348,7 +353,7 @@ fn node_state_symmetric(
         0,
         Arc::new(TestVerifier),
         alias_signer(self_id),
-        NodeStrategies::relay_only(strategy(), relay_acceptance).with_symmetric_edges(true),
+        NodeStrategies::relay_only(dial_all(self_id), relay_acceptance).with_symmetric_edges(true),
         Arc::new(ForwardToRelays),
     );
     for t in subscriptions {

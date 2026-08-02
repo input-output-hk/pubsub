@@ -7,11 +7,8 @@ use super::super::*;
 use super::*;
 
 fn symmetric_state(self_id: &str) -> NodeState {
-    let mut state = node_state_symmetric(
-        self_id,
-        HashSet::from([topic("t1")]),
-        Arc::new(AcceptFromAllCandidates),
-    );
+    let mut state =
+        node_state_symmetric(self_id, HashSet::from([topic("t1")]), accept_all(self_id));
     apply(&mut state, Event::Synced);
     apply(&mut state, membership_joined("b", ["t1"]));
     state
@@ -110,15 +107,14 @@ fn severance_on_symmetric_node_removes_the_mirror() {
 
 // One accept decision per edge makes capped acceptance compatible with
 // symmetric mode: an over-capacity refusal replies Rejected and inserts
-// nothing, so no one-sided half of the pair can survive it. (target_degree=1,
-// cap_buffer=0 ⇒ cap=1; pinned B=1 ⇒ the predicate always holds, so only the
-// cap refuses.)
+// nothing, so no one-sided half of the pair can survive it. (A fed cap of 1;
+// no gate, so only the cap refuses.)
 #[test]
 fn symmetric_over_capacity_refusal_leaves_no_partial_pair() {
     let mut state = node_state_symmetric(
         "self",
         HashSet::from([topic("t1")]),
-        Arc::new(HashGatedBoundedAcceptance::new(peer("self"), 1, 0).with_bucket_override(Some(1))),
+        Arc::new(UnifiedAcceptance::new(peer("self")).with_accept_cap(Some(1))),
     );
     apply(&mut state, Event::Synced);
     apply(&mut state, membership_joined("b", ["t1"]));
@@ -206,11 +202,7 @@ fn symmetric_shutdown_notifies_each_link_once() {
 // symmetric-handshake Requests (the stored dial entries stay relay-class).
 #[test]
 fn symmetric_mode_dials_under_the_symmetric_vocabulary() {
-    let mut state = node_state_symmetric(
-        "self",
-        HashSet::from([topic("t1")]),
-        Arc::new(AcceptFromAllCandidates),
-    );
+    let mut state = node_state_symmetric("self", HashSet::from([topic("t1")]), accept_all("self"));
     apply(&mut state, membership_joined("b", ["t1"]));
 
     let effects = apply(&mut state, Event::Synced);

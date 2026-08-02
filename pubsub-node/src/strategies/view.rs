@@ -69,7 +69,8 @@ impl<'a> NodeView<'a> {
     }
 
     /// The number of candidate peers on `topic`, with the node's own id
-    /// excluded — the count the bucket derivation reads. Zero if the topic has
+    /// excluded (read by tests and diagnostics; the bucket count is fed
+    /// configuration and is never derived from this). Zero if the topic has
     /// no members.
     #[must_use]
     pub fn candidates_len(&self, topic: &TopicId) -> usize {
