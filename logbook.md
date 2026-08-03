@@ -4,6 +4,24 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-08-03 — Merge digest (async): 015/016/017 landed, experiments unblocked, repository public
+
+Catch-up entry covering the merge activity of 23 July – 3 August (no weekly session held), compiled from the merged PRs.
+
+**015 publisher links merged.** [PR #77](https://github.com/input-output-hk/pubsub/pull/77) landed the publisher-link connection model: M3 and M5 as per-node configurations of one node, plus a symmetric-edge configuration approximating M4 — standing publisher links carrying a node's own publications (sender-side exclusivity, kind-agnostic receive gate), constructed symmetric reciprocity via a dedicated handshake, and `forward-to-all` fan-out as the single M3→M5 switch. Absent the new flags the node remains the unchanged M2 baseline. Design rationale in ADR 0032 and ADR 0034; the exact M4 (uniform exactly-RF selection) was recorded as the agreed follow-up.
+
+**016 deterministic experiments framework merged.** [PR #102](https://github.com/input-output-hk/pubsub/pull/102) shipped the feature-gated `experiments` module and binary: populations of the crate's real pure core under a round-based wavefront scheduler, seeded honest churn and silent Level-1 adversaries, graph analytics (SCC/condensation goodness, coverage with miss-cause decomposition, a per-run accounting identity), Wilson-interval statistics, and parallel sweeps with a byte-reproducible three-artifact output contract — any run replays from its manifest seed alone. Shipped configurations include the reference operating point (N = 20 000, μ = 0.2, RF = 24) and the bulk-regime validation point; `docs/experiments-program.md` was rewritten as the program of record.
+
+**Instrument performance: the 30 GB wall removed.** Ezequiel's [PR #118](https://github.com/input-output-hk/pubsub/pull/118) (ADR 0038) moved per-topic candidate views behind a shared, self-excluding read seam: one N = 20 000 run now peaks at ~0.6 GB (was ~30 GB), unlocking multicore sweeps. The operating-point sweep drops from ~15–20 min (memory-forced single worker) to ~25 s, and the bulk regime from ~30–40 min to ~6 min. Both changes were proven result-neutral by byte-diff against the recorded M2 baselines.
+
+**017 unified selection plane merged.** [PR #119](https://github.com/input-output-hk/pubsub/pull/119) — the substantial follow-up to PR #77 — collapsed four dial-side strategies and four acceptance baselines into one selection implementation per seam over two fed knobs: bucket count (hash-gate width, no longer locally derived) and pick count (exactly-min uniform picks, the formal selection family promoted from the experiments framework into the node). The **exact formal M4** is now node-expressible with fleet evidence, upgrading the earlier "approximation" label; all twenty model recipes (M1–M5 × gated/capped variants) are single-command knob configurations, misconfigurations fail at startup, and experiment blockers E7, E10 and E12 now read ready in the experiments program. Behaviour-neutrality of the collapse was gated on byte-identical baseline sweeps. ADRs 0039 and 0040.
+
+**Repository public; website and housekeeping.** With the repository now public, the website's "open-sourcing soon" badges were removed ([PR #120](https://github.com/input-output-hk/pubsub/pull/120), closing [#121](https://github.com/input-output-hk/pubsub/issues/121) under the transparency epic [#93](https://github.com/input-output-hk/pubsub/issues/93)), third-party paper PDFs were replaced with links to their canonical sources ([PR #117](https://github.com/input-output-hk/pubsub/pull/117)), and the Pages deploy workflow moved to the Node 24 action majors ([PR #122](https://github.com/input-output-hk/pubsub/pull/122)).
+
+**Next.** Ezequiel: connect the final parts to the experiments framework (small work contrasted with the 017 refactor) and run all experiments — the node strategies no longer block any model. Will: the 10–23 July biweekly report, drafted alongside this entry.
+
+---
+
 ## 2026-07-21 — Weekly session: simulation framework validated for M2–M5, robustness via condensation sets, publisher/relay split proposal
 
 **Simulation framework validated across M2–M5.** Ezequiel reported the experimentation framework now handles Monte Carlo evaluations for models M2 through M5, and results align with the prior analytical findings — the cross-validation loop is working as designed. Potential memory optimisations were identified along the way (peer cloning, message caching) but judged non-urgent; the group agreed to prioritise completing all experiment simulations before touching engineering optimisations, keeping the framework stable through the data-collection phase. Experiments are being rerun at 150 rounds, with the five identified experiments targeted within days and raw data files committed once sizes are verified.
@@ -22,7 +40,7 @@ Technical decisions and progress. Most recent first.
 
 **Decisions.** *Aligned:* complete all experiment simulations before implementing memory optimisations; generate and visualise graph-collapse data via condensation-set sizes for the CIP; defer advanced throughput optimisations (hash-based message fetching) to a future phase. *Open:* why M3 outperforms M5 in efficiency; whether the publisher/relay node split holds up under analysis, and how it couples to incentives/collateral.
 
-**Next.** Group: run the five identified experiments within two days; rerun at 150 rounds; merge the open PRs — Ezequiel publishes the pending review and coordinates with Will on finalising the M4 implementation merge. Will: share previous topology simulation data on per-link bandwidth. Denis: per-model throughput paragraphs in the node-degrees property file. Scheduling: Will on PTO and Denis at a conference next week, so the near-term focus is landing the open PRs.
+**Next.** Group: run the five identified experiments within two days; rerun at 150 rounds; merge the open PRs — Ezequiel publishes the pending review and coordinates with Will on finalising the M4 implementation merge. Will: share previous topology simulation data on per-link bandwidth. Denis: per-model throughput paragraphs in the node-degrees property file. Near-term focus: landing the open PRs.
 
 ---
 
