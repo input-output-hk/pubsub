@@ -23,14 +23,15 @@ pub enum ConfigError {
         source: toml::de::Error,
     },
 
-    /// An entry parsed successfully but its node id failed the
-    /// [`PeerId`] validation rules.
-    #[error("invalid peer entry: {0}")]
+    /// A subscription-list entry parsed successfully but its `node_id` failed
+    /// the [`PeerId`] validation rules.
+    #[error("invalid node id in subscription-list file: {0}")]
     InvalidPeer(String),
 
-    /// A `subscribed_topics` entry parsed successfully but its value failed
-    /// the [`TopicId`](crate::TopicId) validation rules.
-    #[error("config invalid topic entry: {0}")]
+    /// An entry parsed successfully but a topic value — a subscription-list
+    /// `topics` element or a topic-registry `id` — failed the
+    /// [`TopicId`](crate::TopicId) validation rules.
+    #[error("invalid topic id: {0}")]
     InvalidTopic(String),
 
     /// Two entries in a subscription-list file declared the same `node_id`.
