@@ -24,7 +24,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # full history for the commit activity heatmap
       - name: Generate commit activity data
@@ -40,8 +40,8 @@ jobs:
           with open("web/assets/commit-activity.json", "w") as f:
               json.dump({"counts": dict(sorted(counts.items())), "total": len(dates)}, f)
           EOF
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: web
-      - uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v5
         id: deployment
