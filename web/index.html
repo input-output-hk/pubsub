@@ -509,30 +509,6 @@
     border-radius: 6px;
   }
 
-  /* ---------- "Soon" badge ---------- */
-  .badge-soon {
-    font-family: var(--font-mono);
-    font-size: 0.58rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    line-height: 1;
-    padding: 3px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--iog-infared);
-    color: var(--iog-infared);
-    white-space: nowrap;
-  }
-  .btn .badge-soon { margin-left: 2px; }
-  .nav-icon-btn .badge-soon {
-    position: absolute;
-    top: -8px;
-    right: -12px;
-    font-size: 0.5rem;
-    padding: 2px 6px;
-    background: var(--bg);
-  }
-
   /* ---------- Footer ---------- */
   footer {
     border-top: 1px solid var(--line);
@@ -571,9 +547,8 @@
     <a href="slides/midyear-2026.html">Presentation</a>
   </div>
   <div class="navbar-icons">
-    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository (open-sourcing soon)">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
       <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
-      <span class="badge-soon">Soon</span>
     </a>
     <button class="nav-icon-btn theme-toggle" type="button" aria-label="Toggle color theme">
       <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -601,7 +576,6 @@
           <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">
             <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
             Repository
-            <span class="badge-soon">Soon</span>
           </a>
         </div>
       </div>
@@ -823,8 +797,8 @@
           <div class="material-icon">
             <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
           </div>
-          <span class="material-name">Source repository <span class="badge-soon">Open-sourcing soon</span></span>
-          <p class="material-desc">The Rust prototype node, simulation framework, formal specifications, and analysis reports — currently private, to be opened.</p>
+          <span class="material-name">Source repository</span>
+          <p class="material-desc">The Rust prototype node, simulation framework, formal specifications, and analysis reports.</p>
           <span class="material-note">GitHub</span>
           <span class="material-arrow" aria-hidden="true">›</span>
         </a>
@@ -832,8 +806,8 @@
           <div class="material-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
           </div>
-          <span class="material-name">Research logbook <span class="badge-soon">Public soon</span></span>
-          <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen — public once the repository opens.</p>
+          <span class="material-name">Research logbook</span>
+          <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen.</p>
           <span class="material-note">Ongoing</span>
           <span class="material-arrow" aria-hidden="true">›</span>
         </a>
