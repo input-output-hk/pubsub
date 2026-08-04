@@ -1,0 +1,23 @@
+# Tier-2 comparison cell — M1 N=4000 F=16: P(bad) pred 0.0086, MC 82/8000 = 0.0103.
+# mu = 0.2; run count matched to the formal MC row.
+
+model = "m1"
+master_seed = 606
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 0
+publisher = { pick_count = 16 }
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+pick_count = 0
+publisher = { pick_count = 16 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

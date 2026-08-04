@@ -180,9 +180,18 @@ per-node table for tracing which cluster missed and why.
   the publisher-pair shapes suite-sized (M3's initiation links; M5's
   k-in/k-out with `forward-to-all`); pipeline health only, including the
   sends-by-kind split populating both columns.
+- [`comparisons/`](comparisons/) — the model-family comparison cells
+  (M1/M3/M4/M5 coverage-law rows and the P(bad) ≤ 10⁻⁴ operating points,
+  one config per cell with its master seed and run count); the suite
+  validates every one of them.
 
-The executed comparison against the formal model's published values is
-documented in [`docs/experiments/m2-comparison.md`](../../docs/experiments/m2-comparison.md).
+The executed comparisons against the formal models' published values are
+documented in [`docs/experiments/`](../../docs/experiments/):
+[`m2-comparison.md`](../../docs/experiments/m2-comparison.md),
+[`m3-comparison.md`](../../docs/experiments/m3-comparison.md),
+[`m4-comparison.md`](../../docs/experiments/m4-comparison.md), and
+[`m5-comparison.md`](../../docs/experiments/m5-comparison.md) (M1
+included).
 
 ## Further reading
 
