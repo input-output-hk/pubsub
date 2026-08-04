@@ -1770,22 +1770,28 @@
 
     function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 
-    /* Slides a lit segment along one wire: a bright head with a longer, fainter
-       tail a beat behind it. Negative dash offsets are what move it forward. */
+    /* Slides one lit segment along a wire: a short bright core with a longer,
+       fainter trail behind it. A dash of length D sits at [-offset, -offset + D),
+       so writing the offset as D - front puts every layer's leading edge on the
+       same point and lets the longer dash reach back from it — one signal with a
+       glow trailing it, not two lines moving at their own speeds. */
     function send(wire) {
       var parts = svg.querySelectorAll('.hero-signals [data-wire="' + wire + '"]');
       for (var i = 0; i < parts.length; i++) {
         var path = parts[i];
         var head = path.classList.contains('sig-head');
         var len = path.getTotalLength();
-        var dash = head ? 12 : 38;
+        var dash = head ? 12 : 34;
         path.setAttribute('stroke-dasharray', dash + ' ' + (len + dash));
-        var opts = { duration: FLIGHT_MS, easing: EASE, delay: head ? 0 : 70 };
-        path.animate([{ strokeDashoffset: dash }, { strokeDashoffset: -len }], opts);
+        var opts = { duration: FLIGHT_MS, easing: EASE };
+        path.animate([
+          { strokeDashoffset: dash },
+          { strokeDashoffset: dash - len }
+        ], opts);
         path.animate([
           { opacity: 0 },
-          { opacity: head ? 1 : 0.3, offset: 0.14 },
-          { opacity: head ? 1 : 0.3, offset: 0.76 },
+          { opacity: head ? 1 : 0.28, offset: 0.14 },
+          { opacity: head ? 1 : 0.28, offset: 0.76 },
           { opacity: 0 }
         ], opts);
       }
