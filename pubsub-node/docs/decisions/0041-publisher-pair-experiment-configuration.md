@@ -45,11 +45,19 @@ table** mirroring the relay table's fields (`pick_count`, `bucket_count`,
 unknown models and zero counts are rejected today — at parse time, before
 any run executes:
 
-- `m3` requires publisher links present and `forward-to-relays`;
-- `m5` and `m1` require publisher links present and `forward-to-all`;
-- `m2` and `m4` require relay-only tables; `m4` additionally requires
-  `symmetric`.
+- `m3` requires a publisher table, `forward-to-relays`, and directional
+  relay links;
+- `m5` and `m1` require a publisher table, `forward-to-all`, and
+  directional relay links; `m1` additionally requires the relay
+  `pick_count = 0` (its defining no-relay-mesh boundary);
+- `m2` and `m4` require relay-only tables and `forward-to-relays`; `m4`
+  requires `symmetric`, `m2` requires directional links.
 
+The rules constrain only what changes extraction semantics — link-kind
+wiring, fan-out, the handshake vocabulary, and M1's boundary pick — never
+the free plane coordinates (pick/bucket counts, caps), which E9/E10-style
+studies sweep under a model name. They apply to the **honest** class only:
+the adversarial class's deviations are the experiment, not a wiring error.
 A config whose coordinates contradict its model is rejected with the
 offending coordinate named. "One config name yields consistent wiring and
 measurement" is thereby a checked invariant, not a coupling.
@@ -69,6 +77,21 @@ set:
 M4 shares M2's rules but exists as its own name so configurations are
 self-describing and the symmetric requirement is checkable. M1 is M5's
 `k_in` = 0 boundary row — a name for the reduction, not separate machinery.
+
+**M3's goodness is seed-aware.** The formal M3 study's criterion is an
+exact every-publisher check: a graph is good iff every honest publisher's
+message — spreading from the publisher **plus its honest initiation
+targets** over the relay edges — reaches all honest nodes. Bare one-SCC
+would erase exactly the healing M3 exists to provide (a muted publisher's
+seeds carry its message into the mesh), so the M3 dispatch computes, per
+potential publisher, the downward closure of its seed set over the
+condensation DAG: `good` ⟺ every closure covers the whole graph
+(equivalently, every seed set hits every **source component** — a source
+has no incoming edges, so nothing outside it can reach it), and
+`min_publisher_coverage` is the worst closure fraction. One-component
+graphs short-circuit; multi-component walks cost O(components) per
+publisher on the condensation, never the raw graph. The other four models
+keep the one-SCC criterion, exact for publisher-alone seeds.
 
 **The M3 parameter mapping.** The model's `s` counts the publisher itself,
 so `s` maps to a publisher-seam pick count of **s−1** dialed initiation

@@ -78,6 +78,16 @@ pub enum SweepConfigError {
         /// The class missing the sub-table.
         class: &'static str,
     },
+    /// The honest class's wiring contradicts the named dissemination model
+    /// — the analytics would measure a different model than the population
+    /// runs.
+    #[error("model '{model}' requires the honest class to {requirement}")]
+    ModelCoherence {
+        /// The declared model name.
+        model: &'static str,
+        /// The violated wiring requirement.
+        requirement: &'static str,
+    },
     /// The same parameter appeared on two axes.
     #[error("axis parameter '{parameter}' is declared twice")]
     DuplicateAxis {
@@ -505,6 +515,10 @@ impl SweepDescription {
         // change what a kind requires).
         honest_strategies.to_spec()?;
         adversarial_strategies.to_spec()?;
+        // Model↔wiring coherence per grid point, after the tables validate
+        // on their own (ADR 0041) — an axis override can move a point off
+        // its model (e.g. a pick_count axis value ≠ 0 under m1).
+        validate_model_coherence(self.model, &honest_strategies)?;
 
         Ok(ResolvedExperiment {
             size,
@@ -564,6 +578,96 @@ struct RawExecution {
     runs_per_experiment: u64,
     #[serde(default)]
     publishes_per_run: Option<u64>,
+}
+
+/// Enforce the model↔wiring pairing on the **honest** class (ADR 0041):
+/// the model name must describe the wiring the analytics will measure.
+/// Only the link-kind wiring, the fan-out, and the handshake vocabulary
+/// are constrained — the selection knobs (pick/bucket counts, caps) stay
+/// free plane coordinates, except M1's defining `pick_count = 0` (no relay
+/// mesh). The adversarial class is deliberately unconstrained: its
+/// deviations are the experiment, not a wiring error.
+fn validate_model_coherence(
+    model: DisseminationModel,
+    honest: &StrategyTable,
+) -> Result<(), SweepConfigError> {
+    let requires = |condition: bool, requirement: &'static str| {
+        if condition {
+            Ok(())
+        } else {
+            Err(SweepConfigError::ModelCoherence {
+                model: model.name(),
+                requirement,
+            })
+        }
+    };
+    let fanout = honest.fanout.to_ascii_lowercase();
+    let relay_only = honest.publisher.is_none();
+    let publisher_pair = honest.publisher.is_some();
+    match model {
+        DisseminationModel::M2 => {
+            requires(relay_only, "declare no publisher table (relay-only wiring)")?;
+            requires(
+                fanout == "forward-to-relays",
+                "use fanout \"forward-to-relays\"",
+            )?;
+            requires(
+                !honest.symmetric,
+                "keep symmetric = false (directional relay links)",
+            )
+        }
+        DisseminationModel::M4 => {
+            requires(relay_only, "declare no publisher table (relay-only wiring)")?;
+            requires(
+                fanout == "forward-to-relays",
+                "use fanout \"forward-to-relays\"",
+            )?;
+            requires(
+                honest.symmetric,
+                "set symmetric = true (bidirectional relay links)",
+            )
+        }
+        DisseminationModel::M3 => {
+            requires(
+                publisher_pair,
+                "declare a publisher table (standing initiation links)",
+            )?;
+            requires(
+                fanout == "forward-to-relays",
+                "use fanout \"forward-to-relays\" (initiation links never relay)",
+            )?;
+            requires(
+                !honest.symmetric,
+                "keep symmetric = false (directional relay links)",
+            )
+        }
+        DisseminationModel::M5 => {
+            requires(
+                publisher_pair,
+                "declare a publisher table (the k_out links)",
+            )?;
+            requires(fanout == "forward-to-all", "use fanout \"forward-to-all\"")?;
+            requires(
+                !honest.symmetric,
+                "keep symmetric = false (directional relay links)",
+            )
+        }
+        DisseminationModel::M1 => {
+            requires(
+                publisher_pair,
+                "declare a publisher table (the k_out links)",
+            )?;
+            requires(fanout == "forward-to-all", "use fanout \"forward-to-all\"")?;
+            requires(
+                !honest.symmetric,
+                "keep symmetric = false (directional relay links)",
+            )?;
+            requires(
+                honest.pick_count == Some(0),
+                "set pick_count = 0 (no relay mesh at the k_in = 0 boundary)",
+            )
+        }
+    }
 }
 
 /// Round a fraction of `whole` to the nearest count.
@@ -856,7 +960,7 @@ mod tests {
     // coordinates on the spec; absent, the seam stays off.
     #[test]
     fn publisher_table_parses_into_the_spec() {
-        let toml = base_toml().replace(
+        let toml = base_toml().replace("\"m2\"", "\"m3\"").replace(
             "[strategies.honest]\n            pick_count = 4",
             "[strategies.honest]\n            pick_count = 4\n            publisher = { pick_count = 2, accept_cap = 8 }",
         );
@@ -895,6 +999,7 @@ mod tests {
     #[test]
     fn publisher_pick_count_axis_needs_the_declared_seam() {
         let with_tables = base_toml()
+            .replace("\"m2\"", "\"m3\"")
             .replace(
                 "pick_count = 4\n            fanout = \"forward-to-relays\"",
                 "pick_count = 4\n            publisher = { pick_count = 1 }\n            fanout = \"forward-to-relays\"",
@@ -926,6 +1031,73 @@ mod tests {
         ));
     }
 
+    // ADR 0041: model↔wiring coherence on the honest class — one rejection
+    // per rule, plus the coherent shape of each publisher-pair model. The
+    // adversarial class stays unconstrained (its deviations are the
+    // experiment).
+    #[test]
+    fn model_coherence_ties_the_name_to_the_wiring() {
+        let coherence = |toml: &str| match parse_sweep_description(toml) {
+            Err(SweepConfigError::ModelCoherence { model, requirement }) => {
+                Some((model, requirement))
+            }
+            Ok(_) => None,
+            Err(other) => panic!("expected a coherence rejection, got: {other}"),
+        };
+
+        // m2 with a publisher table / symmetric relay links.
+        let toml = base_toml().replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 4\n            publisher = { pick_count = 2 }\n            fanout = \"forward-to-relays\"",
+        );
+        assert_eq!(coherence(&toml).expect("rejected").0, "m2");
+        let toml = base_toml().replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 4\n            symmetric = true\n            fanout = \"forward-to-relays\"",
+        );
+        assert_eq!(coherence(&toml).expect("rejected").0, "m2");
+
+        // m4 requires the symmetric handshake.
+        let toml = base_toml().replace("\"m2\"", "\"m4\"");
+        assert!(coherence(&toml)
+            .expect("rejected")
+            .1
+            .contains("symmetric = true"));
+
+        // m3 requires the publisher table; with it and forward-to-relays it
+        // parses.
+        let m3 = base_toml().replace("\"m2\"", "\"m3\"");
+        assert!(coherence(&m3).expect("rejected").1.contains("publisher"));
+        let m3_coherent = m3.replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 4\n            publisher = { pick_count = 2 }\n            fanout = \"forward-to-relays\"",
+        );
+        parse_sweep_description(&m3_coherent).expect("coherent m3 parses");
+
+        // m5 requires forward-to-all.
+        let toml = base_toml().replace("\"m2\"", "\"m5\"").replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 4\n            publisher = { pick_count = 2 }\n            fanout = \"forward-to-relays\"",
+        );
+        assert!(coherence(&toml)
+            .expect("rejected")
+            .1
+            .contains("forward-to-all"));
+
+        // m1 requires pick_count = 0 (no relay mesh); an axis override that
+        // moves a grid point off the boundary is caught per point.
+        let m1 = base_toml().replace("\"m2\"", "\"m1\"").replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 0\n            publisher = { pick_count = 2 }\n            fanout = \"forward-to-all\"",
+        );
+        parse_sweep_description(&m1).expect("coherent m1 parses");
+        let off_boundary = m1.clone() + "\n[[axes]]\nparameter = \"pick_count\"\nvalues = [2]\n";
+        assert!(coherence(&off_boundary)
+            .expect("rejected")
+            .1
+            .contains("pick_count = 0"));
+    }
+
     #[test]
     fn unknown_model_is_rejected() {
         let toml = base_toml().replace("\"m2\"", "\"m9\"");
@@ -946,8 +1118,12 @@ mod tests {
             }),
         ));
         // ADR 0041 (removing 017's relay-only boundary): forward-to-all is a
-        // legal fan-out kind — M5's send side.
-        let toml = base_toml().replace("\"forward-to-relays\"", "\"forward-to-all\"");
+        // legal fan-out kind — M5's send side, coherent with the m5 model
+        // name and a declared publisher table.
+        let toml = base_toml().replace("\"m2\"", "\"m5\"").replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 4\n            publisher = { pick_count = 2 }\n            fanout = \"forward-to-all\"",
+        );
         let description = parse_sweep_description(&toml).expect("forward-to-all parses");
         assert!(matches!(
             description
@@ -1001,10 +1177,12 @@ mod tests {
     }
 
     // 017-FR-017: the acceptance dimensions and the symmetric switch parse
-    // with their documented defaults (verify-iff-gated, directional).
+    // with their documented defaults (verify-iff-gated, directional). The
+    // symmetric honest class pairs with the m4 model name (ADR 0041
+    // coherence).
     #[test]
     fn acceptance_and_symmetric_coordinates_parse() {
-        let toml = base_toml().replacen(
+        let toml = base_toml().replace("\"m2\"", "\"m4\"").replacen(
             "pick_count = 4",
             "pick_count = 4\nbucket_count = 3\naccept_cap = 9\naccept_unverified = true\nsymmetric = true",
             1,
