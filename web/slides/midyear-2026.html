@@ -48,7 +48,12 @@
     display: none;
     flex-direction: column;
     justify-content: center;
-    padding: clamp(32px, 6vh, 72px) clamp(28px, 7vw, 110px);
+    /* Bottom padding clears the fixed chrome bar (~46px) with room to spare, so
+       content never crowds the footer on short windows. */
+    padding:
+      clamp(44px, 7vh, 84px)
+      clamp(32px, 7vw, 110px)
+      clamp(72px, 9vh, 112px);
   }
   .slide.active { display: flex; }
 
