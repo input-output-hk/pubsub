@@ -33,6 +33,10 @@ License: CC-BY-4.0
 ## Abstract
 <!-- A short (\~200 word) description of the proposed solution and the technical issue being addressed. -->
 
+The Cardano ecosystem lacks a decentralised layer for messages that do not belong on the chain itself. Emergency alerts to stake pool operators, notifications from pools to their delegators, dApp and wallet messaging, and governance communication all rely on centralised infrastructure today. Their operators can censor, fabricate, or silently drop messages. This undermines the trust guarantees of the underlying blockchain. Existing peer-to-peer solutions such as GossipSub do not close this gap. Their security rests on a discovery layer with freely created identities, which leaves them vulnerable to Sybil-based eclipse attacks.
+
+We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain serves as the protocol's trust root. Nodes register on-chain, which makes identities verifiable and costly to mass-produce. Each epoch, verifiable randomness derives a fresh, degree-bounded dissemination topology over the registered nodes. No participant can choose or predict its position in the graph. Topics carry arbitrary application content. The chain anchors trust, not the payload. The protocol tolerates an adversary controlling a bounded fraction of nodes. With overwhelming probability, every message published by an honest node reaches all honest subscribers of its topic. The design is grounded in formal analysis and large-scale simulation of candidate topologies, balancing security, latency, and bandwidth.
+
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
 
