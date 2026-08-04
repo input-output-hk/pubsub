@@ -20,6 +20,8 @@
   }
   main { flex: 1; }
 
+  /* Brand lockup and footer chrome live in shared.css — both pages use them. */
+
   /* Header icon buttons — theme toggle and GitHub sit inside the navbar row */
   .navbar { padding-right: clamp(24px, 5vw, 80px); }
   .navbar-icons { display: flex; align-items: center; gap: 10px; }
@@ -68,13 +70,53 @@
   }
   @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
 
-  /* ---------- Hero ---------- */
-  section.hero { padding: 72px 0 64px; }
+  /* ---------- Hero ----------
+     Sized so the whole hero — including the buttons — sits inside the first
+     viewport. svh keeps that true on mobile, where the browser chrome makes vh
+     taller than what is actually visible. */
+  section.hero {
+    position: relative;
+    padding: clamp(20px, 4vh, 52px) 0;
+    min-height: calc(100vh - var(--nav-height));
+    min-height: calc(100svh - var(--nav-height));
+    display: flex;
+    align-items: center;
+  }
+  .hero-scroll {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    transition: color .15s ease, border-color .15s ease;
+    animation: hero-scroll-hint 2.4s ease-in-out infinite;
+  }
+  .hero-scroll:hover { color: var(--iog-infared); border-color: var(--iog-infared); }
+  .hero-scroll svg { width: 16px; height: 16px; display: block; }
+  @keyframes hero-scroll-hint {
+    0%, 100% { transform: translate(-50%, 0); }
+    50%      { transform: translate(-50%, 5px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-scroll { animation: none; }
+  }
+  /* Short windows need the space for the copy more than for the hint. */
+  @media (max-height: 620px) {
+    .hero-scroll { display: none; }
+  }
   .hero .container {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: clamp(32px, 5vw, 64px);
     align-items: center;
+    width: 100%;
   }
   .hero-visual { justify-self: center; width: 100%; max-width: 420px; }
   .hero-visual svg { width: 100%; height: auto; display: block; }
@@ -82,14 +124,15 @@
     .hero .container { grid-template-columns: 1fr; }
     .hero-visual { display: none; }
   }
-  .hero-logo { height: clamp(44px, 5vw, 72px); width: auto; margin-bottom: 48px; }
   .hero h1 {
     font-family: var(--font-display);
-    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+    /* vh in the middle term keeps the headline from crowding out the buttons on
+       short windows, where width alone would still pick the largest size. */
+    font-size: clamp(2.1rem, min(5vw, 6.4vh), 3.8rem);
     font-weight: 600;
     letter-spacing: -0.025em;
-    line-height: 1.05;
-    margin-bottom: 20px;
+    line-height: 1.06;
+    margin-bottom: 18px;
   }
   .hero h1 .accent { color: var(--iog-infared); }
   .hero-tagline {
@@ -101,12 +144,24 @@
     font-weight: 600;
     margin-bottom: 18px;
   }
+  /* PubSub takes the same colour as in the navbar lockup: the black of the mark's
+     outbound half, which the dark artwork draws white. */
+  .hero-tagline-name { color: var(--mark-out); }
+  /* The R&D qualifier moved here from the navbar. Muted neutral rather than red,
+     so it reads as a quiet suffix and leaves the red to the name itself. */
+  .hero-tagline-tag {
+    color: var(--text-faint);
+    font-weight: 500;
+    margin-left: 0.85em;
+  }
   .hero-lede {
-    font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+    font-size: clamp(1rem, 1.5vw, 1.18rem);
     color: var(--text-mute);
     max-width: 62ch;
-    margin-bottom: 36px;
+    margin-bottom: 28px;
   }
+  /* Picks the name out of the words it comes from: pub·lish / sub·scribe. */
+  .hero-lede strong { color: var(--text); font-weight: 600; }
   .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
   .btn {
     display: inline-flex;
@@ -168,6 +223,30 @@
     font-weight: 600;
     margin-bottom: 10px;
   }
+
+  /* ---------- Scenario tiles ----------
+     Four abreast on desktop, folding only when the columns would get too narrow
+     to read. Each tile carries its category icon as a faint background mark. */
+  #scenarios .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 1080px) {
+    #scenarios .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    #scenarios .card-grid { grid-template-columns: 1fr; }
+  }
+  #scenarios .card { position: relative; overflow: hidden; }
+  .card-bg-icon {
+    position: absolute;
+    right: -14px;
+    bottom: -18px;
+    width: 104px;
+    height: 104px;
+    color: var(--text);
+    opacity: 0.05;
+    pointer-events: none;
+  }
+  :root[data-theme="dark"] .card-bg-icon { opacity: 0.09; }
+  #scenarios .card h3 { font-size: 1rem; }
 
   /* ---------- Experiments teaser ---------- */
   .model-strip {
@@ -452,7 +531,68 @@
     padding-top: 18px;
   }
 
+  /* ---------- Activity stats ----------
+     One figure at a time, cycling. With reduced motion every figure is shown at
+     once instead, so nothing moves and nothing is hidden. */
+  .stat-rotator {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: -18px 0 26px;
+  }
+  .stat-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 999px;
+    background: var(--card-fill);
+    padding: 8px 16px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    transition: opacity .45s ease, transform .45s ease;
+  }
+  .stat-pill .stat-value { color: var(--iog-infared); font-weight: 600; }
+  .stat-pill .stat-label { color: var(--text-mute); }
+  /* While cycling, the outgoing and incoming pills share one grid cell, so the
+     swap cannot shift the layout around them. */
+  .stat-rotator.cycling {
+    display: grid;
+    grid-template-areas: "stat";
+    justify-items: start;
+  }
+  .stat-rotator.cycling .stat-pill { grid-area: stat; }
+  .stat-rotator.cycling .stat-pill.leaving {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  .stat-rotator.cycling .stat-pill.entering {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
   /* ---------- Commit activity heatmap ---------- */
+  /* Cells fade in column by column, following the order the grid is built in:
+     top to bottom of the first week, then the next. Armed only when the section
+     scrolls into view, and skipped entirely for reduced motion. */
+  .heatmap-reveal .heatmap-cell {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  .heatmap-reveal.in-view .heatmap-cell {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .heatmap-reveal .heatmap-cell {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      transition-delay: 0s !important;
+    }
+  }
   .heatmap {
     --hm-l0: #EDEEEC;
     --hm-l1: #C4E8D4;
@@ -509,20 +649,48 @@
     border-radius: 6px;
   }
 
-  /* ---------- Footer ---------- */
-  footer {
-    border-top: 1px solid var(--line);
-    padding: 28px 0 36px;
+  /* ---------- Latest update ----------
+     A preview of the newest logbook entry, read live from the repository. It sits
+     inside the activity section, under the heatmap: the commit history and the
+     latest written entry are two views of the same progress, so the card carries
+     a separating rule rather than a section heading of its own. */
+  .update-card {
+    border: 1px solid var(--card-stroke-faint);
+    border-radius: 8px;
+    background: var(--card-fill);
+    padding: 24px clamp(20px, 3vw, 30px);
+    margin-top: 34px;
   }
-  .footer-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    flex-wrap: wrap;
+  .update-date {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--iog-infared);
+    margin-bottom: 10px;
   }
-  .footer-logo { height: 26px; width: auto; }
-  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; }
+  .update-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.1rem, 2vw, 1.35rem);
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 12px;
+  }
+  .update-body { font-size: 0.95rem; color: var(--text-mute); line-height: 1.6; }
+  .update-body strong { color: var(--text); font-weight: 600; }
+  .update-body em { font-style: italic; }
+  .update-body code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background: var(--bg-code);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  .update-body a { color: var(--iog-infared); text-decoration: none; }
+  .update-body a:hover { text-decoration: underline; }
+  .update-links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px; }
+
+  /* Footer chrome lives in shared.css — the subpages use the same markup. */
 </style>
 </head>
 <body>
@@ -532,7 +700,13 @@
 </svg>
 
 <nav class="navbar" aria-label="Primary">
-  <a class="navbar-brand" href="./">CARDANO PUBSUB <span class="brand-tag">RESEARCH &amp; DEVELOPMENT</span></a>
+  <a class="navbar-brand" href="./">
+    <img class="brand-half logo-light" src="assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+    <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+    <img class="brand-half logo-light" src="assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+  </a>
   <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
     <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
@@ -544,7 +718,6 @@
     <a href="#experiments">Experiments</a>
     <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
-    <a href="slides/midyear-2026.html">Presentation</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -562,12 +735,10 @@
   <section class="hero">
     <div class="container">
       <div class="hero-copy">
-        <img class="hero-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
-        <img class="hero-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
-        <div class="hero-tagline">Cardano PubSub</div>
+        <div class="hero-tagline">Cardano <span class="hero-tagline-name">PubSub</span><span class="hero-tagline-tag">R&amp;D</span></div>
         <h1>A verifiable communication layer for the <span class="accent">Cardano</span> ecosystem</h1>
         <p class="hero-lede">
-          A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication:
+          A Cardano-anchored <strong>pub</strong>lish/<strong>sub</strong>scribe layer for authenticated ecosystem communication:
           identifiable publishers, verifiable events, on-chain registered topics, and an
           economic cost to creating publisher identities.
         </p>
@@ -633,6 +804,11 @@
         </svg>
       </div>
     </div>
+    <a class="hero-scroll" href="#scenarios" aria-label="Scroll to content">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </a>
   </section>
 
   <section class="block" id="scenarios">
@@ -640,31 +816,52 @@
       <header class="section-head">
         <div class="section-kind">Why it matters</div>
         <h2>Critical communication deserves the same guarantees as transactions</h2>
-        <p>
-          Today these messages travel over social platforms and chat servers, open to
-          impersonation. PubSub brings them under Cardano's trust guarantees.
-        </p>
       </header>
       <div class="card-grid">
           <div class="card">
+            <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2.5" y="3.5" width="19" height="7" rx="1.6"/>
+              <rect x="2.5" y="13.5" width="19" height="7" rx="1.6"/>
+              <line x1="6" y1="7" x2="6.01" y2="7"/>
+              <line x1="6" y1="17" x2="6.01" y2="17"/>
+              <line x1="10" y1="7" x2="17" y2="7"/>
+              <line x1="10" y1="17" x2="17" y2="17"/>
+            </svg>
             <div class="card-kicker">Node operations</div>
-            <h3>Emergency alerts for node operators</h3>
+            <h3>Node builder to operator</h3>
             <p>Node builders — teams like IOG, Amaru, and the Cardano Foundation — reach node operators with authenticated emergency and operational alerts.</p>
           </div>
           <div class="card">
+            <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <ellipse cx="12" cy="5.5" rx="8" ry="3"/>
+              <path d="M4 5.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+              <path d="M4 11.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+            </svg>
             <div class="card-kicker">Stake pools</div>
-            <h3>SPO-to-delegator communication</h3>
-            <p>Stake pool operators reach their delegators through a topic that provably belongs to the pool.</p>
+            <h3>SPO to delegator</h3>
+            <p>Stake pool operators announce pool changes, incidents and fee updates to their delegators, through a topic that provably belongs to the pool.</p>
           </div>
           <div class="card">
+            <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3 3 7l9 4 9-4-9-4z"/>
+              <path d="M5.5 12.5v4.2c0 .6.35 1.15.9 1.4l4.7 2.1c.57.26 1.23.26 1.8 0l4.7-2.1c.55-.25.9-.8.9-1.4v-4.2"/>
+              <path d="m9.5 15 2 2 3.5-3.5"/>
+            </svg>
             <div class="card-kicker">Governance</div>
-            <h3>dRep-to-delegator communication</h3>
-            <p>dReps share voting intent and rationale with the delegators they represent under CIP-1694.</p>
+            <h3>dRep to delegator</h3>
+            <p>dReps communicate voting intent and rationale to the delegators they represent under CIP-1694.</p>
           </div>
           <div class="card">
+            <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2.5" y="3.5" width="19" height="17" rx="2.2"/>
+              <line x1="2.5" y1="8.5" x2="21.5" y2="8.5"/>
+              <line x1="6" y1="6" x2="6.01" y2="6"/>
+              <line x1="9" y1="6" x2="9.01" y2="6"/>
+              <path d="M8 13h8M8 16.5h5"/>
+            </svg>
             <div class="card-kicker">Applications</div>
-            <h3>dApp-to-user announcements</h3>
-            <p>dApps reach their users with critical alerts and per-user notifications, published under on-chain identities with spam resisted by real stake.</p>
+            <h3>dApp to user</h3>
+            <p>dApps announce critical alerts and per-user notifications under on-chain identities, with spam resisted by real stake.</p>
           </div>
         </div>
     </div>
@@ -734,9 +931,12 @@
         <div class="section-kind">Experiments</div>
         <h2>Five candidate models, one bar</h2>
         <p>
-          We are not proposing a dissemination design — we are deriving one. All five
-          models face the same bar: every honest publisher's message reaches every honest
-          node, despite silent Byzantine peers.
+          Not proposing a design, but empirically deriving one. All five face the same bar:
+          every honest publisher's message reaches every honest node despite silent
+          Byzantine peers, measured as the probability that the honest network stays
+          strongly connected. All five can clear it. What separates them is the price: how
+          many standing links every node has to hold, and how many copies of each published
+          message the network has to carry.
         </p>
       </header>
       <div class="model-strip">
@@ -758,7 +958,7 @@
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/#m5">
           <span class="model-id">M5</span>
-          <span class="model-mech"><strong>Directed</strong> — k_in inbound + k_out outbound links, both the node's own picks.</span>
+          <span class="model-mech"><strong>Directed</strong> — k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node's own picks.</span>
         <span class="model-arrow">›</span></a>
       </div>
       <div class="model-cta">
@@ -773,7 +973,26 @@
         <div class="section-kind">Development activity</div>
         <h2 id="activity-title">Contributions over the last 6 months</h2>
       </header>
+      <div class="stat-rotator" id="stat-rotator" hidden aria-live="off"></div>
       <div class="heatmap" id="commit-heatmap"></div>
+
+      <div class="update-card" id="progress">
+        <div class="update-date" id="update-date" hidden></div>
+        <h3 class="update-title" id="update-title">Research logbook</h3>
+        <div class="update-body" id="update-body">
+          <p>The running record of decisions, experiments, and milestones as they happen.</p>
+        </div>
+        <div class="update-links">
+          <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+            Read on GitHub
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+            Biweekly reports
+          </a>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -817,10 +1036,43 @@
 </main>
 
 <footer>
-  <div class="container footer-row">
-    <img class="footer-logo logo-light" src="assets/io-logo-pos.png" alt="Input Output">
-    <img class="footer-logo logo-dark" src="assets/io-logo-neg.png" alt="Input Output">
-    <p>INPUT OUTPUT · CARDANO PUBSUB · 2026</p>
+  <div class="container">
+    <nav class="footer-nav" aria-label="Footer">
+      <div class="footer-col">
+        <div class="footer-col-title">Research</div>
+        <a href="#scenarios">Scenarios</a>
+        <a href="#research">Programme</a>
+        <a href="experiments/">Dissemination models</a>
+        <a href="slides/midyear-2026.html">Midyear presentation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Progress</div>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
+        <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
+        <a href="#activity">Activity &amp; latest entry</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Repository</div>
+        <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">Source code</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a>
+      </div>
+    </nav>
+    <div class="footer-row">
+      <span class="footer-brand">
+        <img class="brand-half logo-light" src="assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+        <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+        <img class="brand-half logo-light" src="assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+      </span>
+      <p class="footer-credit">
+        <img class="footer-wordmark logo-light" src="assets/io-wordmark-pos.png" alt="Input Output">
+        <img class="footer-wordmark logo-dark" src="assets/io-wordmark-neg.png" alt="Input Output">
+        <span>2026</span>
+      </p>
+    </div>
   </div>
 </footer>
 
@@ -921,6 +1173,8 @@
   (function () {
     var WEEKS = 26;
     var DAY_MS = 24 * 60 * 60 * 1000;
+    /* 26 weeks x 7 days at this step reveals the whole grid in about 1.3s. */
+    var CELL_STEP_MS = 7;
     var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     var DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -939,6 +1193,7 @@
 
     function render(container, data) {
       var counts = data.counts || {};
+      var cellIndex = 0;
       var end = new Date();
       end.setHours(0, 0, 0, 0);
       var start = new Date(end.getTime() - (WEEKS * 7 - 1) * DAY_MS);
@@ -993,6 +1248,9 @@
             cell.dataset.count = n;
             cell.dataset.date = isoDate(day);
           }
+          /* Cells are built column by column, so the DOM index already gives the
+             top-left to bottom-right order the reveal follows. */
+          cell.style.transitionDelay = (cellIndex++ * CELL_STEP_MS) + 'ms';
           col.appendChild(cell);
         }
         grid.appendChild(col);
@@ -1031,11 +1289,179 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
-      .then(function (data) { render(container, data); })
+      .then(function (data) {
+        render(container, data);
+        armReveal(container);
+        renderStats(data.stats);
+      })
       .catch(function (err) {
         console.warn('commit heatmap: could not load activity data:', err);
       });
+
+    /* Hold the grid back until the section is actually on screen, so the
+       column-by-column reveal is seen rather than finished before arrival. */
+    function armReveal(container) {
+      container.classList.add('heatmap-reveal');
+      if (!('IntersectionObserver' in window)) {
+        container.classList.add('in-view');
+        return;
+      }
+      var seen = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('in-view');
+          seen.unobserve(entry.target);
+        });
+      }, { threshold: 0.12 });
+      seen.observe(container);
+    }
+
+    /* ---------- Activity stats ---------- */
+    function compact(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return String(n);
+    }
+
+    function statList(stats) {
+      var items = [];
+      if (stats.commits_year) {
+        items.push([compact(stats.commits_year), 'commits in the past year']);
+      }
+      if (stats.issues_closed) {
+        items.push([String(stats.issues_closed), 'issues closed']);
+      }
+      if (stats.lines_added_90d) {
+        items.push([compact(stats.lines_added_90d), 'lines added in the last 3 months']);
+      }
+      if (stats.milestone && stats.milestone.total) {
+        items.push([stats.milestone.percent + '%',
+                    'of ' + stats.milestone.title + ' complete']);
+      }
+      return items;
+    }
+
+    function pill(item) {
+      var el = document.createElement('div');
+      el.className = 'stat-pill';
+      var value = document.createElement('span');
+      value.className = 'stat-value';
+      value.textContent = item[0];
+      var label = document.createElement('span');
+      label.className = 'stat-label';
+      label.textContent = item[1];
+      el.appendChild(value);
+      el.appendChild(label);
+      return el;
+    }
+
+    function renderStats(stats) {
+      var host = document.getElementById('stat-rotator');
+      if (!host || !stats) return;
+      var items = statList(stats);
+      if (!items.length) return;
+      host.hidden = false;
+
+      var still = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (still || items.length === 1) {
+        items.forEach(function (item) { host.appendChild(pill(item)); });
+        return;
+      }
+
+      /* One pill at a time, swapped on a timer. */
+      host.classList.add('cycling');
+      var current = pill(items[0]);
+      host.appendChild(current);
+      var idx = 0;
+      setInterval(function () {
+        idx = (idx + 1) % items.length;
+        var next = pill(items[idx]);
+        next.classList.add('entering');
+        current.classList.add('leaving');
+        host.appendChild(next);
+        requestAnimationFrame(function () { next.classList.remove('entering'); });
+        var going = current;
+        current = next;
+        setTimeout(function () { going.remove(); }, 500);
+      }, 3800);
+    }
   })();
+</script>
+
+<script>
+/* Latest update — previews the newest logbook entry.
+
+   The entry is read straight from logbook.md on main at view time, so this stays
+   current without a redeploy and without a copy of the text living in the page.
+   The markup already carries a usable card and the GitHub links, so a failed or
+   blocked request simply leaves that standing. */
+(function () {
+  var SOURCE = 'https://raw.githubusercontent.com/input-output-hk/pubsub/main/logbook.md';
+
+  var dateEl = document.getElementById('update-date');
+  var titleEl = document.getElementById('update-title');
+  var bodyEl = document.getElementById('update-body');
+  if (!dateEl || !titleEl || !bodyEl) return;
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* The entries use a small inline subset: bold, italics, links and code spans.
+     Code spans are held aside first so their contents are never read as markup;
+     the sentinel is a NUL, which cannot occur in the source. */
+  function renderInline(s) {
+    var code = [];
+    s = escapeHtml(s).replace(/`([^`]+)`/g, function (m, c) {
+      code.push(c);
+      return '\u0000' + (code.length - 1) + '\u0000';
+    });
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, text, href) {
+      if (!/^(https?:|#|\/)/.test(href)) return m;
+      return '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>';
+    });
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    return s.replace(/\u0000(\d+)\u0000/g, function (m, i) {
+      return '<code>' + code[i] + '</code>';
+    });
+  }
+
+  fetch(SOURCE)
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    })
+    .then(function (md) {
+      /* Entries are separated by thematic breaks; the first chunk is the preamble. */
+      var entry = md.split(/\n---+\n/)[1];
+      if (!entry) throw new Error('no entries found');
+      entry = entry.trim();
+
+      var heading = entry.match(/^##\s+(\S+)\s+—\s+(.*)$/m);
+      if (!heading) throw new Error('unrecognised entry heading');
+
+      /* Entries carry each theme in a paragraph opening with a bolded claim, which
+         reads as a summary on its own. Prefer the first of those over a procedural
+         opening line; fall back to the first paragraph when an entry has none. */
+      var paragraphs = entry.split('\n').slice(1)
+        .map(function (line) { return line.trim(); })
+        .filter(Boolean);
+      var paragraph = paragraphs.filter(function (p) { return p.indexOf('**') === 0; })[0]
+        || paragraphs[0];
+      if (!paragraph) throw new Error('entry has no body');
+
+      dateEl.textContent = heading[1];
+      dateEl.hidden = false;
+      titleEl.innerHTML = renderInline(heading[2]);
+      bodyEl.innerHTML = '<p>' + renderInline(paragraph) + '</p>';
+    })
+    .catch(function (err) {
+      console.warn('latest update: could not load the logbook:', err);
+    });
+})();
 </script>
 
 </body>
