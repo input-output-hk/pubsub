@@ -39,12 +39,25 @@
   --info-soft: #E7EBFE;
   --accent: #E52321;
 
+  /* Height of the sticky navbar: 14px padding twice, a 36px icon button, 1px rule. */
+  --nav-height: 65px;
+
   --font-display: 'Barlow', 'Bricolage Grotesque', system-ui, sans-serif;
   --font-body: 'Barlow', 'Bricolage Grotesque', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* Taken from the mark's own artwork: the inbound half's red and the outbound
+     half's black. The brand wordmark and the hero tagline both draw from these,
+     so the name is coloured identically wherever it appears. */
+  --mark-in: rgba(216, 44, 2, 0.7);
+  --mark-out: #1D1D1B;
 }
 
 html[data-theme="dark"] {
+  /* The outbound half is drawn white in the dark artwork; the red stays red. */
+  --mark-in: rgba(226, 52, 10, 0.82);
+  --mark-out: #FFFFFF;
+
   --bg: #0A0A0A;
   --bg-soft: #121212;
   --bg-alt: #181818;
@@ -73,7 +86,12 @@ html[data-theme="dark"] {
 
 /* Base reset */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+/* Subscripts (k_in, k_out) must not stretch the line they sit on. */
+sub, sup { line-height: 0; }
+/* Anchored sections land with their top edge flush under the sticky navbar — no
+   extra offset, or a sliver of the previous section stays on screen. Each
+   section's own top padding supplies the breathing room above its title. */
+html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
 body {
   background: var(--bg);
   color: var(--text);
@@ -185,4 +203,74 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
   color: var(--iog-infared);
   font-weight: 600;
   margin-bottom: 12px;
+}
+
+/* ---------- Brand lockup ----------
+   The two halves of the Input Output mark flank the name: the inbound fan on the
+   left, the outbound fan on the right — publish in, deliver out. The words take
+   their colour from the half beside them. Deliberately no `display` on
+   .brand-half: .logo-light/.logo-dark above own that, and overriding it would
+   show both themes' artwork at once. */
+.navbar-brand { display: inline-flex; align-items: center; gap: 9px; }
+.brand-half { height: 21px; width: auto; flex-shrink: 0; }
+.brand-name { letter-spacing: 0.14em; color: var(--mark-out); }
+.brand-scope {
+  color: var(--mark-in);
+  font-weight: 500;
+  margin-right: 0.5em;
+}
+.navbar-brand:hover .brand-scope { color: rgba(216, 44, 2, 1); }
+
+/* ---------- Footer ---------- */
+footer { border-top: 1px solid var(--line); padding: 30px 0 36px; }
+.footer-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 28px;
+  padding-bottom: 30px;
+}
+.footer-col { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.footer-col-title {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--iog-infared);
+  margin-bottom: 2px;
+}
+.footer-col a {
+  font-size: 0.9rem;
+  color: var(--text-mute);
+  text-decoration: none;
+  transition: color .12s ease;
+}
+.footer-col a:hover { color: var(--iog-infared); }
+.footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+/* The attribution uses the wordmark artwork, so "Input Output" appears in the
+   typeface of the logo itself rather than an approximation of it. */
+.footer-credit { display: inline-flex; align-items: center; gap: 10px; }
+.footer-wordmark { height: 13px; width: auto; }
+footer p {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
 }

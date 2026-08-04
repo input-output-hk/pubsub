@@ -6,10 +6,17 @@ on:
       - main
     paths:
       - 'web/**'
+      - 'scripts/build-activity.py'
+      - '.github/workflows/docs.yml'
+  # The activity figures are generated at deploy time, so a quiet week would
+  # leave them stale. Redeploy every Monday to keep them current.
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: read      # activity stats: closed-issue count and milestone progress
   pages: write
   id-token: write
 
@@ -28,18 +35,9 @@ jobs:
         with:
           fetch-depth: 0  # full history for the commit activity heatmap
       - name: Generate commit activity data
-        run: |
-          python3 - <<'EOF'
-          import json, subprocess
-          from collections import Counter
-          dates = subprocess.run(
-              ["git", "log", "--format=%as"],
-              capture_output=True, text=True, check=True,
-          ).stdout.split()
-          counts = Counter(dates)
-          with open("web/assets/commit-activity.json", "w") as f:
-              json.dump({"counts": dict(sorted(counts.items())), "total": len(dates)}, f)
-          EOF
+        run: python3 scripts/build-activity.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: web

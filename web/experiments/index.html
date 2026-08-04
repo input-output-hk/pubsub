@@ -154,10 +154,8 @@
     letter-spacing: 0.04em; margin-top: 14px;
   }
 
-  footer { border-top: 1px solid var(--line); padding: 28px 0 36px; margin-top: 40px; }
-  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
-  .footer-logo { height: 26px; width: auto; }
-  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.06em; }
+  /* Footer chrome comes from shared.css; this page only adds the gap above it. */
+  footer { margin-top: 40px; }
 
   /* ---------- SVG element states ---------- */
   .node { fill: var(--card-fill); stroke: var(--line-strong); stroke-width: 1.5; transition: fill .35s ease, stroke .35s ease; }
@@ -207,7 +205,13 @@
 </svg>
 
 <nav class="navbar" aria-label="Primary">
-  <a class="navbar-brand" href="../">CARDANO PUBSUB <span class="brand-tag">RESEARCH &amp; DEVELOPMENT</span></a>
+  <a class="navbar-brand" href="../">
+    <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+    <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+    <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+  </a>
   <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
     <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
@@ -217,8 +221,8 @@
     <a href="../#scenarios">Scenarios</a>
     <a href="../#research">Research</a>
     <a href="../#experiments" class="active">Experiments</a>
+    <a href="../#activity">Activity</a>
     <a href="../#materials">Materials</a>
-    <a href="../slides/midyear-2026.html">Presentation</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -253,6 +257,32 @@
         promise <em>every</em> message; per-message randomness cannot. The prototype node
         works exactly this way: it establishes its links during a sync phase, and only then
         accepts messages for propagation.
+      </p>
+      <p class="lede">
+        <strong>Every model can clear the bar. The question is what it costs.</strong> Each
+        has a parameterisation that reaches the target at the reference network size and
+        adversarial fraction, and each sizing rule grows with the target, so a stricter bound
+        is always reachable by buying more links. What separates the models is the price, and
+        it is charged on two different axes. One is standing: the links every node has to
+        hold, maintain and repair, whether or not anything is published. The other is charged
+        per message: how many copies of it the network transmits before every honest node has
+        it. Both spread severalfold across the family for the same guarantee, and they pull
+        against each other, because giving publishing its own links cuts the copies carried
+        per message but adds to the links each node must hold.
+        So the design problem is to find the cheapest structure that still clears the bar,
+        while keeping the surface an adversary can attack as small as possible. The parameter
+        sweeps that put figures to each axis are still running.
+      </p>
+      <p class="lede">
+        <strong>A bad graph is rarely a broken network.</strong> Anything short of full
+        strong connectivity counts as bad, and in practice the failures are not large splits
+        but single stranded nodes. A node whose outgoing links all landed on adversaries is a
+        dead end, and dead ends dominate the tail. A bad graph does not mean a message went
+        undelivered, though: that depends on <em>which</em> node publishes. A stranded node
+        fails only as a publisher, and is invisible to everyone else's dissemination. In the
+        comparison run so far, every run delivered to every eligible node, including those
+        whose topology scored bad. So the experiments score the topology for all publishers at
+        once, and separately the worst case any single publisher would see.
       </p>
       <p class="lede">
         The animation below plays each model's construction and forwarding rules at toy scale.
@@ -321,10 +351,43 @@
 </main>
 
 <footer>
-  <div class="container footer-row">
-    <img class="footer-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
-    <img class="footer-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
-    <p>INPUT OUTPUT · CARDANO PUBSUB · 2026</p>
+  <div class="container">
+    <nav class="footer-nav" aria-label="Footer">
+      <div class="footer-col">
+        <div class="footer-col-title">Research</div>
+        <a href="../#scenarios">Scenarios</a>
+        <a href="../#research">Programme</a>
+        <a href="./">Dissemination models</a>
+        <a href="../slides/midyear-2026.html">Midyear presentation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Progress</div>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
+        <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
+        <a href="../#activity">Activity &amp; latest entry</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Repository</div>
+        <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">Source code</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a>
+      </div>
+    </nav>
+    <div class="footer-row">
+      <span class="footer-brand">
+        <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+        <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+        <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+      </span>
+      <p class="footer-credit">
+        <img class="footer-wordmark logo-light" src="../assets/io-wordmark-pos.png" alt="Input Output">
+        <img class="footer-wordmark logo-dark" src="../assets/io-wordmark-neg.png" alt="Input Output">
+        <span>2026</span>
+      </p>
+    </div>
   </div>
 </footer>
 
@@ -538,10 +601,10 @@
     },
     m5: {
       tab: 'M5 · Directed',
-      title: 'Directed k-in/k-out gossip',
-      mech: 'Every node opens k_in inbound + k_out outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
-      watch: 'The general case of the family: k_out = 0 recovers pull-only M2, k_in = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy — both directions are the node’s own uniform picks.',
-      knobs: 'Knobs: k_in = 2, k_out = 2 (demo) · inbound and outbound links per node',
+      title: 'Directed k<sub>in</sub>/k<sub>out</sub> gossip',
+      mech: 'Every node opens k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
+      watch: 'The general case of the family: k<sub>out</sub> = 0 recovers pull-only M2, k<sub>in</sub> = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy — both directions are the node’s own uniform picks.',
+      knobs: 'Knobs: k<sub>in</sub> = 2, k<sub>out</sub> = 2 (demo) · inbound and outbound links per node',
       standingDesc: 'Two directed link kinds, both the node’s own picks: <strong>solid arrows</strong> are outbound links (the sender chose its target), <strong>dashed arrows</strong> are inbound links (the receiver chose its forwarder). Messages flow the same way on both.',
       hopDesc: 'Every holder relays along its epoch links — its own outbound links, plus the inbound links of every node that chose it as forwarder. Relays into adversaries are absorbed (red).',
       legend: [
@@ -768,10 +831,11 @@
   function renderNotes() {
     const m = MODELS[model];
     document.getElementById('note-kicker').textContent = model.toUpperCase();
-    document.getElementById('note-title').textContent = m.title;
-    document.getElementById('note-mech').textContent = m.mech;
-    document.getElementById('note-watch').textContent = m.watch;
-    document.getElementById('note-knobs').textContent = m.knobs;
+    document.getElementById('note-title').innerHTML = m.title;
+    // innerHTML, not textContent: these strings carry subscripts (k<sub>in</sub>).
+    document.getElementById('note-mech').innerHTML = m.mech;
+    document.getElementById('note-watch').innerHTML = m.watch;
+    document.getElementById('note-knobs').innerHTML = m.knobs;
     const box = document.querySelector('.model-notes');
     box.classList.remove('swap');
     void box.offsetWidth;
