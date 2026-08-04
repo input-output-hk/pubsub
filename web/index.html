@@ -286,62 +286,103 @@
   }
 
   /* ---------- Scenario tiles ----------
-     Four abreast on desktop, folding only when the columns would get too narrow
-     to read. Each tile carries its category icon as a faint background mark. */
-  #scenarios .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  @media (max-width: 1080px) {
-    #scenarios .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+     A horizontal rail rather than a grid: the tiles keep one width at every screen
+     size, and the last sits part in view so it is clear the row scrolls. */
+  .card-rail-wrap { position: relative; }
+  .card-rail {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    /* Trailing room so the last tile clears the fade. No side padding or negative
+       margin: the rail's edges must line up with the wrapper's, or the gradient
+       stops short of the container edge. */
+    padding: 0 56px 0 0;
+    scroll-snap-type: inline proximity;
+    /* No scrollbar: the fade and the chevron carry the affordance. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .card-rail::-webkit-scrollbar { display: none; }
+  .card-rail > * {
+    /* Sized so the four known cases sit fully in view on a wide screen and the
+       invitation peeks past the fade, which is what invites the scroll. */
+    flex: 0 0 clamp(250px, 21.5%, 285px);
+    scroll-snap-align: start;
+  }
+  .card-rail:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 4px; }
+  .card-rail-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 92px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, var(--bg-soft) 88%);
+    transition: opacity .2s ease;
+  }
+  .card-rail-wrap.at-end::after { opacity: 0; }
+  /* Sits over the fade, and out in the container's gutter once there is room, so it
+     never covers a tile's text. Jumps to the end rather than stepping. */
+  .rail-next {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text-mute);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, opacity .2s ease;
+  }
+  .rail-next:hover { color: var(--iog-infared); border-color: var(--iog-infared); }
+  .rail-next svg { width: 16px; height: 16px; display: block; }
+  .card-rail-wrap.at-end .rail-next { opacity: 0; pointer-events: none; }
+  @media (min-width: 1000px) {
+    .rail-next { right: -50px; }
   }
   @media (max-width: 600px) {
-    #scenarios .card-grid { grid-template-columns: 1fr; }
+    .card-rail { padding-right: 40px; }
+    .card-rail > * { flex-basis: min(80%, 300px); }
+    .card-rail-wrap::after { width: 56px; }
   }
-  #scenarios .card { position: relative; overflow: hidden; }
+
+  #scenarios .card { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+  /* Large, and sitting just inside the corner: clipped it read as a mistake, while
+     too much inset made it float. */
   .card-bg-icon {
     position: absolute;
-    right: -14px;
-    bottom: -18px;
-    width: 104px;
-    height: 104px;
+    right: 8px;
+    bottom: 2px;
+    width: 120px;
+    height: 120px;
+    stroke-width: 1.1;
     color: var(--text);
     opacity: 0.05;
     pointer-events: none;
   }
-  :root[data-theme="dark"] .card-bg-icon { opacity: 0.09; }
+  :root[data-theme="dark"] .card-bg-icon { opacity: 0.08; }
   #scenarios .card h3 { font-size: 1rem; }
 
-  /* The invitation spans the row rather than sitting as a fifth tile in a
-     four-column grid, so it reads as a call to action instead of a stray card. */
+  /* The invitation is a tile like the others, set apart by a red wash and a dashed
+     edge rather than by size, so the row stays even. */
   .card-submit {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    gap: 20px;
     text-decoration: none;
     color: inherit;
     border-style: dashed;
-    background: transparent;
+    border-color: rgba(229, 35, 33, 0.35);
+    background: rgba(229, 35, 33, 0.05);
     transition: border-color .15s ease, background .15s ease;
   }
-  .card-submit:hover {
-    border-color: var(--iog-infared);
-    background: var(--card-fill);
-  }
-  .card-submit-icon { width: 30px; height: 30px; color: var(--iog-infared); flex-shrink: 0; }
-  .card-submit-copy { flex: 1; min-width: 0; }
-  .card-submit-copy h3 { margin-bottom: 6px; }
-  .card-submit-copy p { max-width: 78ch; }
-  .card-submit-arrow {
-    font-family: var(--font-mono);
-    font-size: 1.1rem;
-    color: var(--text-faint);
-    flex-shrink: 0;
-    transition: color .15s ease, transform .15s ease;
-  }
-  .card-submit:hover .card-submit-arrow { color: var(--iog-infared); transform: translateX(3px); }
-  @media (max-width: 600px) {
-    .card-submit { flex-direction: column; align-items: flex-start; gap: 14px; }
-    .card-submit-arrow { display: none; }
-  }
+  :root[data-theme="dark"] .card-submit { background: rgba(229, 35, 33, 0.11); }
+  .card-submit:hover { border-color: var(--iog-infared); background: rgba(229, 35, 33, 0.10); }
+  .card-submit .card-bg-icon { color: var(--iog-infared); opacity: 0.14; }
+  :root[data-theme="dark"] .card-submit .card-bg-icon { opacity: 0.2; }
 
   /* ---------- Experiments teaser ---------- */
   .model-strip {
@@ -920,15 +961,13 @@
         <div class="section-kind">Why it matters</div>
         <h2>Critical communication deserves the same guarantees as transactions</h2>
       </header>
-      <div class="card-grid">
+      <div class="card-rail-wrap">
+        <div class="card-rail" tabindex="0" role="group" aria-label="Use cases, scrollable">
           <div class="card">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2.5" y="3.5" width="19" height="7" rx="1.6"/>
-              <rect x="2.5" y="13.5" width="19" height="7" rx="1.6"/>
-              <line x1="6" y1="7" x2="6.01" y2="7"/>
-              <line x1="6" y1="17" x2="6.01" y2="17"/>
-              <line x1="10" y1="7" x2="17" y2="7"/>
-              <line x1="10" y1="17" x2="17" y2="17"/>
+              <path d="M12 3.4 2.5 20.2h19L12 3.4z"/>
+              <path d="M12 9.6v4.8"/>
+              <path d="M12 17.4h.01"/>
             </svg>
             <div class="card-kicker">Node operations</div>
             <h3>Node builder to operator</h3>
@@ -936,9 +975,8 @@
           </div>
           <div class="card">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <ellipse cx="12" cy="5.5" rx="8" ry="3"/>
-              <path d="M4 5.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
-              <path d="M4 11.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+              <path d="M18.2 9.4a6.2 6.2 0 0 0-12.4 0c0 5-2.2 6.6-2.2 6.6h16.8s-2.2-1.6-2.2-6.6z"/>
+              <path d="M13.8 19.2a2.1 2.1 0 0 1-3.6 0"/>
             </svg>
             <div class="card-kicker">Stake pools</div>
             <h3>SPO to delegator</h3>
@@ -946,9 +984,8 @@
           </div>
           <div class="card">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 3 3 7l9 4 9-4-9-4z"/>
-              <path d="M5.5 12.5v4.2c0 .6.35 1.15.9 1.4l4.7 2.1c.57.26 1.23.26 1.8 0l4.7-2.1c.55-.25.9-.8.9-1.4v-4.2"/>
-              <path d="m9.5 15 2 2 3.5-3.5"/>
+              <rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2.2"/>
+              <path d="m8.2 12.1 2.7 2.7 5.1-5.1"/>
             </svg>
             <div class="card-kicker">Governance</div>
             <h3>dRep to delegator</h3>
@@ -956,29 +993,29 @@
           </div>
           <div class="card">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2.5" y="3.5" width="19" height="17" rx="2.2"/>
-              <line x1="2.5" y1="8.5" x2="21.5" y2="8.5"/>
-              <line x1="6" y1="6" x2="6.01" y2="6"/>
-              <line x1="9" y1="6" x2="9.01" y2="6"/>
-              <path d="M8 13h8M8 16.5h5"/>
+              <path d="M21.4 3.6 2.6 10.9l6.4 2.4 2.4 6.4L21.4 3.6z"/>
+              <path d="M9 13.3 21.4 3.6"/>
             </svg>
             <div class="card-kicker">Applications</div>
             <h3>dApp to user</h3>
             <p>dApps announce critical alerts and per-user notifications under on-chain identities, with spam resisted by real stake.</p>
           </div>
           <a class="card card-submit" href="https://github.com/input-output-hk/pubsub/discussions/new?category=ideas" target="_blank" rel="noopener">
-            <svg class="card-submit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-2.8-.4L4 21l1.5-4.2A8.2 8.2 0 0 1 3.6 11.5 8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/>
-              <path d="M12 8.4v5.2M9.4 11h5.2"/>
+            <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.6 11.6a8.2 8.2 0 0 1-8.8 8.2 9.2 9.2 0 0 1-2.7-.4L4.4 20.8l1.4-4A8 8 0 0 1 3.8 11.6a8.2 8.2 0 0 1 8.4-8.2 8.2 8.2 0 0 1 8.4 8.2z"/>
+              <path d="M12.2 8.6v6M9.2 11.6h6"/>
             </svg>
-            <div class="card-submit-copy">
-              <div class="card-kicker">Your turn</div>
-              <h3>Have a use case we have missed?</h3>
-              <p>Tell us who needs to reach whom, and what stands in the way today. Submissions open a discussion on GitHub, where anyone can read, add to, or support them.</p>
-            </div>
-            <span class="card-submit-arrow" aria-hidden="true">›</span>
+            <div class="card-kicker">Your turn</div>
+            <h3>Have a use case we have missed?</h3>
+            <p>Tell us who needs to reach whom, and what stands in the way today. It opens a discussion on GitHub, where anyone can read it, add to it, or back it.</p>
           </a>
         </div>
+        <button class="rail-next" type="button" aria-label="Show the remaining use cases">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 6 15 12 9 18"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </section>
 
@@ -1578,6 +1615,48 @@
     .catch(function (err) {
       console.warn('latest update: could not load the logbook:', err);
     });
+})();
+</script>
+
+<script>
+/* The rail's trailing fade and chevron mark that the row continues. Both clear once
+   the end is reached, and when the tiles happen to fit without scrolling. */
+(function () {
+  var wrap = document.querySelector('.card-rail-wrap');
+  var rail = wrap && wrap.querySelector('.card-rail');
+  if (!rail) return;
+
+  function update() {
+    var atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2;
+    wrap.classList.toggle('at-end', atEnd);
+  }
+
+  var next = wrap.querySelector('.rail-next');
+  if (next) {
+    next.addEventListener('click', function () {
+      var still = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      /* All the way to the end, so the last tile lands fully in view rather than
+         needing several presses. */
+      rail.scrollTo({ left: rail.scrollWidth, behavior: still ? 'auto' : 'smooth' });
+    });
+  }
+
+  /* A vertical wheel over the rail scrolls it sideways, so a mouse can explore it
+     without shift-scrolling. The gesture is handed back to the page at either end,
+     otherwise a cursor resting here would trap vertical scrolling. */
+  rail.addEventListener('wheel', function (e) {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    var atStart = rail.scrollLeft <= 0;
+    var atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1;
+    if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return;
+    e.preventDefault();
+    rail.scrollLeft += e.deltaY;
+  }, { passive: false });
+
+  rail.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
 })();
 </script>
 
