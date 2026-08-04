@@ -16,7 +16,7 @@ use crate::peer::PeerId;
 use crate::topic::TopicId;
 
 use super::graph::DisseminationModel;
-use super::population::{FanoutSpec, StrategySpec};
+use super::population::{FanoutSpec, PublisherSpec, StrategySpec};
 
 /// A rejected sweep description. Messages are operator-facing.
 #[derive(Debug, thiserror::Error)]
@@ -66,10 +66,17 @@ pub enum SweepConfigError {
         field: &'static str,
     },
     /// An axis named no sweepable parameter.
-    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, pick_count, bucket_count, publishes_per_run)")]
+    #[error("unknown axis parameter '{name}' (expected one of: size, adversarial, adversarial_fraction, churn, churn_count, pick_count, bucket_count, publisher_pick_count, publishes_per_run)")]
     UnknownAxisParameter {
         /// The offending parameter name.
         name: String,
+    },
+    /// A publisher axis swept a class whose table declares no publisher
+    /// seam.
+    #[error("axis 'publisher_pick_count' needs a [strategies.{class}.publisher] table: the axis sweeps a declared seam, it does not turn one on")]
+    PublisherAxisWithoutSeam {
+        /// The class missing the sub-table.
+        class: &'static str,
     },
     /// The same parameter appeared on two axes.
     #[error("axis parameter '{parameter}' is declared twice")]
@@ -109,11 +116,13 @@ pub enum SweepConfigError {
 
 /// One class's strategy configuration, exactly as validated — kept in this
 /// raw-shaped form so the manifest can embed it verbatim. The table speaks
-/// the selection plane's coordinates; there are no strategy kind names.
-// 017-FR-017, 017-FR-018 (boundary values legal here), 017-FR-019 (no
-// publisher-pair fields: population construction stays relay-only — that
-// surface belongs to the publisher-pair experiments feature, and
-// `deny_unknown_fields` rejects any attempt to configure it early).
+/// the selection plane's coordinates; there are no strategy kind names. The
+/// base coordinates configure the relay seam; the optional `publisher`
+/// sub-table turns the publisher pair on (ADR 0041 — presence-activated;
+/// absent, it is omitted from the manifest, keeping relay-only manifests
+/// unchanged).
+// 017-FR-017, 017-FR-018 (boundary values legal here); ADR 0041 (the
+// publisher sub-table, superseding 017-FR-019's relay-only boundary).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrategyTable {
@@ -139,8 +148,34 @@ pub struct StrategyTable {
     /// Default `false` (directional links).
     #[serde(default)]
     pub symmetric: bool,
-    /// The fan-out kind: `forward-to-relays` or `silent-relay`.
+    /// The publisher-seam coordinates: present = the publisher pair is on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publisher: Option<PublisherTable>,
+    /// The fan-out kind: `forward-to-relays`, `forward-to-all`, or
+    /// `silent-relay`.
     pub fanout: String,
+}
+
+/// The publisher seam's coordinate sub-table — the relay knobs minus the
+/// symmetric switch (no published model defines symmetric publisher links).
+// ADR 0041.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublisherTable {
+    /// The publisher pick count (`k_out`): absent = dial every gate
+    /// survivor; `0` = dial none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pick_count: Option<usize>,
+    /// The publisher bucket count: absent = ungated; `1` legal; `0`
+    /// rejected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bucket_count: Option<usize>,
+    /// The publisher-seam accept cap: absent = unbounded; `0` = serve none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_cap: Option<usize>,
+    /// Skip acceptor-side gate verification on the publisher seam.
+    #[serde(default)]
+    pub accept_unverified: bool,
 }
 
 impl StrategyTable {
@@ -153,14 +188,20 @@ impl StrategyTable {
                 field: "bucket_count",
             });
         }
+        if self.publisher.as_ref().and_then(|p| p.bucket_count) == Some(0) {
+            return Err(SweepConfigError::ZeroCount {
+                field: "publisher.bucket_count",
+            });
+        }
         let fanout = match self.fanout.to_ascii_lowercase().as_str() {
             "forward-to-relays" => FanoutSpec::ForwardToRelays,
+            "forward-to-all" => FanoutSpec::ForwardToAll,
             "silent-relay" => FanoutSpec::SilentRelay,
             _ => {
                 return Err(SweepConfigError::UnknownStrategy {
                     seam: "fan-out",
                     kind: self.fanout.clone(),
-                    expected: "forward-to-relays, silent-relay",
+                    expected: "forward-to-relays, forward-to-all, silent-relay",
                 })
             }
         };
@@ -170,6 +211,12 @@ impl StrategyTable {
             accept_cap: self.accept_cap,
             accept_unverified: self.accept_unverified,
             symmetric: self.symmetric,
+            publisher: self.publisher.as_ref().map(|publisher| PublisherSpec {
+                pick_count: publisher.pick_count,
+                bucket_count: publisher.bucket_count,
+                accept_cap: publisher.accept_cap,
+                accept_unverified: publisher.accept_unverified,
+            }),
             fanout,
         };
         spec.probe(&PeerId::from_str("probe").expect("static probe id"))?;
@@ -212,11 +259,15 @@ pub enum AxisParameter {
     /// Churn count.
     ChurnCount,
     /// Pick count, applied to both classes' strategy tables (`0` is the
-    /// `k_in`/`k_out` = 0 boundary axis point).
+    /// `k_in` = 0 boundary axis point).
     PickCount,
     /// Bucket count, applied to both classes' strategy tables (`1` is the
     /// ungated boundary axis point; `0` rejected).
     BucketCount,
+    /// Publisher pick count (`k_out`), applied to both classes' publisher
+    /// sub-tables — which must be present in the base config (the axis
+    /// sweeps a seam the config declares, it never turns the seam on).
+    PublisherPickCount,
     /// Publish phases per run.
     PublishesPerRun,
 }
@@ -233,6 +284,7 @@ impl AxisParameter {
             Self::ChurnCount => "churn_count",
             Self::PickCount => "pick_count",
             Self::BucketCount => "bucket_count",
+            Self::PublisherPickCount => "publisher_pick_count",
             Self::PublishesPerRun => "publishes_per_run",
         }
     }
@@ -246,6 +298,7 @@ impl AxisParameter {
             "churn_count" => Ok(Self::ChurnCount),
             "pick_count" => Ok(Self::PickCount),
             "bucket_count" => Ok(Self::BucketCount),
+            "publisher_pick_count" => Ok(Self::PublisherPickCount),
             "publishes_per_run" => Ok(Self::PublishesPerRun),
             _ => Err(SweepConfigError::UnknownAxisParameter {
                 name: name.to_string(),
@@ -404,6 +457,19 @@ impl SweepDescription {
                     let buckets = value.as_count(parameter.name())?;
                     honest_strategies.bucket_count = Some(buckets);
                     adversarial_strategies.bucket_count = Some(buckets);
+                }
+                AxisParameter::PublisherPickCount => {
+                    let picks = value.as_count(parameter.name())?;
+                    for (class, table) in [
+                        ("honest", &mut honest_strategies),
+                        ("adversarial", &mut adversarial_strategies),
+                    ] {
+                        table
+                            .publisher
+                            .as_mut()
+                            .ok_or(SweepConfigError::PublisherAxisWithoutSeam { class })?
+                            .pick_count = Some(picks);
+                    }
                 }
                 AxisParameter::PublishesPerRun => {
                     let publishes = value.as_count(parameter.name())?;
@@ -624,6 +690,7 @@ pub fn parse_sweep_description(text: &str) -> Result<SweepDescription, SweepConf
 #[cfg(test)]
 mod tests {
     use super::{parse_sweep_description, SweepConfigError};
+    use crate::experiments::population::FanoutSpec;
 
     fn base_toml() -> String {
         r#"
@@ -785,6 +852,80 @@ mod tests {
         ));
     }
 
+    // ADR 0041: the publisher sub-table parses into publisher-seam
+    // coordinates on the spec; absent, the seam stays off.
+    #[test]
+    fn publisher_table_parses_into_the_spec() {
+        let toml = base_toml().replace(
+            "[strategies.honest]\n            pick_count = 4",
+            "[strategies.honest]\n            pick_count = 4\n            publisher = { pick_count = 2, accept_cap = 8 }",
+        );
+        let description = parse_sweep_description(&toml).expect("publisher table parses");
+        let spec = description.honest_strategies.to_spec().expect("builds");
+        let publisher = spec.publisher.expect("publisher seam on");
+        assert_eq!(publisher.pick_count, Some(2));
+        assert_eq!(publisher.accept_cap, Some(8));
+        assert_eq!(publisher.bucket_count, None);
+        assert!(!publisher.accept_unverified);
+        let adversarial = description
+            .adversarial_strategies
+            .to_spec()
+            .expect("builds");
+        assert!(adversarial.publisher.is_none(), "absent table ⇒ seam off");
+    }
+
+    // ADR 0041: publisher bucket-count zero is rejected like the relay one.
+    #[test]
+    fn zero_publisher_bucket_count_is_rejected() {
+        let toml = base_toml().replace(
+            "pick_count = 4\n            fanout = \"forward-to-relays\"",
+            "pick_count = 4\n            publisher = { bucket_count = 0 }\n            fanout = \"forward-to-relays\"",
+        );
+        assert!(matches!(
+            parse_sweep_description(&toml),
+            Err(SweepConfigError::ZeroCount {
+                field: "publisher.bucket_count",
+            }),
+        ));
+    }
+
+    // ADR 0041: the publisher_pick_count axis overrides both classes'
+    // publisher tables — and refuses to sweep a seam the config never
+    // declared.
+    #[test]
+    fn publisher_pick_count_axis_needs_the_declared_seam() {
+        let with_tables = base_toml()
+            .replace(
+                "pick_count = 4\n            fanout = \"forward-to-relays\"",
+                "pick_count = 4\n            publisher = { pick_count = 1 }\n            fanout = \"forward-to-relays\"",
+            )
+            .replace(
+                "pick_count = 4\n            fanout = \"silent-relay\"",
+                "pick_count = 4\n            publisher = { pick_count = 1 }\n            fanout = \"silent-relay\"",
+            )
+            + "\n[[axes]]\nparameter = \"publisher_pick_count\"\nvalues = [0, 3]\n";
+        let description = parse_sweep_description(&with_tables).expect("axis parses");
+        let resolved = description
+            .resolved_experiments()
+            .expect("validated at parse");
+        assert_eq!(resolved.len(), 2);
+        for (point, picks) in resolved.iter().zip([0usize, 3]) {
+            for table in [&point.honest_strategies, &point.adversarial_strategies] {
+                assert_eq!(
+                    table.publisher.as_ref().expect("seam on").pick_count,
+                    Some(picks),
+                );
+            }
+        }
+
+        let without_tables =
+            base_toml() + "\n[[axes]]\nparameter = \"publisher_pick_count\"\nvalues = [3]\n";
+        assert!(matches!(
+            parse_sweep_description(&without_tables),
+            Err(SweepConfigError::PublisherAxisWithoutSeam { class: "honest" }),
+        ));
+    }
+
     #[test]
     fn unknown_model_is_rejected() {
         let toml = base_toml().replace("\"m2\"", "\"m9\"");
@@ -804,15 +945,17 @@ mod tests {
                 ..
             }),
         ));
-        // 017 contracts/sweep-config.md: forward-to-all stays rejected —
-        // populations are relay-only until the publisher-pair feature.
+        // ADR 0041 (removing 017's relay-only boundary): forward-to-all is a
+        // legal fan-out kind — M5's send side.
         let toml = base_toml().replace("\"forward-to-relays\"", "\"forward-to-all\"");
+        let description = parse_sweep_description(&toml).expect("forward-to-all parses");
         assert!(matches!(
-            parse_sweep_description(&toml),
-            Err(SweepConfigError::UnknownStrategy {
-                seam: "fan-out",
-                ..
-            }),
+            description
+                .honest_strategies
+                .to_spec()
+                .expect("builds")
+                .fanout,
+            FanoutSpec::ForwardToAll,
         ));
     }
 

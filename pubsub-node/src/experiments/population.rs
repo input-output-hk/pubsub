@@ -24,7 +24,7 @@ use crate::state::NodeState;
 use crate::strategies::config::{
     AcceptanceParams, NodeStrategies, SelectionParams, StrategyConfigError,
 };
-use crate::strategies::fanout::{FanoutStrategy, ForwardToRelays};
+use crate::strategies::fanout::{FanoutStrategy, ForwardToAll, ForwardToRelays};
 use crate::subscription_registry::MembershipEvent;
 use crate::topic::TopicId;
 use crate::topic_registry::TopicRegistryEvent;
@@ -165,12 +165,25 @@ impl Participant {
     }
 
     /// The node's **relay** downstream connections (peer, topic), sorted.
-    /// Relay-filtered by design: publisher links are seed edges, never
-    /// propagation edges, so the M2 digraph extraction must not see them.
+    /// Relay-filtered by design: under M2/M3/M4 extraction publisher links
+    /// are seed edges, never propagation edges, so the relay digraph read
+    /// must not see them.
     #[must_use]
     pub fn downstream(&self) -> Vec<(PeerId, TopicId)> {
         let mut entries = self.state.downstream_relays();
         entries.sort();
+        entries
+    }
+
+    /// The node's **publisher** downstream links (peer, topic, state),
+    /// sorted by (peer, topic): the standing initiation targets the node
+    /// dialed. State exposed because dialed entries carry the
+    /// `AwaitingAccept → Active` lifecycle — only `Active` entries carry
+    /// traffic.
+    #[must_use]
+    pub fn publisher_downstream(&self) -> Vec<(PeerId, TopicId, LinkState)> {
+        let mut entries = self.state.downstream_publishers();
+        entries.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
         entries
     }
 
@@ -220,10 +233,11 @@ impl Participant {
 }
 
 /// The strategy configuration one class of participants runs: the selection
-/// plane's per-seam coordinates plus the fan-out policy. Populations are
-/// relay-only (the M2 baseline shape), so the coordinates configure the relay
-/// seam pair; publisher-pair configuration is a separate feature's surface.
-// 017-FR-017 (the config speaks coordinates), 017-FR-019 (relay-only).
+/// plane's per-seam coordinates plus the fan-out policy. The base
+/// coordinates configure the relay seam pair; the optional publisher
+/// coordinates turn the publisher pair on (ADR 0041 — presence-activated,
+/// mirroring the node CLI's seam split).
+// 017-FR-017 (the config speaks coordinates); ADR 0041 (publisher pair).
 #[derive(Clone, Debug)]
 pub struct StrategySpec {
     /// The pick count: `None` = dial every gate survivor; `Some(0)` = dial
@@ -240,13 +254,36 @@ pub struct StrategySpec {
     pub accept_unverified: bool,
     /// Establish relay links with the symmetric (bidirectional) handshake.
     pub symmetric: bool,
+    /// The publisher-seam coordinates: `Some` builds the publisher
+    /// `Selection`/`UnifiedAcceptance` pair (standing initiation links);
+    /// `None` keeps the seam off by construction.
+    pub publisher: Option<PublisherSpec>,
     /// The fan-out policy.
     pub fanout: FanoutSpec,
 }
 
+/// The publisher seam's coordinates — the same plane knobs as the relay
+/// seam minus the symmetric switch (no published model defines symmetric
+/// publisher links, ADR 0034's boundary).
+// ADR 0041.
+#[derive(Clone, Debug)]
+pub struct PublisherSpec {
+    /// The publisher pick count (`k_out` in the M5 vocabulary); domain as on
+    /// [`StrategySpec::pick_count`].
+    pub pick_count: Option<usize>,
+    /// The publisher bucket count; domain as on
+    /// [`StrategySpec::bucket_count`].
+    pub bucket_count: Option<usize>,
+    /// The publisher-seam accept cap; domain as on
+    /// [`StrategySpec::accept_cap`].
+    pub accept_cap: Option<usize>,
+    /// Skip acceptor-side gate verification on the publisher seam.
+    pub accept_unverified: bool,
+}
+
 impl StrategySpec {
     /// The plane origin with open acceptance: ungated dial-all, unbounded
-    /// membership-only accept, directional links.
+    /// membership-only accept, directional links, no publisher pair.
     #[must_use]
     pub fn open(fanout: FanoutSpec) -> Self {
         Self {
@@ -255,6 +292,7 @@ impl StrategySpec {
             accept_cap: None,
             accept_unverified: false,
             symmetric: false,
+            publisher: None,
             fanout,
         }
     }
@@ -262,13 +300,38 @@ impl StrategySpec {
     /// Build one participant's strategy set from the coordinates: the relay
     /// `Selection`/`UnifiedAcceptance` pair (the acceptor's gate is the
     /// seam's bucket count unless verification is opted out) with the
-    /// symmetric switch threaded into the handshake vocabulary; the
-    /// publisher pair stays off (relay-only populations).
+    /// symmetric switch threaded into the handshake vocabulary, plus the
+    /// publisher pair when its coordinates are present. Both seams share
+    /// the participant's one sampler seed — the per-seam draw domains make
+    /// their draws independent (ADR 0040).
     fn node_strategies(
         &self,
         self_id: &PeerId,
         sampler_seed: [u8; 32],
     ) -> Result<NodeStrategies, StrategyConfigError> {
+        let publisher = self.publisher.as_ref().map(|publisher| {
+            (
+                SelectionParams {
+                    self_id: self_id.clone(),
+                    kind: LinkKind::Publisher,
+                    symmetric: false,
+                    bucket_count: publisher.bucket_count,
+                    pick_count: publisher.pick_count,
+                    seed: sampler_seed,
+                },
+                AcceptanceParams {
+                    self_id: self_id.clone(),
+                    kind: LinkKind::Publisher,
+                    symmetric: false,
+                    bucket_count: if publisher.accept_unverified {
+                        None
+                    } else {
+                        publisher.bucket_count
+                    },
+                    accept_cap: publisher.accept_cap,
+                },
+            )
+        });
         NodeStrategies::new(
             SelectionParams {
                 self_id: self_id.clone(),
@@ -289,7 +352,7 @@ impl StrategySpec {
                 },
                 accept_cap: self.accept_cap,
             },
-            None,
+            publisher,
         )
     }
 
@@ -306,11 +369,12 @@ impl StrategySpec {
 /// A fan-out policy specification.
 #[derive(Clone, Copy, Debug)]
 pub enum FanoutSpec {
-    /// Forward held messages to every relay downstream on the topic — the
-    /// protocol's default policy. (Experiment populations are relay-only, so
-    /// this is the whole fan-out; the M5 all-links `forward-to-all` kind
-    /// waits for publisher-link experiment support.)
+    /// Forward held messages to every relay downstream on the topic, seeding
+    /// own publications over publisher links — the M2/M3 exclusivity policy.
     ForwardToRelays,
+    /// Forward every held message over every `Active` downstream link of
+    /// both kinds — M5's send side (ADR 0041).
+    ForwardToAll,
     /// Forward to no one (the experiments-only silent adversary).
     SilentRelay,
 }
@@ -319,6 +383,7 @@ impl FanoutSpec {
     fn build(self) -> Arc<dyn FanoutStrategy> {
         match self {
             Self::ForwardToRelays => Arc::new(ForwardToRelays),
+            Self::ForwardToAll => Arc::new(ForwardToAll),
             Self::SilentRelay => Arc::new(SilentRelay),
         }
     }

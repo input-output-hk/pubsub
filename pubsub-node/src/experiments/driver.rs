@@ -798,6 +798,63 @@ mod tests {
         }
     }
 
+    // ADR 0041: a population with the publisher pair establishes standing
+    // initiation links in the dial drain, and forward-to-all pushes every
+    // held message over them. At the k_in = 0 boundary (no relay mesh —
+    // the M1 shape) every dissemination send is publisher-attributed: the
+    // kind columns invert relative to the relay-only baseline.
+    #[test]
+    fn publisher_pair_establishes_and_inverts_the_kind_split() {
+        let spec = StrategySpec {
+            pick_count: Some(0), // k_in = 0: no relay dials
+            publisher: Some(crate::experiments::population::PublisherSpec {
+                pick_count: Some(2), // k_out = 2
+                bucket_count: None,
+                accept_cap: None,
+                accept_unverified: false,
+            }),
+            ..StrategySpec::open(FanoutSpec::ForwardToAll)
+        };
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 5,
+            adversarial: 0,
+            honest_strategies: spec.clone(),
+            adversarial_strategies: spec,
+        };
+        let seeds = PopulationSeeds {
+            keys: [1u8; 32],
+            classes: [2u8; 32],
+            sampler: [3u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        driver.establish(SetupMode::Prepopulated);
+        for (_, participant) in driver.population().participants() {
+            let publisher_links = participant.publisher_downstream();
+            assert_eq!(publisher_links.len(), 2, "exactly k_out dials");
+            assert!(publisher_links
+                .iter()
+                .all(|(_, _, state)| *state == LinkState::Active));
+            assert!(
+                participant.downstream().is_empty(),
+                "no relay links at k_in = 0",
+            );
+        }
+
+        let publisher = driver.draw_publisher([5u8; 32]);
+        let outcome = driver.publish_drain(&publisher, 0);
+        assert_eq!(outcome.drain.sends_by_kind.relay, 0);
+        assert_eq!(
+            outcome.drain.sends_by_kind.publisher,
+            outcome.drain.sends.total(),
+            "every send carried by a publisher link",
+        );
+        assert!(
+            outcome.drain.sends.total() >= 2,
+            "the publisher's own k_out"
+        );
+    }
+
     // 016-FR-006: control messages route through the same machinery — an
     // over-capacity `Rejected` reply is routed back and tallied, and the
     // refused dialer holds no stranded pending upstream.
