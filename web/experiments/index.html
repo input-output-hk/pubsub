@@ -266,16 +266,16 @@
       <div class="section-kind">Experiments</div>
       <h1>Five candidate dissemination models</h1>
       <p class="lede">
-        We are not proposing a dissemination design — we are deriving one. Five candidate
+        We are not proposing a dissemination design, we are deriving one. Five candidate
         models, M1 to M5, each define a different rule set for how nodes connect to their
         peers and forward messages. All are measured against one shared bar, the
         <strong>good graph</strong>: every message of every honest publisher must reach all
-        other honest nodes. And all face the same adversary — a fraction μ of silent
+        other honest nodes. And all face the same adversary: a fraction μ of silent
         Byzantine nodes that receive every message and never relay one.
       </p>
       <p class="lede">
         The guarantee has to come from links that are drawn <strong>once per epoch</strong>
-        and then serve every message of every publisher for that whole epoch — the formal
+        and then serve every message of every publisher for that whole epoch. The formal
         analyses call this the <em>standing</em> structure, and it covers both link kinds:
         relay links and publishing links. Only a structure that persists across messages can
         promise <em>every</em> message; per-message randomness cannot. The prototype node
@@ -350,7 +350,7 @@
             <div class="legend">
               <div class="legend-items" id="legend-items"></div>
             </div>
-            <div class="hover-hint">Hover a node to isolate its links — bold: chosen by the node · thin: chosen by its peers.</div>
+            <div class="hover-hint">Hover a node to isolate its links. Bold: chosen by the node · thin: chosen by its peers.</div>
           </div>
         </div>
 
@@ -575,23 +575,23 @@
     m1: {
       tab: 'M1 · Push',
       title: 'Random push gossip',
-      mech: 'Every node, on first receipt, pushes the message to F random peers. There is no standing graph at all — links are drawn fresh for every message.',
+      mech: 'Every node, on first receipt, pushes the message to F random peers. There is no standing graph at all; links are drawn fresh for every message.',
       watch: 'The cascade fans out fast, but each message gambles anew: per-message randomness cannot promise that every message of every publisher gets through, so the good-graph guarantee has to come from a large fanout.',
       knobs: 'Knob: F = 3 (demo) · push targets per receipt',
       standingTitle: 'No sync phase',
-      standingDesc: 'M1 keeps <strong>no per-epoch links</strong> — nothing is drawn at sync that later messages could reuse. It is the only model whose links form at publish time: every node draws fresh random targets each time a message first reaches it.',
-      pubDesc: 'The <strong>publisher</strong> signs a message for its topic and pushes it out — in M1 the links really are drawn now, at publish time, fresh for this message.',
-      hopDesc: 'Every newly reached honest node pushes to F fresh random targets — new links, drawn on the spot. Copies pushed into silent adversaries are absorbed (red).',
+      standingDesc: 'M1 keeps <strong>no per-epoch links</strong>; nothing is drawn at sync that later messages could reuse. It is the only model whose links form at publish time: every node draws fresh random targets each time a message first reaches it.',
+      pubDesc: 'The <strong>publisher</strong> signs a message for its topic and pushes it out, and in M1 the links really are drawn now, at publish time, fresh for this message.',
+      hopDesc: 'Every newly reached honest node pushes to F fresh random targets, new links drawn on the spot. Copies pushed into silent adversaries are absorbed (red).',
       legend: []
     },
     m2: {
       tab: 'M2 · Pull',
       title: 'Pull relaying',
       mech: 'Each node pulls from RF forwarders, redrawn every epoch; a forwarder relays every message it holds to its requesters. All propagation runs on these relay links.',
-      watch: 'Pull keeps adversaries from pushing themselves into anyone’s view — but a publisher only enters the network through its serving set, the nodes whose pulls happened to land on it. An unlucky publisher has none, and is muted. In the node implementation these are the relay links: a node’s own picks are its upstream, and the nodes that picked it are its downstream.',
+      watch: 'Pull keeps adversaries from pushing themselves into anyone’s view, but a publisher only enters the network through its serving set, the nodes whose pulls happened to land on it. An unlucky publisher has none, and is muted. In the node implementation these are the relay links: a node’s own picks are its upstream, and the nodes that picked it are its downstream.',
       knobs: 'Knob: RF = 3 (demo) · relay forwarders pulled from per node',
-      standingDesc: 'Every node establishes <strong>RF relay links</strong> by pulling — it picks the forwarders it wants to hear from. Arrows point the way messages flow, from forwarder to requester. A pick that lands on a silent adversary is a <strong>dead link</strong> (red, dashed) — that forwarder will never relay.',
-      hopDesc: 'Every holder forwards along its per-epoch relay links to the nodes that pull from it — no new links form. Relays into adversaries are absorbed (red).',
+      standingDesc: 'Every node establishes <strong>RF relay links</strong> by pulling: it picks the forwarders it wants to hear from. Arrows point the way messages flow, from forwarder to requester. A pick that lands on a silent adversary is a <strong>dead link</strong> (red, dashed): that forwarder will never relay.',
+      hopDesc: 'Every holder forwards along its per-epoch relay links to the nodes that pull from it, and no new links form. Relays into adversaries are absorbed (red).',
       legend: [
         { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
         { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' }
@@ -600,8 +600,8 @@
     m3: {
       tab: 'M3 · Pull + publishing links',
       title: 'Pull relaying with publishing links',
-      mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications — the publisher plus its targets form the initial holders.',
-      watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype — not yet the validated final design; the data decides that.',
+      mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications, so the publisher plus its targets form the initial holders.',
+      watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype, not yet the validated final design; the data decides that.',
       knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
       standingDesc: 'The same <strong>relay links</strong> as M2, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long). Every node holds its own publishing links; only the publisher’s matter for its message, so only those are drawn.',
       hopDesc: 'Every holder forwards along its relay links; the publisher additionally sent its message directly over its publishing links at hop one.',
@@ -615,9 +615,9 @@
       tab: 'M4 · Bidirectional',
       title: 'Bidirectional flooding',
       mech: 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.',
-      watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out — there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
+      watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out, so there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
       knobs: 'Knob: RF = 2 (demo) · symmetric links per node',
-      standingDesc: 'Every node draws <strong>RF picks</strong>, and every pick becomes one <strong>symmetric link</strong> — no arrows, because the same link carries traffic both ways.',
+      standingDesc: 'Every node draws <strong>RF picks</strong>, and every pick becomes one <strong>symmetric link</strong>, with no arrows, because the same link carries traffic both ways.',
       hopDesc: 'Every holder floods along its symmetric links, except the one the message arrived on. Adversaries absorb their copies and stay silent.',
       legend: [
         { kind: 'edge-sym', label: 'symmetric link' }
@@ -627,10 +627,10 @@
       tab: 'M5 · Directed',
       title: 'Directed k<sub>in</sub>/k<sub>out</sub> gossip',
       mech: 'Every node opens k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
-      watch: 'The general case of the family: k<sub>out</sub> = 0 recovers pull-only M2, k<sub>in</sub> = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy — both directions are the node’s own uniform picks.',
+      watch: 'The general case of the family: k<sub>out</sub> = 0 recovers pull-only M2, k<sub>in</sub> = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy, and both directions are the node’s own uniform picks.',
       knobs: 'Knobs: k<sub>in</sub> = 2, k<sub>out</sub> = 2 (demo) · inbound and outbound links per node',
       standingDesc: 'Two directed link kinds, both the node’s own picks: <strong>solid arrows</strong> are outbound links (the sender chose its target), <strong>dashed arrows</strong> are inbound links (the receiver chose its forwarder). Messages flow the same way on both.',
-      hopDesc: 'Every holder relays along its epoch links — its own outbound links, plus the inbound links of every node that chose it as forwarder. Relays into adversaries are absorbed (red).',
+      hopDesc: 'Every holder relays along its epoch links: its own outbound links, plus the inbound links of every node that chose it as forwarder. Relays into adversaries are absorbed (red).',
       legend: [
         { kind: 'edge-out', label: 'outbound link (sender’s own pick)' },
         { kind: 'edge-in', label: 'inbound link (receiver’s own pick)' },
@@ -748,10 +748,10 @@
       desc: `${N} nodes, drawn from the on-chain registry. Three of them (μ ≈ 0.2) are <strong>silent adversaries</strong>: they accept every message and never forward one. Nobody knows which.`,
       phase: 'setup'
     });
-    scenes.push({ title: m.standingTitle || 'Sync — the epoch’s links form', desc: m.standingDesc, phase: 'standing' });
+    scenes.push({ title: m.standingTitle || 'Sync: the epoch’s links form', desc: m.standingDesc, phase: 'standing' });
     scenes.push({
       title: 'Publication',
-      desc: m.pubDesc || 'The <strong>publisher</strong> signs a message for its topic and hands it to the network. The topology is already in place — from here on, no new links form; the message only travels over the links drawn at sync.',
+      desc: m.pubDesc || 'The <strong>publisher</strong> signs a message for its topic and hands it to the network. The topology is already in place, so from here on no new links form; the message only travels over the links drawn at sync.',
       phase: 'publish'
     });
     scen.hops.forEach((h, hi) => scenes.push({
@@ -762,8 +762,8 @@
     scenes.push({
       title: 'Coverage',
       desc: reached === honest
-        ? `All <strong>${honest} honest nodes</strong> reached in ${scen.hops.length} hops — this sampled graph was <strong>good</strong>. Whether an epoch’s graph is good is probabilistic; the analysis pins the failure probability below 10⁻⁴ at the real operating point.`
-        : `<strong>${honest - reached} honest node${honest - reached === 1 ? '' : 's'}</strong> never reached — this sampled graph was <strong>bad</strong>. The analysis chooses parameters so this happens with probability below 10⁻⁴.`,
+        ? `All <strong>${honest} honest nodes</strong> reached in ${scen.hops.length} hops, and this sampled graph was <strong>good</strong>. Whether an epoch’s graph is good is probabilistic; the analysis pins the failure probability below 10⁻⁴ at the real operating point.`
+        : `<strong>${honest - reached} honest node${honest - reached === 1 ? '' : 's'}</strong> never reached, so this sampled graph was <strong>bad</strong>. The analysis chooses parameters so this happens with probability below 10⁻⁴.`,
       phase: 'verdict'
     });
   }

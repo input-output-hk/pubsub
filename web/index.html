@@ -971,7 +971,7 @@
             </svg>
             <div class="card-kicker">Node operations</div>
             <h3>Node builder to operator</h3>
-            <p>Node builders — teams like IOG, Amaru, and the Cardano Foundation — reach node operators with authenticated emergency and operational alerts.</p>
+            <p>Node builders such as IOG, Amaru and the Cardano Foundation reach node operators with authenticated emergency and operational alerts.</p>
           </div>
           <div class="card">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1031,7 +1031,7 @@
           <div class="timeline-tag">Foundations</div>
           <h3>SecureCyclon published</h3>
           <p>
-            Antonov &amp; Voulgaris publish SecureCyclon at ICDCS 2023 — a peer-sampling
+            Antonov &amp; Voulgaris publish SecureCyclon at ICDCS 2023: a peer-sampling
             protocol with defences against protocol-violating peers, proposed as the
             decentralised foundation the PubSub workstream would build on.
           </p>
@@ -1043,9 +1043,9 @@
           <p>
             Use-case and requirements analysis, cryptographic key-material study, and formal plus
             empirical analysis of the proposed peer-sampling foundation. The analysis surfaced
-            silent attack vectors — adversaries can bias nodes' views of the network without
-            triggering any of the protocol's defences — which led to the sampling layer being
-            set aside in favour of an on-chain, list-based design.
+            silent attack vectors, where adversaries can bias nodes' views of the network
+            without triggering any of the protocol's defences. That led to the sampling layer
+            being set aside in favour of an on-chain, list-based design.
           </p>
         </div>
         <div class="timeline-entry active">
@@ -1054,7 +1054,7 @@
           <h3>Empirically-driven architecture</h3>
           <p>
             <a href="#experiments">Five candidate dissemination models</a>, from simple push to hybrid designs, analysed
-            formally and measured empirically against a silent Byzantine adversary — so the
+            formally and measured empirically against a silent Byzantine adversary, so the
             final design is the one the data supports, not the one intuition favours. A Rust
             prototype node implements topics, subscriptions, publishing, and fan-out forwarding,
             backed by a deterministic simulation framework for controlled experiments.
@@ -1066,11 +1066,11 @@
           <h3>Hardening &amp; ecosystem integration</h3>
           <p>
             A design proposal consolidates the analytical and experimental findings into a
-            concrete architecture recommendation — published as a CIP if phase&nbsp;2 time
+            concrete architecture recommendation, published as a CIP if phase&nbsp;2 time
             permits. The scope beyond that is still taking shape; candidates include a
             fee-and-incentive model that rewards honest participation, real network transport
-            in the prototype node, a public testnet, and — on the research side —
-            decentralised peer sampling at scales where the on-chain list no longer suffices.
+            in the prototype node, a public testnet, and, on the research side, decentralised
+            peer sampling at scales where the on-chain list no longer suffices.
           </p>
         </div>
       </div>
@@ -1094,23 +1094,23 @@
       <div class="model-strip">
         <a class="model-row" href="experiments/#m1">
           <span class="model-id">M1</span>
-          <span class="model-mech"><strong>Push</strong> — every node, on first receipt, pushes the message to F random peers.</span>
+          <span class="model-mech"><strong>Push</strong>: every node, on first receipt, pushes the message to F random peers.</span>
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/#m2">
           <span class="model-id">M2</span>
-          <span class="model-mech"><strong>Pull</strong> — each node pulls from RF forwarders, redrawn every epoch.</span>
+          <span class="model-mech"><strong>Pull</strong>: each node pulls from RF forwarders, redrawn every epoch.</span>
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/#m3">
           <span class="model-id">M3</span>
-          <span class="model-mech"><strong>Pull + publishing links</strong> — per-epoch pull plus s−1 publishing links carrying only the node's own publications.</span>
+          <span class="model-mech"><strong>Pull + publishing links</strong>: per-epoch pull plus s−1 publishing links carrying only the node's own publications.</span>
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/#m4">
           <span class="model-id">M4</span>
-          <span class="model-mech"><strong>Bidirectional</strong> — each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.</span>
+          <span class="model-mech"><strong>Bidirectional</strong>: each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.</span>
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/#m5">
           <span class="model-id">M5</span>
-          <span class="model-mech"><strong>Directed</strong> — k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node's own picks.</span>
+          <span class="model-mech"><strong>Directed</strong>: k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node's own picks.</span>
         <span class="model-arrow">›</span></a>
       </div>
       <div class="model-cta">
