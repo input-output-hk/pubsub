@@ -48,7 +48,12 @@
     display: none;
     flex-direction: column;
     justify-content: center;
-    padding: clamp(32px, 6vh, 72px) clamp(28px, 7vw, 110px);
+    /* Bottom padding clears the fixed chrome bar (~46px) with room to spare, so
+       content never crowds the footer on short windows. */
+    padding:
+      clamp(44px, 7vh, 84px)
+      clamp(32px, 7vw, 110px)
+      clamp(72px, 9vh, 112px);
   }
   .slide.active { display: flex; }
 
@@ -101,6 +106,16 @@
     max-width: 56ch;
     line-height: 1.45;
   }
+
+  /* Text-heavy slides sitting beside a fixed-size illustration: tighten the prose
+     rhythm so the column fits short windows without shrinking the visual. */
+  .slide.dense .slide-kicker { margin-bottom: 0.6em; }
+  .slide.dense h2 { font-size: 2.1em; margin-bottom: 0.5em; }
+  .slide.dense p.lede { font-size: 1em; line-height: 1.45; }
+  .slide.dense ul.points { gap: 0.5em; }
+  .slide.dense ul.points li { font-size: 0.95em; line-height: 1.4; }
+  .slide.dense p.lede + ul.points { margin-top: 1em; }
+  .slide.dense .takeaway { margin-top: 1em; font-size: 1em; }
 
   /* Closing slide */
   .slide.close-slide { align-items: center; text-align: center; }
@@ -466,7 +481,7 @@
   </section>
 
   <!-- 3 · What we're working towards -->
-  <section class="slide">
+  <section class="slide dense">
     <div class="split-row">
       <div>
         <div class="slide-kicker">The workstream</div>
@@ -477,7 +492,7 @@
           identifiable publishers, verifiable events, on-chain registered topics, and an
           economic cost to creating publisher identities.
         </p>
-        <ul class="points" style="margin-top:1.3em">
+        <ul class="points">
           <li><strong>Node builders → node operators</strong> — authenticated emergency alerts
             from teams like IOG, Amaru, and the Cardano Foundation.</li>
           <li><strong>SPOs → delegators</strong> — announcements from topics that provably
@@ -597,12 +612,12 @@
   </section>
 
   <!-- 5 · Phase 1 -->
-  <section class="slide">
+  <section class="slide dense">
     <div class="split-row timeline-row">
       <div>
         <div class="slide-kicker">Phase 1 — exploratory research</div>
         <h2>From proposal to evidence</h2>
-        <ul class="points" style="gap:0.6em">
+        <ul class="points">
           <li><strong>Where we started:</strong> the four use cases just shown, and the research
             paper <em>SecureCyclon: Dependable Peer Sampling</em> (July 2023).</li>
           <li>The proposal: three layers — peer sampling, navigation, dissemination —
@@ -616,7 +631,7 @@
           <li><strong>Where that led us:</strong> a simpler, modellable design — no peer
             sampling for now; on-chain registries close off the silent sampling attacks.</li>
         </ul>
-        <p class="takeaway" style="margin-top:1.1em">Analysed what we were given, widened to
+        <p class="takeaway">Analysed what we were given, widened to
           alternatives like Basalt — then narrowed to a modular base built to grow.</p>
       </div>
       <div class="timeline-visual" aria-hidden="true">
@@ -669,7 +684,7 @@
   </section>
 
   <!-- 6 · Phase 2 approach -->
-  <section class="slide">
+  <section class="slide dense">
     <div class="split-row method-row">
       <div>
         <div class="slide-kicker">Phase 2 — the approach</div>
