@@ -638,6 +638,10 @@ fn run_record_serialization_is_pinned() {
                 adversarial: 1,
                 down: 1,
             },
+            sends_by_kind: pubsub_node::experiments::driver::KindTally {
+                relay: 3,
+                publisher: 0,
+            },
             suppressed: 0,
             severed: 0,
         }],
@@ -655,7 +659,7 @@ fn run_record_serialization_is_pinned() {
             r#""publishes":[{"coverage":0.5,"received":1,"missed":1,"max_depth":1,"#,
             r#""depth_hist":[1,1],"miss_causes":{"all_upstreams_adversarial_or_down":1,"#,
             r#""no_upstream":0,"no_up_honest_path":0},"sends":{"honest":1,"adversarial":1,"#,
-            r#""down":1},"suppressed":0,"severed":0}]}"#,
+            r#""down":1},"sends_by_kind":{"relay":3,"publisher":0},"suppressed":0,"severed":0}]}"#,
         ),
     );
 }

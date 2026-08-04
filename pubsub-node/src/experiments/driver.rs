@@ -20,6 +20,7 @@ use std::collections::{BTreeMap, HashMap};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
+use crate::connection_state::LinkKind;
 use crate::crypto::mock::MockCryptoScheme;
 use crate::crypto::{MessageHash, Signer, Timestamp};
 use crate::event::Event;
@@ -71,6 +72,32 @@ impl SendTally {
     }
 }
 
+/// Dissemination sends split by the carrying link's kind, attributed at
+/// emission: a send is `relay` iff the sender holds an `Active` relay
+/// downstream link for `(topic, recipient)`, and `publisher` otherwise —
+/// a recipient reachable over both kinds is attributed to the relay mesh
+/// (the deduped single send would have happened over it regardless of the
+/// publisher link). Connection-control sends carry no kind; a dial drain
+/// leaves this tally zero. Degenerate columns are constant at zero, never
+/// absent: relay-only models show `publisher` ≡ 0, and M5's `k_in` = 0
+/// boundary row (M1) shows `relay` ≡ 0.
+// ADR 0041 (amending ADR 0036's row schema).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
+pub struct KindTally {
+    /// Sends carried by relay links.
+    pub relay: u64,
+    /// Sends carried by publisher links.
+    pub publisher: u64,
+}
+
+impl KindTally {
+    /// Total sends across both link kinds.
+    #[must_use]
+    pub fn total(&self) -> u64 {
+        self.relay + self.publisher
+    }
+}
+
 /// The driver's per-phase observation of one drain.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DrainOutcome {
@@ -81,6 +108,9 @@ pub struct DrainOutcome {
     pub first_receipt: BTreeMap<PeerId, u64>,
     /// Sends tallied at emission, split by recipient class.
     pub sends: SendTally,
+    /// Dissemination sends tallied at emission, split by carrying link kind
+    /// (zero for control-only drains).
+    pub sends_by_kind: KindTally,
     /// Deliveries whose content hash the recipient had already seen.
     pub suppressed: u64,
     /// `Misbehaved` effects consumed (signature-failure severances).
@@ -357,6 +387,9 @@ impl Driver {
                         .expect("send addressed to a population member");
                     if recipient.is_down() {
                         outcome.sends.down += 1;
+                        if matches!(&message, Message::Dissemination(_)) {
+                            self.attribute_send_kind(from, &to, outcome);
+                        }
                         continue;
                     }
                     match recipient.class() {
@@ -369,6 +402,9 @@ impl Driver {
                         Message::Dissemination(signed) => Some(MessageHash::of(&signed.plain)),
                         _ => None,
                     };
+                    if dissemination_hash.is_some() {
+                        self.attribute_send_kind(from, &to, outcome);
+                    }
                     next.push(Delivery {
                         from: from.clone(),
                         to,
@@ -378,6 +414,29 @@ impl Driver {
                 }
                 Effect::Misbehaved { .. } => outcome.severed += 1,
             }
+        }
+    }
+
+    /// Attribute one dissemination send to its carrying link kind — relay
+    /// when the sender holds an `Active` relay downstream link for the
+    /// recipient (the both-kinds case included), publisher otherwise.
+    ///
+    /// Every dissemination send has a carrying link by construction: the
+    /// fan-out policies target `Active` downstream links only.
+    fn attribute_send_kind(&self, from: &PeerId, to: &PeerId, outcome: &mut DrainOutcome) {
+        let sender = self
+            .population
+            .participant(from)
+            .expect("send emitted by a population member");
+        let topic = self.population.topic();
+        if sender.holds_active_downstream(topic, to, LinkKind::Relay) {
+            outcome.sends_by_kind.relay += 1;
+        } else {
+            debug_assert!(
+                sender.holds_active_downstream(topic, to, LinkKind::Publisher),
+                "a dissemination send with no carrying downstream link",
+            );
+            outcome.sends_by_kind.publisher += 1;
         }
     }
 

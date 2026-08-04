@@ -174,6 +174,13 @@ impl Participant {
         entries
     }
 
+    /// Whether the node holds an `Active` downstream link of `kind` for
+    /// `(topic, peer)` — the driver's per-send kind-attribution read.
+    #[must_use]
+    pub fn holds_active_downstream(&self, topic: &TopicId, peer: &PeerId, kind: LinkKind) -> bool {
+        self.state.has_active_downstream(topic, peer, kind)
+    }
+
     /// Whether the node has accepted a message with this content hash
     /// (published or received).
     #[must_use]

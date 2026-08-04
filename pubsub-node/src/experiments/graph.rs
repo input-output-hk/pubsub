@@ -19,21 +19,27 @@ use super::population::Population;
 
 /// The dissemination model an experiment runs under: the dispatch that owns
 /// propagation-graph extraction, the per-publisher seed-set rule, and the
-/// goodness criterion. v1 ships exactly one variant; the
-/// dispatch shape is what the experiment program's later stages and the
-/// in-flight publisher-links work extend.
+/// goodness criterion. The dispatch shape is what the experiment program's
+/// model-family stage extends (ADR 0041).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DisseminationModel {
-    /// Uniform-relay dissemination: propagation edges are the `downstream`
-    /// records between up-honest peers; the seed set is the publisher alone;
-    /// good ⟺ one strongly connected component.
+    /// Uniform-relay dissemination: propagation edges are the relay
+    /// `downstream` records between up-honest peers; the seed set is the
+    /// publisher alone; good ⟺ one strongly connected component.
     M2,
+    /// Bidirectional-relay dissemination (the symmetric handshake with a
+    /// pick count). Shares M2's extraction and seed rules exactly: every
+    /// relay link is mirrored, so the extracted digraph is symmetric by
+    /// construction and the one-SCC criterion applies unchanged. Its own
+    /// name keeps configurations self-describing (ADR 0041 ties it to the
+    /// symmetric switch).
+    M4,
 }
 
 /// The error returned when a configuration string names no known
 /// dissemination model.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown dissemination model '{0}' (expected one of: m2)")]
+#[error("unknown dissemination model '{0}' (expected one of: m2, m4)")]
 pub struct UnknownDisseminationModel(pub String);
 
 impl DisseminationModel {
@@ -42,16 +48,17 @@ impl DisseminationModel {
     pub const fn name(self) -> &'static str {
         match self {
             Self::M2 => "m2",
+            Self::M4 => "m4",
         }
     }
 
     /// The per-publisher seed set: the vertices assumed to hold the message
-    /// at wave 0 — the dispatch's parameterisation point. M2 seeds the
+    /// at wave 0 — the dispatch's parameterisation point. M2 and M4 seed the
     /// publisher alone.
     #[must_use]
     pub fn publisher_seeds(self, publisher: &PeerId) -> Vec<PeerId> {
         match self {
-            Self::M2 => vec![publisher.clone()],
+            Self::M2 | Self::M4 => vec![publisher.clone()],
         }
     }
 
@@ -62,11 +69,12 @@ impl DisseminationModel {
     /// [`ChurnPhase::PreChurn`] includes down honest nodes (the formed-
     /// topology diagnostic). Adversarial participants are never vertices:
     /// under M2 the silent relay contributes nothing to propagation. An edge
-    /// `u → v` exists iff `v` is in `u`'s fan-out target set — for M2, `u`'s
-    /// `downstream` records restricted to the vertex set.
+    /// `u → v` exists iff `v` is in `u`'s fan-out target set — for M2 (and
+    /// M4, which aliases it), `u`'s relay `downstream` records restricted to
+    /// the vertex set.
     #[must_use]
     pub fn extract(self, population: &Population, phase: ChurnPhase) -> PropagationDigraph {
-        let Self::M2 = self;
+        let (Self::M2 | Self::M4) = self;
         let in_scope = |participant: &super::population::Participant| match phase {
             ChurnPhase::PreChurn => {
                 participant.class() == super::population::ParticipantClass::Honest
@@ -116,6 +124,7 @@ impl FromStr for DisseminationModel {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "m2" => Ok(Self::M2),
+            "m4" => Ok(Self::M4),
             _ => Err(UnknownDisseminationModel(s.to_string())),
         }
     }
@@ -505,6 +514,26 @@ mod tests {
         let pre = DisseminationModel::M2.extract(&population, ChurnPhase::PreChurn);
         assert_eq!(pre.vertices(), &[peer(0), peer(1), peer(2)]);
         assert_eq!(pre.edge_count(), 6, "full mesh over the three honest");
+    }
+
+    // ADR 0041: `m4` parses to its own name and aliases M2's extraction and
+    // seed rules exactly — the digraph is identical on any population.
+    #[test]
+    fn m4_parses_and_aliases_m2_extraction() {
+        use std::str::FromStr;
+        let m4 = DisseminationModel::from_str("m4").expect("known model");
+        assert_eq!(m4, DisseminationModel::M4);
+        assert_eq!(m4.name(), "m4");
+
+        let population = scripted::full_mesh(4).silent(3).build();
+        let via_m4 = m4.extract(&population, ChurnPhase::PostChurn);
+        let via_m2 = DisseminationModel::M2.extract(&population, ChurnPhase::PostChurn);
+        assert_eq!(via_m4.vertices(), via_m2.vertices());
+        assert_eq!(via_m4.edge_count(), via_m2.edge_count());
+        assert_eq!(
+            m4.publisher_seeds(&peer(0)),
+            DisseminationModel::M2.publisher_seeds(&peer(0)),
+        );
     }
 
     // 016-FR-020: the iterative Kosaraju condensation on the worked example —

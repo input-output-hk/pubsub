@@ -157,6 +157,10 @@ pub struct ExperimentAggregates {
     pub sends_adversarial_mean: f64,
     /// Mean sends into down nodes per publish.
     pub sends_down_mean: f64,
+    /// Mean sends carried by relay links per publish.
+    pub sends_relay_mean: f64,
+    /// Mean sends carried by publisher links per publish.
+    pub sends_publisher_mean: f64,
     /// Total-sends percentiles per publish.
     pub sends_total_percentiles: Percentiles,
     /// Mean fraction of arrivals that were redundant:
@@ -193,6 +197,8 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
     let mut sends_honest_sum = 0.0f64;
     let mut sends_adversarial_sum = 0.0f64;
     let mut sends_down_sum = 0.0f64;
+    let mut sends_relay_sum = 0.0f64;
+    let mut sends_publisher_sum = 0.0f64;
     let mut sends_totals: Vec<f64> = Vec::new();
     let mut duplication_sum = 0.0f64;
 
@@ -231,6 +237,8 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
             sends_honest_sum += publish.sends.honest as f64;
             sends_adversarial_sum += publish.sends.adversarial as f64;
             sends_down_sum += publish.sends.down as f64;
+            sends_relay_sum += publish.sends_by_kind.relay as f64;
+            sends_publisher_sum += publish.sends_by_kind.publisher as f64;
             sends_totals.push(publish.sends.total() as f64);
             let receipts_via_sends =
                 publish.sends.total() - publish.suppressed - publish.sends.down;
@@ -268,6 +276,8 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
         sends_honest_mean: sends_honest_sum / publish_count,
         sends_adversarial_mean: sends_adversarial_sum / publish_count,
         sends_down_mean: sends_down_sum / publish_count,
+        sends_relay_mean: sends_relay_sum / publish_count,
+        sends_publisher_mean: sends_publisher_sum / publish_count,
         sends_total_percentiles: percentiles(&sends_totals),
         duplication_ratio_mean: duplication_sum / publish_count,
     }
@@ -278,7 +288,7 @@ mod tests {
     use super::{
         count_estimate, fold_aggregates, fraction_bin, observe, percentiles, SparseHistogram,
     };
-    use crate::experiments::driver::SendTally;
+    use crate::experiments::driver::{KindTally, SendTally};
     use crate::experiments::metrics::{MissCauseCounts, PublishRecord, RunRecord};
     use crate::experiments::scripted::peer;
 
@@ -293,6 +303,10 @@ mod tests {
                 all_upstreams_adversarial_or_down: missed,
                 no_upstream: 0,
                 no_up_honest_path: 0,
+            },
+            sends_by_kind: KindTally {
+                relay: sends.total(),
+                publisher: 0,
             },
             sends,
             suppressed,
@@ -406,6 +420,8 @@ mod tests {
         assert!(a.good_pre_churn.is_none());
         assert_eq!(a.depth_hist_pooled, vec![3, 6]);
         assert!((a.sends_honest_mean - 6.0).abs() < f64::EPSILON);
+        assert!((a.sends_relay_mean - 6.0).abs() < f64::EPSILON);
+        assert!(a.sends_publisher_mean.abs() < f64::EPSILON);
         // Each publish: 6 sends, 3 suppressed, 0 down ⇒ 3 receipts;
         // duplication = 3/6.
         assert!((a.duplication_ratio_mean - 0.5).abs() < f64::EPSILON);
