@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pubsub.cardano-scaling.org/sitemap.xml

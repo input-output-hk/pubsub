@@ -1,0 +1,31 @@
+# Cardano PubSub
+
+> Research and development of a Cardano-anchored publish/subscribe layer for
+> authenticated ecosystem communication: identifiable publishers, verifiable
+> events, on-chain registered topics, and an economic cost to creating publisher
+> identities. A research workstream by Input Output, not a production system.
+
+The work is in an empirically-driven architecture phase: five candidate
+dissemination models (M1–M5) are analysed formally and validated experimentally
+against one shared bar — every message of every honest publisher must reach all
+other honest nodes, despite a fraction of silent adversarial nodes. The design is
+being derived from measurement rather than proposed up front.
+
+## Site
+
+- [Overview](https://pubsub.cardano-scaling.org/): what the layer is, who it is for, and where the research stands.
+- [Dissemination models](https://pubsub.cardano-scaling.org/experiments/): the five candidate models, their construction and forwarding rules, and what separates them.
+- [Midyear presentation](https://pubsub.cardano-scaling.org/slides/midyear-2026.html): progress and direction as of July 2026.
+
+## Repository
+
+- [Source](https://github.com/input-output-hk/pubsub): Rust prototype node, deterministic experiments framework, formal models, and analysis.
+- [Logbook](https://github.com/input-output-hk/pubsub/blob/main/logbook.md): running record of technical decisions, most recent first.
+- [Biweekly reports](https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports): fortnightly progress summaries against project goals.
+- [Formal models](https://github.com/input-output-hk/pubsub/tree/main/formal_spec): Quint and PRISM models plus the per-model property analyses.
+- [Prototype node](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node): the Rust implementation and its experiments framework.
+
+## Notes
+
+- This is a proof of concept that has not undergone a security audit; it is not for production use.
+- The adversary modelled in the formal analyses is silent (receives and never relays). Active adversaries, resource exhaustion and denial of service are out of scope for the current phase.
