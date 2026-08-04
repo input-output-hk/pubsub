@@ -670,35 +670,51 @@
   /* ---------- Activity stats ----------
      One figure at a time, cycling. With reduced motion every figure is shown at
      once instead, so nothing moves and nothing is hidden. */
-  /* The badge sits at the trailing edge of the section heading row on desktop and
-     drops beneath the title once there is no room for it. */
+  /* The badge sits at the trailing edge of the section heading row on desktop,
+     level with the top of the heading block, and drops beneath the title once
+     there is no room for it. The title block absorbs the squeeze so the badge
+     keeps its full width rather than being narrowed into two lines. */
   .activity-head {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 16px 28px;
     flex-wrap: wrap;
+  }
+  .activity-head > :first-child { flex: 1 1 auto; min-width: 0; }
+  /* From tablet width up the badge always shares the heading row: the title is
+     given a zero flex basis so it wraps to a second line rather than pushing the
+     badge onto one of its own. Below that the badge drops under the title. */
+  @media (min-width: 900px) {
+    .activity-head > :first-child { flex: 1 1 0; }
   }
   .stat-rotator {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    flex: 0 0 auto;
   }
   .stat-pill {
     display: inline-flex;
     align-items: baseline;
-    gap: 8px;
-    border: 1px solid var(--card-stroke-faint);
+    gap: 7px;
+    border: 1px solid var(--iog-infared);
     border-radius: 999px;
-    background: var(--card-fill);
-    padding: 8px 16px;
+    background: var(--bad-soft);
+    padding: 5px 12px;
     font-family: var(--font-mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    /* Every figure reads on one line, however long its label runs. */
+    white-space: nowrap;
     transition: opacity .45s ease, transform .45s ease;
   }
-  .stat-pill .stat-value { color: var(--iog-infared); font-weight: 600; }
-  .stat-pill .stat-label { color: var(--text-mute); }
+  .stat-pill .stat-value { color: var(--iog-infared); font-weight: 700; }
+  .stat-pill .stat-label { color: var(--iog-infared); opacity: 0.85; }
+  /* Very narrow screens have less room than the longest label needs. */
+  @media (max-width: 420px) {
+    .stat-pill { white-space: normal; }
+  }
   /* While cycling, the outgoing and incoming pills share one grid cell, so the
      swap cannot shift the layout around them. */
   .stat-rotator.cycling {
@@ -934,7 +950,7 @@
           </g>
           <!-- PubSub hub -->
           <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
-          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+          <text x="222" y="192" text-anchor="middle" font-size="19" letter-spacing="1.5" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PUBSUB</text>
 
           <!-- topic color legend -->
           <g font-size="10" letter-spacing="1" fill="var(--text-faint)">
