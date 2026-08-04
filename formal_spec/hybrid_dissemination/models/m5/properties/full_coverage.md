@@ -91,3 +91,22 @@ Best split per total budget B = k_in + k_out (balanced is always optimal):
 **The smallest budget meeting the target is k_in + k_out = 17, split (9,8)
 (≡ (8,9)): P(bad) ≈ 4.4×10⁻⁵.** The symmetric (8,8) just misses
 (1.35×10⁻⁴); (9,9) buys a ~4× margin for one more link.
+
+## 5. Failure severity — what a bad graph costs
+
+Conditional on bad, the stranded set is almost always a single node.
+`sim_m5_severity.py` measures d = H − |giant SCC| on bad graphs at
+elevated μ and classifies the stranded nodes — deaf (unreachable from
+the giant) vs mute (cannot reach it):
+
+| μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | deaf : mute |
+|---|---|---|---|---|---|---|
+| 0.45 | 121 | 86 % | 13 % | 1 % | 3 | 53 : 86 |
+| 0.50 | 152 | 70 % | 19 % | 11 % | 4 | 94 : 123 |
+
+Both defect classes appear, in the ratio the two law terms predict
+(deaf : mute ≈ 44 : 56 at μ_eff = 0.45; ≈ 31 : 69 at the operating
+point). At the operating point (E ≈ 4×10⁻⁵) multiplicity collapses to
+one: **a δ-event is one stranded node — a muted publisher about twice as
+often as an eclipsed receiver**. No fragment beyond 4 nodes appeared in
+273 bad graphs.

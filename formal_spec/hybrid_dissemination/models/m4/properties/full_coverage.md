@@ -70,3 +70,22 @@ survives the correction.
 **RF = 8**: P(bad) ≈ 6.8×10⁻⁵ ≤ 10⁻⁴ (and ≈ 7.6×10⁻⁵ with the ~1.1× tail
 correction — still under target). RF = 7 gives 7.5×10⁻⁴ (measured 8.5×10⁻⁴),
 above target.
+
+## 5. Failure severity — what a bad graph costs
+
+Conditional on bad, the stranded set is almost always a single node.
+`sim_m4_severity.py` measures d = H − |largest component| and the sizes
+of the straggler components on bad graphs at elevated μ:
+
+| μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | islets ≥ 2 nodes |
+|---|---|---|---|---|---|---|
+| 0.45 | 129 | 90 % | 10 % | 0 % | 2 | none (142 stragglers) |
+| 0.50 | 159 | 67 % | 26 % | 7 % | 4 | none (229 stragglers) |
+
+Every straggler component observed was a single isolated node — the
+d ≥ 2 rows are multiple simultaneous singletons (Poisson multiplicity at
+these E), not larger islets. At the operating point (E ≈ 7×10⁻⁵)
+multiplicity collapses to one: **a δ-event is one honest node cut off in
+both directions**; the deep-tail ~1.1× factor (§3) implies roughly one
+bad graph in ten is a small ≥ 2-node islet instead. No partition-scale
+fragment ever appeared.

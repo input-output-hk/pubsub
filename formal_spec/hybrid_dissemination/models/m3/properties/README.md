@@ -7,7 +7,8 @@ initiation links).
 mean-field + strict good-graph check; reuses the M2 sampler `m2_model.py`;
 run it for a self-test), `sim_m3_coverage.py` (the P(bad) study),
 `sweep_m3_cost.py` (bandwidth/latency vs RF), `sim_m3_degrees.py` (degree
-distributions). Auxiliary:
+distributions), `sweep_m3_mu_shift.py` (μ-shift degradation at frozen
+(RF, s)), `sim_m3_severity.py` (bad-graph severity + initiation rescue). Auxiliary:
 `check_p03_end_to_end_coverage.py` (mean-field machinery checks),
 `sim_p03_full_coverage.py` / `sim_p03_tail.py` (per-message success tables
 and deep tail), `sim_p06_depth.py` (depth percentiles).
@@ -18,9 +19,10 @@ and deep tail), `sim_p06_depth.py` (depth percentiles).
 | Expected messages (bandwidth) | [`expected_number_of_messages.md`](expected_number_of_messages.md) | CLOSED FORM |
 | Expected hops (latency) | [`expected_number_of_hops.md`](expected_number_of_hops.md) | SIMULATION ONLY |
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
-| Churn tolerance (no repair) | [`churn_tolerance.md`](../../churn_tolerance.md) (shared) | pending — expected CLOSED FORM |
-| Join service (mid-epoch newcomers) | [`join_service.md`](../../join_service.md) (shared) | pending — structural |
-| Link repair (mid-epoch redraws) | [`link_repair.md`](../../link_repair.md) (shared) | pending — expected HYBRID |
+| μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
+
+Candidate properties not yet analysed (churn tolerance, join service,
+link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−E} with two
 defect classes, E = H[μ^RF + μ^{s−1}e^{−RF(1−μ)}] — initiation links attack

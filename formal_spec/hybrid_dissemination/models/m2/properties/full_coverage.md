@@ -72,3 +72,21 @@ strong-connectivity check):
 At this point the eclipse term u is 8 orders of magnitude below the
 muted-publisher term — the fanout is spent protecting *publishing*, not
 reception (reception alone needs only RF ≥ ln(H/δ)/ln(1/μ) ≈ 12).
+
+## 5. Failure severity — what a bad graph costs
+
+Conditional on bad, the stranded set is almost always a single node.
+`sim_m2_severity.py` measures d = H − |giant SCC| on bad graphs at
+elevated μ and classifies the stranded nodes — deaf (eclipsed) vs mute
+(no requester path):
+
+| μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | deaf : mute |
+|---|---|---|---|---|---|---|
+| 0.55 | 115 | 95 % | 4 % | 1 % | 3 | 6 : 116 |
+| 0.60 | 155 | 72 % | 25 % | 3 % | 4 | 14 : 191 |
+
+The exact mirror of M1 (a same-seed sample is M1's edge-reversal, so the
+deaf/mute split swaps). At the operating point (E ≈ 7×10⁻⁵) multiplicity
+collapses to one: **a δ-event is one muted publisher** — its messages do
+not propagate for the epoch, everyone else's flow untouched. No fragment
+beyond 4 nodes appeared in 270 bad graphs.

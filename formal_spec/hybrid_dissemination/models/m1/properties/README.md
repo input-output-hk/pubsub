@@ -5,7 +5,9 @@ Per-property analyses of [M1](../README.md).
 **Scripts** (all in `../scripts/`): `m1_model.py` (sampler + closed
 forms + honest BFS; run it for a self-test), `sim_m1_coverage.py`
 (the P(bad) study), `sweep_m1_cost.py` (bandwidth/latency vs F),
-`sim_m1_degrees.py` (degree distributions).
+`sim_m1_degrees.py` (degree distributions), `sweep_m1_mu_shift.py`
+(μ-shift degradation at frozen F), `sim_m1_severity.py` (bad-graph
+severity).
 
 | Property | File | Verdict |
 |---|---|---|
@@ -13,9 +15,10 @@ forms + honest BFS; run it for a self-test), `sim_m1_coverage.py`
 | Expected messages (bandwidth) | [`expected_number_of_messages.md`](expected_number_of_messages.md) | CLOSED FORM |
 | Expected hops (latency) | [`expected_number_of_hops.md`](expected_number_of_hops.md) | SIMULATION ONLY |
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
-| Churn tolerance (no repair) | [`churn_tolerance.md`](../../churn_tolerance.md) (shared) | pending — expected CLOSED FORM |
-| Join service (mid-epoch newcomers) | [`join_service.md`](../../join_service.md) (shared) | pending — structural |
-| Link repair (mid-epoch redraws) | [`link_repair.md`](../../link_repair.md) (shared) | pending — expected HYBRID |
+| μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
+
+Candidate properties not yet analysed (churn tolerance, join service,
+link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−E} with
 E = H[e^{−F(1−μ)} + μ^F] (strong connectivity; the seed-proof in-degree-0
