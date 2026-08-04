@@ -1,0 +1,76 @@
+title: "[Use case] "
+labels: ["use-case"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. This research is shaped by what people actually
+        need to send to each other on Cardano, so concrete cases are more useful to
+        us than general suggestions.
+
+        Nothing here is a commitment either way — everything submitted is public,
+        and anyone can read, add to, or support it.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs to be communicated?
+      description: The message itself. What is being announced, alerted or shared?
+      placeholder: e.g. an SPO warning delegators that a pool is moving to new relays
+    validations:
+      required: true
+
+  - type: input
+    id: parties
+    attributes:
+      label: Who publishes, and who receives?
+      description: The two ends of it. Roles rather than names is fine.
+      placeholder: e.g. stake pool operator to its delegators
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: How does this happen today, and what goes wrong?
+      description: >
+        The gap matters more than the wish. How is this communicated now, and what
+        does that cost you — impersonation risk, reach, delay, manual effort?
+      placeholder: e.g. posted to X and Telegram, where anyone can impersonate the pool
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scale
+    attributes:
+      label: Roughly how many recipients?
+      options:
+        - Tens
+        - Hundreds
+        - Thousands
+        - Tens of thousands or more
+        - Not sure
+    validations:
+      required: false
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: How time-critical is delivery?
+      options:
+        - Seconds matter (incidents, emergencies)
+        - Minutes are fine
+        - Hours or days are fine
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: >
+        Constraints, related work, or a link to something you have already built.
+        If you are proposing something other than a use case, this is the place for it.
+    validations:
+      required: false
