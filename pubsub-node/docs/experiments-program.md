@@ -194,10 +194,10 @@ the boundary reductions (M5 → M2 at k_out = 0, M5 → M1 at k_in = 0) are buil
   and latency means at published precision; the seeding cost measured at exactly s−1 publisher-kind
   sends per message via the kind split; the seed-aware goodness realising the study's exact
   every-publisher check.
-- **E7 — M4, bidirectional links** [done, one tail cell pending]. Executed and documented in
-  [`docs/experiments/m4-comparison.md`](experiments/m4-comparison.md): RF = 3/4/5 coverage cells
-  law-consistent, the RF = 8 operating point exact at published precision, degrees mirrored
-  fleet-wide. The RF = 6 deep-tail cell (the formal 260/30 000, ~3 h) is a recorded follow-up.
+- **E7 — M4, bidirectional links** [done]. Executed and documented in
+  [`docs/experiments/m4-comparison.md`](experiments/m4-comparison.md): RF = 3/4/5/6 coverage cells
+  law-consistent (the RF = 6 deep tail at 251/30 000 vs the law's 0.00836 — a 1.00× ratio), the
+  RF = 8 operating point exact at published precision, degrees mirrored fleet-wide.
 - **E8 — M5, the k-in/k-out grid** [done]. Executed and documented in
   [`docs/experiments/m5-comparison.md`](experiments/m5-comparison.md): seven M5 cells (the swap
   symmetry exercised and tightened) plus five M1 boundary cells, all law-consistent; both operating
@@ -287,7 +287,7 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E4 | Adversary tolerance `k_max(ε)` | 2 | M2 | ready |
 | E5 | End-to-end coverage, silent adversaries | 2 | M2 coverage law / ER percolation | **fixed points done** (M2 comparison); sweeps ready |
 | E6 | M3 — initiation links | 3 | M3 law + grids | **done** (m3-comparison) |
-| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | **done** (m4-comparison; RF = 6 tail cell pending) |
+| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | **done** (m4-comparison) |
 | E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | **done** (m5-comparison, M1 boundary included) |
 | E9 | Bucketing, no cap | 4 | bucketed-pull (balanced B) | ready |
 | E10 | Selection-family fidelity (B, K) | 4 | model selection family | ready |

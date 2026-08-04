@@ -11,8 +11,8 @@ documented there in §4 and apply unchanged.
 
 | | |
 |---|---|
-| Tool commit | `21acd36` (all cells; ADR 0041 machinery complete) |
-| Configurations | [`configs/experiments/comparisons/`](../../configs/experiments/comparisons/) — `m4-n20k-rf3.toml` (seed 501, 200 runs), `m4-n20k-rf4.toml` (seed 502, 1 000), `m4-n20k-rf5.toml` (seed 607, 8 000), `m4-n20k-op.toml` (seed 702, 200); plus the shipped structure point [`m4-uniform-symmetric.toml`](../../configs/experiments/m4-uniform-symmetric.toml) (N = 4 000, seed 44, 500 runs, baseline `d7e7132`) |
+| Tool commit | `21acd36` (the RF = 6 cell at `2102b6f`, a docs-only successor — the instrument binary is unchanged between them) |
+| Configurations | [`configs/experiments/comparisons/`](../../configs/experiments/comparisons/) — `m4-n20k-rf3.toml` (seed 501, 200 runs), `m4-n20k-rf4.toml` (seed 502, 1 000), `m4-n20k-rf5.toml` (seed 607, 8 000), `m4-n20k-rf6-tail.toml` (seed 705, 30 000), `m4-n20k-op.toml` (seed 702, 200); plus the shipped structure point [`m4-uniform-symmetric.toml`](../../configs/experiments/m4-uniform-symmetric.toml) (N = 4 000, seed 44, 500 runs, baseline `d7e7132`) |
 | Reference values | `formal_spec/hybrid_dissemination/models/m4/properties/full_coverage.md` §3; `models/comparison.md` §2–§3 (M4 rows) |
 | Criterion match | the model's *good* ⟺ the honest-induced undirected subgraph is connected; the instrument's symmetric digraph is mirrored by construction, so one SCC is the same predicate |
 
@@ -26,13 +26,16 @@ seeds (worker count is a wall-clock choice, not part of the contract).
 | 3 | 200/200 | 1.0000 | [0.981, 1.000] | ≈ 1.000 | 2000/2000 | +0.00 |
 | 4 | 624/1000 | 0.6240 | [0.594, 0.654] | 0.647 | 2585/4000 = 0.646 | −1.31 |
 | 5 | 719/8000 | 0.0899 | [0.084, 0.096] | 0.0893 | 749/8000 = 0.0936 | −0.82 |
+| 6 | 251/30000 | 0.00837 | [0.0074, 0.0095] | 0.00836 | 260/30000 = 0.00867 | −0.40 |
 
-Every law value sits inside the Wilson interval. The RF = 3 row's "law
-1.000" is the published table's rounding of 1 − e^(−11.6); an all-bad
-sample is exact agreement (a Wilson interval never contains exactly 1 at
-finite n). The deep-tail row (RF = 6, the formal 260/30 000) is a recorded
-follow-up — RF = 5 already checks the law at P(bad) ≈ 0.09, and RF = 4/3
-cover the bulk.
+Every law value sits inside the Wilson interval, across three orders of
+magnitude in P(bad). The RF = 3 row's "law 1.000" is the published table's
+rounding of 1 − e^(−11.6); an all-bad sample is exact agreement (a Wilson
+interval never contains exactly 1 at finite n). On the deep-tail row the
+formal study expects the law to run mildly optimistic (~1.1× second-order
+small-component under-count, measured at RF = 7); at RF = 6 the two
+30 000-run samples land at 1.00× (ours) and 1.04× (theirs) of the law —
+the correction is within sampling noise at this depth.
 
 ## 2. Cost and latency — the P(bad) ≤ 10⁻⁴ operating point (RF = 8)
 
