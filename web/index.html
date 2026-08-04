@@ -181,6 +181,15 @@
   }
   .hero-visual { justify-self: center; width: 100%; max-width: 420px; }
   .hero-visual svg { width: 100%; height: auto; display: block; }
+  /* Publish/deliver animation. Everything below idles invisible; the hero script
+     animates it a beat at a time, so a still frame is the original diagram. */
+  .hero-graph .hero-signals path { opacity: 0; }
+  .hero-graph .sig-head { stroke-width: 1.6; }
+  .hero-graph .sig-tail { stroke-width: 2.6; }
+  .hero-graph .node-halo { opacity: 0; }
+  .hero-graph .node-halo,
+  .hero-graph .node-dot { transform-box: fill-box; transform-origin: center; }
+  .hero-graph .hub-flash { opacity: 0; }
   @media (max-width: 860px) {
     .hero .container { grid-template-columns: 1fr; }
     .hero-visual { display: none; }
@@ -670,35 +679,51 @@
   /* ---------- Activity stats ----------
      One figure at a time, cycling. With reduced motion every figure is shown at
      once instead, so nothing moves and nothing is hidden. */
-  /* The badge sits at the trailing edge of the section heading row on desktop and
-     drops beneath the title once there is no room for it. */
+  /* The badge sits at the trailing edge of the section heading row on desktop,
+     level with the top of the heading block, and drops beneath the title once
+     there is no room for it. The title block absorbs the squeeze so the badge
+     keeps its full width rather than being narrowed into two lines. */
   .activity-head {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 16px 28px;
     flex-wrap: wrap;
+  }
+  .activity-head > :first-child { flex: 1 1 auto; min-width: 0; }
+  /* From tablet width up the badge always shares the heading row: the title is
+     given a zero flex basis so it wraps to a second line rather than pushing the
+     badge onto one of its own. Below that the badge drops under the title. */
+  @media (min-width: 900px) {
+    .activity-head > :first-child { flex: 1 1 0; }
   }
   .stat-rotator {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    flex: 0 0 auto;
   }
   .stat-pill {
     display: inline-flex;
     align-items: baseline;
-    gap: 8px;
-    border: 1px solid var(--card-stroke-faint);
+    gap: 7px;
+    border: 1px solid var(--iog-infared);
     border-radius: 999px;
-    background: var(--card-fill);
-    padding: 8px 16px;
+    background: var(--bad-soft);
+    padding: 5px 12px;
     font-family: var(--font-mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    /* Every figure reads on one line, however long its label runs. */
+    white-space: nowrap;
     transition: opacity .45s ease, transform .45s ease;
   }
-  .stat-pill .stat-value { color: var(--iog-infared); font-weight: 600; }
-  .stat-pill .stat-label { color: var(--text-mute); }
+  .stat-pill .stat-value { color: var(--iog-infared); font-weight: 700; }
+  .stat-pill .stat-label { color: var(--iog-infared); opacity: 0.85; }
+  /* Very narrow screens have less room than the longest label needs. */
+  @media (max-width: 420px) {
+    .stat-pill { white-space: normal; }
+  }
   /* While cycling, the outgoing and incoming pills share one grid cell, so the
      swap cannot shift the layout around them. */
   .stat-rotator.cycling {
@@ -895,7 +920,19 @@
         </div>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+        <svg class="hero-graph" viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <defs>
+            <!-- Halo behind the travelling signal, so it reads as charge on a wire
+                 rather than a plain moving dash. -->
+            <filter id="hero-glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="1.4" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+
           <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">PUBLISHERS</text>
           <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">SUBSCRIBERS</text>
 
@@ -912,29 +949,70 @@
             <path d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
             <path d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
           </g>
+          <!-- One signal overlay per wire: a faint comet tail under a bright head.
+               Both idle at zero opacity until the hero script fires them. -->
+          <g class="hero-signals" fill="none" stroke-linecap="round" filter="url(#hero-glow)">
+            <path class="sig-tail" data-wire="in-0"  d="M43,52 C110,52 130,166 163,170" stroke="var(--info)"/>
+            <path class="sig-tail" data-wire="in-1"  d="M43,145 C105,145 130,178 163,180" stroke="var(--warn)"/>
+            <path class="sig-tail" data-wire="in-2"  d="M43,239 C105,239 130,194 163,192" stroke="var(--warn)"/>
+            <path class="sig-tail" data-wire="in-3"  d="M43,332 C110,332 130,206 163,202" stroke="var(--good)"/>
+            <path class="sig-tail" data-wire="out-0" d="M281,172 C330,168 350,82 397,82" stroke="var(--info)"/>
+            <path class="sig-tail" data-wire="out-1" d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
+            <path class="sig-tail" data-wire="out-2" d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
+            <path class="sig-head" data-wire="in-0"  d="M43,52 C110,52 130,166 163,170" stroke="var(--info)"/>
+            <path class="sig-head" data-wire="in-1"  d="M43,145 C105,145 130,178 163,180" stroke="var(--warn)"/>
+            <path class="sig-head" data-wire="in-2"  d="M43,239 C105,239 130,194 163,192" stroke="var(--warn)"/>
+            <path class="sig-head" data-wire="in-3"  d="M43,332 C110,332 130,206 163,202" stroke="var(--good)"/>
+            <path class="sig-head" data-wire="out-0" d="M281,172 C330,168 350,82 397,82" stroke="var(--info)"/>
+            <path class="sig-head" data-wire="out-1" d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
+            <path class="sig-head" data-wire="out-2" d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
+          </g>
           <!-- publisher nodes, colored by the topic they publish to -->
           <g>
-            <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="145" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="239" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="26" cy="332" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <g class="node" data-node="pub-0">
+              <circle class="node-halo" cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            </g>
+            <g class="node" data-node="pub-1">
+              <circle class="node-halo" cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="26" cy="145" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            </g>
+            <g class="node" data-node="pub-2">
+              <circle class="node-halo" cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="26" cy="239" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            </g>
+            <g class="node" data-node="pub-3">
+              <circle class="node-halo" cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="26" cy="332" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            </g>
           </g>
           <!-- subscriber nodes, colored by the topic they subscribe to -->
           <g>
-            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="82" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="192" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-            <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
-            <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            <g class="node" data-node="sub-0">
+              <circle class="node-halo" cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="414" cy="82" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            </g>
+            <g class="node" data-node="sub-1">
+              <circle class="node-halo" cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="414" cy="192" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            </g>
+            <g class="node" data-node="sub-2">
+              <circle class="node-halo" cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-width="2" filter="url(#hero-glow)"/>
+              <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+              <circle class="node-dot" cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+            </g>
           </g>
           <!-- PubSub hub -->
           <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
-          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+          <rect class="hub-flash" x="167" y="158" width="110" height="56" rx="14" fill="none" stroke="var(--iog-infared)" stroke-width="2" filter="url(#hero-glow)"/>
+          <!-- Same mono lockup face as the navbar brand, so the hub reads as the name. -->
+          <text x="222" y="192" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="1" fill="var(--iog-infared)" font-family="JetBrains Mono, SF Mono, Menlo, monospace">PubSub</text>
 
           <!-- topic color legend -->
           <g font-size="10" letter-spacing="1" fill="var(--text-faint)">
@@ -1658,6 +1736,149 @@
   window.addEventListener('resize', update);
   update();
 })();
+</script>
+
+<script>
+  /* Hero graph: replays publish events one topic at a time. A publisher pulses,
+     its message travels the wire into the hub as a lit segment, the hub flashes,
+     and the same colour leaves on the subscriber side. */
+  (function () {
+    var svg = document.querySelector('.hero-graph');
+    if (!svg || typeof svg.animate !== 'function') return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    /* The replay order. Each entry names the publisher that emits, the wire the
+       message takes into the hub, and the wires and subscribers it leaves on —
+       one topic, one colour, from end to end. */
+    var EVENTS = [
+      { pub: 'pub-0', wire: 'in-0', out: [{ wire: 'out-0', sub: 'sub-0' }] },
+      { pub: 'pub-2', wire: 'in-2', out: [{ wire: 'out-1', sub: 'sub-1' }] },
+      { pub: 'pub-3', wire: 'in-3', out: [{ wire: 'out-2', sub: 'sub-2' }] },
+      { pub: 'pub-1', wire: 'in-1', out: [{ wire: 'out-1', sub: 'sub-1' }] }
+    ];
+
+    var FLIGHT_MS = 820;   /* time a signal spends on one wire */
+    var LEAD_MS = 140;     /* publisher pulse lands before its signal departs */
+    var HUB_MS = 460;
+    var HANDOFF_MS = 110;  /* hub dwell between arrival and re-emission */
+    var REST_MS = 900;     /* quiet beat between two publish events */
+    var EASE = 'cubic-bezier(.35,0,.25,1)';
+
+    var timers = [];
+    var next = 0;
+    var running = false;
+
+    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+
+    /* Slides a lit segment along one wire: a bright head with a longer, fainter
+       tail a beat behind it. Negative dash offsets are what move it forward. */
+    function send(wire) {
+      var parts = svg.querySelectorAll('.hero-signals [data-wire="' + wire + '"]');
+      for (var i = 0; i < parts.length; i++) {
+        var path = parts[i];
+        var head = path.classList.contains('sig-head');
+        var len = path.getTotalLength();
+        var dash = head ? 12 : 38;
+        path.setAttribute('stroke-dasharray', dash + ' ' + (len + dash));
+        var opts = { duration: FLIGHT_MS, easing: EASE, delay: head ? 0 : 70 };
+        path.animate([{ strokeDashoffset: dash }, { strokeDashoffset: -len }], opts);
+        path.animate([
+          { opacity: 0 },
+          { opacity: head ? 1 : 0.3, offset: 0.14 },
+          { opacity: head ? 1 : 0.3, offset: 0.76 },
+          { opacity: 0 }
+        ], opts);
+      }
+    }
+
+    function pulse(node) {
+      var group = svg.querySelector('[data-node="' + node + '"]');
+      if (!group) return;
+      var halo = group.querySelector('.node-halo');
+      var dot = group.querySelector('.node-dot');
+      /* The ring stays inside the viewBox at full expansion — the outer nodes sit
+         9px from its edges, so anything past ~1.3x would be clipped. */
+      if (halo) {
+        halo.animate([
+          { opacity: 0.7, transform: 'scale(1)' },
+          { opacity: 0, transform: 'scale(1.26)' }
+        ], { duration: 640, easing: 'cubic-bezier(.2,.6,.3,1)' });
+      }
+      if (dot) {
+        dot.animate([
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.18)', offset: 0.28 },
+          { transform: 'scale(1)' }
+        ], { duration: 640, easing: 'cubic-bezier(.3,1.3,.4,1)' });
+      }
+    }
+
+    function flashHub() {
+      var flash = svg.querySelector('.hub-flash');
+      if (!flash) return;
+      flash.animate([
+        { opacity: 0 },
+        { opacity: 0.9, offset: 0.22 },
+        { opacity: 0 }
+      ], { duration: HUB_MS, easing: 'ease-out' });
+    }
+
+    /* Plays one publish event and returns how long it runs for. */
+    function play(event) {
+      var arrival = LEAD_MS + FLIGHT_MS;
+      var departure = arrival + HANDOFF_MS;
+      pulse(event.pub);
+      later(function () { send(event.wire); }, LEAD_MS);
+      later(flashHub, arrival - 70);
+      for (var i = 0; i < event.out.length; i++) {
+        (function (leg, offset) {
+          later(function () { send(leg.wire); }, departure + offset);
+          later(function () { pulse(leg.sub); }, departure + offset + FLIGHT_MS - 90);
+        })(event.out[i], i * 90);
+      }
+      return departure + (event.out.length - 1) * 90 + FLIGHT_MS;
+    }
+
+    function step() {
+      if (!running) return;
+      var span = play(EVENTS[next % EVENTS.length]);
+      next++;
+      later(step, span + REST_MS);
+    }
+
+    function start() {
+      if (running) return;
+      running = true;
+      later(step, 500);
+    }
+
+    function stop() {
+      running = false;
+      for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
+      timers = [];
+    }
+
+    /* Only runs while the graph is on screen and the tab is in front. A zero-sized
+       box means the hero visual is hidden at this width, so there is nothing to
+       animate. The observer is only a trigger — visibility is measured here, which
+       keeps a callback that arrives before first layout from stalling the loop. */
+    function onScreen() {
+      var rect = svg.getBoundingClientRect();
+      if (!rect.width || !rect.height) return false;
+      var viewport = window.innerHeight || document.documentElement.clientHeight;
+      return rect.bottom > 0 && rect.top < viewport;
+    }
+
+    function sync() {
+      if (onScreen() && !document.hidden) start(); else stop();
+    }
+
+    document.addEventListener('visibilitychange', sync);
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(sync, { threshold: 0.15 }).observe(svg);
+    }
+    if (window.requestAnimationFrame) requestAnimationFrame(sync); else sync();
+  })();
 </script>
 
 </body>
