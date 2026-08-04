@@ -1,0 +1,32 @@
+# Suite-sized smoke variant of the M5 shape (ADR 0041): directed k-in/k-out
+# gossip - every node pulls from k_in = 5 relay picks and pushes over
+# k_out = 3 publisher links, with forward-to-all carrying every held message
+# over both kinds. Population, fanout, and run count scaled down so the
+# automated suite can execute it end to end in seconds.
+#
+# The suite asserts pipeline health only - the configuration parses, the
+# sweep executes, the artifacts are well-formed (the sends-by-kind split
+# populated on both columns), and the identities hold. It never asserts
+# numeric agreement with the formal model; that is the E8 comparison's job
+# (whose k_in = 0 boundary row is the m1 configuration).
+
+model = "m5"
+master_seed = 11
+
+[population]
+size = 100
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 5 # k_in
+publisher = { pick_count = 3 } # k_out
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+pick_count = 5
+publisher = { pick_count = 3 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 15
