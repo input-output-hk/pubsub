@@ -22,8 +22,12 @@ covered by the [M2 comparison](m2-comparison.md).
 |---|---|
 | Tool commit | `21acd36` (all cells) |
 | Configurations | [`configs/experiments/comparisons/`](../../configs/experiments/comparisons/) — M5: `m5-n4k-4-4.toml` (seed 506, 500 runs), `m5-n4k-3-6.toml` (507, 1 500), `m5-n4k-6-3.toml` (508, 1 500), `m5-n4k-6-3-tight.toml` (601, 6 000), `m5-n4k-5-5.toml` (603, 2 000), `m5-n4k-6-6.toml` (604, 8 000), `m5-n20k-4-4.toml` (509, 200), `m5-n20k-op.toml` (703, 200); M1: `m1-n4k-f10.toml` (510, 1 000), `m1-n4k-f12.toml` (511, 2 000), `m1-n20k-f12.toml` (512, 400), `m1-n4k-f14.toml` (605, 4 000), `m1-n4k-f16.toml` (606, 8 000), `m1-n20k-op.toml` (704, 200) |
+| Timings | N = 4 000 cells from ~15 s (500 runs) to ~6 min (8 000 runs), release build at default workers |
 | Reference values | `formal_spec/hybrid_dissemination/models/{m5,m1}/properties/full_coverage.md` §3; `models/comparison.md` §2–§3 |
 | Criterion match | both studies use a strong-connectivity check ⟺ one SCC of the union digraph |
+
+Artifacts are reproduced byte-for-byte from the tool commit and master
+seeds (worker count is a wall-clock choice, not part of the contract).
 
 ## 1. M5 coverage law — P(bad) vs the published table (μ = 0.2)
 
@@ -31,7 +35,7 @@ covered by the [M2 comparison](m2-comparison.md).
 |---|---|---|---|---|---|---|---|
 | 4 000 | (4,4) | 172/500 | 0.3440 | [0.304, 0.387] | 0.340 | 187/500 = 0.374 | −0.99 |
 | 4 000 | (3,6) | 311/1500 | 0.2073 | [0.188, 0.229] | 0.204 | 306/1500 = 0.204 | +0.23 |
-| 4 000 | (6,3) | 337/1500 | 0.2247 | [0.204, 0.247] | 0.204 | 285/1500 = 0.190 | +2.34 |
+| 4 000 | (6,3) | 337/1500 | 0.2247 | [0.2043, 0.2465] | 0.204 | 285/1500 = 0.190 | +2.34 |
 | 4 000 | (6,3), 6 000 runs | 1240/6000 | 0.2067 | [0.197, 0.217] | 0.204 | — | +1.43 |
 | 4 000 | (5,5) | 70/2000 | 0.0350 | [0.028, 0.044] | 0.0364 | 63/2000 = 0.0315 | +0.62 |
 | 4 000 | (6,6) | 28/8000 | 0.0035 | [0.0024, 0.0051] | 0.0033 | 31/8000 = 0.0039 | −0.39 |

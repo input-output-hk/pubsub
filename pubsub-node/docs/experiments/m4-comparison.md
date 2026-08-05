@@ -13,6 +13,7 @@ documented there in §4 and apply unchanged.
 |---|---|
 | Tool commit | `21acd36` (the RF = 6 cell at `2102b6f`, a docs-only successor — the instrument binary is unchanged between them) |
 | Configurations | [`configs/experiments/comparisons/`](../../configs/experiments/comparisons/) — `m4-n20k-rf3.toml` (seed 501, 200 runs), `m4-n20k-rf4.toml` (seed 502, 1 000), `m4-n20k-rf5.toml` (seed 607, 8 000), `m4-n20k-rf6-tail.toml` (seed 705, 30 000), `m4-n20k-op.toml` (seed 702, 200); plus the shipped structure point [`m4-uniform-symmetric.toml`](../../configs/experiments/m4-uniform-symmetric.toml) (N = 4 000, seed 44, 500 runs, baseline `d7e7132`) |
+| Timings | the 8 000-run RF = 5 cell 38 min on all cores; the 30 000-run RF = 6 deep tail ~5.5 h wall including machine sleep (artifact bytes are power-state-independent) |
 | Reference values | `formal_spec/hybrid_dissemination/models/m4/properties/full_coverage.md` §3; `models/comparison.md` §2–§3 (M4 rows) |
 | Criterion match | the model's *good* ⟺ the honest-induced undirected subgraph is connected; the instrument's symmetric digraph is mirrored by construction, so one SCC is the same predicate |
 

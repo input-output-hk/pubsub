@@ -22,7 +22,11 @@ initiation links never relay"), computed exactly, per publisher.
 |---|---|
 | Tool commit | `21acd36` (all cells) |
 | Configurations | [`configs/experiments/comparisons/`](../../configs/experiments/comparisons/) — `m3-n4k-rf6-s4.toml` (seed 503, 600 runs), `m3-n4k-rf8-s3.toml` (504, 1 000), `m3-n20k-rf8-s3.toml` (505, 300), `m3-n4k-rf10-s4.toml` (602, 8 000), `m3-n4k-rf9-s5-tail.toml` (608, 30 000), `m3-n20k-op.toml` (701, 200) |
+| Timings | N = 4 000 cells from ~20 s (600 runs) to ~6 min (8 000 runs), release build at default workers; the 30 000-run deep tail 27 min on all cores |
 | Reference values | `formal_spec/hybrid_dissemination/models/m3/properties/full_coverage.md` §3; `models/comparison.md` §2–§3 (M3 rows) |
+
+Artifacts are reproduced byte-for-byte from the tool commit and master
+seeds (worker count is a wall-clock choice, not part of the contract).
 
 ## 1. Coverage law — P(bad) vs the published table (μ = 0.2)
 
@@ -55,9 +59,12 @@ from both sides.
 
 **The seeding/relaying split, measured.** The per-link-kind send columns
 (ADR 0041) decompose each message's traffic: **publisher-kind sends =
-7.0 per message, exactly s − 1** — every publisher seeds each publication
-over its s−1 initiation links, once, and they carry nothing else — against
-~192 000 relay-kind sends (all recipient classes). This is the model's
+6.99 per message — s − 1 minus relay-wins overlaps**. Every publisher
+seeds each publication over its s − 1 = 7 initiation links, once, and
+they carry nothing else; in 2 of the 1 400 seeding sends the target was
+also a relay downstream, so the deduped send is relay-attributed (ADR
+0041's relay-wins rule) — against ~192 000 relay-kind sends (all
+recipient classes). This is the model's
 "initiation links attack exactly the muted-publisher defect, at ~zero
 bandwidth" measured directly: the healing mechanism costs 7 sends in
 ~2×10⁵.
