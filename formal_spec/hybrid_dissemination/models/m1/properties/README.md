@@ -7,7 +7,7 @@ forms + honest BFS; run it for a self-test), `sim_m1_coverage.py`
 (the P(bad) study), `sweep_m1_cost.py` (bandwidth/latency vs F),
 `sim_m1_degrees.py` (degree distributions), `sweep_m1_mu_shift.py`
 (μ-shift degradation at frozen F), `sim_m1_severity.py` (bad-graph
-severity).
+severity), `sim_m1_eclipse.py` (adaptive eclipse cost).
 
 | Property | File | Verdict |
 |---|---|---|
@@ -16,6 +16,7 @@ severity).
 | Expected hops (latency) | [`expected_number_of_hops.md`](expected_number_of_hops.md) | SIMULATION ONLY |
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
+| Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | CLOSED FORM |
 
 Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).

@@ -14,7 +14,7 @@ analyses (`properties/`), and the executable model + simulators (`scripts/`).
 
 ## Current focus
 
-Five properties, analysed per model in each `properties/` folder:
+Six properties, analysed per model in each `properties/` folder:
 
 1. **Full coverage** — a sampled graph is **good** iff **every message of
    every honest publisher reaches all other honest nodes**. The guarantee is
@@ -32,6 +32,12 @@ Five properties, analysed per model in each `properties/` folder:
    effective adversarial fraction rises: budget (last μ_eff meeting the
    target) and collapse point (P(bad) = ½); churn reads the curve at
    μ_eff = μ + p(1−μ).
+6. **Adaptive eclipse cost** — corruptions needed to strand a victim once
+   the epoch's draws are public, i.e. its honest degree on the attacked side
+   (deafen = cut in-edges, mute = cut out-edges). Reported under two threat
+   models: a **chosen** victim pays its own draw, while an adversary content
+   with **any** victim pays the network minimum. The same degree laws as
+   property 4, read at j ≥ 1 instead of the j = 0 cell that gives property 1.
 
 Candidate properties — the analysis backlog (churn family, security,
 economics, lifecycle), short descriptions:

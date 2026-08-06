@@ -8,7 +8,8 @@ mean-field + strict good-graph check; reuses the M2 sampler `m2_model.py`;
 run it for a self-test), `sim_m3_coverage.py` (the P(bad) study),
 `sweep_m3_cost.py` (bandwidth/latency vs RF), `sim_m3_degrees.py` (degree
 distributions), `sweep_m3_mu_shift.py` (μ-shift degradation at frozen
-(RF, s)), `sim_m3_severity.py` (bad-graph severity + initiation rescue). Auxiliary:
+(RF, s)), `sim_m3_severity.py` (bad-graph severity + initiation rescue),
+`sim_m3_eclipse.py` (adaptive eclipse cost, both link kinds). Auxiliary:
 `check_p03_end_to_end_coverage.py` (mean-field machinery checks),
 `sim_p03_full_coverage.py` / `sim_p03_tail.py` (per-message success tables
 and deep tail), `sim_p06_depth.py` (depth percentiles).
@@ -20,6 +21,7 @@ and deep tail), `sim_p06_depth.py` (depth percentiles).
 | Expected hops (latency) | [`expected_number_of_hops.md`](expected_number_of_hops.md) | SIMULATION ONLY |
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
+| Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | CLOSED FORM |
 
 Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).

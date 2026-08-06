@@ -89,7 +89,60 @@ top budget is mostly margin (its cheapest integer point lands 2.3× under
 frontier: **M4 tolerates ~2× more shift than M3** (~1.1 % vs ~0.5 % churn)
 before leaving the target.
 
-## 5. Bottom line
+## 5. Adaptive eclipse cost (corruptions to strand a victim)
+
+From each model's
+[`adaptive_eclipse_cost.md`](m3/properties/adaptive_eclipse_cost.md): once the
+epoch's draws are public, stranding a victim costs its honest degree on the
+attacked side — **deafen** (cut honest in-edges, the victim misses some
+publisher) or **mute** (cut honest out-edges, its publications reach nobody).
+Coverage fails either way. Min-cut equals degree here: at branching factors
+of 12.8–19.2 the depth-2 shell dwarfs the depth-1 shell, so Menger's
+disjoint-path count saturates (max-flow verified on sampled graphs).
+
+| model | parameters | deafen | mute | **A: chosen victim** | **B: any victim** | B via |
+|---|---|---|---|---|---|---|
+| **M3** | (12, 8) | 9.6 | 15.2 | **9.6** | **3.3** | deafen |
+| M4 | RF = 8 | 12.8 | 12.8 | 12.8 | 3.6 | either |
+| M5 | (9, 8) | 13.6 | 13.6 | 13.6 | 3.7 | joint |
+| M1 | F = 24 | 19.2 | 19.2 | **19.2** | 4.6 | deafen |
+| M2 | RF = 24 | 19.2 | 19.2 | **19.2** | 4.6 | mute |
+
+**The two threat models rank the family differently, and the gap is 3–4×.**
+A *chosen* victim pays its own draw, so M3 is the cheapest target and M1/M2
+the dearest — this is the reading that "partially reverses the frontier",
+since the bandwidth winner is the cheapest target. But an adversary content
+with *any* victim shops the lower tail across 16 000 nodes and pays the
+network minimum, which is 2.9–4.2× below the mean in every model. Against
+an adversarial budget of μN = 4 000, **no model costs more than ~5
+corruptions to break the δ guarantee somewhere.**
+
+**Chosen links beat accepted links at equal mean.** M1 and M2 have identical
+mean degree (19.2) on both sides and identical bandwidth, yet their
+*directions* differ by 2.3×: a node **chooses** its own picks and always
+holds exactly F of them, so only adversarial thinning applies and the law is
+binomially concentrated (sd 1.96); it does **not** choose who picks *it*, so
+the accepted side is a balls-in-bins draw with a Poisson lower tail (sd
+4.38). M1 is therefore cheap to deafen (accepted in-side) and dear to mute;
+M2 is the exact mirror. Both end at the same guarantee-breaking cost of 4.6,
+so on this axis **M2 does not dominate M1** — it relocates the weakness from
+the receiving side to the publishing side.
+
+This also splits the two weak models by cause: **M3's problem is level**
+(its in-degree is chosen and tightly concentrated at sd 1.39, simply low at
+9.6, so more RF is the fix), while **M1's is spread** (high mean, fat tail,
+so converting accepted in-links to chosen ones is the fix). Different
+remedies for the same symptom.
+
+**Correction.** [`candidate_properties.md`](candidate_properties.md)
+previously estimated this property at "M3 9.6, M5 13.6, M1/M2 19.2, M4 25.6"
+and placed M4 at the safe end. The M4 figure was 4·RF(1−μ) — the 2× in the
+closed form applied twice — against a measured degree of 12.80 that has been
+in [`node_degrees.md`](m4/properties/node_degrees.md) since the models were
+first published. With the arithmetic corrected and the order statistic
+applied, M4 moves from most eclipse-resistant to second cheapest.
+
+## 6. Bottom line
 
 At P(bad) ≤ 10⁻⁴, N = 20 000, μ = 0.2: **M3 (RF = 12, s = 8) is the most
 efficient model in bandwidth** — cheapest by 19–50 %, within ~1 hop
