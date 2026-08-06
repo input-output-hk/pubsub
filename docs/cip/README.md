@@ -110,15 +110,22 @@ this section stands alone. -->
 It must also explain how the proposal affects the backward compatibility of existing solutions when applicable. If the proposal responds to a CPS, the 'Rationale' section should explain how it addresses the CPS, and answer any questions that the CPS poses for potential solutions.
 -->
 
-### Trade-offs and Limitations
+<!-- Cross-reference convention: a FORWARD-REF comment marks prose that will point at
+     a section not yet written. Each names the target section and what must exist there,
+     so the reference can be completed without recovering the intent. Grep FORWARD-REF
+     before declaring a section finished. -->
 
-#### The adversary this proposal defends against
+Throughout this Rationale an **epoch** means one dissemination period — the interval for which a drawn topology stands and over which the guarantees below are stated. Its length is a parameter of this proposal and is not required to coincide with the ledger epoch; the bounds on it are an open question below.
+
+### The adversary this proposal defends against
 
 The protocol is analysed against an adversary controlling a bounded fraction **μ** of registered nodes, each of which is *silent*: it registers legitimately, accepts its allotted share of links, and then forwards nothing. This is deliberately the weakest adversary that still defeats delivery. A node that never emits a message cannot be distinguished from an honest node that has nothing to forward, so it is also the cheapest attack to mount and the hardest to observe. An eclipse attack against a specific subscriber reduces to this behaviour among that subscriber's upstream peers.
 
 Not modelled, and out of scope for this proposal: an adversary that forwards selectively or forwards corrupted content, resource exhaustion and denial of service, and an adaptive adversary that re-registers between epochs in order to re-target a chosen victim.
 
-Honest node churn is not a separate threat model. An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary: it holds its allotted links and forwards nothing. Independent honest downtime with per-epoch probability *p* therefore enters the analysis above as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same coverage results apply at the shifted value. What remains preliminary is the validation rather than the model — the shifted-μ prediction has not yet been checked against a simulation that marks nodes down, and correlated downtime such as upgrade waves or region outages is not captured by a single independent *p*.
+Honest node churn is not a separate threat model. An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary: it holds its allotted links and forwards nothing. Independent honest downtime with per-epoch probability *p* therefore enters the coverage analysis as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same results apply at the shifted value. What remains preliminary is the validation rather than the model — the shifted-μ prediction has not yet been checked against a simulation that marks nodes down, and correlated downtime such as upgrade waves or region outages is not captured by a single independent *p*.
+
+### Trade-offs and Limitations
 
 #### Two classes of fault, with different guarantees
 
@@ -129,7 +136,7 @@ The protocol distinguishes faults that are attributable from faults that are not
 - content that is malformed under, or contradicts, the publisher's signature, checkable against the publisher's registered key;
 - a message sent by a peer outside the connections permitted to it for the current epoch, checkable against the obligation graph, which any participant can derive from the on-chain registry together with the epoch's public randomness.
 
-**Non-attributable faults** consist of the absence of messages. Attributing these is provably impossible without both a network that is more often synchronous than asynchronous and an honest majority among the parties able to attest.[^accountable-liveness] This proposal assumes neither. The dissemination analysis makes no timing assumption at all, and attestation here is inherently local: the only parties who can speak to whether a given relay forwarded a given message to a given subscriber are those two nodes. With two potential attesters there is no majority to appeal to, and a subscriber's entire upstream set can be adversarial even when the network-wide fraction μ is small — that case is precisely the residual failure probability quantified elsewhere in this Rationale.
+**Non-attributable faults** consist of the absence of messages. Attributing these is provably impossible without both a network that is more often synchronous than asynchronous and an honest majority among the parties able to attest.[^accountable-liveness] This proposal assumes neither. The dissemination analysis makes no timing assumption at all, and attestation here is inherently local: the only parties who can speak to whether a given relay forwarded a given message to a given subscriber are those two nodes. With two potential attesters there is no majority to appeal to, and a subscriber's entire upstream set can be adversarial even when the network-wide fraction μ is small — that case is one of the failure modes making up the residual per-epoch failure probability that the Evidence subsection quantifies.<!-- FORWARD-REF(evidence): resolves once the Evidence subsection lands; link it directly. -->
 
 Two consequences follow, and this proposal states them rather than working around them. The protocol does not claim to identify which node silenced a message. A registration deposit therefore cannot be made conditional on relaying behaviour, and this proposal specifies deposits as a Sybil-resistance cost rather than as a bond forfeitable for poor service.
 
@@ -157,6 +164,8 @@ The two compose: the peer-set mechanism gives cheap detection and recovery, whil
 - Whether a deposit should decay in the absence of positively supplied evidence of participation, following the approach Ethereum's inactivity leak takes to liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
 - The bounds on epoch length, which is constrained from both directions. From below by convergence: connection establishment must complete comfortably within an epoch, and the analytical results assume a converged standing topology, so the validity of the analysis itself constrains how short an epoch may be. From above by churn: unrepaired honest downtime accumulates over the epoch, so a longer epoch means a larger effective adversarial fraction at the moment the topology is judged. The width of the admissible window is therefore a property of the chosen operating point rather than a free parameter, and it narrows as that point is tuned for efficiency.
 - Whether dissemination parameters should be selected for minimum cost at the target failure probability, or for tolerance to downtime at a small cost premium. The two criteria do not agree, and they can select different configurations at an identical link budget: a point sized to sit just inside the target is by construction the one with least room to absorb a shifted adversarial fraction.
+- The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure — and against the observation that a subscriber only needs its own upstream set captured, not the network — before parameters are fixed.
+- The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
 - The cadence of on-chain position commitments against their cost, and whether topics carrying urgent traffic require a cadence finer than the epoch.
 - Whether adding a partial-synchrony assumption is acceptable, given that the analysis presented here deliberately avoids one, and what it would buy.
 - How many node identities a single trust anchor may derive, which bounds the residual Sybil surface that the deposit alone must price.
