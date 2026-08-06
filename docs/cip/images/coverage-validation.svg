@@ -15,7 +15,6 @@
 <text x="817.5" y="443.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁰</text>
 <text x="75.0" y="34.8" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">10⁰</text>
 <line x1="86.0" y1="424.0" x2="834.0" y2="22.0" stroke="#b9b6ab" stroke-width="1.8" stroke-linecap="round"/>
-<text x="667.7" y="72.2" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">law = measurement</text>
 <line x1="689.6" y1="103.4" x2="689.6" y2="89.7" stroke="#1baf7a" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="626.3" y1="135.7" x2="626.3" y2="120.7" stroke="#1baf7a" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="770.1" y1="58.8" x2="770.1" y2="49.4" stroke="#1baf7a" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
@@ -63,17 +62,19 @@
 <circle cx="260.4" cy="329.7" r="4.4" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
 <circle cx="447.7" cy="208.8" r="4.4" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
 <text x="460.0" y="466.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">P(bad) predicted by the coverage law</text>
-<text x="460.0" y="482.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">log scale — each gridline is ×10</text>
+<text x="460.0" y="482.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">log scale, each gridline ×10 — left: almost never fails · right: fails most epochs</text>
 <text x="0" y="0" transform="translate(22,223.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">P(bad) measured</text>
 <text x="0" y="0" transform="translate(37,223.0) rotate(-90)" text-anchor="middle" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">bar = Wilson 95% interval</text>
-<circle cx="100.0" cy="38.0" r="4.4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="109.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M1</text>
-<circle cx="174.0" cy="38.0" r="4.4" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="183.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M2</text>
-<circle cx="248.0" cy="38.0" r="4.4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="257.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M3</text>
-<circle cx="322.0" cy="38.0" r="4.4" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="331.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M4</text>
-<circle cx="396.0" cy="38.0" r="4.4" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="405.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M5</text>
+<text x="100.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">one point = one tested configuration:</text>
+<text x="100.0" y="60.0" font-size="11" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">grey line = the law matched measurement exactly</text>
+<circle cx="318.0" cy="38.0" r="4.4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="327.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M1</text>
+<circle cx="370.0" cy="38.0" r="4.4" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="379.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M2</text>
+<circle cx="422.0" cy="38.0" r="4.4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="431.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M3</text>
+<circle cx="474.0" cy="38.0" r="4.4" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="483.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M4</text>
+<circle cx="526.0" cy="38.0" r="4.4" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="535.0" y="42.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M5</text>
 </svg>

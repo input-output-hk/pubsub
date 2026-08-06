@@ -49,13 +49,28 @@ We propose a decentralised topic-based publish/subscribe protocol anchored on Ca
 It must also explain how the proposal affects the backward compatibility of existing solutions when applicable. If the proposal responds to a CPS, the 'Rationale' section should explain how it addresses the CPS, and answer any questions that the CPS poses for potential solutions.
 -->
 
+<!-- Cross-reference convention: a FORWARD-REF comment marks prose that will point at
+     a section not yet written. Each names the target section and what must exist there,
+     so the reference can be completed without recovering the intent. Grep FORWARD-REF
+     before declaring a section finished. -->
+
+Throughout this Rationale an **epoch** means one dissemination period — the interval for which a drawn topology stands and over which the guarantees below are stated. Its length is a parameter of this proposal and is not required to coincide with the ledger epoch; the bounds on it are an open question below.
+
+### The adversary this proposal defends against
+
+The protocol is analysed against an adversary controlling a bounded fraction **μ** of registered nodes, each of which is *silent*: it registers legitimately, accepts its allotted share of links, and then forwards nothing. This is deliberately the weakest adversary that still defeats delivery. A node that never emits a message cannot be distinguished from an honest node that has nothing to forward, so it is also the cheapest attack to mount and the hardest to observe. An eclipse attack against a specific subscriber reduces to this behaviour among that subscriber's upstream peers.
+
+Not modelled, and out of scope for this proposal: an adversary that forwards selectively or forwards corrupted content, resource exhaustion and denial of service, and an adaptive adversary that re-registers between epochs in order to re-target a chosen victim.
+
+Honest node churn is not a separate threat model. An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary: it holds its allotted links and forwards nothing. Independent honest downtime with per-epoch probability *p* therefore enters the coverage analysis as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same results apply at the shifted value. What remains preliminary is the validation rather than the model — the shifted-μ prediction has not yet been checked against a simulation that marks nodes down, and correlated downtime such as upgrade waves or region outages is not captured by a single independent *p*.
+
 ### Evidence
 
 This section sets out what was measured, how, and what the results do and do not establish. It proceeds in that order: first the quantity being predicted and the two instruments that predict it, then the metrics and the designs compared, then the results, then the limits.
 
 #### What is being measured
 
-Recall the structure the measurements apply to. Each epoch, the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers to exchange messages with, and that assignment stands for the whole epoch. Nodes that follow the protocol are *honest*; the rest accept their assigned links and forward nothing, which is the adversary this proposal defends against and is set out in full in the next subsection. On any given topic some nodes publish and others subscribe.
+Recall the structure the measurements apply to. Each epoch, the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers to exchange messages with, and that assignment stands for the whole epoch. Nodes that follow the protocol are *honest*; the rest accept their assigned links and forward nothing — the adversary set out in the subsection above. On any given topic some nodes publish and others subscribe.
 
 The guarantee is therefore a property of the drawn topology rather than of an individual message. For a given epoch's assignment, either every honest publisher's messages can reach every honest subscriber over the links that exist, or some publisher's cannot — in which case that publisher is cut off for the whole epoch, every time it publishes. A draw of the first kind is called **good** and one of the second **bad**.
 
@@ -81,7 +96,8 @@ A design is characterised by three things: how often a draw fails, what it costs
 
 Two of them are design inputs rather than outcomes: *μ*, the fraction of nodes assumed adversarial, and *δ*, the failure probability a configuration is required to meet. This proposal uses *δ* = 10⁻⁴ per epoch.
 
-<!-- Table numbering: renumber if earlier sections introduce tables before this point. -->
+<div align="center">
+<a name="table-2" id="table-2"></a>
 
 | Category | Metric | Measurement |
 | :--: | --- | --- |
@@ -95,7 +111,9 @@ Two of them are design inputs rather than outcomes: *μ*, the fraction of nodes 
 | Resilience | Adversarial fraction, *μ* | Share of registered nodes that accept their links and forward nothing |
 | | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
 
-<em>Table N: Performance metrics</em>
+<em>Table 2: performance metrics</em>
+
+</div>
 
 **_Epoch failure probability._** The probability that a drawn assignment is bad in the sense defined above. Because it is a property of the draw rather than of a message, it is estimated by sampling many topologies and counting how many fail.
 
@@ -111,9 +129,9 @@ $$c = m / H$$
 
 **_Hops._** Latency measured in forwarding steps rather than seconds, so the figure does not depend on any particular deployment's link latencies. Both the typical case and the tail are reported: a design can reach most subscribers quickly and the last one slowly, and for time-sensitive topics it is the last one that binds.
 
-**_Adversarial fraction._** The assumed share of registered nodes that accept their assigned links and forward nothing. The full adversary model, including what is deliberately not covered, is the subject of the next subsection.
+**_Adversarial fraction._** The assumed share of registered nodes that accept their assigned links and forward nothing, as defined in [The adversary this proposal defends against](#the-adversary-this-proposal-defends-against) above, which also records what is deliberately not covered.
 
-**_Churn budget._** An honest node that is offline for the epoch is indistinguishable from an adversarial one — it holds its links and forwards nothing — so honest downtime with per-epoch probability *p* raises the effective adversarial fraction to *μ* + *p*(1−*μ*), and each design's own coverage law can simply be read at that higher value. The churn budget is the largest downtime a deployed configuration absorbs while still meeting the target:
+**_Churn budget._** Honest downtime raises the effective adversarial fraction to *μ* + *p*(1−*μ*), for the reason given in the adversary subsection above, so a design's own coverage law can simply be read at that higher value. The churn budget is the largest downtime a deployed configuration absorbs while still meeting the target:
 
 $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
@@ -125,6 +143,9 @@ Five dissemination designs were analysed against the metrics above. They were no
 
 The choices are: whether a node *pushes* messages to peers it selected, or *pulls* from peers it selected — the difference matters because it determines which failure a node can suffer, being unable to receive or being unable to be heard; whether a link carries traffic in one direction or both; and whether a node has a dedicated way to seed its own publications separate from the links it relays over. Each design's tuning parameter is the number of peers a node selects, which is the knob that trades cost against *p*<sub>bad</sub>.
 
+<div align="center">
+<a name="table-3" id="table-3"></a>
+
 | Design | Mechanism | Tuning parameters |
 | :--: | --- | --- |
 | M1 | Push: each node forwards to *F* randomly drawn targets | *F* |
@@ -133,7 +154,9 @@ The choices are: whether a node *pushes* messages to peers it selected, or *pull
 | M4 | Each node draws *RF* peers; links are bidirectional and flood | *RF* |
 | M5 | Directed: each node opens *k*<sub>in</sub> inbound and *k*<sub>out</sub> outbound links | *k*<sub>in</sub>, *k*<sub>out</sub> |
 
-<em>Table N+1: Dissemination designs evaluated</em>
+<em>Table 3: the dissemination designs evaluated</em>
+
+</div>
 
 M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound links leaves pure push, and switching off its outbound links leaves pure pull. That gives a free consistency check on both the analysis and the implementation — M5 configured at those boundaries must reproduce M1's and M2's results exactly, and any discrepancy is a defect in one of the three rather than a property of the protocol.
 
@@ -152,14 +175,14 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
 
 #### Agreement between analysis and simulation
 
-The laws were checked against the measurement framework at 23 configurations, spanning all five designs, both network sizes, and three orders of magnitude in *p*<sub>bad</sub>. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
+The laws were checked against the measurement framework at 23 configurations, spanning all five designs, three orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
 
 ![Measured against predicted epoch failure probability](images/coverage-validation.svg)
 
-<em>Figure 1: measured against predicted epoch failure probability. Each point is one configuration; bars are Wilson 95 % intervals on the measured fraction; the diagonal is exact agreement.</em>
+<em>Figure 1: measured against predicted epoch failure probability. Each point is one tested configuration: its horizontal position is the failure rate the coverage law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. Both axes are logarithmic, so the configurations span from failing in roughly one epoch in three hundred (lower left) to failing in almost every epoch (upper right). <strong>The result to read off is that the points sit on the diagonal throughout</strong> — the prediction matches the measurement at every failure rate tested, with no drift at either end.</em>
 
 </div>
 
@@ -176,6 +199,9 @@ The same comparison against the analysis team's own independent simulators gives
 
 Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴ at *N* = 20 000, *μ* = 0.2, and the costs compared. Because every entry is equally safe by construction, the table is a pure cost comparison.
 
+<div align="center">
+<a name="table-4" id="table-4"></a>
+
 | Design | Parameters | Messages per publication | Copies per node | Standing links | Hops (full) | Hops (mean) |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: |
 | M3 | RF = 12, *s* = 8 | **153,577** | **9.6** | 38 | 5.9 | 4.3 |
@@ -184,14 +210,16 @@ Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴
 | M1 | *F* = 24 | 307,201 | 19.2 | 48 | 5.0 | 3.6 |
 | M2 | RF = 24 | 307,162 | 19.2 | 48 | **4.8** | **3.6** |
 
-<em>Table N+2: cost at equal safety. Measured values; see the reproduction note.</em>
+<em>Table 4: cost at equal safety — every design tuned to the same failure target, so the rows differ only in what that safety costs. Bold marks the best value in each column. Measured values; see the reproduction note.</em>
+
+</div>
 
 <div align="center">
 <a name="figure-2" id="figure-2"></a>
 
 ![Bandwidth cost against state cost at equal safety](images/cost-vs-state.svg)
 
-<em>Figure 2: bandwidth cost against state cost, every design tuned to the same failure target. Both axes are costs, so lower-left is better; marker size is hops to full coverage.</em>
+<em>Figure 2: bandwidth cost against state cost. Every design here is tuned to the same failure target, so the points differ only in what that safety costs: horizontally in connections a node must hold open all epoch, vertically in message copies it receives, and in marker size by how many forwarding steps the last subscriber waits. Both axes are costs, so lower and further left is better. <strong>The result to read off is that M3 and M4 sit on a frontier no other design reaches</strong> — M3 spends the least bandwidth, M4 the fewest connections, neither beats the other on both, and M1, M2 and M5 are beaten on both at once.</em>
 
 </div>
 
@@ -203,16 +231,20 @@ Three things follow, and the third is the one that matters for the choice.
 
 **M1, M2 and M5 are beaten on every axis at once**, so no weighting of bandwidth against state selects them. The choice is between M3 and M4, and it turns on which resource binds in the deployment. The remaining subsection is what stops that from being the whole answer.
 
+The design this proposal adopts, and the parameters it fixes, are given in the [Specification](#specification); this subsection establishes only what each candidate costs, and the one below establishes what each gives up under degradation.<!-- FORWARD-REF(specification): the Specification must name the adopted design (expected M3 or M4) and its parameters, so this sentence resolves to a concrete choice. Selection is blocked on the Robustness subsection below; see input-output-hk/pubsub#85. -->
+
 #### Robustness
 
-<!-- TODO(evidence): p_bad against honest downtime at each operating point, and the
-     resulting p_max per design. Blocked on the churn sweep (E13); the numbers exist
-     today only as the laws read at a shifted adversarial fraction, which is a
-     prediction rather than a measurement, and this subsection must say so plainly
-     until the sweep runs. The finding it will carry is that the churn ranking is
-     close to the inverse of the bandwidth ranking, so it changes the conclusion of
-     the subsection above rather than merely adding to it. Detail and provisional
-     figures: input-output-hk/pubsub#19. -->
+The comparison above holds every design at the same failure probability *under the assumption that all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget — the downtime it absorbs before leaving the target — and those budgets are not equal.
+
+**This subsection is deliberately incomplete.** The churn budgets can be obtained today by reading each design's coverage law at the shifted fraction, but that is a prediction, and no measurement has yet marked nodes down and re-checked coverage. Publishing the predicted figures here as though they were measured would misrepresent them.
+
+What can be said now is that the ordering is expected to differ from the one in Table 4, so **the cost comparison above should not be read as settling the choice of design until this subsection is filled in**.
+
+<!-- TODO(evidence): fill from the churn sweep (experiment E13) at the five operating
+     points — p_bad against honest downtime per design, and the resulting p_max, as a
+     third generated figure. Provisional law-derived values and the reasoning:
+     input-output-hk/pubsub#19. -->
 
 #### Limits of this evidence
 
@@ -230,14 +262,6 @@ The following are stated so that a reader can judge what the numbers above do an
 
 ### Trade-offs and Limitations
 
-#### The adversary this proposal defends against
-
-The protocol is analysed against an adversary controlling a bounded fraction **μ** of registered nodes, each of which is *silent*: it registers legitimately, accepts its allotted share of links, and then forwards nothing. This is deliberately the weakest adversary that still defeats delivery. A node that never emits a message cannot be distinguished from an honest node that has nothing to forward, so it is also the cheapest attack to mount and the hardest to observe. An eclipse attack against a specific subscriber reduces to this behaviour among that subscriber's upstream peers.
-
-Not modelled, and out of scope for this proposal: an adversary that forwards selectively or forwards corrupted content, resource exhaustion and denial of service, and an adaptive adversary that re-registers between epochs in order to re-target a chosen victim.
-
-Honest node churn is not a separate threat model. An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary: it holds its allotted links and forwards nothing. Independent honest downtime with per-epoch probability *p* therefore enters the analysis above as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same coverage results apply at the shifted value. What remains preliminary is the validation rather than the model — the shifted-μ prediction has not yet been checked against a simulation that marks nodes down, and correlated downtime such as upgrade waves or region outages is not captured by a single independent *p*.
-
 #### Two classes of fault, with different guarantees
 
 The protocol distinguishes faults that are attributable from faults that are not, and the boundary between them is not a matter of engineering effort. Accountability for the *presence* of an incorrect message and accountability for the *absence* of a message are formally different problems.[^accountable-liveness]
@@ -247,7 +271,7 @@ The protocol distinguishes faults that are attributable from faults that are not
 - content that is malformed under, or contradicts, the publisher's signature, checkable against the publisher's registered key;
 - a message sent by a peer outside the connections permitted to it for the current epoch, checkable against the obligation graph, which any participant can derive from the on-chain registry together with the epoch's public randomness.
 
-**Non-attributable faults** consist of the absence of messages. Attributing these is provably impossible without both a network that is more often synchronous than asynchronous and an honest majority among the parties able to attest.[^accountable-liveness] This proposal assumes neither. The dissemination analysis makes no timing assumption at all, and attestation here is inherently local: the only parties who can speak to whether a given relay forwarded a given message to a given subscriber are those two nodes. With two potential attesters there is no majority to appeal to, and a subscriber's entire upstream set can be adversarial even when the network-wide fraction μ is small — that case is precisely the residual failure probability quantified elsewhere in this Rationale.
+**Non-attributable faults** consist of the absence of messages. Attributing these is provably impossible without both a network that is more often synchronous than asynchronous and an honest majority among the parties able to attest.[^accountable-liveness] This proposal assumes neither. The dissemination analysis makes no timing assumption at all, and attestation here is inherently local: the only parties who can speak to whether a given relay forwarded a given message to a given subscriber are those two nodes. With two potential attesters there is no majority to appeal to, and a subscriber's entire upstream set can be adversarial even when the network-wide fraction μ is small — that case is one of the failure modes making up the residual per-epoch failure probability that the Evidence subsection quantifies.<!-- FORWARD-REF(evidence): resolves once the Evidence subsection lands; link it directly. -->
 
 Two consequences follow, and this proposal states them rather than working around them. The protocol does not claim to identify which node silenced a message. A registration deposit therefore cannot be made conditional on relaying behaviour, and this proposal specifies deposits as a Sybil-resistance cost rather than as a bond forfeitable for poor service.
 
@@ -275,6 +299,8 @@ The two compose: the peer-set mechanism gives cheap detection and recovery, whil
 - Whether a deposit should decay in the absence of positively supplied evidence of participation, following the approach Ethereum's inactivity leak takes to liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
 - The bounds on epoch length, which is constrained from both directions. From below by convergence: connection establishment must complete comfortably within an epoch, and the analytical results assume a converged standing topology, so the validity of the analysis itself constrains how short an epoch may be. From above by churn: unrepaired honest downtime accumulates over the epoch, so a longer epoch means a larger effective adversarial fraction at the moment the topology is judged. The width of the admissible window is therefore a property of the chosen operating point rather than a free parameter, and it narrows as that point is tuned for efficiency.
 - Whether dissemination parameters should be selected for minimum cost at the target failure probability, or for tolerance to downtime at a small cost premium. The two criteria do not agree, and they can select different configurations at an identical link budget: a point sized to sit just inside the target is by construction the one with least room to absorb a shifted adversarial fraction.
+- The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure — and against the observation that a subscriber only needs its own upstream set captured, not the network — before parameters are fixed.
+- The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
 - The cadence of on-chain position commitments against their cost, and whether topics carrying urgent traffic require a cadence finer than the epoch.
 - Whether adding a partial-synchrony assumption is acceptable, given that the analysis presented here deliberately avoids one, and what it would buy.
 - How many node identities a single trust anchor may derive, which bounds the residual Sybil surface that the deposit alone must price.

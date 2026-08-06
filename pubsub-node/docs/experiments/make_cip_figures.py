@@ -124,7 +124,7 @@ def fig_validation(cells) -> str:
         b.append(text(ml - 11, Y(v) + 4, decade(v), anchor="end"))
 
     b.append(line(X(lo), Y(lo), X(hi), Y(hi), RULE, 1.8, cap="round"))
-    b.append(text(X(0.28), Y(0.52), "law = measurement", 11, INK_SOFT, style="italic"))
+
 
     for c in cells:
         x, p = X(c["law"]), c["bad"] / c["runs"]
@@ -137,8 +137,9 @@ def fig_validation(cells) -> str:
 
     b.append(text(ml + pw / 2, H - 34, "P(bad) predicted by the coverage law",
                   12.5, INK, "middle", "600"))
-    b.append(text(ml + pw / 2, H - 18, "log scale — each gridline is ×10",
-                  11, INK_SOFT, "middle"))
+    b.append(text(ml + pw / 2, H - 18,
+                  "log scale, each gridline ×10 — left: almost never fails · "
+                  "right: fails most epochs", 11, INK_SOFT, "middle"))
     b.append(f'<text x="0" y="0" transform="translate(22,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
@@ -149,8 +150,11 @@ def fig_validation(cells) -> str:
              f'bar = Wilson 95% interval</text>')
 
     lx = ml + 14
+    b.append(text(lx, mt + 20, "one point = one tested configuration:", 11.5, INK_SOFT))
+    b.append(text(lx, mt + 38, "grey line = the law matched measurement exactly",
+                  11, "#8a887e"))
     for i, (m, col) in enumerate(SERIES.items()):
-        cx = lx + i * 74
+        cx = lx + 218 + i * 52
         b.append(circle(cx, mt + 16, 4.4, col, SURFACE, 1.6))
         b.append(text(cx + 9, mt + 20, m, 11.5, INK_SOFT))
 
@@ -203,8 +207,16 @@ def fig_cost_state(ops) -> str:
         label = "  /  ".join(f"{g['model']} · {g['params']}" for g in group)
         b.append(text(X(sl), Y(cp) - r - 10, label, 12, INK, "middle", "600"))
 
-    b.append(text(ml + 6, mt + ph - 8, "cheaper on both axes = better",
+    b.append(text(ml + 6, mt + ph - 8, "↙ cheaper on both axes = better",
                   11, INK_SOFT, style="italic"))
+    # marker size carries a third axis, so it needs its own key
+    b.append(text(ml + 14, mt + 20, "marker size = hops to reach the last subscriber",
+                  10.5, "#8a887e"))
+    for dx, hops in ((22, 4.8), (86, 5.9)):
+        r = 4 + (hops - 4.5) * 5.5
+        b.append(circle(ml + 14 + dx, mt + 44, r, "#b9b6ab", SURFACE, 1.6))
+        b.append(text(ml + 14 + dx + r + 6, mt + 48, f"{hops}", 10.5, "#8a887e"))
+
     b.append(text(ml + pw / 2, H - 36,
                   "State cost — connections each node holds open all epoch",
                   12.5, INK, "middle", "600"))
@@ -217,7 +229,7 @@ def fig_cost_state(ops) -> str:
     b.append(f'<text x="0" y="0" transform="translate(41,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'up = more traffic · marker size = hops to full coverage</text>')
+             f'up = more traffic</text>')
 
     return frame(W, H, b, "Bandwidth cost against state cost at equal safety",
                  "Each design tuned to the same failure target, so points differ only in "
