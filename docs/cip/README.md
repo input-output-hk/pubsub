@@ -58,6 +58,9 @@ The missing ingredient is therefore not a better gossip mechanism. It is a peer 
 
 The design is motivated by four standing scenarios, drawn from a [broader survey of candidate use cases](https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md). They are listed with the participant counts that drive the design, because those counts — not the size of the eventual audience — determine what the protocol must sustain.
 
+<div align="center">
+<a name="table-1" id="table-1"></a>
+
 | Scenario | Publishers | Direct protocol participants | Delivery requirement |
 | --- | --- | --- | --- |
 | Protocol developer teams → stake pool operators: emergency alerts and operational coordination | ~10 | ~3,000 SPO nodes, always-on | High; a missed critical alert has operational cost |
@@ -65,9 +68,13 @@ The design is motivated by four standing scenarios, drawn from a [broader survey
 | Governance bodies and DReps → community: proposal notifications, voting alerts, and voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Medium to high; tied to voting deadlines |
 | dApps → users: position alerts and protocol notifications | Tens | Wallet backends, mediated, with delivery targeted by address | High; alerts are financially consequential |
 
+<em>Table 1: the four standing scenarios, by participant count rather than audience size.</em>
+
+</div>
+
 Two properties of this table shape the proposal.
 
-First, **the audience is large but the participant set is not.** Wherever the ultimate recipients number in the hundreds of thousands, they are reached through wallet infrastructure providers, of which there are on the order of ten. The nodes that must actually participate in dissemination are the always-on operators — stake pools, wallet backends, dApp and governance infrastructure — a population in the thousands. This is the scale the protocol is designed and evaluated for, and it is small enough that a degree-bounded, fully-verifiable topology over the entire registered set is tractable rather than aspirational.
+First, **the audience is large but the participant set is not.** Wherever the ultimate recipients number in the hundreds of thousands, they are reached through wallet infrastructure providers, of which there are on the order of ten. The nodes that must actually participate in dissemination are the always-on operators — stake pools, wallet backends, dApp and governance infrastructure — a population in the low thousands today, dominated by the roughly three thousand stake pools. The evaluation in the Rationale is sized accordingly: it reports one network of four thousand nodes, matching that population, and one of twenty thousand as headroom for growth well beyond it. A participant set of this size is small enough that a topology bounded in connections per node, and derivable in full by every participant, is tractable rather than aspirational.
 
 Second, **the participants are already registered on-chain, or can be.** Stake pool operators are registered by construction. This is what makes an on-chain trust root a natural fit rather than an imposition: the registry the protocol needs substantially exists, and the identities in it are already backed by a cost.
 
@@ -78,9 +85,9 @@ The stakeholders are correspondingly: stake pool operators, as the largest set o
 The scenarios above imply requirements that jointly rule out both incumbent options:
 
 - **Authenticity.** A recipient must be able to verify that a message originated with the claimed publisher, without trusting the path it arrived over.
-- **Censorship resistance.** Suppressing a message must require luck rather than choice. No participant may be able to place itself where it can silence a chosen publisher or subscriber; and where an unlucky draw does isolate someone, that isolation must be improbable, must end when the topology is next drawn, and must not be repeatable at will. Prevention in every draw is not achievable — a subscriber whose every upstream peer happens to be adversarial receives nothing, however small the adversarial fraction — so the requirement is on how rare, how brief, and how unsteerable that event is. The Rationale quantifies each.
+- **Censorship resistance.** Suppressing a message must require luck rather than choice. No participant may be able to place itself where it can silence a chosen publisher or subscriber; and where an unlucky draw does isolate someone, that isolation must be improbable, must end when the topology is next drawn, and must not be repeatable at will. Prevention in every draw is not achievable — a subscriber whose every upstream peer happens to be adversarial receives nothing, however small the adversarial fraction — so the requirement is on how rare, how brief, and how unsteerable that event is. The Rationale takes up each in turn, and quantifies the first two.
 - **Non-influenceable neighbour selection.** Which peers a node disseminates with must be determined by the protocol rather than negotiated between participants, and no participant may be able to steer that determination — whether by registering additional identities, by timing its own registration, or by influencing the randomness the assignment derives from. This is precisely the property a discovery layer with freely created identities fails to provide, and it is what makes the censorship requirement above achievable at all.
-- **Bounded cost per node.** Participation must not require a node to hold connections or carry traffic proportional to the size of the network, or only well-resourced operators will participate — which would reintroduce, informally, the centralisation the proposal removes.
+- **Bounded cost per node.** Participation must not require a node to hold connections, or carry message traffic, in proportion to the size of the network. The Rationale measures these as the two cost axes — *standing links per node* and *copies per honest node* — and both must stay bounded as the network grows, or only well-resourced operators will participate, which would reintroduce informally the centralisation the proposal removes.
 - **Openness to arbitrary payloads.** The scenarios differ widely in content and cadence. The protocol carries topics, and does not interpret what those topics transport.
 
 The remainder of this document specifies a protocol meeting these requirements, and the Rationale examines where the guarantees stop.
