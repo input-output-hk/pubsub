@@ -1,0 +1,23 @@
+# Tier-1 comparison cell — M5 N=4000 (3,6): P(bad) pred 0.204, MC 306/1500 = 0.204 (swap symmetry pair).
+# mu = 0.2; run count matched to the formal MC row (or sized for the bulk value).
+
+model = "m5"
+master_seed = 507
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 3
+publisher = { pick_count = 6 }
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+pick_count = 3
+publisher = { pick_count = 6 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 1500

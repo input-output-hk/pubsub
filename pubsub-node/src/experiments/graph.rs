@@ -13,27 +13,50 @@
 use std::collections::BTreeSet;
 use std::str::FromStr;
 
+use crate::connection_state::LinkState;
 use crate::peer::PeerId;
 
 use super::population::Population;
 
 /// The dissemination model an experiment runs under: the dispatch that owns
 /// propagation-graph extraction, the per-publisher seed-set rule, and the
-/// goodness criterion. v1 ships exactly one variant; the
-/// dispatch shape is what the experiment program's later stages and the
-/// in-flight publisher-links work extend.
+/// goodness criterion. The dispatch shape is what the experiment program's
+/// model-family stage extends (ADR 0041).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DisseminationModel {
-    /// Uniform-relay dissemination: propagation edges are the `downstream`
-    /// records between up-honest peers; the seed set is the publisher alone;
-    /// good ⟺ one strongly connected component.
+    /// Push-only dissemination — M5's `k_in` = 0 boundary named: no relay
+    /// mesh, every message pushed over the publisher (`k_out`) links.
+    /// Shares M5's extraction and seed rules exactly; its own name keeps
+    /// the boundary-row configurations self-describing (ADR 0041).
+    M1,
+    /// Uniform-relay dissemination: propagation edges are the relay
+    /// `downstream` records between up-honest peers; the seed set is the
+    /// publisher alone; good ⟺ one strongly connected component.
     M2,
+    /// Relay dissemination plus standing initiation links: propagation
+    /// edges stay relay-only (initiation links never relay), but a
+    /// publisher's message starts from its **seed set** — itself plus its
+    /// `Active` publisher-link targets — so goodness is the seed-aware
+    /// criterion ([`seeded_goodness`]), not bare one-SCC (ADR 0041).
+    M3,
+    /// Bidirectional-relay dissemination (the symmetric handshake with a
+    /// pick count). Shares M2's extraction and seed rules exactly: every
+    /// relay link is mirrored, so the extracted digraph is symmetric by
+    /// construction and the one-SCC criterion applies unchanged. Its own
+    /// name keeps configurations self-describing (ADR 0041 ties it to the
+    /// symmetric switch).
+    M4,
+    /// Directed k-in/k-out gossip: every held message flows over **both**
+    /// link kinds (`forward-to-all`), so propagation edges are the union of
+    /// relay and `Active` publisher downstream records; the seed set is the
+    /// publisher alone; good ⟺ one SCC of the union digraph (ADR 0041).
+    M5,
 }
 
 /// The error returned when a configuration string names no known
 /// dissemination model.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-#[error("unknown dissemination model '{0}' (expected one of: m2)")]
+#[error("unknown dissemination model '{0}' (expected one of: m1, m2, m3, m4, m5)")]
 pub struct UnknownDisseminationModel(pub String);
 
 impl DisseminationModel {
@@ -41,17 +64,38 @@ impl DisseminationModel {
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
+            Self::M1 => "m1",
             Self::M2 => "m2",
+            Self::M3 => "m3",
+            Self::M4 => "m4",
+            Self::M5 => "m5",
         }
     }
 
-    /// The per-publisher seed set: the vertices assumed to hold the message
-    /// at wave 0 — the dispatch's parameterisation point. M2 seeds the
-    /// publisher alone.
+    /// The per-publisher seed set: the peers assumed to hold the message at
+    /// wave 0 — the dispatch's parameterisation point. Every model but M3
+    /// seeds the publisher alone; M3 adds the publisher's `Active`
+    /// publisher-link targets on the population's topic (initiation links
+    /// carry the owner's own publications). The list is the raw rule —
+    /// entries that are not digraph vertices (adversarial or down targets)
+    /// contribute nothing to propagation, and consumers intersect with the
+    /// vertex set.
     #[must_use]
-    pub fn publisher_seeds(self, publisher: &PeerId) -> Vec<PeerId> {
+    pub fn publisher_seeds(self, population: &Population, publisher: &PeerId) -> Vec<PeerId> {
         match self {
-            Self::M2 => vec![publisher.clone()],
+            Self::M1 | Self::M2 | Self::M4 | Self::M5 => vec![publisher.clone()],
+            Self::M3 => {
+                let mut seeds = vec![publisher.clone()];
+                if let Some(participant) = population.participant(publisher) {
+                    let topic = population.topic();
+                    for (target, edge_topic, state) in participant.publisher_downstream() {
+                        if state == LinkState::Active && &edge_topic == topic {
+                            seeds.push(target);
+                        }
+                    }
+                }
+                seeds
+            }
         }
     }
 
@@ -61,18 +105,21 @@ impl DisseminationModel {
     /// [`ChurnPhase::PostChurn`] takes up-honest only (the primary graph);
     /// [`ChurnPhase::PreChurn`] includes down honest nodes (the formed-
     /// topology diagnostic). Adversarial participants are never vertices:
-    /// under M2 the silent relay contributes nothing to propagation. An edge
-    /// `u → v` exists iff `v` is in `u`'s fan-out target set — for M2, `u`'s
-    /// `downstream` records restricted to the vertex set.
+    /// under every model the silent relay contributes nothing to
+    /// propagation. An edge `u → v` exists iff `v` is in `u`'s fan-out
+    /// target set — for M2/M3/M4, `u`'s relay `downstream` records
+    /// restricted to the vertex set (initiation links never relay); for
+    /// M5/M1 (`forward-to-all`), the union of `u`'s relay and `Active`
+    /// publisher `downstream` records, deduplicated per pair.
     #[must_use]
     pub fn extract(self, population: &Population, phase: ChurnPhase) -> PropagationDigraph {
-        let Self::M2 = self;
         let in_scope = |participant: &super::population::Participant| match phase {
             ChurnPhase::PreChurn => {
                 participant.class() == super::population::ParticipantClass::Honest
             }
             ChurnPhase::PostChurn => participant.is_up_honest(),
         };
+        let publisher_edges_propagate = matches!(self, Self::M1 | Self::M5);
         // Population iteration is peer-id-sorted, so the vertex list is
         // sorted by construction.
         let vertices: Vec<PeerId> = population
@@ -90,16 +137,36 @@ impl DisseminationModel {
                     edges.push((from.clone(), to));
                 }
             }
+            if publisher_edges_propagate {
+                for (to, edge_topic, state) in participant.publisher_downstream() {
+                    if state == LinkState::Active
+                        && &edge_topic == topic
+                        && vertex_set.contains(&to)
+                    {
+                        edges.push((from.clone(), to));
+                    }
+                }
+            }
         }
         PropagationDigraph::from_vertices_and_edges(vertices, &edges)
     }
 
-    /// Extract and analyse in one call: the digraph, its goodness verdict,
-    /// and its topology shape.
+    /// Extract and analyse in one call: the digraph, its goodness verdict
+    /// (seed-aware under M3), and its topology shape.
     #[must_use]
     pub fn analyze(self, population: &Population, phase: ChurnPhase) -> GraphAnalysis {
         let digraph = self.extract(population, phase);
-        let verdict = goodness(&digraph);
+        let verdict = match self {
+            Self::M1 | Self::M2 | Self::M4 | Self::M5 => goodness(&digraph),
+            Self::M3 => {
+                let seeds: Vec<Vec<PeerId>> = digraph
+                    .vertices()
+                    .iter()
+                    .map(|id| self.publisher_seeds(population, id))
+                    .collect();
+                seeded_goodness(&digraph, &seeds)
+            }
+        };
         let shape = topology_shape(&digraph);
         GraphAnalysis {
             digraph,
@@ -115,7 +182,11 @@ impl FromStr for DisseminationModel {
     /// Parse a model name case-insensitively.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
+            "m1" => Ok(Self::M1),
             "m2" => Ok(Self::M2),
+            "m3" => Ok(Self::M3),
+            "m4" => Ok(Self::M4),
+            "m5" => Ok(Self::M5),
             _ => Err(UnknownDisseminationModel(s.to_string())),
         }
     }
@@ -369,10 +440,15 @@ pub struct Condensation {
 /// The good-topology verdict and its graded refinements.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GoodnessVerdict {
-    /// One SCC ⟺ every up-honest publisher reaches every up-honest node.
+    /// Every up-honest publisher reaches every up-honest node — one SCC
+    /// under the publisher-alone seed rule ([`goodness`]); under M3's seed
+    /// sets, every publisher's seed closure covers the whole graph
+    /// ([`seeded_goodness`]).
     pub good: bool,
-    /// Worst-case coverage over all up-honest publishers:
-    /// (smallest condensation-sink component − 1) / (up-honest − 1).
+    /// Worst-case coverage over all up-honest publishers: under the
+    /// publisher-alone rule, (smallest condensation-sink component − 1) /
+    /// (up-honest − 1); under seed sets, the worst per-publisher seed
+    /// closure fraction.
     pub min_publisher_coverage: f64,
     /// Number of strongly connected components.
     pub sccs: u64,
@@ -431,6 +507,96 @@ pub fn goodness(digraph: &PropagationDigraph) -> GoodnessVerdict {
     };
     GoodnessVerdict {
         good: sccs == 1,
+        min_publisher_coverage,
+        sccs: sccs as u64,
+        largest_scc: largest_scc as u64,
+    }
+}
+
+/// The seed-aware goodness verdict — the M3 dispatch (ADR 0041).
+///
+/// A publisher's message spreads from its **seed set** over the digraph's
+/// edges, so the one-SCC criterion generalises: a seed set's downward
+/// closure is the whole graph exactly when every **source component** of
+/// the condensation contains a seed (a source has no incoming edges, so
+/// nothing outside it can reach it) — checked here as closure size =
+/// vertex count, per publisher. `good` ⟺ every vertex, as publisher,
+/// covers the whole graph; `min_publisher_coverage` is the worst
+/// per-publisher closure fraction over eligible receivers. This is the
+/// formal M3 study's exact every-publisher check, computed on the
+/// condensation instead of the raw graph.
+///
+/// `seeds` is vertex-aligned with [`PropagationDigraph::vertices`]; seed
+/// entries that are not vertices (adversarial or down targets) contribute
+/// nothing, matching honest-targets-only spreading. Each vertex's seed
+/// list is expected to contain the vertex itself.
+#[must_use]
+pub fn seeded_goodness(digraph: &PropagationDigraph, seeds: &[Vec<PeerId>]) -> GoodnessVerdict {
+    const UNSTAMPED: usize = usize::MAX;
+    debug_assert_eq!(seeds.len(), digraph.vertex_count());
+    let condensation = digraph.condensation();
+    let sccs = condensation.component_sizes.len();
+    let largest_scc = condensation
+        .component_sizes
+        .iter()
+        .copied()
+        .max()
+        .unwrap_or(0);
+    let up_honest = digraph.vertex_count();
+    // One component (or an empty graph): seeds cannot change the verdict.
+    if sccs <= 1 {
+        return GoodnessVerdict {
+            good: sccs == 1,
+            min_publisher_coverage: if up_honest == 0 { 0.0 } else { 1.0 },
+            sccs: sccs as u64,
+            largest_scc: largest_scc as u64,
+        };
+    }
+
+    // Component-DAG adjacency for the per-publisher closure walks.
+    let mut dag = vec![Vec::new(); sccs];
+    for &(from, to) in &condensation.edges {
+        dag[from].push(to);
+    }
+
+    let mut stamp = vec![UNSTAMPED; sccs];
+    let mut stack: Vec<usize> = Vec::new();
+    let mut good = true;
+    let mut min_publisher_coverage = 1.0f64;
+    for (vertex, seed_peers) in seeds.iter().enumerate() {
+        // Seed components: the closure walk's roots, stamped per publisher
+        // so the scratch vectors are reused without clearing.
+        for seed in seed_peers {
+            if let Ok(index) = digraph.vertices.binary_search(seed) {
+                let component = condensation.component_of[index];
+                if stamp[component] != vertex {
+                    stamp[component] = vertex;
+                    stack.push(component);
+                }
+            }
+        }
+        let mut closure_size = 0usize;
+        while let Some(component) = stack.pop() {
+            closure_size += condensation.component_sizes[component];
+            for &child in &dag[component] {
+                if stamp[child] != vertex {
+                    stamp[child] = vertex;
+                    stack.push(child);
+                }
+            }
+        }
+        good &= closure_size == up_honest;
+        #[allow(clippy::cast_precision_loss)] // population sizes ≪ 2^52
+        let coverage = if up_honest <= 1 {
+            1.0
+        } else {
+            (closure_size.saturating_sub(1)) as f64 / (up_honest - 1) as f64
+        };
+        min_publisher_coverage = min_publisher_coverage.min(coverage);
+    }
+
+    GoodnessVerdict {
+        good,
         min_publisher_coverage,
         sccs: sccs as u64,
         largest_scc: largest_scc as u64,
@@ -505,6 +671,113 @@ mod tests {
         let pre = DisseminationModel::M2.extract(&population, ChurnPhase::PreChurn);
         assert_eq!(pre.vertices(), &[peer(0), peer(1), peer(2)]);
         assert_eq!(pre.edge_count(), 6, "full mesh over the three honest");
+    }
+
+    // ADR 0041: `m4` parses to its own name and aliases M2's extraction and
+    // seed rules exactly — the digraph is identical on any population.
+    #[test]
+    fn m4_parses_and_aliases_m2_extraction() {
+        use std::str::FromStr;
+        let m4 = DisseminationModel::from_str("m4").expect("known model");
+        assert_eq!(m4, DisseminationModel::M4);
+        assert_eq!(m4.name(), "m4");
+
+        let population = scripted::full_mesh(4).silent(3).build();
+        let via_m4 = m4.extract(&population, ChurnPhase::PostChurn);
+        let via_m2 = DisseminationModel::M2.extract(&population, ChurnPhase::PostChurn);
+        assert_eq!(via_m4.vertices(), via_m2.vertices());
+        assert_eq!(via_m4.edge_count(), via_m2.edge_count());
+        assert_eq!(
+            m4.publisher_seeds(&population, &peer(0)),
+            DisseminationModel::M2.publisher_seeds(&population, &peer(0)),
+        );
+    }
+
+    // ADR 0041: every model name parses; M1 aliases M5's extraction.
+    #[test]
+    fn all_model_names_parse_and_m1_aliases_m5() {
+        use std::str::FromStr;
+        for (name, model) in [
+            ("m1", DisseminationModel::M1),
+            ("m3", DisseminationModel::M3),
+            ("m5", DisseminationModel::M5),
+        ] {
+            assert_eq!(DisseminationModel::from_str(name).expect("known"), model);
+            assert_eq!(model.name(), name);
+        }
+        let population = scripted::nodes(3).link(0, 1).publisher_link(1, 2).build();
+        let via_m1 = DisseminationModel::M1.extract(&population, ChurnPhase::PostChurn);
+        let via_m5 = DisseminationModel::M5.extract(&population, ChurnPhase::PostChurn);
+        assert_eq!(via_m1, via_m5);
+    }
+
+    // ADR 0041: M5 extraction takes the union of relay and Active publisher
+    // downstream records, deduplicated per pair; M3 extraction stays
+    // relay-only (initiation links never relay).
+    #[test]
+    fn m5_unions_link_kinds_and_m3_stays_relay_only() {
+        let population = scripted::nodes(3)
+            .link(0, 1)
+            .publisher_link(0, 1) // both kinds to the same pair: one edge
+            .publisher_link(0, 2)
+            .build();
+        let m5 = DisseminationModel::M5.extract(&population, ChurnPhase::PostChurn);
+        assert_eq!(m5.edge_count(), 2, "0→1 deduped across kinds, plus 0→2");
+        assert_eq!(m5.out_degree(&peer(0)), Some(2));
+
+        let m3 = DisseminationModel::M3.extract(&population, ChurnPhase::PostChurn);
+        assert_eq!(m3.edge_count(), 1, "the relay edge only");
+        assert_eq!(m3.out_degree(&peer(0)), Some(1));
+    }
+
+    // ADR 0041 / the formal M3 check: seeding heals the muted publisher.
+    // Node 0 receives from the {1, 2} cycle but sends to no one (a relay
+    // sink) — bare M2 goodness calls the topology bad; with 0's initiation
+    // link into the cycle, every publisher's seed closure covers the graph.
+    #[test]
+    fn m3_seeding_heals_the_muted_publisher() {
+        let bare = scripted::nodes(3)
+            .link(1, 2)
+            .link(2, 1)
+            .link(1, 0)
+            .link(2, 0)
+            .build();
+        let m2 = DisseminationModel::M2.analyze(&bare, ChurnPhase::PostChurn);
+        assert!(!m2.verdict.good, "muted publisher 0 ⇒ bad under M2");
+        assert!(m2.verdict.min_publisher_coverage.abs() < f64::EPSILON);
+
+        let seeded = scripted::nodes(3)
+            .link(1, 2)
+            .link(2, 1)
+            .link(1, 0)
+            .link(2, 0)
+            .publisher_link(0, 1)
+            .build();
+        let m3 = DisseminationModel::M3.analyze(&seeded, ChurnPhase::PostChurn);
+        assert_eq!(m3.verdict.sccs, 2, "the relay digraph is unchanged");
+        assert!(m3.verdict.good, "0's seed into the cycle covers everyone");
+        assert!((m3.verdict.min_publisher_coverage - 1.0).abs() < f64::EPSILON);
+    }
+
+    // ADR 0041 / the formal M3 law's in-isolated class: a node with no
+    // relay in-edges cannot be supplied by other publishers' initiation
+    // links — the topology stays bad, and the worst publisher's closure
+    // fraction is exact. Node 3 relays into the cycle but receives nothing.
+    #[test]
+    fn m3_in_isolated_node_stays_bad() {
+        let population = scripted::nodes(4)
+            .link(1, 2)
+            .link(2, 1)
+            .link(1, 0)
+            .link(2, 0)
+            .link(3, 1)
+            .publisher_link(0, 1)
+            .build();
+        let analysis = DisseminationModel::M3.analyze(&population, ChurnPhase::PostChurn);
+        assert!(!analysis.verdict.good, "no publisher's seeds reach node 3");
+        // Publishers 0, 1, 2 cover {0, 1, 2}: (3−1)/(4−1) = 2/3; publisher 3
+        // covers everything.
+        assert!((analysis.verdict.min_publisher_coverage - 2.0 / 3.0).abs() < 1e-12);
     }
 
     // 016-FR-020: the iterative Kosaraju condensation on the worked example —
@@ -632,7 +905,8 @@ mod tests {
     }
 
     // 016-FR-022: the model dispatch parses from its configuration name and
-    // owns the seed-set rule (M2: the publisher alone).
+    // owns the seed-set rule (M2: the publisher alone; M3: the publisher
+    // plus its Active publisher-link targets).
     #[test]
     fn model_dispatch_parses_and_seeds() {
         assert_eq!(
@@ -640,10 +914,18 @@ mod tests {
             DisseminationModel::M2,
         );
         assert_eq!(DisseminationModel::M2.name(), "m2");
-        assert!(DisseminationModel::from_str("m3").is_err());
+        assert!(DisseminationModel::from_str("m6").is_err());
+        let population = scripted::nodes(3)
+            .publisher_link(0, 1)
+            .publisher_link(0, 2)
+            .build();
         assert_eq!(
-            DisseminationModel::M2.publisher_seeds(&peer(7)),
-            vec![peer(7)],
+            DisseminationModel::M2.publisher_seeds(&population, &peer(0)),
+            vec![peer(0)],
+        );
+        assert_eq!(
+            DisseminationModel::M3.publisher_seeds(&population, &peer(0)),
+            vec![peer(0), peer(1), peer(2)],
         );
     }
 }

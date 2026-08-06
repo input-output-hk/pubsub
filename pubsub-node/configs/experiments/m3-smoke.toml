@@ -1,0 +1,31 @@
+# Suite-sized smoke variant of the M3 shape (ADR 0041): the relay mesh plus
+# s-1 = 3 standing initiation links per node (the publisher sub-table),
+# forward-to-relays exclusivity - initiation links carry only their owner's
+# own publications. Population, fanout, and run count scaled down so the
+# automated suite can execute it end to end in seconds.
+#
+# The suite asserts pipeline health only - the configuration parses, the
+# sweep executes, the artifacts are well-formed (the sends-by-kind split
+# populated on both columns), and the identities hold. It never asserts
+# numeric agreement with the formal model; that is the E6 comparison's job.
+
+model = "m3"
+master_seed = 9
+
+[population]
+size = 100
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 8 # RF
+publisher = { pick_count = 3 } # s - 1 initiation links
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 8
+publisher = { pick_count = 3 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 15

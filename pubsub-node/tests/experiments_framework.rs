@@ -532,6 +532,21 @@ fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
         parse_sweep_description(&shipped_config(name))
             .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
     }
+    // The model-family comparison cells (ADR 0041 program work) likewise:
+    // every config under comparisons/ parses and passes model coherence.
+    let comparisons =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("configs/experiments/comparisons");
+    let mut cells = 0;
+    for entry in std::fs::read_dir(&comparisons).expect("comparisons directory ships") {
+        let path = entry.expect("directory entry").path();
+        if path.extension().is_some_and(|ext| ext == "toml") {
+            let text = std::fs::read_to_string(&path).expect("config readable");
+            parse_sweep_description(&text)
+                .unwrap_or_else(|error| panic!("shipped {path:?} must validate: {error}"));
+            cells += 1;
+        }
+    }
+    assert!(cells >= 24, "the comparison-cell set ships complete");
 
     let description =
         parse_sweep_description(&shipped_config("m2-smoke.toml")).expect("smoke config parses");
@@ -595,6 +610,64 @@ fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
     }
 }
 
+// ADR 0041: the shipped publisher-pair smoke variants run the pipeline end
+// to end — the configurations parse (model coherence included), the sweeps
+// execute deterministically across worker counts, and the sends-by-kind
+// split is populated on both columns (m3: relaying + seeding; m5: both
+// kinds carrying everything). Pipeline health ONLY — the E6/E8 comparisons
+// own any numeric agreement with the formal models.
+#[test]
+fn shipped_publisher_pair_smoke_configurations_run_end_to_end() {
+    for name in ["m3-smoke.toml", "m5-smoke.toml"] {
+        let description = parse_sweep_description(&shipped_config(name))
+            .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
+        let dirs = tempfile::tempdir().expect("temp dir");
+        let (first, second) = (dirs.path().join("first"), dirs.path().join("second"));
+        let summary = run_sweep(&description, &first, "test-commit", &workers(2))
+            .unwrap_or_else(|error| panic!("{name} sweep runs: {error}"));
+        run_sweep(&description, &second, "test-commit", &workers(3))
+            .unwrap_or_else(|error| panic!("{name} sweep runs: {error}"));
+        for artifact in ["manifest.json", "runs.jsonl", "aggregates.json"] {
+            assert_eq!(
+                std::fs::read(first.join(artifact)).expect("artifact written"),
+                std::fs::read(second.join(artifact)).expect("artifact written"),
+                "{name}: {artifact} must reproduce",
+            );
+        }
+
+        // Both kind columns carry traffic somewhere in the sweep, and the
+        // kind identity holds per publish row.
+        let mut relay_total = 0u64;
+        let mut publisher_total = 0u64;
+        let rows = std::fs::read_to_string(first.join("runs.jsonl")).expect("rows written");
+        let mut row_count = 0u64;
+        for line in rows.lines() {
+            row_count += 1;
+            let row: serde_json::Value = serde_json::from_str(line).expect("row parses");
+            for publish in row["publishes"].as_array().expect("publish slices") {
+                let kind = &publish["sends_by_kind"];
+                let (relay, publisher) = (
+                    kind["relay"].as_u64().expect("relay column"),
+                    kind["publisher"].as_u64().expect("publisher column"),
+                );
+                let sends = &publish["sends"];
+                let total = sends["honest"].as_u64().unwrap()
+                    + sends["adversarial"].as_u64().unwrap()
+                    + sends["down"].as_u64().unwrap();
+                assert_eq!(relay + publisher, total, "{name}: kind identity");
+                relay_total += relay;
+                publisher_total += publisher;
+            }
+        }
+        assert_eq!(row_count, summary.runs);
+        assert!(relay_total > 0, "{name}: the relay mesh carries traffic");
+        assert!(
+            publisher_total > 0,
+            "{name}: the publisher links carry traffic",
+        );
+    }
+}
+
 // Research R9: the golden serialization test — pins the record encoding and
 // the structural field inventory (spellings, order, optional-field
 // behaviour). A schema change must consciously update this string.
@@ -638,6 +711,10 @@ fn run_record_serialization_is_pinned() {
                 adversarial: 1,
                 down: 1,
             },
+            sends_by_kind: pubsub_node::experiments::driver::KindTally {
+                relay: 3,
+                publisher: 0,
+            },
             suppressed: 0,
             severed: 0,
         }],
@@ -655,7 +732,7 @@ fn run_record_serialization_is_pinned() {
             r#""publishes":[{"coverage":0.5,"received":1,"missed":1,"max_depth":1,"#,
             r#""depth_hist":[1,1],"miss_causes":{"all_upstreams_adversarial_or_down":1,"#,
             r#""no_upstream":0,"no_up_honest_path":0},"sends":{"honest":1,"adversarial":1,"#,
-            r#""down":1},"suppressed":0,"severed":0}]}"#,
+            r#""down":1},"sends_by_kind":{"relay":3,"publisher":0},"suppressed":0,"severed":0}]}"#,
         ),
     );
 }

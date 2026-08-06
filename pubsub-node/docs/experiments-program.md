@@ -104,11 +104,18 @@ from the master seed and tool commit at any worker count. Two measurement instru
 each other:
 
 - the **publish drain** — realised coverage (excluded-publisher denominator), per-node first-receipt
-  depth, miss-cause decomposition, and send accounting with a per-run identity check;
-- **realised-graph analytics** — good topology ⟺ one strongly connected component of the up-honest
-  propagation digraph, min-publisher-coverage from the condensation's sinks, degree and sink
-  statistics. Goodness must come from this pass, not from sampled drains: a muted publisher is
-  invisible to any other publisher's dissemination (the executed comparison's structural finding).
+  depth, miss-cause decomposition, and send accounting with per-run identity checks; sends are split
+  by recipient class **and** by carrying link kind (relay/publisher — under M3 the split reads
+  relaying vs seeding, under M5 pull-serving vs push-forwarding, and the M5 grid's boundary
+  reductions show as one column constant at zero; ADR 0041);
+- **realised-graph analytics** — per-model extraction behind the `DisseminationModel` dispatch
+  (M2/M3/M4: relay edges only, initiation links never relay; M5/M1: the union of relay and publisher
+  edges), goodness from the condensation: one SCC for the publisher-alone-seed models, and for M3 the
+  **seed-aware** criterion — every publisher's seed set (itself plus its initiation targets) must
+  close over the whole graph, the formal M3 study's exact every-publisher check — with
+  min-publisher-coverage as the worst per-publisher closure fraction. Goodness must come from this
+  pass, not from sampled drains: a muted publisher is invisible to any other publisher's
+  dissemination (the executed comparison's structural finding).
 
 Probabilities are always reported as **raw counts plus a Wilson 95 % interval** — the ±1σ convention
 degenerates to zero width at all-good samples, which well-sized configurations make the common case
@@ -133,7 +140,10 @@ degenerates to zero width at all-good samples, which well-sized configurations m
 - **Link kinds** realise the model family: the relay mesh (M2), the optional publisher pair for
   standing initiation links (M3/M5), and the symmetric handshake whose one accept decision
   establishes a bidirectional link on both ends — with a pick count and no bucket count, exactly
-  M4.
+  M4. The sweep config declares the publisher pair per class (the `publisher` sub-table, with a
+  `publisher_pick_count` axis for k_out sweeps) and validates the declared model name against the
+  honest class's wiring before anything runs, so one config name yields consistent wiring and
+  measurement (ADR 0041).
 
 **Adversaries** come in two tiers. Level-1 — a hostile strategy bundle on an otherwise-honest node —
 is implemented; the silent relay (the models' worst-case adversary) ships with the framework, and a
@@ -178,14 +188,21 @@ produces non-trivial dynamics.
 The published per-model laws and grids (`models/comparison.md`) give each configuration its yardstick;
 the boundary reductions (M5 → M2 at k_out = 0, M5 → M1 at k_in = 0) are built-in sanity checks.
 
-- **E6 — M3, initiation links** [needs: publisher-pair experiment configuration]. The s−1 mapping,
-  the seeding/relaying cost split, and the elimination of M2's muted-publisher tail; coverage law and
-  cost values vs the published M3 grids.
-- **E7 — M4, bidirectional links** [ready]. The minimum-degree floor and connectivity at small RF vs
-  the published M4 law; the shipped M4 sweep configuration (pick count + symmetric handshake) is the
-  starting point, with its baseline recorded.
-- **E8 — M5, the k-in/k-out grid** [needs: publisher-pair experiment configuration]. Sweep both
-  axes, verify the boundary reductions, compare the interior to the published values.
+- **E6 — M3, initiation links** [done]. Executed and documented in
+  [`docs/experiments/m3-comparison.md`](experiments/m3-comparison.md): five coverage-law cells
+  (bulk through the 30 000-run deep tail, both sizes) all law-consistent; the operating-point cost
+  and latency means at published precision; the seeding cost measured at exactly s−1 publisher-kind
+  sends per message via the kind split; the seed-aware goodness realising the study's exact
+  every-publisher check.
+- **E7 — M4, bidirectional links** [done]. Executed and documented in
+  [`docs/experiments/m4-comparison.md`](experiments/m4-comparison.md): RF = 3/4/5/6 coverage cells
+  law-consistent (the RF = 6 deep tail at 251/30 000 vs the law's 0.00836 — a 1.00× ratio), the
+  RF = 8 operating point exact at published precision, degrees mirrored fleet-wide.
+- **E8 — M5, the k-in/k-out grid** [done]. Executed and documented in
+  [`docs/experiments/m5-comparison.md`](experiments/m5-comparison.md): seven M5 cells (the swap
+  symmetry exercised and tightened) plus five M1 boundary cells, all law-consistent; both operating
+  points at published precision; the kind split reproducing the k_in : k_out ratio and M1's empty
+  relay mesh in the accounting.
 
 ### Stage 4 — Selection and admission knobs (separable layers)
 
@@ -269,9 +286,9 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E3 | Per-target eclipse rate | 2 | M2 `(k/N)^RF` | ready |
 | E4 | Adversary tolerance `k_max(ε)` | 2 | M2 | ready |
 | E5 | End-to-end coverage, silent adversaries | 2 | M2 coverage law / ER percolation | **fixed points done** (M2 comparison); sweeps ready |
-| E6 | M3 — initiation links | 3 | M3 law + grids | needs publisher-pair config |
-| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | ready |
-| E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | needs publisher-pair config |
+| E6 | M3 — initiation links | 3 | M3 law + grids | **done** (m3-comparison) |
+| E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | **done** (m4-comparison) |
+| E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | **done** (m5-comparison, M1 boundary included) |
 | E9 | Bucketing, no cap | 4 | bucketed-pull (balanced B) | ready |
 | E10 | Selection-family fidelity (B, K) | 4 | model selection family | ready |
 | E11 | Serving cap, honest | 4 | none (congestion) | ready |

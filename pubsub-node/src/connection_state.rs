@@ -45,7 +45,9 @@ impl LinkKind {
 /// The key of one link: `(topic, peer, kind)`.
 ///
 /// Topic-first field order on purpose — the derived `Ord` clusters a topic's
-/// links contiguously in a `BTreeMap`, so per-topic reads are range walks.
+/// links contiguously in a `BTreeMap`, keeping iteration topic-grouped and
+/// leaving per-topic range reads available if a scale ever demands them
+/// (today's per-topic readers scan the full map).
 /// Which *direction* a link runs is not part of the key: it is which of the
 /// two `NodeState` collections (`upstream` — peers the node receives from;
 /// `downstream` — peers it sends to) the entry lives in.

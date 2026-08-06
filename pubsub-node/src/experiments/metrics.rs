@@ -16,7 +16,7 @@ use serde::Serialize;
 use crate::connection_state::LinkState;
 use crate::peer::PeerId;
 
-use super::driver::{DrainOutcome, RunObservation, SendTally};
+use super::driver::{DrainOutcome, KindTally, RunObservation, SendTally};
 use super::graph::GraphAnalysis;
 use super::population::{Participant, Population};
 
@@ -82,6 +82,9 @@ pub struct PublishRecord {
     pub miss_causes: MissCauseCounts,
     /// Dissemination sends split by recipient class.
     pub sends: SendTally,
+    /// Dissemination sends split by carrying link kind (relay wins the
+    /// both-kinds case); degenerate columns are zero, never absent.
+    pub sends_by_kind: KindTally,
     /// Deliveries suppressed by content-hash dedup at the recipient.
     pub suppressed: u64,
     /// Signature-failure severances consumed during the drain.
@@ -338,6 +341,15 @@ fn assemble_publish_record(
         drain.suppressed,
         drain.sends.down,
     );
+    // ADR 0041: every dissemination send is attributed to exactly one
+    // carrying link kind — a publish drain's sends are all dissemination.
+    assert!(
+        drain.sends_by_kind.total() == drain.sends.total(),
+        "kind attribution violated: {} relay + {} publisher ≠ {} sends",
+        drain.sends_by_kind.relay,
+        drain.sends_by_kind.publisher,
+        drain.sends.total(),
+    );
 
     let mut received = 0u64;
     let mut miss_causes = MissCauseCounts::default();
@@ -387,6 +399,7 @@ fn assemble_publish_record(
         depth_hist,
         miss_causes,
         sends: drain.sends,
+        sends_by_kind: drain.sends_by_kind,
         suppressed: drain.suppressed,
         severed: drain.severed,
     }
@@ -539,6 +552,10 @@ mod tests {
         assert_eq!(publish.sends.honest, 1);
         assert_eq!(publish.sends.adversarial, 1);
         assert_eq!(publish.sends.down, 1);
+        // All-relay topology: every send relay-attributed, sent-to-down
+        // included in the kind identity.
+        assert_eq!(publish.sends_by_kind.relay, 3);
+        assert_eq!(publish.sends_by_kind.publisher, 0);
         assert_eq!(publish.suppressed, 0);
         // Depth over up-honest: publisher at 0, node 1 at 1.
         assert_eq!(publish.depth_hist, vec![1, 1]);
@@ -564,6 +581,30 @@ mod tests {
         assert_eq!(publish.depth_hist, vec![1, 3]);
         assert_eq!(publish.max_depth, 1);
         assert!(record.good);
+    }
+
+    // ADR 0041: the sends-by-kind split. A publisher with a relay link to 1,
+    // a publisher link to 2, and BOTH kinds to 3 publishes under
+    // forward-to-relays: the seeding send to 2 is publisher-attributed, the
+    // sends to 1 and 3 relay-attributed (relay wins the both-kinds dedup),
+    // and the kind identity covers the total.
+    #[test]
+    fn sends_split_by_carrying_link_kind() {
+        let population = scripted::nodes(4)
+            .link(0, 1)
+            .publisher_link(0, 2)
+            .link(0, 3)
+            .publisher_link(0, 3)
+            .build();
+        let (record, _) = record_for(population, &peer(0), false);
+        let publish = &record.publishes[0];
+        assert_eq!(publish.sends.total(), 3);
+        assert_eq!(publish.sends_by_kind.relay, 2);
+        assert_eq!(publish.sends_by_kind.publisher, 1);
+        // All three targets received it (the kind-agnostic gate admits the
+        // publisher-link delivery too).
+        assert_eq!(publish.received, 3);
+        assert!((publish.coverage - 1.0).abs() < f64::EPSILON);
     }
 
     // 016-FR-016: depth is the per-node first-receipt wave distribution — on
