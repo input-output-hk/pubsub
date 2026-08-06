@@ -1,7 +1,9 @@
 # M2 — adaptive eclipse cost (corruptions to strand a victim)
 
-**Verdict: CLOSED FORM** — the degree laws are exact; only the network
-minimum needs simulation. Script (in `../scripts/`): `sim_m2_eclipse.py`.
+**Verdict: HYBRID** — the per-node degree laws are exact, but the network
+minimum treats the H degrees as independent (the same Poissonisation the
+coverage law already makes at j = 0), so finite-N values are confirmed by
+simulation. Script (in `../scripts/`): `sim_m2_eclipse.py`.
 
 ## 1. Property
 
@@ -27,21 +29,24 @@ At j = 0 the in-side expression is exactly `m2_model.p_eclipse()`
 (1.589×10⁻¹⁷ both ways; the script asserts it) and the out-side is the
 muted-publisher term e^{−RF(1−μ)}.
 
-## 3. Results — N = 20 000, μ = 0.2, RF = 24 (15 graphs)
+## 3. Results — N = 20 000, μ = 0.2, RF = 24 (400 graphs)
 
 Threat A — a named victim's own draw:
 
 | direction | side | mean | sd | p1 % | p0.1 % | MC mean |
 |---|---|---|---|---|---|---|
-| deafen | chosen | 19.20 | 1.96 | 14 | 13 | 19.19 |
-| mute | accepted | 19.20 | 4.38 | 10 | 7 | 19.19 |
+| deafen | chosen | 19.20 | 1.96 | 14 | 13 | 19.20 |
+| mute | accepted | 19.20 | 4.38 | 10 | 7 | 19.20 |
 
 Threat B — the network minimum:
 
 | direction | E[min] | MC min | observed |
 |---|---|---|---|
-| deafen | 10.4 | 10.7 | 10, 11 |
-| mute | 4.6 | 4.7 | 2, 4, 5, 6 |
+| deafen | 10.4 | 10.5 | 7 … 12 |
+| mute | 4.6 | 4.6 | 2, 3, 4, 5, 6 |
+
+Closed form and MC agree on every mean to two decimals and on every minimum
+to within 0.1.
 
 ## 4. Answer
 

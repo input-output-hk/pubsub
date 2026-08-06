@@ -136,11 +136,14 @@ remedies for the same symptom.
 
 **Correction.** [`candidate_properties.md`](candidate_properties.md)
 previously estimated this property at "M3 9.6, M5 13.6, M1/M2 19.2, M4 25.6"
-and placed M4 at the safe end. The M4 figure was 4·RF(1−μ) — the 2× in the
-closed form applied twice — against a measured degree of 12.80 that has been
-in [`node_degrees.md`](m4/properties/node_degrees.md) since the models were
-first published. With the arithmetic corrected and the order statistic
-applied, M4 moves from most eclipse-resistant to second cheapest.
+and placed M4 at the safe end. The other four figures transcribe measured
+means from each model's `node_degrees.md`; M4's does not — that file has
+measured 12.80 since the models were first published, and 25.6 is exactly
+twice it, i.e. 4·RF(1−μ), consistent with the 2× in the closed form being
+applied a second time. The figure appears in no script or table anywhere in
+the repository. Read as the honest degree, which is what the property costs,
+12.80 is the defensible value; with the order statistic then applied, M4
+moves from most eclipse-resistant to second cheapest.
 
 ## 6. Bottom line
 
@@ -151,6 +154,11 @@ corner without leaving the target. **M4 (RF = 8) is the most efficient in
 per-node state** — 2.4× fewer standing links than M3 with a single mechanism
 and one link type — at ~23 % more bandwidth and near-identical latency. The
 practical choice is M3 if bandwidth is the binding resource, M4 if
-connection count / simplicity is. Of the rest, M1 is weakly dominated by M2;
-M2's marginal latency win (0.2 hops) costs 2× the bandwidth and 3× the
-standing links of the leaders; M5 is best on no measured axis.
+connection count / simplicity is — noting that both leaders are also the two
+cheapest to attack (§5), so a design that weights adversarial cost alongside
+efficiency would reopen the choice. Of the rest, M1 is weakly dominated by
+M2 on bandwidth, latency and state — **but not on eclipse cost, where §5
+finds them equal at 4.6**, differing only in which side gives way (M1 is
+deafened, M2 muted); M2's marginal latency win (0.2 hops) costs 2× the
+bandwidth and 3× the standing links of the leaders; M5 is best on no measured
+axis.

@@ -1,7 +1,9 @@
 # M1 — adaptive eclipse cost (corruptions to strand a victim)
 
-**Verdict: CLOSED FORM** — the degree laws are exact; only the network
-minimum needs simulation. Script (in `../scripts/`): `sim_m1_eclipse.py`.
+**Verdict: HYBRID** — the per-node degree laws are exact, but the network
+minimum treats the H degrees as independent (the same Poissonisation the
+coverage law already makes at j = 0), so finite-N values are confirmed by
+simulation. Script (in `../scripts/`): `sim_m1_eclipse.py`.
 
 ## 1. Property
 
@@ -26,8 +28,12 @@ Coverage fails either way, so both directions count. Two threat models:
 principle sit deeper than v's in-neighbourhood, but at M1's branching factor
 of 19.2 the depth-2 shell is an order of magnitude larger than the depth-1
 shell and overlap is negligible at H = 16 000, so Menger's disjoint-path
-count saturates at the degree. Verified by max-flow on the weakest node of
-sampled graphs: min-cut equalled in-degree in every case.
+count saturates at the degree. Verified by max-flow (node-split, unit vertex
+capacities) on the weakest node in each direction: 40 checks across all five
+models at the operating point, plus a permanent regression in
+[`../../validate.py`](../../validate.py) §6 that re-runs the test at reduced
+fanouts, where a deeper cut would most plausibly win. Min-cut equalled degree
+in every case.
 
 ## 2. Guiding formula
 
@@ -46,24 +52,25 @@ $$\mathbb{E}[\min] \;=\; \sum_{j\ge 1}\Pr(D\ge j)^{H},
 exactly `m1_model.p_in_isolated()` and `p_out_isolated()`, whose sum times H
 is `E_defects()` — the script asserts the identity (7.257×10⁻⁵ both ways).
 
-## 3. Results — N = 20 000, μ = 0.2, F = 24 (15 graphs)
+## 3. Results — N = 20 000, μ = 0.2, F = 24 (400 graphs)
 
 Threat A — a named victim's own draw:
 
 | direction | side | mean | sd | p1 % | p0.1 % | MC mean |
 |---|---|---|---|---|---|---|
-| deafen | accepted | 19.20 | 4.38 | 10 | 7 | 19.19 |
-| mute | chosen | 19.20 | 1.96 | 14 | 13 | 19.19 |
+| deafen | accepted | 19.20 | 4.38 | 10 | 7 | 19.20 |
+| mute | chosen | 19.20 | 1.96 | 14 | 13 | 19.20 |
 
 Threat B — the network minimum:
 
 | direction | E[min] | MC min | observed |
 |---|---|---|---|
-| deafen | 4.6 | 4.7 | 2, 4, 5, 6 |
-| mute | 10.4 | 10.7 | 10, 11 |
+| deafen | 4.6 | 4.6 | 2, 3, 4, 5, 6 |
+| mute | 10.4 | 10.5 | 7 … 12 |
 
 Closed form and MC agree on every mean to two decimals and on every minimum
-to within 0.3.
+to within 0.1 — the Poissonisation behind E[min] costs nothing measurable at
+this H.
 
 ## 4. Answer
 

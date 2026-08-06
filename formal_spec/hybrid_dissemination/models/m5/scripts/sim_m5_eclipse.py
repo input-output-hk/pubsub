@@ -101,7 +101,7 @@ def main() -> None:
     ap.add_argument("--mu", type=float, default=0.2)
     ap.add_argument("--k_in", type=int, default=9)
     ap.add_argument("--k_out", type=int, default=8)
-    ap.add_argument("--trials", type=int, default=15)
+    ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
     args = ap.parse_args()
 
@@ -127,11 +127,9 @@ def main() -> None:
 
     print("\nTHREAT B -- any victim (cheapest break of the delta guarantee)")
     print(f"  {'direction':<10} {'E[min]':>7} {'MC min':>8}  observed")
-    emins = []
     for label, pmf, obs in (("deafen", deafen, mins_in),
                             ("mute", mute, mins_out)):
         _, _, emin, _, _ = summarise(pmf, H)
-        emins.append(emin)
         print(f"  {label:<10} {emin:>7.1f} {sum(obs)/len(obs):>8.1f}  "
               f"{sorted(set(obs))}")
     ca, cb = cdf(deafen), cdf(mute)

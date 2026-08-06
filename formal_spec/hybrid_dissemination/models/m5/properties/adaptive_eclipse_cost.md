@@ -1,7 +1,9 @@
 # M5 — adaptive eclipse cost (corruptions to strand a victim)
 
-**Verdict: CLOSED FORM** — the degree laws are exact; only the network
-minimum needs simulation. Script (in `../scripts/`): `sim_m5_eclipse.py`.
+**Verdict: HYBRID** — the per-node degree laws are exact, but the network
+minimum treats the H degrees as independent (the same Poissonisation the
+coverage law already makes at j = 0), so finite-N values are confirmed by
+simulation. Script (in `../scripts/`): `sim_m5_eclipse.py`.
 
 ## 1. Property
 
@@ -28,7 +30,7 @@ $$\mathbb{E}[\min] \;=\; \sum_{j\ge 1}\Pr(D_{in}\ge j)^{H}\Pr(D_{out}\ge j)^{H}.
 At j = 0 the two expressions are exactly `m5_model.p_in_isolated()` and
 `p_out_isolated()` — the script asserts both (8.44×10⁻¹⁰ and 1.898×10⁻⁹).
 
-## 3. Results — N = 20 000, μ = 0.2, (k_in, k_out) = (9, 8) (15 graphs)
+## 3. Results — N = 20 000, μ = 0.2, (k_in, k_out) = (9, 8) (400 graphs)
 
 Threat A — a named victim's own draw:
 
@@ -41,8 +43,11 @@ Threat B — the network minimum:
 
 | direction | E[min] | MC min | observed |
 |---|---|---|---|
-| deafen | 4.1 | 3.9 | 2, 3, 4, 5 |
-| mute | 3.9 | 4.1 | 3, 4, 5 |
+| deafen | 4.1 | 4.1 | 1 … 5 |
+| mute | 3.9 | 3.9 | 1 … 5 |
+
+Closed form and MC agree on every mean to two decimals and on every minimum
+to within 0.1.
 
 ## 4. Answer
 

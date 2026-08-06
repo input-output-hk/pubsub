@@ -119,7 +119,7 @@ def main() -> None:
     ap.add_argument("--mu", type=float, default=0.2)
     ap.add_argument("--RF", type=int, default=12)
     ap.add_argument("--s", type=int, default=8)
-    ap.add_argument("--trials", type=int, default=15)
+    ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
     args = ap.parse_args()
 
@@ -150,10 +150,8 @@ def main() -> None:
 
     print("\nTHREAT B -- any victim (cheapest break of the delta guarantee)")
     print(f"  {'attack':<18} {'E[min]':>7} {'MC min':>8}  observed")
-    emins = {}
     for label, pmf, _side, key in plan:
         _, _, emin, _, _ = summarise(pmf, H)
-        emins[key] = emin
         print(f"  {label:<18} {emin:>7.1f} "
               f"{sum(mc[key][1])/len(mc[key][1]):>8.1f}  {sorted(set(mc[key][1]))}")
     ca, cb = cdf(cover), cdf(mute)
