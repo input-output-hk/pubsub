@@ -40,6 +40,56 @@ We propose a decentralised topic-based publish/subscribe protocol anchored on Ca
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
 
+### The gap
+
+Cardano has no standard way to deliver a message that must be trustworthy but does not belong in a transaction. The chain settles state; it is not a medium for the operational, advisory, and time-sensitive traffic that surrounds that state. Today such traffic runs on infrastructure outside the ecosystem's trust model — mailing lists, Discord and Telegram channels, vendor push services, and each provider's own backend.
+
+That arrangement has a specific consequence rather than a merely aesthetic one. Every one of those channels has an operator, and an operator can drop a message, delay it, deliver it selectively, or originate one that its purported sender never wrote. A stake pool operator receiving an urgent notice through a chat channel cannot verify that it came from the protocol team that appears to have sent it, that it is the current version of that notice, or that other operators received it too. The chain beneath is Byzantine-fault-tolerant; the channel used to coordinate around it is not. The weaker layer sets the effective guarantee.
+
+### Why existing peer-to-peer messaging does not close it
+
+Substituting a peer-to-peer protocol for the centralised channel removes the operator but does not, on its own, supply the missing guarantee.
+
+Mature gossip protocols — GossipSub being the widely deployed example — are engineered against message-level attacks such as flooding and spam, and mitigate them with peer scoring and mesh hardening. Their resistance to *eclipse*, in which a victim's every neighbour is adversarial and its view of the network is controlled, ultimately rests on the peer discovery layer beneath. In the common libp2p deployment that layer admits freely created identities. An adversary willing to run many of them can influence which peers a target connects to, and neither peer scoring nor mesh hardening restores a guarantee that has been lost at the point of neighbour selection.
+
+The missing ingredient is therefore not a better gossip mechanism. It is a peer set whose membership is costly to inflate and whose topology no participant can steer. Cardano already maintains the first: an on-chain registry with an associated cost is exactly a Sybil-resisted membership list. It also maintains the second: verifiable, unpredictable per-epoch randomness. A dissemination layer anchored on both can offer what neither a centralised broker nor an unanchored gossip mesh can.
+
+### Use cases and stakeholders
+
+The design is motivated by four standing scenarios, drawn from a [broader survey of candidate use cases](https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md). They are listed with the participant counts that drive the design, because those counts — not the size of the eventual audience — determine what the protocol must sustain.
+
+| Scenario | Publishers | Direct protocol participants | Delivery requirement |
+| --- | --- | --- | --- |
+| Protocol developer teams → stake pool operators: emergency alerts and operational coordination | ~10 | ~3,000 SPO nodes, always-on | High; a missed critical alert has operational cost |
+| Stake pools → delegators: operational announcements | Hundreds | Wallet backends, on behalf of a mediated audience of hundreds of thousands | Best-effort |
+| Governance bodies and DReps → community: proposal notifications, voting alerts, and voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Medium to high; tied to voting deadlines |
+| dApps → users: position alerts and protocol notifications | Tens | Wallet backends, mediated, with delivery targeted by address | High; alerts are financially consequential |
+
+Two properties of this table shape the proposal.
+
+First, **the audience is large but the participant set is not.** Wherever the ultimate recipients number in the hundreds of thousands, they are reached through wallet infrastructure providers, of which there are on the order of ten. The nodes that must actually participate in dissemination are the always-on operators — stake pools, wallet backends, dApp and governance infrastructure — a population in the thousands. This is the scale the protocol is designed and evaluated for, and it is small enough that a degree-bounded, fully-verifiable topology over the entire registered set is tractable rather than aspirational.
+
+Second, **the participants are already registered on-chain, or can be.** Stake pool operators are registered by construction. This is what makes an on-chain trust root a natural fit rather than an imposition: the registry the protocol needs substantially exists, and the identities in it are already backed by a cost.
+
+The stakeholders are correspondingly: stake pool operators, as the largest set of direct participants and the recipients in the most delivery-critical scenario; wallet and infrastructure providers, whose integration is what connects the protocol to end users; governance bodies, DReps, and dApp teams as publishers; and protocol developer teams, who currently lack any authenticated broadcast channel to operators at all.
+
+### What a solution has to provide
+
+The scenarios above imply requirements that jointly rule out both incumbent options:
+
+- **Authenticity.** A recipient must be able to verify that a message originated with the claimed publisher, without trusting the path it arrived over.
+- **Censorship resistance.** No participant, and no small coalition of participants, may be positioned to suppress a message from reaching subscribers who want it.
+- **Unpredictable placement.** No participant may choose or foresee its position in the dissemination topology, since an adversary who can do so can position itself around a chosen victim.
+- **Bounded cost per node.** Participation must not require a node to hold connections or carry traffic proportional to the size of the network, or only well-resourced operators will participate — which would reintroduce, informally, the centralisation the proposal removes.
+- **Openness to arbitrary payloads.** The scenarios differ widely in content and cadence. The protocol carries topics, and does not interpret what those topics transport.
+
+The remainder of this document specifies a protocol meeting these requirements, and the Rationale examines where the guarantees stop.
+
+<!-- TODO before submission upstream: CIP-0001 asks that complex proposals link a
+Cardano Problem Statement as the Motivation. Confirm whether an existing CPS
+covers ecosystem messaging; if not, decide whether to author one or to argue
+this section stands alone. -->
+
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
 
