@@ -397,5 +397,21 @@
       "standing_links_max": 75,
       "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
     }
-  ]
+  ],
+  "alternatives": [
+    {
+      "model": "M3",
+      "params": "RF=13, s=7",
+      "note": "same budget and standing links as (12,8); the churn-preferred split",
+      "copies_per_node": 10.4,
+      "standing_links": 38,
+      "hops_full": 5.87,
+      "p_bad": 4.39e-05,
+      "churn_budget_pct": 2.17
+    }
+  ],
+  "convergence": {
+    "dial_waves": 2,
+    "note": "Topology convergence took exactly 2 dial waves in every run of every operating point (200 runs each; M2 40). A wave is one request/response round, so the floor on epoch length is a small number of round-trips."
+  }
 }

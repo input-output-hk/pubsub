@@ -331,20 +331,63 @@ It also has a concrete consequence for M3's parameters. At the same total budget
 
 Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And the measurements sit slightly above their predictions in the middle of the range tested. That effect does not grow with downtime, so it does not behave like a mistaken reduction, but it is not fully explained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
+#### Epoch length
+
+Two of the measurements above bound the epoch from opposite directions, and the bounds are not of comparable size.
+
+**From below, convergence.** The analysis assumes a standing topology, so an epoch must last long enough for one to form. Topology formation took exactly two dial rounds in every run of every operating point, with no variation across 200 runs each. A round is one request and one reply, so the floor is a few round-trips: seconds, once real connection establishment is included.
+
+**From above, downtime.** Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains. With *λ* the rate at which a node drops out, that is *T* = −ln(1 − p_max) / *λ*, which is linear in the mean time between departures.
+
+<div align="center">
+<a name="figure-3" id="figure-3"></a>
+
+![The admissible epoch length](images/epoch-window.svg)
+
+<em>Figure 3: the longest epoch each design sustains</em>
+
+</div>
+
+Three things follow.
+
+**The window is extremely lopsided.** Seconds at the bottom against hours at the top. Describing epoch length as constrained from both directions is accurate but misleading: only the upper bound is close enough to bind, and it is the one that depends on the design.
+
+**The design choice sets how often the protocol must rotate.** At any assumed reliability the designs are separated by their churn budgets alone, so M3 at (12, 8) sustains roughly a quarter of the epoch length of M5 or M3 at (13, 7). Rotation is not free — each one re-derives the topology and re-establishes every connection — so this is an operating cost that follows directly from the parameter choice.
+
+**Aligning with the ledger epoch is a real constraint.** For a five-day epoch, matching Cardano's, the required reliability is:
+
+<div align="center">
+<a name="table-6" id="table-6"></a>
+
+| Operating point | Departures a node may have, at most |
+| :--: | ---: |
+| M5 (9, 8) | one every 7.5 months |
+| M3 (13, 7) | one every 7.5 months |
+| M2 RF = 24 | one every 9.6 months |
+| M1 *F* = 24 | one every 9.3 months |
+| M4 RF = 8 | one every 1.3 years |
+| M3 (12, 8) | one every **2.5 years** |
+
+<em>Table 6: node reliability required to sustain a five-day epoch</em>
+
+</div>
+
+M3 at (12, 8) would need a node population that departs less often than once every two and a half years. Whether any of these is achievable is a question about operators rather than about the protocol, and *λ* is the one quantity here that was not measured: it is a property of the deployed population. What the analysis fixes is the shape of the trade, so that choosing an epoch length becomes a question of what reliability can be assumed rather than an open parameter.
+
 #### Limits of this evidence
 
 The following are stated so that a reader can judge what the numbers above do and do not establish.
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
-Figure 3 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
+Figure 4 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
 
 <div align="center">
-<a name="figure-3" id="figure-3"></a>
+<a name="figure-4" id="figure-4"></a>
 
 ![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
 
-<em>Figure 3: measured configurations against the configuration proposed</em>
+<em>Figure 4: measured configurations against the configuration proposed</em>
 
 </div>
 
@@ -367,11 +410,11 @@ Widening the comparison from two axes to four changes which designs are in conte
 In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 is omitted, being beaten on all four. The churn axis is read off the coverage laws rather than sampled directly.
 
 <div align="center">
-<a name="figure-4" id="figure-4"></a>
+<a name="figure-5" id="figure-5"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 4: four-way trade-off across the non-dominated designs</em>
+<em>Figure 5: four-way trade-off across the non-dominated designs</em>
 
 </div>
 
@@ -418,7 +461,7 @@ The two compose: the peer-set mechanism gives cheap detection and recovery, whil
 ### Open Questions
 
 - Whether a deposit should decay in the absence of positively supplied evidence of participation, following the approach Ethereum's inactivity leak takes to liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
-- The bounds on epoch length, which is constrained from both directions. From below by convergence: connection establishment must complete comfortably within an epoch, and the analytical results assume a converged standing topology, so the validity of the analysis itself constrains how short an epoch may be. From above by churn: unrepaired honest downtime accumulates over the epoch, so a longer epoch means a larger effective adversarial fraction at the moment the topology is judged. The width of the admissible window is therefore a property of the chosen operating point rather than a free parameter, and it narrows as that point is tuned for efficiency.
+- The epoch length itself. The Evidence subsection bounds it from both directions and shows the upper bound is the binding one, but the bound depends on how often a node drops out, which is a property of the deployed population rather than of the protocol and was not measured. Settling the epoch length means settling that rate first, and the two have to be argued together with the failure target.
 - Whether dissemination parameters should be selected for minimum cost at the target failure probability, or for tolerance to downtime at a small cost premium. The two criteria do not agree, and they can select different configurations at an identical link budget: a point sized to sit just inside the target is by construction the one with least room to absorb a shifted adversarial fraction.
 - The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure, and against the observation that a subscriber only needs its own upstream set captured rather than the network, before parameters are fixed.
 - The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
