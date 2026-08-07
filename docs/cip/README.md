@@ -305,7 +305,9 @@ The resulting budgets differ by a factor of four, and **their order is close to 
 
 </div>
 
-The design that is cheapest in bandwidth absorbs the least downtime, and the two the cost comparison ruled out absorb the most. The mechanism is structural rather than incidental: M3 reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
+The design that is cheapest in bandwidth absorbs the least downtime, and the two the cost comparison ruled out absorb the most.
+
+The same figures can be read as security rather than resilience. Because an offline honest node and a silent adversary are indistinguishable, a budget for downtime is equally a margin above the assumed adversarial fraction: M3 at (13, 7) still meets the target at *μ* = 0.217 where M4 breaches it at 0.209, twice the headroom over the assumed 0.2. Downtime tolerance and adversary tolerance are one quantity here, not two. The mechanism is structural rather than incidental: M3 reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
 
 This does not overturn Table 4, but it does mean **cost alone does not select a design**. Which matters more, traffic or held connections or tolerance of an unreliable population, is a deployment question, and it is posed as an open question below.
 
@@ -327,49 +329,19 @@ For 0.8 further copies per honest node, a factor of four in downtime tolerance a
 
 Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And the measurements sit slightly above their predictions in the middle of the range tested. That effect does not grow with downtime, so it does not behave like a mistaken reduction, but it is not fully explained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
-#### Epoch length
-
-Two of the measurements above bound the epoch from opposite directions, and the bounds are not of comparable size.
-
-**From below, convergence.** The analysis assumes a standing topology, so an epoch must last long enough for one to form. Topology formation took exactly two dial rounds in every run of every operating point, with no variation across 200 runs each. A round is one request and one reply, so the floor is a few round-trips: seconds, once real connection establishment is included.
-
-**From above, downtime.** Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains. With *λ* the rate at which a node drops out, that is *T* = −ln(1 − p_max) / *λ*. It is linear in the mean time between departures, so the designs differ on this axis by their churn budgets alone.
-
-Three things follow.
-
-**The window is extremely lopsided.** Seconds at the bottom against hours at the top. Describing epoch length as constrained from both directions is accurate but misleading: only the upper bound is close enough to bind, and it is the one that depends on the design.
-
-**The design choice sets how often the protocol must rotate.** At any assumed reliability the designs are separated by their churn budgets alone, so M3 at (12, 8) sustains roughly a quarter of the epoch length of M5 or M3 at (13, 7). Rotation is not free — each one re-derives the topology and re-establishes every connection — so this is an operating cost that follows directly from the parameter choice.
-
-**A chosen epoch length implies a reliability requirement.** Reading the relation the other way turns it into something a deployment can check. For a candidate epoch, each design needs the population to depart no more often than:
-
-<div align="center">
-<a name="table-7" id="table-7"></a>
-
-| Operating point | 1 hour | 6 hours | 1 day | 5 days |
-| :--: | ---: | ---: | ---: | ---: |
-| M5 (9, 8) | 2 days | 11 days | 45 days | 7 months |
-| M3 (13, 7) | 2 days | 11 days | 46 days | 7 months |
-| M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
-| M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
-| M4 RF = 8 | 4 days | 23 days | 3 months | 1.3 years |
-| M3 (12, 8) | 8 days | 46 days | 6 months | 2.5 years |
-
-<em>Table 7: mean time between one node's departures required to sustain a given epoch length</em>
-
-</div>
-
-Short epochs are undemanding: an hourly epoch asks only that a node stay up for days at a time, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
-
-One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the beacon, whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
-
-*λ* is the one quantity here that was not measured, being a property of the deployed population rather than of the protocol. What the analysis fixes is the shape of the trade.
-
 #### Limits of this evidence
 
-The following are stated so that a reader can judge what the numbers above do and do not establish.
+The following are stated so that a reader can judge what the numbers above do and do not establish, in descending order of how much they bear on the conclusions.
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
+
+**A known small correction to the laws is unresolved in size.** Beyond single cut-off nodes, a draw can also fail because a small *group* of nodes is collectively cut off. The laws count the first case exactly and the second only approximately, so they are expected to be slightly optimistic, predicting marginally fewer failures than really occur, in the range where failures are rare. Independent samples disagree on how much: none is large enough to settle it, because distinguishing a ten-percent difference at these probabilities needs on the order of 10⁵ draws per configuration. Where a configuration's margin against the target is no larger than this uncertainty, the margin should be read as approximate rather than exact.
+
+**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in Table 4 are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
+
+**Correlated failure is out of scope.** Downtime is modelled as independent across nodes and epochs. Region outages and upgrade waves violate both assumptions, in the direction that makes the guarantee weaker, and are not quantified here.
+
+**One adversarial fraction.** All results are at a single value of *μ*. That value is an assumption about the deployment, not a measurement of it, and the designs do not degrade at equal rates as it varies.
 
 Figure 3 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
 
@@ -383,14 +355,6 @@ Figure 3 places the two side by side. Solid marks are configurations whose failu
 </div>
 
 The gap is close to two orders of magnitude for every design. The laws are expected to be accurate across it, because the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly; Figure 1 confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
-
-**A known small correction to the laws is unresolved in size.** Beyond single cut-off nodes, a draw can also fail because a small *group* of nodes is collectively cut off. The laws count the first case exactly and the second only approximately, so they are expected to be slightly optimistic, predicting marginally fewer failures than really occur, in the range where failures are rare. Independent samples disagree on how much: none is large enough to settle it, because distinguishing a ten-percent difference at these probabilities needs on the order of 10⁵ draws per configuration. Where a configuration's margin against the target is no larger than this uncertainty, the margin should be read as approximate rather than exact.
-
-**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in Table 4 are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
-
-**One adversarial fraction.** All results are at a single value of *μ*. That value is an assumption about the deployment, not a measurement of it, and the designs do not degrade at equal rates as it varies.
-
-**Correlated failure is out of scope.** Downtime is modelled as independent across nodes and epochs. Region outages and upgrade waves violate both assumptions, in the direction that makes the guarantee weaker, and are not quantified here.
 
 ### Trade-offs and Limitations
 
@@ -420,7 +384,7 @@ The general form is worth stating, because it governs the parameter choice as mu
 Two designs remain, and neither dominates the other. M3 at (13, 7) is cheaper in traffic and absorbs twice the downtime; M4 holds less than half the connections and reaches its last subscriber sooner:
 
 <div align="center">
-<a name="table-8" id="table-8"></a>
+<a name="table-7" id="table-7"></a>
 
 | | M3 (13, 7) | M4 (RF = 8) |
 | :--: | ---: | ---: |
@@ -429,13 +393,38 @@ Two designs remain, and neither dominates the other. M3 at (13, 7) is cheaper in
 | Hops to the last subscriber | 5.9 | **5.1** |
 | Downtime absorbed | **2.17 %** | 1.07 % |
 
-<em>Table 8: the two remaining candidates</em>
+<em>Table 7: the two remaining candidates</em>
 
 </div>
 
 **This proposal does not claim the evidence selects between them.** The two axes M3 wins on and the two M4 wins on are not commensurable, and no weighting of them follows from the analysis. What would decide it is a fact about deployment rather than about the protocol: whether a node's binding constraint is the traffic it carries or the connections it can hold open. For an operator on a metered link the first binds; for one behind a connection-limited gateway the second does. That question is posed in the Open Questions below, and the Specification names the design the answer selects.
 
 What the evidence does establish is that the field is two, not five, and that the axes on which they differ are measured rather than assumed.
+
+#### What a node pays, and how it scales
+
+Both measured costs are per topic, and a node that subscribes to several pays for each. The measurements fix the per-topic figures; the rest is arithmetic over deployment assumptions. For one-kilobyte messages arriving once a second on each topic:
+
+<div align="center">
+<a name="table-8" id="table-8"></a>
+
+| Topics a node subscribes to | M3 (13, 7) | | M4 (RF = 8) | |
+| :--: | ---: | ---: | ---: | ---: |
+| | ingress | connections | ingress | connections |
+| 1 | 83 kbit/s | 38 | 94 kbit/s | **16** |
+| 5 | 416 kbit/s | 190 | 472 kbit/s | **80** |
+| 10 | 832 kbit/s | 380 | 944 kbit/s | **160** |
+| 25 | 2.1 Mbit/s | 950 | 2.4 Mbit/s | **400** |
+
+<em>Table 8: per-node cost against topics subscribed, at 1 kB messages and one publication per second per topic</em>
+
+</div>
+
+Both quantities scale linearly, so the ratio between the designs never changes. What changes is which one becomes the binding constraint. Bandwidth stays modest throughout: even twenty-five busy topics is a couple of megabits, which any always-on operator already has. Connection count does not stay modest. At ten topics M3 asks a node to hold 380 connections against M4's 160, and at twenty-five it is 950 against 400.
+
+**This is the strongest argument yet for M4**, and it did not appear in the single-topic comparison, where 38 against 16 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
+
+One qualification, and it is a specification question rather than a measurement. These counts are of links, and a link is identified by a peer *and* a topic. Whether two topics sharing a peer share one transport connection is not settled here. If they do, the counts above are upper bounds and both designs converge toward the number of distinct peers as topics multiply, which would blunt this argument considerably. If they do not, the table stands. The Specification should settle it, because the answer changes which design the cost comparison selects.
 
 Two caveats on reading the figure. Three of its axes are measured directly; churn tolerance is read off each design's coverage law, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning, since the axes are different quantities in different units, so only position along each individual axis should be compared.
 
@@ -471,10 +460,49 @@ The two compose: the peer-set mechanism gives cheap detection and recovery, whil
 
 **Bounding duration is not a latency guarantee.** A message delivered after the next rotation is still late. Topics carrying urgent traffic must obtain redundancy within the epoch, publishing along several independent paths, rather than relying on rotation to repair a missed delivery.
 
+#### How long an epoch may be
+
+Rotation bounds how long a subscriber can be silenced, so the epoch length sets that guarantee directly. Two of the measurements bound it from opposite directions, and the bounds are not of comparable size.
+
+**From below, convergence.** The analysis assumes a standing topology, so an epoch must last long enough for one to form. Topology formation took exactly two dial rounds in every run of every operating point, with no variation across 200 runs each. A round is one request and one reply, so the floor is a few round-trips: seconds, once real connection establishment is included.
+
+**From above, downtime.** Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains. With *λ* the rate at which a node drops out, that is *T* = −ln(1 − p_max) / *λ*. It is linear in the mean time between departures, so the designs differ on this axis by their churn budgets alone.
+
+Three things follow.
+
+**The window is extremely lopsided.** Seconds at the bottom against hours at the top. Describing epoch length as constrained from both directions is accurate but misleading: only the upper bound is close enough to bind, and it is the one that depends on the design.
+
+**The design choice sets how often the protocol must rotate.** At any assumed reliability the designs are separated by their churn budgets alone, so M3 at (12, 8) sustains roughly a quarter of the epoch length of M5 or M3 at (13, 7). Rotation is not free — each one re-derives the topology and re-establishes every connection — so this is an operating cost that follows directly from the parameter choice.
+
+**A chosen epoch length implies a reliability requirement.** Reading the relation the other way turns it into something a deployment can check. For a candidate epoch, each design needs the population to depart no more often than:
+
+<div align="center">
+<a name="table-9" id="table-9"></a>
+
+| Operating point | 1 hour | 6 hours | 1 day | 5 days |
+| :--: | ---: | ---: | ---: | ---: |
+| M5 (9, 8) | 2 days | 11 days | 45 days | 7 months |
+| M3 (13, 7) | 2 days | 11 days | 46 days | 7 months |
+| M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
+| M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
+| M4 RF = 8 | 4 days | 23 days | 3 months | 1.3 years |
+| M3 (12, 8) | 8 days | 46 days | 6 months | 2.5 years |
+
+<em>Table 9: mean time between one node's departures required to sustain a given epoch length</em>
+
+</div>
+
+Short epochs are undemanding: an hourly epoch asks only that a node stay up for days at a time, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
+
+One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the beacon, whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
+
+*λ* is the one quantity here that was not measured, being a property of the deployed population rather than of the protocol. What the analysis fixes is the shape of the trade.
+
 ### Open Questions
 
 - Whether a deposit should decay in the absence of positively supplied evidence of participation, following the approach Ethereum's inactivity leak takes to liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
 - The epoch length itself. The Evidence subsection bounds it from both directions and shows the upper bound is the binding one, but the bound depends on how often a node drops out, which is a property of the deployed population rather than of the protocol and was not measured. Settling the epoch length means settling that rate first, and the two have to be argued together with the failure target.
+- Whether links to the same peer on different topics share one transport connection. This is the question that decides the previous one, because connection count is what separates the two remaining designs and it is the quantity multiplexing would change. It is a specification choice, not a measurement.
 - Which of the two remaining designs to adopt, which turns on whether a participating node's binding constraint is the traffic it carries or the connections it can hold open. This is a question about operators rather than about the protocol, and answering it needs evidence from the stake pools, wallet backends and dApp infrastructure expected to run the layer, not further simulation.
 - The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure, and against the observation that a subscriber only needs its own upstream set captured rather than the network, before parameters are fixed.
 - The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
