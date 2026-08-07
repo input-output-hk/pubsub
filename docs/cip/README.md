@@ -354,25 +354,29 @@ Three things follow.
 
 **The design choice sets how often the protocol must rotate.** At any assumed reliability the designs are separated by their churn budgets alone, so M3 at (12, 8) sustains roughly a quarter of the epoch length of M5 or M3 at (13, 7). Rotation is not free — each one re-derives the topology and re-establishes every connection — so this is an operating cost that follows directly from the parameter choice.
 
-**Aligning with the ledger epoch is a real constraint.** For a five-day epoch, matching Cardano's, the required reliability is:
+**A chosen epoch length implies a reliability requirement.** Reading the relation the other way turns it into something a deployment can check. For a candidate epoch, each design needs the population to depart no more often than:
 
 <div align="center">
 <a name="table-6" id="table-6"></a>
 
-| Operating point | Departures a node may have, at most |
-| :--: | ---: |
-| M5 (9, 8) | one every 7.5 months |
-| M3 (13, 7) | one every 7.5 months |
-| M2 RF = 24 | one every 9.6 months |
-| M1 *F* = 24 | one every 9.3 months |
-| M4 RF = 8 | one every 1.3 years |
-| M3 (12, 8) | one every **2.5 years** |
+| Operating point | 1 hour | 6 hours | 1 day | 5 days |
+| :--: | ---: | ---: | ---: | ---: |
+| M5 (9, 8) | 2 days | 11 days | 45 days | 7 months |
+| M3 (13, 7) | 2 days | 11 days | 46 days | 7 months |
+| M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
+| M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
+| M4 RF = 8 | 4 days | 23 days | 3 months | 1.3 years |
+| M3 (12, 8) | 8 days | 46 days | 6 months | 2.5 years |
 
-<em>Table 6: node reliability required to sustain a five-day epoch</em>
+<em>Table 6: mean time between one node's departures required to sustain a given epoch length</em>
 
 </div>
 
-M3 at (12, 8) would need a node population that departs less often than once every two and a half years. Whether any of these is achievable is a question about operators rather than about the protocol, and *λ* is the one quantity here that was not measured: it is a property of the deployed population. What the analysis fixes is the shape of the trade, so that choosing an epoch length becomes a question of what reliability can be assumed rather than an open parameter.
+Short epochs are undemanding: an hourly epoch asks only that a node stay up for days at a time, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
+
+One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the beacon, whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
+
+*λ* is the one quantity here that was not measured, being a property of the deployed population rather than of the protocol. What the analysis fixes is the shape of the trade.
 
 #### Limits of this evidence
 

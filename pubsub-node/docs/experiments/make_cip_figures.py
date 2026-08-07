@@ -466,12 +466,10 @@ def fig_epoch_window(ops, alternatives, convergence) -> str:
     for hv, lab in ((1, "1 h"), (6, "6 h"), (24, "1 day"), (120, "5 days"), (336, "2 weeks")):
         if not (y0 <= hv <= y1):
             continue
-        emph = hv in (24, 120)
+        emph = hv == 24
         b.append(line(ml, Y(hv), ml + pw, Y(hv),
                       "#9d9a90" if emph else GRID, 1.3 if emph else 1))
         b.append(text(ml - 10, Y(hv) + 4, lab, 10.5, INK if emph else INK_SOFT, "end"))
-    b.append(text(ml + 6, Y(120) - 7, "Cardano ledger epoch",
-                  10.5, INK, "start", style="italic"))
 
     labels = []
     for model, params, pmax, col, dash in series:
@@ -519,9 +517,9 @@ def fig_epoch_window(ops, alternatives, convergence) -> str:
                  "Longest sustainable epoch against assumed node reliability, one line "
                  "per operating point, both axes logarithmic. Designs are parallel lines "
                  "separated by their churn budgets. M3 at (12,8) sits lowest, sustaining "
-                 "the shortest epoch; M5 and M3 at (13,7) sit highest. A five-day epoch, "
-                 "matching the Cardano ledger epoch, needs departures rarer than once "
-                 "every 2.5 years under M3 (12,8) but only every 7.5 months under M5.")
+                 "the shortest epoch; M5 and M3 at (13,7) sit highest. Short epochs are "
+                 "undemanding for every design; the requirement becomes severe only as "
+                 "the epoch lengthens.")
 
 
 def main() -> int:
