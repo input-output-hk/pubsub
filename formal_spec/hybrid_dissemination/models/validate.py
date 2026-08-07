@@ -19,6 +19,9 @@ against independent algorithms, closing the loop a shared bug could hide in:
   (5) Flood counters (sends / depths / coverage) vs an independent
       priority-queue reference simulator [exact, per graph], for the cost
       sweeps of M1, M2/M3, M4, M5.
+  (6) Re-provisioning searches vs the published operating points [exact]:
+      each sweep_m?_reprovision.py parameter search at mu = 0.2 must
+      reproduce comparison.md table 1 (F=24, RF=24, (12,8), RF=8, (9,8)).
 
 Run `python3 validate.py` (~ a few minutes).  `--tail {m3,m5}` runs a
 deep-tail law validation cell instead (tens of minutes; see bottom).
@@ -341,6 +344,31 @@ def check_flood_reference(rng, graphs=25):
 
 
 # ---------------------------------------------------------------------------
+# (6) re-provisioning searches vs the published mu = 0.2 operating points
+# ---------------------------------------------------------------------------
+
+def check_reprovision_anchor():
+    print("(6) re-provisioning searches vs published mu = 0.2 points [exact]")
+    import sweep_m1_reprovision as r1
+    import sweep_m2_reprovision as r2
+    import sweep_m3_reprovision as r3
+    import sweep_m4_reprovision as r4
+    import sweep_m5_reprovision as r5
+    check("M1 search(0.2) == F = 24", r1.search(0.2) == 24,
+          f"got {r1.search(0.2)}")
+    check("M2 search(0.2) == RF = 24", r2.search(0.2) == 24,
+          f"got {r2.search(0.2)}")
+    B3, fs3 = r3.search(0.2)
+    check("M3 search(0.2) == budget 19, bw-minimal (12, 8)",
+          B3 == 19 and fs3[0] == (12, 8), f"got B={B3}, {fs3[:1]}")
+    check("M4 search(0.2) == RF = 8", r4.search(0.2) == 8,
+          f"got {r4.search(0.2)}")
+    B5, fs5 = r5.search(0.2)
+    check("M5 search(0.2) == budget 17, balanced (9, 8)",
+          B5 == 17 and fs5[0] == (9, 8), f"got B={B5}, {fs5[:1]}")
+
+
+# ---------------------------------------------------------------------------
 # deep-tail law validation (long runs, invoked explicitly)
 # ---------------------------------------------------------------------------
 
@@ -386,6 +414,7 @@ def main():
     check_strict_bad_brute(rng)
     check_isbad_independent(rng)
     check_flood_reference(rng)
+    check_reprovision_anchor()
     print("=" * 70)
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} FAILURE(S): " + "; ".join(FAILURES))
