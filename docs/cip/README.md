@@ -68,7 +68,7 @@ The design is motivated by four standing scenarios, drawn from a [broader survey
 | Governance bodies and DReps → community: proposal notifications, voting alerts, and voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Medium to high; tied to voting deadlines |
 | dApps → users: position alerts and protocol notifications | Tens | Wallet backends, mediated, with delivery targeted by address | High; alerts are financially consequential |
 
-<em>Table 1: the four standing scenarios, by participant count rather than audience size.</em>
+<em>Table 1: the four standing scenarios</em>
 
 </div>
 
