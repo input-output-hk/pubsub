@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 430" width="860" height="430" role="img" aria-labelledby="t d">
+<title id="t">Measured configurations against proposed ones</title>
+<desc id="d">For each design, the failure rates of the configurations that were measured, and the far lower rate of the configuration actually proposed. The two are separated by about two orders of magnitude, spanned by the coverage laws rather than by measurement.</desc>
+<rect width="860" height="430" rx="8" fill="#fcfcfb"/>
+<line x1="104.0" y1="66.0" x2="104.0" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="104.0" y="358.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁻⁵</text>
+<line x1="244.3" y1="66.0" x2="244.3" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="244.3" y="358.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁻⁴</text>
+<line x1="384.6" y1="66.0" x2="384.6" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="384.6" y="358.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁻³</text>
+<line x1="524.9" y1="66.0" x2="524.9" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="524.9" y="358.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁻²</text>
+<line x1="665.2" y1="66.0" x2="665.2" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="665.2" y="358.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁻¹</text>
+<line x1="805.5" y1="66.0" x2="805.5" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="805.5" y="358.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10⁰</text>
+<line x1="244.3" y1="52.0" x2="244.3" y2="338.0" stroke="#52514e" stroke-width="1.4"/>
+<text x="244.3" y="46.0" font-size="11" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">design target</text>
+<text x="90.0" y="104.4" font-size="11.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="600">M3 · RF=12, s=8</text>
+<line x1="229.5" y1="100.4" x2="482.7" y2="100.4" stroke="#b9b6ab" stroke-width="1.3" stroke-dasharray="4 4"/>
+<line x1="482.7" y1="100.4" x2="783.5" y2="100.4" stroke="#008300" stroke-width="3.4" stroke-linecap="round" opacity="0.32"/>
+<circle cx="742.4" cy="100.4" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="711.8" cy="100.4" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="783.5" cy="100.4" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="521.0" cy="100.4" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="482.7" cy="100.4" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="229.5" cy="100.4" r="5.4" fill="#fcfcfb" stroke="#008300" stroke-width="2.2"/>
+<text x="356.1" y="89.4" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1.8 decades</text>
+<text x="90.0" y="157.2" font-size="11.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="600">M4 · RF=8</text>
+<line x1="220.5" y1="153.2" x2="514.0" y2="153.2" stroke="#b9b6ab" stroke-width="1.3" stroke-dasharray="4 4"/>
+<line x1="514.0" y1="153.2" x2="805.5" y2="153.2" stroke="#eda100" stroke-width="3.4" stroke-linecap="round" opacity="0.32"/>
+<circle cx="805.5" cy="153.2" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="776.8" cy="153.2" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="658.7" cy="153.2" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="514.0" cy="153.2" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="220.5" cy="153.2" r="5.4" fill="#fcfcfb" stroke="#eda100" stroke-width="2.2"/>
+<text x="367.2" y="142.2" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">2.1 decades</text>
+<text x="90.0" y="210.0" font-size="11.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="600">M5 · (9,8)</text>
+<line x1="194.1" y1="206.0" x2="460.9" y2="206.0" stroke="#b9b6ab" stroke-width="1.3" stroke-dasharray="4 4"/>
+<line x1="460.9" y1="206.0" x2="797.4" y2="206.0" stroke="#e87ba4" stroke-width="3.4" stroke-linecap="round" opacity="0.32"/>
+<circle cx="740.5" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="709.6" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="714.5" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="709.4" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="601.2" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="460.9" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="797.4" cy="206.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="194.1" cy="206.0" r="5.4" fill="#fcfcfb" stroke="#e87ba4" stroke-width="2.2"/>
+<text x="327.5" y="195.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1.9 decades</text>
+<text x="90.0" y="262.8" font-size="11.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="600">M1 · F=24</text>
+<line x1="224.8" y1="258.8" x2="518.5" y2="258.8" stroke="#b9b6ab" stroke-width="1.3" stroke-dasharray="4 4"/>
+<line x1="518.5" y1="258.8" x2="778.1" y2="258.8" stroke="#2a78d6" stroke-width="3.4" stroke-linecap="round" opacity="0.32"/>
+<circle cx="778.0" cy="258.8" r="4.2" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="705.6" cy="258.8" r="4.2" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="778.1" cy="258.8" r="4.2" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="613.8" cy="258.8" r="4.2" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="518.5" cy="258.8" r="4.2" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="224.8" cy="258.8" r="5.4" fill="#fcfcfb" stroke="#2a78d6" stroke-width="2.2"/>
+<text x="371.6" y="247.8" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">2.1 decades</text>
+<text x="90.0" y="315.6" font-size="11.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="600">M2 · RF=24</text>
+<line x1="225.4" y1="311.6" x2="517.6" y2="311.6" stroke="#b9b6ab" stroke-width="1.3" stroke-dasharray="4 4"/>
+<line x1="517.6" y1="311.6" x2="634.1" y2="311.6" stroke="#4a3aa7" stroke-width="3.4" stroke-linecap="round" opacity="0.32"/>
+<circle cx="517.6" cy="311.6" r="4.2" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="634.1" cy="311.6" r="4.2" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.5"/>
+<circle cx="225.4" cy="311.6" r="5.4" fill="#fcfcfb" stroke="#4a3aa7" stroke-width="2.2"/>
+<text x="371.5" y="300.6" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">2.1 decades</text>
+<text x="465.0" y="384.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">P(bad) — chance an epoch's wiring fails</text>
+<text x="465.0" y="399.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">log scale, each gridline ×10</text>
+<circle cx="110.0" cy="414.0" r="4.2" fill="#52514e" stroke="#fcfcfb" stroke-width="1.5"/>
+<text x="120.0" y="418.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">a configuration that was measured</text>
+<circle cx="336.0" cy="414.0" r="5.4" fill="#fcfcfb" stroke="#52514e" stroke-width="2.2"/>
+<text x="347.0" y="418.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">the configuration this proposal uses — predicted by the law, too rare to sample</text>
+</svg>

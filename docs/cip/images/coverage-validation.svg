@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 500" width="860" height="500" role="img" aria-labelledby="t d">
 <title id="t">Measured against predicted epoch failure probability</title>
-<desc id="d">Each point is one experiment configuration. Horizontal position is the probability predicted by the closed-form coverage law, vertical position the fraction of sampled topologies that actually failed. Bars are Wilson 95% intervals. Points lie on the diagonal across three decades.</desc>
+<desc id="d">Each point is one experiment configuration. Horizontal position is the probability predicted by the closed-form coverage law, vertical position the fraction of sampled topologies that actually failed. Bars are Wilson 95% intervals. Points lie on the diagonal across the whole range.</desc>
 <rect width="860" height="500" rx="8" fill="#fcfcfb"/>
 <line x1="275.5" y1="22.0" x2="275.5" y2="424.0" stroke="#e2e0d8" stroke-width="1.0"/>
 <line x1="86.0" y1="322.2" x2="834.0" y2="322.2" stroke="#e2e0d8" stroke-width="1.0"/>

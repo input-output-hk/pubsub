@@ -236,7 +236,7 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
 
 #### Agreement between analysis and simulation
 
-The laws were checked against the measurement framework at 23 configurations, spanning all five designs, three orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
+The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
@@ -311,7 +311,18 @@ What can be said now is that the ordering is expected to differ from the one in 
 
 The following are stated so that a reader can judge what the numbers above do and do not establish.
 
-**The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event enough times to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured is a range of deliberately weaker configurations, where failures are common enough to count; the laws are checked there, and then relied on to predict the proposed configurations roughly three orders of magnitude further down. The laws are expected to be accurate in that range — the dominant failure mode there is the simplest one, a single node with no usable links, which they model exactly — but this remains an extrapolation rather than a measurement.
+**The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
+
+<div align="center">
+<a name="figure-3" id="figure-3"></a>
+
+![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
+
+<em>Figure 3: for each design, the failure rates of the configurations that were measured (solid) against the rate of the configuration this proposal actually uses (hollow). Solid marks are counted outcomes; hollow marks are law predictions, at rates no feasible sample can resolve. The dashed span between them is carried by the coverage laws alone.</em>
+
+</div>
+
+The gap is close to two orders of magnitude for every design. The laws are expected to be accurate across it — the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly, and Figure 1 confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
 
 **A known small correction to the laws is unresolved in size.** Beyond single cut-off nodes, a draw can also fail because a small *group* of nodes is collectively cut off. The laws count the first case exactly and the second only approximately, so they are expected to be slightly optimistic — to predict marginally fewer failures than really occur — in the range where failures are rare. Independent samples disagree on how much: none is large enough to settle it, because distinguishing a ten-percent difference at these probabilities needs on the order of 10⁵ draws per configuration. Where a configuration's margin against the target is no larger than this uncertainty, the margin should be read as approximate rather than exact.
 
@@ -328,11 +339,11 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 Widening the comparison from two axes to four changes which designs are in contention. On cost and state alone, M1, M2 and M5 are each beaten outright. Add latency and churn tolerance and **only M1 remains dominated** — beaten on all four by M5. The other four are each best at exactly one thing, so which is preferable depends entirely on which axis the deployment cares about.
 
 <div align="center">
-<a name="figure-3" id="figure-3"></a>
+<a name="figure-4" id="figure-4"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 3: the four-way trade-off. Every axis is oriented so that outward is better — less bandwidth used, fewer connections held, fewer hops to the last subscriber, more downtime absorbed — and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads, and the four lead one axis each. M1 is omitted: it is beaten by M5 on all four. The churn axis is predicted from the coverage laws rather than measured.</em>
+<em>Figure 4: the four-way trade-off. Every axis is oriented so that outward is better — less bandwidth used, fewer connections held, fewer hops to the last subscriber, more downtime absorbed — and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads, and the four lead one axis each. M1 is omitted: it is beaten by M5 on all four. The churn axis is predicted from the coverage laws rather than measured.</em>
 
 </div>
 

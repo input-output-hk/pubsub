@@ -162,7 +162,7 @@ def fig_validation(cells) -> str:
                  "Each point is one experiment configuration. Horizontal position is the "
                  "probability predicted by the closed-form coverage law, vertical position "
                  "the fraction of sampled topologies that actually failed. Bars are Wilson "
-                 "95% intervals. Points lie on the diagonal across three decades.")
+                 "95% intervals. Points lie on the diagonal across the whole range.")
 
 
 # ------------------------------------------------------------------ figure 2
@@ -258,8 +258,8 @@ def fig_tradeoffs(ops) -> str:
     every axis reads outward-is-better.
     """
     import math as _m
-    W, H = 860, 610
-    cx, cy, R = 430, 300, 162
+    W, H = 860, 600
+    cx, cy, R = 430, 282, 162
     by = {o["model"]: o for o in ops}
     SHOWN = ["M3", "M4", "M5", "M2"]
 
@@ -280,12 +280,7 @@ def fig_tradeoffs(ops) -> str:
 
     ang = [-_m.pi / 2, 0.0, _m.pi / 2, _m.pi]
 
-    b = [text(38, 30, "Every axis is oriented so that outward is better: less bandwidth "
-              "used, fewer connections held, fewer hops to the last subscriber, more "
-              "downtime absorbed.", 11, INK_SOFT, style="italic"),
-         text(38, 46, "Each design is scored against the best of the four, and labelled "
-              "at the axis where it leads. The churn axis is predicted, not measured.",
-              11, INK_SOFT, style="italic")]
+    b = []
 
     for ring in (0.25, 0.5, 0.75, 1.0):
         pts = " ".join(f"{cx + R * ring * _m.cos(a):.1f},{cy + R * ring * _m.sin(a):.1f}"
@@ -336,6 +331,13 @@ def fig_tradeoffs(ops) -> str:
             continue
         b.append(text(vx, vy - 72, vals, 10.5, "#8a887e", "middle"))
 
+    b.append(text(38, 556, "Every axis is oriented so that outward is better: less "
+                  "bandwidth used, fewer connections held, fewer hops to the last "
+                  "subscriber, more downtime absorbed.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 572, "Each design is scored against the best of the four, and "
+                  "labelled at the axis where it leads. The churn axis is predicted, "
+                  "not measured.", 11, INK_SOFT, style="italic"))
+
     return frame(W, H, b, "Four-way trade-off across the four non-dominated designs",
                  "One radar chart overlaying M2, M3, M4 and M5 on four axes: bandwidth "
                  "economy, connection economy, speed and churn tolerance, all oriented "
@@ -343,6 +345,73 @@ def fig_tradeoffs(ops) -> str:
                  "outer ring. M3 is a narrow spike reaching the outer ring only on "
                  "bandwidth; M4 is the most even shape; M5 leads on churn tolerance and "
                  "speed. The churn axis is predicted rather than measured.")
+
+
+# ------------------------------------------------------------------ figure 4
+def fig_extrapolation(cells, ops) -> str:
+    """Where the measured configurations sit relative to the proposed ones.
+
+    Substantiates the first entry in "Limits of this evidence": sampling can
+    only resolve failure rates it can observe, so every configuration that was
+    measured fails far more often than any configuration that is proposed. Solid
+    marks are counted outcomes; hollow marks are law predictions.
+    """
+    W, H = 860, 430
+    ml, mr, mt, mb = 104, 34, 74, 92
+    pw, ph = W - ml - mr, H - mt - mb
+    lo, hi = 1e-5, 1.4
+    lg = math.log10
+
+    def X(v):
+        return ml + (lg(max(v, lo)) - lg(lo)) / (lg(hi) - lg(lo)) * pw
+
+    order = [o["model"] for o in sorted(ops, key=lambda o: o["copies_per_node"])]
+    by = {o["model"]: o for o in ops}
+    rows = {m: [c["bad"] / c["runs"] for c in cells if c["model"] == m] for m in order}
+    step = ph / len(order)
+
+    b = []
+    for e in range(-5, 1):
+        v = 10.0 ** e
+        b.append(line(X(v), mt - 8, X(v), mt + ph, GRID, 1))
+        b.append(text(X(v), mt + ph + 20, decade(v), anchor="middle"))
+
+    xt = X(1e-4)
+    b.append(line(xt, mt - 22, xt, mt + ph, "#52514e", 1.4))
+    b.append(text(xt, mt - 28, "design target", 11, INK, "middle", "600"))
+
+    for k, m in enumerate(order):
+        y = mt + step * (k + 0.5)
+        col = SERIES[m]
+        ps = rows[m]
+        opv = by[m]["p_bad"]
+        b.append(text(ml - 14, y + 4, f"{m} · {by[m]['params']}", 11.5, INK, "end", "600"))
+        b.append(line(X(opv), y, X(min(ps)), y, "#b9b6ab", 1.3, dash="4 4"))
+        b.append(line(X(min(ps)), y, X(max(ps)), y, col, 3.4, cap="round", opacity=0.32))
+        for v in ps:
+            b.append(circle(X(v), y, 4.2, col, SURFACE, 1.5))
+        b.append(circle(X(opv), y, 5.4, SURFACE, col, 2.2))
+        gap = lg(min(ps) / opv)
+        b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.1f} decades",
+                      9.5, "#8a887e", "middle"))
+
+    b.append(text(ml + pw / 2, H - 46, "P(bad) — chance an epoch's wiring fails",
+                  12.5, INK, "middle", "600"))
+    b.append(text(ml + pw / 2, H - 31, "log scale, each gridline ×10",
+                  11, INK_SOFT, "middle"))
+
+    ly = H - 12
+    b.append(circle(ml + 6, ly - 4, 4.2, INK_SOFT, SURFACE, 1.5))
+    b.append(text(ml + 16, ly, "a configuration that was measured", 11, INK_SOFT))
+    b.append(circle(ml + 232, ly - 4, 5.4, SURFACE, INK_SOFT, 2.2))
+    b.append(text(ml + 243, ly, "the configuration this proposal uses — predicted by "
+                  "the law, too rare to sample", 11, INK_SOFT))
+
+    return frame(W, H, b, "Measured configurations against proposed ones",
+                 "For each design, the failure rates of the configurations that were "
+                 "measured, and the far lower rate of the configuration actually "
+                 "proposed. The two are separated by about two orders of magnitude, "
+                 "spanned by the coverage laws rather than by measurement.")
 
 
 def main() -> int:
@@ -356,6 +425,8 @@ def main() -> int:
         "coverage-validation.svg": fig_validation(d["coverage_cells"]),
         "cost-vs-state.svg": fig_cost_state(d["operating_points"]),
         "tradeoff-radar.svg": fig_tradeoffs(d["operating_points"]),
+        "measured-vs-proposed.svg": fig_extrapolation(
+            d["coverage_cells"], d["operating_points"]),
     }
 
     rc = 0
