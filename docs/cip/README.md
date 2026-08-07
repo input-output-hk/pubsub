@@ -290,7 +290,7 @@ Three things follow, and the third is the one that matters for the choice.
 
 **Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's standing links exceed what its traffic would suggest because 14 of its 38 links carry only their owner's own publications — cheap to run, but still connection slots to provision and still exposed to churn.
 
-**M1, M2 and M5 are beaten on every axis at once**, so no weighting of bandwidth against state selects them. The choice is between M3 and M4, and it turns on which resource binds in the deployment. The remaining subsection is what stops that from being the whole answer.
+**M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention — see [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
 
 The design this proposal adopts, and the parameters it fixes, are given in the [Specification](#specification); this subsection establishes only what each candidate costs, and the one below establishes what each gives up under degradation.<!-- FORWARD-REF(specification): the Specification must name the adopted design (expected M3 or M4) and its parameters, so this sentence resolves to a concrete choice. Selection is blocked on the Robustness subsection below; see input-output-hk/pubsub#85. -->
 
@@ -323,22 +323,26 @@ The following are stated so that a reader can judge what the numbers above do an
 
 ### Trade-offs and Limitations
 
-A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side for the two candidates that survive the cost comparison, with the pull-only design retained as a reference for what the conservative end of the family looks like.
+A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.
+
+Widening the comparison from two axes to four changes which designs are in contention. On cost and state alone, M1, M2 and M5 are each beaten outright. Add latency and churn tolerance and **only M1 remains dominated** — beaten on all four by M5. The other four are each best at exactly one thing, so which is preferable depends entirely on which axis the deployment cares about.
 
 <div align="center">
 <a name="figure-3" id="figure-3"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 3: the four-way trade-off. Each design is scored against the best of the three on each axis, so the outer ring is the best value on that axis and a larger shape is better overall. The raw values are printed beside each axis. The churn axis is predicted from the coverage laws rather than measured, and is marked accordingly.</em>
+<em>Figure 3: the four-way trade-off, one panel per design. Every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value achieved by any of them. The grey outlines in each panel are the other three designs, drawn for comparison. M1 is omitted: it is beaten by M5 on all four axes. The churn axis is predicted from the coverage laws rather than measured.</em>
 
 </div>
 
-The shapes carry the argument. **M3 reaches the outer ring on bandwidth and sits innermost on both connection state and churn tolerance** — a spike rather than a balanced shape. That is not incidental to M3: it achieves its bandwidth by relying on a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when some of those links go quiet. **M4 is the more even shape**, giving up bandwidth for a design that holds the fewest connections and degrades more gently. M2, which the cost comparison rules out on both cost axes, is nonetheless the most forgiving of the three — the conservative end of the family is expensive precisely because it is over-provisioned.
+The shapes carry the argument. **M3 is a spike**: it reaches the outer ring on bandwidth and sits innermost on connection economy, speed and churn tolerance alike. That is not incidental. M3 buys its bandwidth advantage from a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it goes quiet. **M4 is the most even shape** — it gives up bandwidth for the fewest connections and degrades more gracefully. **M5 is the robustness corner**, absorbing the most downtime and among the fastest, at the price of more traffic than either. **M2 is fastest to full coverage**, and pays for it with twice M3's bandwidth and three times M4's connections.
 
-The general form of this is worth stating, because it governs the parameter choice as well as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room absorbing anything the model did not anticipate. Whether that is the right trade is a deployment question rather than a protocol one, and it is recorded as an open question below.
+The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. Whether that is the right trade is a deployment question rather than a protocol one, and it is recorded as an open question below.
 
-Two caveats on reading the figure. The churn axis is a prediction pending measurement, as the Robustness subsection explains, so the relative sizes on that axis may move. And a radar chart's enclosed area has no meaning here — the axes are different quantities in different units, and only the position along each individual axis should be compared.
+**On the choice of axes.** These four are the quantities that are both measured and independent of one another. Two others were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against — but it is the least reliably measured quantity in this analysis, for the reason the Limits subsection gives, and it is the natural fifth axis once that measurement lands. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
+
+Two caveats on reading the figure. The churn axis is a prediction pending measurement, as the Robustness subsection explains, so relative sizes on that axis may move. And the enclosed area of these shapes has no meaning — the axes are different quantities in different units, so only position along each individual axis should be compared.
 
 #### Two classes of fault, with different guarantees
 

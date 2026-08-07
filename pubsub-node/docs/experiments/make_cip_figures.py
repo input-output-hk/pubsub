@@ -240,105 +240,96 @@ def fig_cost_state(ops) -> str:
 
 # ------------------------------------------------------------------ figure 3
 def fig_tradeoffs(ops) -> str:
-    """Four-axis summary of the trade-off between the two surviving candidates.
+    """Four-axis trade-off, as small multiples rather than one overlay.
 
-    Only M3 and M4 are drawn as candidates: the comparison figure already shows
-    M1/M2/M5 are beaten on both cost axes, and overlapping five filled polygons
-    would be unreadable. M2 is kept as a grey reference outline — the expensive
-    but forgiving option — which also keeps it out of the categorical palette,
-    where it would sit too close to M4's hue to separate reliably.
+    On all four axes only M1 is dominated (by M5); M2, M3, M4 and M5 are each
+    best at something. Four filled polygons in the models' own hues cannot be
+    told apart reliably — magenta against orange falls under the normal-vision
+    separation floor — so each model gets its own panel in its own colour, with
+    the other three drawn behind it in grey. Colours therefore stay identical to
+    the other figures, and comparison is against a fixed backdrop.
 
     Each axis is scored best/this, so the best design on an axis reaches the
-    outer ring and a larger polygon is better everywhere.
+    outer ring and a larger shape is better.
     """
-    W, H = 860, 560
-    cx, cy, R = 430, 292, 190
+    import math as _m
+    W, H, R = 900, 700, 92
     by = {o["model"]: o for o in ops}
+    SHOWN = ["M3", "M4", "M5", "M2"]
 
-    AXES = [  # (label, unit note, value getter, lower_is_better)
-        ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True),
-        ("Connection economy", "standing links", lambda o: o["standing_links"], True),
-        ("Latency", "hops to last subscriber", lambda o: o["hops_full"], True),
-        ("Churn tolerance", "downtime absorbed", lambda o: o["churn_budget_pct"], False),
+    AXES = [
+        ("Bandwidth economy", lambda o: o["copies_per_node"], True),
+        ("Connection economy", lambda o: o["standing_links"], True),
+        ("Speed", lambda o: o["hops_full"], True),
+        ("Churn tolerance", lambda o: o["churn_budget_pct"], False),
     ]
-    SHOWN = ["M3", "M4", "M2"]
-    best = []
-    for _, _, get, lower in AXES:
-        vals = [get(by[m]) for m in SHOWN]
-        best.append(min(vals) if lower else max(vals))
+    best = [(min if low else max)(get(by[m]) for m in SHOWN)
+            for _, get, low in AXES]
 
     def score(m, i):
-        _, _, get, lower = AXES[i]
+        _, get, low = AXES[i]
         v = get(by[m])
-        return (best[i] / v) if lower else (v / best[i])
+        return (best[i] / v) if low else (v / best[i])
 
-    import math as _m
-    ang = [-_m.pi / 2, 0.0, _m.pi / 2, _m.pi]           # N, E, S, W
+    ang = [-_m.pi / 2, 0.0, _m.pi / 2, _m.pi]
 
-    def pt(i, s):
-        return cx + R * s * _m.cos(ang[i]), cy + R * s * _m.sin(ang[i])
-
-    b = []
-    for ring in (0.25, 0.5, 0.75, 1.0):
-        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in (pt(i, ring) for i in range(4)))
-        b.append(f'<polygon points="{pts}" fill="none" stroke="{GRID}" stroke-width="1"/>')
-    for i in range(4):
-        x, y = pt(i, 1.0)
-        b.append(line(cx, cy, x, y, GRID, 1))
-
-    # the churn axis is predicted rather than measured; a neutral dashed spoke says so
-    # without introducing a colour that reads as a fourth series
-    xw, yw = pt(3, 1.0)
-    b.append(line(cx, cy, xw, yw, "#8a887e", 1.4, dash="4 4"))
-
-    series = [("M2", "#b9b6ab", "5 4", 0.0), ("M3", SERIES["M3"], None, 0.16),
-              ("M4", SERIES["M4"], None, 0.16)]
-    for m, col, dash, fillop in series:
-        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in (pt(i, score(m, i)) for i in range(4)))
-        a = f'<polygon points="{pts}" fill="{col}" fill-opacity="{fillop}" stroke="{col}" stroke-width="2.2" stroke-linejoin="round"'
-        if dash:
-            a += f' stroke-dasharray="{dash}"'
-        b.append(a + "/>")
+    def poly(cxx, cyy, m):
+        pts = []
         for i in range(4):
-            x, y = pt(i, score(m, i))
-            b.append(circle(x, y, 4, col, SURFACE, 1.6))
+            s = score(m, i)
+            pts.append((cxx + R * s * _m.cos(ang[i]), cyy + R * s * _m.sin(ang[i])))
+        return " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
 
-    LBL = [("start", 0, -58), ("start", 14, 4), ("start", 0, 30), ("end", -14, 4)]
-    for i, (name, unit, get, lower) in enumerate(AXES):
-        x, y = pt(i, 1.0)
-        anchor, dx, dy = LBL[i]
-        if i == 0:
-            anchor, dx = "middle", 0
-        if i == 2:
-            anchor, dx = "middle", 0
-        b.append(text(x + dx, y + dy, name, 12.5, INK, anchor, "600"))
-        note = unit + ("  (predicted)" if i == 3 else "")
-        b.append(text(x + dx, y + dy + 15, note, 10.5, "#8a887e", anchor))
-        vals = " · ".join(f"{m} {get(by[m])}" for m in SHOWN)
-        b.append(text(x + dx, y + dy + 29, vals, 10.5, "#8a887e", anchor))
+    b = [text(38, 30, "All four axes are oriented so that outward is better: further "
+              "out means less bandwidth used, fewer connections held, fewer hops to the "
+              "last subscriber,", 11, INK_SOFT, style="italic"),
+         text(38, 46, "and more honest downtime absorbed. Each is scored against the "
+              "best of the four. Grey shapes are the other three designs, for "
+              "comparison; the churn axis is", 11, INK_SOFT, style="italic"),
+         text(38, 62, "predicted from the coverage laws rather than measured.",
+              11, INK_SOFT, style="italic")]
 
-    b.append(text(40, 34, "Each axis is scored against the best of the three, so the "
-                  "outer ring is the best value and a larger shape is better.",
-                  11, INK_SOFT, style="italic"))
-    lx0 = 40
-    for j, (m, col, dash, _f) in enumerate(series):
-        ly = 470 + j * 20
-        a = f'<line x1="{lx0}" y1="{ly - 4}" x2="{lx0 + 26}" y2="{ly - 4}" stroke="{col}" stroke-width="2.2"'
-        if dash:
-            a += f' stroke-dasharray="{dash}"'
-        b.append(a + "/>")
-        cap = {"M2": "M2 · RF=24 — reference: the expensive, forgiving option",
-               "M3": "M3 · RF=12, s=8 — cheapest in bandwidth",
-               "M4": "M4 · RF=8 — cheapest in connections"}[m]
-        b.append(text(lx0 + 34, ly, cap, 11.5, INK_SOFT))
+    for k, m in enumerate(SHOWN):
+        cxx = 215 + (k % 2) * 430
+        cyy = 246 + (k // 2) * 310
+        for ring in (0.33, 0.66, 1.0):
+            pts = " ".join(
+                f"{cxx + R * ring * _m.cos(a):.1f},{cyy + R * ring * _m.sin(a):.1f}"
+                for a in ang)
+            b.append(f'<polygon points="{pts}" fill="none" stroke="{GRID}" stroke-width="1"/>')
+        for a in ang:
+            b.append(line(cxx, cyy, cxx + R * _m.cos(a), cyy + R * _m.sin(a), GRID, 1))
+        for other in SHOWN:
+            if other == m:
+                continue
+            b.append(f'<polygon points="{poly(cxx, cyy, other)}" fill="none" '
+                     f'stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>')
+        col = SERIES[m]
+        b.append(f'<polygon points="{poly(cxx, cyy, m)}" fill="{col}" fill-opacity="0.20" '
+                 f'stroke="{col}" stroke-width="2.4" stroke-linejoin="round"/>')
+        for i in range(4):
+            s = score(m, i)
+            b.append(circle(cxx + R * s * _m.cos(ang[i]), cyy + R * s * _m.sin(ang[i]),
+                            4, col, SURFACE, 1.6))
+        for i, (name, get, _low) in enumerate(AXES):
+            x = cxx + (R + 16) * _m.cos(ang[i])
+            y = cyy + (R + 16) * _m.sin(ang[i])
+            anchor = "middle" if i in (0, 2) else ("start" if i == 1 else "end")
+            dy = -8 if i == 0 else (16 if i == 2 else 4)
+            b.append(text(x, y + dy, name, 10.5, "#8a887e", anchor))
+        cap = {"M3": "M3 · RF=12, s=8", "M4": "M4 · RF=8",
+               "M5": "M5 · (9, 8)", "M2": "M2 · RF=24"}[m]
+        note = {"M3": "least bandwidth", "M4": "fewest connections",
+                "M5": "most churn-tolerant", "M2": "fastest to full coverage"}[m]
+        b.append(text(cxx, cyy - R - 62, cap, 13, col, "middle", "650"))
+        b.append(text(cxx, cyy - R - 46, note, 10.5, "#8a887e", "middle"))
 
-    return frame(W, H, b, "Four-way trade-off between the surviving candidates",
-                 "Radar chart on four axes: bandwidth economy, connection economy, "
-                 "latency and churn tolerance. Each design is scored against the best "
-                 "of the three on each axis, so a larger polygon is better. M3 reaches "
-                 "the outer ring on bandwidth but sits innermost on connections and "
-                 "churn tolerance; M4 is the more even shape; M2 is shown as a "
-                 "reference. The churn axis is predicted rather than measured.")
+    return frame(W, H, b, "Four-way trade-off across the non-dominated designs",
+                 "Four small radar charts, one per design, on the axes bandwidth, "
+                 "connections, latency and churn tolerance. Each design is best on "
+                 "exactly one axis: M3 bandwidth, M4 connections, M5 churn tolerance, "
+                 "M2 latency. M3 shows the most uneven shape and M4 the most even. "
+                 "The churn axis is predicted rather than measured.")
 
 
 def main() -> int:
