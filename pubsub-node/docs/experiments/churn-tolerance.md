@@ -84,12 +84,51 @@ Artifacts reproduce byte-for-byte from the tool commit and master seeds.
 
 Twenty-three of the twenty-five cells place the law inside the measurement's
 Wilson 95 % interval, across five models, five churn levels, and a shift of the
-adversarial fraction from 0.200 to 0.296.
+adversarial fraction from 0.200 to 0.296. A second round at the operating
+points (§2b) extends that to 0.44.
 
 The strongest single piece of evidence is the **12 % row**, the largest shift
 tested: z = +0.00, −0.51, +0.56, −0.30, +0.02 across the five models, mean
 −0.04. At the point where a mistaken reduction would have diverged furthest,
 all five models land essentially exactly on their laws.
+
+## 2b. The operating points, run directly
+
+The cells above were chosen so that P(bad) could be counted, which meant weaker
+configurations than any deployment would use. The operating points were
+therefore run as well, under heavier downtime — 20, 25 and 30 % of honest nodes
+offline — where their failure rates become countable.
+
+| model | params | churn | μ_eff | bad / runs | measured | Wilson 95% | law at μ_eff | in CI | z |
+|---|---|---:|---:|---:|---:|---|---:|:--:|---:|
+| M3 | RF=12, s=8 | 20% | 0.360 | 70 / 1200 | 0.0583 | [0.0464, 0.0731] | 0.0629 | yes | -0.65 |
+| M3 | RF=12, s=8 | 25% | 0.400 | 240 / 1200 | 0.2000 | [0.1783, 0.2236] | 0.1935 | yes | +0.57 |
+| M3 | RF=12, s=8 | 30% | 0.440 | 575 / 1200 | 0.4792 | [0.4510, 0.5075] | 0.4677 | yes | +0.79 |
+| M4 | RF=8 | 20% | 0.360 | 28 / 1200 | 0.0233 | [0.0162, 0.0335] | 0.0213 | yes | +0.49 |
+| M4 | RF=8 | 25% | 0.400 | 77 / 1200 | 0.0642 | [0.0516, 0.0795] | 0.0625 | yes | +0.24 |
+| M4 | RF=8 | 30% | 0.440 | 193 / 1200 | 0.1608 | [0.1411, 0.1827] | 0.1630 | yes | -0.20 |
+| M5 | (9, 8) | 20% | 0.360 | 24 / 1200 | 0.0200 | [0.0135, 0.0296] | 0.0189 | yes | +0.28 |
+| M5 | (9, 8) | 25% | 0.400 | 74 / 1200 | 0.0617 | [0.0494, 0.0767] | 0.0594 | yes | +0.33 |
+| M5 | (9, 8) | 30% | 0.440 | 208 / 1200 | 0.1733 | [0.1530, 0.1958] | 0.1646 | yes | +0.81 |
+
+**All nine place the law inside the interval**, mean z = +0.30, Stouffer +0.89,
+sd 0.47. Two things follow.
+
+The configurations this analysis actually recommends are now tested under churn
+directly, rather than by inference from proxies. And the two rounds together
+carry the reduction from an adversarial fraction of 0.20 out to 0.44, more than
+doubling it, with the laws tracking throughout.
+
+It also bears on §3. The first round's excess does not reappear here: the
+operating-point cells sit at +0.30 against the proxy cells' +0.58, with a
+spread of 0.47 against 1.00. Pooled over all 29 churned cells the mean is
++0.494, so the effect has not vanished from the record, but it is absent from
+the cells that carry the conclusions.
+
+Provenance: `configs/experiments/churn/m{3,4,5}-n20k-op-churn.toml`, seeds
+811-813, 1 200 runs per point, 115 min. M1 and M2 are omitted: their operating
+points are over-provisioned enough that a countable failure rate needs hours
+per cell, which is the same fact their large churn budgets record.
 
 ## 3. A residual the sweep cannot explain
 
