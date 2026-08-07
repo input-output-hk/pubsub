@@ -337,16 +337,7 @@ Two of the measurements above bound the epoch from opposite directions, and the 
 
 **From below, convergence.** The analysis assumes a standing topology, so an epoch must last long enough for one to form. Topology formation took exactly two dial rounds in every run of every operating point, with no variation across 200 runs each. A round is one request and one reply, so the floor is a few round-trips: seconds, once real connection establishment is included.
 
-**From above, downtime.** Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains. With *λ* the rate at which a node drops out, that is *T* = −ln(1 − p_max) / *λ*, which is linear in the mean time between departures.
-
-<div align="center">
-<a name="figure-3" id="figure-3"></a>
-
-![The admissible epoch length](images/epoch-window.svg)
-
-<em>Figure 3: the longest epoch each design sustains</em>
-
-</div>
+**From above, downtime.** Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains. With *λ* the rate at which a node drops out, that is *T* = −ln(1 − p_max) / *λ*. It is linear in the mean time between departures, so the designs differ on this axis by their churn budgets alone.
 
 Three things follow.
 
@@ -384,14 +375,14 @@ The following are stated so that a reader can judge what the numbers above do an
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
-Figure 4 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
+Figure 3 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
 
 <div align="center">
-<a name="figure-4" id="figure-4"></a>
+<a name="figure-3" id="figure-3"></a>
 
 ![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
 
-<em>Figure 4: measured configurations against the configuration proposed</em>
+<em>Figure 3: measured configurations against the configuration proposed</em>
 
 </div>
 
@@ -414,11 +405,11 @@ Widening the comparison from two axes to four changes which designs are in conte
 In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 is omitted, being beaten on all four. The churn axis is read off the coverage laws rather than sampled directly.
 
 <div align="center">
-<a name="figure-5" id="figure-5"></a>
+<a name="figure-4" id="figure-4"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 5: four-way trade-off across the non-dominated designs</em>
+<em>Figure 4: four-way trade-off across the non-dominated designs</em>
 
 </div>
 

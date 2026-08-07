@@ -424,104 +424,6 @@ def fig_extrapolation(cells, ops) -> str:
                  "spanned by the coverage laws rather than by measurement.")
 
 
-# ------------------------------------------------------------------ figure 5
-def fig_epoch_window(ops, alternatives, convergence) -> str:
-    """The admissible epoch length, bounded from both directions.
-
-    Links are not repaired mid-epoch, so the longer an epoch runs the more of
-    the population has dropped out by the time the topology is judged. Setting
-    the accumulated downtime equal to a design's churn budget gives the longest
-    epoch it sustains: T = -ln(1 - p_max) / lambda. That is linear in the mean
-    time between departures, so on log axes the designs are parallel lines
-    separated by their budgets.
-
-    The floor is convergence, and it is far below the bottom of this scale: a
-    few round-trips against a ceiling in hours.
-    """
-    W, H = 860, 534
-    ml, mr, mt, mb = 92, 150, 34, 122
-    pw, ph = W - ml - mr, H - mt - mb
-    x0, x1 = 7.0, 730.0            # mean days between departures
-    y0, y1 = 0.5, 400.0            # max epoch length, hours
-    lg = math.log10
-
-    def X(v):
-        return ml + (lg(v) - lg(x0)) / (lg(x1) - lg(x0)) * pw
-
-    def Y(v):
-        return mt + ph - (lg(v) - lg(y0)) / (lg(y1) - lg(y0)) * ph
-
-    series = [(o["model"], o["params"], o["churn_budget_pct"], SERIES[o["model"]], None)
-              for o in ops]
-    for a in alternatives:
-        series.append((a["model"], a["params"], a["churn_budget_pct"],
-                       SERIES[a["model"]], "6 4"))
-    series.sort(key=lambda s: s[2])
-
-    b = []
-    for dec, lab in ((7, "1 week"), (30, "1 month"), (91, "3 months"),
-                     (365, "1 year"), (730, "2 years")):
-        b.append(line(X(dec), mt, X(dec), mt + ph, GRID, 1))
-        b.append(text(X(dec), mt + ph + 19, lab, 10.5, INK_SOFT, "middle"))
-    for hv, lab in ((1, "1 h"), (6, "6 h"), (24, "1 day"), (120, "5 days"), (336, "2 weeks")):
-        if not (y0 <= hv <= y1):
-            continue
-        emph = hv == 24
-        b.append(line(ml, Y(hv), ml + pw, Y(hv),
-                      "#9d9a90" if emph else GRID, 1.3 if emph else 1))
-        b.append(text(ml - 10, Y(hv) + 4, lab, 10.5, INK if emph else INK_SOFT, "end"))
-
-    labels = []
-    for model, params, pmax, col, dash in series:
-        factor = -math.log(1.0 - pmax / 100.0) * 24.0      # hours per day of MTBD
-        pts = [(X(x0), Y(max(factor * x0, y0))), (X(x1), Y(min(factor * x1, y1)))]
-        a = (f'<path d="M{pts[0][0]:.1f} {pts[0][1]:.1f} L{pts[1][0]:.1f} {pts[1][1]:.1f}" '
-             f'fill="none" stroke="{col}" stroke-width="2.2" stroke-linecap="round"')
-        if dash:
-            a += f' stroke-dasharray="{dash}"'
-        b.append(a + "/>")
-        labels.append([Y(min(factor * x1, y1)), f"{model} {params}",
-                       f"absorbs {pmax:.2f} %", col])
-
-    # budgets cluster (M5 against M3 (13,7), M1 against M2), so the end labels
-    # need pushing apart before they are drawn
-    labels.sort(key=lambda l: l[0])
-    GAP = 32.0
-    for i in range(1, len(labels)):
-        if labels[i][0] - labels[i - 1][0] < GAP:
-            labels[i][0] = labels[i - 1][0] + GAP
-    over = labels[-1][0] - (mt + ph - 6)
-    if over > 0:
-        for l in labels:
-            l[0] -= over
-    for ly, name, note, col in labels:
-        b.append(text(ml + pw + 10, ly + 4, name, 11, col, "start", "650"))
-        b.append(text(ml + pw + 10, ly + 17, note, 9.5, "#8a887e"))
-
-    b.append(text(ml + pw / 2, mt + ph + 42,
-                  "Mean time between one node's departures", 12.5, INK, "middle", "600"))
-    b.append(text(ml + pw / 2, mt + ph + 57,
-                  "right = a more reliable population", 11, INK_SOFT, "middle"))
-    b.append(f'<text x="0" y="0" transform="translate(24,{mt + ph / 2:.1f}) rotate(-90)" '
-             f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
-             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'Longest epoch the design sustains</text>')
-    b.append(text(38, mt + ph + 86, "Both axes logarithmic. A design may run any epoch "
-                  "below its line; above it, more of the population has dropped out by "
-                  "the end of the epoch", 11, INK_SOFT, style="italic"))
-    b.append(text(38, mt + ph + 102, f"than the design absorbs. The floor is convergence, "
-                  f"measured at {convergence['dial_waves']} dial rounds, which is seconds "
-                  f"and lies far below this scale.", 11, INK_SOFT, style="italic"))
-
-    return frame(W, H, b, "The admissible epoch length",
-                 "Longest sustainable epoch against assumed node reliability, one line "
-                 "per operating point, both axes logarithmic. Designs are parallel lines "
-                 "separated by their churn budgets. M3 at (12,8) sits lowest, sustaining "
-                 "the shortest epoch; M5 and M3 at (13,7) sit highest. Short epochs are "
-                 "undemanding for every design; the requirement becomes severe only as "
-                 "the epoch lengthens.")
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
@@ -535,8 +437,6 @@ def main() -> int:
         "tradeoff-radar.svg": fig_tradeoffs(d["operating_points"]),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"]),
-        "epoch-window.svg": fig_epoch_window(
-            d["operating_points"], d["alternatives"], d["convergence"]),
     }
 
     rc = 0
