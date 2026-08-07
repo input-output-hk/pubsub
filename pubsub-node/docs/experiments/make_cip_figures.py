@@ -336,8 +336,9 @@ def fig_tradeoffs(ops) -> str:
                   "subscriber, more downtime absorbed.", 11, INK_SOFT, style="italic"))
     b.append(text(38, 572, "Each design is scored against the best of the four and "
                   "labelled at the axis where it leads.", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 588, "Churn tolerance is read off the validated coverage law "
-                  "rather than sampled directly.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 588, "Three axes are measured directly; churn tolerance is read "
+                  "off the coverage law, whose behaviour under churn was measured "
+                  "separately.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Four-way trade-off across the four non-dominated designs",
                  "One radar chart overlaying M2, M3, M4 and M5 on four axes: bandwidth "

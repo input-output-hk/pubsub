@@ -324,7 +324,10 @@
       "hops_mean": 4.31,
       "p_bad": 7.849e-05,
       "churn_budget_pct": 0.54,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable."
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 37.99,
+      "standing_links_max": 64,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
     },
     {
       "model": "M4",
@@ -338,7 +341,10 @@
       "hops_mean": 4.09,
       "p_bad": 6.762e-05,
       "churn_budget_pct": 1.07,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable."
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 16.0,
+      "standing_links_max": 36,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
     },
     {
       "model": "M5",
@@ -352,7 +358,10 @@
       "hops_mean": 3.97,
       "p_bad": 4.388e-05,
       "churn_budget_pct": 2.18,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable."
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 33.99,
+      "standing_links_max": 58,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
     },
     {
       "model": "M1",
@@ -366,7 +375,10 @@
       "hops_mean": 3.61,
       "p_bad": 7.257e-05,
       "churn_budget_pct": 1.76,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable."
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 47.97,
+      "standing_links_max": 75,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
     },
     {
       "model": "M2",
@@ -380,7 +392,10 @@
       "hops_mean": 3.6,
       "p_bad": 7.339e-05,
       "churn_budget_pct": 1.7,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable."
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 47.97,
+      "standing_links_max": 75,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
     }
   ]
 }

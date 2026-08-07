@@ -265,19 +265,19 @@ Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴
 <div align="center">
 <a name="table-4" id="table-4"></a>
 
-| Design | Parameters | Messages per publication | Copies per node | Standing links | Hops (full) | Hops (mean) |
-| :--: | --- | ---: | ---: | ---: | ---: | ---: |
-| M3 | RF = 12, *s* = 8 | **153,577** | **9.6** | 38 | 5.9 | 4.3 |
-| M4 | RF = 8 | 188,751 | 11.8 | **16** | 5.1 | 4.1 |
-| M5 | (9, 8) | 217,530 | 13.6 | 34 | 5.0 | 4.0 |
-| M1 | *F* = 24 | 307,201 | 19.2 | 48 | 5.0 | 3.6 |
-| M2 | RF = 24 | 307,162 | 19.2 | 48 | **4.8** | **3.6** |
+| Design | Parameters | Messages per publication | Copies per node | Standing links, mean | Standing links, busiest node | Hops (full) | Hops (mean) |
+| :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| M3 | RF = 12, *s* = 8 | **153,577** | **9.6** | 38.0 | 64 | 5.9 | 4.3 |
+| M4 | RF = 8 | 188,751 | 11.8 | **16.0** | **36** | 5.1 | 4.1 |
+| M5 | (9, 8) | 217,530 | 13.6 | 34.0 | 58 | 5.0 | 4.0 |
+| M1 | *F* = 24 | 307,201 | 19.2 | 48.0 | 75 | 5.0 | 3.6 |
+| M2 | RF = 24 | 307,162 | 19.2 | 48.0 | 75 | **4.8** | **3.6** |
 
 <em>Table 4: cost at equal safety</em>
 
 </div>
 
-Bold marks the best value in each column. These are measured values; see the reproduction note. Plotting two of those columns against each other shows the shape of the trade: both axes are costs, so lower and further left is better, and marker size is hops to the last subscriber.
+Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against — it is a measured worst case over the sample, not a bound.[^degrees] Plotting two of those columns against each other shows the shape of the trade: both axes are costs, so lower and further left is better, and marker size is hops to the last subscriber.
 
 <div align="center">
 <a name="figure-2" id="figure-2"></a>
@@ -292,7 +292,7 @@ Three things follow, and the third is the one that matters for the choice.
 
 **Latency does not discriminate.** The whole field spans 4.8 to 5.9 forwarding steps. At wide-area per-hop times this is a difference of a few hundred milliseconds between the best and worst design, which is unlikely to decide anything for the use cases in the Motivation.
 
-**Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's standing links exceed what its traffic would suggest because 14 of its 38 links carry only their owner's own publications — cheap to run, but still connection slots to provision and still exposed to churn.
+**Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's standing links exceed what its traffic would suggest because 14 of its 38 links carry only their owner's own publications — cheap to run, but still connection slots to provision and still exposed to churn. The gap widens at the worst node rather than the average one: 64 connections against M4's 36.
 
 **M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention — see [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
 
@@ -352,7 +352,7 @@ The gap is close to two orders of magnitude for every design. The laws are expec
 
 **A known small correction to the laws is unresolved in size.** Beyond single cut-off nodes, a draw can also fail because a small *group* of nodes is collectively cut off. The laws count the first case exactly and the second only approximately, so they are expected to be slightly optimistic — to predict marginally fewer failures than really occur — in the range where failures are rare. Independent samples disagree on how much: none is large enough to settle it, because distinguishing a ten-percent difference at these probabilities needs on the order of 10⁵ draws per configuration. Where a configuration's margin against the target is no larger than this uncertainty, the margin should be read as approximate rather than exact.
 
-**The state axis is measured less precisely than the cost axis.** Transmission counts are reproduced between the two instruments to within a small fraction of a percent. Standing-link counts are not measured to comparable precision, and links that carry no propagation traffic are not captured in the measured degree distributions at all. Where a comparison turns on state rather than bandwidth, it rests on the weaker of the two axes.
+**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in Table 4 are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
 
 **One adversarial fraction.** All results are at a single value of *μ*. That value is an assumption about the deployment, not a measurement of it, and the designs do not degrade at equal rates as it varies.
 
@@ -381,7 +381,7 @@ The general form is worth stating, because it governs the parameter choice as mu
 
 **On the choice of axes.** These four are the quantities that are both measured and independent of one another. Two others were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against — but it is the least reliably measured quantity in this analysis, for the reason the Limits subsection gives, and it is the natural fifth axis once that measurement lands. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
-Two caveats on reading the figure. The churn axis is read off each design's coverage law rather than sampled directly, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning — the axes are different quantities in different units, so only position along each individual axis should be compared.
+Two caveats on reading the figure. Three of its axes are measured directly; churn tolerance is read off each design's coverage law, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning — the axes are different quantities in different units, so only position along each individual axis should be compared.
 
 #### Two classes of fault, with different guarantees
 
@@ -457,6 +457,8 @@ CIP belong in the Rationale section, e.g. as an '### Open Questions' subsection.
 [^accountable-liveness]: Andrew Lewis-Pye, Joachim Neu, Tim Roughgarden and Luca Zanolini. *Accountable Liveness.* IACR ePrint Archive, Report 2025/693. <https://eprint.iacr.org/2025/693>. Establishes accountability for liveness violations as a distinct problem from accountability for safety violations, and proves it unattainable both in networks that are more often asynchronous than synchronous and under an adversarial majority — neither restriction applying to safety accountability. Also formalises the guarantees underlying Ethereum's inactivity-leak mechanism.
 
 [^churn]: Churn tolerance — experiment E13. Twenty-five configurations across the five designs, honest downtime swept from 0 to 12 % of the honest population, 100 000 draws in total; each scored against its design's coverage law evaluated at the shifted adversarial fraction. Method, full results and the unexplained residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md).
+
+[^degrees]: Standing links per node. Counted as the distinct (peer, link kind) pairs a node holds an established link with, in either direction and regardless of the counterparty's class, since an adversary still occupies a connection slot; a symmetric link is counted once. Measured over 200 graphs per operating point (M2: 40). The propagation-digraph degrees the framework reports elsewhere are a different and smaller quantity — they omit links that carry no dissemination traffic, which under M3 is fourteen of its thirty-eight. Method and the one unresolved discrepancy against the earlier figures: [`docs/experiments/standing-degree.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/standing-degree.md).
 
 [^reproduction]: Reproducing the measurements. Each result is identified by a tool commit, a sweep configuration, and a master seed; those three reproduce the output files byte-for-byte, independently of how many runs execute in parallel. All three are recorded per configuration in [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json), which is also the source the figures in this section are generated from; the configurations themselves are under [`configs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments) and the per-design comparisons, including the statistical conventions, under [`docs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/docs/experiments).
 
