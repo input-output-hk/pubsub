@@ -322,7 +322,9 @@
       "standing_links": 38,
       "hops_full": 5.87,
       "hops_mean": 4.31,
-      "p_bad": 7.849e-05
+      "p_bad": 7.849e-05,
+      "churn_budget_pct": 0.54,
+      "churn_budget_status": "predicted-from-law; pending measurement (E13)"
     },
     {
       "model": "M4",
@@ -334,7 +336,9 @@
       "standing_links": 16,
       "hops_full": 5.12,
       "hops_mean": 4.09,
-      "p_bad": 6.762e-05
+      "p_bad": 6.762e-05,
+      "churn_budget_pct": 1.07,
+      "churn_budget_status": "predicted-from-law; pending measurement (E13)"
     },
     {
       "model": "M5",
@@ -346,7 +350,9 @@
       "standing_links": 34,
       "hops_full": 5.0,
       "hops_mean": 3.97,
-      "p_bad": 4.388e-05
+      "p_bad": 4.388e-05,
+      "churn_budget_pct": 2.18,
+      "churn_budget_status": "predicted-from-law; pending measurement (E13)"
     },
     {
       "model": "M1",
@@ -358,7 +364,9 @@
       "standing_links": 48,
       "hops_full": 5.0,
       "hops_mean": 3.61,
-      "p_bad": 7.257e-05
+      "p_bad": 7.257e-05,
+      "churn_budget_pct": 1.76,
+      "churn_budget_status": "predicted-from-law; pending measurement (E13)"
     },
     {
       "model": "M2",
@@ -370,7 +378,9 @@
       "standing_links": 48,
       "hops_full": 4.78,
       "hops_mean": 3.6,
-      "p_bad": 7.339e-05
+      "p_bad": 7.339e-05,
+      "churn_budget_pct": 1.7,
+      "churn_budget_status": "predicted-from-law; pending measurement (E13)"
     }
   ]
 }

@@ -323,6 +323,23 @@ The following are stated so that a reader can judge what the numbers above do an
 
 ### Trade-offs and Limitations
 
+A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side for the two candidates that survive the cost comparison, with the pull-only design retained as a reference for what the conservative end of the family looks like.
+
+<div align="center">
+<a name="figure-3" id="figure-3"></a>
+
+![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
+
+<em>Figure 3: the four-way trade-off. Each design is scored against the best of the three on each axis, so the outer ring is the best value on that axis and a larger shape is better overall. The raw values are printed beside each axis. The churn axis is predicted from the coverage laws rather than measured, and is marked accordingly.</em>
+
+</div>
+
+The shapes carry the argument. **M3 reaches the outer ring on bandwidth and sits innermost on both connection state and churn tolerance** — a spike rather than a balanced shape. That is not incidental to M3: it achieves its bandwidth by relying on a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when some of those links go quiet. **M4 is the more even shape**, giving up bandwidth for a design that holds the fewest connections and degrades more gently. M2, which the cost comparison rules out on both cost axes, is nonetheless the most forgiving of the three — the conservative end of the family is expensive precisely because it is over-provisioned.
+
+The general form of this is worth stating, because it governs the parameter choice as well as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room absorbing anything the model did not anticipate. Whether that is the right trade is a deployment question rather than a protocol one, and it is recorded as an open question below.
+
+Two caveats on reading the figure. The churn axis is a prediction pending measurement, as the Robustness subsection explains, so the relative sizes on that axis may move. And a radar chart's enclosed area has no meaning here — the axes are different quantities in different units, and only the position along each individual axis should be compared.
+
 #### Two classes of fault, with different guarantees
 
 The protocol distinguishes faults that are attributable from faults that are not, and the boundary between them is not a matter of engineering effort. Accountability for the *presence* of an incorrect message and accountability for the *absence* of a message are formally different problems.[^accountable-liveness]
