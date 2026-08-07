@@ -393,8 +393,11 @@ def fig_extrapolation(cells, ops) -> str:
         for v in ps:
             b.append(circle(X(v), y, 4.2, col, SURFACE, 1.5))
         b.append(circle(X(opv), y, 5.4, SURFACE, col, 2.2))
-        gap = lg(min(ps) / opv)
-        b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.1f} decades",
+        # A ratio of two per-epoch probabilities, so epoch length cancels.
+        # Stated as a factor rather than in decades, which reads as a duration
+        # in a document whose central quantity is measured per epoch.
+        gap = min(ps) / opv
+        b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.0f}\u00d7 rarer",
                       9.5, "#8a887e", "middle"))
 
     b.append(text(ml + pw / 2, H - 46, "P(bad) — chance an epoch's wiring fails",
