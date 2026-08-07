@@ -1,0 +1,31 @@
+# Cost/latency/degree comparison cell — M5 operating point (k_in,k_out)=(9,8) (217562 msgs, 13.6 copies, hops 5.0 / 3.9).
+# N = 20000, mu = 0.2; 200 runs (the published values were measured over
+# 40-200 graphs per cell).
+
+model = "m5"
+master_seed = 813
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+publisher = { pick_count = 8 }
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+pick_count = 9
+publisher = { pick_count = 8 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 1200
+
+# Degradation at the deployed parameters. These churn levels sit far above the
+# churn budget — the budget is at P(bad) = 1e-4 and cannot be sampled — so this
+# measures the curve at the operating point, not the budget itself.
+[[axes]]
+parameter = "churn"
+values = [0.20, 0.25, 0.30]
