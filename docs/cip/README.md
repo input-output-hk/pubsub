@@ -129,27 +129,17 @@ Honest node churn is not a separate threat model. An honest node that is offline
 
 This section sets out what was measured, how, and what the results do and do not establish. It proceeds in that order: first the quantity being predicted and the two instruments that predict it, then the metrics and the designs compared, then the results, then the limits.
 
-#### What is being measured
+#### What is measured, and by what
 
-Recall the structure the measurements apply to. Each epoch, the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers to exchange messages with, and that assignment stands for the whole epoch. Nodes that follow the protocol are *honest*; the rest accept their assigned links and forward nothing, which is the adversary set out in the subsection above. On any given topic some nodes publish and others subscribe.
+Each epoch the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers, and that assignment stands for the whole epoch. Nodes following the protocol are *honest*; the rest accept their links and forward nothing, the adversary set out above. On any topic some nodes publish and others subscribe.
 
-The guarantee is therefore a property of the drawn topology rather than of an individual message. For a given epoch's assignment, either every honest publisher's messages can reach every honest subscriber over the links that exist, or some publisher's cannot, in which case that publisher is cut off for the whole epoch, every time it publishes. A draw of the first kind is called **good** and one of the second **bad**.
+The guarantee is a property of the drawn topology, not of an individual message. For a given assignment either every honest publisher reaches every honest subscriber, or some publisher does not, in which case that publisher is cut off for the whole epoch every time it publishes. The first case is **good**, the second **bad**. This is deliberately all-or-nothing rather than an average, because an average hides the failure mode that matters: 99.99 % delivery might be a uniform trickle of losses, which is tolerable, or one publisher silenced completely, which is not.
 
-This is deliberately an all-or-nothing criterion rather than an average over messages, because averaging hides the failure mode that matters. A design delivering 99.99 % of all messages might be dropping a uniform trickle, which is tolerable, or silencing one publisher completely, which is not. The two are indistinguishable in an average and are distinguished exactly by this criterion.
+The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>. **Everything below is a way of estimating it, a cost paid to lower it, or a condition under which it rises.**
 
-The central quantity is then the probability that a draw is bad, written *p*<sub>bad</sub>, and the design problem is to make it small at acceptable cost. **Everything else in this section is either a way of estimating *p*<sub>bad</sub>, a cost paid to lower it, or a condition under which it rises.**
+Two independent instruments estimate it, built separately. **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
 
-#### How it is measured
-
-Two independent instruments estimate *p*<sub>bad</sub>, and were built separately.
-
-The first is **analysis**. For each candidate design, an expression called a *coverage law* predicts *p*<sub>bad</sub> in closed form, given the network size, the adversarial fraction, and the design's own parameters. Each law is derived from an abstract model of the design and comes with its own simulator, which samples topologies at random and checks each one against the good/bad criterion directly, so the law can be checked against sampling wherever sampling is feasible.
-
-The second is **measurement**. A framework builds populations of the reference implementation's own node logic (the same code the node runs, driven by a deterministic scheduler in place of a network), draws a topology, disseminates real messages over it, and counts what happens: whether coverage was achieved, how many copies crossed the network, how many forwarding steps were needed.
-
-Neither on its own would be convincing. A closed-form law can be a good approximation of the wrong model; an implementation can faithfully run a subtly incorrect protocol. They fail in unrelated ways, so **agreement between them is the evidence offered here**, not either result alone.
-
-Every measurement is reproducible byte-for-byte from a tool commit, a configuration, and a master seed, independently of how many runs execute in parallel.[^reproduction]
+Neither alone would convince. A closed form can approximate the wrong model; an implementation can faithfully run a subtly wrong protocol. They fail in unrelated ways, so **their agreement is the evidence offered here**, not either result alone. Every measurement is reproducible byte-for-byte from a tool commit, a configuration and a master seed.[^reproduction]
 
 #### Performance metrics
 
@@ -176,27 +166,19 @@ Two of them are design inputs rather than outcomes: *μ*, the fraction of nodes 
 
 </div>
 
-**_Epoch failure probability._** The probability that a drawn assignment is bad in the sense defined above. Because it is a property of the draw rather than of a message, it is estimated by sampling many topologies and counting how many fail.
+Most of these are self-explanatory from the table. Two are not.
+
+**_Epoch failure probability._** A property of the draw rather than of a message, so it is estimated by sampling topologies and counting failures. The all-or-nothing criterion is the one defined above.
 
 $$p_\text{bad} = P(\text{some honest publisher cannot reach every honest subscriber over the epoch's links})$$
 
-**_Design target._** A configuration is chosen as the cheapest one whose *p*<sub>bad</sub> meets *δ*. Note that *δ* is a choice, not a property of any design, and that the same per-epoch value means different things at different epoch lengths: one failure in ten thousand epochs is roughly once a century at multi-day epochs and roughly annual at hourly ones.
-
-**_Transmissions per publication and copies per honest node._** The bandwidth cost. Both count copies sent between honest nodes, duplicates included, since a duplicate is suppressed on receipt only after crossing the network and being paid for. The two differ only in what they are divided by, so either may be quoted; with *H* the number of honest nodes,
-
-$$c = m / H$$
-
-**_Standing links per node._** The state cost: connections a node keeps open for the epoch whether or not traffic flows over them. This is a separate axis from bandwidth, because a design can be frugal with messages while still requiring many open connections. The maximum matters as well as the mean, since connection slots must be provisioned for the worst-case node, and the worst case grows with network size even when the average does not.
-
-**_Hops._** Latency measured in forwarding steps rather than seconds, so the figure does not depend on any particular deployment's link latencies. Both the typical case and the tail are reported: a design can reach most subscribers quickly and the last one slowly, and for time-sensitive topics it is the last one that binds.
-
-**_Adversarial fraction._** The assumed share of registered nodes that accept their assigned links and forward nothing, as defined in [The adversary this proposal defends against](#the-adversary-this-proposal-defends-against) above, which also records what is deliberately not covered.
-
-**_Churn budget._** Honest downtime raises the effective adversarial fraction to *μ* + *p*(1−*μ*), for the reason given in the adversary subsection above, so a design's own coverage law can simply be read at that higher value. The churn budget is the largest downtime a deployed configuration absorbs while still meeting the target:
+**_Churn budget._** An honest node offline for the epoch is indistinguishable from an adversarial one, so downtime with per-epoch probability *p* raises the effective adversarial fraction to *μ* + *p*(1−*μ*) and a design's own law can be read at that higher value. The budget is the largest downtime a configuration absorbs while still meeting the target:
 
 $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
-Downtime relates to the rate at which nodes drop out and to the epoch length by *p* = 1 − e<sup>−λ·T</sup> for a drop-out rate λ over an epoch of length T: the longer an epoch runs without repairing dead links, the more downtime accumulates within it. This is why *p*<sub>max</sub> is not only a resilience figure but also an upper bound on epoch length.
+Downtime relates to the drop-out rate and the epoch length by *p* = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
+
+A note on two of the cost metrics. Transmissions per publication and copies per honest node are the same quantity divided differently, *c* = *m* / *H* with *H* the honest count, so either may be quoted. Both include duplicates, since a duplicate is suppressed only after crossing the network. And for standing links the maximum matters as much as the mean, because connection slots are provisioned for the worst-affected node.
 
 #### Designs evaluated
 
@@ -327,7 +309,21 @@ The design that is cheapest in bandwidth absorbs the least downtime, and the two
 
 This does not overturn Table 4, but it does mean **cost alone does not select a design**. Which matters more, traffic or held connections or tolerance of an unreliable population, is a deployment question, and it is posed as an open question below.
 
-It also has a concrete consequence for M3's parameters. At the same total budget and the same number of standing links, the split (RF = 13, *s* = 7) reaches a churn budget of 2.17 % against (12, 8)'s 0.54 %, at a cost of 0.8 further copies per honest node. On this evidence the published operating point is not the best point on M3's own frontier.
+**M3's published operating point should move.** The budget of 19 can be split between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The split (RF = 13, *s* = 7) holds the same total budget and the same 38 standing links, and improves every other figure:
+
+<div align="center">
+<a name="table-6" id="table-6"></a>
+
+| M3 split | P(bad) | Copies per node | Standing links | Downtime absorbed |
+| :--: | ---: | ---: | ---: | ---: |
+| RF = 12, *s* = 8 | 7.9 × 10⁻⁵ | 9.6 | 38 | 0.54 % |
+| **RF = 13, *s* = 7** | **4.4 × 10⁻⁵** | 10.4 | 38 | **2.17 %** |
+
+<em>Table 6: two splits of M3's budget of 19</em>
+
+</div>
+
+For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it. Any use of M3 in this proposal should take (13, 7), and the comparisons that follow keep (12, 8) only because it is the figure the published tables carry.
 
 Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And the measurements sit slightly above their predictions in the middle of the range tested. That effect does not grow with downtime, so it does not behave like a mistaken reduction, but it is not fully explained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
@@ -348,7 +344,7 @@ Three things follow.
 **A chosen epoch length implies a reliability requirement.** Reading the relation the other way turns it into something a deployment can check. For a candidate epoch, each design needs the population to depart no more often than:
 
 <div align="center">
-<a name="table-6" id="table-6"></a>
+<a name="table-7" id="table-7"></a>
 
 | Operating point | 1 hour | 6 hours | 1 day | 5 days |
 | :--: | ---: | ---: | ---: | ---: |
@@ -359,7 +355,7 @@ Three things follow.
 | M4 RF = 8 | 4 days | 23 days | 3 months | 1.3 years |
 | M3 (12, 8) | 8 days | 46 days | 6 months | 2.5 years |
 
-<em>Table 6: mean time between one node's departures required to sustain a given epoch length</em>
+<em>Table 7: mean time between one node's departures required to sustain a given epoch length</em>
 
 </div>
 
@@ -419,6 +415,28 @@ The general form is worth stating, because it governs the parameter choice as mu
 
 **On the choice of axes.** These four are the quantities that are both measured and independent of one another. Two others were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 4; it is left off the figure only because four axes already carry the argument. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
+#### Where this leaves the choice
+
+Two designs remain, and neither dominates the other. M3 at (13, 7) is cheaper in traffic and absorbs twice the downtime; M4 holds less than half the connections and reaches its last subscriber sooner:
+
+<div align="center">
+<a name="table-8" id="table-8"></a>
+
+| | M3 (13, 7) | M4 (RF = 8) |
+| :--: | ---: | ---: |
+| Copies per honest node | **10.4** | 11.8 |
+| Standing links, mean / busiest | 38 / 64 | **16 / 36** |
+| Hops to the last subscriber | 5.9 | **5.1** |
+| Downtime absorbed | **2.17 %** | 1.07 % |
+
+<em>Table 8: the two remaining candidates</em>
+
+</div>
+
+**This proposal does not claim the evidence selects between them.** The two axes M3 wins on and the two M4 wins on are not commensurable, and no weighting of them follows from the analysis. What would decide it is a fact about deployment rather than about the protocol: whether a node's binding constraint is the traffic it carries or the connections it can hold open. For an operator on a metered link the first binds; for one behind a connection-limited gateway the second does. That question is posed in the Open Questions below, and the Specification names the design the answer selects.
+
+What the evidence does establish is that the field is two, not five, and that the axes on which they differ are measured rather than assumed.
+
 Two caveats on reading the figure. Three of its axes are measured directly; churn tolerance is read off each design's coverage law, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning, since the axes are different quantities in different units, so only position along each individual axis should be compared.
 
 #### Two classes of fault, with different guarantees
@@ -457,7 +475,7 @@ The two compose: the peer-set mechanism gives cheap detection and recovery, whil
 
 - Whether a deposit should decay in the absence of positively supplied evidence of participation, following the approach Ethereum's inactivity leak takes to liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
 - The epoch length itself. The Evidence subsection bounds it from both directions and shows the upper bound is the binding one, but the bound depends on how often a node drops out, which is a property of the deployed population rather than of the protocol and was not measured. Settling the epoch length means settling that rate first, and the two have to be argued together with the failure target.
-- Whether dissemination parameters should be selected for minimum cost at the target failure probability, or for tolerance to downtime at a small cost premium. The two criteria do not agree, and they can select different configurations at an identical link budget: a point sized to sit just inside the target is by construction the one with least room to absorb a shifted adversarial fraction.
+- Which of the two remaining designs to adopt, which turns on whether a participating node's binding constraint is the traffic it carries or the connections it can hold open. This is a question about operators rather than about the protocol, and answering it needs evidence from the stake pools, wallet backends and dApp infrastructure expected to run the layer, not further simulation.
 - The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure, and against the observation that a subscriber only needs its own upstream set captured rather than the network, before parameters are fixed.
 - The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
 - The cadence of on-chain position commitments against their cost, and whether topics carrying urgent traffic require a cadence finer than the epoch.
