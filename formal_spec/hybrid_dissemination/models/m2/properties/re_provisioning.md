@@ -59,7 +59,10 @@ MC at elevated μ_eff (`--mc-law`, strong-connectivity check, seed
 | RF = 29 | 0.670 | 0.406 | 0.380 | 95 / 250 | −0.8 |
 
 All cells |z| ≤ 2 (M2's samples mirror M1's — a same-seed M2 graph is
-M1's edge reversal, so the counts coincide).
+M1's edge reversal, so the counts coincide). As with the μ-shift
+budgets, the 10⁻⁴ tail at the new points is law-read, not directly
+measured — the MC cells validate the bulk; the closest direct tail
+evidence is [`full_coverage.md`](full_coverage.md) §3.
 
 ## 4. Answer — provisioning curve and the +1 notch (N = 20 000, δ = 10⁻⁴)
 

@@ -64,7 +64,16 @@ re-measured with `sim_m4_degrees.py --mu <μ> --RF <RF>` (25 graphs, seed
 | RF = 11 | 0.615 | 0.411 | 0.456 | 114 / 250 | +1.4 |
 
 All cells |z| ≤ 2 (uniformly slightly above the law — the small-component
-under-count, consistent with the ~1.1× tail factor).
+under-count, consistent with the ~1.1× tail factor). As with the
+μ-shift budgets, the 10⁻⁴ tail at the new points is law-read, not
+directly measured — the MC cells validate the bulk, and the tail rests
+on the ~1.1× factor (corrected budgets read ≈ 0.002 lower, e.g. RF = 9:
+0.2572). A direct check in the high-μ regime (`--tail-check`:
+N = 4 000, μ = 0.35, RF = 8, 60 000 graphs, seed 20260806) measured
+MC/law = ×1.04 (199/60 000, z = +0.6) — consistent with both no
+correction and the ×1.1 carry-over, so RF = 11 at μ_design = 0.35 sits
+within noise of the target either way and RF = 12 stays the safe
+choice.
 
 ## 4. Answer — provisioning curve and the +1 notch (N = 20 000, δ = 10⁻⁴)
 

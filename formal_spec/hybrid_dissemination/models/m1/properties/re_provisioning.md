@@ -58,7 +58,11 @@ each new frozen design at two cells with P(bad) ≈ 0.1 / 0.4:
 | F = 29 | 0.610 | 0.095 | 0.070 | 28 / 400 | −1.9 |
 | F = 29 | 0.670 | 0.404 | 0.380 | 95 / 250 | −0.8 |
 
-All cells |z| ≤ 2.
+All cells |z| ≤ 2. As with the μ-shift budgets, the 10⁻⁴ tail at the
+new points is law-read, not directly measured — the MC cells validate
+the bulk; the closest direct tail evidence is
+[`full_coverage.md`](full_coverage.md) §3, where the law tracked MC
+with no visible bias.
 
 ## 4. Answer — provisioning curve and the +1 notch (N = 20 000, δ = 10⁻⁴)
 

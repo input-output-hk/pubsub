@@ -15,7 +15,13 @@ new frozen design at 2 elevated mu_eff cells (connectivity check).
 Backs ../properties/re_provisioning.md.
 
 Usage: python3 sweep_m4_reprovision.py [--mc-costs] [--mc-law]
+                                       [--tail-check]
                                        [--trials T] [--seed SEED]
+
+--tail-check (LONG, ~8 min; never run by CI) measures the
+small-component tail factor in the high-mu regime the new grid points
+live in (cf. RF = 11 at mu_design = 0.35): N = 4000, mu = 0.35, RF = 8
+at E ~ 3e-3, 60 000 graphs, connectivity check.
 """
 
 from __future__ import annotations
@@ -120,10 +126,27 @@ def main() -> None:
     ap.add_argument("--mc-law", action="store_true",
                     help="MC-validate each new frozen design at 2 elevated "
                          "mu_eff cells")
+    ap.add_argument("--tail-check", action="store_true",
+                    help="measure the deep-tail factor in the high-mu "
+                         "regime (LONG: 60k graphs at N=4000)")
     ap.add_argument("--trials", type=int, default=40,
                     help="graphs per cost cell (default 40)")
     ap.add_argument("--seed", type=int, default=20260806)
     args = ap.parse_args()
+
+    if args.tail_check:
+        rng = random.Random(args.seed)
+        p = M4Params(N=4000, k=1400, RF=8)
+        T = 60_000
+        pred = p.p_bad()
+        print(f"M4 deep-tail factor, high-mu regime -- N=4000, mu=0.35, "
+              f"RF=8, {T} graphs (seed {args.seed})")
+        bad = sample_bad(p, T, rng)
+        mc = bad / T
+        se = math.sqrt(max(mc, 1 / T) * (1 - mc) / T)
+        print(f"  pred {pred:.4g}  MC {mc:.4g}  ({bad}/{T})  "
+              f"ratio x{mc / pred:.2f}  z={(mc - pred) / se:+.2f}")
+        return
 
     print(f"M4 re-provisioning -- N = {N}, delta = {DELTA:g}, grid {GRID}")
 

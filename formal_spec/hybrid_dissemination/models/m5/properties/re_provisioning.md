@@ -72,7 +72,11 @@ P(bad) ≈ 0.1 / 0.4:
 (`sample_bad(M5Params(N=20000, k=10300, k_in=11, k_out=10), 800,
 random.Random(seed))`, seeds 777001 / 777002): 72/800 (z = −1.6) and
 87/800 (z = +0.2), pooled 159/1600 (z = −0.9) — the default-seed cell is
-a fluctuation, the law stands.
+a fluctuation, the law stands. As with the μ-shift budgets, the 10⁻⁴
+tail at the new points is law-read, not directly measured — the MC
+cells validate the bulk; the closest direct tail evidence is the
+50 000-graph deep-tail row in [`full_coverage.md`](full_coverage.md)
+§3 (no correction factor observed for M5).
 
 ## 4. Answer — provisioning curve and the +1 notch (N = 20 000, δ = 10⁻⁴)
 

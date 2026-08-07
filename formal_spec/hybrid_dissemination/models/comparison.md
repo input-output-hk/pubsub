@@ -102,7 +102,7 @@ model's documented rule; costs are closed forms, simulator-checked
 within 0.05 %). Baseline μ = 0.2 points in §§1–4.
 
 **A — cheapest point per μ_design** (standing links as mean / max
-observed):
+observed, worst of 25 graphs):
 
 | μ_design | model | params | msgs / message | copies / honest | links mean / max | P(bad) law |
 |---|---|---|---|---|---|---|
@@ -128,8 +128,14 @@ observed):
 | | M2 | RF = 29 | 245 043 | 18.9 | 58 / 44 | 8.5×10⁻⁵ |
 
 \* RF = 11 sits on the law crossing; the measured ~1.1× tail correction
-pushes it just over δ — the safe choice is RF = 12 (189 796 msgs, 14.6
-copies / honest). M3's corrected values stay under δ everywhere.
+pushes it just over δ, and a direct high-μ tail check (×1.04 ± 0.07)
+cannot clear it either way — the safe choice is RF = 12 (189 796 msgs,
+14.6 copies / honest). M3's corrected values stay under δ everywhere.
+
+Latency (not tabulated) moves the other way: M3's full-coverage depth
+falls from 5.9 to 5.0 hops across the grid (larger RF ⇒ shallower
+trees), M2's from 4.9 to 4.7, the rest ≈ 5 throughout — §2's latency
+spread narrows under re-provisioning.
 
 **B — premium over each model's μ = 0.2 point** (Δmsgs / Δmean links):
 
@@ -165,15 +171,17 @@ tolerates before P(bad) > 10⁻⁴ (churn reading p_max = Δμ/0.8):
 
 M3's two flavours are not interchangeable: the same-budget re-split
 (13, 7) quadruples its μ-budget for +8.3 % bandwidth and **zero extra
-state**, while +1 budget under its own bandwidth-minimal rule ((12, 9))
-buys almost nothing — M3 headroom comes from moving links into RF, not
-from adding links. M4's RF = 9 is the family's biggest notch, at the
+state** (with the ×1.11 tail correction: 0.215, churn ~1.9 %, vs the
+corrected base's ~0.3 %), while +1 budget under its own
+bandwidth-minimal rule ((12, 9)) buys almost nothing — M3 headroom
+comes from moving links into RF, not from adding links. M4's RF = 9 is the family's biggest notch, at the
 biggest bandwidth price.
 
 **Frontier verdict.** **The M3-over-M4 bandwidth ordering survives at
 every analysed μ_design** (lead 22 % at 0.225, narrowing to 7–15 % at
-0.35; on the stair-free fractional trend, parity would sit near
-μ ≈ 0.5), and M4 stays state winner (2.2–2.4× fewer mean links). At
+0.35; on the stair-free fractional trend the ratio flattens and parity
+sits at μ ≈ 0.64), and M4 stays state winner (2.2–2.4× fewer mean
+links). At
 *equal robustness* the choice also holds: M3's re-splits match or beat
 M4's μ-budgets at 0.2 and 0.25 for 11–16 % less bandwidth (only M4's
 fresh RF = 9 at 0.225 holds more headroom, at +19 % bandwidth).

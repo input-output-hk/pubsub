@@ -68,6 +68,26 @@ vs MC at elevated μ_eff (`--mc-law`, exact every-publisher check, seed
 20260806) — every new frozen design at two cells with P(bad) ≈ 0.1 / 0.4;
 16 cells, all |z| ≤ 1.6 (worst (13, 7) at 0.400: 30/400, z = −1.5).
 
+As with the μ-shift budgets, the 10⁻⁴ tail at the new points is
+law-read, not directly measured — the MC cells validate the bulk, and
+the tail rests on the ×1.11 factor. With that correction the μ-shift
+budgets read ≈ 0.002 lower than the table's raw crossings: (12, 8)
+0.2025 (churn ≈ 0.3 %, matching
+[`mu_shift_robustness.md`](mu_shift_robustness.md)), (13, 7) 0.2151
+(≈ 1.9 %), (13, 8) 0.2280, (14, 7) 0.2375 — and (17, 7) at
+μ_design = 0.3 reads 0.3010: with the correction, that grid point has
+essentially **no** μ-shift margin at the bandwidth-minimal (and only)
+split of its budget. A direct check in the new points' regime
+(`--tail-check`: N = 4 000, μ = 0.3, (12, 5) — the same ~3.5:1 out:in
+defect mix as (17, 7) — 40 000 graphs, seed 20260806) measured
+MC/law = ×0.97 (251/40 000, z = −0.4): no under-count visible at
+elevated μ, so carrying ×1.11 there is conservative and (17, 7)'s true
+margin most likely sits between the raw and corrected reads. The
+script's stair-free frontier-trend section
+(sizing rules of M3 and M4 evaluated at fractional knobs) puts the
+M4/M3 bandwidth-parity point at **μ ≈ 0.64** — quoted by the
+[comparison](../../comparison.md) §5 frontier verdict.
+
 ## 4. Answer — provisioning curve, notches, and the (13, 7) claim
 
 **Provisioning curve**: budget 19 → 26 across μ_design = 0.2 → 0.35, all
@@ -75,7 +95,10 @@ of it spent on RF (12 → 19; s−1 stays 6–7 — the out-term is cheap to
 close at any μ). Bandwidth rises only 5–10 % across the grid (153.6 k →
 166.6 k msgs at bw-minimal splits; the shrinking H offsets most of the
 larger RF); per-honest-node copies rise 9.6 → 12.4. State grows 38 → 52
-mean links. M3's real re-provisioning price is neither bandwidth nor
+mean links. Latency — M3's one weak axis — *improves*: full-coverage
+depth falls from 5.9 to 5.0 hops across the grid (`--mc-costs`; larger
+RF means shallower trees), erasing most of M3's hop deficit in the
+[comparison](../../comparison.md) §2. M3's real re-provisioning price is neither bandwidth nor
 state but **the persistent thinness of its μ-shift budget at the
 bandwidth-minimal split**: Δμ ≈ +0.004–0.005 at every grid point — sizing
 for a bigger μ_design does not buy slack *around* it, because the
@@ -83,8 +106,9 @@ bandwidth-minimal rule always parks the in-term just under δ.
 
 **Notch A — re-split (13, 7), the backlog's suggestion, verified**: at
 the same 19-link budget, (13, 7) has P(bad) 4.4×10⁻⁵ and μ-budget
-**0.217** (Δμ +0.017, churn ~2.2 %) — **4× the shift tolerance of
-(12, 8)** for +8.3 % bandwidth (+0.8 copies/node) and zero extra state.
+**0.217** (Δμ +0.017, churn ~2.2 %; ×1.11-corrected 0.215, ~1.9 %) —
+**4× the shift tolerance of (12, 8)** for +8.3 % bandwidth (+0.8
+copies/node) and zero extra state.
 This exceeds M4's base-point budget (+0.009) while still costing 12 %
 less bandwidth than M4 (166.4 k vs 188.8 k msgs): the robustness gap in
 the [comparison](../../comparison.md) §4 is a property of the
