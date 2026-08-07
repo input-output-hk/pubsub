@@ -438,8 +438,8 @@ def fig_epoch_window(ops, alternatives, convergence) -> str:
     The floor is convergence, and it is far below the bottom of this scale: a
     few round-trips against a ceiling in hours.
     """
-    W, H = 860, 520
-    ml, mr, mt, mb = 92, 150, 58, 84
+    W, H = 860, 534
+    ml, mr, mt, mb = 92, 150, 34, 122
     pw, ph = W - ml - mr, H - mt - mb
     x0, x1 = 7.0, 730.0            # mean days between departures
     y0, y1 = 0.5, 400.0            # max epoch length, hours
@@ -498,20 +498,20 @@ def fig_epoch_window(ops, alternatives, convergence) -> str:
         b.append(text(ml + pw + 10, ly + 4, name, 11, col, "start", "650"))
         b.append(text(ml + pw + 10, ly + 17, note, 9.5, "#8a887e"))
 
-    b.append(text(ml + pw / 2, H - 44,
+    b.append(text(ml + pw / 2, mt + ph + 42,
                   "Mean time between one node's departures", 12.5, INK, "middle", "600"))
-    b.append(text(ml + pw / 2, H - 29,
+    b.append(text(ml + pw / 2, mt + ph + 57,
                   "right = a more reliable population", 11, INK_SOFT, "middle"))
     b.append(f'<text x="0" y="0" transform="translate(24,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
              f'Longest epoch the design sustains</text>')
-    b.append(text(38, 30, "Both axes logarithmic. A design may run any epoch below its "
-                  "line; above it, more of the population has dropped out by the end of "
-                  "the epoch than", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 46, f"the design absorbs. The floor is convergence, measured at "
-                  f"{convergence['dial_waves']} dial rounds, which is seconds and lies far "
-                  f"below this scale.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, mt + ph + 86, "Both axes logarithmic. A design may run any epoch "
+                  "below its line; above it, more of the population has dropped out by "
+                  "the end of the epoch", 11, INK_SOFT, style="italic"))
+    b.append(text(38, mt + ph + 102, f"than the design absorbs. The floor is convergence, "
+                  f"measured at {convergence['dial_waves']} dial rounds, which is seconds "
+                  f"and lies far below this scale.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "The admissible epoch length",
                  "Longest sustainable epoch against assumed node reliability, one line "

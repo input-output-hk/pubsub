@@ -1,48 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 520" width="860" height="520" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 534" width="860" height="534" role="img" aria-labelledby="t d">
 <title id="t">The admissible epoch length</title>
 <desc id="d">Longest sustainable epoch against assumed node reliability, one line per operating point, both axes logarithmic. Designs are parallel lines separated by their churn budgets. M3 at (12,8) sits lowest, sustaining the shortest epoch; M5 and M3 at (13,7) sit highest. Short epochs are undemanding for every design; the requirement becomes severe only as the epoch lengthens.</desc>
-<rect width="860" height="520" rx="8" fill="#fcfcfb"/>
-<line x1="92.0" y1="58.0" x2="92.0" y2="436.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="92.0" y="455.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1 week</text>
-<line x1="285.5" y1="58.0" x2="285.5" y2="436.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="285.5" y="455.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1 month</text>
-<line x1="433.1" y1="58.0" x2="433.1" y2="436.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="433.1" y="455.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">3 months</text>
-<line x1="617.8" y1="58.0" x2="617.8" y2="436.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="617.8" y="455.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1 year</text>
-<line x1="710.0" y1="58.0" x2="710.0" y2="436.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="710.0" y="455.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">2 years</text>
-<line x1="92.0" y1="396.8" x2="710.0" y2="396.8" stroke="#e2e0d8" stroke-width="1"/>
-<text x="82.0" y="400.8" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">1 h</text>
-<line x1="92.0" y1="295.5" x2="710.0" y2="295.5" stroke="#e2e0d8" stroke-width="1"/>
-<text x="82.0" y="299.5" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">6 h</text>
-<line x1="92.0" y1="217.1" x2="710.0" y2="217.1" stroke="#9d9a90" stroke-width="1.3"/>
-<text x="82.0" y="221.1" font-size="10.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">1 day</text>
-<line x1="92.0" y1="126.1" x2="710.0" y2="126.1" stroke="#e2e0d8" stroke-width="1"/>
-<text x="82.0" y="130.1" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">5 days</text>
-<line x1="92.0" y1="67.9" x2="710.0" y2="67.9" stroke="#e2e0d8" stroke-width="1"/>
-<text x="82.0" y="71.9" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">2 weeks</text>
-<path d="M92.0 402.2 L710.0 139.4" fill="none" stroke="#008300" stroke-width="2.2" stroke-linecap="round"/>
-<path d="M92.0 363.3 L710.0 100.6" fill="none" stroke="#eda100" stroke-width="2.2" stroke-linecap="round"/>
-<path d="M92.0 337.0 L710.0 74.2" fill="none" stroke="#4a3aa7" stroke-width="2.2" stroke-linecap="round"/>
-<path d="M92.0 335.0 L710.0 72.2" fill="none" stroke="#2a78d6" stroke-width="2.2" stroke-linecap="round"/>
-<path d="M92.0 323.0 L710.0 60.3" fill="none" stroke="#008300" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="6 4"/>
-<path d="M92.0 322.8 L710.0 60.0" fill="none" stroke="#e87ba4" stroke-width="2.2" stroke-linecap="round"/>
-<text x="720.0" y="64.0" font-size="11" fill="#e87ba4" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M5 (9,8)</text>
-<text x="720.0" y="77.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 2.18 %</text>
-<text x="720.0" y="96.0" font-size="11" fill="#008300" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M3 RF=13, s=7</text>
-<text x="720.0" y="109.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 2.17 %</text>
-<text x="720.0" y="128.0" font-size="11" fill="#2a78d6" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M1 F=24</text>
-<text x="720.0" y="141.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 1.76 %</text>
-<text x="720.0" y="160.0" font-size="11" fill="#4a3aa7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M2 RF=24</text>
-<text x="720.0" y="173.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 1.70 %</text>
-<text x="720.0" y="192.0" font-size="11" fill="#eda100" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M4 RF=8</text>
-<text x="720.0" y="205.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 1.07 %</text>
-<text x="720.0" y="224.0" font-size="11" fill="#008300" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M3 RF=12, s=8</text>
-<text x="720.0" y="237.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 0.54 %</text>
-<text x="401.0" y="476.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Mean time between one node's departures</text>
-<text x="401.0" y="491.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = a more reliable population</text>
-<text x="0" y="0" transform="translate(24,247.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Longest epoch the design sustains</text>
-<text x="38.0" y="30.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Both axes logarithmic. A design may run any epoch below its line; above it, more of the population has dropped out by the end of the epoch than</text>
-<text x="38.0" y="46.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">the design absorbs. The floor is convergence, measured at 2 dial rounds, which is seconds and lies far below this scale.</text>
+<rect width="860" height="534" rx="8" fill="#fcfcfb"/>
+<line x1="92.0" y1="34.0" x2="92.0" y2="412.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="92.0" y="431.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1 week</text>
+<line x1="285.5" y1="34.0" x2="285.5" y2="412.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="285.5" y="431.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1 month</text>
+<line x1="433.1" y1="34.0" x2="433.1" y2="412.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="433.1" y="431.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">3 months</text>
+<line x1="617.8" y1="34.0" x2="617.8" y2="412.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="617.8" y="431.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">1 year</text>
+<line x1="710.0" y1="34.0" x2="710.0" y2="412.0" stroke="#e2e0d8" stroke-width="1"/>
+<text x="710.0" y="431.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">2 years</text>
+<line x1="92.0" y1="372.8" x2="710.0" y2="372.8" stroke="#e2e0d8" stroke-width="1"/>
+<text x="82.0" y="376.8" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">1 h</text>
+<line x1="92.0" y1="271.5" x2="710.0" y2="271.5" stroke="#e2e0d8" stroke-width="1"/>
+<text x="82.0" y="275.5" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">6 h</text>
+<line x1="92.0" y1="193.1" x2="710.0" y2="193.1" stroke="#9d9a90" stroke-width="1.3"/>
+<text x="82.0" y="197.1" font-size="10.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">1 day</text>
+<line x1="92.0" y1="102.1" x2="710.0" y2="102.1" stroke="#e2e0d8" stroke-width="1"/>
+<text x="82.0" y="106.1" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">5 days</text>
+<line x1="92.0" y1="43.9" x2="710.0" y2="43.9" stroke="#e2e0d8" stroke-width="1"/>
+<text x="82.0" y="47.9" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">2 weeks</text>
+<path d="M92.0 378.2 L710.0 115.4" fill="none" stroke="#008300" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M92.0 339.3 L710.0 76.6" fill="none" stroke="#eda100" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M92.0 313.0 L710.0 50.2" fill="none" stroke="#4a3aa7" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M92.0 311.0 L710.0 48.2" fill="none" stroke="#2a78d6" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M92.0 299.0 L710.0 36.3" fill="none" stroke="#008300" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="6 4"/>
+<path d="M92.0 298.8 L710.0 36.0" fill="none" stroke="#e87ba4" stroke-width="2.2" stroke-linecap="round"/>
+<text x="720.0" y="40.0" font-size="11" fill="#e87ba4" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M5 (9,8)</text>
+<text x="720.0" y="53.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 2.18 %</text>
+<text x="720.0" y="72.0" font-size="11" fill="#008300" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M3 RF=13, s=7</text>
+<text x="720.0" y="85.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 2.17 %</text>
+<text x="720.0" y="104.0" font-size="11" fill="#2a78d6" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M1 F=24</text>
+<text x="720.0" y="117.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 1.76 %</text>
+<text x="720.0" y="136.0" font-size="11" fill="#4a3aa7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M2 RF=24</text>
+<text x="720.0" y="149.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 1.70 %</text>
+<text x="720.0" y="168.0" font-size="11" fill="#eda100" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M4 RF=8</text>
+<text x="720.0" y="181.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 1.07 %</text>
+<text x="720.0" y="200.0" font-size="11" fill="#008300" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M3 RF=12, s=8</text>
+<text x="720.0" y="213.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">absorbs 0.54 %</text>
+<text x="401.0" y="454.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Mean time between one node's departures</text>
+<text x="401.0" y="469.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = a more reliable population</text>
+<text x="0" y="0" transform="translate(24,223.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Longest epoch the design sustains</text>
+<text x="38.0" y="498.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Both axes logarithmic. A design may run any epoch below its line; above it, more of the population has dropped out by the end of the epoch</text>
+<text x="38.0" y="514.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">than the design absorbs. The floor is convergence, measured at 2 dial rounds, which is seconds and lies far below this scale.</text>
 </svg>
