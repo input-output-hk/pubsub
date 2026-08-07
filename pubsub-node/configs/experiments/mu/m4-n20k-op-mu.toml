@@ -1,0 +1,32 @@
+# Cost/latency/degree comparison cell — M4 operating point RF=8 (188795 msgs, 11.8 copies, hops 5.1 / 4.1).
+# N = 20000, mu = 0.2; 200 runs (the published values were measured over
+# 40-200 graphs per cell).
+
+model = "m4"
+master_seed = 842
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 8
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 8
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 2000
+
+# The adversarial fraction is an assumption about the deployment rather than a
+# result, and the designs do not degrade at equal rates in it. This sweeps the
+# law's own argument: mu is a native parameter, so what is tested is whether
+# each law holds across it at fixed selection parameters.
+[[axes]]
+parameter = "adversarial_fraction"
+values = [0.30, 0.35, 0.40]
