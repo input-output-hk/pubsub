@@ -258,7 +258,7 @@ def fig_tradeoffs(ops) -> str:
     every axis reads outward-is-better.
     """
     import math as _m
-    W, H = 860, 600
+    W, H = 860, 616
     cx, cy, R = 430, 282, 162
     by = {o["model"]: o for o in ops}
     SHOWN = ["M3", "M4", "M5", "M2"]
@@ -267,7 +267,7 @@ def fig_tradeoffs(ops) -> str:
         ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True, "M3"),
         ("Connection economy", "standing links", lambda o: o["standing_links"], True, "M4"),
         ("Speed", "hops to last subscriber", lambda o: o["hops_full"], True, "M2"),
-        ("Churn tolerance", "downtime absorbed (predicted)",
+        ("Churn tolerance", "downtime absorbed",
          lambda o: o["churn_budget_pct"], False, "M5"),
     ]
     best = [(min if low else max)(get(by[m]) for m in SHOWN)
@@ -287,7 +287,7 @@ def fig_tradeoffs(ops) -> str:
                        for a in ang)
         b.append(f'<polygon points="{pts}" fill="none" stroke="{GRID}" stroke-width="1"/>')
     for i, a in enumerate(ang):
-        dash = "4 4" if i == 3 else None          # the predicted axis
+        dash = "4 4" if i == 3 else None          # law-derived, not sampled
         b.append(line(cx, cy, cx + R * _m.cos(a), cy + R * _m.sin(a),
                       "#c4c2b9" if i == 3 else GRID, 1, dash=dash))
 
@@ -334,9 +334,10 @@ def fig_tradeoffs(ops) -> str:
     b.append(text(38, 556, "Every axis is oriented so that outward is better: less "
                   "bandwidth used, fewer connections held, fewer hops to the last "
                   "subscriber, more downtime absorbed.", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 572, "Each design is scored against the best of the four, and "
-                  "labelled at the axis where it leads. The churn axis is predicted, "
-                  "not measured.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 572, "Each design is scored against the best of the four and "
+                  "labelled at the axis where it leads.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 588, "Churn tolerance is read off the validated coverage law "
+                  "rather than sampled directly.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Four-way trade-off across the four non-dominated designs",
                  "One radar chart overlaying M2, M3, M4 and M5 on four axes: bandwidth "
@@ -344,7 +345,7 @@ def fig_tradeoffs(ops) -> str:
                  "outward-is-better. Each is labelled at the axis where it reaches the "
                  "outer ring. M3 is a narrow spike reaching the outer ring only on "
                  "bandwidth; M4 is the most even shape; M5 leads on churn tolerance and "
-                 "speed. The churn axis is predicted rather than measured.")
+                 "speed.")
 
 
 # ------------------------------------------------------------------ figure 4

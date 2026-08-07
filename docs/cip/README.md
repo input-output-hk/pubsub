@@ -123,7 +123,7 @@ The protocol is analysed against an adversary controlling a bounded fraction **�
 
 Not modelled, and out of scope for this proposal: an adversary that forwards selectively or forwards corrupted content, resource exhaustion and denial of service, and an adaptive adversary that re-registers between epochs in order to re-target a chosen victim.
 
-Honest node churn is not a separate threat model. An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary: it holds its allotted links and forwards nothing. Independent honest downtime with per-epoch probability *p* therefore enters the coverage analysis as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same results apply at the shifted value. What remains preliminary is the validation rather than the model — the shifted-μ prediction has not yet been checked against a simulation that marks nodes down, and correlated downtime such as upgrade waves or region outages is not captured by a single independent *p*.
+Honest node churn is not a separate threat model. An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary: it holds its allotted links and forwards nothing. Independent honest downtime with per-epoch probability *p* therefore enters the coverage analysis as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same results apply at the shifted value. That shift has been checked against simulation, by marking nodes down and re-measuring coverage.[^churn] What it does not cover is correlated downtime — upgrade waves, region outages — which a single independent *p* cannot represent.
 
 ### Evidence
 
@@ -296,20 +296,40 @@ Three things follow, and the third is the one that matters for the choice.
 
 **M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention — see [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
 
-The design this proposal adopts, and the parameters it fixes, are given in the [Specification](#specification); this subsection establishes only what each candidate costs, and the one below establishes what each gives up under degradation.<!-- FORWARD-REF(specification): the Specification must name the adopted design (expected M3 or M4) and its parameters, so this sentence resolves to a concrete choice. Selection is blocked on the Robustness subsection below; see input-output-hk/pubsub#85. -->
+The design this proposal adopts, and the parameters it fixes, are given in the [Specification](#specification); this subsection establishes only what each candidate costs; the one below establishes what each gives up under an unreliable population, and the two do not agree.<!-- FORWARD-REF(specification): the Specification must name the adopted design (expected M3 or M4) and its parameters, so this sentence resolves to a concrete choice. Selection is blocked on the Robustness subsection below; see input-output-hk/pubsub#85. -->
 
 #### Robustness
 
 The comparison above holds every design at the same failure probability *under the assumption that all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget — the downtime it absorbs before leaving the target — and those budgets are not equal.
 
-**This subsection is deliberately incomplete.** The churn budgets can be obtained today by reading each design's coverage law at the shifted fraction, but that is a prediction, and no measurement has yet marked nodes down and re-checked coverage. Publishing the predicted figures here as though they were measured would misrepresent them.
+A design's churn budget cannot be sampled directly. It is defined where P(bad) meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it — the claim that downtime enters as a shift of the adversarial fraction — at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that Figure 1 has already validated.
 
-What can be said now is that the ordering is expected to differ from the one in Table 4, so **the cost comparison above should not be read as settling the choice of design until this subsection is filled in**.
+It holds. Across five designs and five downtime levels, from none to 12 % of honest nodes offline, twenty-three of twenty-five configurations placed the shifted-fraction prediction inside the measurement's interval. At the largest shift tested, where a mistaken reduction would diverge furthest, all five designs landed on their laws almost exactly.[^churn]
 
-<!-- TODO(evidence): fill from the churn sweep (experiment E13) at the five operating
-     points — p_bad against honest downtime per design, and the resulting p_max, as a
-     third generated figure. Provisional law-derived values and the reasoning:
-     input-output-hk/pubsub#19. -->
+The resulting budgets differ by a factor of four, and **their order is close to the reverse of the cost order in Table 4**:
+
+<div align="center">
+<a name="table-5" id="table-5"></a>
+
+| Design | Operating point | Downtime absorbed |
+| :--: | --- | ---: |
+| M5 | (9, 8) | 2.18 % |
+| M1 | *F* = 24 | 1.76 % |
+| M2 | RF = 24 | 1.70 % |
+| M4 | RF = 8 | 1.07 % |
+| M3 | RF = 12, *s* = 8 | **0.54 %** |
+
+<em>Table 5: churn budget at each operating point</em>
+
+</div>
+
+The design that is cheapest in bandwidth absorbs the least downtime, and the two the cost comparison ruled out absorb the most. The mechanism is structural rather than incidental: M3 reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
+
+This does not overturn Table 4, but it does mean **cost alone does not select a design**. Which matters more — traffic, held connections, or tolerance of an unreliable population — is a deployment question, and it is posed as an open question below.
+
+It also has a concrete consequence for M3's parameters. At the same total budget and the same number of standing links, the split (RF = 13, *s* = 7) reaches a churn budget of 2.17 % against (12, 8)'s 0.54 %, at a cost of 0.8 further copies per honest node. On this evidence the published operating point is not the best point on M3's own frontier.
+
+Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And the measurements sit slightly above their predictions in the middle of the range tested — an effect that does not grow with downtime, and so does not behave like a mistaken reduction, but which is not fully explained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
 #### Limits of this evidence
 
@@ -344,7 +364,7 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 
 Widening the comparison from two axes to four changes which designs are in contention. On cost and state alone, M1, M2 and M5 are each beaten outright. Add latency and churn tolerance and **only M1 remains dominated** — beaten on all four by M5. The other four are each best at exactly one thing, so which is preferable depends entirely on which axis the deployment cares about.
 
-In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 is omitted, being beaten on all four. The churn axis is predicted from the coverage laws rather than measured.
+In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 is omitted, being beaten on all four. The churn axis is read off the coverage laws rather than sampled directly.
 
 <div align="center">
 <a name="figure-4" id="figure-4"></a>
@@ -361,7 +381,7 @@ The general form is worth stating, because it governs the parameter choice as mu
 
 **On the choice of axes.** These four are the quantities that are both measured and independent of one another. Two others were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against — but it is the least reliably measured quantity in this analysis, for the reason the Limits subsection gives, and it is the natural fifth axis once that measurement lands. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
-Two caveats on reading the figure. The churn axis is a prediction pending measurement, as the Robustness subsection explains, so relative sizes on that axis may move. And the enclosed area of these shapes has no meaning — the axes are different quantities in different units, so only position along each individual axis should be compared.
+Two caveats on reading the figure. The churn axis is read off each design's coverage law rather than sampled directly, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning — the axes are different quantities in different units, so only position along each individual axis should be compared.
 
 #### Two classes of fault, with different guarantees
 
@@ -435,6 +455,8 @@ CIP belong in the Rationale section, e.g. as an '### Open Questions' subsection.
 ## References
 
 [^accountable-liveness]: Andrew Lewis-Pye, Joachim Neu, Tim Roughgarden and Luca Zanolini. *Accountable Liveness.* IACR ePrint Archive, Report 2025/693. <https://eprint.iacr.org/2025/693>. Establishes accountability for liveness violations as a distinct problem from accountability for safety violations, and proves it unattainable both in networks that are more often asynchronous than synchronous and under an adversarial majority — neither restriction applying to safety accountability. Also formalises the guarantees underlying Ethereum's inactivity-leak mechanism.
+
+[^churn]: Churn tolerance — experiment E13. Twenty-five configurations across the five designs, honest downtime swept from 0 to 12 % of the honest population, 100 000 draws in total; each scored against its design's coverage law evaluated at the shifted adversarial fraction. Method, full results and the unexplained residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md).
 
 [^reproduction]: Reproducing the measurements. Each result is identified by a tool commit, a sweep configuration, and a master seed; those three reproduce the output files byte-for-byte, independently of how many runs execute in parallel. All three are recorded per configuration in [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json), which is also the source the figures in this section are generated from; the configurations themselves are under [`configs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments) and the per-design comparisons, including the statistical conventions, under [`docs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/docs/experiments).
 
