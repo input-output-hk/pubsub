@@ -100,7 +100,7 @@ def frame(w: int, h: int, body: list[str], title: str, desc: str) -> str:
 
 
 # ------------------------------------------------------------------ figure 1
-def fig_validation(cells) -> str:
+def fig_validation(cells, churn=()) -> str:
     W, H = 860, 500
     ml, mr, mt, mb = 86, 26, 22, 76
     pw, ph = W - ml - mr, H - mt - mb
@@ -126,14 +126,18 @@ def fig_validation(cells) -> str:
     b.append(line(X(lo), Y(lo), X(hi), Y(hi), RULE, 1.8, cap="round"))
 
 
-    for c in cells:
-        x, p = X(c["law"]), c["bad"] / c["runs"]
+    everything = list(cells) + [c for c in churn if lo <= c["law"] <= hi]
+    for c in everything:
+        x = X(c["law"])
         wl, wh = wilson(c["bad"], c["runs"])
         b.append(line(x, Y(max(wl, lo)), x, Y(wh), SERIES[c["model"]], 2.0,
                       cap="round", opacity=0.45))
-    for c in cells:
+    # hollow marks the cells run under churn, so the two claims stay separable
+    for c in everything:
+        churned = c.get("churn_pct", 0) > 0
         b.append(circle(X(c["law"]), Y(c["bad"] / c["runs"]), 4.4,
-                        SERIES[c["model"]], SURFACE, 1.6))
+                        SURFACE if churned else SERIES[c["model"]],
+                        SERIES[c["model"]] if churned else SURFACE, 1.8 if churned else 1.6))
 
     b.append(text(ml + pw / 2, H - 34, "P(bad) predicted by the coverage law",
                   12.5, INK, "middle", "600"))
@@ -151,8 +155,8 @@ def fig_validation(cells) -> str:
 
     lx = ml + 14
     b.append(text(lx, mt + 20, "one point = one tested configuration:", 11.5, INK_SOFT))
-    b.append(text(lx, mt + 38, "grey line = the law matched measurement exactly",
-                  11, "#8a887e"))
+    b.append(text(lx, mt + 38, "grey line = the law matched measurement exactly · "
+                  "hollow = measured under churn", 11, "#8a887e"))
     for i, (m, col) in enumerate(SERIES.items()):
         cx = lx + 218 + i * 52
         b.append(circle(cx, mt + 16, 4.4, col, SURFACE, 1.6))
@@ -432,7 +436,8 @@ def main() -> int:
 
     d = json.loads(DATA.read_text())
     figs = {
-        "coverage-validation.svg": fig_validation(d["coverage_cells"]),
+        "coverage-validation.svg": fig_validation(
+            d["coverage_cells"], d.get("churn_cells", ())),
         "cost-vs-state.svg": fig_cost_state(d["operating_points"]),
         "tradeoff-radar.svg": fig_tradeoffs(d["operating_points"]),
         "measured-vs-proposed.svg": fig_extrapolation(

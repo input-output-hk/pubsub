@@ -324,7 +324,7 @@
       "hops_mean": 4.31,
       "p_bad": 7.849e-05,
       "churn_budget_pct": 0.54,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
       "standing_links_measured_mean": 37.99,
       "standing_links_max": 64,
       "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
@@ -341,7 +341,7 @@
       "hops_mean": 4.09,
       "p_bad": 6.762e-05,
       "churn_budget_pct": 1.07,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
       "standing_links_measured_mean": 16.0,
       "standing_links_max": 36,
       "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
@@ -358,7 +358,7 @@
       "hops_mean": 3.97,
       "p_bad": 4.388e-05,
       "churn_budget_pct": 2.18,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
       "standing_links_measured_mean": 33.99,
       "standing_links_max": 58,
       "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
@@ -375,7 +375,7 @@
       "hops_mean": 3.61,
       "p_bad": 7.257e-05,
       "churn_budget_pct": 1.76,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
       "standing_links_measured_mean": 47.97,
       "standing_links_max": 75,
       "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
@@ -392,7 +392,7 @@
       "hops_mean": 3.6,
       "p_bad": 7.339e-05,
       "churn_budget_pct": 1.7,
-      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 (docs/experiments/churn-tolerance.md). The budget itself sits at P(bad)=1e-4 and is not directly samplable.",
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
       "standing_links_measured_mean": 47.97,
       "standing_links_max": 75,
       "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
@@ -413,5 +413,327 @@
   "convergence": {
     "dial_waves": 2,
     "note": "Topology convergence took exactly 2 dial waves in every run of every operating point (200 runs each; M2 40). A wave is one request/response round, so the floor on epoch length is a small number of round-trips."
-  }
+  },
+  "churn_cells": [
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 46,
+      "runs": 4000,
+      "law": 0.01085598,
+      "at_operating_point": false
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 60,
+      "runs": 4000,
+      "law": 0.01542819,
+      "at_operating_point": false
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 105,
+      "runs": 4000,
+      "law": 0.02188371,
+      "at_operating_point": false
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 139,
+      "runs": 4000,
+      "law": 0.03474548,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 41,
+      "runs": 4000,
+      "law": 0.01112197,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 71,
+      "runs": 4000,
+      "law": 0.01579205,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 115,
+      "runs": 4000,
+      "law": 0.02237954,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 136,
+      "runs": 4000,
+      "law": 0.03548927,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 67,
+      "runs": 4000,
+      "law": 0.01288552,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 105,
+      "runs": 4000,
+      "law": 0.02242009,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 154,
+      "runs": 4000,
+      "law": 0.03808178,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 308,
+      "runs": 4000,
+      "law": 0.07465993,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 118,
+      "runs": 4000,
+      "law": 0.02854844,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 233,
+      "runs": 4000,
+      "law": 0.05226402,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 373,
+      "runs": 4000,
+      "law": 0.09016757,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 679,
+      "runs": 4000,
+      "law": 0.17152085,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 20,
+      "runs": 4000,
+      "law": 0.00566639,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 47,
+      "runs": 4000,
+      "law": 0.0119217,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 100,
+      "runs": 4000,
+      "law": 0.0235192,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 214,
+      "runs": 4000,
+      "law": 0.05341623,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=12, s=8",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 70,
+      "runs": 1200,
+      "law": 0.06288536,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=12, s=8",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 240,
+      "runs": 1200,
+      "law": 0.19352667,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=12, s=8",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 575,
+      "runs": 1200,
+      "law": 0.46774463,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=8",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 28,
+      "runs": 1200,
+      "law": 0.02128573,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=8",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 77,
+      "runs": 1200,
+      "law": 0.06251985,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=8",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 193,
+      "runs": 1200,
+      "law": 0.16301195,
+      "at_operating_point": true
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(9, 8)",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 24,
+      "runs": 1200,
+      "law": 0.01890165,
+      "at_operating_point": true
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(9, 8)",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 74,
+      "runs": 1200,
+      "law": 0.05939543,
+      "at_operating_point": true
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(9, 8)",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 208,
+      "runs": 1200,
+      "law": 0.16463135,
+      "at_operating_point": true
+    }
+  ],
+  "churn_cells_note": "Coverage under honest downtime, scored against each design's law read at the shifted adversarial fraction mu_eff = mu + p(1-mu). at_operating_point marks the cells run at the deployed parameters. See docs/experiments/churn-tolerance.md."
 }

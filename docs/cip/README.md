@@ -224,7 +224,7 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
 
 The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
 
-In the figure below each point is one such configuration: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch.
+In the figure below each point is one such configuration: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch. Filled marks are the configurations above; hollow ones are a further 29 measured under honest downtime, described under Robustness, and are included here because they test the same laws along a second axis.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
@@ -240,6 +240,8 @@ The points lie on the diagonal across the whole range. Per configuration, the la
 Per-configuration agreement is the weaker claim, though, because with 23 comparisons a few near-misses are expected and a consistent small bias would hide behind them. The stronger check is aggregate: across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, which over 22 comparisons is not distinguishable from zero. The spread of those deviations is 0.83 against the 1.0 that pure sampling noise would produce, so the agreement is if anything closer than chance alone would give.
 
 The same comparison against the analysis team's own independent simulators gives a mean standardised deviation of +0.05 over 22 paired configurations. **The two implementations are statistically indistinguishable from each other and from the laws**, which is the claim this section exists to support.
+
+The hollow points extend that claim sideways. The 23 configurations above all sit at one adversarial fraction and vary the designs' own parameters; the churn cells hold parameters fixed and vary the adversarial fraction instead, from 0.20 to 0.44. The laws track along both directions.
 
 <!-- TODO(evidence): per-configuration table generated from cells.json, rather than
      restating the figure in prose. -->
@@ -290,7 +292,9 @@ The comparison above holds every design at the same failure probability *under t
 
 A design's churn budget cannot be sampled directly. It is defined where P(bad) meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it, the claim that downtime enters as a shift of the adversarial fraction, at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that Figure 1 has already validated.
 
-It holds. Across five designs and five downtime levels, from none to 12 % of honest nodes offline, twenty-three of twenty-five configurations placed the shifted-fraction prediction inside the measurement's interval. At the largest shift tested, where a mistaken reduction would diverge furthest, all five designs landed on their laws almost exactly.[^churn]
+It holds, in two rounds. Across five designs and five downtime levels, from none to 12 % of honest nodes offline, twenty-three of twenty-five configurations placed the shifted-fraction prediction inside the measurement's interval, and at the largest shift there all five designs landed on their laws almost exactly.
+
+Those cells were chosen for measurability rather than for realism, so the operating points themselves were then run under heavier downtime, at 20, 25 and 30 % offline. **All nine placed the prediction inside the interval**, with a mean deviation of +0.30 and no detectable bias. The two rounds together carry the reduction from an adversarial fraction of 0.20 out to 0.44, more than doubling it, and the second round tests the configurations this proposal actually names.[^churn]
 
 The resulting budgets differ by a factor of four, and **their order is close to the reverse of the cost order in Table 4**:
 
@@ -331,7 +335,7 @@ This does not overturn Table 4, but it does mean **cost alone does not select a 
 
 For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it. Any use of M3 in this proposal should take (13, 7), and the comparisons that follow keep (12, 8) only because it is the figure the published tables carry.
 
-Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And the measurements sit slightly above their predictions in the middle of the range tested. That effect does not grow with downtime, so it does not behave like a mistaken reduction, but it is not fully explained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
+Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And in the first round the measurements sat slightly above their predictions in the middle of the range. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and it does not reappear at the operating points, where the second round shows no bias. It is nonetheless unexplained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
 #### Limits of this evidence
 
@@ -548,7 +552,7 @@ CIP belong in the Rationale section, e.g. as an '### Open Questions' subsection.
 
 [^accountable-liveness]: Andrew Lewis-Pye, Joachim Neu, Tim Roughgarden and Luca Zanolini. *Accountable Liveness.* IACR ePrint Archive, Report 2025/693. <https://eprint.iacr.org/2025/693>. Establishes accountability for liveness violations as a distinct problem from accountability for safety violations, and proves it unattainable both in networks that are more often asynchronous than synchronous and under an adversarial majority, neither restriction applying to safety accountability. Also formalises the guarantees underlying Ethereum's inactivity-leak mechanism.
 
-[^churn]: Churn tolerance, experiment E13. Twenty-five configurations across the five designs, honest downtime swept from 0 to 12 % of the honest population, 100 000 draws in total; each scored against its design's coverage law evaluated at the shifted adversarial fraction. Method, full results and the unexplained residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md).
+[^churn]: Churn tolerance, experiment E13. Thirty-four configurations in two rounds: twenty-five across the five designs with downtime swept from 0 to 12 % of the honest population, then nine at the operating points themselves at 20 to 30 %. About 111 000 draws; each scored against its design's coverage law evaluated at the shifted adversarial fraction, which together span 0.20 to 0.44. Method, full results and the unexplained residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md).
 
 [^depth]: Propagation depth as a distribution. Pooled first-receipt depth at each operating point, from the same runs as the cost table; the means reproduce the published figures. The deepest wave carries 0.17 % of receipts under M3 against 0.0013 % under M4, so the tail separates the designs where the means do not. Detail: [`docs/experiments/depth-distribution.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/depth-distribution.md).
 
