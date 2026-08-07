@@ -238,12 +238,14 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
 
 The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
 
+In the figure below each point is one such configuration: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch.
+
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
 
 ![Measured against predicted epoch failure probability](images/coverage-validation.svg)
 
-<em>Figure 1: measured against predicted epoch failure probability. Each point is one tested configuration: its horizontal position is the failure rate the coverage law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. Both axes are logarithmic, so the configurations span from failing in roughly one epoch in three hundred (lower left) to failing in almost every epoch (upper right). <strong>The result to read off is that the points sit on the diagonal throughout</strong> — the prediction matches the measurement at every failure rate tested, with no drift at either end.</em>
+<em>Figure 1: measured against predicted epoch failure probability</em>
 
 </div>
 
@@ -271,16 +273,18 @@ Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴
 | M1 | *F* = 24 | 307,201 | 19.2 | 48 | 5.0 | 3.6 |
 | M2 | RF = 24 | 307,162 | 19.2 | 48 | **4.8** | **3.6** |
 
-<em>Table 4: cost at equal safety — every design tuned to the same failure target, so the rows differ only in what that safety costs. Bold marks the best value in each column. Measured values; see the reproduction note.</em>
+<em>Table 4: cost at equal safety</em>
 
 </div>
+
+Bold marks the best value in each column. These are measured values; see the reproduction note. Plotting two of those columns against each other shows the shape of the trade: both axes are costs, so lower and further left is better, and marker size is hops to the last subscriber.
 
 <div align="center">
 <a name="figure-2" id="figure-2"></a>
 
 ![Bandwidth cost against state cost at equal safety](images/cost-vs-state.svg)
 
-<em>Figure 2: bandwidth cost against state cost. Every design here is tuned to the same failure target, so the points differ only in what that safety costs: horizontally in connections a node must hold open all epoch, vertically in message copies it receives, and in marker size by how many forwarding steps the last subscriber waits. Both axes are costs, so lower and further left is better. <strong>The result to read off is that M3 and M4 sit on a frontier no other design reaches</strong> — M3 spends the least bandwidth, M4 the fewest connections, neither beats the other on both, and M1, M2 and M5 are beaten on both at once.</em>
+<em>Figure 2: bandwidth cost against state cost at equal safety</em>
 
 </div>
 
@@ -313,12 +317,14 @@ The following are stated so that a reader can judge what the numbers above do an
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
+Figure 3 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
+
 <div align="center">
 <a name="figure-3" id="figure-3"></a>
 
 ![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
 
-<em>Figure 3: for each design, the failure rates of the configurations that were measured (solid) against the rate of the configuration this proposal actually uses (hollow). Solid marks are counted outcomes; hollow marks are law predictions, at rates no feasible sample can resolve. The dashed span between them is carried by the coverage laws alone.</em>
+<em>Figure 3: measured configurations against the configuration proposed</em>
 
 </div>
 
@@ -338,12 +344,14 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 
 Widening the comparison from two axes to four changes which designs are in contention. On cost and state alone, M1, M2 and M5 are each beaten outright. Add latency and churn tolerance and **only M1 remains dominated** — beaten on all four by M5. The other four are each best at exactly one thing, so which is preferable depends entirely on which axis the deployment cares about.
 
+In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 is omitted, being beaten on all four. The churn axis is predicted from the coverage laws rather than measured.
+
 <div align="center">
 <a name="figure-4" id="figure-4"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 4: the four-way trade-off. Every axis is oriented so that outward is better — less bandwidth used, fewer connections held, fewer hops to the last subscriber, more downtime absorbed — and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads, and the four lead one axis each. M1 is omitted: it is beaten by M5 on all four. The churn axis is predicted from the coverage laws rather than measured.</em>
+<em>Figure 4: four-way trade-off across the non-dominated designs</em>
 
 </div>
 
