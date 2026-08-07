@@ -56,7 +56,7 @@ The missing ingredient is therefore not a better gossip mechanism. It is a peer 
 
 ### Use cases and stakeholders
 
-The design is motivated by four standing scenarios, drawn from a [broader survey of candidate use cases](https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md). They are listed with the participant counts that drive the design, because those counts — not the size of the eventual audience — determine what the protocol must sustain.
+The design is motivated by four standing scenarios, drawn from a [broader survey of candidate use cases](https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md). They are listed with the participant counts that drive the design, because those counts, not the size of the eventual audience, determine what the protocol must sustain.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
