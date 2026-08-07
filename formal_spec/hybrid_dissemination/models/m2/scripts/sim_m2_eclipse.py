@@ -11,7 +11,12 @@ deafen and cheap to mute -- and since coverage fails either way, its
 guarantee-breaking cost is set by the muted-publisher side, matching the
 fact that M2's published P(bad) is carried entirely by that term.
 
-Usage: python3 sim_m2_eclipse.py [--trials T] [--seed S]
+Usage: python3 sim_m2_eclipse.py [--mc] [--trials T] [--seed S]
+
+The closed-form tables print in under a second.  --mc (LONG, minutes at
+the default 400 graphs of N = 20000; never run by CI) adds the Monte-Carlo
+cross-check columns (MC mean / MC min / observed).  The published tables in
+../properties/adaptive_eclipse_cost.md are from --mc --trials 400.
 """
 
 from __future__ import annotations
@@ -90,6 +95,9 @@ def main() -> None:
     ap.add_argument("--RF", type=int, default=24)
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
+    ap.add_argument("--mc", action="store_true",
+                    help="run the Monte-Carlo degree measurement (LONG; "
+                         "never run by CI)")
     args = ap.parse_args()
 
     N, RF, T = args.N, args.RF, args.trials
@@ -101,25 +109,30 @@ def main() -> None:
     mute = accepted_pmf(RF, N, H)       # out-edges: requesters that pull me
 
     print(f"M2 adaptive eclipse cost -- N={N}, mu={args.mu}, RF={RF}, "
-          f"{T} graphs\n")
-    (mi, mins_in), (mo, mins_out) = measure(N, H, RF, T, rng)
+          + (f"{T} graphs\n" if args.mc else "closed forms (--mc adds MC)\n"))
+    mc = measure(N, H, RF, T, rng) if args.mc else None
 
     print("THREAT A -- chosen victim (adversary names the target)")
     print(f"  {'direction':<10} {'side':<9} {'mean':>7} {'sd':>6} "
-          f"{'p1%':>5} {'p0.1%':>6} {'MC mean':>9}")
-    for label, pmf, side, mc in (("deafen", deafen, "chosen", mi),
-                                 ("mute", mute, "accepted", mo)):
+          f"{'p1%':>5} {'p0.1%':>6}"
+          + (f" {'MC mean':>9}" if mc else ""))
+    rows = (("deafen", deafen, "chosen"), ("mute", mute, "accepted"))
+    for i, (label, pmf, side) in enumerate(rows):
         mean, sd, _, p1, p01 = summarise(pmf, H)
         print(f"  {label:<10} {side:<9} {mean:>7.2f} {sd:>6.2f} "
-              f"{p1:>5d} {p01:>6d} {mc:>9.2f}")
+              f"{p1:>5d} {p01:>6d}"
+              + (f" {mc[i][0]:>9.2f}" if mc else ""))
 
     print("\nTHREAT B -- any victim (cheapest break of the delta guarantee)")
-    print(f"  {'direction':<10} {'E[min]':>7} {'MC min':>8}  observed")
-    for label, pmf, obs in (("deafen", deafen, mins_in),
-                            ("mute", mute, mins_out)):
+    print(f"  {'direction':<10} {'E[min]':>7}"
+          + (f" {'MC min':>8}  observed" if mc else ""))
+    for i, (label, pmf, _side) in enumerate(rows):
         _, _, emin, _, _ = summarise(pmf, H)
-        print(f"  {label:<10} {emin:>7.1f} {sum(obs)/len(obs):>8.1f}  "
-              f"{sorted(set(obs))}")
+        tail = ""
+        if mc:
+            obs = mc[i][1]
+            tail = f" {sum(obs)/len(obs):>8.1f}  {sorted(set(obs))}"
+        print(f"  {label:<10} {emin:>7.1f}" + tail)
     ca, cb = cdf(deafen), cdf(mute)
     joint = sum((1 - ca[j - 1]) ** H * (1 - cb[j - 1]) ** H
                 for j in range(1, len(ca)))

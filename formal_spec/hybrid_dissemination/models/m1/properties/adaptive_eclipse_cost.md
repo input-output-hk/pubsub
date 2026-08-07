@@ -3,7 +3,9 @@
 **Verdict: HYBRID** — the per-node degree laws are exact, but the network
 minimum treats the H degrees as independent (the same Poissonisation the
 coverage law already makes at j = 0), so finite-N values are confirmed by
-simulation. Script (in `../scripts/`): `sim_m1_eclipse.py`.
+simulation. Script (in `../scripts/`): `sim_m1_eclipse.py` — closed
+forms by default; `--mc` re-runs the 400-graph measurement behind the MC
+columns (minutes; never run by CI).
 
 ## 1. Property
 

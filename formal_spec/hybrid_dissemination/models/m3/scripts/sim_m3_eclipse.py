@@ -25,7 +25,12 @@ The reported guarantee-breaking cost uses the coverage reading, since that
 is the criterion delta is stated against; the silence reading is printed
 alongside because it is the number an operator would recognise as "eclipsed".
 
-Usage: python3 sim_m3_eclipse.py [--trials T] [--seed S]
+Usage: python3 sim_m3_eclipse.py [--mc] [--trials T] [--seed S]
+
+The closed-form tables print in under a second.  --mc (LONG, minutes at
+the default 400 graphs of N = 20000; never run by CI) adds the Monte-Carlo
+cross-check columns (MC mean / MC min / observed).  The published tables in
+../properties/adaptive_eclipse_cost.md are from --mc --trials 400.
 """
 
 from __future__ import annotations
@@ -121,6 +126,9 @@ def main() -> None:
     ap.add_argument("--s", type=int, default=8)
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
+    ap.add_argument("--mc", action="store_true",
+                    help="run the Monte-Carlo degree measurement (LONG; "
+                         "never run by CI)")
     args = ap.parse_args()
 
     N, RF, s, T = args.N, args.RF, args.s, args.trials
@@ -134,26 +142,32 @@ def main() -> None:
     mute = convolve(accepted_pmf(RF, N, H), chosen_pmf(s - 1, N, H))
 
     print(f"M3 adaptive eclipse cost -- N={N}, mu={args.mu}, RF={RF}, s={s}, "
-          f"{T} graphs\n")
-    mc = measure(N, H, RF, s, T, rng)
+          + (f"{T} graphs\n" if args.mc else "closed forms (--mc adds MC)\n"))
+    mc = measure(N, H, RF, s, T, rng) if args.mc else None
 
     print("THREAT A -- chosen victim (adversary names the target)")
     print(f"  {'attack':<18} {'side':<14} {'mean':>7} {'sd':>6} "
-          f"{'p1%':>5} {'p0.1%':>6} {'MC mean':>9}")
+          f"{'p1%':>5} {'p0.1%':>6}"
+          + (f" {'MC mean':>9}" if mc else ""))
     plan = (("deafen (coverage)", cover, "chosen", "cover"),
             ("deafen (silence)", silence, "chosen+accept", "silence"),
             ("mute", mute, "accept+chosen", "mute"))
     for label, pmf, side, key in plan:
         mean, sd, _, p1, p01 = summarise(pmf, H)
         print(f"  {label:<18} {side:<14} {mean:>7.2f} {sd:>6.2f} "
-              f"{p1:>5d} {p01:>6d} {mc[key][0]:>9.2f}")
+              f"{p1:>5d} {p01:>6d}"
+              + (f" {mc[key][0]:>9.2f}" if mc else ""))
 
     print("\nTHREAT B -- any victim (cheapest break of the delta guarantee)")
-    print(f"  {'attack':<18} {'E[min]':>7} {'MC min':>8}  observed")
+    print(f"  {'attack':<18} {'E[min]':>7}"
+          + (f" {'MC min':>8}  observed" if mc else ""))
     for label, pmf, _side, key in plan:
         _, _, emin, _, _ = summarise(pmf, H)
-        print(f"  {label:<18} {emin:>7.1f} "
-              f"{sum(mc[key][1])/len(mc[key][1]):>8.1f}  {sorted(set(mc[key][1]))}")
+        tail = ""
+        if mc:
+            obs = mc[key][1]
+            tail = f" {sum(obs)/len(obs):>8.1f}  {sorted(set(obs))}"
+        print(f"  {label:<18} {emin:>7.1f}" + tail)
     ca, cb = cdf(cover), cdf(mute)
     joint = sum((1 - ca[j - 1]) ** H * (1 - cb[j - 1]) ** H
                 for j in range(1, len(ca)))

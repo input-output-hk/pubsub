@@ -15,7 +15,12 @@ Because the two directions are one event rather than two independent draws,
 M4's guarantee-breaking cost is its single degree minimum; taking a minimum
 over 2H draws here would double-count.
 
-Usage: python3 sim_m4_eclipse.py [--trials T] [--seed S]
+Usage: python3 sim_m4_eclipse.py [--mc] [--trials T] [--seed S]
+
+The closed-form tables print in under a second.  --mc (LONG, minutes at
+the default 400 graphs of N = 20000; never run by CI) adds the Monte-Carlo
+cross-check columns (MC mean / MC min / observed).  The published tables in
+../properties/adaptive_eclipse_cost.md are from --mc --trials 400.
 """
 
 from __future__ import annotations
@@ -97,6 +102,9 @@ def main() -> None:
     ap.add_argument("--RF", type=int, default=8)
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
+    ap.add_argument("--mc", action="store_true",
+                    help="run the Monte-Carlo degree measurement (LONG; "
+                         "never run by CI)")
     args = ap.parse_args()
 
     N, RF, T = args.N, args.RF, args.trials
@@ -106,21 +114,28 @@ def main() -> None:
 
     deg = convolve(chosen_pmf(RF, N, H), accepted_pmf(RF, N, H))
     mean, sd, emin, p1, p01 = summarise(deg, H)
-    mc_mean, mins = measure(N, H, RF, T, rng)
+    mc = measure(N, H, RF, T, rng) if args.mc else None
 
     print(f"M4 adaptive eclipse cost -- N={N}, mu={args.mu}, RF={RF}, "
-          f"{T} graphs")
+          + (f"{T} graphs" if args.mc else "closed forms (--mc adds MC)"))
     print("  (undirected: deafen and mute are the SAME cut)\n")
 
     print("THREAT A -- chosen victim (adversary names the target)")
     print(f"  {'direction':<14} {'side':<14} {'mean':>7} {'sd':>6} "
-          f"{'p1%':>5} {'p0.1%':>6} {'MC mean':>9}")
+          f"{'p1%':>5} {'p0.1%':>6}"
+          + (f" {'MC mean':>9}" if mc else ""))
     print(f"  {'deafen = mute':<14} {'chosen+accept':<14} {mean:>7.2f} "
-          f"{sd:>6.2f} {p1:>5d} {p01:>6d} {mc_mean:>9.2f}")
+          f"{sd:>6.2f} {p1:>5d} {p01:>6d}"
+          + (f" {mc[0]:>9.2f}" if mc else ""))
 
     print("\nTHREAT B -- any victim (cheapest break of the delta guarantee)")
-    print(f"  E[min degree] = {emin:.1f}   MC min = {sum(mins)/len(mins):.1f}   "
-          f"observed {sorted(set(mins))}")
+    if mc:
+        mins = mc[1]
+        print(f"  E[min degree] = {emin:.1f}   "
+              f"MC min = {sum(mins)/len(mins):.1f}   "
+              f"observed {sorted(set(mins))}")
+    else:
+        print(f"  E[min degree] = {emin:.1f}")
     print(f"  guarantee-breaking cost = {emin:.1f} corruptions "
           f"(adversarial budget is mu*N = {k})")
     print("  NOT min over 2H draws -- one undirected cut kills both directions")
