@@ -42,6 +42,8 @@ We propose a decentralised topic-based publish/subscribe protocol anchored on Ca
 
 ### The gap
 
+Cardano does not run itself. Behind the protocol sits a network of people and services that must hear from one another for the system to function: stake pool operators must learn of a critical vulnerability before it is exploited, delegators must learn their pool is retiring before it affects them, voters must learn a governance action is open while there is still time to act on it. The chain's security and governance models quietly presume this communication happens, i.e. incident response assumes operators can be reached; accountability in governance assumes constituents hear from their representatives.
+
 Cardano has no standard way to deliver a message that must be trustworthy but does not belong in a transaction. The chain settles state; it is not a medium for the operational, advisory, and time-sensitive traffic that surrounds that state. Today such traffic runs on infrastructure outside the ecosystem's trust model — mailing lists, Discord and Telegram channels, vendor push services, and each provider's own backend.
 
 That arrangement has a specific consequence rather than a merely aesthetic one. Every one of those channels has an operator, and an operator can drop a message, delay it, deliver it selectively, or originate one that its purported sender never wrote. A stake pool operator receiving an urgent notice through a chat channel cannot verify that it came from the protocol team that appears to have sent it, that it is the current version of that notice, or that other operators received it too. The chain beneath is Byzantine-fault-tolerant; the channel used to coordinate around it is not. The weaker layer sets the effective guarantee.
