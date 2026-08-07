@@ -23,11 +23,11 @@ OUT = HERE.parents[2] / "docs" / "cip" / "images"
 
 # Categorical hues, checked for colour-vision separation as an ordered set.
 SERIES = {
-    "M1": "#2a78d6",
-    "M2": "#eb6834",
-    "M3": "#1baf7a",
-    "M4": "#eda100",
-    "M5": "#e87ba4",
+    "M1": "#2a78d6",   # blue
+    "M2": "#4a3aa7",   # violet
+    "M3": "#008300",   # green
+    "M4": "#eda100",   # yellow
+    "M5": "#e87ba4",   # magenta
 }
 SURFACE = "#fcfcfb"
 INK = "#1a1a19"
@@ -190,10 +190,10 @@ def fig_cost_state(ops) -> str:
                    key=lambda o: o["standing_links"])
     b.append(line(X(front[0]["standing_links"]), Y(front[0]["copies_per_node"]),
                   X(front[1]["standing_links"]), Y(front[1]["copies_per_node"]),
-                  "#1e8f5e", 1.8, cap="round", opacity=0.55))
+                  "#6f6d64", 1.6, cap="round", opacity=0.7))
     mx = (X(front[0]["standing_links"]) + X(front[1]["standing_links"])) / 2
     my = (Y(front[0]["copies_per_node"]) + Y(front[1]["copies_per_node"])) / 2
-    b.append(text(mx, my - 11, "nothing beats both", 11, "#1e8f5e", "middle", "600"))
+    b.append(text(mx, my - 11, "nothing beats both", 11, "#52514e", "middle", "600"))
 
     seen: dict[tuple[float, float], list] = {}
     for o in ops:
@@ -240,96 +240,109 @@ def fig_cost_state(ops) -> str:
 
 # ------------------------------------------------------------------ figure 3
 def fig_tradeoffs(ops) -> str:
-    """Four-axis trade-off, as small multiples rather than one overlay.
+    """Single overlaid radar: the four designs that are each best at something.
 
-    On all four axes only M1 is dominated (by M5); M2, M3, M4 and M5 are each
-    best at something. Four filled polygons in the models' own hues cannot be
-    told apart reliably — magenta against orange falls under the normal-vision
-    separation floor — so each model gets its own panel in its own colour, with
-    the other three drawn behind it in grey. Colours therefore stay identical to
-    the other figures, and comparison is against a fixed backdrop.
+    Overlay rather than small multiples, because side-by-side comparison is the
+    whole point of the form. That caps the series count: four filled polygons in
+    the models' own hues cannot be separated (magenta against orange falls under
+    the normal-vision floor), while M3/M4/M5 in theirs clears every gate. M5's
+    aqua-magenta pair sits in the colour-vision warn band, so each polygon also
+    carries a direct label at the vertex where it reaches the outer ring — which
+    doubles as naming what that design is best at.
 
-    Each axis is scored best/this, so the best design on an axis reaches the
-    outer ring and a larger shape is better.
+    M2 and M1 are left out and covered in prose: M1 is dominated outright, and
+    M2 reaches the frontier only on a latency margin the evidence calls
+    non-discriminating.
+
+    Each axis is scored best/this, so the best design reaches the outer ring and
+    every axis reads outward-is-better.
     """
     import math as _m
-    W, H, R = 900, 700, 92
+    W, H = 860, 610
+    cx, cy, R = 430, 300, 162
     by = {o["model"]: o for o in ops}
     SHOWN = ["M3", "M4", "M5", "M2"]
 
     AXES = [
-        ("Bandwidth economy", lambda o: o["copies_per_node"], True),
-        ("Connection economy", lambda o: o["standing_links"], True),
-        ("Speed", lambda o: o["hops_full"], True),
-        ("Churn tolerance", lambda o: o["churn_budget_pct"], False),
+        ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True, "M3"),
+        ("Connection economy", "standing links", lambda o: o["standing_links"], True, "M4"),
+        ("Speed", "hops to last subscriber", lambda o: o["hops_full"], True, "M2"),
+        ("Churn tolerance", "downtime absorbed (predicted)",
+         lambda o: o["churn_budget_pct"], False, "M5"),
     ]
     best = [(min if low else max)(get(by[m]) for m in SHOWN)
-            for _, get, low in AXES]
+            for _, _, get, low, _ in AXES]
 
     def score(m, i):
-        _, get, low = AXES[i]
+        _, _, get, low, _ = AXES[i]
         v = get(by[m])
         return (best[i] / v) if low else (v / best[i])
 
     ang = [-_m.pi / 2, 0.0, _m.pi / 2, _m.pi]
 
-    def poly(cxx, cyy, m):
-        pts = []
-        for i in range(4):
-            s = score(m, i)
-            pts.append((cxx + R * s * _m.cos(ang[i]), cyy + R * s * _m.sin(ang[i])))
-        return " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-
-    b = [text(38, 30, "All four axes are oriented so that outward is better: further "
-              "out means less bandwidth used, fewer connections held, fewer hops to the "
-              "last subscriber,", 11, INK_SOFT, style="italic"),
-         text(38, 46, "and more honest downtime absorbed. Each is scored against the "
-              "best of the four. Grey shapes are the other three designs, for "
-              "comparison; the churn axis is", 11, INK_SOFT, style="italic"),
-         text(38, 62, "predicted from the coverage laws rather than measured.",
+    b = [text(38, 30, "Every axis is oriented so that outward is better: less bandwidth "
+              "used, fewer connections held, fewer hops to the last subscriber, more "
+              "downtime absorbed.", 11, INK_SOFT, style="italic"),
+         text(38, 46, "Each design is scored against the best of the four, and labelled "
+              "at the axis where it leads. The churn axis is predicted, not measured.",
               11, INK_SOFT, style="italic")]
 
-    for k, m in enumerate(SHOWN):
-        cxx = 215 + (k % 2) * 430
-        cyy = 246 + (k // 2) * 310
-        for ring in (0.33, 0.66, 1.0):
-            pts = " ".join(
-                f"{cxx + R * ring * _m.cos(a):.1f},{cyy + R * ring * _m.sin(a):.1f}"
-                for a in ang)
-            b.append(f'<polygon points="{pts}" fill="none" stroke="{GRID}" stroke-width="1"/>')
-        for a in ang:
-            b.append(line(cxx, cyy, cxx + R * _m.cos(a), cyy + R * _m.sin(a), GRID, 1))
-        for other in SHOWN:
-            if other == m:
-                continue
-            b.append(f'<polygon points="{poly(cxx, cyy, other)}" fill="none" '
-                     f'stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>')
+    for ring in (0.25, 0.5, 0.75, 1.0):
+        pts = " ".join(f"{cx + R * ring * _m.cos(a):.1f},{cy + R * ring * _m.sin(a):.1f}"
+                       for a in ang)
+        b.append(f'<polygon points="{pts}" fill="none" stroke="{GRID}" stroke-width="1"/>')
+    for i, a in enumerate(ang):
+        dash = "4 4" if i == 3 else None          # the predicted axis
+        b.append(line(cx, cy, cx + R * _m.cos(a), cy + R * _m.sin(a),
+                      "#c4c2b9" if i == 3 else GRID, 1, dash=dash))
+
+    for m in SHOWN:
         col = SERIES[m]
-        b.append(f'<polygon points="{poly(cxx, cyy, m)}" fill="{col}" fill-opacity="0.20" '
-                 f'stroke="{col}" stroke-width="2.4" stroke-linejoin="round"/>')
+        pts = " ".join(
+            f"{cx + R * score(m, i) * _m.cos(ang[i]):.1f},"
+            f"{cy + R * score(m, i) * _m.sin(ang[i]):.1f}" for i in range(4))
+        b.append(f'<polygon points="{pts}" fill="{col}" fill-opacity="0.13" stroke="{col}" '
+                 f'stroke-width="2.4" stroke-linejoin="round"/>')
         for i in range(4):
             s = score(m, i)
-            b.append(circle(cxx + R * s * _m.cos(ang[i]), cyy + R * s * _m.sin(ang[i]),
-                            4, col, SURFACE, 1.6))
-        for i, (name, get, _low) in enumerate(AXES):
-            x = cxx + (R + 16) * _m.cos(ang[i])
-            y = cyy + (R + 16) * _m.sin(ang[i])
-            anchor = "middle" if i in (0, 2) else ("start" if i == 1 else "end")
-            dy = -8 if i == 0 else (16 if i == 2 else 4)
-            b.append(text(x, y + dy, name, 10.5, "#8a887e", anchor))
-        cap = {"M3": "M3 · RF=12, s=8", "M4": "M4 · RF=8",
-               "M5": "M5 · (9, 8)", "M2": "M2 · RF=24"}[m]
-        note = {"M3": "least bandwidth", "M4": "fewest connections",
-                "M5": "most churn-tolerant", "M2": "fastest to full coverage"}[m]
-        b.append(text(cxx, cyy - R - 62, cap, 13, col, "middle", "650"))
-        b.append(text(cxx, cyy - R - 46, note, 10.5, "#8a887e", "middle"))
+            b.append(circle(cx + R * s * _m.cos(ang[i]), cy + R * s * _m.sin(ang[i]),
+                            4.2, col, SURFACE, 1.6))
 
-    return frame(W, H, b, "Four-way trade-off across the non-dominated designs",
-                 "Four small radar charts, one per design, on the axes bandwidth, "
-                 "connections, latency and churn tolerance. Each design is best on "
-                 "exactly one axis: M3 bandwidth, M4 connections, M5 churn tolerance, "
-                 "M2 latency. M3 shows the most uneven shape and M4 the most even. "
-                 "The churn axis is predicted rather than measured.")
+    CAP = {"M3": "M3 · RF=12, s=8", "M4": "M4 · RF=8", "M5": "M5 · (9, 8)",
+           "M2": "M2 · RF=24"}
+    for i, (name, unit, get, _low, owner) in enumerate(AXES):
+        vx, vy = cx + R * _m.cos(ang[i]), cy + R * _m.sin(ang[i])
+        vals = " · ".join(f"{m} {get(by[m])}" for m in SHOWN)
+        if i == 0:
+            if owner:
+                b.append(text(vx, vy - 22, CAP[owner], 12.5, SERIES[owner], "middle", "650"))
+            b.append(text(vx, vy - 58, name, 12.5, INK, "middle", "600"))
+            b.append(text(vx, vy - 43, unit, 10.5, "#8a887e", "middle"))
+        elif i == 2:
+            if owner:
+                b.append(text(vx, vy + 26, CAP[owner], 12.5, SERIES[owner], "middle", "650"))
+            b.append(text(vx, vy + 48, name, 12.5, INK, "middle", "600"))
+            b.append(text(vx, vy + 63, unit, 10.5, "#8a887e", "middle"))
+            b.append(text(vx, vy + 77, vals, 10.5, "#8a887e", "middle"))
+            continue
+        else:
+            anchor = "start" if i == 1 else "end"
+            dx = 20 if i == 1 else -20
+            if owner:
+                b.append(text(vx + dx, vy - 22, CAP[owner], 12.5, SERIES[owner], anchor, "650"))
+            b.append(text(vx + dx, vy - 4, name, 12.5, INK, anchor, "600"))
+            b.append(text(vx + dx, vy + 11, unit, 10.5, "#8a887e", anchor))
+            b.append(text(vx + dx, vy + 25, vals, 10.5, "#8a887e", anchor))
+            continue
+        b.append(text(vx, vy - 72, vals, 10.5, "#8a887e", "middle"))
+
+    return frame(W, H, b, "Four-way trade-off across the four non-dominated designs",
+                 "One radar chart overlaying M2, M3, M4 and M5 on four axes: bandwidth "
+                 "economy, connection economy, speed and churn tolerance, all oriented "
+                 "outward-is-better. Each is labelled at the axis where it reaches the "
+                 "outer ring. M3 is a narrow spike reaching the outer ring only on "
+                 "bandwidth; M4 is the most even shape; M5 leads on churn tolerance and "
+                 "speed. The churn axis is predicted rather than measured.")
 
 
 def main() -> int:

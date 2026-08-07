@@ -1,92 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" width="900" height="700" role="img" aria-labelledby="t d">
-<title id="t">Four-way trade-off across the non-dominated designs</title>
-<desc id="d">Four small radar charts, one per design, on the axes bandwidth, connections, latency and churn tolerance. Each design is best on exactly one axis: M3 bandwidth, M4 connections, M5 churn tolerance, M2 latency. M3 shows the most uneven shape and M4 the most even. The churn axis is predicted rather than measured.</desc>
-<rect width="900" height="700" rx="8" fill="#fcfcfb"/>
-<text x="38.0" y="30.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">All four axes are oriented so that outward is better: further out means less bandwidth used, fewer connections held, fewer hops to the last subscriber,</text>
-<text x="38.0" y="46.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">and more honest downtime absorbed. Each is scored against the best of the four. Grey shapes are the other three designs, for comparison; the churn axis is</text>
-<text x="38.0" y="62.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">predicted from the coverage laws rather than measured.</text>
-<polygon points="215.0,215.6 245.4,246.0 215.0,276.4 184.6,246.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="215.0,185.3 275.7,246.0 215.0,306.7 154.3,246.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="215.0,154.0 307.0,246.0 215.0,338.0 123.0,246.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="246.0" x2="215.0" y2="154.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="246.0" x2="307.0" y2="246.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="246.0" x2="215.0" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="246.0" x2="123.0" y2="246.0" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="215.0,171.2 307.0,246.0 215.0,331.9 169.8,246.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="215.0,181.1 258.3,246.0 215.0,334.0 123.0,246.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="215.0,200.0 245.7,246.0 215.0,338.0 143.3,246.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="215.0,154.0 253.7,246.0 215.0,320.9 192.2,246.0" fill="#1baf7a" fill-opacity="0.20" stroke="#1baf7a" stroke-width="2.4" stroke-linejoin="round"/>
-<circle cx="215.0" cy="154.0" r="4.0" fill="#1baf7a" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="253.7" cy="246.0" r="4.0" fill="#1baf7a" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="215.0" cy="320.9" r="4.0" fill="#1baf7a" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="192.2" cy="246.0" r="4.0" fill="#1baf7a" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="215.0" y="130.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Bandwidth economy</text>
-<text x="323.0" y="250.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Connection economy</text>
-<text x="215.0" y="370.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Speed</text>
-<text x="107.0" y="250.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">Churn tolerance</text>
-<text x="215.0" y="92.0" font-size="13" fill="#1baf7a" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="650">M3 · RF=12, s=8</text>
-<text x="215.0" y="108.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">least bandwidth</text>
-<polygon points="645.0,215.6 675.4,246.0 645.0,276.4 614.6,246.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="645.0,185.3 705.7,246.0 645.0,306.7 584.3,246.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="645.0,154.0 737.0,246.0 645.0,338.0 553.0,246.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="246.0" x2="645.0" y2="154.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="246.0" x2="737.0" y2="246.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="246.0" x2="645.0" y2="338.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="246.0" x2="553.0" y2="246.0" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="645.0,154.0 683.7,246.0 645.0,320.9 622.2,246.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="645.0,181.1 688.3,246.0 645.0,334.0 553.0,246.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="645.0,200.0 675.7,246.0 645.0,338.0 573.3,246.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="645.0,171.2 737.0,246.0 645.0,331.9 599.8,246.0" fill="#eda100" fill-opacity="0.20" stroke="#eda100" stroke-width="2.4" stroke-linejoin="round"/>
-<circle cx="645.0" cy="171.2" r="4.0" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="737.0" cy="246.0" r="4.0" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="645.0" cy="331.9" r="4.0" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="599.8" cy="246.0" r="4.0" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="645.0" y="130.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Bandwidth economy</text>
-<text x="753.0" y="250.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Connection economy</text>
-<text x="645.0" y="370.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Speed</text>
-<text x="537.0" y="250.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">Churn tolerance</text>
-<text x="645.0" y="92.0" font-size="13" fill="#eda100" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="650">M4 · RF=8</text>
-<text x="645.0" y="108.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">fewest connections</text>
-<polygon points="215.0,525.6 245.4,556.0 215.0,586.4 184.6,556.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="215.0,495.3 275.7,556.0 215.0,616.7 154.3,556.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="215.0,464.0 307.0,556.0 215.0,648.0 123.0,556.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="556.0" x2="215.0" y2="464.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="556.0" x2="307.0" y2="556.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="556.0" x2="215.0" y2="648.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="215.0" y1="556.0" x2="123.0" y2="556.0" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="215.0,464.0 253.7,556.0 215.0,630.9 192.2,556.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="215.0,481.2 307.0,556.0 215.0,641.9 169.8,556.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="215.0,510.0 245.7,556.0 215.0,648.0 143.3,556.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="215.0,491.1 258.3,556.0 215.0,644.0 123.0,556.0" fill="#e87ba4" fill-opacity="0.20" stroke="#e87ba4" stroke-width="2.4" stroke-linejoin="round"/>
-<circle cx="215.0" cy="491.1" r="4.0" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="258.3" cy="556.0" r="4.0" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="215.0" cy="644.0" r="4.0" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="123.0" cy="556.0" r="4.0" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="215.0" y="440.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Bandwidth economy</text>
-<text x="323.0" y="560.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Connection economy</text>
-<text x="215.0" y="680.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Speed</text>
-<text x="107.0" y="560.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">Churn tolerance</text>
-<text x="215.0" y="402.0" font-size="13" fill="#e87ba4" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="650">M5 · (9, 8)</text>
-<text x="215.0" y="418.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">most churn-tolerant</text>
-<polygon points="645.0,525.6 675.4,556.0 645.0,586.4 614.6,556.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="645.0,495.3 705.7,556.0 645.0,616.7 584.3,556.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="645.0,464.0 737.0,556.0 645.0,648.0 553.0,556.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="556.0" x2="645.0" y2="464.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="556.0" x2="737.0" y2="556.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="556.0" x2="645.0" y2="648.0" stroke="#e2e0d8" stroke-width="1"/>
-<line x1="645.0" y1="556.0" x2="553.0" y2="556.0" stroke="#e2e0d8" stroke-width="1"/>
-<polygon points="645.0,464.0 683.7,556.0 645.0,630.9 622.2,556.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="645.0,481.2 737.0,556.0 645.0,641.9 599.8,556.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="645.0,491.1 688.3,556.0 645.0,644.0 553.0,556.0" fill="none" stroke="#d5d3ca" stroke-width="1.4" stroke-linejoin="round"/>
-<polygon points="645.0,510.0 675.7,556.0 645.0,648.0 573.3,556.0" fill="#eb6834" fill-opacity="0.20" stroke="#eb6834" stroke-width="2.4" stroke-linejoin="round"/>
-<circle cx="645.0" cy="510.0" r="4.0" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="675.7" cy="556.0" r="4.0" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="645.0" cy="648.0" r="4.0" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
-<circle cx="573.3" cy="556.0" r="4.0" fill="#eb6834" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="645.0" y="440.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Bandwidth economy</text>
-<text x="753.0" y="560.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Connection economy</text>
-<text x="645.0" y="680.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Speed</text>
-<text x="537.0" y="560.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">Churn tolerance</text>
-<text x="645.0" y="402.0" font-size="13" fill="#eb6834" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="650">M2 · RF=24</text>
-<text x="645.0" y="418.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">fastest to full coverage</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 610" width="860" height="610" role="img" aria-labelledby="t d">
+<title id="t">Four-way trade-off across the four non-dominated designs</title>
+<desc id="d">One radar chart overlaying M2, M3, M4 and M5 on four axes: bandwidth economy, connection economy, speed and churn tolerance, all oriented outward-is-better. Each is labelled at the axis where it reaches the outer ring. M3 is a narrow spike reaching the outer ring only on bandwidth; M4 is the most even shape; M5 leads on churn tolerance and speed. The churn axis is predicted rather than measured.</desc>
+<rect width="860" height="610" rx="8" fill="#fcfcfb"/>
+<text x="38.0" y="30.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Every axis is oriented so that outward is better: less bandwidth used, fewer connections held, fewer hops to the last subscriber, more downtime absorbed.</text>
+<text x="38.0" y="46.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Each design is scored against the best of the four, and labelled at the axis where it leads. The churn axis is predicted, not measured.</text>
+<polygon points="430.0,259.5 470.5,300.0 430.0,340.5 389.5,300.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+<polygon points="430.0,219.0 511.0,300.0 430.0,381.0 349.0,300.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+<polygon points="430.0,178.5 551.5,300.0 430.0,421.5 308.5,300.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+<polygon points="430.0,138.0 592.0,300.0 430.0,462.0 268.0,300.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+<line x1="430.0" y1="300.0" x2="430.0" y2="138.0" stroke="#e2e0d8" stroke-width="1"/>
+<line x1="430.0" y1="300.0" x2="592.0" y2="300.0" stroke="#e2e0d8" stroke-width="1"/>
+<line x1="430.0" y1="300.0" x2="430.0" y2="462.0" stroke="#e2e0d8" stroke-width="1"/>
+<line x1="430.0" y1="300.0" x2="268.0" y2="300.0" stroke="#c4c2b9" stroke-width="1" stroke-dasharray="4 4"/>
+<polygon points="430.0,138.0 498.2,300.0 430.0,431.9 389.9,300.0" fill="#008300" fill-opacity="0.13" stroke="#008300" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="430.0" cy="138.0" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="498.2" cy="300.0" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="430.0" cy="431.9" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="389.9" cy="300.0" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
+<polygon points="430.0,168.2 592.0,300.0 430.0,451.2 350.5,300.0" fill="#eda100" fill-opacity="0.13" stroke="#eda100" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="430.0" cy="168.2" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="592.0" cy="300.0" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="430.0" cy="451.2" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="350.5" cy="300.0" r="4.2" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
+<polygon points="430.0,185.6 506.2,300.0 430.0,454.9 268.0,300.0" fill="#e87ba4" fill-opacity="0.13" stroke="#e87ba4" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="430.0" cy="185.6" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="506.2" cy="300.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="430.0" cy="454.9" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="268.0" cy="300.0" r="4.2" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
+<polygon points="430.0,219.0 484.0,300.0 430.0,462.0 303.7,300.0" fill="#4a3aa7" fill-opacity="0.13" stroke="#4a3aa7" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="430.0" cy="219.0" r="4.2" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="484.0" cy="300.0" r="4.2" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="430.0" cy="462.0" r="4.2" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="303.7" cy="300.0" r="4.2" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="430.0" y="116.0" font-size="12.5" fill="#008300" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="650">M3 · RF=12, s=8</text>
+<text x="430.0" y="80.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Bandwidth economy</text>
+<text x="430.0" y="95.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">copies per node</text>
+<text x="430.0" y="66.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">M3 9.6 · M4 11.8 · M5 13.6 · M2 19.2</text>
+<text x="612.0" y="278.0" font-size="12.5" fill="#eda100" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">M4 · RF=8</text>
+<text x="612.0" y="296.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Connection economy</text>
+<text x="612.0" y="311.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">standing links</text>
+<text x="612.0" y="325.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M3 38 · M4 16 · M5 34 · M2 48</text>
+<text x="430.0" y="488.0" font-size="12.5" fill="#4a3aa7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="650">M2 · RF=24</text>
+<text x="430.0" y="510.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Speed</text>
+<text x="430.0" y="525.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">hops to last subscriber</text>
+<text x="430.0" y="539.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">M3 5.87 · M4 5.12 · M5 5.0 · M2 4.78</text>
+<text x="248.0" y="278.0" font-size="12.5" fill="#e87ba4" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="650">M5 · (9, 8)</text>
+<text x="248.0" y="296.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end" font-weight="600">Churn tolerance</text>
+<text x="248.0" y="311.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">downtime absorbed (predicted)</text>
+<text x="248.0" y="325.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">M3 0.54 · M4 1.07 · M5 2.18 · M2 1.7</text>
 </svg>
