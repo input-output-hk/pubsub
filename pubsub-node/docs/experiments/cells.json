@@ -416,12 +416,18 @@
     {
       "model": "M3",
       "params": "RF=13, s=7",
-      "note": "same budget and standing links as (12,8); the churn-preferred split",
+      "note": "same budget and standing links as (12,8); the churn-preferred split. Measured at the operating point: 10.40 copies, 38.0/64 links, 5.51 hops.",
       "copies_per_node": 10.4,
       "standing_links": 38,
-      "hops_full": 5.87,
+      "hops_full": 5.51,
       "p_bad": 4.39e-05,
-      "churn_budget_pct": 2.17
+      "churn_budget_pct": 2.17,
+      "preferred": true,
+      "hops_mean": 4.21,
+      "standing_links_measured_mean": 38.0,
+      "standing_links_max": 64,
+      "msgs_per_publication": 166400,
+      "measured": "200 runs, seed 852"
     }
   ],
   "convergence": {

@@ -243,7 +243,7 @@ def fig_cost_state(ops) -> str:
 
 
 # ------------------------------------------------------------------ figure 3
-def fig_tradeoffs(ops) -> str:
+def fig_tradeoffs(ops, alternatives=()) -> str:
     """Single overlaid radar: the four designs that are each best at something.
 
     Overlay rather than small multiples, because side-by-side comparison is the
@@ -265,6 +265,11 @@ def fig_tradeoffs(ops) -> str:
     W, H = 860, 616
     cx, cy, R = 430, 282, 162
     by = {o["model"]: o for o in ops}
+    # where a design has a preferred alternative to its published point, plot the
+    # one this proposal actually recommends
+    for a in alternatives:
+        if a.get("preferred"):
+            by[a["model"]] = a
     SHOWN = ["M3", "M4", "M5", "M2"]
 
     AXES = [
@@ -307,8 +312,7 @@ def fig_tradeoffs(ops) -> str:
             b.append(circle(cx + R * s * _m.cos(ang[i]), cy + R * s * _m.sin(ang[i]),
                             4.2, col, SURFACE, 1.6))
 
-    CAP = {"M3": "M3 · RF=12, s=8", "M4": "M4 · RF=8", "M5": "M5 · (9, 8)",
-           "M2": "M2 · RF=24"}
+    CAP = {m: f"{m} · {by[m]['params']}" for m in SHOWN}
     for i, (name, unit, get, _low, owner) in enumerate(AXES):
         vx, vy = cx + R * _m.cos(ang[i]), cy + R * _m.sin(ang[i])
         vals = " · ".join(f"{m} {get(by[m])}" for m in SHOWN)
@@ -439,7 +443,8 @@ def main() -> int:
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
         "cost-vs-state.svg": fig_cost_state(d["operating_points"]),
-        "tradeoff-radar.svg": fig_tradeoffs(d["operating_points"]),
+        "tradeoff-radar.svg": fig_tradeoffs(
+            d["operating_points"], d.get("alternatives", ())),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"]),
     }
