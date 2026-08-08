@@ -1,0 +1,33 @@
+# E10 Family B - gate + pick count: K = 16, B = 250, survivor headroom
+# r = (N-1)/(B*K) = 1.0.
+#
+# Same design as gated-picks-b10.toml at the critical headroom: mean
+# survivors equal K, so roughly half of all nodes fall short of 16 picks and
+# the realised degree distribution sits between exact-K and the raw binomial
+# (gate-only-b250.toml is the same B without picks). Large P(bad) expected;
+# 4 000 runs resolve it tightly.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gated-picks-b250.toml --out results/e10/gated-picks-b250/
+
+model = "m2"
+master_seed = 915
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 250
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 250
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 4000

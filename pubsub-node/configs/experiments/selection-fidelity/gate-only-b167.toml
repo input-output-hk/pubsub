@@ -1,0 +1,31 @@
+# E10 Family A - gate only, B = 167 (mean degree above the calibrated RF).
+#
+# Same substitution as gate-only-b250.toml over the calibrated M2 bulk cell,
+# with the gate widened: out-degree is Binomial(3999, 1/167) - mean 23.95,
+# i.e. the RF = 24 operating-degree regime. The comparison value is the
+# coverage law read at mean degree 24 (small P(bad)); the excess over it is
+# the distribution penalty at a degree where the point law is nearly clean,
+# so this cell needs the 8 000-run treatment to resolve the count.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gate-only-b167.toml --out results/e10/gate-only-b167/
+
+model = "m2"
+master_seed = 901
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+bucket_count = 167 # gate only: no pick_count, every survivor dialed
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 167
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

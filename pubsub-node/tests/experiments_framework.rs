@@ -532,21 +532,25 @@ fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
         parse_sweep_description(&shipped_config(name))
             .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
     }
-    // The model-family comparison cells (ADR 0041 program work) likewise:
-    // every config under comparisons/ parses and passes model coherence.
-    let comparisons =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("configs/experiments/comparisons");
-    let mut cells = 0;
-    for entry in std::fs::read_dir(&comparisons).expect("comparisons directory ships") {
-        let path = entry.expect("directory entry").path();
-        if path.extension().is_some_and(|ext| ext == "toml") {
-            let text = std::fs::read_to_string(&path).expect("config readable");
-            parse_sweep_description(&text)
-                .unwrap_or_else(|error| panic!("shipped {path:?} must validate: {error}"));
-            cells += 1;
+    // The committed cell sets likewise — the model-family comparison cells
+    // (ADR 0041 program work) and the E10 selection-fidelity cells: every
+    // config in each directory parses and passes model coherence.
+    for (directory, minimum) in [("comparisons", 24), ("selection-fidelity", 10)] {
+        let cell_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("configs/experiments")
+            .join(directory);
+        let mut cells = 0;
+        for entry in std::fs::read_dir(&cell_dir).expect("cell directory ships") {
+            let path = entry.expect("directory entry").path();
+            if path.extension().is_some_and(|ext| ext == "toml") {
+                let text = std::fs::read_to_string(&path).expect("config readable");
+                parse_sweep_description(&text)
+                    .unwrap_or_else(|error| panic!("shipped {path:?} must validate: {error}"));
+                cells += 1;
+            }
         }
+        assert!(cells >= minimum, "the {directory} cell set ships complete");
     }
-    assert!(cells >= 24, "the comparison-cell set ships complete");
 
     let description =
         parse_sweep_description(&shipped_config("m2-smoke.toml")).expect("smoke config parses");

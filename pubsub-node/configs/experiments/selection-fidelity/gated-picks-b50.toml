@@ -1,0 +1,32 @@
+# E10 Family B - gate + pick count: K = 16, B = 50, survivor headroom
+# r = (N-1)/(B*K) ~= 5.
+#
+# Same design as gated-picks-b10.toml with the gate narrowed to mean ~80
+# survivors: still comfortably above K, so the calibrated law
+# (P(bad) = 0.0088) should hold; per-node shortfall (survivors < 16) is
+# negligible at this headroom. 8 000 runs match the calibrated cell.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gated-picks-b50.toml --out results/e10/gated-picks-b50/
+
+model = "m2"
+master_seed = 912
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 50
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 50
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

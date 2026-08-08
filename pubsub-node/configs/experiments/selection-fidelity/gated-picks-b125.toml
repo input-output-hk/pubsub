@@ -1,0 +1,32 @@
+# E10 Family B - gate + pick count: K = 16, B = 125, survivor headroom
+# r = (N-1)/(B*K) = 2.0.
+#
+# Same design as gated-picks-b10.toml with mean ~32 survivors: the onset
+# region. Per-node shortfall (survivors < 16) is a lower-tail binomial event
+# of order 10^-3 here, so the first detectable deviation from the calibrated
+# law (P(bad) = 0.0088) is expected around this cell. 8 000 runs.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gated-picks-b125.toml --out results/e10/gated-picks-b125/
+
+model = "m2"
+master_seed = 913
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 125
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 125
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000
