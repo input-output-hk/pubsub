@@ -38,6 +38,7 @@
 <line x1="257.4" y1="343.4" x2="257.4" y2="314.3" stroke="#2a78d6" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="260.4" y1="344.4" x2="260.4" y2="315.1" stroke="#4a3aa7" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="447.7" y1="248.8" x2="447.7" y2="170.4" stroke="#4a3aa7" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
+<line x1="201.7" y1="365.7" x2="201.7" y2="357.5" stroke="#008300" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="285.1" y1="331.5" x2="285.1" y2="295.3" stroke="#2a78d6" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="326.5" y1="312.4" x2="326.5" y2="280.7" stroke="#2a78d6" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
 <line x1="367.6" y1="273.1" x2="367.6" y2="249.2" stroke="#2a78d6" stroke-width="2.0" stroke-linecap="round" opacity="0.45"/>
@@ -90,6 +91,7 @@
 <circle cx="257.4" cy="328.8" r="4.4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.6"/>
 <circle cx="260.4" cy="329.7" r="4.4" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.6"/>
 <circle cx="447.7" cy="208.8" r="4.4" fill="#4a3aa7" stroke="#fcfcfb" stroke-width="1.6"/>
+<circle cx="201.7" cy="361.6" r="4.4" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
 <circle cx="285.1" cy="313.3" r="4.4" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>
 <circle cx="326.5" cy="296.5" r="4.4" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>
 <circle cx="367.6" cy="261.1" r="4.4" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>

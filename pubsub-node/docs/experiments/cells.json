@@ -309,6 +309,20 @@
       "config": "m2-operating-point.toml (pick_count=16)",
       "master_seed": 20016,
       "tool_commit": "493bb2f"
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=9, s=5",
+      "bad": 912,
+      "runs": 170000,
+      "law": 0.00534418,
+      "formal_bad": null,
+      "formal_runs": null,
+      "config": "tail/m3-n4k-rf9-s5-deeptail.toml",
+      "master_seed": 821,
+      "tool_commit": "standing-degree change on experiments/churn-sweep",
+      "note": "Deep-tail power run. Sized to resolve the small-component correction at 3 sigma, which 3e4-draw samples cannot. Independent seed from the 30000-draw cell above, so the two pool."
     }
   ],
   "operating_points": [
@@ -735,5 +749,14 @@
       "at_operating_point": true
     }
   ],
-  "churn_cells_note": "Coverage under honest downtime, scored against each design's law read at the shifted adversarial fraction mu_eff = mu + p(1-mu). at_operating_point marks the cells run at the deployed parameters. See docs/experiments/churn-tolerance.md."
+  "churn_cells_note": "Coverage under honest downtime, scored against each design's law read at the shifted adversarial fraction mu_eff = mu + p(1-mu). at_operating_point marks the cells run at the deployed parameters. See docs/experiments/churn-tolerance.md.",
+  "tail_correction": {
+    "cell": "M3 RF=9, s=5 at N=4000",
+    "pooled_bad": 1240,
+    "pooled_draws": 230000,
+    "factor": 1.009,
+    "factor_1sigma": 0.029,
+    "rejects_1_11_at_z": -3.37,
+    "note": "The laws count single cut-off nodes exactly and small cut-off groups only approximately, and have been carried as ~1.11x optimistic in the deep tail. Measured at this cell the factor is 1.009 +/- 0.029, and 1.11 is rejected. The M4 cell is still running."
+  }
 }
