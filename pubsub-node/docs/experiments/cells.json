@@ -428,6 +428,22 @@
       "standing_links_max": 64,
       "msgs_per_publication": 166400,
       "measured": "200 runs, seed 852"
+    },
+    {
+      "model": "M4",
+      "params": "RF=9",
+      "preferred": true,
+      "note": "one notch above the published RF=8. Measured at the operating point: 13.40 copies, 18.0/37 links, 5.00 hops full / 3.90 mean, 200/200 good.",
+      "copies_per_node": 13.4,
+      "standing_links": 18,
+      "standing_links_measured_mean": 18.0,
+      "standing_links_max": 37,
+      "hops_full": 5.0,
+      "hops_mean": 3.9,
+      "msgs_per_publication": 214345,
+      "p_bad": 6.07e-06,
+      "churn_budget_pct": 7.43,
+      "measured": "200 runs, seed 851"
     }
   ],
   "convergence": {
@@ -764,5 +780,19 @@
     "factor_1sigma": 0.029,
     "rejects_1_11_at_z": -3.37,
     "note": "The laws count single cut-off nodes exactly and small cut-off groups only approximately, and have been carried as ~1.11x optimistic in the deep tail. Measured at this cell the factor is 1.009 +/- 0.029, and 1.11 is rejected. The M4 cell is still running."
-  }
+  },
+  "dominated": [
+    {
+      "model": "M5",
+      "params": "(9, 8)",
+      "by": "M4 RF=9",
+      "note": "beaten on every axis: 13.6 copies against 13.4, 34 links against 18, 5.00 hops equal, 2.18 % churn budget against 7.43 %."
+    },
+    {
+      "model": "M1",
+      "params": "F=24",
+      "by": "M5 (9, 8)",
+      "note": "beaten on all four cost and robustness axes; leads only adaptive eclipse cost."
+    }
+  ]
 }

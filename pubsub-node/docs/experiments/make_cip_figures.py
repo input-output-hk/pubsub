@@ -270,20 +270,26 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     for a in alternatives:
         if a.get("preferred"):
             by[a["model"]] = a
-    SHOWN = ["M3", "M4", "M5", "M2"]
+    # M5 and M1 are dominated once each design is allowed its best known
+    # parameters; M2 stays as the conservative reference.
+    SHOWN = ["M3", "M4", "M2"]
 
     AXES = [
-        ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True, "M3"),
-        ("Connection economy", "standing links", lambda o: o["standing_links"], True, "M4"),
-        ("Speed", "hops to last subscriber", lambda o: o["hops_full"], True, "M2"),
-        ("Churn tolerance", "downtime absorbed",
-         lambda o: o["churn_budget_pct"], False, "M5"),
+        ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True),
+        ("Connection economy", "standing links", lambda o: o["standing_links"], True),
+        ("Speed", "hops to last subscriber", lambda o: o["hops_full"], True),
+        ("Churn tolerance", "downtime absorbed", lambda o: o["churn_budget_pct"], False),
     ]
+    # the design leading each axis is whichever of the shown set is best on it,
+    # rather than a fixed assignment that goes stale when the set changes
+    OWNER = [min(SHOWN, key=lambda m: get(by[m])) if low
+             else max(SHOWN, key=lambda m: get(by[m]))
+             for _, _, get, low in AXES]
     best = [(min if low else max)(get(by[m]) for m in SHOWN)
-            for _, _, get, low, _ in AXES]
+            for _, _, get, low in AXES]
 
     def score(m, i):
-        _, _, get, low, _ = AXES[i]
+        _, _, get, low = AXES[i]
         v = get(by[m])
         return (best[i] / v) if low else (v / best[i])
 
@@ -313,7 +319,8 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                             4.2, col, SURFACE, 1.6))
 
     CAP = {m: f"{m} · {by[m]['params']}" for m in SHOWN}
-    for i, (name, unit, get, _low, owner) in enumerate(AXES):
+    for i, (name, unit, get, _low) in enumerate(AXES):
+        owner = OWNER[i]
         vx, vy = cx + R * _m.cos(ang[i]), cy + R * _m.sin(ang[i])
         vals = " · ".join(f"{m} {get(by[m])}" for m in SHOWN)
         if i == 0:
@@ -342,13 +349,13 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     b.append(text(38, 556, "Every axis is oriented so that outward is better: less "
                   "bandwidth used, fewer connections held, fewer hops to the last "
                   "subscriber, more downtime absorbed.", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 572, "Each design is scored against the best of the four and "
+    b.append(text(38, 572, "Each design is scored against the best of the three and "
                   "labelled at the axis where it leads.", 11, INK_SOFT, style="italic"))
     b.append(text(38, 588, "Three axes are measured directly; churn tolerance is read "
                   "off the coverage law, whose behaviour under churn was measured "
                   "separately.", 11, INK_SOFT, style="italic"))
 
-    return frame(W, H, b, "Four-way trade-off across the four non-dominated designs",
+    return frame(W, H, b, "Four-way trade-off across the surviving designs",
                  "One radar chart overlaying M2, M3, M4 and M5 on four axes: bandwidth "
                  "economy, connection economy, speed and churn tolerance, all oriented "
                  "outward-is-better. Each is labelled at the axis where it reaches the "

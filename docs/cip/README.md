@@ -370,9 +370,13 @@ The gap is close to two orders of magnitude for every design. The laws are expec
 
 A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.
 
-Widening the comparison from two axes to four changes which designs are in contention. On cost and state alone, M1, M2 and M5 are each beaten outright. Add latency and churn tolerance and **only M1 remains dominated**, beaten on all four by M5. The other four are each best at exactly one thing, so which is preferable depends entirely on which axis the deployment cares about.
+Widening the comparison from two axes to four changes which designs are in contention, and so does letting each design take its best parameters rather than the ones the published tables carry.
 
-In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 is omitted, being beaten on all four. The churn axis is read off the coverage laws rather than sampled directly.
+Every operating point in Table 4 was chosen by the same rule: the cheapest configuration meeting the failure target. That rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** — 1.07 % to 7.43 % — for 1.6 further copies per node and two further connections.
+
+Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 standing links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
+
+In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 and M5 are omitted, both being beaten on all four by a design that is shown. The churn axis is read off the coverage laws rather than sampled directly.
 
 <div align="center">
 <a name="figure-4" id="figure-4"></a>
@@ -393,23 +397,23 @@ The general form is worth stating, because it governs the parameter choice as mu
 
 #### Where this leaves the choice
 
-Two designs remain, and neither dominates the other. M3 at (13, 7) is cheaper in traffic and absorbs twice the downtime; M4 holds less than half the connections and reaches its last subscriber sooner:
+Two designs remain in contention, and neither dominates the other. M3 at (13, 7) is cheaper in traffic; M4 at RF = 9 holds less than half the connections, reaches its last subscriber sooner, and absorbs more than three times the downtime:
 
 <div align="center">
 <a name="table-7" id="table-7"></a>
 
-| | M3 (13, 7) | M4 (RF = 8) |
+| | M3 (13, 7) | M4 (RF = 9) |
 | :--: | ---: | ---: |
-| Copies per honest node | **10.4** | 11.8 |
-| Standing links, mean / busiest | 38 / 64 | **16 / 36** |
-| Hops to the last subscriber | 5.9 | **5.1** |
-| Downtime absorbed | **2.17 %** | 1.07 % |
+| Copies per honest node | **10.4** | 13.4 |
+| Standing links, mean / busiest | 38 / 64 | **18 / 37** |
+| Hops to the last subscriber | 5.5 | **5.0** |
+| Downtime absorbed | 2.17 % | **7.43 %** |
 
-<em>Table 7: the two remaining candidates</em>
+<em>Table 7: the two remaining candidates, each at its best known parameters</em>
 
 </div>
 
-**This proposal does not claim the evidence selects between them.** The two axes M3 wins on and the two M4 wins on are not commensurable, and no weighting of them follows from the analysis. What would decide it is a fact about deployment rather than about the protocol: whether a node's binding constraint is the traffic it carries or the connections it can hold open. For an operator on a metered link the first binds; for one behind a connection-limited gateway the second does. That question is posed in the Open Questions below, and the Specification names the design the answer selects.
+**This proposal does not claim the evidence selects between them.** M4 now leads three of the four axes, but the one M3 leads is bandwidth, by 22 %, and no weighting of traffic against connections follows from the analysis. What would decide it is a fact about deployment rather than about the protocol: whether a node's binding constraint is the traffic it carries or the connections it can hold open. For an operator on a metered link the first binds; for one behind a connection-limited gateway the second does. That question is posed in the Open Questions below, and the Specification names the design the answer selects.
 
 What the evidence does establish is that the field is two, not five, and that the axes on which they differ are measured rather than assumed.
 
