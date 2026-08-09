@@ -567,7 +567,7 @@ fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
     for (directory, minimum) in [
         ("comparisons", 24),
         ("selection-fidelity", 10),
-        ("flooding", 1),
+        ("flooding", 49),
     ] {
         let cell_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("configs/experiments")
