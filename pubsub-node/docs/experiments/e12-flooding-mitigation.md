@@ -5,7 +5,7 @@
 | Tool commit | instrument at `72bf76c` (the per-node connection-accounting detail columns; spot-checked byte-identical against the `23d0223`/`21acd36` baseline generations on all seven reference sweeps); the pilot ran at `286c944`, the 48 grid cells at `f5baea6` — both code-identical to `72bf76c` (config-only commits between) |
 | Cell configs | [`configs/experiments/flooding/`](../../configs/experiments/flooding/) — the pilot (master seed 1000) plus the 4 × 3 × 4 grid (seeds 1001–1048, cap-major), suite-validated |
 | Grid | B ∈ {50, 125, 250, 500} × accept cap ∈ {20, 24, 32} × K ∈ {40, 200, 400, 800} Sybils (1/5/10/20 % of N = 4 000); 150 runs per cell, 400 for the saturating K = 800 cells; 10 350 runs total including the pilot |
-| Measurement | `--per-node-detail` (the `72bf76c` columns); each cell's detail folded into a per-cell summary and the raw detail deleted (regenerable from the seed); per-run identities — detail sums ≡ the row's `rejected_over_capacity`, acceptor-issued ≡ dialer-refused per class — verified in **all 49 cells** |
+| Measurement | `--per-node-detail` (the `72bf76c` columns); each cell's detail folded into a per-cell summary by [`summarise_flooding_cell.py`](summarise_flooding_cell.py) and the raw detail deleted (regenerable from the seed); per-run identities — detail sums ≡ the row's `rejected_over_capacity`, acceptor-issued ≡ dialer-refused per class — verified in **all 49 cells** |
 | Timings | ~2 min per 150-run cell / ~5.5 min per 400-run cell at `--workers 10`; the grid ~2.5 h wall |
 | Artifacts | three main artifacts per cell reproduce byte-identically from config + seed + tool commit at any worker count; the derived summaries under `results/e12/summaries/` are pure folds of the detail |
 
