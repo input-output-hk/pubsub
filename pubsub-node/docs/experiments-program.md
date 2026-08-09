@@ -213,11 +213,14 @@ security trade-off, never derived from local state.
 - **E9 — Bucketing, no cap** [ready]. Eclipse/coverage (the E3/E5 metrics) with bucketing on vs off,
   sweeping B; the bucketed-pull analysis predicts the eclipse fraction unchanged at the balanced B —
   confirm, then explore off-balanced.
-- **E10 — Selection-family fidelity** [ready]. Hash-gated selection realises a binomial degree
-  around the pick count where the models prescribe exactly-RF uniform picks. Sweep the
-  (bucket count, pick count) plane — both are axis parameters, with the boundary points legal in the
-  sweep config — and quantify the deviation from the models' laws; the grid design (which crossings,
-  at what scale) is this program's work. The fidelity question ADR 0032/0034 defer to this harness.
+- **E10 — Selection-family fidelity** [done]. Executed and documented in
+  [`docs/experiments/e10-selection-fidelity.md`](experiments/e10-selection-fidelity.md): eleven
+  cells over the calibrated M2 bulk point. Gated picks reproduce the coverage law exactly at
+  survivor headroom r = (N−1)/(B·K) ≥ 2 (pooled 279/32 000 vs the law's 0.0088), degrade 5× at
+  r = 1, and converge to gate-only behaviour below it; gate-only doubles P(bad) at equal mean
+  degree by resurrecting the eclipsed-receiver defect class, and the +1-link compensation
+  (B = (N−1)/(RF+1)) restores the law — measured, not just derived. The fidelity question
+  ADR 0032/0034 deferred to this harness is answered.
 - **E11 — Serving cap, honest** [ready]. With uniform dialing, serving load varies by chance; when
   the cap sits close to RF, upper-tail nodes refuse honest dials — and v1 has no retry, so a refused
   dial is lost. Measure effective in-degree and coverage against the uncapped baseline as a function
@@ -290,7 +293,7 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | **done** (m4-comparison) |
 | E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | **done** (m5-comparison, M1 boundary included) |
 | E9 | Bucketing, no cap | 4 | bucketed-pull (balanced B) | ready |
-| E10 | Selection-family fidelity (B, K) | 4 | model selection family | ready |
+| E10 | Selection-family fidelity (B, K) | 4 | model selection family | **done** (e10-selection-fidelity) |
 | E11 | Serving cap, honest | 4 | none (congestion) | ready |
 | E12 | Flooding mitigation under cap | 4 | bucketed-pull concentration | ready |
 | E13 | Churn | 5 | none | ready |
