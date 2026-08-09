@@ -391,6 +391,8 @@ fn detail_is_consistent_with_the_recorded_topology() {
     let mut out_hist = vec![0u64; record.out_degree_hist.len()];
     let mut receipts = 0u64;
     let mut misses = 0u64;
+    let mut slots_to_honest = 0u64;
+    let mut slots_to_adversarial = 0u64;
     for row in &detail {
         let up_honest = !row.down
             && row.class == pubsub_node::experiments::population::ParticipantClass::Honest;
@@ -405,6 +407,22 @@ fn detail_is_consistent_with_the_recorded_topology() {
         if let Some(degree) = row.out_degree {
             out_hist[usize::try_from(degree).expect("bounded degree")] += 1;
         }
+
+        // Connection accounting: this fixture is uncapped, so no dial was
+        // ever refused; serving slots split by the linked peer's class and
+        // bound the digraph out-degree from above (the digraph keeps only
+        // up-honest link ends, the honest slot count also keeps down ones).
+        assert_eq!(row.dials_refused, 0, "uncapped acceptors refuse nothing");
+        assert_eq!(row.refusals_issued_honest, 0);
+        assert_eq!(row.refusals_issued_adversarial, 0);
+        if let Some(out_degree) = row.out_degree {
+            assert!(
+                row.downstream_honest >= out_degree,
+                "slot counts include links the up-honest digraph drops",
+            );
+        }
+        slots_to_honest += row.downstream_honest;
+        slots_to_adversarial += row.downstream_adversarial;
 
         let is_publisher = row.node == record.publisher;
         if row.down {
@@ -445,6 +463,16 @@ fn detail_is_consistent_with_the_recorded_topology() {
     assert_eq!(out_hist, record.out_degree_hist);
     assert_eq!(receipts, record.publishes[0].received);
     assert_eq!(misses, record.publishes[0].missed);
+
+    // Slot conservation: ungated + uncapped, every dial is accepted, so the
+    // class-split slot sums equal each class's total dialed picks (the
+    // dialer's class decides which sum its accepted links land in).
+    assert_eq!(slots_to_honest, 21 * 4, "honest dials all accepted");
+    assert_eq!(
+        slots_to_adversarial,
+        3 * 4,
+        "adversarial dials all accepted"
+    );
 }
 
 // 016-FR-030 / contracts/output-artifacts.md guarantee 1: --per-node-detail
