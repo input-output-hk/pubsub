@@ -561,9 +561,14 @@ fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
             .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
     }
     // The committed cell sets likewise — the model-family comparison cells
-    // (ADR 0041 program work) and the E10 selection-fidelity cells: every
-    // config in each directory parses and passes model coherence.
-    for (directory, minimum) in [("comparisons", 24), ("selection-fidelity", 10)] {
+    // (ADR 0041 program work), the E10 selection-fidelity cells, and the
+    // E12 flooding cells: every config in each directory parses and passes
+    // model coherence.
+    for (directory, minimum) in [
+        ("comparisons", 24),
+        ("selection-fidelity", 10),
+        ("flooding", 1),
+    ] {
         let cell_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("configs/experiments")
             .join(directory);
