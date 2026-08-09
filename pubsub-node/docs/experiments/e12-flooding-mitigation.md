@@ -140,6 +140,63 @@ nothing more). In bucketed-pull's terms, the measured concentration
 curves are the empirical K_max = OC·B calibration with OC = the cap's
 headroom above honest load.
 
+### The cap-sizing rule
+
+The grid composes into one predictive formula. Under fair-race
+contention a victim's kept honest degree is
+
+    kept ≈ min( L , cap · L / (L + K/B) ),    L = honest in-load
+                                                  ≈ (H−1)·K_pick/(N−1)  (≈ 15.2 here)
+
+and the topology harm is **E10's coverage sensitivity read at that kept
+degree** — the two experiments' results are one arithmetic. The formula
+reproduces every boundary cell in the grid:
+
+| cell | predicted kept degree | E10's law there | measured |
+|---|---|---|---|
+| B=50, cap 24, K=400 | load 23.2 < 24 ⇒ ≈ 15.2 | law-exact | 150/150 good |
+| B=50, cap 24, K=800 | 24 × 15.2/31.2 ≈ 11.7 | deep degradation | 0/400 |
+| B=50, cap 32, K=800 | load 31.2 < 32 ⇒ ≈ 15.2 | ≈ clean | 392/400 |
+| B=125, cap 20, K=800 | 20 × 15.2/21.6 ≈ 14.1 | ≈ 3–4 % bad | 388/400 = 3 % |
+
+Sizing the cap therefore splits its headroom into two provisioned
+terms — honest load variance and the tolerated Sybil budget K*:
+
+    cap ≈ RF + c·√RF + K*/B
+
+with both terms now empirically pinned: **c = 1 measurably starves the
+honest population by itself** (600–1 900 lost dials/run in the K = 40
+controls at cap 20), c = 2 is the working floor, the pre-017 default
+c = 3 is comfortably validated, c = 4 is clean. At the E10-optimal
+B = (N−1)/(2·K_pick), the attack term becomes ≈ 2·RF·f for a Sybil
+budget of f·N identities, giving the closed form
+
+    cap ≈ RF·(1 + 2f) + c·√RF  —  ≈ 2·RF at the design-typical f = 0.2.
+
+At this grid's shape that evaluates to ≈ 30 (RF = 16, c = 2, f = 0.2):
+the grid shows cap 32 absorbing the 20 % flooder fully and cap 24
+coming within a whisker (394/400). For scale feeling: B_opt = 125 here
+(legal neighbourhoods of ~32 candidates, attacker concentration ÷ 125);
+at the N = 20 000 operating point (RF = 24), B_opt ≈ 416 — the
+protective division strengthens linearly with N at fixed pick count.
+
+### The Sybil budget f vs the ambient fraction μ
+
+In these cells f = μ numerically (the framework's one adversarial class
+makes the Sybils both the flooders and the only ambient adversaries),
+but the two are distinct design parameters. μ — the coverage laws'
+parameter — is the fraction of the population acting as dead relays
+from *any* cause: crashed nodes, free-riders, churn (E13: downtime p
+folds in as μ_eff = μ + p(1−μ)), or an attacker's silent identities.
+f = K*/N is specifically the *coordinated* Sybil budget the cap's
+attack term is provisioned against. Every purchased Sybil contributes
+to both (it is also a dead relay), but not everything in μ can flood —
+churned honest nodes shift coverage yet never dial aggressively. The
+conservative calibration sets f to the adversarial share of the μ
+budget; where part of μ is known to be churn, the cap's attack term
+only needs the residual — coverage is priced on the sum, the cap only
+on the flooding-capable part.
+
 ## 6. Scope
 
 Rotation/retry (which would convert lost dials into delayed ones),
