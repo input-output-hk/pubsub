@@ -197,7 +197,29 @@ budget; where part of μ is known to be churn, the cap's attack term
 only needs the residual — coverage is priced on the sum, the cap only
 on the flooding-capable part.
 
-## 6. Scope
+## 6. Applicability across models
+
+The grid runs model `m2` (relay-only wiring). The concentration law and
+the fair-race contention mechanics live in the connection/acceptance
+plane, which the M3/M5 wirings' relay seam shares unchanged — attacker
+slots ≈ K/B and the refusal accounting transfer directly. Two things do
+not:
+
+- **The harm translation is model-specific.** The kept-degree formula
+  composes with each model's own coverage sensitivity; under M3
+  goodness, standing publisher links rescue initiation for publishers
+  whose relay in-links were starved, so equal starvation produces less
+  topology damage than M2's numbers show.
+- **M3/M5 add a second, unmeasured flooding surface**: the
+  publisher-acceptance seam carries its own disjoint cap, so Sybils can
+  target publisher slots. The same per-seam K/B_pub arithmetic is
+  expected by symmetry, but that is an analytic claim — no cell here
+  measures it.
+
+The gated-symmetric M4 stays out entirely (N-039's trigger — its
+handshake changes the selection mechanism itself).
+
+## 7. Scope
 
 Rotation/retry (which would convert lost dials into delayed ones),
 attacker timing advantage beyond the analytic envelope in §1, and the

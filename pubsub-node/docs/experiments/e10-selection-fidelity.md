@@ -177,11 +177,36 @@ For the protocol's choice of B, at the calibrated operating shape
   samples: 0/8 000 with Wilson ≤ 4.8×10⁻⁴ is a *bound consistent with
   the ≈ 3×10⁻⁵ prediction*, where a ±1σ convention would degenerate.
 
-## 6. Scope
+## 6. Applicability across the model family
+
+Every cell here runs model `m2` (relay-only wiring, one-SCC goodness).
+The transfer picture splits by regime:
+
+- **The clean-regime result is model-independent by construction.** Law
+  exactness at r ≥ 2 is a distributional statement: the realized
+  selection *equals* the idealized exactly-K uniform draw, so every law
+  of every model built on that seam holds automatically. M3's relay
+  seam is this seam; its publisher seam obeys the same headroom rule
+  with its own coordinates (r_pub = (N−1)/(B_pub·k_out) ≥ 2, trivially
+  satisfied at small k_out), and M5's two seams likewise. "Verifiability
+  is free at r ≥ 2" therefore needs no re-running per model.
+- **The penalty-regime constants are M2-law arithmetic.** The 2×
+  gate-only doubling, the 5× cliff, and the +1-link compensation read
+  M2's closed forms; the same machinery (Jensen on the convex defect
+  terms, the law read at the realized mean degree) recomputes them from
+  any model's laws on paper. Under M3 goodness the constants shrink:
+  standing publisher links rescue initiation for a relay-muted
+  publisher, so the mute class — half of M2's gate-only penalty — is
+  partially absorbed. Measured confirmation, if ever wanted, is a few
+  targeted cells (a balanced-B gate-only point, one headroom-ladder
+  rung), not a grid.
+
+## 7. Scope
 
 The gated-symmetric variant (gate under the ADR 0034 symmetric
 handshake — gated M4) is exactly N-039's recorded trigger and stays out
-of this first E10 pass. E12 — flooding mitigation under the cap, the
+of this first E10 pass — nothing here transfers to M4, whose handshake
+changes the selection mechanism itself. E12 — flooding mitigation under the cap, the
 benefit side of the same B knob — is the paired follow-up; together
 they form the B trade-off table (coverage cost vs flooding resistance)
 that neither side of the formal folder carries.
