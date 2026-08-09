@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Tool commit | `ff09143` (branch `experiments-gate-tradeoff`; two commits ahead of `main` `b28cf58`) |
-| Cell configs | [`configs/experiments/selection-fidelity/`](../../configs/experiments/selection-fidelity/) — ten cells, master seeds 901–903 (Family A) and 911–917 (Family B), suite-validated |
+| Tool commit | `ff09143` (branch `experiments-gate-tradeoff`); the B = 235 compensation cell ran at `376da80` — code-identical to `ff09143` (the intervening commits are docs/gitignore/config only), same release binary |
+| Cell configs | [`configs/experiments/selection-fidelity/`](../../configs/experiments/selection-fidelity/) — eleven cells, master seeds 901–904 (Family A, incl. the B = 235 compensation check) and 911–917 (Family B), suite-validated |
 | Baseline cell | [`m2-bulk-regime.toml`](../../configs/experiments/m2-bulk-regime.toml): N = 4 000, μ = 0.2, RF = 16, coverage-law P(bad) = 0.0088, validated 71/8000 ([`m2-comparison.md`](m2-comparison.md) §2) |
 | Reference values | `formal_spec/hybrid_dissemination/models/m2/properties/full_coverage.md` §3 (the coverage law read at each cell's realised mean degree); program of record `docs/experiments-program.md` E10 |
 | Timings | gated cells run ~10× slower than the ungated baseline (the gate is 4 000 × 3 999 SHA-256 edge evaluations per run): 8 000-run cells ~85 min at 16 workers / ~2 h 10 at 8; the ten-cell grid ~15.5 h wall on an M4 Max, most of it at 8 workers |
@@ -85,6 +85,7 @@ honest nodes missed).
 | B | mean degree | runs | bad | P(bad) | law at same mean | ratio |
 |---|---|---|---|---|---|---|
 | 167 | 23.95 | 8 000 | 0 | 0.0 (Wilson ≤ 4.8×10⁻⁴) | ≈ 3×10⁻⁵ | consistent (≈ 0.24 bad expected) |
+| **235** | 17.01 | 8 000 | 68 | 0.0085 [0.0067, 0.0108] | — (the §4 compensation check) | prediction 0.0079 inside (z = +0.61) |
 | 250 | 16.0 | 4 000 | 77 | 0.0193 [0.0154, 0.0240] | 0.0088 | **2.2× (z = +7.1)** |
 | 500 | 8.0 | 4 000 | 4 000 | 1.0 | ≈ 0.995 | collapse both ways |
 
@@ -141,7 +142,12 @@ For the protocol's choice of B, at the calibrated operating shape
   is therefore: **choose B = (N−1)/(RF + 1) instead of (N−1)/RF.** At
   this grid's shape that is B ≈ 235 rather than the balanced 250:
   gate-only at mean degree 17 gives ≈ 2 × 0.0088 × e^{−0.8} ≈ 0.0079,
-  back below the exact-K law's 0.0088 at RF = 16. The premium is
+  back below the exact-K law's 0.0088 at RF = 16. **The correction is
+  measured, not just derived**: the B = 235 cell lands at 68/8 000 =
+  0.0085, Wilson [0.0067, 0.0108] — the prediction inside (z = +0.61),
+  the exact-K law restored, the reduction vs the balanced point ×2.27
+  against the predicted ×2.26, and both defect classes shrunk in
+  lockstep (35 mute + 33 deaf vs ≈ 31 + 31 expected). The premium is
   independent of the δ target (the 2× is multiplicative on the law), so
   one extra link — ~6 % more traffic at RF = 16 — is the gate's entire
   coverage price wherever it is priced at all.
