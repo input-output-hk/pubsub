@@ -186,7 +186,7 @@ The protocol holds two registries on chain. Each entry is a script output whose 
 
 #### The node registry
 
-One entry per participating node. It binds a node identity to the topics that node takes part in, to a network endpoint at which it can be reached, and to a locked [deposit](#term-deposit).
+One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree. An entry MUST list at least one topic, and every topic it lists MUST be registered in the topic registry.
 
@@ -194,19 +194,94 @@ The deposit makes identities costly to mass-produce and is the whole of the prot
 
 The withdrawal delay is what keeps the deposit attached to a *standing* identity, and it does two things. A retiring entry is still in the snapshot the current epoch derives from, so other nodes hold links to it until that epoch ends; reclaiming immediately would leave the identity unbonded while it still occupies positions in the standing topology. **The delay MUST therefore be at least one epoch.** And because the deposit prices identities that stand rather than identities that once existed, the delay bounds how fast an operator can rotate them: without it, a single deposit funds a fresh identity every epoch, which is the re-registration the [Rationale](#the-adversary-this-proposal-defends-against) excludes from its adversary model. Its value beyond that floor is open.
 
+#### Address resolution
+
+Turning a registered identity into an address that can be dialled is specified here as an interface rather than a mechanism, in the same way the [beacon](#term-beacon) is. The topology never depends on an address: the snapshot fixes identities and topic interests, and nothing in the derivation, the gate, the handshake or the analysis reads an endpoint. What the protocol needs is only that a node which another node has derived a link to can be found, and that finding it cannot be spoofed. Any mechanism meeting four requirements conforms.
+
+It must be **authenticated to the node identity key**, so that an address is usable only where the identity the topology is derived over vouches for it. It must be **resolvable by every node that derives a link** to the one being addressed, since a dialler learns who its peers are from the registry rather than from whoever told it about them. It must be **refreshable within an epoch**, because an operator whose address changes mid-epoch would otherwise be unreachable until the next cutoff for no gain. And an address that cannot be resolved MUST be treated exactly as silence: a node that cannot be reached is indistinguishable from one that is registered and not forwarding, which is the [adversary](#the-adversary-this-proposal-defends-against) the analysis already assumes.
+
+Recording the endpoint in the node's registry entry is the RECOMMENDED mechanism, and it is the one this proposal specifies. It meets all four by construction, and it removes the bootstrap problem rather than relocating it: the chain is the entry point, so there are no seed nodes to advertise, attack, or keep online. Its cost is that every participant's address is public and permanent, which for stake pool operators inverts the practice of keeping block-producing infrastructure unadvertised. A deployment unwilling to pay that cost MAY leave the endpoint list empty and resolve addresses off-chain instead. Signed address records are the candidate: because identity is rooted in the registry rather than in the layer that distributes addresses, such a record is self-authenticating, so that layer can withhold an address but cannot forge one. What it does not supply is an entry point, and that gap, along with the choice between the two mechanisms, is among the questions [Path to Active](#acceptance-criteria) leaves open.
+
+One participant needs no address at all. A [publisher](#identity-and-keys) key need not belong to a registered node, so an authorised key held on an unregistered machine has no position in the topology, no deposit and no endpoint, and a node run by the same operator injects the messages it signs. Because a publisher signature is end to end and relays never re-sign, such a publisher trusts its injecting node for availability only, never for authenticity or integrity. This is available on topics that name their publisher keys, and not on open topics, where publishing is reserved to registered nodes.
+
 #### The topic registry
 
-One entry per topic. It binds a topic identifier to the set of keys authorised to publish on it, to the owner permitted to change that set, and to the topic's retention window. An empty publisher set means the topic is open: any registered node may publish to it. Removing an entry ends the topic, and nodes MUST drop their subscriptions and tear down their links for a topic whose entry no longer exists.
+One entry per topic. It binds a topic identifier to the set of keys authorised to publish on it, to the owner permitted to change that set, and to the topic's retention window. An empty publisher set means the topic is open: any registered node may publish to it.
 
 The topic registry is global and read by every node, because whether a topic exists and who may publish on it are facts about the network rather than about any node.
 
+A topic entry moves through three operations of its own, and the third is *announced* rather than immediate.
+
+**Step 1. Creation.** Creates the entry and brings the topic into existence.
+
+1. The topic identifier MUST be the blake2b-256 hash of the output that creates the entry, which makes identifiers unforgeable and collision-free without a naming authority.
+2. The retention window MUST be at least one epoch, for the reason [Dissemination, recovery and retention](#dissemination-recovery-and-retention) gives.
+3. The entry MAY carry an empty publisher set, which opens the topic to every registered node.
+
+**Step 2. Changing the authorised publishers.** Replaces the publisher set.
+
+1. Only the owner credential named in the entry MAY change the set.
+2. Removing a key ends that key's authority to publish; messages it signed earlier remain verifiable and are unaffected.
+
+<!-- OPEN(authorisation-position): whether a recipient evaluates publisher
+     authorisation at the chain tip or at the epoch's snapshot is not fixed
+     here, and the two differ for a key added or removed mid-epoch. The receive
+     path under Messages states the order of checks, not the chain position
+     they read. Decide with the topic-registry section owner (#133). -->
+
+**Step 3. Ending the topic.** A topic ends at an epoch boundary, announced in advance.
+
+1. The owner MUST announce the end by recording in the entry the epoch *e*<sub>end</sub> at which it takes effect.
+2. *e*<sub>end</sub> MUST be an epoch whose registration cutoff has not yet passed, so that every node sees the announcement in the snapshot of the epoch the end takes effect in.
+3. Until *e*<sub>end</sub> the topic is live in every respect: nodes keep their subscriptions, derive links for it, and publish and relay on it as normal.
+4. From *e*<sub>end</sub> the topic MUST be excluded from topology derivation, and nodes MUST drop their subscriptions and tear down their links for it at that epoch boundary.
+5. The owner MAY move *e*<sub>end</sub> later or cancel the end, provided the change is itself announced before the cutoff of the epoch it affects.
+6. The entry MAY be removed from the chain once *e*<sub>end</sub> has passed.
+
+The announcement exists because the alternative does not work. Removing an entry outright ends the topic at the chain tip, while every node derives its topology from the epoch's snapshot, so the two rules read different chain positions: nodes tearing down links the moment they see a removal would disagree with nodes still deriving that topic from the snapshot, and a message in flight would be relayed by some and dropped by others. Announcing an end and applying it at an epoch boundary puts topic lifetime on the same clock as everything else the topology depends on, in the same way that a stake pool's retirement names a future epoch rather than taking effect on submission.
+
+Two consequences follow. A node entry may outlive a topic it lists, so a listed topic that has ended is simply excluded from that node's derivation, and a node left with no live topic takes part in no topology until it updates its entry, which the announcement gives it an epoch's notice to do. And retention is unaffected: messages already forwarded stay in caches for the retention window, so a subscriber can still recover from a topic that has just ended.
+
 #### Lifecycle and the registration cutoff
 
-Four operations change registry state. **Registration** creates a node entry, locking the deposit. **Update** replaces the topic-interest set, the endpoint, or both. **Retirement** marks an entry withdrawing and starts the withdrawal delay. **Claim** takes the deposit once the delay has elapsed. Retirement is the orderly path; a node that simply stops responding leaves its entry standing, and is treated by everyone else as a registered node that happens not to be forwarding.
+A node entry moves through four operations, and every epoch is derived from a snapshot taken at a fifth point. Each step below states its constraints normatively, with the reasoning after them.
 
-Each epoch is derived from a *snapshot* of the registries, taken at that epoch's **registration cutoff**. The cutoff MUST fall strictly before the point at which the epoch's randomness *η*<sub>e</sub> is determined. This ordering is what makes neighbour selection non-influenceable: a node registering, retiring or changing its topics cannot see the randomness it will be positioned by, so it cannot choose an identity or a moment that places it near a chosen victim. The converse obligation falls on the beacon, and is stated in [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon).
+**Step 1. Registration.** Creates a node entry and locks the [deposit](#term-deposit).
 
-The snapshot fixes exactly the inputs the topology is a function of: the set of registered identities and their topic interests. It does not fix the endpoint, which is read at the chain tip, because reachability is not an input to the derivation and a node whose address changes mid-epoch would otherwise be unreachable until the next cutoff for no gain. An operator changing endpoints therefore submits one transaction and remains reachable; an operator changing topics waits for the next epoch.
+1. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry.
+2. The transaction MUST lock the deposit, which stays locked for as long as the entry stands.
+3. An identity MUST NOT hold more than one entry. The identity key is the entry's key, so a second entry for it is not a second identity but a malformed registry.
+4. The entry participates in dissemination from the first epoch whose snapshot contains it, never from the moment it lands on chain.
+
+**Step 2. Update.** Replaces the topic-interest set, the endpoint, or both.
+
+1. Only the operator credential named in the entry MAY update it.
+2. Every newly listed topic MUST have an active entry in the topic registry, and the set MUST remain non-empty.
+3. A changed topic set takes effect at the next registration cutoff, because the topic set is an input the topology is derived from.
+4. A changed endpoint list takes effect at the chain tip, because reachability is not such an input, and it MAY be emptied by a node resolving its address off-chain instead.
+
+That asymmetry is deliberate: an operator changing endpoints submits one transaction and remains reachable, while an operator changing topics waits for the next epoch. A node whose address changed mid-epoch would otherwise be unreachable until the next cutoff for no gain.
+
+**Step 3. Retirement.** Marks an entry withdrawing and starts the withdrawal delay.
+
+1. Only the operator credential MAY retire the entry.
+2. The entry remains in every snapshot already taken, so the node MUST continue to serve the links derived for the epoch in progress.
+3. The entry MUST NOT appear in the snapshot of any later epoch.
+
+Retirement is the orderly path. A node that simply stops responding leaves its entry standing and is treated by everyone else as a registered node that happens not to be forwarding, which is indistinguishable from the adversary the [Rationale](#the-adversary-this-proposal-defends-against) analyses.
+
+**Step 4. Claim.** Takes the deposit back.
+
+1. The claim MUST NOT succeed before the epoch recorded in the entry as `claimable_from`.
+2. That epoch MUST be at least one epoch after the retirement, for the reasons given under [The node registry](#the-node-registry).
+
+**Step 5. The snapshot and the registration cutoff.** Each epoch is derived from a *snapshot* of both registries, taken at that epoch's **registration cutoff**.
+
+1. The cutoff MUST fall strictly before the point at which the epoch's randomness *η*<sub>e</sub> is determined.
+2. A node MUST derive the epoch from the snapshot, and MUST NOT derive it from the chain as it currently stands.
+3. The snapshot fixes exactly the inputs the topology is a function of: the registered identities and their topic interests. The endpoint is read at the tip and is not fixed by it.
+
+The cutoff ordering is what makes neighbour selection non-influenceable: a node registering, retiring or changing its topics cannot see the randomness it will be positioned by, so it cannot choose an identity or a moment that places it near a chosen victim. The converse obligation falls on the beacon, and is stated in [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon).
 
 > [!WARNING]
 > **A node derives an epoch from the snapshot, not from the chain as it currently stands.** The plain reading, that a node reads the registry and computes its peers, is wrong in the one case that matters: a registration that lands after the cutoff is visible at the tip and is *not* part of the epoch. Two nodes deriving from different chain positions would disagree about who is registered and refuse each other's dials. Deriving from the cutoff snapshot is what makes the derivation agree across the network.
@@ -221,7 +296,7 @@ node_registration =
   [ node_id       : node_key       ; identity public key; also the entry's key
   , operator      : credential     ; may update, retire and claim this entry
   , topics        : [+ topic_id]   ; authoritative topic interests, non-empty
-  , endpoints     : [+ endpoint]   ; ordered, most preferred first
+  , endpoints     : [* endpoint]   ; ordered, most preferred first; MAY be empty
   , deposit       : coin           ; locked while the entry stands
   , state         : node_state
   , format        : uint           ; entry format version; see Versioning
@@ -233,7 +308,7 @@ node_state =
 
 ; Redeemer for spending a node-registry entry.
 node_redeemer =
-    [ 0, topics : [+ topic_id], endpoints : [+ endpoint] ]  ; update
+    [ 0, topics : [+ topic_id], endpoints : [* endpoint] ]  ; update
   / [ 1 ]                                                   ; retire
   / [ 2 ]                                                   ; claim the deposit
 
@@ -245,12 +320,19 @@ topic_registration =
   , owner         : credential     ; may change publishers, or end the topic
   , publishers    : [* publisher_key]  ; empty = open to every registered node
   , retention     : uint           ; epochs; at least 1 (see Retention below)
+  , state         : topic_state
   , format        : uint
   ]
 
+topic_state =
+    [ 0 ]                          ; live
+  / [ 1, ends_at : epoch_no ]      ; ending, effective at that epoch
+
 topic_redeemer =
     [ 0, publishers : [* publisher_key] ]  ; set the authorised publishers
-  / [ 1 ]                                  ; end the topic
+  / [ 1, ends_at : epoch_no ]              ; announce the end, or move it later
+  / [ 2 ]                                  ; cancel a pending end
+  / [ 3 ]                                  ; remove the entry, once ended
 
 ; --- shared ------------------------------------------------------------------
 
@@ -1056,7 +1138,7 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 
 - [ ] Message persistence beyond the recovery window, and with it the omission problem: distinguishing a message withheld from one never published.
 - [ ] Fees and incentives, including whether a registration deposit decays in the absence of evidence of participation or remains a static Sybil-resistance cost.
-- [ ] Endpoint discovery, which this proposal places on-chain and which prior design notes place in gossiped signed descriptors.
+- [ ] An off-chain mechanism for [address resolution](#address-resolution), for deployments that will not publish endpoints on chain, and with it the entry-point question that the on-chain endpoint answers for free.
 
 <!-- For core categories (Ledger, Plutus, Network, Consensus) the following SHOULD be included: -->
 
