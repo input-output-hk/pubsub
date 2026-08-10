@@ -3,11 +3,11 @@
 <desc id="d">Two stacked panels sharing a serving-cap axis. The upper panel is the share of epochs delivering full coverage, the lower the number of honest dials refused for want of capacity. Raising the cap increases the slots an attacker holds on each victim and simultaneously restores coverage, because the damage is honest links refused rather than slots taken. At a bucket count of 125 the network never enters the failing regime at any cap tested.</desc>
 <rect width="860" height="620" rx="8" fill="#fcfcfb"/>
 <line x1="223.3" y1="132.0" x2="223.3" y2="488.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="223.3" y="508.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">cap 20</text>
+<text x="223.3" y="508.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">C = 20</text>
 <line x1="462.0" y1="132.0" x2="462.0" y2="488.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="462.0" y="508.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">cap 24</text>
+<text x="462.0" y="508.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">C = 24</text>
 <line x1="700.7" y1="132.0" x2="700.7" y2="488.0" stroke="#e2e0d8" stroke-width="1"/>
-<text x="700.7" y="508.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">cap 32</text>
+<text x="700.7" y="508.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">C = 32</text>
 <line x1="104.0" y1="308.0" x2="820.0" y2="308.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="94.0" y="312.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">0%</text>
 <line x1="104.0" y1="264.0" x2="820.0" y2="264.0" stroke="#e2e0d8" stroke-width="1"/>
@@ -73,7 +73,7 @@
 <text x="104.0" y="54.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">share of epochs in which every honest subscriber is reached · higher is better · bars are Wilson 95 %</text>
 <text x="104.0" y="334.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Why</text>
 <text x="104.0" y="349.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">honest dials refused for want of capacity, per run · log scale · lower is better</text>
-<text x="462.0" y="568.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Serving cap — peers one node will accept</text>
+<text x="462.0" y="568.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Serving cap C — peers one node will accept</text>
 <text x="38.0" y="590.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Raising the cap hands the attacker more of each victim's slots and still rescues the network: the harm is honest links starved of capacity,</text>
 <text x="38.0" y="606.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">not slots lost to the adversary. A gate at B = 125 never reaches the failing regime at any cap tested.</text>
 </svg>

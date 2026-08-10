@@ -42,6 +42,42 @@ def esc(s: str) -> str:
     return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
+def runs(s: str) -> str:
+    """Label markup, rendering `_{...}` as a subscript.
+
+    The prose writes its quantities with subscripts - p_bad, N_T, h_full - and a
+    figure that spells them differently reads as a different quantity. GitHub
+    strips <style>, so the shift is a presentation attribute on a tspan, and the
+    run after a subscript carries the opposite dy to restore the baseline.
+    """
+    s = str(s)
+    parts, i = [], 0
+    while (j := s.find("_{", i)) >= 0:
+        k = s.index("}", j)
+        parts.append(("lit", s[i:j]))
+        parts.append(("sub", s[j + 2:k]))
+        i = k + 1
+    parts.append(("lit", s[i:]))
+
+    out, shifted = [], False
+    for kind, txt in parts:
+        if kind == "sub":
+            out.append(f'<tspan font-size="0.72em" dy="0.26em">{esc(txt)}</tspan>')
+            shifted = True
+        elif txt:
+            if shifted:
+                # a run opening a tspan loses its leading space to whitespace
+                # collapsing, and "N_T− 1" is a different expression from "N_T − 1".
+                # Belt and braces: the non-breaking space survives a renderer that
+                # ignores xml:space, and xml:space one that collapses the nbsp.
+                txt = " " + txt[1:] if txt.startswith(" ") else txt
+                out.append(f'<tspan dy="-0.26em">{esc(txt)}</tspan>')
+            else:
+                out.append(esc(txt))
+            shifted = False
+    return "".join(out)
+
+
 def decade(v: float) -> str:
     return "10" + str(int(round(math.log10(v)))).translate(SUPERS)
 
@@ -65,7 +101,9 @@ def text(x, y, s, size=11.5, fill=INK_SOFT, anchor="start", weight=None, style=N
         a += f' font-weight="{weight}"'
     if style:
         a += f' font-style="{style}"'
-    return f"<text {a}>{esc(s)}</text>"
+    if "_{" in str(s):
+        a += ' xml:space="preserve"'
+    return f"<text {a}>{runs(s)}</text>"
 
 
 def line(x1, y1, x2, y2, stroke=GRID, w=1.0, cap=None, dash=None, opacity=None):
@@ -169,9 +207,9 @@ def fig_architecture() -> str:
          "no negotiation, no discovery layer, no peer's word taken for anything")
     stages = [
         (60, "Registered peers", ["every node registered", "on the topic"], verifiable),
-        (254, "Verifiable gate", ["H(η, T, a, b) mod B = 0", "leaves the eligible set"],
-         verifiable),
-        (448, "Pick", ["RF of them drawn", "by the node's own randomness"], private),
+        (254, "Verifiable gate", ["H(d, η, T, a, b) mod B = 0",
+                                  "leaves the eligible set"], verifiable),
+        (448, "Pick", ["k of them drawn", "by the node's own randomness"], private),
         (642, "Link set", ["dialled, verified, accepted", "held for the whole epoch"],
          INK_SOFT),
     ]
@@ -186,7 +224,8 @@ def fig_architecture() -> str:
                   10, private))
 
     b.append(arrow(430, 372, 430, 408, RULE, 1.6))
-    b.append(text(440, 394, "one signed handshake per link", 10, "#8a887e"))
+    b.append(text(440, 394, "one signed handshake per link, up to the serving cap C",
+                  10, "#8a887e"))
 
     band(416, 120, "Over those links, until the epoch ends",
          "publisher to subscribers, and never over the chain")
@@ -222,9 +261,9 @@ def fig_derivation() -> str:
     arithmetic and the acceptor's checks were boxed text inside the drawing,
     which is markdown's job, not SVG's - they live in the prose around it now.
     The counts are a miniature at exactly the sizing rule the Specification
-    fixes: 32 registered peers, B = 4, so 8 eligible, RF = 4 picked, r = 2.
+    fixes: 32 registered peers, B = 4, so 8 eligible, k = 4 picked, r = 2.
     """
-    W, H = 860, 300
+    W, H = 860, 312
     b = []
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
@@ -237,18 +276,22 @@ def fig_derivation() -> str:
     step = (x1 - x0) / (n - 1)
 
     rows = [
-        (76, "Registered peers", "every peer registered on the topic at the cutoff",
-         f"N\u1d40 \u2212 1 = {n}"),
-        (150, "Eligible peers", "the gate holds for this node and this epoch",
-         f"\u2248 (N\u1d40 \u2212 1)/B = {len(eligible)}"),
-        (224, "Picks", "drawn from the eligible set, uniformly and without replacement",
-         f"RF = {rf}"),
+        (76, "Registered peers", ("every peer registered on the topic at the cutoff",),
+         f"N_{{T}} \u2212 1 = {n}"),
+        (150, "Eligible peers", ("the gate holds for this node and this epoch",),
+         f"\u2248 (N_{{T}} \u2212 1)/B = {len(eligible)}"),
+        (224, "Picks", ("drawn from the eligible set,",
+                        "uniformly and without replacement"), f"k = {rf}"),
     ]
+    # the two transitions are where B and r live, so the arrows carry them
+    steps = [f"the verifiable gate, B = {buckets}",
+             f"selection headroom r = (N_{{T}} \u2212 1)/(B\u00b7k) = {n / (buckets * rf):g}"]
     for k, (y, head, sub, count) in enumerate(rows):
         col = private if k == 2 else (verifiable if k == 1 else INK_SOFT)
         b.append(text(38, y - 4, head, 12.5, INK, weight="600"))
-        b.append(text(38, y + 11, sub, 9.5, "#8a887e"))
-        b.append(text(38, y + 25, count, 10.5, col, weight="600"))
+        for j, s in enumerate(sub):
+            b.append(text(38, y + 11 + j * 12, s, 9.5, "#8a887e"))
+        b.append(text(38, y + 25 + (len(sub) - 1) * 12, count, 10.5, col, weight="600"))
         for i in range(n):
             cx = x0 + i * step
             if k == 0:
@@ -264,10 +307,11 @@ def fig_derivation() -> str:
                 else:
                     b.append(circle(cx, y, 4.6, SURFACE, GRID, 1.5))
         if k < 2:
-            b.append(arrow(x0 + (x1 - x0) / 2, y + 20, x0 + (x1 - x0) / 2, y + 50,
-                           RULE, 1.4))
+            xm = x0 + (x1 - x0) / 2
+            b.append(arrow(xm, y + 20, xm, y + 50, RULE, 1.4))
+            b.append(text(xm + 12, y + 40, steps[k], 10, "#8a887e"))
 
-    b.append(text(38, 276, "Rows one and two are recomputable by anyone holding the "
+    b.append(text(38, 290, "Rows one and two are recomputable by anyone holding the "
                   "chain; row three is the node's own draw, and not required to be "
                   "checkable.", 11, INK_SOFT, style="italic"))
 
@@ -275,7 +319,7 @@ def fig_derivation() -> str:
                  "Three rows of markers over the same peers. The first row is every peer "
                  "registered on the topic at the epoch's registration cutoff. The second "
                  "marks those for which the verifiable gate holds, roughly one in B of "
-                 "them. The third marks the RF the node actually picks from that eligible "
+                 "them. The third marks the k the node actually picks from that eligible "
                  "set, drawn with its own randomness. The first two rows are publicly "
                  "recomputable; the third is private.")
 
@@ -320,15 +364,15 @@ def fig_validation(cells, churn=()) -> str:
                         SURFACE if churned else SERIES[c["model"]],
                         SERIES[c["model"]] if churned else SURFACE, 1.8 if churned else 1.6))
 
-    b.append(text(ml + pw / 2, H - 34, "P(bad) predicted by the coverage law",
+    b.append(text(ml + pw / 2, H - 34, "p_{bad} predicted by the coverage law",
                   12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 18,
                   "log scale, each gridline ×10 — left: almost never fails · "
                   "right: fails most epochs", 11, INK_SOFT, "middle"))
     b.append(f'<text x="0" y="0" transform="translate(22,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
-             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'P(bad) measured</text>')
+             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" '
+             f'xml:space="preserve">{runs("p_{bad} measured")}</text>')
     b.append(f'<text x="0" y="0" transform="translate(37,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
@@ -399,7 +443,7 @@ def fig_cost_state(ops) -> str:
     b.append(text(ml + 6, mt + ph - 8, "↙ cheaper on both axes = better",
                   11, INK_SOFT, style="italic"))
     # marker size carries a third axis, so it needs its own key
-    b.append(text(ml + 14, mt + 20, "marker size = hops to reach the last subscriber",
+    b.append(text(ml + 14, mt + 20, "marker size = hops to full coverage h_{full}",
                   10.5, "#8a887e"))
     for dx, hops in ((22, 4.8), (86, 5.9)):
         r = 4 + (hops - 4.5) * 5.5
@@ -407,14 +451,14 @@ def fig_cost_state(ops) -> str:
         b.append(text(ml + 14 + dx + r + 6, mt + 48, f"{hops}", 10.5, "#8a887e"))
 
     b.append(text(ml + pw / 2, H - 36,
-                  "State cost — connections each node holds open all epoch",
+                  "State cost — standing links per node d",
                   12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 20, "right = more connection slots and churn surface",
                   11, INK_SOFT, "middle"))
     b.append(f'<text x="0" y="0" transform="translate(26,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'Bandwidth cost — copies per honest node</text>')
+             f'{runs("Bandwidth cost — copies per honest node c")}</text>')
     b.append(f'<text x="0" y="0" transform="translate(41,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
@@ -463,10 +507,10 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     MUTED = [("M5", "5 4"), ("M1", "2 3")]
 
     AXES = [
-        ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True),
-        ("Connection economy", "standing links", lambda o: o["standing_links"], True),
-        ("Speed", "hops to last subscriber", lambda o: o["hops_full"], True),
-        ("Churn tolerance", "downtime absorbed", lambda o: o["churn_budget_pct"], False),
+        ("Bandwidth economy", "copies per honest node c", lambda o: o["copies_per_node"], True),
+        ("Connection economy", "standing links per node d", lambda o: o["standing_links"], True),
+        ("Speed", "hops to full coverage h_{full}", lambda o: o["hops_full"], True),
+        ("Churn tolerance", "churn budget p_{max}", lambda o: o["churn_budget_pct"], False),
     ]
     # the design leading each axis is whichever of the shown set is best on it,
     # rather than a fixed assignment that goes stale when the set changes
@@ -549,18 +593,18 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
             continue
         b.append(text(vx, vy - 72, vals, 10.5, "#8a887e", "middle"))
 
-    b.append(text(38, 556, "Every axis is oriented so that outward is better: less "
-                  "bandwidth used, fewer connections held, fewer hops to the last "
-                  "subscriber, more downtime absorbed.", 11, INK_SOFT, style="italic"))
+    # the four quantities are named at their own axes, so the orientation note
+    # does not enumerate them again - it ran off the canvas when it did
+    b.append(text(38, 556, "Every axis is oriented so that outward is better.",
+                  11, INK_SOFT, style="italic"))
     b.append(text(38, 572, "Each design is scored against the best of the three and "
                   "labelled at the axis where it leads.", 11, INK_SOFT, style="italic"))
     b.append(text(38, 588, "Three axes are measured directly; churn tolerance is read "
                   "off the coverage law, whose behaviour under churn was measured "
                   "separately.", 11, INK_SOFT, style="italic"))
     b.append(text(38, 604, "Radial position is the ratio to the best value on that axis, "
-                  "so half-way out is half as good; the centre is zero downtime on the "
-                  "churn axis and unbounded cost on the other three.",
-                  11, INK_SOFT, style="italic"))
+                  "so half-way out is half as good; the centre is zero downtime, or "
+                  "unbounded cost.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Four-way trade-off across the surviving designs",
                  "One radar chart overlaying M2, M3 and M4 on four axes: bandwidth "
@@ -610,7 +654,7 @@ def fig_extrapolation(cells, ops) -> str:
 
     xt = X(1e-4)
     b.append(line(xt, mt - 22, xt, mt + ph, "#52514e", 1.4))
-    b.append(text(xt, mt - 28, "design target", 11, INK, "middle", "600"))
+    b.append(text(xt, mt - 28, "design target δ", 11, INK, "middle", "600"))
 
     for k, m in enumerate(order):
         y = mt + step * (k + 0.5)
@@ -630,7 +674,7 @@ def fig_extrapolation(cells, ops) -> str:
         b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.0f}\u00d7 rarer",
                       9.5, "#8a887e", "middle"))
 
-    b.append(text(ml + pw / 2, H - 44, "P(bad) — chance an epoch's wiring fails",
+    b.append(text(ml + pw / 2, H - 44, "p_{bad} — chance an epoch's wiring fails",
                   12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 29, "log scale, each gridline ×10",
                   11, INK_SOFT, "middle"))
@@ -723,7 +767,7 @@ def fig_gate_tradeoff(g) -> str:
                   f"B = {rec['B']}, recommended", 12, "#1e8f5e", weight="650"))
 
     b.append(text(ml, top - 34, "What the gate costs in coverage", 12.5, INK, weight="600"))
-    b.append(text(ml, top - 19, "P(bad) measured, with Wilson 95 % intervals \u00b7 log scale "
+    b.append(text(ml, top - 19, "p_{bad} measured, with Wilson 95 % intervals \u00b7 log scale "
                   "\u00b7 lower is better", 10.5, "#8a887e"))
     b.append(text(ml, bot - 20, "What the gate buys against a flooder", 12.5, INK, weight="600"))
     b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network "
@@ -782,7 +826,7 @@ def fig_cap_tradeoff(g) -> str:
     b = []
     for i, cap in enumerate(CAPS):
         b.append(line(X(i), top, X(i), bot + ph2, GRID, 1))
-        b.append(text(X(i), bot + ph2 + 20, f"cap {cap}", 11, INK_SOFT, "middle", "600"))
+        b.append(text(X(i), bot + ph2 + 20, f"C = {cap}", 11, INK_SOFT, "middle", "600"))
     for v in (0.0, 0.25, 0.5, 0.75, 1.0):
         b.append(line(ml, Y1(v), ml + pw, Y1(v), GRID, 1))
         b.append(text(ml - 10, Y1(v) + 4, f"{v * 100:.0f}%", 10.5, INK_SOFT, "end"))
@@ -840,7 +884,7 @@ def fig_cap_tradeoff(g) -> str:
     b.append(text(ml, bot - 7, "honest dials refused for want of capacity, per run · "
                   "log scale · lower is better", 10.5, "#8a887e"))
 
-    b.append(text(ml + pw / 2, H - 52, "Serving cap — peers one node will accept",
+    b.append(text(ml + pw / 2, H - 52, "Serving cap C — peers one node will accept",
                   12.5, INK, "middle", "600"))
     b.append(text(38, H - 30, "Raising the cap hands the attacker more of each victim's "
                   "slots and still rescues the network: the harm is honest links "
