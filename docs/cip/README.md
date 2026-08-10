@@ -641,12 +641,36 @@ Short epochs are undemanding: an hourly epoch asks only that a node stay up for 
 ### Acceptance Criteria
 <!-- Describes what are the acceptance criteria whereby a proposal becomes 'Active' -->
 
-<!-- For core categories (Ledger, Plutus, Network, Consensus) the following SHOULD be included:
+This proposal is deliberately not implementation-ready. It establishes what the dissemination family costs and what it guarantees, and it leaves named choices open where the evidence does not settle them. The list below is what would close them, and it is the honest inventory of what this document does *not* decide.
+
+**Before a design can be built from this**
+
+- [ ] A dissemination design is selected and its parameters fixed. The evidence narrows the field to two and does not choose between them; what decides it is whether an operator's binding constraint is traffic or held connections.
+- [ ] The admission parameters gain a closed-form model. The verifiable gate and the serving cap exist only in the reference implementation and in the measurements of them, so they are the one part of this proposal resting on a single instrument.
+- [ ] Those parameters gain evidence covering the selected design. The measurements run M2's wiring and carry to M3 and M5; they exclude M4, which is one of the two candidates.
+- [ ] The randomness beacon is specified. It sets the epoch floor and, through it, decides whether the churn ceiling binds at all.
+- [ ] Node behaviour is specified at the seams the analysis does not reach: refused-dial retry within an epoch, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients.
+
+**Choices this proposal poses rather than answers**
+
+- [ ] The adversarial fraction to size against, and separately the coordinated Sybil budget the gate is provisioned for. The gate divides an attacker's reach by the bucket count, and the bucket count cannot exceed what the topic's own size allows, so on a small topic the protection is correspondingly small.
+- [ ] The epoch length, the retention window, and the per-epoch failure target. None is derivable from the analysis; each is a deployment choice the analysis prices.
+- [ ] The network size below which these designs need something other than a parameterisation of themselves. Every measurement here is at thousands of participants; several use cases put tens of nodes on a topic, and whether that regime is served by this design, by a degenerate case of it, or by an additional mechanism is unestablished.
+
+**Left to the layers this proposal does not define**
+
+- [ ] Message persistence beyond the recovery window, and with it the omission problem: distinguishing a message withheld from one never published.
+- [ ] Fees and incentives, including whether a registration deposit decays in the absence of evidence of participation or remains a static Sybil-resistance cost.
+- [ ] Endpoint discovery, which this proposal places on-chain and which prior design notes place in gossiped signed descriptors.
+
+<!-- For core categories (Ledger, Plutus, Network, Consensus) the following SHOULD be included: -->
+
 - [ ] Implementation present within block producing nodes used by 80%+ of stake
--->
 
 ### Implementation Plan
 <!-- A plan to meet those criteria or `N/A` if an implementation plan is not applicable. -->
+
+The criteria above fall into three groups and only the first blocks a specification. Selecting the design and closing the admission-parameter gap are experiment and analysis work, and both are scoped: the design choice needs evidence about operators rather than about the protocol, and the admission parameters need a closed form to sit alongside the measurements already taken. The deployment choices need a deployment to argue against, and are best settled with the stake pools, wallet backends and dApp infrastructure expected to run the layer. The deferred layers are separate proposals, and this one is written so that it does not presume their answers.
 
 <!--
 OPTIONAL SECTIONS (see CIP-0001 > Document > Structure table for details):
