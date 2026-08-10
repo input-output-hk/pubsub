@@ -227,7 +227,7 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
 
 The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
 
-In the figure below each point is one such configuration: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch. Filled marks are the configurations above; hollow ones are a further 29 measured under honest downtime, described under Robustness, and are included here because they test the same laws along a second axis.
+In the figure below each point is one measured sample: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. There are 24 rather than 23, because one configuration carries a second, larger sample discussed below. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch. Filled marks are the configurations above; hollow ones are a further 29 measured under honest downtime, described under Robustness, and are included here because they test the same laws along a second axis.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
@@ -240,7 +240,7 @@ In the figure below each point is one such configuration: its horizontal positio
 
 The points lie on the diagonal across the whole range. Per configuration, the law falls inside the measurement's 95 % interval in 22 of the 23. The exception is one 1 500-draw configuration, whose independent 6 000-draw resample brings it inside.
 
-Per-configuration agreement is the weaker claim, though, because with 23 comparisons a few near-misses are expected and a consistent small bias would hide behind them. The stronger check is aggregate: across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, which over 22 comparisons is not distinguishable from zero. The spread of those deviations is 0.83 against the 1.0 that pure sampling noise would produce, so the agreement is if anything closer than chance alone would give.
+Per-configuration agreement is the weaker claim, though, because with 23 comparisons a few near-misses are expected and a consistent small bias would hide behind them. The stronger check is aggregate: across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, which over 22 comparisons is not distinguishable from zero. The spread of those deviations is 0.84 against the 1.0 that pure sampling noise would produce, so the agreement is if anything closer than chance alone would give.
 
 > [!IMPORTANT]
 > The same comparison against the analysis team's own independent simulators gives a mean standardised deviation of +0.05 over 22 paired configurations. **The two implementations are statistically indistinguishable from each other and from the laws**, which is the claim this section exists to support.
@@ -384,7 +384,7 @@ Every operating point in Table 4 was chosen by the same rule: the cheapest confi
 
 Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 standing links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
 
-In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are omitted, both being beaten on all four by a design that is shown. The churn axis is read off the coverage laws rather than sampled directly.
+In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted dashed outlines rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is read off the coverage laws rather than sampled directly.
 
 <div align="center">
 <a name="figure-4" id="figure-4"></a>

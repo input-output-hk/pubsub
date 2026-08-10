@@ -204,10 +204,14 @@ def fig_cost_state(ops) -> str:
         seen.setdefault((o["standing_links"], o["copies_per_node"]), []).append(o)
 
     for (sl, cp), group in seen.items():
-        r = 4 + (max(g["hops_full"] for g in group) - 4.5) * 5.5
-        if len(group) > 1:
-            b.append(circle(X(sl), Y(cp), r + 3.5, SERIES[group[0]["model"]], SURFACE, 1.6))
-        b.append(circle(X(sl), Y(cp), r, SERIES[group[-1]["model"]], SURFACE, 1.6))
+        # Designs sharing a coordinate are drawn concentrically, each at its own
+        # radius, slowest first. An arbitrary halo offset would read as an encoded
+        # hop count that belongs to neither of them.
+        stack = sorted(group, key=lambda g: -g["hops_full"])
+        for g in stack:
+            b.append(circle(X(sl), Y(cp), 4 + (g["hops_full"] - 4.5) * 5.5,
+                            SERIES[g["model"]], SURFACE, 1.6))
+        r = 4 + (stack[0]["hops_full"] - 4.5) * 5.5
         label = "  /  ".join(f"{g['model']} · {g['params']}" for g in group)
         b.append(text(X(sl), Y(cp) - r - 10, label, 12, INK, "middle", "600"))
 
@@ -271,8 +275,11 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
         if a.get("preferred"):
             by[a["model"]] = a
     # M5 and M1 are dominated once each design is allowed its best known
-    # parameters; M2 stays as the conservative reference.
+    # parameters; M2 stays as the conservative reference. The dominated pair is
+    # still drawn, muted, so the reader can see that they are inside the others
+    # everywhere rather than having to take the claim on trust.
     SHOWN = ["M3", "M4", "M2"]
+    MUTED = [("M5", "5 4"), ("M1", "2 3")]
 
     AXES = [
         ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True),
@@ -305,6 +312,21 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
         dash = "4 4" if i == 3 else None          # law-derived, not sampled
         b.append(line(cx, cy, cx + R * _m.cos(a), cy + R * _m.sin(a),
                       "#c4c2b9" if i == 3 else GRID, 1, dash=dash))
+
+    # the dominated pair first, so the contending designs draw over them
+    for m, dash in MUTED:
+        pts = " ".join(
+            f"{cx + R * score(m, i) * _m.cos(ang[i]):.1f},"
+            f"{cy + R * score(m, i) * _m.sin(ang[i]):.1f}" for i in range(4))
+        b.append(f'<polygon points="{pts}" fill="none" stroke="{RULE}" stroke-width="1.4" '
+                 f'stroke-dasharray="{dash}" stroke-linejoin="round"/>')
+
+    b.append(text(38, 30, "dominated on all four axes, drawn for reference:",
+                  10.5, "#8a887e"))
+    for k, (m, dash) in enumerate(MUTED):
+        y = 48 + k * 18
+        b.append(line(38, y - 4, 66, y - 4, RULE, 1.4, dash=dash))
+        b.append(text(73, y, f"{m} · {by[m]['params']}", 10.5, "#8a887e"))
 
     for m in SHOWN:
         col = SERIES[m]
@@ -366,7 +388,9 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "outer ring. M4 reaches it on connection economy and on churn tolerance, "
                  "and is the most even shape; M3 reaches it on bandwidth alone and sits "
                  "under a third of the way out on churn tolerance; M2 reaches it on speed "
-                 "and is innermost on the other three.")
+                 "and is innermost on the other three. M5 and M1 are drawn as muted dashed "
+                 "outlines: each lies inside a contending design on every axis, which is "
+                 "what being dominated looks like.")
 
 
 # ------------------------------------------------------------------ figure 4
