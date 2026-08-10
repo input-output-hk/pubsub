@@ -500,8 +500,12 @@ def fig_gate_tradeoff(g) -> str:
     cpts = [(X(c["B"]), Y2(g["sybils_for_concentration"] / c["B"])) for c in cells]
     b.append(f'<path d="{" ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(cpts))}" '
              f'fill="none" stroke="{SERIES["M4"]}" stroke-width="2.2" stroke-linejoin="round"/>')
-    for x, y in cpts:
-        b.append(circle(x, y, 4.4, SERIES["M4"], SURFACE, 1.6))
+    # filled where E12 measured the concentration, hollow where K/B is predicted only
+    for c, (x, y) in zip(cells, cpts):
+        if c.get("concentration_measured"):
+            b.append(circle(x, y, 4.4, SERIES["M4"], SURFACE, 1.6))
+        else:
+            b.append(circle(x, y, 4.0, SURFACE, SERIES["M4"], 1.8))
 
     b.append(circle(X(rec["B"]), Y1(rec["bad"] / rec["runs"]), 8.5, "none", "#1e8f5e", 2.0))
     b.append(circle(X(rec["B"]), Y2(g["sybils_for_concentration"] / rec["B"]), 8.5, "none", "#1e8f5e", 2.0))
@@ -514,6 +518,8 @@ def fig_gate_tradeoff(g) -> str:
     b.append(text(ml, bot - 20, "What the gate buys against a flooder", 12.5, INK, weight="600"))
     b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network "
                   "\u00b7 lower is better", 10.5, "#8a887e"))
+    b.append(text(ml + pw - 4, bot + 12, "filled = measured \u00b7 hollow = predicted K/B",
+                  9.5, "#8a887e", "end"))
     b.append(text(ml + pw / 2, H - 42, "Bucket count B", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
                   "right = a narrower gate: fewer survivors per node, and the attacker's "
@@ -528,7 +534,8 @@ def fig_gate_tradeoff(g) -> str:
                  "it must pick. Coverage stays on the "
                  "ungated law while survivor headroom is at least 2, then rises fivefold at "
                  "headroom 1 and collapses below it. Attacker concentration falls as the "
-                 "reciprocal of the bucket count throughout. The largest bucket count "
+                 "reciprocal of the bucket count throughout, measured at four of the seven "
+                 "bucket counts and predicted at the rest. The largest bucket count "
                  "retaining headroom is best on both.")
 
 
