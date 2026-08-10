@@ -33,7 +33,7 @@ License: CC-BY-4.0
 ## Abstract
 <!-- A short (\~200 word) description of the proposed solution and the technical issue being addressed. -->
 
-The Cardano ecosystem lacks a decentralised layer for [messages](#term-message) that must be trustworthy but do not belong on the chain itself. Emergency alerts to stake pool operators, notifications from pools to their delegators, dApp and wallet messaging, and governance communication all run on centralised infrastructure today, whose operators can censor, fabricate, or silently drop messages, so coordination around a Byzantine-fault-tolerant chain does not inherit its guarantees. Existing peer-to-peer solutions such as GossipSub do not close the gap: their resistance to eclipse rests on a discovery layer that admits freely created identities.
+The Cardano ecosystem lacks a decentralised layer for [messages](#term-message) that must be trustworthy but do not belong on the chain itself. Emergency alerts to stake pool operators, notifications from pools to their delegators, dApp and wallet messaging, and governance communication all run on centralised infrastructure today, whose operators can censor, fabricate, or silently drop messages, so coordination around a Byzantine-fault-tolerant chain does not inherit its guarantees. Existing peer-to-peer solutions such as GossipSub[^gossipsub] do not close the gap: their resistance to eclipse rests on a discovery layer that admits freely created identities.
 
 We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain serves as the protocol's trust root. [Nodes](#term-node) [register](#term-registry) on-chain, which makes identities verifiable and costly to mass-produce. Each [epoch](#term-epoch), verifiable on-chain randomness derives a fresh, degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target. The design is grounded in formal analysis and simulation at deployment scale, cross-validated between independent implementations.
 
@@ -60,7 +60,7 @@ Existing channels each provide some of these properties, none all three. An end-
 
 Substituting a peer-to-peer protocol for the centralised channel removes the operator but does not, on its own, supply the missing guarantee.
 
-Mature gossip protocols — GossipSub being the widely deployed example — are engineered against message-level attacks such as flooding and spam, and mitigate them with peer scoring and mesh hardening. Their resistance to *eclipse*, in which a victim's every neighbour is adversarial and its view of the network is controlled, ultimately rests on the peer discovery layer beneath. In the common libp2p deployment that layer admits freely created identities. An adversary willing to run many of them can influence which peers a target connects to, and neither peer scoring nor mesh hardening restores a guarantee that has been lost at the point of neighbour selection.
+Mature gossip protocols, of which GossipSub is the widely deployed example, are engineered against message-level attacks such as flooding and spam, and mitigate them with peer scoring and mesh hardening.[^gossipsub] Their resistance to *eclipse*, in which a victim's every neighbour is adversarial and its view of the network is controlled, ultimately rests on the peer discovery layer beneath. In the common libp2p deployment that layer admits freely created identities.[^libp2p] An adversary willing to run many of them can influence which peers a target connects to, and neither peer scoring nor mesh hardening restores a guarantee that has been lost at the point of neighbour selection.
 
 The missing ingredient is therefore not a better gossip mechanism. It is a peer set whose membership is costly to inflate and whose topology no participant can steer. Cardano already maintains the first: an on-chain [registry](#term-registry) with an associated cost is exactly a Sybil-resisted membership list. It also maintains the second: verifiable, unpredictable per-epoch randomness. A dissemination layer anchored on both can offer what neither a centralised broker nor an unanchored gossip mesh can.
 
@@ -130,7 +130,7 @@ this section stands alone. -->
 
 This section defines the protocol in full. It builds from the on-chain state upward: what the chain holds, what a node identity is, what an epoch and its randomness are, how a node derives the links it will hold, how those links are established, what a message is, and how messages travel and are recovered. One part of the design, and several parameter values, are deliberately left open; each is marked where it falls.
 
-The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in RFC 2119.
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ### Terminology
 
@@ -182,7 +182,7 @@ Three properties of that arrangement carry most of the design.
 
 ### On-chain state
 
-The protocol holds two registries on chain. Each entry is a script output whose datum carries the entry's content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This proposal specifies the datum schemas and the state transitions they must admit, and leaves the validator implementation to the deployment.
+The protocol holds two registries on chain. Each entry is a script output whose datum carries the entry's content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This proposal specifies the datum schemas, in CDDL,[^cddl] and the state transitions they must admit, and leaves the validator implementation to the deployment.
 
 #### The node registry
 
@@ -267,7 +267,7 @@ ipv6      = bytes .size 16
 
 ### Identity and keys
 
-A node identity is an Ed25519 public key, and the key itself rather than a hash of it, because peers verify signatures against it directly on every handshake. The corresponding private key is held by the node process. Three keys with distinct roles appear in the protocol, and an implementation MUST keep them distinct.
+A node identity is an Ed25519 public key,[^ed25519] and the key itself rather than a hash of it, because peers verify signatures against it directly on every handshake. The corresponding private key is held by the node process. Three keys with distinct roles appear in the protocol, and an implementation MUST keep them distinct.
 
 The **operator credential** authorises registry transactions. It is a payment credential in the ordinary Cardano sense, held wherever the operator holds keys, and is never used by the running node. The **node identity key** signs link-establishment messages, and is the identity the topology is derived over. The **publisher key** signs messages on a topic and is authorised by that topic's registry entry. A publisher key MAY coincide with a node identity key, and a single publisher key MAY be authorised on several topics, but the roles do not imply one another: authorisation to publish does not admit a key to the node registry, and registration does not authorise publication.
 
@@ -326,7 +326,7 @@ $$P = \mathrm{LP}(d) \,\|\, \mathrm{LP}(\eta) \,\|\, \mathrm{LP}(T) \,\|\, \math
 
 The gate is evaluated on the **ordered** pair for a directional link and on the pair sorted by identity bytes for a symmetric one, so that both ends of a symmetric link compute the identical draw and neither can claim an edge the other does not see. Each link kind uses its own domain tag, of the form `pubsub/gate/<kind>/v1`, so a node's choices for one kind are an independent draw from its choices for another.
 
-The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256 is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *K* identities has roughly *K*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
+The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *K* identities has roughly *K*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 #### Survivor headroom and the bucket count
 
@@ -1080,6 +1080,16 @@ CIP belong in the Rationale section, e.g. as an '### Open Questions' subsection.
 ## References
 
 [^accountable-liveness]: Andrew Lewis-Pye, Joachim Neu, Tim Roughgarden and Luca Zanolini. *Accountable Liveness.* IACR ePrint Archive, Report 2025/693. <https://eprint.iacr.org/2025/693>. Establishes accountability for liveness violations as a distinct problem from accountability for safety violations, and proves it unattainable both in networks that are more often asynchronous than synchronous and under an adversarial majority, neither restriction applying to safety accountability. Also formalises the guarantees underlying Ethereum's inactivity-leak mechanism.
+
+[^gossipsub]: Dimitris Vyzovitis, Yusef Napora, Dirk McCormick, David Dias and Yiannis Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>. The peer scoring and mesh hardening referred to here are specified in gossipsub v1.1, *Security extensions to improve on attack resilience and bootstrapping*: <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>.
+
+[^libp2p]: libp2p, the modular networking stack GossipSub is most widely deployed on. <https://libp2p.io>. Peer discovery in the usual deployment is its Kademlia DHT, in which a peer identity is a self-generated key pair rather than an entry in any registry: <https://github.com/libp2p/specs/tree/master/kad-dht>.
+
+[^cddl]: Concise Data Definition Language (CDDL), RFC 8610. <https://www.rfc-editor.org/rfc/rfc8610>. The registry schemas in this proposal are written against it, as CIP-0001 requires of a proposal that defines the structure of on-chain data.
+
+[^ed25519]: Edwards-Curve Digital Signature Algorithm (EdDSA), RFC 8032, of which Ed25519 is the instantiation used here. <https://www.rfc-editor.org/rfc/rfc8032>. It is the scheme Cardano already signs transactions and blocks with.
+
+[^hashes]: SHA-256 is specified in FIPS 180-4. <https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf>. The topic identifier's blake2b-256 is BLAKE2b truncated to 256 bits, specified in RFC 7693 <https://www.rfc-editor.org/rfc/rfc7693>, and is the hash Cardano already derives on-chain identifiers with.
 
 [^churn]: Churn tolerance, experiment E13. Thirty-four configurations in two rounds: twenty-five across the five designs with downtime swept from 0 to 12 % of the honest population, then nine at the operating points themselves at 20 to 30 %. About 111 000 draws; each scored against its design's coverage law evaluated at the shifted adversarial fraction, which together span 0.20 to 0.44. Method, full results and the unexplained residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md).
 
