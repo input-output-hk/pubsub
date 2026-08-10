@@ -873,7 +873,7 @@
    24,
    32
   ],
-  "note": "E12 serving-cap axis at N = 4 000, honest pick count 16. Within a (bucket count, attacker size) cell only the cap varies, so the cap axis isolates starvation damage from slot concentration. 150 runs per cell, 400 for the saturating attacker. Source: docs/experiments/e12-flooding-mitigation.md.",
+  "note": "E12 serving-cap axis at N = 4 000, honest pick count 16. Within a (bucket count, attacker size) cell only the cap varies, so the cap axis isolates starvation damage from slot concentration. 150 runs per cell, 400 for the saturating attacker. Source: docs/experiments/e12-flooding-mitigation.md. The B = 125 row was re-run independently to recover the starvation counts, which the original write-up tabulated only for B = 50; its good counts reproduced the published values exactly.",
   "series": [
    {
     "label": "B = 125, attacker at 20 %",
@@ -895,8 +895,17 @@
       400
      ]
     ],
-    "starved_per_run": null,
-    "adv_slots": null
+    "starved_per_run": [
+     2934,
+     717,
+     12
+    ],
+    "adv_slots": [
+     5.94,
+     6.29,
+     6.4
+    ],
+    "measured": "re-run locally from the committed config, seed and tool commit; good counts reproduced the published 388/394/396 of 400 exactly"
    },
    {
     "label": "B = 50, attacker at 10 %",
