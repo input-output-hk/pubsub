@@ -46,7 +46,13 @@ Cardano does not run itself. Behind the protocol sits a network of people and se
 
 Cardano has no standard way to deliver a [message](#term-message) that must be trustworthy but does not belong in a transaction. The chain settles state; it is not a medium for the operational and time-sensitive traffic around that state. Today that traffic runs on infrastructure outside the ecosystem's trust model: mailing lists, Discord and Telegram channels, vendor push services, and each provider's own backend.
 
-That arrangement has a specific consequence. Traffic of this kind needs three of the four classic communication-security properties. Authenticity: the recipient can verify who sent a message. Integrity: it arrived as written. Availability: it reaches everyone it should, when it should. Confidentiality, the fourth, is not required for the needs identified here, since these messages are broadcasts, meant to be read.
+That arrangement has a specific consequence. Traffic of this kind needs three of the four classic communication-security properties:
+
+- **Authenticity.** The recipient can verify who sent a message.
+- **Integrity.** It arrived as written.
+- **Availability.** It reaches everyone it should, when it should.
+
+Confidentiality, the fourth, is not required for the needs identified here, since these messages are broadcasts, meant to be read.
 
 Existing channels each provide some of these properties, none all three. An end-to-end encrypted messenger preserves integrity and confidentiality, but its notion of identity has no connection to Cardano's: a stake pool operator receiving an urgent notice cannot verify that it came from the protocol team it appears to come from, that it is the current version, or that other operators received it too. Availability fares worse, because each channel is a single privately run service. Messages can be dropped, delayed, or delivered selectively, through outage, compromise, or policy, and the recipient cannot tell which. The chain beneath is Byzantine-fault-tolerant; the channel used to coordinate around it is not. The weaker layer sets the effective guarantee.
 
