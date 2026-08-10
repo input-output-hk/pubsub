@@ -698,17 +698,13 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
      `make_cip_figures.py --check` fails if a committed SVG is stale, so the figures
      cannot drift from the data.
 
-     TODO(evidence) still outstanding:
-       1. the churn sweep (experiment E13) at the five operating points, which is what
-          "Robustness" below is waiting on;
-       2. depth histograms at those points, so the latency column becomes a
-          distribution rather than five rounded means;
-       3. cells.json emitted by the experiments tool directly, retiring the one-time
-          transcription from the comparison documents. -->
+     TODO(evidence): cells.json is still transcribed once by hand from the comparison
+     documents rather than emitted by the experiments tool. Until it is, the figures
+     are only as good as that transcription. -->
 
 #### Agreement between analysis and simulation
 
-The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 200 and 30 000 topologies and counts the bad ones; the count is compared against what that design's law predicts.
+The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, which is the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 150 and 30 000 topologies and counts the bad ones, and the two power runs described below draw 110 000 and 170 000; each count is compared against what that design's law predicts.
 
 In the figure below each point is one measured sample: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. There are 25 rather than 23, because the two designs still in contention each carry a second, much larger sample, discussed below. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch. Filled marks are the configurations above; hollow ones are a further 29 measured under honest downtime, described under Robustness, and are included here because they test the same laws along a second axis.
 
