@@ -1,0 +1,32 @@
+# Deep-tail comparison cell - M4 N=20000 RF=6: P(bad) pred 8.36e-3, MC
+# 260/30000 = 8.67e-3 (the formal deep-tail row; the study notes ~1.1x
+# small-component under-count in this regime).
+# mu = 0.2; run count matched to the formal MC row.
+
+model = "m4"
+master_seed = 822
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 6
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 6
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 110000
+
+# Deep-tail power run. Both studies note the coverage laws run mildly
+# optimistic where failures are rare, because they count single cut-off nodes
+# exactly and small cut-off groups only approximately. Neither side's existing
+# sample can size that correction: distinguishing a ten-percent effect at these
+# rates needs of the order of 1e5 draws, and the published cells are 3e4. A
+# fresh master seed keeps this independent of those, so the two can be pooled.

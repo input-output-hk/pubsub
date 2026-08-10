@@ -1,0 +1,29 @@
+# M2 RF=16 (the bulk-regime cell) swept over honest churn.
+# N = 4000, mu = 0.2; churn sweep for experiment E13.
+
+model = "m2"
+master_seed = 804
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 4000
+
+# Honest downtime is claimed to enter the coverage analysis as a shift of the
+# adversarial fraction to mu + p(1-mu). These points sit where P(bad) is large
+# enough to count, so the claim can be checked against the law read at the
+# shifted value. p_max itself is at P(bad) = 1e-4 and is not directly samplable.
+[[axes]]
+parameter = "churn"
+values = [0.0, 0.02, 0.05, 0.08, 0.12]

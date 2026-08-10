@@ -187,6 +187,17 @@ impl Participant {
         entries
     }
 
+    /// The node's **publisher** upstream links (peer, topic), sorted: the
+    /// standing initiation links other nodes opened to this one. Recorded
+    /// only once established, so unlike the dialed side there is no state
+    /// to filter on.
+    #[must_use]
+    pub fn publisher_upstream(&self) -> Vec<(PeerId, TopicId)> {
+        let mut entries = self.state.upstream_publishers();
+        entries.sort();
+        entries
+    }
+
     /// Whether the node holds an `Active` downstream link of `kind` for
     /// `(topic, peer)` — the driver's per-send kind-attribution read.
     #[must_use]

@@ -131,6 +131,11 @@ pub struct RunRecord {
     pub in_degree_hist: Vec<u64>,
     /// Post-churn out-degree histogram (index = degree).
     pub out_degree_hist: Vec<u64>,
+    /// Post-churn standing links held per up-honest node (index = count).
+    /// Counts connections rather than propagation edges, so unlike the
+    /// degree histograms above it includes links that carry no dissemination
+    /// traffic — M3's initiation links in particular.
+    pub standing_degree_hist: Vec<u64>,
     /// Pre-churn goodness — present iff the run drew churn (absent ≠ false).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub good_pre_churn: Option<bool>,
@@ -316,6 +321,10 @@ pub fn assemble_run_record(
         largest_scc: post_churn.verdict.largest_scc,
         in_degree_hist: post_churn.shape.in_degree_hist.clone(),
         out_degree_hist: post_churn.shape.out_degree_hist.clone(),
+        standing_degree_hist: super::graph::degree_histogram(&super::graph::standing_degrees(
+            population,
+            super::graph::ChurnPhase::PostChurn,
+        )),
         good_pre_churn: pre_churn.map(|pre| pre.verdict.good),
         min_publisher_coverage_pre_churn: pre_churn.map(|pre| pre.verdict.min_publisher_coverage),
         sinks_pre_churn: pre_churn.map(|pre| pre.shape.sinks),
