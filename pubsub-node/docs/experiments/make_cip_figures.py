@@ -88,6 +88,30 @@ def circle(cx, cy, r, fill, stroke=None, w=2.0, opacity=None):
     return f"<circle {a}/>"
 
 
+def rect(x, y, w, h, fill="none", stroke=GRID, sw=1.2, rx=6, dash=None):
+    a = (f'x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{rx}" '
+         f'fill="{fill}" stroke="{stroke}" stroke-width="{sw}"')
+    if dash:
+        a += f' stroke-dasharray="{dash}"'
+    return f"<rect {a}/>"
+
+
+def arrow(x1, y1, x2, y2, stroke=RULE, w=1.6, head=7.0):
+    """A line with an explicit triangular head.
+
+    SVG <marker> definitions do not survive GitHub's markdown sanitiser, so the
+    head is drawn as an ordinary polygon rather than referenced by marker-end.
+    """
+    dx, dy = x2 - x1, y2 - y1
+    ln = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / ln, dy / ln
+    bx, by = x2 - ux * head, y2 - uy * head
+    px, py = -uy * head * 0.5, ux * head * 0.5
+    return (line(x1, y1, bx, by, stroke, w, cap="round") + "\n"
+            + f'<polygon points="{x2:.1f},{y2:.1f} {bx + px:.1f},{by + py:.1f} '
+              f'{bx - px:.1f},{by - py:.1f}" fill="{stroke}"/>')
+
+
 def frame(w: int, h: int, body: list[str], title: str, desc: str) -> str:
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" '
@@ -100,6 +124,181 @@ def frame(w: int, h: int, body: list[str], title: str, desc: str) -> str:
 
 
 # ------------------------------------------------------------------ figure 1
+def fig_architecture() -> str:
+    """The Specification's opening map: what the parts are and what flows between them.
+
+    A structural diagram, so its content is literal rather than drawn from
+    cells.json. It stays in this script anyway, so that `--check` keeps every
+    figure in the CIP under one gate and the palette cannot drift.
+
+    Three bands, read downward, because that is the order the protocol runs in:
+    the chain supplies inputs, every node turns them into the same link set
+    independently, and messages then travel over those links.
+    """
+    W, H = 860, 566
+    b = []
+    verifiable = SERIES["M2"]
+    private = "#1e8f5e"
+
+    def band(y, h, title, subtitle):
+        b.append(rect(38, y, W - 76, h, SURFACE, GRID, 1.2, rx=8))
+        b.append(text(58, y + 24, title, 12.5, INK, weight="600"))
+        b.append(text(58, y + 40, subtitle, 10.5, "#8a887e"))
+
+    def box(x, y, w, h, head, sub, stroke=RULE, head_fill=INK):
+        b.append(rect(x, y, w, h, SURFACE, stroke, 1.4))
+        b.append(text(x + w / 2, y + 22, head, 11.5, head_fill, "middle", "600"))
+        for k, s in enumerate(sub):
+            b.append(text(x + w / 2, y + 38 + k * 13, s, 9.5, "#8a887e", "middle"))
+
+    band(38, 128, "On the Cardano chain",
+         "the trust root — public, and the same for everyone")
+    box(60, 92, 236, 62, "Node registry",
+        ["identity key · topic interests", "endpoint · deposit"], verifiable)
+    box(312, 92, 236, 62, "Topic registry",
+        ["topic identifier", "authorised publisher keys"], verifiable)
+    box(564, 92, 236, 62, "Randomness beacon",
+        ["one value per epoch", "fixed after the registration cutoff"], verifiable)
+
+    for x, lab in ((178, "membership at the cutoff"), (430, "publisher keys"),
+                   (682, "epoch randomness  η")):
+        b.append(arrow(x, 166, x, 202, RULE, 1.6))
+        b.append(text(x + 10, 188, lab, 10, "#8a887e"))
+
+    band(210, 150, "In every node, from those inputs alone",
+         "no negotiation, no discovery layer, no peer's word taken for anything")
+    stages = [
+        (60, "Candidate set", ["every node registered", "on the topic"], verifiable),
+        (254, "Verifiable gate", ["H(η, T, a, b) mod B = 0", "leaves the survivors"],
+         verifiable),
+        (448, "Pick", ["RF survivors drawn", "by the node's own randomness"], private),
+        (642, "Link set", ["dialled, verified, accepted", "held for the whole epoch"],
+         INK_SOFT),
+    ]
+    for x, head, sub, col in stages:
+        box(x, 266, 158, 62, head, sub, col, col if col != INK_SOFT else INK)
+    for x0 in (218, 412, 606):
+        b.append(arrow(x0 + 2, 297, x0 + 34, 297, RULE, 1.6))
+    b.append(text(60, 348, "Recomputable by anyone holding the chain", 10, verifiable,
+                  weight="600"))
+    b.append(text(304, 348, "→", 10, "#8a887e"))
+    b.append(text(324, 348, "the node's own draw, and not required to be checkable",
+                  10, private))
+
+    b.append(arrow(430, 372, 430, 408, RULE, 1.6))
+    b.append(text(440, 394, "one signed handshake per link, refused if the gate fails "
+                  "or the serving cap is full", 10, "#8a887e"))
+
+    band(416, 120, "Over those links, until the epoch ends",
+         "the chain anchors trust; it never carries the payload")
+    nodes = [(140, "publisher"), (350, "relay"), (560, "relay"), (770, "subscriber")]
+    for x, lab in nodes:
+        b.append(circle(x, 502, 13, SURFACE, INK_SOFT, 1.8))
+        b.append(text(x, 530, lab, 10.5, INK_SOFT, "middle"))
+    for x0, x1 in ((153, 337), (363, 547), (573, 757)):
+        b.append(arrow(x0, 502, x1, 502, RULE, 1.6))
+    b.append(text(430, 478, "signed once by the publisher, verified by every recipient, "
+                  "never re-signed", 10, "#8a887e", "middle"))
+
+    b.append(text(38, 556, "Every arrow above the link set carries public data; the "
+                  "topology is a function of it, so any participant can recompute and "
+                  "check another node's links.", 11, INK_SOFT, style="italic"))
+
+    return frame(W, H, b, "The protocol at a glance",
+                 "Three bands read downward. The Cardano chain holds a node registry, a "
+                 "topic registry and a per-epoch randomness beacon. Every node turns "
+                 "those public inputs into the same candidate set, applies the verifiable "
+                 "gate to obtain its survivors, picks from them with its own randomness, "
+                 "and holds the resulting links for the epoch. Messages then travel over "
+                 "those links from publisher through relays to subscribers, signed once "
+                 "end to end.")
+
+
+# ------------------------------------------------------------------ figure 2
+def fig_derivation() -> str:
+    """One node's links for one epoch, and where verifiability starts and stops.
+
+    Structural, like Figure 1. The counts are a deliberate miniature at exactly
+    the sizing rule the Specification fixes: 32 candidates, B = 4, so 8 survive,
+    and RF = 4 picked, giving survivor headroom r = 2.
+    """
+    W, H = 860, 420
+    b = []
+    verifiable = SERIES["M2"]
+    private = "#1e8f5e"
+
+    n, rf, buckets = 32, 4, 4
+    survivors = [i for i in range(n) if i % buckets == 1]      # 8 of the 32
+    picks = survivors[:: len(survivors) // rf][:rf]            # 4 of the 8
+
+    x0, x1 = 300, 812
+    step = (x1 - x0) / (n - 1)
+
+    rows = [
+        (76, "Candidates", "every peer registered on the topic at the cutoff",
+         f"Nᵀ − 1 = {n}"),
+        (150, "Survivors", "the gate holds for this node and this epoch",
+         f"≈ (Nᵀ − 1)/B = {len(survivors)}"),
+        (224, "Picks", "drawn from the survivors, uniformly and without replacement",
+         f"RF = {rf}"),
+    ]
+    for k, (y, head, sub, count) in enumerate(rows):
+        col = private if k == 2 else (verifiable if k == 1 else INK_SOFT)
+        b.append(text(38, y - 4, head, 12.5, INK, weight="600"))
+        b.append(text(38, y + 11, sub, 9.5, "#8a887e"))
+        b.append(text(38, y + 25, count, 10.5, col, weight="600"))
+        for i in range(n):
+            cx = x0 + i * step
+            if k == 0:
+                b.append(circle(cx, y, 4.6, SURFACE, RULE, 1.5))
+            elif k == 1:
+                if i in survivors:
+                    b.append(circle(cx, y, 4.6, verifiable, SURFACE, 1.5))
+                else:
+                    b.append(circle(cx, y, 4.6, SURFACE, GRID, 1.5))
+            else:
+                if i in picks:
+                    b.append(circle(cx, y, 4.6, private, SURFACE, 1.5))
+                elif i in survivors:
+                    b.append(circle(cx, y, 4.6, SURFACE, verifiable, 1.5))
+                else:
+                    b.append(circle(cx, y, 4.6, SURFACE, GRID, 1.5))
+        if k < 2:
+            b.append(arrow(x0 + (x1 - x0) / 2, y + 20, x0 + (x1 - x0) / 2, y + 50,
+                           RULE, 1.4))
+
+    b.append(line(38, 276, W - 38, 276, GRID, 1))
+    b.append(text(38, 300, "survivor headroom", 11.5, INK, weight="600"))
+    b.append(text(38, 318, "r = (Nᵀ − 1) / (B · RF)", 12, INK_SOFT))
+    b.append(text(38, 336, f"here {n} / ({buckets} · {rf}) = 2, the smallest value "
+                  "this proposal permits", 10, "#8a887e"))
+
+    b.append(rect(330, 284, 492, 96, SURFACE, RULE, 1.4, rx=8))
+    b.append(text(350, 306, "What the acceptor checks", 11.5, INK, weight="600"))
+    for k, s in enumerate((
+            "the dialler is registered on this topic, at this epoch's cutoff",
+            "the gate holds for the ordered pair, recomputed from public data",
+            "accepting would not exceed the serving cap C")):
+        b.append(circle(358, 322 + k * 17, 2.6, INK_SOFT))
+        b.append(text(370, 326 + k * 17, s, 10, INK_SOFT))
+
+    b.append(text(38, 402, "Publicly recomputable: that every link a node holds passes "
+                  "the gate. Private: which survivors it picked. The first is what makes "
+                  "the topology", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 416, "checkable; the second is what keeps it random.",
+                  11, INK_SOFT, style="italic"))
+
+    return frame(W, H, b, "Deriving one node's links for one epoch",
+                 "Three rows of markers over the same peers. The first row is every peer "
+                 "registered on the topic at the epoch's registration cutoff. The second "
+                 "marks those for which the verifiable gate holds, roughly one in B of "
+                 "them. The third marks the RF survivors the node actually picks, drawn "
+                 "with its own randomness. Survivor headroom is the ratio of the second "
+                 "row to the third, and this proposal requires it to be at least two. An "
+                 "acceptor checks registration, the gate, and its serving cap.")
+
+
+# ------------------------------------------------------------------ figure 3
 def fig_validation(cells, churn=()) -> str:
     W, H = 860, 500
     ml, mr, mt, mb = 86, 26, 22, 76
@@ -169,7 +368,7 @@ def fig_validation(cells, churn=()) -> str:
                  "95% intervals. Points lie on the diagonal across the whole range.")
 
 
-# ------------------------------------------------------------------ figure 2
+# ------------------------------------------------------------------ figure 4
 def fig_cost_state(ops) -> str:
     W, H = 860, 446
     ml, mr, mt, mb = 96, 40, 30, 80
@@ -246,7 +445,7 @@ def fig_cost_state(ops) -> str:
                  "M3 and M4 are jointly non-dominated.")
 
 
-# ------------------------------------------------------------------ figure 3
+# ------------------------------------------------------------------ figure 5
 def fig_tradeoffs(ops, alternatives=()) -> str:
     """Single overlaid radar: the four designs that are each best at something.
 
@@ -393,7 +592,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "what being dominated looks like.")
 
 
-# ------------------------------------------------------------------ figure 4
+# ------------------------------------------------------------------ figure 6
 def fig_extrapolation(cells, ops) -> str:
     """Where the measured configurations sit relative to the proposed ones.
 
@@ -468,7 +667,7 @@ def fig_extrapolation(cells, ops) -> str:
                  "spanned by the coverage laws rather than by measurement.")
 
 
-# ------------------------------------------------------------------ figure 5
+# ------------------------------------------------------------------ figure 7
 def fig_gate_tradeoff(g) -> str:
     """The bucket count's two opposing costs, on one shared axis.
 
@@ -568,7 +767,7 @@ def fig_gate_tradeoff(g) -> str:
                  "retaining headroom is best on both.")
 
 
-# ------------------------------------------------------------------ figure 6
+# ------------------------------------------------------------------ figure 8
 def fig_cap_tradeoff(g) -> str:
     """The serving cap's two opposing effects, on one shared axis.
 
@@ -686,6 +885,10 @@ def main() -> int:
 
     d = json.loads(DATA.read_text())
     figs = {
+        # Structural diagrams: no cells.json data behind them, but kept here so
+        # that --check covers every figure the CIP carries.
+        "architecture.svg": fig_architecture(),
+        "derivation.svg": fig_derivation(),
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
         "cost-vs-state.svg": fig_cost_state(d["operating_points"]),
