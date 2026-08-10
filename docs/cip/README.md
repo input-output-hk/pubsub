@@ -384,7 +384,7 @@ Every operating point in Table 4 was chosen by the same rule: the cheapest confi
 
 Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 standing links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
 
-In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the four, so the outer ring on an axis is the best value any of them achieves. Each design is labelled at the axis it leads. M1 and M5 are omitted, both being beaten on all four by a design that is shown. The churn axis is read off the coverage laws rather than sampled directly.
+In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are omitted, both being beaten on all four by a design that is shown. The churn axis is read off the coverage laws rather than sampled directly.
 
 <div align="center">
 <a name="figure-4" id="figure-4"></a>
@@ -395,9 +395,9 @@ In the figure below every axis is oriented so that outward is better, and each d
 
 </div>
 
-The shapes carry the argument. **M4 is the most even**, and it leads connection economy by a wide margin: sixteen standing links against M3's thirty-eight and M2's forty-eight. **M2 is fastest** to its last subscriber, by 0.2 hops over the next design, which the latency discussion above puts in proportion. **M3 at (13, 7) leads bandwidth** and comes within a hundredth of a percentage point of leading churn tolerance as well.
+The shapes carry the argument. **M4 is the most even, and it is the only design to reach the outer ring twice**: eighteen standing links against M3's thirty-eight and M2's forty-eight, and 7.43 % downtime absorbed against 2.17 % and 1.70 %. Both margins are wide. **M2 is fastest** to its last subscriber, by 0.2 hops over the next design, which the latency discussion above puts in proportion, and is innermost on everything else. **M3 at (13, 7) leads bandwidth**, and that is the only axis it leads; on churn tolerance it sits under a third of the way out.
 
-That last point is worth dwelling on, because it is the re-split doing visible work. M3's published split of (12, 8) would sit innermost on three of the four axes and reach the outer ring only on bandwidth: a spike. Moving one link from seeding to relaying, at the same budget and the same standing links, turns that into a shape competitive on three. **M5 leads nothing that survives rounding** — its churn margin over M3 is 2.18 against 2.17 — which is the first sign that it may not belong on this frontier at all.
+The churn axis is where the re-split does its visible work, even though it does not change who leads. At M3's published split of (12, 8) that vertex is 0.54 % against M4's 7.43 %, less than a tenth of the way out, so the shape is a spike on bandwidth and very little else. Moving one link from seeding to relaying, at the same budget and the same standing links, quadruples it. That is the same design under a different split, not a different design, which is what makes the selection rule rather than the mechanism the thing to fix.
 
 > [!IMPORTANT]
 > The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
