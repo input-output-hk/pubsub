@@ -23,7 +23,7 @@ runs are sized for that.
 |---|---|
 | Configurations | [`configs/experiments/tail/`](../../configs/experiments/tail/) — `m3-n4k-rf9-s5-deeptail.toml` (seed 821, 170 000 runs), `m4-n20k-rf6-deeptail.toml` (seed 822, 110 000 runs) |
 | Seeds | fresh, independent of the 30 000-draw cells, so the samples pool rather than replace |
-| Timings | M3 ~7.5 h; M4 substantially longer at N = 20 000 |
+| Timings | M3 ~7.5 h; M4 ~66 h at N = 20 000 |
 
 ## 1. M3 (RF = 9, s = 5), N = 4 000
 
@@ -44,10 +44,30 @@ sampling noise in both directions, and the truth sits on the law. The
 
 ## 2. M4 (RF = 6), N = 20 000
 
-Running. This is the cell that matters most, because the 1.11 figure was
-originally measured on M4, at RF = 7 over 200 000 graphs. A prefix of the
-sample is tracking near the law rather than above it, but a prefix is not a
-result and the number is not reported here until the run completes.
+| source | bad / draws | P(bad) | ratio to law |
+|---|---|---|---|
+| this run | 886 / 110 000 | 0.008055 | **0.963** |
+| published cell | 260 / 30 000 | 0.008667 | 1.036 |
+| **pooled** | **1 146 / 140 000** | **0.008186** | **0.979 ± 0.029** |
+
+Law 0.008363. This run sits 1.1 standard errors *below* the law, the earlier
+cell sat above it, and pooled they land on it. The 95 % interval on the factor
+is [0.922, 1.035], which excludes 1.11 at more than four standard errors.
+
+This is the cell that mattered most, because the 1.11 figure was originally
+measured on M4, at RF = 7 over 200 000 graphs. It does not reproduce.
+
+## 2b. Both designs together
+
+| design | pooled draws | factor |
+|---|---|---|
+| M3 (RF = 9, s = 5), N = 4 000 | 230 000 | 1.009 ± 0.029 |
+| M4 (RF = 6), N = 20 000 | 140 000 | 0.979 ± 0.029 |
+| **combined** | **370 000** | **0.994 ± 0.021** |
+
+Inverse-variance weighted, the two designs give 0.994 ± 0.021, so 1.11 is
+rejected at z = −5.7. The correction is not present on either design, at two
+network sizes, on four independent master seeds.
 
 ## 3. What it changes
 
@@ -62,4 +82,6 @@ turned on it may reverse.
   are frequent enough to count, near 5×10⁻³. Operating points sit near 10⁻⁴.
   Whether the factor is constant across that range is not established here,
   and the extrapolation is the same one the coverage laws already carry.
-- **M4 is pending**, so the result stands on one design.
+- The two cells sit at P(bad) ≈ 5 × 10⁻³ and 8 × 10⁻³. Whether the factor stays
+  absent two decades below that, where the operating points live, is not
+  established here; it is the same extrapolation the coverage laws already carry.

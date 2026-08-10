@@ -1,0 +1,26 @@
+# Finite-N ladder — M2 at N = 1000, matched to a law of ~0.10 so that power
+# per run is comparable across the ladder. The corpus so far holds only
+# N = 4000 and N = 20000; pooled over 52 cells the laws run ~2% optimistic and
+# the split by size (1.027 vs 1.004) points at a finite-N approximation, but
+# only at 1.2 sigma. N = 1000 is where such an effect is largest, so it is the
+# cheapest cell that can separate the two explanations.
+# mu = 0.2. Predicted P(bad) = 0.1138.
+
+model = "m2"
+master_seed = 902
+
+[population]
+size = 1000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 11
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 11
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 60000
