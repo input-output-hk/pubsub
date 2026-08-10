@@ -73,7 +73,13 @@ N = 4 000, μ = 0.35, RF = 8, 60 000 graphs, seed 20260806) measured
 MC/law = ×1.04 (199/60 000, z = +0.6) — consistent with both no
 correction and the ×1.1 carry-over, so RF = 11 at μ_design = 0.35 sits
 within noise of the target either way and RF = 12 stays the safe
-choice.
+choice. An independent replication (PR #151 review: different code and
+method, 170 000 pooled draws, M3 regime at N = 4 000) reads the tail
+factor at **1.009 ± 0.029** — excluding ×1.1 at ≈ 3.5σ in that regime;
+its M4 run is still in progress. RF = 12 therefore stands as the
+conservative pick but is **contingent on the correction being real**:
+if the factor resolves to ~1.0, RF = 11 clears δ as-is and the
+μ_design = 0.35 row reverts to its raw read.
 
 ## 4. Answer — provisioning curve and the +1 notch (N = 20 000, δ = 10⁻⁴)
 

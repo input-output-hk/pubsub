@@ -130,7 +130,10 @@ observed, worst of 25 graphs):
 \* RF = 11 sits on the law crossing; the measured ~1.1× tail correction
 pushes it just over δ, and a direct high-μ tail check (×1.04 ± 0.07)
 cannot clear it either way — the safe choice is RF = 12 (189 796 msgs,
-14.6 copies / honest). M3's corrected values stay under δ everywhere.
+14.6 copies / honest), contingent on the correction being real: an
+independent 170 k-draw replication (PR #151 review) reads the factor at
+1.009 ± 0.029 (M3 regime; M4 run pending), so if it resolves to ~1.0,
+RF = 11 stands. M3's corrected values stay under δ everywhere.
 
 Latency (not tabulated) moves the other way: M3's full-coverage depth
 falls from 5.9 to 5.0 hops across the grid (larger RF ⇒ shallower
