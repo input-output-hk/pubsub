@@ -779,7 +779,24 @@
   "factor": 1.009,
   "factor_1sigma": 0.029,
   "rejects_1_11_at_z": -3.37,
-  "note": "The laws count single cut-off nodes exactly and small cut-off groups only approximately, and have been carried as ~1.11x optimistic in the deep tail. Measured at this cell the factor is 1.009 +/- 0.029, and 1.11 is rejected. The M4 cell is still running."
+  "note": "The laws count single cut-off nodes exactly and small cut-off groups only approximately, and have been carried as ~1.11x optimistic in the deep tail. Measured at this cell the factor is 1.009 +/- 0.029, and 1.11 is rejected. The M4 cell is still running.",
+  "m4": {
+   "model": "M4",
+   "N": 20000,
+   "RF": 6,
+   "runs": 110000,
+   "bad": 886,
+   "law": 0.008363,
+   "ratio": 0.963,
+   "z": -1.13,
+   "pooled_with_published_30k": {
+    "bad": 1146,
+    "runs": 140000,
+    "ratio": 0.9787,
+    "se": 0.0289
+   },
+   "note": "The second deep-tail power run, on the other design. Independent master seed so it pools with the published 30,000-draw cell rather than replacing it. Together with M3's 1.009 +/- 0.029 this rejects the 1.11 factor both studies had carried at more than five standard errors."
+  }
  },
  "dominated": [
   {
