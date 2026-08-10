@@ -119,7 +119,8 @@ The [Motivation](#motivation-why-is-this-cip-necessary) set out five requirement
 
 The remaining two are quantitative, and are what the evidence in this section is for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is; rarity is the failure probability measured throughout, brevity is bounded by the epoch, and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network; both are measured, and what a node actually pays is set out under the trade-offs.
 
-Throughout this Rationale an **epoch** means one dissemination period: the interval for which a drawn topology stands and over which the guarantees below are stated. Its length is a parameter of this proposal and is not required to coincide with the ledger epoch; the bounds on it are an open question below.
+> [!NOTE]
+> Throughout this Rationale an **epoch** means one dissemination period: the interval for which a drawn topology stands and over which the guarantees below are stated. Its length is a parameter of this proposal and is **not** required to coincide with the ledger epoch; the bounds on it are an open question below.
 
 ### The adversary this proposal defends against
 
@@ -241,7 +242,8 @@ The points lie on the diagonal across the whole range. Per configuration, the la
 
 Per-configuration agreement is the weaker claim, though, because with 23 comparisons a few near-misses are expected and a consistent small bias would hide behind them. The stronger check is aggregate: across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, which over 22 comparisons is not distinguishable from zero. The spread of those deviations is 0.83 against the 1.0 that pure sampling noise would produce, so the agreement is if anything closer than chance alone would give.
 
-The same comparison against the analysis team's own independent simulators gives a mean standardised deviation of +0.05 over 22 paired configurations. **The two implementations are statistically indistinguishable from each other and from the laws**, which is the claim this section exists to support.
+> [!IMPORTANT]
+> The same comparison against the analysis team's own independent simulators gives a mean standardised deviation of +0.05 over 22 paired configurations. **The two implementations are statistically indistinguishable from each other and from the laws**, which is the claim this section exists to support.
 
 One configuration deserves separate mention. The laws count a single cut-off node exactly but a small cut-off *group* only approximately, and both studies had carried the laws as roughly 11 % optimistic in the range where failures are rare. No sample was large enough to check that: separating a ten-percent effect at these rates needs on the order of 10⁵ draws, and the published cells are 3 × 10⁴. One cell was therefore re-run at 170 000 draws. The measured rate came to 1.004 times the law, and pooling every sample taken at that cell — 1 240 failures in 230 000 draws — gives a correction factor of **1.009 ± 0.029**, with the 11 % figure rejected at more than three standard errors.[^tail] The laws are accurate there, not optimistic, and the operating points carry more margin than the corrected figures suggested.
 
@@ -337,10 +339,12 @@ This does not overturn Table 4, but it does mean **cost alone does not select a 
 
 </div>
 
-For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it. Any use of M3 in this proposal should take (13, 7), and the comparisons that follow keep (12, 8) only because it is the figure the published tables carry.
+For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it.
 
-> [!NOTE]
-> The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives. What the experiment establishes is that the laws apply under churn, not the budget values themselves. And in the first round the measurements sat slightly above their predictions in the middle of the range. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and it does not reappear at the operating points, where the second round shows no bias. It is nonetheless unexplained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
+> [!WARNING]
+> **Any use of M3 in this proposal should take (13, 7).** The comparisons that follow keep (12, 8) only because it is the figure the published tables carry; a reader taking those tables as M3's best showing will under-rate it on three of the four axes.
+
+The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives. What the experiment establishes is that the laws apply under churn, not the budget values themselves. And in the first round the measurements sat slightly above their predictions in the middle of the range. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and it does not reappear at the operating points, where the second round shows no bias. It is nonetheless unexplained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
 #### Limits of this evidence
 
@@ -395,7 +399,8 @@ The shapes carry the argument. **M4 is the most even**, and it leads connection 
 
 That last point is worth dwelling on, because it is the re-split doing visible work. M3's published split of (12, 8) would sit innermost on three of the four axes and reach the outer ring only on bandwidth: a spike. Moving one link from seeding to relaying, at the same budget and the same standing links, turns that into a shape competitive on three. **M5 leads nothing that survives rounding** — its churn margin over M3 is 2.18 against 2.17 — which is the first sign that it may not belong on this frontier at all.
 
-The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
+> [!IMPORTANT]
+> The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
 
 **On the choice of axes.** These four are the quantities that are both measured and independent of one another. Two others were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 4; it is left off the figure only because four axes already carry the argument. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
@@ -445,7 +450,8 @@ Both quantities scale linearly, so the ratio between the designs never changes. 
 
 **This is the strongest argument yet for M4**, and it did not appear in the single-topic comparison, where 38 against 16 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
 
-One qualification, and it is a specification question rather than a measurement. These counts are of links, and a link is identified by a peer *and* a topic. Whether two topics sharing a peer share one transport connection is not settled here. If they do, the counts above are upper bounds and both designs converge toward the number of distinct peers as topics multiply, which would blunt this argument considerably. If they do not, the table stands. The Specification should settle it, because the answer changes which design the cost comparison selects.
+> [!WARNING]
+> One qualification, and it is a specification question rather than a measurement. These counts are of links, and a link is identified by a peer *and* a topic. Whether two topics sharing a peer share one transport connection is not settled here. If they do, the counts above are upper bounds and both designs converge toward the number of distinct peers as topics multiply, which would blunt this argument considerably. If they do not, the table stands. **The Specification should settle it, because the answer changes which design the cost comparison selects.**
 
 Two caveats on reading the figure. Three of its axes are measured directly; churn tolerance is read off each design's coverage law, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning, since the axes are different quantities in different units, so only position along each individual axis should be compared.
 
@@ -468,7 +474,8 @@ The two pull in opposite directions on the same knob, and both sides are now mea
 
 Coverage is unaffected while the gate leaves each node at least twice as many survivors as it needs to pick from: across that plateau the measured failure rate is 279 in 32 000, against a law of 0.0088. **Verifiability is free where the gate leaves headroom.** Remove the headroom and it stops being free: at parity the failure rate is five times the law, and below parity the draw collapses. In the other direction the gate divides an attacker's pressure by the bucket count exactly, so a wider gate concentrates a flooder's identities on fewer victims.
 
-The rule follows from the shape: **the largest bucket count that still leaves headroom is simultaneously coverage-exact and the most dilutive**. Anything narrower pays a coverage penalty for resistance it already had; anything wider hands the attacker proportionally more concentration for no gain.
+> [!TIP]
+> The rule follows from the shape: **the largest bucket count that still leaves headroom is simultaneously coverage-exact and the most dilutive**. Anything narrower pays a coverage penalty for resistance it already had; anything wider hands the attacker proportionally more concentration for no gain.
 
 Two further results are worth carrying into the Specification.
 
@@ -487,7 +494,8 @@ The protocol distinguishes faults that are attributable from faults that are not
 
 **Non-attributable faults** consist of the absence of messages. Attributing these is provably impossible without both a network that is more often synchronous than asynchronous and an honest majority among the parties able to attest.[^accountable-liveness] This proposal assumes neither. The dissemination analysis makes no timing assumption at all, and attestation here is inherently local: the only parties who can speak to whether a given relay forwarded a given message to a given subscriber are those two nodes. With two potential attesters there is no majority to appeal to, and a subscriber's entire upstream set can be adversarial even when the network-wide fraction μ is small, and that case is one of the failure modes making up the residual per-epoch failure probability that the Evidence subsection quantifies.<!-- FORWARD-REF(evidence): resolves once the Evidence subsection lands; link it directly. -->
 
-Two consequences follow, and this proposal states them rather than working around them. The protocol does not claim to identify which node silenced a message. A registration deposit therefore cannot be made conditional on relaying behaviour, and this proposal specifies deposits as a Sybil-resistance cost rather than as a bond forfeitable for poor service.
+> [!IMPORTANT]
+> Two consequences follow, and this proposal states them rather than working around them. **The protocol does not claim to identify which node silenced a message.** A registration deposit therefore cannot be made conditional on relaying behaviour, and this proposal specifies deposits as a Sybil-resistance cost rather than as a bond forfeitable for poor service.
 
 #### What the protocol guarantees instead
 
@@ -510,7 +518,8 @@ The two compose: the peer set is cheap, the on-chain commitment adds a cadence i
 
 **Recovery.** Messages are identified by the triple (topic, publisher, sequence number), so a subscriber that has established what it is missing can request precisely those messages once it holds honest upstream peers. Recovery therefore requires messages to be retained for at least the detection interval, which makes retention a protocol parameter rather than an implementation detail.
 
-**Bounding duration is not a latency guarantee.** A message delivered after the next rotation is still late. Topics carrying urgent traffic must obtain redundancy within the epoch, publishing along several independent paths, rather than relying on rotation to repair a missed delivery.
+> [!WARNING]
+> **Bounding duration is not a latency guarantee.** A message delivered after the next rotation is still late. Topics carrying urgent traffic must obtain redundancy within the epoch, publishing along several independent paths, rather than relying on rotation to repair a missed delivery.
 
 #### How long an epoch may be
 
@@ -546,7 +555,8 @@ Three things follow.
 
 Short epochs are undemanding: an hourly epoch asks only that a node stay up for days at a time, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
 
-One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the beacon, whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
+> [!NOTE]
+> One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the beacon, whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
 
 *λ* is the one quantity here that was not measured, being a property of the deployed population rather than of the protocol. What the analysis fixes is the shape of the trade.
 
