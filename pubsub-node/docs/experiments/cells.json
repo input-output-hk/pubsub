@@ -794,5 +794,71 @@
       "by": "M5 (9, 8)",
       "note": "beaten on all four cost and robustness axes; leads only adaptive eclipse cost."
     }
-  ]
+  ],
+  "gate_tradeoff": {
+    "N": 4000,
+    "RF": 16,
+    "law": 0.0088,
+    "sybils_for_concentration": 200,
+    "note": "E10 headroom ladder against E12 attacker concentration. Coverage is measured; concentration is K/B, measured as exact arithmetic wherever the cap leaves room. Source: docs/experiments/e10-selection-fidelity.md and e12-flooding-mitigation.md.",
+    "cells": [
+      {
+        "B": 10,
+        "r": 25.0,
+        "runs": 8000,
+        "bad": 77,
+        "lo": 0.0077,
+        "hi": 0.012
+      },
+      {
+        "B": 50,
+        "r": 5.0,
+        "runs": 8000,
+        "bad": 57,
+        "lo": 0.0055,
+        "hi": 0.0092
+      },
+      {
+        "B": 125,
+        "r": 2.0,
+        "runs": 8000,
+        "bad": 64,
+        "lo": 0.0063,
+        "hi": 0.0102,
+        "recommended": true
+      },
+      {
+        "B": 167,
+        "r": 1.5,
+        "runs": 8000,
+        "bad": 81,
+        "lo": 0.0082,
+        "hi": 0.0126
+      },
+      {
+        "B": 250,
+        "r": 1.0,
+        "runs": 4000,
+        "bad": 177,
+        "lo": 0.0383,
+        "hi": 0.0511
+      },
+      {
+        "B": 333,
+        "r": 0.75,
+        "runs": 4000,
+        "bad": 1473,
+        "lo": 0.353,
+        "hi": 0.383
+      },
+      {
+        "B": 500,
+        "r": 0.5,
+        "runs": 4000,
+        "bad": 4000,
+        "lo": 0.999,
+        "hi": 1.0
+      }
+    ]
+  }
 }

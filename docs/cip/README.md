@@ -446,6 +446,33 @@ One qualification, and it is a specification question rather than a measurement.
 
 Two caveats on reading the figure. Three of its axes are measured directly; churn tolerance is read off each design's coverage law, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning, since the axes are different quantities in different units, so only position along each individual axis should be compared.
 
+#### Choosing the admission parameters
+
+Everything above concerns how many peers a node links to. Two further knobs govern *which* peers it may link to and *how many* it must serve, and they are what make the assignment verifiable and bound its abuse. Neither appears in the coverage models, so neither had evidence until now.<!-- FORWARD-REF(specification): the Specification must describe the verifiable gate and the serving cap before this subsection's parameters have referents. Terms used here: the bucket count B narrows each node's candidate set to those passing a verifiable predicate; the serving cap bounds how many peers one node will serve. -->
+
+The **bucket count** narrows the candidates a node may draw from, so that its choices can be checked by anyone rather than merely asserted. Narrowing costs something: too few survivors and the draw is constrained rather than free. The **serving cap** bounds how many peers a node will accept, which is what stops an attacker with many identities from consuming a victim's capacity.
+
+The two pull in opposite directions on the same knob, and both sides are now measured.
+
+<div align="center">
+<a name="figure-5" id="figure-5"></a>
+
+![The bucket count trade-off](images/gate-tradeoff.svg)
+
+<em>Figure 5: what the bucket count costs and what it buys</em>
+
+</div>
+
+Coverage is unaffected while the gate leaves each node at least twice as many survivors as it needs to pick from: across that plateau the measured failure rate is 279 in 32 000, against a law of 0.0088. **Verifiability is free where the gate leaves headroom.** Remove the headroom and it stops being free: at parity the failure rate is five times the law, and below parity the draw collapses. In the other direction the gate divides an attacker's pressure by the bucket count exactly, so a wider gate concentrates a flooder's identities on fewer victims.
+
+The rule follows from the shape: **the largest bucket count that still leaves headroom is simultaneously coverage-exact and the most dilutive**. Anything narrower pays a coverage penalty for resistance it already had; anything wider hands the attacker proportionally more concentration for no gain.
+
+Two further results are worth carrying into the Specification.
+
+**Where a deployment forgoes the pick count and lets the gate alone set degree, it pays a factor of two in failure probability, and one extra link buys it back.** Sizing the gate for one more link than the model's fanout restores the ungated law: measured at a ratio of 2.27 against 2.26 predicted. Around six per cent more traffic is the gate's entire coverage price wherever it is priced at all.
+
+**The serving cap's failure mode is not the one it looks like.** Raising the cap hands an attacker *more* slots on each victim, which sounds like the wrong direction, and yet it is what preserves coverage: at a fixed gate and attacker, a cap of 20 leaves the network failing in most epochs while a cap of 24 leaves it whole, because the harm is honest dials refused for want of capacity rather than slots lost to the attacker. A cap of about twice the fanout absorbed even an attacker holding a fifth of the network.[^gate]
+
 #### Two classes of fault, with different guarantees
 
 The protocol distinguishes faults that are attributable from faults that are not, and the boundary between them is not a matter of engineering effort. Accountability for the *presence* of an incorrect message and accountability for the *absence* of a message are formally different problems.[^accountable-liveness]
@@ -567,6 +594,8 @@ CIP belong in the Rationale section, e.g. as an '### Open Questions' subsection.
 [^depth]: Propagation depth as a distribution. Pooled first-receipt depth at each operating point, from the same runs as the cost table; the means reproduce the published figures. The deepest wave carries 0.17 % of receipts under M3 against 0.0013 % under M4, so the tail separates the designs where the means do not. Detail: [`docs/experiments/depth-distribution.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/depth-distribution.md).
 
 [^tail]: The deep-tail power run. M3 at RF = 9, s = 5 and N = 4 000, re-run at 170 000 draws on an independent master seed so it pools with the existing 30 000-draw cell rather than replacing it. Measured 912 failures, a ratio to the law of 1.0039 (z = +0.12); pooled with both teams' earlier samples, 1 240 in 230 000 draws for a factor of 1.009 ± 0.029, rejecting 1.11 at z = −3.37. The earlier disagreement resolves as sampling noise in both directions: the formal team's 30 000-draw sample sat at 1.11× and ours at 0.94×, and the truth is on the law.
+
+[^gate]: The admission parameters. Two experiments over the calibrated bulk point at N = 4 000: the coverage cost of the verifiable gate across a ladder of bucket counts, and its value against a slot-flooding attacker over a grid of bucket count, serving cap and attacker size — 10 350 runs in the flooding grid alone. Method, full grids and the sizing rules: [`e10-selection-fidelity.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/e10-selection-fidelity.md) and [`e12-flooding-mitigation.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/e12-flooding-mitigation.md).
 
 [^degrees]: Standing links per node. Counted as the distinct (peer, link kind) pairs a node holds an established link with, in either direction and regardless of the counterparty's class, since an adversary still occupies a connection slot; a symmetric link is counted once. Measured over 200 graphs per operating point (M2: 40). The propagation-digraph degrees the framework reports elsewhere are a different and smaller quantity, omitting links that carry no dissemination traffic, which under M3 is fourteen of its thirty-eight. Method and the one unresolved discrepancy against the earlier figures: [`docs/experiments/standing-degree.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/standing-degree.md).
 

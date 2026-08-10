@@ -439,6 +439,95 @@ def fig_extrapolation(cells, ops) -> str:
                  "spanned by the coverage laws rather than by measurement.")
 
 
+# ------------------------------------------------------------------ figure 5
+def fig_gate_tradeoff(g) -> str:
+    """The bucket count's two opposing costs, on one shared axis.
+
+    Two stacked panels rather than two y-scales on one plot: the quantities are
+    a probability and a slot count, and putting them on a shared vertical axis
+    would invent a comparison that does not exist. They share the horizontal
+    axis, which is what makes the optimum legible.
+    """
+    W, H = 860, 560
+    ml, mr = 96, 40
+    pw = W - ml - mr
+    top, ph1 = 76, 190          # coverage panel
+    bot, ph2 = 342, 128         # concentration panel
+    cells = g["cells"]
+    lg = math.log10
+    x0, x1 = 8.0, 620.0
+
+    def X(v):
+        return ml + (lg(v) - lg(x0)) / (lg(x1) - lg(x0)) * pw
+
+    lo1, hi1 = 4e-3, 1.4
+    def Y1(v):
+        return top + ph1 - (lg(max(v, lo1)) - lg(lo1)) / (lg(hi1) - lg(lo1)) * ph1
+    def Y2(v):
+        return bot + ph2 - (v / 22.0) * ph2
+
+    b = []
+    rec = next(c for c in cells if c.get("recommended"))
+    # the region where the gate leaves enough survivors for the pick count
+    b.append(f'<rect x="{ml:.1f}" y="{top:.1f}" width="{X(rec["B"]) - ml:.1f}" '
+             f'height="{ph1 + (bot - top - ph1) + ph2:.1f}" fill="#1e8f5e" opacity="0.045"/>')
+    b.append(text(ml + 8, top + 16, "survivor headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
+
+    for c in cells:
+        b.append(line(X(c["B"]), top, X(c["B"]), bot + ph2, GRID, 1))
+        b.append(text(X(c["B"]), bot + ph2 + 19, c["B"], 10.5, INK_SOFT, "middle"))
+        b.append(text(X(c["B"]), bot + ph2 + 32, f"r={c['r']:g}", 9.5, "#8a887e", "middle"))
+    for v in (1e-2, 1e-1, 1.0):
+        b.append(line(ml, Y1(v), ml + pw, Y1(v), GRID, 1))
+        b.append(text(ml - 10, Y1(v) + 4, decade(v), 10.5, INK_SOFT, "end"))
+    for v in (0, 5, 10, 20):
+        b.append(line(ml, Y2(v), ml + pw, Y2(v), GRID, 1))
+        b.append(text(ml - 10, Y2(v) + 4, v, 10.5, INK_SOFT, "end"))
+
+    lawy = Y1(g["law"])
+    b.append(line(ml, lawy, ml + pw, lawy, "#52514e", 1.4, dash="5 4"))
+    b.append(text(ml + pw - 4, lawy - 7, "coverage law, ungated", 10.5, INK, "end"))
+
+    pts = [(X(c["B"]), Y1(c["bad"] / c["runs"])) for c in cells]
+    b.append(f'<path d="{" ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(pts))}" '
+             f'fill="none" stroke="{SERIES["M2"]}" stroke-width="2.2" stroke-linejoin="round"/>')
+    for c, (x, y) in zip(cells, pts):
+        b.append(line(x, Y1(c["lo"]), x, Y1(c["hi"]), SERIES["M2"], 2.0, cap="round", opacity=0.45))
+        b.append(circle(x, y, 4.4, SERIES["M2"], SURFACE, 1.6))
+
+    cpts = [(X(c["B"]), Y2(g["sybils_for_concentration"] / c["B"])) for c in cells]
+    b.append(f'<path d="{" ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(cpts))}" '
+             f'fill="none" stroke="{SERIES["M4"]}" stroke-width="2.2" stroke-linejoin="round"/>')
+    for x, y in cpts:
+        b.append(circle(x, y, 4.4, SERIES["M4"], SURFACE, 1.6))
+
+    b.append(circle(X(rec["B"]), Y1(rec["bad"] / rec["runs"]), 8.5, "none", "#1e8f5e", 2.0))
+    b.append(circle(X(rec["B"]), Y2(g["sybils_for_concentration"] / rec["B"]), 8.5, "none", "#1e8f5e", 2.0))
+    b.append(text(X(rec["B"]) + 14, Y2(g["sybils_for_concentration"] / rec["B"]) + 4,
+                  f"B = {rec['B']}", 12, "#1e8f5e", weight="650"))
+
+    b.append(text(ml, top - 34, "What the gate costs in coverage", 12.5, INK, weight="600"))
+    b.append(text(ml, top - 19, "P(bad) measured, with Wilson 95 % intervals \u00b7 log scale",
+                  10.5, "#8a887e"))
+    b.append(text(ml, bot - 20, "What the gate buys against a flooder", 12.5, INK, weight="600"))
+    b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network",
+                  10.5, "#8a887e"))
+    b.append(text(ml + pw / 2, H - 42, "Bucket count B", 12.5, INK, "middle", "600"))
+    b.append(text(ml + pw / 2, H - 27,
+                  "right = a narrower gate: fewer survivors per node, and the attacker's "
+                  "pressure divided further", 11, INK_SOFT, "middle"))
+    b.append(text(38, H - 8, "Both panels share the horizontal axis. The largest B leaving "
+                  "headroom for the pick count is coverage-exact and dilutes the attacker "
+                  "most.", 11, INK_SOFT, style="italic"))
+
+    return frame(W, H, b, "The bucket count trade-off",
+                 "Two stacked panels sharing a bucket-count axis. Coverage stays on the "
+                 "ungated law while survivor headroom is at least 2, then rises fivefold at "
+                 "headroom 1 and collapses below it. Attacker concentration falls as the "
+                 "reciprocal of the bucket count throughout. The largest bucket count "
+                 "retaining headroom is best on both.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
@@ -450,6 +539,7 @@ def main() -> int:
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
         "cost-vs-state.svg": fig_cost_state(d["operating_points"]),
+        "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
         "measured-vs-proposed.svg": fig_extrapolation(
