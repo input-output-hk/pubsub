@@ -626,8 +626,8 @@ def fig_extrapolation(cells, ops) -> str:
     measured fails far more often than any configuration that is proposed. Solid
     marks are counted outcomes; hollow marks are law predictions.
     """
-    W, H = 860, 446
-    ml, mr, mt, mb = 104, 34, 74, 108
+    W, H = 860, 460
+    ml, mr, mt, mb = 104, 34, 88, 108
     pw, ph = W - ml - mr, H - mt - mb
     lo, hi = 1e-5, 1.4
     lg = math.log10
@@ -653,7 +653,11 @@ def fig_extrapolation(cells, ops) -> str:
 
     xt = X(1e-4)
     b.append(line(xt, mt - 22, xt, mt + ph, "#52514e", 1.4))
-    b.append(text(xt, mt - 28, "design target δ", 11, INK, "middle", "600"))
+    b.append(text(xt, mt - 42, "design target", 11, INK, "middle", "600"))
+    b.append(text(xt, mt - 29, "δ = 10⁻⁴, one bad epoch in ten thousand", 9.5,
+                  "#8a887e", "middle"))
+    b.append(text(xt, mt - 17, "the rate a configuration is sized to meet", 9.5,
+                  "#8a887e", "middle"))
 
     for k, m in enumerate(order):
         y = mt + step * (k + 0.5)
