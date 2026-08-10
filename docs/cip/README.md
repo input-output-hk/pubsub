@@ -186,13 +186,23 @@ The protocol holds two registries on chain. Each entry is a script output whose 
 
 #### The node registry
 
-One entry per participating node. It binds a node identity to the topics that node takes part in, to a network endpoint at which it can be reached, and to a locked [deposit](#term-deposit).
+One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree. An entry MUST list at least one topic, and every topic it lists MUST be registered in the topic registry.
 
 The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable.
 
 The withdrawal delay is what keeps the deposit attached to a *standing* identity, and it does two things. A retiring entry is still in the snapshot the current epoch derives from, so other nodes hold links to it until that epoch ends; reclaiming immediately would leave the identity unbonded while it still occupies positions in the standing topology. **The delay MUST therefore be at least one epoch.** And because the deposit prices identities that stand rather than identities that once existed, the delay bounds how fast an operator can rotate them: without it, a single deposit funds a fresh identity every epoch, which is the re-registration the [Rationale](#the-adversary-this-proposal-defends-against) excludes from its adversary model. Its value beyond that floor is open.
+
+#### Address resolution
+
+Turning a registered identity into an address that can be dialled is specified here as an interface rather than a mechanism, in the same way the [beacon](#term-beacon) is. The topology never depends on an address: the snapshot fixes identities and topic interests, and nothing in the derivation, the gate, the handshake or the analysis reads an endpoint. What the protocol needs is only that a node which another node has derived a link to can be found, and that finding it cannot be spoofed. Any mechanism meeting four requirements conforms.
+
+It must be **authenticated to the node identity key**, so that an address is usable only where the identity the topology is derived over vouches for it. It must be **resolvable by every node that derives a link** to the one being addressed, since a dialler learns who its peers are from the registry rather than from whoever told it about them. It must be **refreshable within an epoch**, because an operator whose address changes mid-epoch would otherwise be unreachable until the next cutoff for no gain. And an address that cannot be resolved MUST be treated exactly as silence: a node that cannot be reached is indistinguishable from one that is registered and not forwarding, which is the [adversary](#the-adversary-this-proposal-defends-against) the analysis already assumes.
+
+Recording the endpoint in the node's registry entry is the RECOMMENDED mechanism, and it is the one this proposal specifies. It meets all four by construction, and it removes the bootstrap problem rather than relocating it: the chain is the entry point, so there are no seed nodes to advertise, attack, or keep online. Its cost is that every participant's address is public and permanent, which for stake pool operators inverts the practice of keeping block-producing infrastructure unadvertised. A deployment unwilling to pay that cost MAY leave the endpoint list empty and resolve addresses off-chain instead. Signed address records are the candidate: because identity is rooted in the registry rather than in the layer that distributes addresses, such a record is self-authenticating, so that layer can withhold an address but cannot forge one. What it does not supply is an entry point, and that gap, along with the choice between the two mechanisms, is among the questions [Path to Active](#acceptance-criteria) leaves open.
+
+One participant needs no address at all. A [publisher](#identity-and-keys) key need not belong to a registered node, so an authorised key held on an unregistered machine has no position in the topology, no deposit and no endpoint, and a node run by the same operator injects the messages it signs. Because a publisher signature is end to end and relays never re-sign, such a publisher trusts its injecting node for availability only, never for authenticity or integrity. This is available on topics that name their publisher keys, and not on open topics, where publishing is reserved to registered nodes.
 
 #### The topic registry
 
@@ -248,7 +258,7 @@ A node entry moves through four operations, and every epoch is derived from a sn
 1. Only the operator credential named in the entry MAY update it.
 2. Every newly listed topic MUST have an active entry in the topic registry, and the set MUST remain non-empty.
 3. A changed topic set takes effect at the next registration cutoff, because the topic set is an input the topology is derived from.
-4. A changed endpoint takes effect at the chain tip, because reachability is not such an input.
+4. A changed endpoint list takes effect at the chain tip, because reachability is not such an input, and it MAY be emptied by a node resolving its address off-chain instead.
 
 That asymmetry is deliberate: an operator changing endpoints submits one transaction and remains reachable, while an operator changing topics waits for the next epoch. A node whose address changed mid-epoch would otherwise be unreachable until the next cutoff for no gain.
 
@@ -286,7 +296,7 @@ node_registration =
   [ node_id       : node_key       ; identity public key; also the entry's key
   , operator      : credential     ; may update, retire and claim this entry
   , topics        : [+ topic_id]   ; authoritative topic interests, non-empty
-  , endpoints     : [+ endpoint]   ; ordered, most preferred first
+  , endpoints     : [* endpoint]   ; ordered, most preferred first; MAY be empty
   , deposit       : coin           ; locked while the entry stands
   , state         : node_state
   , format        : uint           ; entry format version; see Versioning
@@ -298,7 +308,7 @@ node_state =
 
 ; Redeemer for spending a node-registry entry.
 node_redeemer =
-    [ 0, topics : [+ topic_id], endpoints : [+ endpoint] ]  ; update
+    [ 0, topics : [+ topic_id], endpoints : [* endpoint] ]  ; update
   / [ 1 ]                                                   ; retire
   / [ 2 ]                                                   ; claim the deposit
 
@@ -1128,7 +1138,7 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 
 - [ ] Message persistence beyond the recovery window, and with it the omission problem: distinguishing a message withheld from one never published.
 - [ ] Fees and incentives, including whether a registration deposit decays in the absence of evidence of participation or remains a static Sybil-resistance cost.
-- [ ] Endpoint discovery, which this proposal places on-chain and which prior design notes place in gossiped signed descriptors.
+- [ ] An off-chain mechanism for [address resolution](#address-resolution), for deployments that will not publish endpoints on chain, and with it the entry-point question that the on-chain endpoint answers for free.
 
 <!-- For core categories (Ledger, Plutus, Network, Consensus) the following SHOULD be included: -->
 
