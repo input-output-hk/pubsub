@@ -489,7 +489,23 @@ Two further results are worth carrying into the Specification.
 
 **Where a deployment forgoes the pick count and lets the gate alone set degree, it pays a factor of two in failure probability, and one extra link buys it back.** Sizing the gate for one more link than the model's fanout restores the ungated law: measured at a ratio of 2.27 against 2.26 predicted. Around six per cent more traffic is the gate's entire coverage price wherever it is priced at all.
 
-**The serving cap's failure mode is not the one it looks like.** Raising the cap hands an attacker *more* slots on each victim, which sounds like the wrong direction, and yet it is what preserves coverage: at a fixed gate and attacker, a cap of 20 leaves the network failing in most epochs while a cap of 24 leaves it whole, because the harm is honest dials refused for want of capacity rather than slots lost to the attacker. A cap of about twice the fanout absorbed even an attacker holding a fifth of the network.[^gate]
+**The serving cap's failure mode is not the one it looks like.** Raising the cap hands an attacker *more* slots on each victim, which sounds like the wrong direction, and yet it is what preserves coverage. Within one cell of the grid the gate and the attacker are fixed and only the cap varies, which isolates the effect:
+
+<div align="center">
+<a name="figure-6" id="figure-6"></a>
+
+![What the serving cap costs and what it rescues](images/cap-tradeoff.svg)
+
+<em>Figure 6: what the serving cap costs and what it rescues</em>
+
+</div>
+
+At the narrow gate under a 10 % attacker, moving the cap from 20 to 24 takes the network from failing in seven epochs out of ten to failing in none, while the attacker's hold on each victim rises from 6.8 slots to 7.6. Under a 20 % attacker the same gate fails at both those caps and is whole at 32, where the attacker holds 15.5 slots on each victim against the 11.1 it held at the cap where the network was collapsing.
+
+> [!IMPORTANT]
+> **The harm is honest links starved of capacity, not slots lost to the adversary.** The lower panel is the mechanism: honest dials refused for want of a slot fall by two orders of magnitude across the same range that restores coverage. A cap sized only to deny the attacker is sized against the wrong quantity, and denies the honest population first.
+
+A cap of about twice the fanout absorbed even an attacker holding a fifth of the network. The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 5 gives, arrived at from the attack side.[^gate]
 
 #### Two classes of fault, with different guarantees
 

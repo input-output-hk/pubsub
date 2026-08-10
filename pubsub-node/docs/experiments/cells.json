@@ -864,5 +864,100 @@
     "concentration_measured": true
    }
   ]
+ },
+ "cap_tradeoff": {
+  "N": 4000,
+  "pick_count": 16,
+  "caps": [
+   20,
+   24,
+   32
+  ],
+  "note": "E12 serving-cap axis at N = 4 000, honest pick count 16. Within a (bucket count, attacker size) cell only the cap varies, so the cap axis isolates starvation damage from slot concentration. 150 runs per cell, 400 for the saturating attacker. Source: docs/experiments/e12-flooding-mitigation.md.",
+  "series": [
+   {
+    "label": "B = 125, attacker at 20 %",
+    "B": 125,
+    "attacker_pct": 20,
+    "colour": "#1e8f5e",
+    "recommended": true,
+    "good": [
+     [
+      388,
+      400
+     ],
+     [
+      394,
+      400
+     ],
+     [
+      396,
+      400
+     ]
+    ],
+    "starved_per_run": null,
+    "adv_slots": null
+   },
+   {
+    "label": "B = 50, attacker at 10 %",
+    "B": 50,
+    "attacker_pct": 10,
+    "colour": "#eda100",
+    "good": [
+     [
+      45,
+      150
+     ],
+     [
+      150,
+      150
+     ],
+     [
+      150,
+      150
+     ]
+    ],
+    "starved_per_run": [
+     7590,
+     2794,
+     123
+    ],
+    "adv_slots": [
+     6.83,
+     7.57,
+     null
+    ]
+   },
+   {
+    "label": "B = 50, attacker at 20 %",
+    "B": 50,
+    "attacker_pct": 20,
+    "colour": "#4a3aa7",
+    "good": [
+     [
+      0,
+      400
+     ],
+     [
+      0,
+      400
+     ],
+     [
+      392,
+      400
+     ]
+    ],
+    "starved_per_run": [
+     12605,
+     7533,
+     1320
+    ],
+    "adv_slots": [
+     11.06,
+     13.06,
+     15.49
+    ]
+   }
+  ]
  }
 }

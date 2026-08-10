@@ -568,6 +568,112 @@ def fig_gate_tradeoff(g) -> str:
                  "retaining headroom is best on both.")
 
 
+# ------------------------------------------------------------------ figure 6
+def fig_cap_tradeoff(g) -> str:
+    """The serving cap's two opposing effects, on one shared axis.
+
+    Same stacked form as the bucket-count figure, because the reader has
+    already learned to read it: one knob on the horizontal axis, what it
+    costs above, what it buys below. The attacker's own take is a tick row
+    rather than a second vertical scale, which would invite comparing a
+    probability against a slot count.
+    """
+    CAPS = g["caps"]
+    SERIES_DATA = g["series"]
+    W, H = 860, 596
+    ml, mr = 104, 40
+    pw = W - ml - mr
+    top, ph1 = 108, 176          # P(good)
+    bot, ph2 = 356, 132          # honest dials refused, log
+    lg = math.log10
+
+    def X(i):
+        return ml + (i + 0.5) / len(CAPS) * pw
+
+    def Y1(v):
+        return top + ph1 - v * ph1
+
+    slo, shi = 60.0, 20000.0
+
+    def Y2(v):
+        return bot + ph2 - (lg(max(v, slo)) - lg(slo)) / (lg(shi) - lg(slo)) * ph2
+
+    b = []
+    for i, cap in enumerate(CAPS):
+        b.append(line(X(i), top, X(i), bot + ph2, GRID, 1))
+        b.append(text(X(i), bot + ph2 + 20, f"cap {cap}", 11, INK_SOFT, "middle", "600"))
+    for v in (0.0, 0.25, 0.5, 0.75, 1.0):
+        b.append(line(ml, Y1(v), ml + pw, Y1(v), GRID, 1))
+        b.append(text(ml - 10, Y1(v) + 4, f"{v * 100:.0f}%", 10.5, INK_SOFT, "end"))
+    for v in (100, 1000, 10000):
+        b.append(line(ml, Y2(v), ml + pw, Y2(v), GRID, 1))
+        b.append(text(ml - 10, Y2(v) + 4, f"{v:,}", 10.5, INK_SOFT, "end"))
+
+    for s in SERIES_DATA:
+        col = s["colour"]
+        wide = 2.6 if s.get("recommended") else 2.2
+        pts = [(X(i), Y1(g / n)) for i, (g, n) in enumerate(s["good"])]
+        b.append(f'<path d="{" ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(pts))}" '
+                 f'fill="none" stroke="{col}" stroke-width="{wide}" stroke-linejoin="round"/>')
+        for i, (x, y) in enumerate(pts):
+            g, n = s["good"][i]
+            lo, hi = wilson(n - g, n)          # interval on P(bad), mirrored
+            b.append(line(x, Y1(1 - hi), x, Y1(1 - lo), col, 2.0, cap="round", opacity=0.4))
+            b.append(circle(x, y, 4.4, col, SURFACE, 1.6))
+
+        if s["starved_per_run"]:
+            spts = [(X(i), Y2(v)) for i, v in enumerate(s["starved_per_run"])]
+            b.append(f'<path d="{" ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(spts))}" '
+                     f'fill="none" stroke="{col}" stroke-width="2.2" stroke-linejoin="round"/>')
+            for x, y in spts:
+                b.append(circle(x, y, 4.4, col, SURFACE, 1.6))
+
+    # the attacker's own take, as a tick row rather than a second scale
+    b.append(text(ml - 10, bot + ph2 + 38, "attacker slots", 9.5, "#8a887e", "end"))
+    b.append(text(ml - 10, bot + ph2 + 50, "on one victim", 9.5, "#8a887e", "end"))
+    for i in range(len(CAPS)):
+        vals = [s["adv_slots"][i] for s in SERIES_DATA if s["adv_slots"] and s["adv_slots"][i]]
+        if vals:
+            b.append(text(X(i), bot + ph2 + 38, " · ".join(f"{v:.1f}" for v in vals),
+                          9.5, "#8a887e", "middle"))
+    b.append(text(ml + pw / 2, bot + ph2 + 52,
+                  "rising left to right — the attacker gains slots as the cap is raised",
+                  9.5, "#8a887e", "middle"))
+
+    kx = ml
+    for s_ in SERIES_DATA:
+        b.append(line(kx, top - 22, kx + 22, top - 22, s_["colour"],
+                      2.6 if s_.get("recommended") else 2.2))
+        b.append(circle(kx + 11, top - 22, 4.4, s_["colour"], SURFACE, 1.6))
+        b.append(text(kx + 29, top - 18, s_["label"], 10.5, s_["colour"], "start", "600"))
+        kx += 34 + len(s_["label"]) * 5.9
+
+    b.append(text(ml, top - 66, "What the network delivers", 12.5, INK, weight="600"))
+    b.append(text(ml, top - 51, "share of epochs in which every honest subscriber is "
+                  "reached · higher is better · bars are Wilson 95 %", 10.5, "#8a887e"))
+    b.append(text(ml, bot - 22, "Why", 12.5, INK, weight="600"))
+    b.append(text(ml, bot - 7, "honest dials refused for want of capacity, per run · "
+                  "log scale · lower is better", 10.5, "#8a887e"))
+
+    b.append(text(ml + pw / 2, H - 52, "Serving cap — peers one node will accept",
+                  12.5, INK, "middle", "600"))
+    b.append(text(38, H - 30, "Raising the cap hands the attacker more of each victim's "
+                  "slots and still rescues the network: the harm is honest links "
+                  "starved of capacity,", 11, INK_SOFT, style="italic"))
+    b.append(text(38, H - 14, "not slots lost to the adversary. A gate at B = 125 never "
+                  "reaches the failing regime at any cap tested.", 11, INK_SOFT,
+                  style="italic"))
+
+    return frame(W, H, b, "What the serving cap costs and what it rescues",
+                 "Two stacked panels sharing a serving-cap axis. The upper panel is the "
+                 "share of epochs delivering full coverage, the lower the number of "
+                 "honest dials refused for want of capacity. Raising the cap increases "
+                 "the slots an attacker holds on each victim and simultaneously restores "
+                 "coverage, because the damage is honest links refused rather than slots "
+                 "taken. At a bucket count of 125 the network never enters the failing "
+                 "regime at any cap tested.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
@@ -584,6 +690,7 @@ def main() -> int:
             d["operating_points"], d.get("alternatives", ())),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"]),
+        "cap-tradeoff.svg": fig_cap_tradeoff(d["cap_tradeoff"]),
     }
 
     rc = 0
