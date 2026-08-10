@@ -32,3 +32,7 @@ pubsub-node/notes/
 
 # Generated at deploy time by .github/workflows/docs.yml
 web/assets/commit-activity.json
+
+# Python bytecode from the figure generator
+__pycache__/
+*.pyc
