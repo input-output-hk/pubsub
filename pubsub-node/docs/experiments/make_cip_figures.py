@@ -224,8 +224,7 @@ def fig_architecture() -> str:
                   10, private))
 
     b.append(arrow(430, 372, 430, 408, RULE, 1.6))
-    b.append(text(440, 394, "one signed handshake per link, up to the serving cap C",
-                  10, "#8a887e"))
+    b.append(text(440, 394, "one signed handshake per link", 10, "#8a887e"))
 
     band(416, 120, "Over those links, until the epoch ends",
          "publisher to subscribers, and never over the chain")
