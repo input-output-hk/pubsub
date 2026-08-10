@@ -771,7 +771,7 @@ def fig_gate_tradeoff(g) -> str:
     b.append(text(ml, bot - 20, "What the gate buys against a flooder", 12.5, INK, weight="600"))
     b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network "
                   "\u00b7 lower is better", 10.5, "#8a887e"))
-    b.append(text(ml + pw - 4, bot + 12, "filled = measured \u00b7 hollow = predicted K/B",
+    b.append(text(ml + pw - 4, bot + 12, "filled = measured \u00b7 hollow = predicted A/B",
                   9.5, "#8a887e", "end"))
     b.append(text(ml + pw / 2, H - 42, "Bucket count B: how many groups the gate splits the population into", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
@@ -874,7 +874,7 @@ def fig_cap_tradeoff(g) -> str:
 
     b.append(text(ml, top - 40, "B is the bucket count: the gate splits the population "
                   "into B groups and a node may only link inside the group it draws, so "
-                  "K attacker identities reach any one victim as K/B.",
+                  "A attacker identities reach any one victim as A/B.",
                   9.5, "#8a887e"))
     b.append(text(ml, top - 93, "What the network delivers", 12.5, INK, weight="600"))
     b.append(text(ml, top - 78, "share of epochs in which every honest subscriber is "
