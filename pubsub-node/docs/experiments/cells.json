@@ -441,7 +441,9 @@
    "standing_links_measured_mean": 38.0,
    "standing_links_max": 64,
    "msgs_per_publication": 166400,
-   "measured": "200 runs, seed 852"
+   "measured": "200 runs",
+   "config": "comparisons/m3-n20k-rf13-s7.toml",
+   "master_seed": 852
   },
   {
    "model": "M4",
@@ -457,7 +459,9 @@
    "msgs_per_publication": 214345,
    "p_bad": 6.07e-06,
    "churn_budget_pct": 7.43,
-   "measured": "200 runs, seed 851"
+   "measured": "200 runs",
+   "config": "comparisons/m4-n20k-rf9.toml",
+   "master_seed": 851
   }
  ],
  "convergence": {
