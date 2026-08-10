@@ -472,6 +472,8 @@ def fig_gate_tradeoff(g) -> str:
     b.append(f'<rect x="{ml:.1f}" y="{top:.1f}" width="{X(rec["B"]) - ml:.1f}" '
              f'height="{ph1 + (bot - top - ph1) + ph2:.1f}" fill="#1e8f5e" opacity="0.045"/>')
     b.append(text(ml + 8, top + 16, "survivor headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
+    b.append(text(ml + 8, top + 30, "the gate still leaves each node at least twice the "
+                  "candidates it must pick from", 9.5, "#8a887e"))
 
     for c in cells:
         b.append(line(X(c["B"]), top, X(c["B"]), bot + ph2, GRID, 1))
@@ -504,14 +506,14 @@ def fig_gate_tradeoff(g) -> str:
     b.append(circle(X(rec["B"]), Y1(rec["bad"] / rec["runs"]), 8.5, "none", "#1e8f5e", 2.0))
     b.append(circle(X(rec["B"]), Y2(g["sybils_for_concentration"] / rec["B"]), 8.5, "none", "#1e8f5e", 2.0))
     b.append(text(X(rec["B"]) + 14, Y2(g["sybils_for_concentration"] / rec["B"]) + 4,
-                  f"B = {rec['B']}", 12, "#1e8f5e", weight="650"))
+                  f"B = {rec['B']}, recommended", 12, "#1e8f5e", weight="650"))
 
     b.append(text(ml, top - 34, "What the gate costs in coverage", 12.5, INK, weight="600"))
-    b.append(text(ml, top - 19, "P(bad) measured, with Wilson 95 % intervals \u00b7 log scale",
-                  10.5, "#8a887e"))
+    b.append(text(ml, top - 19, "P(bad) measured, with Wilson 95 % intervals \u00b7 log scale "
+                  "\u00b7 lower is better", 10.5, "#8a887e"))
     b.append(text(ml, bot - 20, "What the gate buys against a flooder", 12.5, INK, weight="600"))
-    b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network",
-                  10.5, "#8a887e"))
+    b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network "
+                  "\u00b7 lower is better", 10.5, "#8a887e"))
     b.append(text(ml + pw / 2, H - 42, "Bucket count B", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
                   "right = a narrower gate: fewer survivors per node, and the attacker's "
@@ -521,7 +523,9 @@ def fig_gate_tradeoff(g) -> str:
                   "most.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "The bucket count trade-off",
-                 "Two stacked panels sharing a bucket-count axis. Coverage stays on the "
+                 "Two stacked panels sharing a bucket-count axis, where survivor headroom r "
+                 "is the number of candidates the gate leaves a node divided by the number "
+                 "it must pick. Coverage stays on the "
                  "ungated law while survivor headroom is at least 2, then rises fivefold at "
                  "headroom 1 and collapses below it. Attacker concentration falls as the "
                  "reciprocal of the bucket count throughout. The largest bucket count "

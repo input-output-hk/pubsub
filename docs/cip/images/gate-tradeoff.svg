@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 560" width="860" height="560" role="img" aria-labelledby="t d">
 <title id="t">The bucket count trade-off</title>
-<desc id="d">Two stacked panels sharing a bucket-count axis. Coverage stays on the ungated law while survivor headroom is at least 2, then rises fivefold at headroom 1 and collapses below it. Attacker concentration falls as the reciprocal of the bucket count throughout. The largest bucket count retaining headroom is best on both.</desc>
+<desc id="d">Two stacked panels sharing a bucket-count axis, where survivor headroom r is the number of candidates the gate leaves a node divided by the number it must pick. Coverage stays on the ungated law while survivor headroom is at least 2, then rises fivefold at headroom 1 and collapses below it. Attacker concentration falls as the reciprocal of the bucket count throughout. The largest bucket count retaining headroom is best on both.</desc>
 <rect width="860" height="560" rx="8" fill="#fcfcfb"/>
 <rect x="96.0" y="76.0" width="457.5" height="394.0" fill="#1e8f5e" opacity="0.045"/>
 <text x="104.0" y="92.0" font-size="11" fill="#1e8f5e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">survivor headroom r ≥ 2</text>
+<text x="104.0" y="106.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">the gate still leaves each node at least twice the candidates it must pick from</text>
 <line x1="133.1" y1="76.0" x2="133.1" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="133.1" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10</text>
 <text x="133.1" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=25</text>
@@ -66,11 +67,11 @@
 <circle cx="784.2" cy="467.7" r="4.4" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
 <circle cx="553.5" cy="243.5" r="8.5" fill="none" stroke="#1e8f5e" stroke-width="2.0"/>
 <circle cx="553.5" cy="460.7" r="8.5" fill="none" stroke="#1e8f5e" stroke-width="2.0"/>
-<text x="567.5" y="464.7" font-size="12" fill="#1e8f5e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">B = 125</text>
+<text x="567.5" y="464.7" font-size="12" fill="#1e8f5e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="650">B = 125, recommended</text>
 <text x="96.0" y="42.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">What the gate costs in coverage</text>
-<text x="96.0" y="57.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">P(bad) measured, with Wilson 95 % intervals · log scale</text>
+<text x="96.0" y="57.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">P(bad) measured, with Wilson 95 % intervals · log scale · lower is better</text>
 <text x="96.0" y="322.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">What the gate buys against a flooder</text>
-<text x="96.0" y="337.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">slots one victim gives an attacker holding 5 % of the network</text>
+<text x="96.0" y="337.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">slots one victim gives an attacker holding 5 % of the network · lower is better</text>
 <text x="458.0" y="518.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Bucket count B</text>
 <text x="458.0" y="533.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = a narrower gate: fewer survivors per node, and the attacker's pressure divided further</text>
 <text x="38.0" y="552.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Both panels share the horizontal axis. The largest B leaving headroom for the pick count is coverage-exact and dilutes the attacker most.</text>

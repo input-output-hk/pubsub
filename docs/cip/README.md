@@ -459,9 +459,17 @@ Two caveats on reading the figure. Three of its axes are measured directly; chur
 
 Everything above concerns how many peers a node links to. Two further knobs govern *which* peers it may link to and *how many* it must serve, and they are what make the assignment verifiable and bound its abuse. Neither appears in the coverage models, so neither had evidence until now.<!-- FORWARD-REF(specification): the Specification must describe the verifiable gate and the serving cap before this subsection's parameters have referents. Terms used here: the bucket count B narrows each node's candidate set to those passing a verifiable predicate; the serving cap bounds how many peers one node will serve. -->
 
-The **bucket count** narrows the candidates a node may draw from, so that its choices can be checked by anyone rather than merely asserted. Narrowing costs something: too few survivors and the draw is constrained rather than free. The **serving cap** bounds how many peers a node will accept, which is what stops an attacker with many identities from consuming a victim's capacity.
+In outline, since the Specification defines it normatively: a node may not link to whichever peers it likes. Its own identity and the epoch randomness together select one of ***B*** buckets, and the peers it may draw from are those whose identity falls in that bucket. Anyone holding the registry and the epoch randomness can recompute the predicate, so a node's choice of peers is checkable rather than merely asserted — that is what the **bucket count** *B* buys.
 
-The two pull in opposite directions on the same knob, and both sides are now measured.
+Narrowing costs something, and the cost has a natural unit. Raising *B* shrinks each node's candidate set to roughly (*N*−1)/*B* peers, while the number the node must pick stays fixed at its fanout. The ratio between the two is the **survivor headroom**:
+
+$$r = \frac{N-1}{B \cdot RF}$$
+
+At *r* = 10 a node chooses its peers from ten times as many candidates as it needs, which is barely a constraint. At *r* = 1 the gate leaves exactly as many candidates as picks, so the node has no choice at all and the draw stops being random. *r* is what Figure 5 is really drawn against, and the bucket counts on its axis are annotated with it.
+
+The **serving cap** is the second knob, and it points the other way. It bounds how many peers one node will accept, which is what stops an attacker holding many identities from consuming a victim's entire capacity.
+
+The two pull in opposite directions on the same knob, and both sides are now measured. Figure 5 puts them one above the other on a shared bucket-count axis. **Moving right narrows the gate**: fewer survivors per node, so the upper panel is what verifiability costs in coverage, and at the same time the attacker's identities are divided across more buckets, so the lower panel is what it buys. A good value of *B* is one that has not yet moved in the upper panel and has moved as far as possible in the lower.
 
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
