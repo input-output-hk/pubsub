@@ -135,7 +135,7 @@ def fig_architecture() -> str:
     the chain supplies inputs, every node turns them into the same link set
     independently, and messages then travel over those links.
     """
-    W, H = 860, 592
+    W, H = 860, 574
     b = []
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
@@ -186,11 +186,10 @@ def fig_architecture() -> str:
                   10, private))
 
     b.append(arrow(430, 372, 430, 408, RULE, 1.6))
-    b.append(text(440, 394, "one signed handshake per link, refused if the gate fails "
-                  "or the serving cap is full", 10, "#8a887e"))
+    b.append(text(440, 394, "one signed handshake per link", 10, "#8a887e"))
 
     band(416, 120, "Over those links, until the epoch ends",
-         "the chain anchors trust; it never carries the payload")
+         "publisher to subscribers, and never over the chain")
     for x, lab in ((130, "publisher"), (320, "relay"), (540, "relay"), (770, "subscriber")):
         b.append(circle(x, 502, 13, SURFACE, INK_SOFT, 1.8))
         b.append(text(x, 530, lab, 10.5, INK_SOFT, "middle"))
@@ -202,14 +201,8 @@ def fig_architecture() -> str:
     b.append(circle(430, 502, 13, SURFACE, SURFACE, 0))
     b.append(text(430, 507, "\u22ef", 17, RULE, "middle"))
     b.append(text(430, 530, "any number of relays", 10.5, INK_SOFT, "middle"))
-    b.append(text(430, 545, "measured at 5 hops to the last subscriber", 9.5, "#8a887e",
-                  "middle"))
-    b.append(text(430, 478, "signed once by the publisher, verified by every recipient, "
-                  "never re-signed at any hop", 10, "#8a887e", "middle"))
-
-    b.append(text(38, 572, "Every arrow above the link set carries public data; the "
-                  "topology is a function of it, so any participant can recompute and "
-                  "check another node's links.", 11, INK_SOFT, style="italic"))
+    b.append(text(430, 478, "signed once by the publisher, verified by every recipient",
+                  10, "#8a887e", "middle"))
 
     return frame(W, H, b, "The protocol at a glance",
                  "Three bands read downward. The Cardano chain holds a node registry, a "
@@ -275,8 +268,8 @@ def fig_derivation() -> str:
                            RULE, 1.4))
 
     b.append(text(38, 276, "Rows one and two are recomputable by anyone holding the "
-                  "chain. Row three is the node's own randomness, and is not required "
-                  "to be checkable.", 11, INK_SOFT, style="italic"))
+                  "chain; row three is the node's own draw, and not required to be "
+                  "checkable.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Deriving one node's links for one epoch",
                  "Three rows of markers over the same peers. The first row is every peer "

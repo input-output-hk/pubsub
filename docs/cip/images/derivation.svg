@@ -111,5 +111,5 @@
 <circle cx="779.0" cy="224.0" r="4.6" fill="#fcfcfb" stroke="#4a3aa7" stroke-width="1.5"/>
 <circle cx="795.5" cy="224.0" r="4.6" fill="#fcfcfb" stroke="#e2e0d8" stroke-width="1.5"/>
 <circle cx="812.0" cy="224.0" r="4.6" fill="#fcfcfb" stroke="#e2e0d8" stroke-width="1.5"/>
-<text x="38.0" y="276.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Rows one and two are recomputable by anyone holding the chain. Row three is the node's own randomness, and is not required to be checkable.</text>
+<text x="38.0" y="276.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Rows one and two are recomputable by anyone holding the chain; row three is the node's own draw, and not required to be checkable.</text>
 </svg>
