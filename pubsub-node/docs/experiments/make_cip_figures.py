@@ -190,7 +190,7 @@ def fig_architecture() -> str:
             b.append(text(x + w / 2, y + 38 + k * 13, s, 9.5, "#8a887e", "middle"))
 
     band(38, 128, "On the Cardano chain",
-         "the trust root — public, and the same for everyone")
+         "the trust root: public, and the same for everyone")
     box(60, 92, 236, 62, "Node registry",
         ["identity key · topic interests", "endpoint · deposit"], verifiable)
     box(312, 92, 236, 62, "Topic registry",
@@ -366,7 +366,7 @@ def fig_validation(cells, churn=()) -> str:
     b.append(text(ml + pw / 2, H - 34, "p_{bad} predicted by the coverage law",
                   12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 18,
-                  "log scale, each gridline ×10 — left: almost never fails · "
+                  "log scale, each gridline ×10; left: almost never fails · "
                   "right: fails most epochs", 11, INK_SOFT, "middle"))
     b.append(f'<text x="0" y="0" transform="translate(22,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
@@ -450,14 +450,14 @@ def fig_cost_state(ops) -> str:
         b.append(text(ml + 14 + dx + r + 6, mt + 48, f"{hops}", 10.5, "#8a887e"))
 
     b.append(text(ml + pw / 2, H - 36,
-                  "State cost — standing links per node d",
+                  "State cost: standing links per node d",
                   12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 20, "right = more connection slots and churn surface",
                   11, INK_SOFT, "middle"))
     b.append(f'<text x="0" y="0" transform="translate(26,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'{runs("Bandwidth cost — copies per honest node c")}</text>')
+             f'{runs("Bandwidth cost: copies per honest node c")}</text>')
     b.append(f'<text x="0" y="0" transform="translate(41,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
@@ -673,7 +673,7 @@ def fig_extrapolation(cells, ops) -> str:
         b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.0f}\u00d7 rarer",
                       9.5, "#8a887e", "middle"))
 
-    b.append(text(ml + pw / 2, H - 44, "p_{bad} — chance an epoch's wiring fails",
+    b.append(text(ml + pw / 2, H - 44, "p_{bad}: chance an epoch's wiring fails",
                   12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 29, "log scale, each gridline ×10",
                   11, INK_SOFT, "middle"))
@@ -682,7 +682,7 @@ def fig_extrapolation(cells, ops) -> str:
     b.append(circle(ml + 6, ly - 4, 4.2, INK_SOFT, SURFACE, 1.5))
     b.append(text(ml + 16, ly, "a configuration that was measured", 11, INK_SOFT))
     b.append(circle(ml + 232, ly - 4, 5.4, SURFACE, INK_SOFT, 2.2))
-    b.append(text(ml + 243, ly, "the configuration this proposal uses — predicted by "
+    b.append(text(ml + 243, ly, "the configuration this proposal uses: predicted by "
                   "the law, too rare to sample", 11, INK_SOFT))
 
     return frame(W, H, b, "Measured configurations against proposed ones",
@@ -773,7 +773,7 @@ def fig_gate_tradeoff(g) -> str:
                   "\u00b7 lower is better", 10.5, "#8a887e"))
     b.append(text(ml + pw - 4, bot + 12, "filled = measured \u00b7 hollow = predicted K/B",
                   9.5, "#8a887e", "end"))
-    b.append(text(ml + pw / 2, H - 42, "Bucket count B — how many groups the gate splits the population into", 12.5, INK, "middle", "600"))
+    b.append(text(ml + pw / 2, H - 42, "Bucket count B: how many groups the gate splits the population into", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
                   "right = a narrower gate: fewer eligible peers per node, and the attacker's "
                   "pressure divided further", 11, INK_SOFT, "middle"))
@@ -861,7 +861,7 @@ def fig_cap_tradeoff(g) -> str:
             b.append(text(X(i), bot + ph2 + 38, " · ".join(f"{v:.1f}" for v in vals),
                           9.5, "#8a887e", "middle"))
     b.append(text(ml + pw / 2, bot + ph2 + 52,
-                  "rising left to right — the attacker gains slots as the cap is raised",
+                  "rising left to right: the attacker gains slots as the cap is raised",
                   9.5, "#8a887e", "middle"))
 
     kx = ml
@@ -883,7 +883,7 @@ def fig_cap_tradeoff(g) -> str:
     b.append(text(ml, bot - 7, "honest dials refused for want of capacity, per run · "
                   "log scale · lower is better", 10.5, "#8a887e"))
 
-    b.append(text(ml + pw / 2, H - 52, "Serving cap C — peers one node will accept",
+    b.append(text(ml + pw / 2, H - 52, "Serving cap C: peers one node will accept",
                   12.5, INK, "middle", "600"))
     b.append(text(38, H - 30, "Raising the cap hands the attacker more of each victim's "
                   "slots and still rescues the network: the harm is honest links "

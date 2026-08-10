@@ -37,8 +37,8 @@
 <text x="143.7" y="78.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">4.8</text>
 <circle cx="196.0" cy="74.0" r="11.7" fill="#b9b6ab" stroke="#fcfcfb" stroke-width="1.6"/>
 <text x="213.7" y="78.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">5.9</text>
-<text x="458.0" y="410.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">State cost — standing links per node d</text>
+<text x="458.0" y="410.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">State cost: standing links per node d</text>
 <text x="458.0" y="426.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = more connection slots and churn surface</text>
-<text x="0" y="0" transform="translate(26,198.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Bandwidth cost — copies per honest node c</text>
+<text x="0" y="0" transform="translate(26,198.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Bandwidth cost: copies per honest node c</text>
 <text x="0" y="0" transform="translate(41,198.0) rotate(-90)" text-anchor="middle" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">up = more traffic</text>
 </svg>
