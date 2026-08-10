@@ -323,6 +323,20 @@
    "master_seed": 821,
    "tool_commit": "standing-degree change on experiments/churn-sweep",
    "note": "Deep-tail power run. Sized to resolve the small-component correction at 3 sigma, which 3e4-draw samples cannot. Independent seed from the 30000-draw cell above, so the two pool."
+  },
+  {
+   "model": "M4",
+   "N": 20000,
+   "params": "RF=6",
+   "bad": 886,
+   "runs": 110000,
+   "law": 0.00836381,
+   "formal_bad": 260,
+   "formal_runs": 30000,
+   "config": "m4-n20k-rf6-tail.toml",
+   "master_seed": 822,
+   "tool_commit": "2102b6f",
+   "note": "deep-tail power run on an independent master seed; pools with the 30,000-draw cell above"
   }
  ],
  "operating_points": [
