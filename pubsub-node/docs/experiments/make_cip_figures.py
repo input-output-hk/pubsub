@@ -497,12 +497,12 @@ def fig_gate_tradeoff(g) -> str:
 
     b = []
     rec = next(c for c in cells if c.get("recommended"))
-    # the region where the gate leaves enough survivors for the pick count
+    # the region where the gate leaves enough eligible peers for the pick count
     b.append(f'<rect x="{ml:.1f}" y="{top:.1f}" width="{X(rec["B"]) - ml:.1f}" '
              f'height="{ph1 + (bot - top - ph1) + ph2:.1f}" fill="#1e8f5e" opacity="0.045"/>')
-    b.append(text(ml + 8, top + 16, "survivor headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
+    b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
     b.append(text(ml + 8, top + 30, "the gate still leaves each node at least twice the "
-                  "candidates it must pick from", 9.5, "#8a887e"))
+                  "eligible peers it must pick from", 9.5, "#8a887e"))
 
     for c in cells:
         b.append(line(X(c["B"]), top, X(c["B"]), bot + ph2, GRID, 1))
@@ -551,17 +551,17 @@ def fig_gate_tradeoff(g) -> str:
                   9.5, "#8a887e", "end"))
     b.append(text(ml + pw / 2, H - 42, "Bucket count B — how many groups the gate splits the population into", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
-                  "right = a narrower gate: fewer survivors per node, and the attacker's "
+                  "right = a narrower gate: fewer eligible peers per node, and the attacker's "
                   "pressure divided further", 11, INK_SOFT, "middle"))
     b.append(text(38, H - 8, "Both panels share the horizontal axis. The largest B leaving "
                   "headroom for the pick count is coverage-exact and dilutes the attacker "
                   "most.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "The bucket count trade-off",
-                 "Two stacked panels sharing a bucket-count axis, where survivor headroom r "
-                 "is the number of candidates the gate leaves a node divided by the number "
-                 "it must pick. Coverage stays on the "
-                 "ungated law while survivor headroom is at least 2, then rises fivefold at "
+                 "Two stacked panels sharing a bucket-count axis, where selection headroom r "
+                 "is the number of peers the gate leaves a node eligible to link to, "
+                 "divided by the number it must pick. Coverage stays on the "
+                 "ungated law while selection headroom is at least 2, then rises fivefold at "
                  "headroom 1 and collapses below it. Attacker concentration falls as the "
                  "reciprocal of the bucket count throughout, measured at four of the seven "
                  "bucket counts and predicted at the rest. The largest bucket count "

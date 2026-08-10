@@ -191,7 +191,7 @@ A note on two of the cost metrics. Transmissions per publication and copies per 
 
 Five dissemination designs were analysed against the metrics above. They were not arbitrary alternatives: each varies one structural choice, so that the comparison isolates what that choice costs.
 
-The choices are: whether a node *pushes* messages to peers it selected, or *pulls* from peers it selected, which determines the failure a node can suffer, being unable to receive or being unable to be heard; whether a link carries traffic in one direction or both; and whether a node has a dedicated way to seed its own publications separate from the links it relays over. Each design's tuning parameter is the number of peers a node selects, which is the knob that trades cost against *p*<sub>bad</sub>.
+The choices are: whether a node *pushes* messages to peers it selected, or *pulls* from peers it selected, which determines the failure a node can suffer, being unable to receive or being unable to be heard; whether a link carries traffic in one direction or both; and whether a node has a dedicated way to seed its own publications separate from the links it relays over. Each design's tuning parameter is the number of peers a node selects, which is the knob that trades cost against *p*<sub>bad</sub>. That count is written ***RF***, the *relay fanout*, throughout: it is how many peers one node links to on one topic, and it is the single number each design is tuned by. Where a design has a second link kind for a node's own publications, the peers reached that way are counted separately as *s* or *F*.
 
 <div align="center">
 <a name="table-3" id="table-3"></a>
@@ -461,7 +461,7 @@ Everything above concerns how many peers a node links to. Two further knobs gove
 
 In outline, since the Specification defines it normatively: a node may not link to whichever peers it likes. Its own identity and the epoch randomness together select one of ***B*** buckets, and the peers it may draw from are those whose identity falls in that bucket. Anyone holding the registry and the epoch randomness can recompute the predicate, so a node's choice of peers is checkable rather than merely asserted — that is what the **bucket count** *B* buys.
 
-Narrowing costs something, and the cost has a natural unit. Raising *B* shrinks each node's candidate set to roughly (*N*−1)/*B* peers, while the number the node must pick stays fixed at its fanout. The ratio between the two is the **survivor headroom**:
+Narrowing costs something, and the cost has a natural unit. Raising *B* shrinks the set of peers a node is eligible to link to, to roughly (*N*−1)/*B* of them, while the number it must pick stays fixed at its fanout *RF*. The ratio between the two is the **selection headroom**:
 
 $$r = \frac{N-1}{B \cdot RF}$$
 
@@ -469,7 +469,7 @@ At *r* = 10 a node chooses its peers from ten times as many candidates as it nee
 
 The **serving cap** is the second knob, and it points the other way. It bounds how many peers one node will accept, which is what stops an attacker holding many identities from consuming a victim's entire capacity.
 
-The two pull in opposite directions on the same knob, and both sides are now measured. Figure 5 puts them one above the other on a shared bucket-count axis. **Moving right narrows the gate**: fewer survivors per node, so the upper panel is what verifiability costs in coverage, and at the same time the attacker's identities are divided across more buckets, so the lower panel is what it buys. A good value of *B* is one that has not yet moved in the upper panel and has moved as far as possible in the lower.
+The two pull in opposite directions on the same knob, and both sides are now measured. Figure 5 puts them one above the other on a shared bucket-count axis. **Moving right narrows the gate**: fewer eligible peers per node, so the upper panel is what verifiability costs in coverage, and at the same time the attacker's identities are divided across more buckets, so the lower panel is what it buys. A good value of *B* is one that has not yet moved in the upper panel and has moved as far as possible in the lower.
 
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
@@ -480,7 +480,7 @@ The two pull in opposite directions on the same knob, and both sides are now mea
 
 </div>
 
-Coverage is unaffected while the gate leaves each node at least twice as many survivors as it needs to pick from: across that plateau the measured failure rate is 279 in 32 000, against a law of 0.0088. **Verifiability is free where the gate leaves headroom.** Remove the headroom and it stops being free: at parity the failure rate is five times the law, and below parity the draw collapses. In the other direction the gate divides an attacker's pressure by the bucket count, so a wider gate concentrates a flooder's identities on fewer victims. That division is not an approximation: an attacker holding *K* identities lands *K*/*B* slots on the average victim, and across a grid of bucket counts, serving caps and attacker sizes the measured means match that prediction in 36 of 48 cells to within 2 %, with the per-victim distributions taking the predicted Poisson shape. The exceptions are all in one direction and are the defence working — where the attacker's share approaches what the cap leaves free, the cap truncates it below *K*/*B*.[^gate]
+Coverage is unaffected while the gate leaves each node at least twice as many eligible peers as it needs to pick from: across that plateau the measured failure rate is 279 in 32 000, against a law of 0.0088. **Verifiability is free where the gate leaves headroom.** Remove the headroom and it stops being free: at parity the failure rate is five times the law, and below parity the draw collapses. In the other direction the gate divides an attacker's pressure by the bucket count, so a wider gate concentrates a flooder's identities on fewer victims. That division is not an approximation: an attacker holding *K* identities lands *K*/*B* slots on the average victim, and across a grid of bucket counts, serving caps and attacker sizes the measured means match that prediction in 36 of 48 cells to within 2 %, with the per-victim distributions taking the predicted Poisson shape. The exceptions are all in one direction and are the defence working — where the attacker's share approaches what the cap leaves free, the cap truncates it below *K*/*B*.[^gate]
 
 > [!TIP]
 > The rule follows from the shape: **the largest bucket count that still leaves headroom is simultaneously coverage-exact and the most dilutive**. Anything narrower pays a coverage penalty for resistance it already had; anything wider hands the attacker proportionally more concentration for no gain.
