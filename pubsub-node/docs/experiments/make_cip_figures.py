@@ -135,7 +135,7 @@ def fig_architecture() -> str:
     the chain supplies inputs, every node turns them into the same link set
     independently, and messages then travel over those links.
     """
-    W, H = 860, 566
+    W, H = 860, 592
     b = []
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
@@ -168,10 +168,10 @@ def fig_architecture() -> str:
     band(210, 150, "In every node, from those inputs alone",
          "no negotiation, no discovery layer, no peer's word taken for anything")
     stages = [
-        (60, "Candidate set", ["every node registered", "on the topic"], verifiable),
-        (254, "Verifiable gate", ["H(η, T, a, b) mod B = 0", "leaves the survivors"],
+        (60, "Registered peers", ["every node registered", "on the topic"], verifiable),
+        (254, "Verifiable gate", ["H(η, T, a, b) mod B = 0", "leaves the eligible set"],
          verifiable),
-        (448, "Pick", ["RF survivors drawn", "by the node's own randomness"], private),
+        (448, "Pick", ["RF of them drawn", "by the node's own randomness"], private),
         (642, "Link set", ["dialled, verified, accepted", "held for the whole epoch"],
          INK_SOFT),
     ]
@@ -191,16 +191,23 @@ def fig_architecture() -> str:
 
     band(416, 120, "Over those links, until the epoch ends",
          "the chain anchors trust; it never carries the payload")
-    nodes = [(140, "publisher"), (350, "relay"), (560, "relay"), (770, "subscriber")]
-    for x, lab in nodes:
+    for x, lab in ((130, "publisher"), (320, "relay"), (540, "relay"), (770, "subscriber")):
         b.append(circle(x, 502, 13, SURFACE, INK_SOFT, 1.8))
         b.append(text(x, 530, lab, 10.5, INK_SOFT, "middle"))
-    for x0, x1 in ((153, 337), (363, 547), (573, 757)):
+    for x0, x1 in ((143, 307), (553, 757)):
         b.append(arrow(x0, 502, x1, 502, RULE, 1.6))
+    # the run between the first and last relay is any number of hops, not one:
+    # a dashed span with an ellipsis, so the figure stops implying a fixed depth
+    b.append(line(333, 502, 527, 502, RULE, 1.6, dash="5 5"))
+    b.append(circle(430, 502, 13, SURFACE, SURFACE, 0))
+    b.append(text(430, 507, "\u22ef", 17, RULE, "middle"))
+    b.append(text(430, 530, "any number of relays", 10.5, INK_SOFT, "middle"))
+    b.append(text(430, 545, "measured at 5 hops to the last subscriber", 9.5, "#8a887e",
+                  "middle"))
     b.append(text(430, 478, "signed once by the publisher, verified by every recipient, "
-                  "never re-signed", 10, "#8a887e", "middle"))
+                  "never re-signed at any hop", 10, "#8a887e", "middle"))
 
-    b.append(text(38, 556, "Every arrow above the link set carries public data; the "
+    b.append(text(38, 572, "Every arrow above the link set carries public data; the "
                   "topology is a function of it, so any participant can recompute and "
                   "check another node's links.", 11, INK_SOFT, style="italic"))
 
@@ -216,30 +223,32 @@ def fig_architecture() -> str:
 
 # ------------------------------------------------------------------ figure 2
 def fig_derivation() -> str:
-    """One node's links for one epoch, and where verifiability starts and stops.
+    """One node's links for one epoch: three rows of markers over the same peers.
 
-    Structural, like Figure 1. The counts are a deliberate miniature at exactly
-    the sizing rule the Specification fixes: 32 candidates, B = 4, so 8 survive,
-    and RF = 4 picked, giving survivor headroom r = 2.
+    Structural, like Figure 1, and deliberately only the selection. The headroom
+    arithmetic and the acceptor's checks were boxed text inside the drawing,
+    which is markdown's job, not SVG's - they live in the prose around it now.
+    The counts are a miniature at exactly the sizing rule the Specification
+    fixes: 32 registered peers, B = 4, so 8 eligible, RF = 4 picked, r = 2.
     """
-    W, H = 860, 420
+    W, H = 860, 300
     b = []
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
 
     n, rf, buckets = 32, 4, 4
-    survivors = [i for i in range(n) if i % buckets == 1]      # 8 of the 32
-    picks = survivors[:: len(survivors) // rf][:rf]            # 4 of the 8
+    eligible = [i for i in range(n) if i % buckets == 1]       # 8 of the 32
+    picks = eligible[:: len(eligible) // rf][:rf]              # 4 of the 8
 
     x0, x1 = 300, 812
     step = (x1 - x0) / (n - 1)
 
     rows = [
-        (76, "Candidates", "every peer registered on the topic at the cutoff",
-         f"Nᵀ − 1 = {n}"),
-        (150, "Survivors", "the gate holds for this node and this epoch",
-         f"≈ (Nᵀ − 1)/B = {len(survivors)}"),
-        (224, "Picks", "drawn from the survivors, uniformly and without replacement",
+        (76, "Registered peers", "every peer registered on the topic at the cutoff",
+         f"N\u1d40 \u2212 1 = {n}"),
+        (150, "Eligible peers", "the gate holds for this node and this epoch",
+         f"\u2248 (N\u1d40 \u2212 1)/B = {len(eligible)}"),
+        (224, "Picks", "drawn from the eligible set, uniformly and without replacement",
          f"RF = {rf}"),
     ]
     for k, (y, head, sub, count) in enumerate(rows):
@@ -252,14 +261,12 @@ def fig_derivation() -> str:
             if k == 0:
                 b.append(circle(cx, y, 4.6, SURFACE, RULE, 1.5))
             elif k == 1:
-                if i in survivors:
-                    b.append(circle(cx, y, 4.6, verifiable, SURFACE, 1.5))
-                else:
-                    b.append(circle(cx, y, 4.6, SURFACE, GRID, 1.5))
+                b.append(circle(cx, y, 4.6, verifiable if i in eligible else SURFACE,
+                                SURFACE if i in eligible else GRID, 1.5))
             else:
                 if i in picks:
                     b.append(circle(cx, y, 4.6, private, SURFACE, 1.5))
-                elif i in survivors:
+                elif i in eligible:
                     b.append(circle(cx, y, 4.6, SURFACE, verifiable, 1.5))
                 else:
                     b.append(circle(cx, y, 4.6, SURFACE, GRID, 1.5))
@@ -267,35 +274,17 @@ def fig_derivation() -> str:
             b.append(arrow(x0 + (x1 - x0) / 2, y + 20, x0 + (x1 - x0) / 2, y + 50,
                            RULE, 1.4))
 
-    b.append(line(38, 276, W - 38, 276, GRID, 1))
-    b.append(text(38, 300, "survivor headroom", 11.5, INK, weight="600"))
-    b.append(text(38, 318, "r = (Nᵀ − 1) / (B · RF)", 12, INK_SOFT))
-    b.append(text(38, 336, f"here {n} / ({buckets} · {rf}) = 2, the smallest value "
-                  "this proposal permits", 10, "#8a887e"))
-
-    b.append(rect(330, 284, 492, 96, SURFACE, RULE, 1.4, rx=8))
-    b.append(text(350, 306, "What the acceptor checks", 11.5, INK, weight="600"))
-    for k, s in enumerate((
-            "the dialler is registered on this topic, at this epoch's cutoff",
-            "the gate holds for the ordered pair, recomputed from public data",
-            "accepting would not exceed the serving cap C")):
-        b.append(circle(358, 322 + k * 17, 2.6, INK_SOFT))
-        b.append(text(370, 326 + k * 17, s, 10, INK_SOFT))
-
-    b.append(text(38, 402, "Publicly recomputable: that every link a node holds passes "
-                  "the gate. Private: which survivors it picked. The first is what makes "
-                  "the topology", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 416, "checkable; the second is what keeps it random.",
-                  11, INK_SOFT, style="italic"))
+    b.append(text(38, 276, "Rows one and two are recomputable by anyone holding the "
+                  "chain. Row three is the node's own randomness, and is not required "
+                  "to be checkable.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Deriving one node's links for one epoch",
                  "Three rows of markers over the same peers. The first row is every peer "
                  "registered on the topic at the epoch's registration cutoff. The second "
                  "marks those for which the verifiable gate holds, roughly one in B of "
-                 "them. The third marks the RF survivors the node actually picks, drawn "
-                 "with its own randomness. Survivor headroom is the ratio of the second "
-                 "row to the third, and this proposal requires it to be at least two. An "
-                 "acceptor checks registration, the gate, and its serving cap.")
+                 "them. The third marks the RF the node actually picks from that eligible "
+                 "set, drawn with its own randomness. The first two rows are publicly "
+                 "recomputable; the third is private.")
 
 
 # ------------------------------------------------------------------ figure 3

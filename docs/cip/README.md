@@ -143,6 +143,8 @@ Several words below carry an established Cardano meaning that is *not* the meani
 | <a name="term-link" id="term-link"></a>**link** | A logical channel identified by a peer, a topic and a link kind, held for the whole epoch. | A **transport connection**. Many links MAY share one connection; see [Link establishment](#link-establishment). |
 | <a name="term-message" id="term-message"></a>**message** | An application payload published to a topic, signed end to end by its publisher. | A **transaction**, or a Cardano network-protocol message. Messages are never written to the chain. |
 | <a name="term-beacon" id="term-beacon"></a>**beacon** | The source of the per-epoch randomness *η*, treated here as an interface with stated requirements. | The ledger's **epoch nonce** specifically. That nonce is one candidate source among others; the choice is open. |
+| <a name="term-rf" id="term-rf"></a>**relay fanout**, *RF* | How many peers one node links to on one topic. The single number each dissemination design is tuned by; the [Rationale](#designs-evaluated) compares designs along it. Written *k* in this Specification wherever the statement holds for any link kind. | A **replication factor** in the storage sense. Nothing is replicated to *RF* places; the number bounds one node's links, not copies of anything. |
+| <a name="term-eligible" id="term-eligible"></a>**eligible peers** | The registered peers a given node may link to in a given epoch, being those its gate admits. Roughly one in *B* of the topic. | The peers it *does* link to. It picks its links from this set privately, and the set is far larger than the number it opens. |
 | <a name="term-b" id="term-b"></a>**bucket count**, *B* | How narrow the verifiable gate is. Roughly one candidate in *B* survives it for a given node and epoch. | **Byzantine** or bad nodes. The adversarial fraction has its own symbol, *μ*, defined in [Table 5](#table-5). *B* counts buckets and nothing else. |
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | How many peers the gate leaves a node eligible to link to, per link it must open. Its floor is what keeps the draw random. | A safety margin below the failure target. Headroom here is a property of the gate, not of the coverage target. |
 | <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will accept on one topic for one link kind. A commitment to serve, not a limit on what it may open. | A rate limit or a transport connection limit. It bounds accepted links only, and refusing beyond it is normal behaviour rather than a fault. |
@@ -166,7 +168,7 @@ The chain is the protocol's trust root and carries none of its traffic. Two regi
 
 Three properties of that arrangement carry most of the design.
 
-**Derivation replaces discovery.** A node does not ask peers who its peers should be. It reads the [registry](#term-registry), applies a public predicate, and dials the result. There is no gossiped view of the network to poison, because there is no view: the candidate set is the registry itself. This is what removes the attack surface the [Motivation](#motivation-why-is-this-cip-necessary) identified in discovery layers that admit freely created identities.
+**Derivation replaces discovery.** A node does not ask peers who its peers should be. It reads the [registry](#term-registry), applies a public predicate, and dials the result. There is no gossiped view of the network to poison, because there is no view: the peers a node may consider are the registry itself. This is what removes the attack surface the [Motivation](#motivation-why-is-this-cip-necessary) identified in discovery layers that admit freely created identities.
 
 **The topology is checkable, not merely asserted.** Because the predicate is a function of public data, any participant can recompute which links a given node was permitted to hold in a given epoch and check the ones it actually holds. A node that dials outside its permitted set produces signed evidence of having done so.
 
@@ -199,7 +201,7 @@ Each epoch is derived from a *snapshot* of the registries, taken at that epoch's
 The snapshot fixes exactly the inputs the topology is a function of: the set of registered identities and their topic interests. It does not fix the endpoint, which is read at the chain tip, because reachability is not an input to the derivation and a node whose address changes mid-epoch would otherwise be unreachable until the next cutoff for no gain. An operator changing endpoints therefore submits one transaction and remains reachable; an operator changing topics waits for the next epoch.
 
 > [!WARNING]
-> **A node derives an epoch from the snapshot, not from the chain as it currently stands.** The plain reading, that a node reads the registry and computes its peers, is wrong in the one case that matters: a registration that lands after the cutoff is visible at the tip and is *not* part of the epoch. Two nodes deriving from different chain positions would compute different candidate sets and refuse each other's dials. Deriving from the cutoff snapshot is what makes the derivation agree across the network.
+> **A node derives an epoch from the snapshot, not from the chain as it currently stands.** The plain reading, that a node reads the registry and computes its peers, is wrong in the one case that matters: a registration that lands after the cutoff is visible at the tip and is *not* part of the epoch. Two nodes deriving from different chain positions would disagree about who is registered and refuse each other's dials. Deriving from the cutoff snapshot is what makes the derivation agree across the network.
 
 #### CDDL
 
@@ -290,9 +292,19 @@ Everything in this subsection is a pure function of the epoch's snapshot, *η*<s
 
 </div>
 
-#### The candidate set
+The figure is drawn at exactly the sizing rule fixed below: 32 registered peers, *B* = 4, so eight are eligible, and *RF* = 4 are picked from those eight. The ratio of the second row to the third is the [selection headroom](#term-r) *r* = 2, the smallest value this Specification permits.
 
-Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *T*. For a node *a* among them, the candidate set on *T* is the other *N*<sub>T</sub> − 1, and it is the full membership rather than a sample of it: there is no view, and therefore nothing to bias. Membership in the candidate set says only that a link between the two would be legitimate; it does not mean the link exists.
+The two halves of that picture differ in who can check them, and the split is the whole of the design's honesty about what it enforces. **Rows one and two are recomputable by anyone holding the chain**, so an acceptor, or any third party, can reject or expose a link outside the permitted set. **Row three is the node's own randomness and is not checkable by anyone**, because a private pick is what keeps the topology a random graph rather than a published one. Concretely, an acceptor presented with a dial verifies three things and nothing else:
+
+- the dialler is registered on this topic, in the snapshot this epoch derives from;
+- the gate holds for the ordered pair, recomputed from public data alone;
+- accepting would not exceed the serving cap *C*.
+
+Nobody can check *which* eligible peers a node chose, or that it opened any links at all. The gate bounds where an adversary may place itself; it does not compel anyone to participate.
+
+#### The registered peers on a topic
+
+Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *T*. For a node *a* among them, the peers it might link to on *T* are the other *N*<sub>T</sub> − 1, and that is the full membership rather than a sample of it: there is no view, and therefore nothing to bias. Being registered on the topic says only that a link between the two would be legitimate; it does not mean the link exists, nor that the gate below admits it.
 
 #### The verifiable gate
 
@@ -392,7 +404,7 @@ An acceptor evaluates a Request in this order, and the order is normative becaus
 1. **Kind.** A request for a link kind the node does not operate is dropped.
 2. **Signature.** The signature MUST verify against the emitter's key, and the emitter MUST NOT be the acceptor itself.
 3. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
-4. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be in the acceptor's candidate set for *T* under this epoch's snapshot.
+4. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
 5. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
 6. **Gate.** The gate MUST hold for the ordered pair as the requester's role requires, recomputed by the acceptor from public data.
 7. **Cap.** If the acceptor already holds *C* links of that kind on *T*, it refuses.
