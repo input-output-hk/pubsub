@@ -339,11 +339,13 @@ This does not overturn Table 4, but it does mean **cost alone does not select a 
 
 For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it. Any use of M3 in this proposal should take (13, 7), and the comparisons that follow keep (12, 8) only because it is the figure the published tables carry.
 
-Two qualifications. The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives; what the experiment establishes is that the laws apply under churn, not the budget values themselves. And in the first round the measurements sat slightly above their predictions in the middle of the range. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and it does not reappear at the operating points, where the second round shows no bias. It is nonetheless unexplained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
+> [!NOTE]
+> The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives. What the experiment establishes is that the laws apply under churn, not the budget values themselves. And in the first round the measurements sat slightly above their predictions in the middle of the range. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and it does not reappear at the operating points, where the second round shows no bias. It is nonetheless unexplained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
 #### Limits of this evidence
 
-The following are stated so that a reader can judge what the numbers above do and do not establish, in descending order of how much they bear on the conclusions.
+> [!IMPORTANT]
+> The following are stated so that a reader can judge what the numbers above do and do not establish, in descending order of how much they bear on the conclusions.
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
@@ -415,7 +417,8 @@ Two designs remain in contention, and neither dominates the other. M3 at (13, 7)
 
 </div>
 
-**This proposal does not claim the evidence selects between them.** M4 now leads three of the four axes, but the one M3 leads is bandwidth, by 22 %, and no weighting of traffic against connections follows from the analysis. What would decide it is a fact about deployment rather than about the protocol: whether a node's binding constraint is the traffic it carries or the connections it can hold open. For an operator on a metered link the first binds; for one behind a connection-limited gateway the second does. That question is posed in the Open Questions below, and the Specification names the design the answer selects.
+> [!IMPORTANT]
+> **This proposal does not claim the evidence selects between them.** M4 now leads three of the four axes, but the one M3 leads is bandwidth, by 22 %, and no weighting of traffic against connections follows from the analysis. What would decide it is a fact about deployment rather than about the protocol: whether a node's binding constraint is the traffic it carries or the connections it can hold open. For an operator on a metered link the first binds; for one behind a connection-limited gateway the second does. That question is posed in the Open Questions below, and the Specification names the design the answer selects.
 
 What the evidence does establish is that the field is two, not five, and that the axes on which they differ are measured rather than assumed.
 
