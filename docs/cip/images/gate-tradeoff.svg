@@ -73,7 +73,7 @@
 <text x="96.0" y="322.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">What the gate buys against a flooder</text>
 <text x="96.0" y="337.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">slots one victim gives an attacker holding 5 % of the network · lower is better</text>
 <text x="816.0" y="354.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">filled = measured · hollow = predicted K/B</text>
-<text x="458.0" y="518.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Bucket count B</text>
+<text x="458.0" y="518.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Bucket count B — how many groups the gate splits the population into</text>
 <text x="458.0" y="533.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = a narrower gate: fewer survivors per node, and the attacker's pressure divided further</text>
 <text x="38.0" y="552.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Both panels share the horizontal axis. The largest B leaving headroom for the pick count is coverage-exact and dilutes the attacker most.</text>
 </svg>

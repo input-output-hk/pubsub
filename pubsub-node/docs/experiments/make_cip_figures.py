@@ -549,7 +549,7 @@ def fig_gate_tradeoff(g) -> str:
                   "\u00b7 lower is better", 10.5, "#8a887e"))
     b.append(text(ml + pw - 4, bot + 12, "filled = measured \u00b7 hollow = predicted K/B",
                   9.5, "#8a887e", "end"))
-    b.append(text(ml + pw / 2, H - 42, "Bucket count B", 12.5, INK, "middle", "600"))
+    b.append(text(ml + pw / 2, H - 42, "Bucket count B — how many groups the gate splits the population into", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
                   "right = a narrower gate: fewer survivors per node, and the attacker's "
                   "pressure divided further", 11, INK_SOFT, "middle"))
@@ -580,10 +580,10 @@ def fig_cap_tradeoff(g) -> str:
     """
     CAPS = g["caps"]
     SERIES_DATA = g["series"]
-    W, H = 860, 596
+    W, H = 860, 620
     ml, mr = 104, 40
     pw = W - ml - mr
-    top, ph1 = 108, 176          # P(good)
+    top, ph1 = 132, 176          # P(good)
     bot, ph2 = 356, 132          # honest dials refused, log
     lg = math.log10
 
@@ -642,14 +642,18 @@ def fig_cap_tradeoff(g) -> str:
 
     kx = ml
     for s_ in SERIES_DATA:
-        b.append(line(kx, top - 22, kx + 22, top - 22, s_["colour"],
+        b.append(line(kx, top - 60, kx + 22, top - 60, s_["colour"],
                       2.6 if s_.get("recommended") else 2.2))
-        b.append(circle(kx + 11, top - 22, 4.4, s_["colour"], SURFACE, 1.6))
-        b.append(text(kx + 29, top - 18, s_["label"], 10.5, s_["colour"], "start", "600"))
+        b.append(circle(kx + 11, top - 60, 4.4, s_["colour"], SURFACE, 1.6))
+        b.append(text(kx + 29, top - 56, s_["label"], 10.5, s_["colour"], "start", "600"))
         kx += 34 + len(s_["label"]) * 5.9
 
-    b.append(text(ml, top - 66, "What the network delivers", 12.5, INK, weight="600"))
-    b.append(text(ml, top - 51, "share of epochs in which every honest subscriber is "
+    b.append(text(ml, top - 40, "B is the bucket count: the gate splits the population "
+                  "into B groups and a node may only link inside the group it draws, so "
+                  "K attacker identities reach any one victim as K/B.",
+                  9.5, "#8a887e"))
+    b.append(text(ml, top - 93, "What the network delivers", 12.5, INK, weight="600"))
+    b.append(text(ml, top - 78, "share of epochs in which every honest subscriber is "
                   "reached · higher is better · bars are Wilson 95 %", 10.5, "#8a887e"))
     b.append(text(ml, bot - 22, "Why", 12.5, INK, weight="600"))
     b.append(text(ml, bot - 7, "honest dials refused for want of capacity, per run · "
