@@ -75,7 +75,7 @@ The design is motivated by four standing scenarios, drawn from a [broader survey
 | --- | --- | --- | --- |
 | Protocol developer teams → stake pool operators: emergency alerts and operational coordination | ~10 | ~3,000 SPO nodes, always-on | High; a missed critical alert has operational cost |
 | Stake pools → delegators: operational announcements | Hundreds | Wallet backends, on behalf of a mediated audience of hundreds of thousands | Best-effort |
-| Governance bodies and DReps → community: proposal notifications, voting alerts, and voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Medium to high; tied to voting deadlines |
+| Governance bodies and dReps → community: proposal notifications, voting alerts, and voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Medium to high; tied to voting deadlines |
 | dApps → users: position alerts and protocol notifications | Tens | Wallet backends, mediated, with delivery targeted by address | High; alerts are financially consequential |
 
 <em>Table 1: the four standing scenarios</em>
@@ -88,7 +88,7 @@ First, **the audience is large but the participant set is not.** Where recipient
 
 Second, **the participants are already registered on-chain, or can be.** Stake pool operators are registered by construction. This is what makes an on-chain trust root a natural fit rather than an imposition: the registry the protocol needs substantially exists, and the identities in it are already backed by a cost.
 
-The stakeholders are correspondingly: stake pool operators, as the largest set of direct participants and the recipients in the most delivery-critical scenario; wallet and infrastructure providers, whose integration is what connects the protocol to end users; governance bodies, DReps, and dApp teams as publishers; and protocol developer teams, who currently lack any authenticated broadcast channel to operators at all.
+The stakeholders are correspondingly: stake pool operators, as the largest set of direct participants and the recipients in the most delivery-critical scenario; wallet and infrastructure providers, whose integration is what connects the protocol to end users; governance bodies, dReps, and dApp teams as publishers; and protocol developer teams, who currently lack any authenticated broadcast channel to operators at all.
 
 ### What a solution has to provide
 
@@ -692,7 +692,7 @@ The [Motivation](#motivation-why-is-this-cip-necessary) set out five requirement
 
 The remaining two are quantitative, and are what the evidence in this section is for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is; rarity is the failure probability measured throughout, brevity is bounded by the [epoch](#term-epoch), and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network; both are measured, and what a node actually pays is set out under the trade-offs.
 
-Everything below is stated per epoch, the dissemination period defined in the Specification's [Terminology](#terminology). Its length is a parameter of this proposal rather than a fixed quantity, and the bounds on it are among the open questions this section reaches.
+Everything below is stated per [epoch](#term-epoch), whose length is a parameter of this proposal rather than a fixed quantity; the bounds on it are among the open questions this section reaches.
 
 ### The adversary this proposal defends against
 
@@ -706,11 +706,11 @@ Honest node churn is not a separate threat model. An honest node that is offline
 
 ### Evidence
 
-This section sets out what was measured, how, and what the results do and do not establish. It proceeds in that order: first the quantity being predicted and the two instruments that predict it, then the metrics and the designs compared, then the results, then the limits.
+This section sets out what was measured, how, and what the results do and do not establish.
 
 #### What is measured, and by what
 
-Each epoch the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers, and that assignment stands for the whole epoch. Nodes following the protocol are *honest*; the rest accept their links and forward nothing, the adversary set out above. On any topic some nodes publish and others subscribe.
+Each epoch the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers, and that assignment stands for the whole epoch. Nodes following the protocol are *honest*; the rest are the silent adversary set out above. On any topic some nodes publish and others subscribe.
 
 The guarantee is a property of the drawn topology, not of an individual message. For a given assignment either every honest publisher reaches every honest subscriber, or some publisher does not, in which case that publisher is cut off for the whole epoch every time it publishes. The first case is **good**, the second **bad**. This is deliberately all-or-nothing rather than an average, because an average hides the failure mode that matters: 99.99 % delivery might be a uniform trickle of losses, which is tolerable, or one publisher silenced completely, which is not.
 
@@ -731,7 +731,7 @@ Neither alone would convince. A closed form can approximate the wrong model; an 
 
 #### Performance metrics
 
-A design is characterised by three things: how often a draw fails, what it costs to run at that failure rate, and how much degradation it absorbs before the failure rate changes. The metrics below express those three, and are stated per epoch throughout, since the guarantee is a property of each epoch's standing assignment.
+A design is characterised by three things: how often a draw fails, what it costs to run at that failure rate, and how much degradation it absorbs before the failure rate changes. The metrics below express those three.
 
 Two of them are design inputs rather than outcomes: *μ*, the fraction of nodes assumed adversarial, and *δ*, the failure probability a configuration is required to meet. This proposal uses *δ* = 10⁻⁴ per epoch.
 
@@ -761,7 +761,7 @@ Most of these are self-explanatory from the table. Two are not.
 
 $$p_\text{bad} = P(\text{some honest publisher cannot reach every honest subscriber over the epoch's links})$$
 
-**_Churn budget._** An honest node offline for the epoch is indistinguishable from an adversarial one, so downtime with per-epoch probability *p* raises the effective adversarial fraction to *μ* + *p*(1−*μ*) and a design's own law can be read at that higher value. The budget is the largest downtime a configuration absorbs while still meeting the target:
+**_Churn budget._** Reading a design's own law at the shifted fraction defined above, the budget is the largest downtime a configuration absorbs while still meeting the target:
 
 $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
@@ -906,7 +906,7 @@ This does not overturn Table 7, but it does mean **cost alone does not select a 
 **M3's published operating point should move.** The budget of 19 can be split between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The split (RF = 13, *s* = 7) holds the same total budget and the same 38 standing links, and improves every other figure:
 
 <div align="center">
-<a name="table-12" id="table-12"></a>
+<a name="table-9" id="table-9"></a>
 
 | M3 split | *p*<sub>bad</sub> | Copies per node | Standing links | Downtime absorbed |
 | :--: | ---: | ---: | ---: | ---: |
@@ -931,7 +931,7 @@ The budgets above remain read off the laws rather than observed, for the reason 
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
-**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in Table 4 are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
+**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in [Table 7](#table-7) are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
 
 **Every measurement is at thousands of participants; some use cases are at tens.** The evidence runs at *N* = 4 000 and *N* = 20 000, chosen against the stake-pool population. Three of the four scenarios in [Table 1](#table-1) reach their audience through wallet backends, and the number of nodes *directly* on such a topic may be tens rather than thousands. Nothing here establishes how the design behaves there, and there is reason to expect it differs in kind rather than degree: the coverage laws are asymptotic in *N*, the gate divides a population into *B* buckets that cannot be finer than the population itself, and the connection advantage that separates the two candidate designs weakens as topics shrink. A topic of fifty is not a small instance of this analysis; it is outside it.
 
@@ -962,7 +962,7 @@ Every operating point in Table 7 was chosen by the same rule: the cheapest confi
 
 Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 standing links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
 
-In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted grey shapes rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is drawn dashed, and is the only dashed line in the figure, because it is read off the coverage laws rather than sampled directly.
+In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted grey shapes rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is drawn dashed, and is the only dashed line in the figure, because it is read off the coverage laws rather than sampled directly. The enclosed area of these shapes has no meaning, the axes being different quantities in different units, so only position along each individual axis should be compared.
 
 <div align="center">
 <a name="figure-6" id="figure-6"></a>
@@ -1012,21 +1012,21 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 <div align="center">
 <a name="table-11" id="table-11"></a>
 
-| Topics a node subscribes to | M3 (13, 7) | | M4 (RF = 8) | |
+| Topics a node subscribes to | M3 (13, 7) | | M4 (RF = 9) | |
 | :--: | ---: | ---: | ---: | ---: |
 | | ingress | connections | ingress | connections |
-| 1 | 83 kbit/s | 38 | 94 kbit/s | **16** |
-| 5 | 416 kbit/s | 190 | 472 kbit/s | **80** |
-| 10 | 832 kbit/s | 380 | 944 kbit/s | **160** |
-| 25 | 2.1 Mbit/s | 950 | 2.4 Mbit/s | **400** |
+| 1 | **83 kbit/s** | 38 | 107 kbit/s | **18** |
+| 5 | **416 kbit/s** | 190 | 536 kbit/s | **90** |
+| 10 | **832 kbit/s** | 380 | 1.1 Mbit/s | **180** |
+| 25 | **2.1 Mbit/s** | 950 | 2.7 Mbit/s | **450** |
 
 <em>Table 11: per-node cost against topics subscribed, at 1 kB messages and one publication per second per topic</em>
 
 </div>
 
-Both quantities scale linearly, so the ratio between the designs never changes. What changes is which one becomes the binding constraint. Bandwidth stays modest throughout: even twenty-five busy topics is a couple of megabits, which any always-on operator already has. Connection count does not stay modest. At ten topics M3 asks a node to hold 380 connections against M4's 160, and at twenty-five it is 950 against 400.
+Both quantities scale linearly, so the ratio between the designs never changes. What changes is which one becomes the binding constraint. Bandwidth stays modest throughout: even twenty-five busy topics is a couple of megabits, which any always-on operator already has. Connection count does not stay modest. At ten topics M3 asks a node to hold 380 connections against M4's 180, and at twenty-five it is 950 against 450.
 
-**This is the strongest argument yet for M4**, and it did not appear in the single-topic comparison, where 38 against 16 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
+**This is the strongest argument yet for M4**, and it did not appear in the single-topic comparison, where 38 against 18 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
 
 > [!NOTE]
 > These counts are of [links](#term-link), and a link is identified by a peer, a topic *and* a link kind. The [Specification](#link-establishment) permits an implementation to carry every link to one peer over a single transport connection, and recommends it, so **the columns above are upper bounds on transport connections** rather than connection counts.
@@ -1034,8 +1034,6 @@ Both quantities scale linearly, so the ratio between the designs never changes. 
 > How much that saves is not a matter of opinion. A node subscribing to *T* topics, each drawing *d* links from a population of *P*, expects to hold (*P*−1)(1−(1−*d*/(*P*−1))<sup>*T*</sup>) distinct peers, and the saving is whatever separates that from *dT*. At the *N* = 20 000 the table assumes it is negligible: twenty-five topics take M3 from 950 links to 929 connections and M4 from 450 to 445, around 2 % and 1 %. Two topics rarely land on the same peer when there are twenty thousand to choose from, so **multiplexing does not rescue M3 at deployment scale and the argument above stands**.
 >
 > It bites where the population is small. On a topic drawing from three thousand participants, the same twenty-five subscriptions save M3 14 % and M4 7 %; at five hundred, 55 % and 33 %. Small topics are the regime where connection count stops separating the designs, and the [use cases](#use-cases-and-stakeholders) include some.
-
-Two caveats on reading the figure. Three of its axes are measured directly; churn tolerance is read off each design's coverage law, for the reason the Robustness subsection gives, so it carries the qualification recorded there. And the enclosed area of these shapes has no meaning, since the axes are different quantities in different units, so only position along each individual axis should be compared.
 
 #### Choosing the admission parameters
 
@@ -1075,7 +1073,7 @@ A cap of about twice the pick count absorbed even an attacker holding a fifth of
 >
 > These two are also the only results in this Rationale that rest on a single instrument. The gate and the serving cap exist in the reference implementation and in these measurements; there is no closed-form model of either, so the agreement argument that carries the coverage results is unavailable here.
 
-The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 5 gives, arrived at from the attack side. The starvation counts show why the two agree. Widening the gate does not merely dilute the attacker, it removes the starvation: at *B* = 125 a node loses 2 934 honest dials per run at the tight cap against 12 at the loose one, where the narrow gate under the same attacker loses 12 605 and 1 320. Two independent runs of those three cells, on different machines from the same configuration, seed and tool commit, agree on every one of those figures. The gate and the cap are two ways of buying the same thing, which is honest links that are not refused.[^gate]
+The starvation counts show why the coverage panel and the attack side agree. Widening the gate does not merely dilute the attacker, it removes the starvation: at *B* = 125 a node loses 2 934 honest dials per run at the tight cap against 12 at the loose one, where the narrow gate under the same attacker loses 12 605 and 1 320. Two independent runs of those three cells, on different machines from the same configuration, seed and tool commit, agree on every one of those figures. The gate and the cap are two ways of buying the same thing, which is honest links that are not refused.[^gate]
 
 #### What can be turned, and what it costs
 
