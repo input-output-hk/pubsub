@@ -24,6 +24,10 @@ _apalache-out/
 # Rust build artifacts
 target/
 
+# Python bytecode caches
+__pycache__/
+*.pyc
+
 # Claude Code (user-specific permissions, not for version control)
 .claude/settings.local.json
 
