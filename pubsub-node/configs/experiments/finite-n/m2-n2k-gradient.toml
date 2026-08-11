@@ -1,0 +1,26 @@
+# Finite-N gradient — M2 at N = 2000, RF = 12
+# The N = 1000 ladder found the coverage laws deviating per design and in
+# opposite directions, where the pooled figure looked clean. M3 is monotone in
+# N across the published corpus (1.023 at 20000, 1.032 at 4000, 1.059 at 1000)
+# and M2 is established only at the bottom. These fill the middle of the curve.
+# M3 holds s = 4 fixed across the ladder so design shape does not vary with N.
+# mu = 0.2. Predicted P(bad) = 0.10277.
+
+model = "m2"
+master_seed = 921
+
+[population]
+size = 2000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 12
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 12
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 60000
