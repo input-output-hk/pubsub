@@ -1,0 +1,37 @@
+# M4 RF=5 at N=4000, chosen so P(bad) starts measurable (the published M4
+# coverage cells are at N=20000, where a sweep costs hours).
+# N = 4000; adversarial-fraction sweep.
+
+model = "m4"
+master_seed = 835
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 5
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 5
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 4000
+
+# Honest downtime is claimed to enter the coverage analysis as a shift of the
+# adversarial fraction to mu + p(1-mu). These points sit where P(bad) is large
+# enough to count, so the claim can be checked against the law read at the
+# shifted value. p_max itself is at P(bad) = 1e-4 and is not directly samplable.
+
+# The adversarial fraction is an assumption about the deployment rather than a
+# result, and the designs do not degrade at equal rates in it. This sweeps the
+# law's own argument: mu is a native parameter, so what is tested is whether
+# each law holds across it at fixed selection parameters.
+[[axes]]
+parameter = "adversarial_fraction"
+values = [0.20, 0.25, 0.30, 0.35]

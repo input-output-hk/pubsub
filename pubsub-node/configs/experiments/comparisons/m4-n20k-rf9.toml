@@ -1,0 +1,27 @@
+# Cost/latency/degree comparison cell — M4 one notch above the published
+# operating point, at RF = 9. This is the configuration the CIP rationale
+# recommends for M4, and the source of its measured figures: 214345 msgs,
+# 13.40 copies/honest, 18.0 standing links mean / 37 busiest, 5.00 hops full
+# / 3.90 mean, 200/200 good. P(bad) law 6.07e-6, churn budget 7.43%.
+# N = 20000, mu = 0.2, 200 runs.
+
+model = "m4"
+master_seed = 851
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 9
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 200

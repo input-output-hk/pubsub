@@ -614,10 +614,61 @@ pub fn topology_shape(digraph: &PropagationDigraph) -> TopologyShape {
     }
 }
 
+/// Standing links held per up-honest node, in vertex order.
+///
+/// The propagation digraph deliberately omits links that carry no
+/// dissemination traffic — under M3 the initiation links are seed edges and
+/// never relay — so its degrees understate what a node actually holds open.
+/// This counts the connections instead: every distinct `(peer, kind)` a node
+/// has an established link with, in either direction and regardless of the
+/// counterparty's class, since an adversary still occupies a connection slot.
+///
+/// A symmetric relay link registers on both the upstream and downstream side
+/// for the same peer and kind, and is counted once — which is what makes the
+/// figure comparable across the family: it is the chooser-plus-acceptor total,
+/// twice the nominal budget under protocol-compliant opening.
+#[must_use]
+pub fn standing_degrees(population: &Population, phase: ChurnPhase) -> Vec<usize> {
+    let topic = population.topic();
+    let in_scope = |participant: &super::population::Participant| match phase {
+        ChurnPhase::PreChurn => participant.class() == super::population::ParticipantClass::Honest,
+        ChurnPhase::PostChurn => participant.is_up_honest(),
+    };
+    population
+        .participants()
+        .filter(|(_, participant)| in_scope(participant))
+        .map(|(_, participant)| {
+            // (peer, is_publisher_kind) — dedupes the symmetric case.
+            let mut held: BTreeSet<(PeerId, bool)> = BTreeSet::new();
+            for (peer, edge_topic, state) in participant.upstream() {
+                if &edge_topic == topic && state == LinkState::Active {
+                    held.insert((peer, false));
+                }
+            }
+            for (peer, edge_topic) in participant.downstream() {
+                if &edge_topic == topic {
+                    held.insert((peer, false));
+                }
+            }
+            for (peer, edge_topic) in participant.publisher_upstream() {
+                if &edge_topic == topic {
+                    held.insert((peer, true));
+                }
+            }
+            for (peer, edge_topic, state) in participant.publisher_downstream() {
+                if &edge_topic == topic && state == LinkState::Active {
+                    held.insert((peer, true));
+                }
+            }
+            held.len()
+        })
+        .collect()
+}
+
 /// Dense degree histogram: index = degree, value = vertex count; length =
 /// realised max degree + 1 (empty for an empty graph) — degree-bounded, never
 /// population-sized.
-fn degree_histogram(degrees: &[usize]) -> Vec<u64> {
+pub(crate) fn degree_histogram(degrees: &[usize]) -> Vec<u64> {
     let Some(max) = degrees.iter().copied().max() else {
         return Vec::new();
     };

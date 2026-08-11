@@ -1,0 +1,32 @@
+# Tier-2 deep-tail cell — M3 N=4000 RF=9 s=5: P(bad) pred 0.0053, MC 178/30000
+# = 0.0059 (the formal deep-tail row; the law is ~1.11x optimistic here per
+# the m3 study's second-order note).
+# mu = 0.2; run count matched to the formal MC row.
+
+model = "m3"
+master_seed = 821
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+publisher = { pick_count = 4 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 9
+publisher = { pick_count = 4 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 170000
+
+# Deep-tail power run. Both studies note the coverage laws run mildly
+# optimistic where failures are rare, because they count single cut-off nodes
+# exactly and small cut-off groups only approximately. Neither side's existing
+# sample can size that correction: distinguishing a ten-percent effect at these
+# rates needs of the order of 1e5 draws, and the published cells are 3e4. A
+# fresh master seed keeps this independent of those, so the two can be pooled.
