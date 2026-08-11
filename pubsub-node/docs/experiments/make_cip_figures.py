@@ -266,7 +266,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     every axis reads outward-is-better.
     """
     import math as _m
-    W, H = 860, 616
+    W, H = 860, 632
     cx, cy, R = 430, 282, 162
     by = {o["model"]: o for o in ops}
     # where a design has a preferred alternative to its published point, plot the
@@ -278,8 +278,16 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     # parameters; M2 stays as the conservative reference. The dominated pair is
     # still drawn, muted, so the reader can see that they are inside the others
     # everywhere rather than having to take the claim on trust.
+    #
+    # They are muted by hue and by a faint fill rather than by a dash pattern:
+    # the churn axis is dashed to mark that it is law-derived, and a dashed
+    # series against a dashed axis makes the reader guess which meaning applies.
+    # Dashing therefore says one thing in this figure. The two neutrals separate
+    # the pair by lightness alone, which is what keeps them out of the four
+    # categorical hues; M1 lies inside M5 on three axes and on top of it on the
+    # fourth, so the nesting itself distinguishes them.
     SHOWN = ["M3", "M4", "M2"]
-    MUTED = [("M5", "5 4"), ("M1", "2 3")]
+    MUTED = [("M5", "#8a887e"), ("M1", "#bcb9ae")]
 
     AXES = [
         ("Bandwidth economy", "copies per node", lambda o: o["copies_per_node"], True),
@@ -314,18 +322,19 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                       "#c4c2b9" if i == 3 else GRID, 1, dash=dash))
 
     # the dominated pair first, so the contending designs draw over them
-    for m, dash in MUTED:
+    for m, col in MUTED:
         pts = " ".join(
             f"{cx + R * score(m, i) * _m.cos(ang[i]):.1f},"
             f"{cy + R * score(m, i) * _m.sin(ang[i]):.1f}" for i in range(4))
-        b.append(f'<polygon points="{pts}" fill="none" stroke="{RULE}" stroke-width="1.4" '
-                 f'stroke-dasharray="{dash}" stroke-linejoin="round"/>')
+        b.append(f'<polygon points="{pts}" fill="{col}" fill-opacity="0.07" stroke="{col}" '
+                 f'stroke-width="1.4" stroke-linejoin="round"/>')
 
     b.append(text(38, 30, "dominated on all four axes, drawn for reference:",
                   10.5, "#8a887e"))
-    for k, (m, dash) in enumerate(MUTED):
+    for k, (m, col) in enumerate(MUTED):
         y = 48 + k * 18
-        b.append(line(38, y - 4, 66, y - 4, RULE, 1.4, dash=dash))
+        b.append(f'<rect x="38" y="{y - 12:.1f}" width="28" height="11" rx="2" '
+                 f'fill="{col}" fill-opacity="0.07" stroke="{col}" stroke-width="1.4"/>')
         b.append(text(73, y, f"{m} · {by[m]['params']}", 10.5, "#8a887e"))
 
     for m in SHOWN:
@@ -365,6 +374,10 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
             b.append(text(vx + dx, vy - 4, name, 12.5, INK, anchor, "600"))
             b.append(text(vx + dx, vy + 11, unit, 10.5, "#8a887e", anchor))
             b.append(text(vx + dx, vy + 25, vals, 10.5, "#8a887e", anchor))
+            # the one dashed thing in the figure, named where it is drawn
+            if i == 3:
+                b.append(text(vx + dx, vy + 41, "dashed axis: read off the law, "
+                              "not sampled", 10, "#8a887e", anchor))
             continue
         b.append(text(vx, vy - 72, vals, 10.5, "#8a887e", "middle"))
 
@@ -373,13 +386,14 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                   "subscriber, more downtime absorbed.", 11, INK_SOFT, style="italic"))
     b.append(text(38, 572, "Each design is scored against the best of the three and "
                   "labelled at the axis where it leads.", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 588, "Three axes are measured directly; churn tolerance is read "
-                  "off the coverage law, whose behaviour under churn was measured "
-                  "separately.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 588, "Three axes are measured directly; the dashed one, churn "
+                  "tolerance, is read off the coverage law, whose behaviour under churn "
+                  "was measured separately.", 11, INK_SOFT, style="italic"))
+    # one sentence per line: as a single line this ran off the right-hand edge
     b.append(text(38, 604, "Radial position is the ratio to the best value on that axis, "
-                  "so half-way out is half as good; the centre is zero downtime on the "
-                  "churn axis and unbounded cost on the other three.",
-                  11, INK_SOFT, style="italic"))
+                  "so half-way out is half as good.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 620, "The centre is zero downtime on the churn axis, and unbounded "
+                  "cost on the other three.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Four-way trade-off across the surviving designs",
                  "One radar chart overlaying M2, M3 and M4 on four axes: bandwidth "
@@ -388,9 +402,12 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "outer ring. M4 reaches it on connection economy and on churn tolerance, "
                  "and is the most even shape; M3 reaches it on bandwidth alone and sits "
                  "under a third of the way out on churn tolerance; M2 reaches it on speed "
-                 "and is innermost on the other three. M5 and M1 are drawn as muted dashed "
-                 "outlines: each lies inside a contending design on every axis, which is "
-                 "what being dominated looks like.")
+                 "and is innermost on the other three. M5 and M1 are drawn as muted grey "
+                 "shapes with a faint fill and a solid outline, M1 nested inside M5: each "
+                 "lies inside a contending design on every axis, which is what being "
+                 "dominated looks like. The churn axis is the only dashed line in the "
+                 "figure, marking that it is read off the coverage law rather than "
+                 "sampled.")
 
 
 # ------------------------------------------------------------------ figure 4
