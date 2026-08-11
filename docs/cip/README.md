@@ -858,14 +858,14 @@ Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴
 
 </div>
 
-Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*; it is not a maximum over configurations, and each row is already the cheapest one meeting the target. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting two of those columns against each other shows the shape of the trade: both axes are costs, so lower and further left is better, and marker size is hops to the last subscriber.
+Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*; it is not a maximum over configurations, and each row is already the cheapest one meeting the target. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting three of those columns at once shows the shape of the trade: the two axes are costs, so lower and further left is better, and marker size is hops to the last subscriber, so a smaller marker is faster.
 
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
 
 ![Bandwidth cost against state cost at equal safety](images/cost-vs-state.svg)
 
-<em>Figure 5: bandwidth cost against state cost at equal safety</em>
+<em>Figure 5: three costs at equal safety — bandwidth, state, and latency as marker size</em>
 
 </div>
 

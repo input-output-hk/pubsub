@@ -318,7 +318,7 @@ def fig_derivation() -> str:
                  "recomputable; the third is private.")
 
 
-# ------------------------------------------------------------------ figure 3
+# ------------------------------------------------------------------ figure 4
 def fig_validation(cells, churn=()) -> str:
     W, H = 860, 500
     ml, mr, mt, mb = 86, 26, 22, 76
@@ -388,7 +388,7 @@ def fig_validation(cells, churn=()) -> str:
                  "95% intervals. Points lie on the diagonal across the whole range.")
 
 
-# ------------------------------------------------------------------ figure 4
+# ------------------------------------------------------------------ figure 5
 def fig_cost_state(ops) -> str:
     W, H = 860, 446
     ml, mr, mt, mb = 96, 40, 30, 80
@@ -458,14 +458,17 @@ def fig_cost_state(ops) -> str:
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
              f'up = more traffic</text>')
 
-    return frame(W, H, b, "Bandwidth cost against state cost at equal safety",
-                 "Each design tuned to the same failure target, so points differ only in "
-                 "cost. Horizontal axis is standing connections per node, vertical axis is "
-                 "message copies per honest node; both are costs, so lower-left is better. "
-                 "M3 and M4 are jointly non-dominated.")
+    return frame(W, H, b, "Three costs at equal safety: bandwidth, state and latency",
+                 "Each design tuned to the same failure target, so the points differ only "
+                 "in cost. Three quantities are plotted at once: the horizontal axis is "
+                 "standing connections per node, the vertical axis is message copies per "
+                 "honest node, and marker size is hops to full coverage. Both axes are "
+                 "costs, so lower and further left is better, and a smaller marker reaches "
+                 "the last subscriber sooner. M3 and M4 are jointly non-dominated on the "
+                 "two axes.")
 
 
-# ------------------------------------------------------------------ figure 5
+# ------------------------------------------------------------------ figure 6
 def fig_tradeoffs(ops, alternatives=()) -> str:
     """Single overlaid radar: the four designs that are each best at something.
 
@@ -628,7 +631,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "sampled.")
 
 
-# ------------------------------------------------------------------ figure 6
+# ------------------------------------------------------------------ figure 7
 def fig_extrapolation(cells, ops) -> str:
     """Where the measured configurations sit relative to the proposed ones.
 
@@ -707,7 +710,7 @@ def fig_extrapolation(cells, ops) -> str:
                  "spanned by the coverage laws rather than by measurement.")
 
 
-# ------------------------------------------------------------------ figure 7
+# ------------------------------------------------------------------ figure 8
 def fig_gate_tradeoff(g) -> str:
     """The bucket count's two opposing costs, on one shared axis.
 
@@ -807,7 +810,7 @@ def fig_gate_tradeoff(g) -> str:
                  "retaining headroom is best on both.")
 
 
-# ------------------------------------------------------------------ severity
+# ------------------------------------------------------------------ figure 3
 def fig_severity(g) -> str:
     """What a failing draw actually costs, against how often draws fail.
 
