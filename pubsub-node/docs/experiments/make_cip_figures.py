@@ -568,6 +568,78 @@ def fig_gate_tradeoff(g) -> str:
                  "retaining headroom is best on both.")
 
 
+# ------------------------------------------------------------------ severity
+def fig_severity(g) -> str:
+    """What a failing draw actually costs, against how often draws fail.
+
+    The coverage metric is all-or-nothing by design, which is right for a
+    safety criterion and silent about magnitude. This is the magnitude: the
+    share of failing draws that miss exactly one subscriber, against the
+    failure rate of the cell it was measured in. One axis is a property of
+    the draw, the other of the design, and the point of the plot is that the
+    first stays near the top until the second is far outside anything the
+    proposal targets.
+    """
+    W, H = 860, 470
+    ml, mr, mt, mb = 92, 40, 74, 92
+    pw, ph = W - ml - mr, H - mt - mb
+    lg = math.log10
+    lo, hi = 1e-3, 0.6
+
+    def X(v):
+        return ml + (lg(max(v, lo)) - lg(lo)) / (lg(hi) - lg(lo)) * pw
+
+    def Y(v):
+        return mt + ph - (v - 0.70) / 0.32 * ph
+
+    b = []
+    for e in (-3, -2, -1):
+        v = 10.0 ** e
+        b.append(line(X(v), mt, X(v), mt + ph, GRID, 1))
+        b.append(text(X(v), mt + ph + 19, decade(v), anchor="middle"))
+    for v in (0.75, 0.80, 0.85, 0.90, 0.95, 1.00):
+        b.append(line(ml, Y(v), ml + pw, Y(v), GRID, 1))
+        b.append(text(ml - 10, Y(v) + 4, f"{v * 100:.0f}%", 10.5, INK_SOFT, "end"))
+
+    xt = X(1e-4)
+    if xt > ml:
+        b.append(line(xt, mt, xt, mt + ph, "#52514e", 1.4))
+
+    for c in sorted(g["cells"], key=lambda c: -c["p_bad"]):
+        x, y = X(c["p_bad"]), Y(c["share_one_node"])
+        col = SERIES[c["model"]]
+        if c["publisher_isolated"]:
+            b.append(circle(x, y, 8.5, "none", "#b23b3b", 2.0))
+        b.append(circle(x, y, 4.4, col, SURFACE, 1.6))
+
+    b.append(text(ml, mt - 46, "How much a failing draw actually costs", 12.5, INK, weight="600"))
+    b.append(text(ml, mt - 31, "share of failing draws that miss exactly one subscriber, "
+                  "against how often that cell failed", 10.5, "#8a887e"))
+    b.append(text(ml, mt - 16, "each point is one cell of the adversarial-fraction sweep; "
+                  "colour is the design", 10.5, "#8a887e"))
+
+    b.append(circle(ml + 6, H - 46, 8.5, "none", "#b23b3b", 2.0))
+    b.append(circle(ml + 6, H - 46, 4.4, INK_SOFT, SURFACE, 1.6))
+    b.append(text(ml + 22, H - 42, "ringed: a cell that also produced one draw missing every "
+                  "subscriber, the publisher itself having been cut off", 10.5, INK_SOFT))
+    b.append(text(ml + pw / 2, H - 22, "P(bad) measured in that cell — log scale, "
+                  "right is more often", 12.5, INK, "middle", "600"))
+    b.append(f'<text x="0" y="0" transform="translate(26,{mt + ph / 2:.1f}) rotate(-90)" '
+             f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
+             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
+             f'Failures costing one subscriber</text>')
+
+    return frame(W, H, b, "What a failing draw costs, against how often draws fail",
+                 "One point per cell of the adversarial-fraction sweep. The horizontal axis "
+                 "is the failure rate measured in that cell, on a log scale; the vertical "
+                 "axis is the share of those failures that missed exactly one honest "
+                 "subscriber. The share stays at or near 100 % until the failure rate is far "
+                 "above anything this proposal targets, and falls to 76 % only at a rate of "
+                 "0.4. Two cells, ringed, also produced a single draw in which every "
+                 "subscriber was missed because the publisher itself was cut off.")
+
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
@@ -582,6 +654,7 @@ def main() -> int:
         "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
+        "severity.svg": fig_severity(d["severity"]),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"]),
     }
