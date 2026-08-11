@@ -266,7 +266,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     every axis reads outward-is-better.
     """
     import math as _m
-    W, H = 860, 632
+    W, H = 860, 616
     cx, cy, R = 430, 282, 162
     by = {o["model"]: o for o in ops}
     # where a design has a preferred alternative to its published point, plot the
@@ -389,11 +389,9 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     b.append(text(38, 588, "Three axes are measured directly; the dashed one, churn "
                   "tolerance, is read off the coverage law, whose behaviour under churn "
                   "was measured separately.", 11, INK_SOFT, style="italic"))
-    # one sentence per line: as a single line this ran off the right-hand edge
     b.append(text(38, 604, "Radial position is the ratio to the best value on that axis, "
-                  "so half-way out is half as good.", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 620, "The centre is zero downtime on the churn axis, and unbounded "
-                  "cost on the other three.", 11, INK_SOFT, style="italic"))
+                  "so half-way out is half as good; the centre is zero downtime, or "
+                  "unbounded cost.", 11, INK_SOFT, style="italic"))
 
     return frame(W, H, b, "Four-way trade-off across the surviving designs",
                  "One radar chart overlaying M2, M3 and M4 on four axes: bandwidth "
