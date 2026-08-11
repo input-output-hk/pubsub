@@ -632,13 +632,19 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
 
 
 # ------------------------------------------------------------------ figure 7
-def fig_extrapolation(cells, ops) -> str:
+def fig_extrapolation(cells, ops, alternatives=()) -> str:
     """Where the measured configurations sit relative to the proposed ones.
 
     Substantiates the first entry in "Limits of this evidence": sampling can
     only resolve failure rates it can observe, so every configuration that was
     measured fails far more often than any configuration that is proposed. Solid
     marks are counted outcomes; hollow marks are law predictions.
+
+    The hollow mark is the configuration this proposal names, which for M3 and
+    M4 is the preferred split rather than the published one - the same point the
+    trade-off radar and the two-candidate tables carry. Reading the published
+    split here would label a configuration "proposed" that the text argues
+    against.
     """
     W, H = 860, 460
     ml, mr, mt, mb = 104, 34, 88, 108
@@ -649,8 +655,9 @@ def fig_extrapolation(cells, ops) -> str:
     def X(v):
         return ml + (lg(max(v, lo)) - lg(lo)) / (lg(hi) - lg(lo)) * pw
 
-    order = [o["model"] for o in sorted(ops, key=lambda o: o["copies_per_node"])]
     by = {o["model"]: o for o in ops}
+    by.update({a["model"]: a for a in alternatives if a.get("preferred")})
+    order = [o["model"] for o in sorted(by.values(), key=lambda o: o["copies_per_node"])]
     rows = {m: [c["bad"] / c["runs"] for c in cells if c["model"] == m] for m in order}
     step = ph / len(order)
 
@@ -902,7 +909,7 @@ def main() -> int:
             d["operating_points"], d.get("alternatives", ())),
         "severity.svg": fig_severity(d["severity"]),
         "measured-vs-proposed.svg": fig_extrapolation(
-            d["coverage_cells"], d["operating_points"]),
+            d["coverage_cells"], d["operating_points"], d.get("alternatives", ())),
     }
 
     rc = 0
