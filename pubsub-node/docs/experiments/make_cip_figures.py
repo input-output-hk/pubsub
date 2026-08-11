@@ -172,84 +172,79 @@ def fig_architecture() -> str:
     Three bands, read downward, because that is the order the protocol runs in:
     the chain supplies inputs, every node turns them into the same link set
     independently, and messages then travel over those links.
+
+    Deliberately an overview: the boxes carry names only. What each registry
+    holds, what the gate computes and what a link costs are all stated
+    normatively within a page or two of this figure, so repeating them here
+    only competes with the Specification for the reader's attention. What the
+    figure keeps is what running prose cannot show at a glance: the three
+    inputs, the order they are consumed in, and where the public derivation
+    stops and the node's private draw begins.
     """
-    W, H = 860, 574
+    W, H = 860, 492
     b = []
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
 
-    def band(y, h, title, subtitle):
+    def band(y, h, title):
         b.append(rect(38, y, W - 76, h, SURFACE, GRID, 1.2, rx=8))
         b.append(text(58, y + 24, title, 12.5, INK, weight="600"))
-        b.append(text(58, y + 40, subtitle, 10.5, "#8a887e"))
 
-    def box(x, y, w, h, head, sub, stroke=RULE, head_fill=INK):
+    def box(x, y, w, h, head, stroke=RULE, head_fill=INK):
         b.append(rect(x, y, w, h, SURFACE, stroke, 1.4))
-        b.append(text(x + w / 2, y + 22, head, 11.5, head_fill, "middle", "600"))
-        for k, s in enumerate(sub):
-            b.append(text(x + w / 2, y + 38 + k * 13, s, 9.5, "#8a887e", "middle"))
+        b.append(text(x + w / 2, y + h / 2 + 4, head, 11.5, head_fill, "middle", "600"))
 
-    band(38, 128, "On the Cardano chain",
-         "the trust root: public, and the same for everyone")
-    box(60, 92, 236, 62, "Node registry",
-        ["identity key · topic interests", "endpoint · deposit"], verifiable)
-    box(312, 92, 236, 62, "Topic registry",
-        ["topic identifier", "authorised publisher keys"], verifiable)
-    box(564, 92, 236, 62, "Randomness beacon",
-        ["one value per epoch", "fixed after the registration cutoff"], verifiable)
+    band(38, 96, "On the Cardano chain")
+    box(60, 80, 236, 38, "Node registry", verifiable)
+    box(312, 80, 236, 38, "Topic registry", verifiable)
+    box(564, 80, 236, 38, "Randomness beacon", verifiable)
 
     for x, lab in ((178, "membership at the cutoff"), (430, "publisher keys"),
                    (682, "epoch randomness  η")):
-        b.append(arrow(x, 166, x, 202, RULE, 1.6))
-        b.append(text(x + 10, 188, lab, 10, "#8a887e"))
+        b.append(arrow(x, 134, x, 170, RULE, 1.6))
+        b.append(text(x + 10, 156, lab, 10, "#8a887e"))
 
-    band(210, 150, "In every node, from those inputs alone",
-         "no negotiation, no discovery layer, no peer's word taken for anything")
-    stages = [
-        (60, "Registered peers", ["every node registered", "on the topic"], verifiable),
-        (254, "Verifiable gate", ["H(d, η, T, a, b) mod B = 0",
-                                  "leaves the eligible set"], verifiable),
-        (448, "Pick", ["k of them drawn", "by the node's own randomness"], private),
-        (642, "Link set", ["dialled, verified, accepted", "held for the whole epoch"],
-         INK_SOFT),
-    ]
-    for x, head, sub, col in stages:
-        box(x, 266, 158, 62, head, sub, col, col if col != INK_SOFT else INK)
+    band(178, 118, "In every node, from those inputs alone")
+    stages = [(60, "Registered peers", verifiable), (254, "Verifiable gate", verifiable),
+              (448, "Pick", private), (642, "Link set", INK_SOFT)]
+    for x, head, col in stages:
+        box(x, 220, 158, 38, head, col, col if col != INK_SOFT else INK)
     for x0 in (218, 412, 606):
-        b.append(arrow(x0 + 2, 297, x0 + 34, 297, RULE, 1.6))
-    b.append(text(60, 348, "Recomputable by anyone holding the chain", 10, verifiable,
+        b.append(arrow(x0 + 2, 239, x0 + 34, 239, RULE, 1.6))
+    b.append(text(60, 282, "Recomputable by anyone holding the chain", 10, verifiable,
                   weight="600"))
-    b.append(text(304, 348, "→", 10, "#8a887e"))
-    b.append(text(324, 348, "the node's own draw, and not required to be checkable",
+    b.append(text(304, 282, "→", 10, "#8a887e"))
+    b.append(text(324, 282, "the node's own draw, and not required to be checkable",
                   10, private))
 
-    b.append(arrow(430, 372, 430, 408, RULE, 1.6))
-    b.append(text(440, 394, "one signed handshake per link", 10, "#8a887e"))
+    b.append(arrow(430, 296, 430, 332, RULE, 1.6))
+    b.append(text(440, 318, "one signed handshake per link", 10, "#8a887e"))
 
-    band(416, 120, "Over those links, until the epoch ends",
-         "publisher to subscribers, and never over the chain")
+    band(340, 116, "Over those links, until the epoch ends")
+    b.append(text(430, 390, "signed once by the publisher, verified by every recipient",
+                  10, "#8a887e", "middle"))
     for x, lab in ((130, "publisher"), (320, "relay"), (540, "relay"), (770, "subscriber")):
-        b.append(circle(x, 502, 13, SURFACE, INK_SOFT, 1.8))
-        b.append(text(x, 530, lab, 10.5, INK_SOFT, "middle"))
+        b.append(circle(x, 416, 13, SURFACE, INK_SOFT, 1.8))
+        b.append(text(x, 442, lab, 10.5, INK_SOFT, "middle"))
     for x0, x1 in ((143, 307), (553, 757)):
-        b.append(arrow(x0, 502, x1, 502, RULE, 1.6))
+        b.append(arrow(x0, 416, x1, 416, RULE, 1.6))
     # the run between the first and last relay is any number of hops, not one:
     # a dashed span with an ellipsis, so the figure stops implying a fixed depth
-    b.append(line(333, 502, 527, 502, RULE, 1.6, dash="5 5"))
-    b.append(circle(430, 502, 13, SURFACE, SURFACE, 0))
-    b.append(text(430, 507, "\u22ef", 17, RULE, "middle"))
-    b.append(text(430, 530, "any number of relays", 10.5, INK_SOFT, "middle"))
-    b.append(text(430, 478, "signed once by the publisher, verified by every recipient",
-                  10, "#8a887e", "middle"))
+    b.append(line(333, 416, 527, 416, RULE, 1.6, dash="5 5"))
+    b.append(circle(430, 416, 13, SURFACE, SURFACE, 0))
+    b.append(text(430, 421, "\u22ef", 17, RULE, "middle"))
+    b.append(text(430, 442, "any number of relays", 10.5, INK_SOFT, "middle"))
 
     return frame(W, H, b, "The protocol at a glance",
                  "Three bands read downward. The Cardano chain holds a node registry, a "
-                 "topic registry and a per-epoch randomness beacon. Every node turns "
-                 "those public inputs into the same candidate set, applies the verifiable "
-                 "gate to obtain its survivors, picks from them with its own randomness, "
-                 "and holds the resulting links for the epoch. Messages then travel over "
-                 "those links from publisher through relays to subscribers, signed once "
-                 "end to end.")
+                 "topic registry and a per-epoch randomness beacon, contributing "
+                 "membership, publisher keys and the epoch randomness respectively. Every "
+                 "node turns those public inputs into its registered peers on a topic, "
+                 "applies the verifiable gate, picks from the survivors with its own "
+                 "private randomness, and holds the resulting links for the epoch; the "
+                 "steps up to the gate are recomputable by anyone holding the chain and "
+                 "the pick is not. Messages then travel over those links from publisher "
+                 "through any number of relays to subscribers, signed once end to end.")
 
 
 # ------------------------------------------------------------------ figure 2
