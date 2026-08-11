@@ -32,6 +32,10 @@ for path in detail_files:
     s_ref = 0; i_h = i_a = 0; d_h = d_a = 0
     for line in open(path):
         row = json.loads(line)
+        if row['publish'] != 0:
+            # Rows repeat per publish slice; the connection-phase columns
+            # are per-run, so count each node exactly once.
+            continue
         s_ref += row['dials_refused']
         i_h += row['refusals_issued_honest']; i_a += row['refusals_issued_adversarial']
         if row['class'] == 'honest':
@@ -66,7 +70,10 @@ summary = {
 out = f'{os.path.dirname(cell)}/summaries/{os.path.basename(cell)}.json'
 with open(out, 'w') as f:
     json.dump(summary, f, indent=1)
-for path in detail_files:
-    os.remove(path)
+if identity_ok:
+    for path in detail_files:
+        os.remove(path)
+else:
+    print(f"{summary['cell']}: identity VIOLATED - detail files kept for inspection")
 print(f"{summary['cell']}: adv_slots_mean={summary['adv_slots_mean']:.3f} "
       f"refused_h={refused_h} refused_a={refused_a} identity={'OK' if identity_ok else 'VIOLATED'}")
