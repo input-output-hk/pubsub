@@ -1184,6 +1184,7 @@ Three things follow.
 
 | Operating point | 1 hour | 6 hours | 1 day | 5 days |
 | :--: | ---: | ---: | ---: | ---: |
+| **M4 RF = 9** | **13 hours** | **3 days** | **13 days** | **2 months** |
 | M5 (9, 8) | 2 days | 11 days | 45 days | 7 months |
 | M3 (13, 7) | 2 days | 11 days | 46 days | 7 months |
 | M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
@@ -1193,9 +1194,13 @@ Three things follow.
 
 <em>Table 13: mean time between one node's departures required to sustain a given epoch length</em>
 
+<!-- The M4 RF = 9 row is derived from its 7.43 % churn budget by the relation
+     above, in the same way as every other row; it is not a separate measurement. -->
+
+
 </div>
 
-Short epochs are undemanding: an hourly epoch asks only that a node stay up for days at a time, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
+Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and a week, which every design clears easily. The spread across the column is the churn budgets restated, so the design proposing the largest budget asks the least of the population. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
 
 > [!NOTE]
 > One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the [beacon](#term-beacon), whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
