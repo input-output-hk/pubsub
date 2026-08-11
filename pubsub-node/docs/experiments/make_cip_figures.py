@@ -502,8 +502,16 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     # parameters; M2 stays as the conservative reference. The dominated pair is
     # still drawn, muted, so the reader can see that they are inside the others
     # everywhere rather than having to take the claim on trust.
+    #
+    # They are muted by hue and by a faint fill rather than by a dash pattern:
+    # the churn axis is dashed to mark that it is law-derived, and a dashed
+    # series against a dashed axis makes the reader guess which meaning applies.
+    # Dashing therefore says one thing in this figure. The two neutrals separate
+    # the pair by lightness alone, which is what keeps them out of the four
+    # categorical hues; M1 lies inside M5 on three axes and on top of it on the
+    # fourth, so the nesting itself distinguishes them.
     SHOWN = ["M3", "M4", "M2"]
-    MUTED = [("M5", "5 4"), ("M1", "2 3")]
+    MUTED = [("M5", "#8a887e"), ("M1", "#bcb9ae")]
 
     AXES = [
         ("Bandwidth economy", "copies per honest node c", lambda o: o["copies_per_node"], True),
@@ -538,18 +546,19 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                       "#c4c2b9" if i == 3 else GRID, 1, dash=dash))
 
     # the dominated pair first, so the contending designs draw over them
-    for m, dash in MUTED:
+    for m, col in MUTED:
         pts = " ".join(
             f"{cx + R * score(m, i) * _m.cos(ang[i]):.1f},"
             f"{cy + R * score(m, i) * _m.sin(ang[i]):.1f}" for i in range(4))
-        b.append(f'<polygon points="{pts}" fill="none" stroke="{RULE}" stroke-width="1.4" '
-                 f'stroke-dasharray="{dash}" stroke-linejoin="round"/>')
+        b.append(f'<polygon points="{pts}" fill="{col}" fill-opacity="0.07" stroke="{col}" '
+                 f'stroke-width="1.4" stroke-linejoin="round"/>')
 
     b.append(text(38, 30, "dominated on all four axes, drawn for reference:",
                   10.5, "#8a887e"))
-    for k, (m, dash) in enumerate(MUTED):
+    for k, (m, col) in enumerate(MUTED):
         y = 48 + k * 18
-        b.append(line(38, y - 4, 66, y - 4, RULE, 1.4, dash=dash))
+        b.append(f'<rect x="38" y="{y - 12:.1f}" width="28" height="11" rx="2" '
+                 f'fill="{col}" fill-opacity="0.07" stroke="{col}" stroke-width="1.4"/>')
         b.append(text(73, y, f"{m} · {by[m]['params']}", 10.5, "#8a887e"))
 
     for m in SHOWN:
@@ -589,6 +598,10 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
             b.append(text(vx + dx, vy - 4, name, 12.5, INK, anchor, "600"))
             b.append(text(vx + dx, vy + 11, unit, 10.5, "#8a887e", anchor))
             b.append(text(vx + dx, vy + 25, vals, 10.5, "#8a887e", anchor))
+            # the one dashed thing in the figure, named where it is drawn
+            if i == 3:
+                b.append(text(vx + dx, vy + 41, "dashed axis: read off the law, "
+                              "not sampled", 10, "#8a887e", anchor))
             continue
         b.append(text(vx, vy - 72, vals, 10.5, "#8a887e", "middle"))
 
@@ -598,9 +611,9 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                   11, INK_SOFT, style="italic"))
     b.append(text(38, 572, "Each design is scored against the best of the three and "
                   "labelled at the axis where it leads.", 11, INK_SOFT, style="italic"))
-    b.append(text(38, 588, "Three axes are measured directly; churn tolerance is read "
-                  "off the coverage law, whose behaviour under churn was measured "
-                  "separately.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, 588, "Three axes are measured directly; the dashed one, churn "
+                  "tolerance, is read off the coverage law, whose behaviour under churn "
+                  "was measured separately.", 11, INK_SOFT, style="italic"))
     b.append(text(38, 604, "Radial position is the ratio to the best value on that axis, "
                   "so half-way out is half as good; the centre is zero downtime, or "
                   "unbounded cost.", 11, INK_SOFT, style="italic"))
@@ -612,9 +625,12 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "outer ring. M4 reaches it on connection economy and on churn tolerance, "
                  "and is the most even shape; M3 reaches it on bandwidth alone and sits "
                  "under a third of the way out on churn tolerance; M2 reaches it on speed "
-                 "and is innermost on the other three. M5 and M1 are drawn as muted dashed "
-                 "outlines: each lies inside a contending design on every axis, which is "
-                 "what being dominated looks like.")
+                 "and is innermost on the other three. M5 and M1 are drawn as muted grey "
+                 "shapes with a faint fill and a solid outline, M1 nested inside M5: each "
+                 "lies inside a contending design on every axis, which is what being "
+                 "dominated looks like. The churn axis is the only dashed line in the "
+                 "figure, marking that it is read off the coverage law rather than "
+                 "sampled.")
 
 
 # ------------------------------------------------------------------ figure 6
@@ -796,6 +812,78 @@ def fig_gate_tradeoff(g) -> str:
                  "retaining headroom is best on both.")
 
 
+# ------------------------------------------------------------------ severity
+def fig_severity(g) -> str:
+    """What a failing draw actually costs, against how often draws fail.
+
+    The coverage metric is all-or-nothing by design, which is right for a
+    safety criterion and silent about magnitude. This is the magnitude: the
+    share of failing draws that miss exactly one subscriber, against the
+    failure rate of the cell it was measured in. One axis is a property of
+    the draw, the other of the design, and the point of the plot is that the
+    first stays near the top until the second is far outside anything the
+    proposal targets.
+    """
+    W, H = 860, 470
+    ml, mr, mt, mb = 92, 40, 74, 92
+    pw, ph = W - ml - mr, H - mt - mb
+    lg = math.log10
+    lo, hi = 1e-3, 0.6
+
+    def X(v):
+        return ml + (lg(max(v, lo)) - lg(lo)) / (lg(hi) - lg(lo)) * pw
+
+    def Y(v):
+        return mt + ph - (v - 0.70) / 0.32 * ph
+
+    b = []
+    for e in (-3, -2, -1):
+        v = 10.0 ** e
+        b.append(line(X(v), mt, X(v), mt + ph, GRID, 1))
+        b.append(text(X(v), mt + ph + 19, decade(v), anchor="middle"))
+    for v in (0.75, 0.80, 0.85, 0.90, 0.95, 1.00):
+        b.append(line(ml, Y(v), ml + pw, Y(v), GRID, 1))
+        b.append(text(ml - 10, Y(v) + 4, f"{v * 100:.0f}%", 10.5, INK_SOFT, "end"))
+
+    xt = X(1e-4)
+    if xt > ml:
+        b.append(line(xt, mt, xt, mt + ph, "#52514e", 1.4))
+
+    for c in sorted(g["cells"], key=lambda c: -c["p_bad"]):
+        x, y = X(c["p_bad"]), Y(c["share_one_node"])
+        col = SERIES[c["model"]]
+        if c["publisher_isolated"]:
+            b.append(circle(x, y, 8.5, "none", "#b23b3b", 2.0))
+        b.append(circle(x, y, 4.4, col, SURFACE, 1.6))
+
+    b.append(text(ml, mt - 46, "How much a failing draw actually costs", 12.5, INK, weight="600"))
+    b.append(text(ml, mt - 31, "share of failing draws that miss exactly one subscriber, "
+                  "against how often that cell failed", 10.5, "#8a887e"))
+    b.append(text(ml, mt - 16, "each point is one cell of the adversarial-fraction sweep; "
+                  "colour is the design", 10.5, "#8a887e"))
+
+    b.append(circle(ml + 6, H - 46, 8.5, "none", "#b23b3b", 2.0))
+    b.append(circle(ml + 6, H - 46, 4.4, INK_SOFT, SURFACE, 1.6))
+    b.append(text(ml + 22, H - 42, "ringed: a cell that also produced one draw missing every "
+                  "subscriber, the publisher itself having been cut off", 10.5, INK_SOFT))
+    b.append(text(ml + pw / 2, H - 22, "P(bad) measured in that cell — log scale, "
+                  "right is more often", 12.5, INK, "middle", "600"))
+    b.append(f'<text x="0" y="0" transform="translate(26,{mt + ph / 2:.1f}) rotate(-90)" '
+             f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
+             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
+             f'Failures costing one subscriber</text>')
+
+    return frame(W, H, b, "What a failing draw costs, against how often draws fail",
+                 "One point per cell of the adversarial-fraction sweep. The horizontal axis "
+                 "is the failure rate measured in that cell, on a log scale; the vertical "
+                 "axis is the share of those failures that missed exactly one honest "
+                 "subscriber. The share stays at or near 100 % until the failure rate is far "
+                 "above anything this proposal targets, and falls to 76 % only at a rate of "
+                 "0.4. Two cells, ringed, also produced a single draw in which every "
+                 "subscriber was missed because the publisher itself was cut off.")
+
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
@@ -814,6 +902,7 @@ def main() -> int:
         "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
+        "severity.svg": fig_severity(d["severity"]),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"]),
     }

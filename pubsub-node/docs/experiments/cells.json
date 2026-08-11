@@ -940,7 +940,18 @@
      6.29,
      6.4
     ],
-    "measured": "re-run locally from the committed config, seed and tool commit; good counts reproduced the published 388/394/396 of 400 exactly"
+    "measured": "re-run locally from the committed config, seed and tool commit; good counts reproduced the published 388/394/396 of 400 exactly",
+    "victims_starved_share": [
+     0.3061,
+     0.14,
+     0.0036
+    ],
+    "deepest_victim_lost_dials": [
+     14,
+     10,
+     2
+    ],
+    "source": "per-victim depth from the cell summaries; independently reproduced from config, seed and tool commit"
    },
    {
     "label": "B = 50, attacker at 10 %",
@@ -1001,6 +1012,275 @@
      13.06,
      15.49
     ]
+   }
+  ]
+ },
+ "severity": {
+  "note": "How many honest subscribers a failing draw actually misses, folded from the mu sweep's missed_hist. A failing draw is bimodal: it misses one subscriber, or it misses every subscriber because the publisher itself was cut off. Nothing measured lies between 3 and H-1. Source: docs/experiments/mu-sweep.md.",
+  "cells": [
+   {
+    "model": "M1",
+    "N": 4000,
+    "mu": 0.2,
+    "runs": 4000,
+    "bad": 35,
+    "p_bad": 0.00875,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M1",
+    "N": 4000,
+    "mu": 0.25,
+    "runs": 4000,
+    "bad": 79,
+    "p_bad": 0.01975,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M1",
+    "N": 4000,
+    "mu": 0.3,
+    "runs": 4000,
+    "bad": 146,
+    "p_bad": 0.0365,
+    "share_one_node": 0.9932,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M1",
+    "N": 4000,
+    "mu": 0.35,
+    "runs": 4000,
+    "bad": 312,
+    "p_bad": 0.078,
+    "share_one_node": 0.9615,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M3",
+    "N": 20000,
+    "mu": 0.3,
+    "runs": 2000,
+    "bad": 17,
+    "p_bad": 0.0085,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M3",
+    "N": 20000,
+    "mu": 0.35,
+    "runs": 2000,
+    "bad": 107,
+    "p_bad": 0.0535,
+    "share_one_node": 0.972,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M3",
+    "N": 20000,
+    "mu": 0.4,
+    "runs": 2000,
+    "bad": 368,
+    "p_bad": 0.184,
+    "share_one_node": 0.9212,
+    "worst_missed": 3,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M3",
+    "N": 4000,
+    "mu": 0.25,
+    "runs": 4000,
+    "bad": 10,
+    "p_bad": 0.0025,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M3",
+    "N": 4000,
+    "mu": 0.3,
+    "runs": 4000,
+    "bad": 64,
+    "p_bad": 0.016,
+    "share_one_node": 0.9844,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M3",
+    "N": 4000,
+    "mu": 0.35,
+    "runs": 4000,
+    "bad": 270,
+    "p_bad": 0.0675,
+    "share_one_node": 0.9741,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 20000,
+    "mu": 0.3,
+    "runs": 2000,
+    "bad": 7,
+    "p_bad": 0.0035,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 20000,
+    "mu": 0.35,
+    "runs": 2000,
+    "bad": 37,
+    "p_bad": 0.0185,
+    "share_one_node": 0.973,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 20000,
+    "mu": 0.4,
+    "runs": 2000,
+    "bad": 113,
+    "p_bad": 0.0565,
+    "share_one_node": 0.9735,
+    "worst_missed": 3,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 4000,
+    "mu": 0.2,
+    "runs": 4000,
+    "bad": 84,
+    "p_bad": 0.021,
+    "share_one_node": 0.9881,
+    "worst_missed": 2,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 4000,
+    "mu": 0.25,
+    "runs": 4000,
+    "bad": 295,
+    "p_bad": 0.07375,
+    "share_one_node": 0.9559,
+    "worst_missed": 3,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 4000,
+    "mu": 0.3,
+    "runs": 4000,
+    "bad": 790,
+    "p_bad": 0.1975,
+    "share_one_node": 0.9038,
+    "worst_missed": 3,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M4",
+    "N": 4000,
+    "mu": 0.35,
+    "runs": 4000,
+    "bad": 1623,
+    "p_bad": 0.40575,
+    "share_one_node": 0.7634,
+    "worst_missed": 2599,
+    "publisher_isolated": true
+   },
+   {
+    "model": "M5",
+    "N": 20000,
+    "mu": 0.3,
+    "runs": 2000,
+    "bad": 4,
+    "p_bad": 0.002,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M5",
+    "N": 20000,
+    "mu": 0.35,
+    "runs": 2000,
+    "bad": 15,
+    "p_bad": 0.0075,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M5",
+    "N": 20000,
+    "mu": 0.4,
+    "runs": 2000,
+    "bad": 56,
+    "p_bad": 0.028,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M5",
+    "N": 4000,
+    "mu": 0.2,
+    "runs": 4000,
+    "bad": 6,
+    "p_bad": 0.0015,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M5",
+    "N": 4000,
+    "mu": 0.25,
+    "runs": 4000,
+    "bad": 20,
+    "p_bad": 0.005,
+    "share_one_node": 1.0,
+    "worst_missed": 1,
+    "publisher_isolated": false
+   },
+   {
+    "model": "M5",
+    "N": 4000,
+    "mu": 0.3,
+    "runs": 4000,
+    "bad": 116,
+    "p_bad": 0.029,
+    "share_one_node": 0.9569,
+    "worst_missed": 2799,
+    "publisher_isolated": true
+   },
+   {
+    "model": "M5",
+    "N": 4000,
+    "mu": 0.35,
+    "runs": 4000,
+    "bad": 374,
+    "p_bad": 0.0935,
+    "share_one_node": 0.9439,
+    "worst_missed": 2,
+    "publisher_isolated": false
    }
   ]
  }
