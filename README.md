@@ -2,7 +2,7 @@
 
 A native publish/subscribe communication layer for the Cardano ecosystem: nodes subscribe to topics and receive every message honest publishers send on them, under an adversary model with silent Byzantine participants.
 
-The project is currently in **Phase 2 — empirically-driven architecture** ([#46](https://github.com/input-output-hk/pubsub/issues/46)): candidate dissemination topologies (the [*M models*](formal_spec/hybrid_dissemination/models/README.md)) are analysed formally and validated experimentally, converging on a design proposal by mid-August 2026.
+The project is currently in **Phase 2 — empirically-driven architecture** ([#46](https://github.com/input-output-hk/pubsub/issues/46)): candidate dissemination topologies (the [*M models*](formal_spec/hybrid_dissemination/models/README.md)) are analysed formally and validated experimentally, converging on a design proposal by mid-September 2026.
 
 > **Important Disclaimer & Acceptance of Risk**
 >

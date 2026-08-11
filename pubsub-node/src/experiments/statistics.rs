@@ -151,12 +151,23 @@ pub struct ExperimentAggregates {
     pub min_publisher_coverage_hist: SparseHistogram,
     /// Element-wise sum of the runs' per-publish depth histograms.
     pub depth_hist_pooled: Vec<u64>,
+    /// Standing links per up-honest node, pooled over the experiment's runs
+    /// (index = count). Connections held, not propagation edges.
+    pub standing_degree_hist_pooled: Vec<u64>,
+    /// Mean standing links per up-honest node.
+    pub standing_degree_mean: f64,
+    /// Largest standing-link count observed on any up-honest node.
+    pub standing_degree_max: u64,
     /// Mean sends to honest recipients per publish.
     pub sends_honest_mean: f64,
     /// Mean sends to adversarial recipients per publish.
     pub sends_adversarial_mean: f64,
     /// Mean sends into down nodes per publish.
     pub sends_down_mean: f64,
+    /// Mean sends carried by relay links per publish.
+    pub sends_relay_mean: f64,
+    /// Mean sends carried by publisher links per publish.
+    pub sends_publisher_mean: f64,
     /// Total-sends percentiles per publish.
     pub sends_total_percentiles: Percentiles,
     /// Mean fraction of arrivals that were redundant:
@@ -189,10 +200,13 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
     let mut sinks_hist = SparseHistogram::new();
     let mut min_publisher_coverage_hist = SparseHistogram::new();
     let mut depth_hist_pooled: Vec<u64> = Vec::new();
+    let mut standing_pooled: Vec<u64> = Vec::new();
     let mut publishes = 0u64;
     let mut sends_honest_sum = 0.0f64;
     let mut sends_adversarial_sum = 0.0f64;
     let mut sends_down_sum = 0.0f64;
+    let mut sends_relay_sum = 0.0f64;
+    let mut sends_publisher_sum = 0.0f64;
     let mut sends_totals: Vec<f64> = Vec::new();
     let mut duplication_sum = 0.0f64;
 
@@ -212,6 +226,7 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
             &mut min_publisher_coverage_hist,
             fraction_bin(record.min_publisher_coverage),
         );
+        pool_hist(&mut standing_pooled, &record.standing_degree_hist);
 
         let mut all_full = true;
         for publish in &record.publishes {
@@ -222,15 +237,12 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
             observe(&mut coverage_hist, fraction_bin(publish.coverage));
             observe(&mut missed_hist, publish.missed);
             observe(&mut max_depth_hist, publish.max_depth);
-            if depth_hist_pooled.len() < publish.depth_hist.len() {
-                depth_hist_pooled.resize(publish.depth_hist.len(), 0);
-            }
-            for (pooled, &count) in depth_hist_pooled.iter_mut().zip(&publish.depth_hist) {
-                *pooled += count;
-            }
+            pool_hist(&mut depth_hist_pooled, &publish.depth_hist);
             sends_honest_sum += publish.sends.honest as f64;
             sends_adversarial_sum += publish.sends.adversarial as f64;
             sends_down_sum += publish.sends.down as f64;
+            sends_relay_sum += publish.sends_by_kind.relay as f64;
+            sends_publisher_sum += publish.sends_by_kind.publisher as f64;
             sends_totals.push(publish.sends.total() as f64);
             let receipts_via_sends =
                 publish.sends.total() - publish.suppressed - publish.sends.down;
@@ -252,6 +264,8 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
 
     #[allow(clippy::cast_precision_loss)] // counts ≪ 2^52
     let publish_count = publishes as f64;
+    let (standing_degree_mean, standing_degree_max) = standing_summary(&standing_pooled);
+
     ExperimentAggregates {
         experiment,
         runs,
@@ -265,12 +279,48 @@ pub fn fold_aggregates(experiment: u64, records: &[RunRecord]) -> ExperimentAggr
         sinks_hist,
         min_publisher_coverage_hist,
         depth_hist_pooled,
+        standing_degree_hist_pooled: standing_pooled,
+        standing_degree_mean,
+        standing_degree_max,
         sends_honest_mean: sends_honest_sum / publish_count,
         sends_adversarial_mean: sends_adversarial_sum / publish_count,
         sends_down_mean: sends_down_sum / publish_count,
+        sends_relay_mean: sends_relay_sum / publish_count,
+        sends_publisher_mean: sends_publisher_sum / publish_count,
         sends_total_percentiles: percentiles(&sends_totals),
         duplication_ratio_mean: duplication_sum / publish_count,
     }
+}
+
+/// Accumulate a dense histogram (index = bin) into a pooled one, growing the
+/// pool to fit.
+fn pool_hist(pooled: &mut Vec<u64>, hist: &[u64]) {
+    if pooled.len() < hist.len() {
+        pooled.resize(hist.len(), 0);
+    }
+    for (slot, &count) in pooled.iter_mut().zip(hist) {
+        *slot += count;
+    }
+}
+
+/// Mean and maximum of a dense standing-degree histogram (index = degree,
+/// value = node count). Empty or all-zero input yields `(0.0, 0)`.
+#[allow(clippy::cast_precision_loss)] // node counts and degrees are ≪ 2^52
+fn standing_summary(pooled: &[u64]) -> (f64, u64) {
+    let nodes: u64 = pooled.iter().sum();
+    if nodes == 0 {
+        return (0.0, 0);
+    }
+    let total: f64 = pooled
+        .iter()
+        .enumerate()
+        .map(|(degree, &count)| degree as f64 * count as f64)
+        .sum();
+    let max = pooled
+        .iter()
+        .rposition(|&count| count > 0)
+        .map_or(0, |degree| degree as u64);
+    (total / nodes as f64, max)
 }
 
 #[cfg(test)]
@@ -278,7 +328,7 @@ mod tests {
     use super::{
         count_estimate, fold_aggregates, fraction_bin, observe, percentiles, SparseHistogram,
     };
-    use crate::experiments::driver::SendTally;
+    use crate::experiments::driver::{KindTally, SendTally};
     use crate::experiments::metrics::{MissCauseCounts, PublishRecord, RunRecord};
     use crate::experiments::scripted::peer;
 
@@ -293,6 +343,10 @@ mod tests {
                 all_upstreams_adversarial_or_down: missed,
                 no_upstream: 0,
                 no_up_honest_path: 0,
+            },
+            sends_by_kind: KindTally {
+                relay: sends.total(),
+                publisher: 0,
             },
             sends,
             suppressed,
@@ -320,6 +374,7 @@ mod tests {
             largest_scc: 3,
             in_degree_hist: vec![0, 3],
             out_degree_hist: vec![0, 3],
+            standing_degree_hist: vec![0, 0, 3],
             good_pre_churn: None,
             min_publisher_coverage_pre_churn: None,
             sinks_pre_churn: None,
@@ -406,6 +461,8 @@ mod tests {
         assert!(a.good_pre_churn.is_none());
         assert_eq!(a.depth_hist_pooled, vec![3, 6]);
         assert!((a.sends_honest_mean - 6.0).abs() < f64::EPSILON);
+        assert!((a.sends_relay_mean - 6.0).abs() < f64::EPSILON);
+        assert!(a.sends_publisher_mean.abs() < f64::EPSILON);
         // Each publish: 6 sends, 3 suppressed, 0 down ⇒ 3 receipts;
         // duplication = 3/6.
         assert!((a.duplication_ratio_mean - 0.5).abs() < f64::EPSILON);

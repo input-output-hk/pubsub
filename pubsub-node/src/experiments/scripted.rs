@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+use crate::connection_state::LinkKind;
 use crate::crypto::mock::MockCryptoScheme;
 use crate::peer::PeerId;
 use crate::topic::TopicId;
@@ -84,6 +85,7 @@ pub fn full_mesh(n: usize) -> ScriptedTopology {
 pub struct ScriptedTopology {
     n: usize,
     links: Vec<(usize, usize)>,
+    publisher_links: Vec<(usize, usize)>,
     silent: Vec<usize>,
 }
 
@@ -92,6 +94,7 @@ impl ScriptedTopology {
         Self {
             n,
             links,
+            publisher_links: Vec::new(),
             silent: Vec::new(),
         }
     }
@@ -109,6 +112,15 @@ impl ScriptedTopology {
     #[must_use]
     pub fn link(mut self, from: usize, to: usize) -> Self {
         self.links.push((from, to));
+        self
+    }
+
+    /// Add one directed **publisher** link: a standing initiation link `from`
+    /// dialed at `to` (publisher downstream on `from`, publisher upstream on
+    /// `to`), installed `Active`.
+    #[must_use]
+    pub fn publisher_link(mut self, from: usize, to: usize) -> Self {
+        self.publisher_links.push((from, to));
         self
     }
 
@@ -146,23 +158,28 @@ impl ScriptedTopology {
         let mut population = Population::from_parts(topic.clone(), participants);
         population.prepopulate_registration();
 
-        for (from, to) in &self.links {
-            assert!(
-                *from < self.n && *to < self.n,
-                "scripted link ({from}, {to}) references a node outside 0..{n}",
-                n = self.n,
-            );
-            let (from, to) = (peer(*from), peer(*to));
-            population
-                .participant_mut(&from)
-                .expect("scripted node exists")
-                .state_mut()
-                .prepopulate_downstream(to.clone(), topic.clone());
-            population
-                .participant_mut(&to)
-                .expect("scripted node exists")
-                .state_mut()
-                .prepopulate_active_upstream(from, topic.clone());
+        for (links, kind) in [
+            (&self.links, LinkKind::Relay),
+            (&self.publisher_links, LinkKind::Publisher),
+        ] {
+            for (from, to) in links {
+                assert!(
+                    *from < self.n && *to < self.n,
+                    "scripted link ({from}, {to}) references a node outside 0..{n}",
+                    n = self.n,
+                );
+                let (from, to) = (peer(*from), peer(*to));
+                population
+                    .participant_mut(&from)
+                    .expect("scripted node exists")
+                    .state_mut()
+                    .prepopulate_downstream(to.clone(), topic.clone(), kind);
+                population
+                    .participant_mut(&to)
+                    .expect("scripted node exists")
+                    .state_mut()
+                    .prepopulate_active_upstream(from, topic.clone(), kind);
+            }
         }
 
         population

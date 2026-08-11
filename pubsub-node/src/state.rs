@@ -343,22 +343,40 @@ impl NodeState {
         self.synced = true;
     }
 
-    /// Install an already-`Active` relay upstream entry directly (the
+    /// Install an already-`Active` upstream entry of `kind` directly (the
     /// scripted-topology path: the dial handshake is bypassed entirely).
-    pub(crate) fn prepopulate_active_upstream(&mut self, peer: PeerId, topic: TopicId) {
-        self.upstream.insert(
-            LinkKey::new(topic, peer, LinkKind::Relay),
-            LinkState::Active,
-        );
+    pub(crate) fn prepopulate_active_upstream(
+        &mut self,
+        peer: PeerId,
+        topic: TopicId,
+        kind: LinkKind,
+    ) {
+        self.upstream
+            .insert(LinkKey::new(topic, peer, kind), LinkState::Active);
     }
 
-    /// Install an `Active` relay downstream entry directly (scripted-topology
-    /// path).
-    pub(crate) fn prepopulate_downstream(&mut self, peer: PeerId, topic: TopicId) {
-        self.downstream.insert(
-            LinkKey::new(topic, peer, LinkKind::Relay),
-            LinkState::Active,
-        );
+    /// Install an `Active` downstream entry of `kind` directly
+    /// (scripted-topology path).
+    pub(crate) fn prepopulate_downstream(&mut self, peer: PeerId, topic: TopicId, kind: LinkKind) {
+        self.downstream
+            .insert(LinkKey::new(topic, peer, kind), LinkState::Active);
+    }
+
+    /// Whether the node holds an `Active` downstream link of `kind` for
+    /// `(topic, peer)` — the driver's send-attribution read. Borrow-only
+    /// scan; the map is dial-degree-sized.
+    pub(crate) fn has_active_downstream(
+        &self,
+        topic: &TopicId,
+        peer: &PeerId,
+        kind: LinkKind,
+    ) -> bool {
+        self.downstream.iter().any(|(key, state)| {
+            key.kind == kind
+                && &key.topic == topic
+                && &key.peer == peer
+                && *state == LinkState::Active
+        })
     }
 
     /// Whether the content hash is in the duplicate-suppression set — i.e. the

@@ -1,0 +1,23 @@
+# Tier-1 comparison cell — M3 N=4000 RF=6 s=4: P(bad) pred 0.337, MC 209/600 = 0.348.
+# mu = 0.2; run count matched to the formal MC row (or sized for the bulk value).
+
+model = "m3"
+master_seed = 503
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 6
+publisher = { pick_count = 3 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 6
+publisher = { pick_count = 3 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 600

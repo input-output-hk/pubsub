@@ -703,42 +703,66 @@
     gap: 10px;
     flex: 0 0 auto;
   }
+  /* A solid red chip: the label carries the theme's own background colour, so the
+     figure reads as one block of brand red in either theme. Weight, not opacity,
+     separates the figure from its label — dimming the label would cost contrast
+     the small type cannot spare. */
   .stat-pill {
     display: inline-flex;
     align-items: baseline;
     gap: 7px;
     border: 1px solid var(--iog-infared);
     border-radius: 999px;
-    background: var(--bad-soft);
+    background: var(--iog-infared);
+    color: #FFFFFF;
     padding: 5px 12px;
     font-family: var(--font-mono);
     font-size: 0.7rem;
     letter-spacing: 0.03em;
     /* Every figure reads on one line, however long its label runs. */
     white-space: nowrap;
-    transition: opacity .45s ease, transform .45s ease;
+    transition: opacity .5s cubic-bezier(.4, 0, .2, 1),
+                transform .5s cubic-bezier(.4, 0, .2, 1);
   }
-  .stat-pill .stat-value { color: var(--iog-infared); font-weight: 700; }
-  .stat-pill .stat-label { color: var(--iog-infared); opacity: 0.85; }
+  html[data-theme="dark"] .stat-pill { color: #000000; }
+  .stat-pill .stat-value { font-weight: 700; }
+  .stat-pill .stat-label { font-weight: 500; }
   /* Very narrow screens have less room than the longest label needs. */
   @media (max-width: 420px) {
     .stat-pill { white-space: normal; }
   }
-  /* While cycling, the outgoing and incoming pills share one grid cell, so the
-     swap cannot shift the layout around them. */
+  /* While cycling, every figure is laid out at once in a single grid cell with one
+     shown at a time. The cell is therefore as wide as the widest figure whatever is
+     on screen, so the trailing edge holds still across a swap, and each pill has
+     been through layout long before its turn, so its transition actually runs. */
   .stat-rotator.cycling {
     display: grid;
     grid-template-areas: "stat";
-    justify-items: start;
+    justify-items: end;
   }
-  .stat-rotator.cycling .stat-pill { grid-area: stat; }
-  .stat-rotator.cycling .stat-pill.leaving {
+  .stat-rotator.cycling .stat-pill {
+    grid-area: stat;
+    /* At rest below the cell, waiting to rise into place. */
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+  }
+  .stat-rotator.cycling .stat-pill.is-active {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .stat-rotator.cycling .stat-pill.is-leaving {
     opacity: 0;
     transform: translateY(-6px);
   }
-  .stat-rotator.cycling .stat-pill.entering {
-    opacity: 0;
-    transform: translateY(6px);
+  /* Below the heading row the badge stands under the title, so it reads from the
+     leading edge instead. */
+  @media (max-width: 899px) {
+    .stat-rotator.cycling { justify-items: start; }
+  }
+  @media (min-width: 900px) {
+    .stat-rotator { justify-content: flex-end; }
   }
 
   /* ---------- Commit activity heatmap ---------- */
@@ -1012,7 +1036,7 @@
           <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
           <rect class="hub-flash" x="167" y="158" width="110" height="56" rx="14" fill="none" stroke="var(--iog-infared)" stroke-width="2" filter="url(#hero-glow)"/>
           <!-- Same mono lockup face as the navbar brand, so the hub reads as the name. -->
-          <text x="222" y="192" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="1" fill="var(--iog-infared)" font-family="JetBrains Mono, SF Mono, Menlo, monospace">PubSub</text>
+          <text x="222" y="192" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="1" fill="var(--iog-infared)" font-family="JetBrains Mono, SF Mono, Menlo, monospace">PUBSUB</text>
 
           <!-- topic color legend -->
           <g font-size="10" letter-spacing="1" fill="var(--text-faint)">
@@ -1568,9 +1592,16 @@
       }
       if (stats.milestone && stats.milestone.total) {
         items.push([stats.milestone.percent + '%',
-                    'of ' + stats.milestone.title + ' complete']);
+                    'of ' + milestoneName(stats.milestone.title) + ' complete']);
       }
       return items;
+    }
+
+    /* Milestone titles carry a descriptive tail after a dash — "Phase 2 — solution
+       architecture". The badge reserves room for its longest figure, so the tail
+       would cost the section title a line of its own; the name alone identifies it. */
+    function milestoneName(title) {
+      return title.split(/\s+[—–-]\s+/)[0];
     }
 
     function pill(item) {
@@ -1601,22 +1632,45 @@
         return;
       }
 
-      /* One pill at a time, swapped on a timer. */
+      /* Every figure is built once and stacked in the same grid cell, one shown at a
+         time. Building them up front is what makes the swap smooth: a pill appended
+         and revealed in the same frame has no resolved starting style to animate
+         from, so it would simply appear. It also fixes the cell to the width of the
+         widest figure, holding the trailing edge still as the figures change. */
       host.classList.add('cycling');
-      var current = pill(items[0]);
-      host.appendChild(current);
+      var pills = items.map(function (item) {
+        var el = pill(item);
+        el.setAttribute('aria-hidden', 'true');
+        host.appendChild(el);
+        return el;
+      });
       var idx = 0;
+      /* A frame after layout, so the first figure rises in like every one after it
+         rather than being there already. */
+      raf(function () { raf(function () { show(pills[0]); }); });
       setInterval(function () {
-        idx = (idx + 1) % items.length;
-        var next = pill(items[idx]);
-        next.classList.add('entering');
-        current.classList.add('leaving');
-        host.appendChild(next);
-        requestAnimationFrame(function () { next.classList.remove('entering'); });
-        var going = current;
-        current = next;
-        setTimeout(function () { going.remove(); }, 500);
+        var going = pills[idx];
+        idx = (idx + 1) % pills.length;
+        hide(going);
+        show(pills[idx]);
+        /* Back to the resting state below the cell, ready for its next turn. */
+        setTimeout(function () { going.classList.remove('is-leaving'); }, 500);
       }, 3800);
+
+      function raf(fn) {
+        if (window.requestAnimationFrame) requestAnimationFrame(fn); else fn();
+      }
+
+      function show(el) {
+        el.classList.add('is-active');
+        el.removeAttribute('aria-hidden');
+      }
+
+      function hide(el) {
+        el.classList.remove('is-active');
+        el.classList.add('is-leaving');
+        el.setAttribute('aria-hidden', 'true');
+      }
     }
   })();
 </script>

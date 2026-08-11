@@ -9,9 +9,11 @@ distributions), and the eclipse validators
 `check_p01_per_target_eclipse.py` (per-target eclipse closed form
 P_ecl = C(k,RF)/C(N−1,RF) ≈ μ^RF — the coverage floor) and
 `check_p02_adversary_tolerance.py` (k_max(ε) ≈ N·ε^{1/RF}),
-`sweep_m2_mu_shift.py` (μ-shift degradation at frozen RF), and
-`sim_m2_severity.py` (bad-graph severity), `sim_m2_eclipse.py` (adaptive
-eclipse cost — the same eclipse event priced as an attacker budget).
+`sweep_m2_mu_shift.py` (μ-shift degradation at frozen RF),
+`sim_m2_severity.py` (bad-graph severity),
+`sweep_m2_reprovision.py` (cheapest RF vs design μ), and
+`sim_m2_eclipse.py` (adaptive eclipse cost — the same eclipse event
+priced as an attacker budget).
 
 | Property | File | Verdict |
 |---|---|---|
@@ -20,6 +22,7 @@ eclipse cost — the same eclipse event priced as an attacker budget).
 | Expected hops (latency) | [`expected_number_of_hops.md`](expected_number_of_hops.md) | SIMULATION ONLY |
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
+| Re-provisioning (cheapest RF at design μ) | [`re_provisioning.md`](re_provisioning.md) | HYBRID |
 | Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | HYBRID |
 
 Candidate properties not yet analysed (churn tolerance, join service,

@@ -1,6 +1,9 @@
 # ADR 0036: Experiment output contract & statistics conventions
 
-**Status**: Accepted
+**Status**: Accepted. **Amended by ADR 0041**: the run records' send
+accounting gains a per-link-kind split (relay/publisher, attributed at
+emission with relay winning the both-kinds case) and a second per-run
+identity — relay + publisher = total sends — beside the existing one.
 **Date**: 2026-07-19
 **Feature**: 016-experiments-framework
 **Source**: `specs/016-experiments-framework/contracts/output-artifacts.md`; `research.md` R3/R4/R6/R7/R9

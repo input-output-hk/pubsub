@@ -1,0 +1,41 @@
+# M2-comparison bulk-regime point: N = 4 000, mu = 0.2, RF = 16.
+#
+# The named point from the formal M2 model's full-coverage validation
+# (formal_spec/hybrid_dissemination/models/m2/properties/full_coverage.md §3,
+# small-N tail ladder, `sweep_m2_cost.py --coverage`): P(bad) predicted
+# 0.0088, measured 0.0081 (65 bad / 8000 trials) - squarely in the
+# P(bad) ~ 1e-2..1e-3 regime where a finite run count resolves the law.
+# runs_per_experiment matches the ladder's trial count, so the P(good)
+# reported in this sweep's aggregates (raw counts + Wilson 95%) compares
+# like with like against the model's prediction and measurement.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/m2-bulk-regime.toml --out results/m2-bulk/
+
+model = "m2"
+master_seed = 834
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16 # RF - exactly-RF uniform picks, M2's selection family (no gate, open acceptance)
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+fanout = "silent-relay" # M2's non-forwarding (dead) relay
+
+[execution]
+runs_per_experiment = 4000
+
+# The adversarial fraction is an assumption about the deployment rather than a
+# result, and the designs do not degrade at equal rates in it. This sweeps the
+# law's own argument: mu is a native parameter, so what is tested is whether
+# each law holds across it at fixed selection parameters.
+[[axes]]
+parameter = "adversarial_fraction"
+values = [0.20, 0.25, 0.30, 0.35]

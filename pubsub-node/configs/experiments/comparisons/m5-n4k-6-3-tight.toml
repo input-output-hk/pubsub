@@ -1,0 +1,23 @@
+# Tier-2 comparison cell — M5 N=4000 (6,3) tightening: independent 6000-run sample; law 0.204, tier-1 fluctuation 0.2247.
+# mu = 0.2; run count matched to the formal MC row.
+
+model = "m5"
+master_seed = 601
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 6
+publisher = { pick_count = 3 }
+fanout = "forward-to-all"
+
+[strategies.adversarial]
+pick_count = 6
+publisher = { pick_count = 3 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 6000

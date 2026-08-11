@@ -30,12 +30,14 @@ Coverage fails either way, so both directions count. Two threat models:
 principle sit deeper than v's in-neighbourhood, but at M1's branching factor
 of 19.2 the depth-2 shell is an order of magnitude larger than the depth-1
 shell and overlap is negligible at H = 16 000, so Menger's disjoint-path
-count saturates at the degree. Verified by max-flow (node-split, unit vertex
-capacities) on the weakest node in each direction: 40 checks across all five
-models at the operating point, plus a permanent regression in
-[`../../validate.py`](../../validate.py) §6 that re-runs the test at reduced
-fanouts, where a deeper cut would most plausibly win. Min-cut equalled degree
-in every case.
+count saturates at the degree. A max-flow cross-check (node-split, unit
+vertex capacities, weakest node in each direction) lives in
+[`../../validate.py`](../../validate.py) §7, but as its PR review observed,
+it sources every honest node — the victim's neighbours included — which
+forces flow = degree on any graph: it pins the implementation, not the
+claim, which for now rests on the shell argument above. Restricting the
+sources to distant publishers, so that a shared upstream hub could surface
+as a cheaper cut, is the noted follow-up.
 
 ## 2. Guiding formula
 

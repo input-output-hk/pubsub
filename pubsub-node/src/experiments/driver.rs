@@ -20,6 +20,7 @@ use std::collections::{BTreeMap, HashMap};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
+use crate::connection_state::LinkKind;
 use crate::crypto::mock::MockCryptoScheme;
 use crate::crypto::{MessageHash, Signer, Timestamp};
 use crate::event::Event;
@@ -71,6 +72,32 @@ impl SendTally {
     }
 }
 
+/// Dissemination sends split by the carrying link's kind, attributed at
+/// emission: a send is `relay` iff the sender holds an `Active` relay
+/// downstream link for `(topic, recipient)`, and `publisher` otherwise —
+/// a recipient reachable over both kinds is attributed to the relay mesh
+/// (the deduped single send would have happened over it regardless of the
+/// publisher link). Connection-control sends carry no kind; a dial drain
+/// leaves this tally zero. Degenerate columns are constant at zero, never
+/// absent: relay-only models show `publisher` ≡ 0, and M5's `k_in` = 0
+/// boundary row (M1) shows `relay` ≡ 0.
+// ADR 0041 (amending ADR 0036's row schema).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
+pub struct KindTally {
+    /// Sends carried by relay links.
+    pub relay: u64,
+    /// Sends carried by publisher links.
+    pub publisher: u64,
+}
+
+impl KindTally {
+    /// Total sends across both link kinds.
+    #[must_use]
+    pub fn total(&self) -> u64 {
+        self.relay + self.publisher
+    }
+}
+
 /// The driver's per-phase observation of one drain.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DrainOutcome {
@@ -81,6 +108,9 @@ pub struct DrainOutcome {
     pub first_receipt: BTreeMap<PeerId, u64>,
     /// Sends tallied at emission, split by recipient class.
     pub sends: SendTally,
+    /// Dissemination sends tallied at emission, split by carrying link kind
+    /// (zero for control-only drains).
+    pub sends_by_kind: KindTally,
     /// Deliveries whose content hash the recipient had already seen.
     pub suppressed: u64,
     /// `Misbehaved` effects consumed (signature-failure severances).
@@ -357,6 +387,9 @@ impl Driver {
                         .expect("send addressed to a population member");
                     if recipient.is_down() {
                         outcome.sends.down += 1;
+                        if matches!(&message, Message::Dissemination(_)) {
+                            self.attribute_send_kind(from, &to, outcome);
+                        }
                         continue;
                     }
                     match recipient.class() {
@@ -369,6 +402,9 @@ impl Driver {
                         Message::Dissemination(signed) => Some(MessageHash::of(&signed.plain)),
                         _ => None,
                     };
+                    if dissemination_hash.is_some() {
+                        self.attribute_send_kind(from, &to, outcome);
+                    }
                     next.push(Delivery {
                         from: from.clone(),
                         to,
@@ -378,6 +414,29 @@ impl Driver {
                 }
                 Effect::Misbehaved { .. } => outcome.severed += 1,
             }
+        }
+    }
+
+    /// Attribute one dissemination send to its carrying link kind — relay
+    /// when the sender holds an `Active` relay downstream link for the
+    /// recipient (the both-kinds case included), publisher otherwise.
+    ///
+    /// Every dissemination send has a carrying link by construction: the
+    /// fan-out policies target `Active` downstream links only.
+    fn attribute_send_kind(&self, from: &PeerId, to: &PeerId, outcome: &mut DrainOutcome) {
+        let sender = self
+            .population
+            .participant(from)
+            .expect("send emitted by a population member");
+        let topic = self.population.topic();
+        if sender.holds_active_downstream(topic, to, LinkKind::Relay) {
+            outcome.sends_by_kind.relay += 1;
+        } else {
+            debug_assert!(
+                sender.holds_active_downstream(topic, to, LinkKind::Publisher),
+                "a dissemination send with no carrying downstream link",
+            );
+            outcome.sends_by_kind.publisher += 1;
         }
     }
 
@@ -737,6 +796,63 @@ mod tests {
         for publish in &observation.publishes {
             assert_eq!(publish.drain.first_receipt.len(), 4);
         }
+    }
+
+    // ADR 0041: a population with the publisher pair establishes standing
+    // initiation links in the dial drain, and forward-to-all pushes every
+    // held message over them. At the k_in = 0 boundary (no relay mesh —
+    // the M1 shape) every dissemination send is publisher-attributed: the
+    // kind columns invert relative to the relay-only baseline.
+    #[test]
+    fn publisher_pair_establishes_and_inverts_the_kind_split() {
+        let spec = StrategySpec {
+            pick_count: Some(0), // k_in = 0: no relay dials
+            publisher: Some(crate::experiments::population::PublisherSpec {
+                pick_count: Some(2), // k_out = 2
+                bucket_count: None,
+                accept_cap: None,
+                accept_unverified: false,
+            }),
+            ..StrategySpec::open(FanoutSpec::ForwardToAll)
+        };
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 5,
+            adversarial: 0,
+            honest_strategies: spec.clone(),
+            adversarial_strategies: spec,
+        };
+        let seeds = PopulationSeeds {
+            keys: [1u8; 32],
+            classes: [2u8; 32],
+            sampler: [3u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        driver.establish(SetupMode::Prepopulated);
+        for (_, participant) in driver.population().participants() {
+            let publisher_links = participant.publisher_downstream();
+            assert_eq!(publisher_links.len(), 2, "exactly k_out dials");
+            assert!(publisher_links
+                .iter()
+                .all(|(_, _, state)| *state == LinkState::Active));
+            assert!(
+                participant.downstream().is_empty(),
+                "no relay links at k_in = 0",
+            );
+        }
+
+        let publisher = driver.draw_publisher([5u8; 32]);
+        let outcome = driver.publish_drain(&publisher, 0);
+        assert_eq!(outcome.drain.sends_by_kind.relay, 0);
+        assert_eq!(
+            outcome.drain.sends_by_kind.publisher,
+            outcome.drain.sends.total(),
+            "every send carried by a publisher link",
+        );
+        assert!(
+            outcome.drain.sends.total() >= 2,
+            "the publisher's own k_out"
+        );
     }
 
     // 016-FR-006: control messages route through the same machinery — an

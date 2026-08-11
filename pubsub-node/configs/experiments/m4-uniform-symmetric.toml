@@ -6,17 +6,17 @@
 # structure rather than tail probabilities (M4's minimum-degree floor makes
 # bad graphs vanishingly rare at RF = 16).
 #
-# `model` names the graph-analytics extraction, and the M2 extraction is
-# the correct one here: on a symmetric population every relay link is
+# `model` names the graph-analytics extraction; `m4` aliases the M2
+# extraction exactly (on a symmetric population every relay link is
 # mirrored, so the extracted propagation digraph is symmetric by
-# construction and the one-SCC goodness criterion applies unchanged. A
-# separate M4 dispatch name would alias this extraction exactly.
+# construction and the one-SCC goodness criterion applies unchanged) and
+# keeps the configuration self-describing (ADR 0041).
 #
 # Run manually (~30 s release at default workers):
 #
 #   experiments --config configs/experiments/m4-uniform-symmetric.toml --out results/m4/
 
-model = "m2"
+model = "m4"
 master_seed = 44
 
 [population]
