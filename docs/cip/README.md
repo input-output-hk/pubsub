@@ -267,7 +267,7 @@ Narrowing has a cost, and it is paid in the randomness of the draw. If the gate 
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-*B* MUST be chosen so that *r* ≥ 2 for every link kind in use, and SHOULD be the largest such value. Both halves matter and pull the same way only because of where the coverage plateau falls: below *r* = 2 the failure probability rises, sharply, and above it a larger *B* is free coverage-wise while dividing an attacker's pressure further. The [Rationale](#choosing-the-admission-parameters) measures both sides and Figure 7 plots them.
+*B* MUST be chosen so that *r* ≥ 2 for every link kind in use, and SHOULD be the largest such value. Both halves matter and pull the same way only because of where the coverage plateau falls: below *r* = 2 the failure probability rises, sharply, and above it a larger *B* is free coverage-wise while dividing an attacker's pressure further. The [Rationale](#choosing-the-admission-parameters) measures both sides and Figure 8 plots them.
 
 > [!TIP]
 > The rule an implementation applies is one line. For each link kind, take *B* = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, and if that is less than 2, set *B* = 1 and leave the gate off: the topic is too small to bucket, and gating it would cost coverage for resistance it cannot buy.
@@ -717,11 +717,20 @@ The guarantee is a property of the drawn topology, not of an individual message.
 Being all-or-nothing, the criterion says nothing about magnitude, and the magnitude turns out to be worth stating. Two measurements bound it.
 
 > [!NOTE]
-> **A bad draw is a bad *topology*, not necessarily a failed delivery.** The criterion asks whether *every* honest publisher would reach everyone, so a draw counts as bad when one publisher *could* be silenced, whether or not that node published. Across the 7 104 bad draws recorded in the sweeps below, **2 148, or 30 %, delivered to every subscriber anyway**, because the publisher that would have been silenced was not the one publishing. The proportion is a property of the design rather than of luck: under M4 it is nil, because a node cut off there cannot receive either and is missed whoever publishes, while under M2 it is total, because that design's failures are almost entirely publishers who cannot be heard. *p*<sub>bad</sub> is therefore an upper bound on observed failure, by a margin each design fixes.
+> **A bad draw is a bad *topology*, not necessarily a failed delivery.** The criterion asks whether *every* honest publisher would reach everyone, so a draw counts as bad when one publisher *could* be silenced, whether or not that node published. Of the 7 104 bad draws recorded in the sweeps below, **30 % delivered to every subscriber anyway**, the publisher that would have been silenced not being the one publishing. The proportion is a property of the design rather than of luck: nil under M4, where a node cut off cannot receive either and is missed whoever publishes, and total under M2, whose failures are almost entirely publishers who cannot be heard. *p*<sub>bad</sub> is therefore an upper bound on observed failure, by a margin each design fixes.
 >
-> **And when delivery does fall short, it falls short by one subscriber.** In every sweep cell at the assumed adversarial fraction, 100 % of failing draws missed exactly one honest subscriber out of thousands; the share stays above 90 % until the failure rate exceeds 0.1, two thousand times the design target, and reaches 76 % only at a failure rate of 0.4. The measured worst case anywhere between those is three. Failure is not partition into halves; it is one node left out.
+> **And when delivery does fall short, it falls short by one subscriber.** That is what Figure 3 plots. At the assumed adversarial fraction every failing draw missed exactly one honest subscriber out of thousands, and the share stays near the top of the axis until the failure rate is orders of magnitude past anything this proposal targets. The measured worst case anywhere in that range is three. Failure is not partition into halves; it is one node left out.
 >
-> The exception is real but distinct. Twice in the sweep a draw missed *every* subscriber, because the publisher itself was the isolated node. That is the second term of the coverage laws rather than a new phenomenon, it is what the seeding links in M3 and M5 exist to make rare, and it is the mode that scales with nothing: one node's isolation costs the whole topic that epoch.
+> The ringed cells are the exception, and it is real but distinct: twice in the sweep a draw missed *every* subscriber, the publisher itself having been the isolated node. That is the second term of the coverage laws rather than a new phenomenon, it is what the seeding links in M3 and M5 exist to make rare, and it is the mode that scales with nothing — one node's isolation costs the whole topic that epoch.
+
+<div align="center">
+<a name="figure-3" id="figure-3"></a>
+
+![What a failing draw costs, against how often draws fail](images/severity.svg)
+
+<em>Figure 3: what a failing draw costs, against how often draws fail</em>
+
+</div>
 
 The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>. **Everything below is a way of estimating it, a cost paid to lower it, or a condition under which it rises.**
 
@@ -808,11 +817,11 @@ The laws were checked against the measurement framework at 23 configurations, sp
 In the figure below each point is one measured sample: its horizontal position is the failure rate the law predicts, its vertical position the rate actually observed, and its bar the Wilson 95 % interval around that observation. There are 25 rather than 23, because the two designs still in contention each carry a second, much larger sample, discussed below. Both axes are logarithmic, and the configurations range from failing in roughly one epoch in three hundred to failing in almost every epoch. Filled marks are the configurations above; hollow ones are a further 29 measured under honest downtime, described under Robustness, and are included here because they test the same laws along a second axis.
 
 <div align="center">
-<a name="figure-3" id="figure-3"></a>
+<a name="figure-4" id="figure-4"></a>
 
 ![Measured against predicted epoch failure probability](images/coverage-validation.svg)
 
-<em>Figure 3: measured against predicted epoch failure probability</em>
+<em>Figure 4: measured against predicted epoch failure probability</em>
 
 </div>
 
@@ -849,14 +858,14 @@ Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴
 
 </div>
 
-Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. It is a measured worst case over the sample, not a bound.[^degrees] Plotting two of those columns against each other shows the shape of the trade: both axes are costs, so lower and further left is better, and marker size is hops to the last subscriber.
+Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*; it is not a maximum over configurations, and each row is already the cheapest one meeting the target. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting two of those columns against each other shows the shape of the trade: both axes are costs, so lower and further left is better, and marker size is hops to the last subscriber.
 
 <div align="center">
-<a name="figure-4" id="figure-4"></a>
+<a name="figure-5" id="figure-5"></a>
 
 ![Bandwidth cost against state cost at equal safety](images/cost-vs-state.svg)
 
-<em>Figure 4: bandwidth cost against state cost at equal safety</em>
+<em>Figure 5: bandwidth cost against state cost at equal safety</em>
 
 </div>
 
@@ -874,7 +883,7 @@ The [Specification](#the-dissemination-design) carries both candidates rather th
 
 The comparison above holds every design at the same failure probability *under the assumption that all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
 
-A design's churn budget cannot be sampled directly. It is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it, the claim that downtime enters as a shift of the adversarial fraction, at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that Figure 3 has already validated.
+A design's churn budget cannot be sampled directly. It is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it, the claim that downtime enters as a shift of the adversarial fraction, at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that Figure 4 has already validated.
 
 It holds, in two rounds. Across five designs and five downtime levels, from none to 12 % of honest nodes offline, twenty-three of twenty-five configurations placed the shifted-fraction prediction inside the measurement's interval, and at the largest shift there all five designs landed on their laws almost exactly.
 
@@ -939,18 +948,18 @@ The budgets above remain read off the laws rather than observed, for the reason 
 
 **One adversarial fraction.** All results are at a single value of *μ*. That value is an assumption about the deployment, not a measurement of it, and the designs do not degrade at equal rates as it varies.
 
-Figure 5 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
+Figure 6 places the two side by side. Solid marks are configurations whose failure rate was counted; hollow marks are the configuration each design actually proposes, whose rate is a law prediction at a level no feasible sample can resolve. The dashed span between them is carried by the laws alone.
 
 <div align="center">
-<a name="figure-5" id="figure-5"></a>
+<a name="figure-6" id="figure-6"></a>
 
 ![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
 
-<em>Figure 5: measured configurations against the configuration proposed</em>
+<em>Figure 6: measured configurations against the configuration proposed</em>
 
 </div>
 
-The gap is close to two orders of magnitude for every design. The laws are expected to be accurate across it, because the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly; Figure 3 confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
+The gap is close to two orders of magnitude for every design. The laws are expected to be accurate across it, because the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly; Figure 4 confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
 
 ### Trade-offs and Limitations
 
@@ -965,11 +974,11 @@ Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every
 In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted grey shapes rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is drawn dashed, and is the only dashed line in the figure, because it is read off the coverage laws rather than sampled directly. The enclosed area of these shapes has no meaning, the axes being different quantities in different units, so only position along each individual axis should be compared.
 
 <div align="center">
-<a name="figure-6" id="figure-6"></a>
+<a name="figure-7" id="figure-7"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 6: four-way trade-off across the non-dominated designs</em>
+<em>Figure 7: four-way trade-off across the non-dominated designs</em>
 
 </div>
 
@@ -1037,16 +1046,16 @@ Both quantities scale linearly, so the ratio between the designs never changes. 
 
 #### Choosing the admission parameters
 
-Everything above concerns how many peers a node links to. Two further knobs govern *which* peers it may link to and *how many* it must serve: the [bucket count](#term-b) *B*, which sets how narrow the verifiable gate is, and the [serving cap](#term-cap) *C*, which bounds how many links one node will accept. The [Specification](#topology-derivation) defines both normatively, along with the [selection headroom](#term-r) *r* = (*N*<sub>T</sub>−1)/(*B*·*k*) that measures what the gate costs the draw. Neither knob appears in the coverage models, so neither had evidence until now, and the sizing rules the Specification states are the ones this subsection establishes. *r* is what Figure 7 is really drawn against, and the bucket counts on its axis are annotated with it.
+Everything above concerns how many peers a node links to. Two further knobs govern *which* peers it may link to and *how many* it must serve: the [bucket count](#term-b) *B*, which sets how narrow the verifiable gate is, and the [serving cap](#term-cap) *C*, which bounds how many links one node will accept. The [Specification](#topology-derivation) defines both normatively, along with the [selection headroom](#term-r) *r* = (*N*<sub>T</sub>−1)/(*B*·*k*) that measures what the gate costs the draw. Neither knob appears in the coverage models, so neither had evidence until now, and the sizing rules the Specification states are the ones this subsection establishes. *r* is what Figure 8 is really drawn against, and the bucket counts on its axis are annotated with it.
 
-The two pull in opposite directions on the same knob, and both sides are now measured. Figure 7 puts them one above the other on a shared bucket-count axis. **Moving right narrows the gate**: fewer eligible peers per node, so the upper panel is what verifiability costs in coverage, and at the same time the attacker's identities are divided across more buckets, so the lower panel is what it buys. A good value of *B* is one that has not yet moved in the upper panel and has moved as far as possible in the lower.
+The two pull in opposite directions on the same knob, and both sides are now measured. Figure 8 puts them one above the other on a shared bucket-count axis. **Moving right narrows the gate**: fewer eligible peers per node, so the upper panel is what verifiability costs in coverage, and at the same time the attacker's identities are divided across more buckets, so the lower panel is what it buys. A good value of *B* is one that has not yet moved in the upper panel and has moved as far as possible in the lower.
 
 <div align="center">
-<a name="figure-7" id="figure-7"></a>
+<a name="figure-8" id="figure-8"></a>
 
 ![The bucket count trade-off](images/gate-tradeoff.svg)
 
-<em>Figure 7: what the bucket count costs and what it buys</em>
+<em>Figure 8: what the bucket count costs and what it buys</em>
 
 </div>
 
@@ -1066,7 +1075,7 @@ At the narrow gate under a 10 % attacker, moving the cap from 20 to 24 takes the
 > [!IMPORTANT]
 > **The harm is honest links starved of capacity, not slots lost to the adversary.** The mechanism is the same measurement read from the honest side, and per victim rather than in aggregate: at the recommended gate under a fifth-of-the-network attacker, the share of honest nodes that lose at least one dial to a full acceptor runs **30.6 % at a cap of 20, 14.0 % at 24 and 0.36 % at 32**. The deepest single victim loses fourteen dials at the tight cap and two at the loose one. A cap sized only to deny the attacker is sized against the wrong quantity, and denies the honest population first.
 
-A cap of about twice the pick count absorbed even an attacker holding a fifth of the network. The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 7 gives, arrived at from the attack side.[^gate]
+A cap of about twice the pick count absorbed even an attacker holding a fifth of the network. The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 8 gives, arrived at from the attack side.[^gate]
 
 > [!WARNING]
 > **This subsection's evidence does not cover M4.** Both experiments run M2's relay wiring. The concentration law and the contention mechanics live in the acceptance plane, which M3 and M5 share unchanged, so the sizing rules carry to them; M3 and M5 additionally have a publisher-acceptance seam with its own cap, which the same arithmetic is expected to govern by symmetry but which no cell measures. **M4 is excluded outright**, because its symmetric handshake changes the selection mechanism rather than sitting on top of it. Since M4 is one of the two designs still in contention, the admission parameters are settled for one candidate and open for the other.
