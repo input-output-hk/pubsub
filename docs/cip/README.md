@@ -412,7 +412,7 @@ The gate is evaluated on the **ordered** pair for a directional link and on the 
 
 The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
-#### Survivor headroom and the bucket count
+#### Selection headroom and the bucket count
 
 Narrowing has a cost, and it is paid in the randomness of the draw. If the gate leaves a node barely as many eligible peers as it must open links to, the node has no choice left and the topology stops being a random graph. The [selection headroom](#term-r) is the ratio that measures this, for a link kind with pick count *k*:
 
@@ -475,9 +475,23 @@ Until it closes, an implementation targeting this proposal MUST treat the dissem
 
 The gate bounds who may dial a node; the [serving cap](#term-cap) bounds how many of them it will serve. A node MUST accept at most *C* links per topic per link kind, refusing further requests, and *C* MUST be at least twice the pick count for that kind.
 
+> [!IMPORTANT]
+> ***C* counts links the node accepted, not links it holds.** The distinction is invisible under a directional link kind, where the two sets are disjoint, and unrecoverable under a symmetric one, where the handshake deliberately erases which side initiated. A node under a symmetric kind therefore MUST count its accepted links as it accepts them; it MUST NOT recover the figure by counting its links at the end of the epoch, which would include the *k* it opened itself.
+>
+> The floor of 2*k* is sized on the first reading and inverted by the second. Under a symmetric kind a node's standing degree is about 2*k* already, so a cap applied to the total would bind at the mean, and roughly half of all nodes would begin refusing honest dials for want of capacity — the starvation the next paragraph says the cap exists to avoid.
+
 The floor is not a limit against the adversary, and reading it as one gets its direction backwards. Raising the cap hands an attacker more slots on each victim and nevertheless preserves delivery, because the damage a tight cap does is honest links refused for want of capacity, which are far more numerous than the adversary's. A cap of about twice the pick count absorbed an attacker holding a fifth of the network in measurement; the [Rationale](#choosing-the-admission-parameters) sets out the evidence and Figure 8 plots the reversal.
 
 Because the gate divides an attacker's identities across *B* buckets before any of them reach a victim, the cap is a second line rather than the first. The two compose: the gate makes concentration rare, and the cap bounds what concentration can achieve when it happens.
+
+#### What the rules do on a small topic
+
+*B* is a function of the topic's own size, recomputed per epoch, so nothing here needs a separate mode for small topics; the same two rules produce one. As *N*<sub>T</sub> falls the gate narrows until it cannot: at *N*<sub>T</sub> − 1 < 4*k* the formula yields *B* < 2 and the gate switches off, every registered peer becomes eligible, and a node that cannot find *k* of them links to all of them. For a pick count of 9 that floor is around thirty-seven participants. Below it the protocol degenerates continuously into a fully connected mesh, which is the correct answer at that scale: the reason fanout is bounded at all is cost at twenty thousand nodes, and at thirty that constraint is absent.
+
+> [!WARNING]
+> **The gate switching off is a loss of defence, not merely a parameter reaching its floor.** Its contribution against a flooding adversary is to divide that adversary's reach by *B*, so at *B* = 1 an attacker's every identity may dial every victim and the serving cap is the only remaining bound. On a topic that small a cap of *C* ≥ *N*<sub>T</sub> − 1 restores the position, since a node that accepts everyone cannot be crowded out of anything; a deployment that instead keeps a tight cap on a small topic has the worst of both.
+>
+> The range this proposal is least able to speak to is neither extreme but the middle: a few hundred participants, where the gate still functions, a complete mesh is no longer cheap, and the coverage laws have begun to drift. Nothing here is measured in that range.
 
 ### Link establishment
 
