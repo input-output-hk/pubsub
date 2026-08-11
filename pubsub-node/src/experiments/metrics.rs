@@ -169,11 +169,18 @@ pub struct PerNodeDetail {
     /// Post-churn digraph out-degree (up-honest vertices only).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub out_degree: Option<u64>,
-    /// `Active` relay-kind downstream links (serving slots) held to honest
-    /// peers at measure time.
+    /// Relay-kind downstream entries held to honest peers at measure time.
+    /// On directional configurations these are the node's granted serving
+    /// slots. Under the symmetric handshake reciprocity writes both ends of
+    /// every edge into `downstream`, so both roles are counted (≈ 2× the
+    /// pick count) — the same total the acceptance cap scans on a symmetric
+    /// node (`IMPLEMENTATION_NOTES` N-032/N-040). Relay seam only; the
+    /// refusal columns below are kind-agnostic (N-041).
     pub downstream_honest: u64,
-    /// Serving slots held to adversarial peers — on a capped acceptor,
-    /// capacity the adversary consumed.
+    /// Relay-kind downstream entries held to adversarial peers — on a
+    /// capped directional acceptor, capacity the adversary consumed. Same
+    /// symmetric-handshake and relay-only caveats as `downstream_honest`
+    /// (N-040/N-041).
     pub downstream_adversarial: u64,
     /// Routed over-capacity `Rejected` replies this node received for its
     /// own dials in the connection drain (v1 has no retry: each refused

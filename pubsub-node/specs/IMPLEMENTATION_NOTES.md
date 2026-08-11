@@ -540,3 +540,26 @@ The principle is two-sided — **the predicate's input matches the protocol obje
 **Working answer (017 state)**: keep the unordered-pair predicate under its own domain (its independence from the directional draw is pinned by `symmetric_domain_is_an_independent_draw`). Boundary stated honestly: the gated-symmetric point is the crate's own composition — the bucketed-pull analysis (read-only) treats directional pull, and no published model covers hash-gated bidirectional selection. The real M4 never touches this predicate: with the bucket count absent the gate is skipped entirely, and acceptance is membership-only.
 
 **Trigger to revisit**: the first experiment or protocol decision that actually exercises the gated-symmetric point (a gated E7 variant, a bidirectional protocol-track configuration, or the symmetric × capped combination of [[N-032]]) — verify the pair-draw's assumed properties (per-pair 1/B density, both-ends agreement, adversarial occupancy) against whatever analysis that consumer brings, before results rely on them.
+
+## N-040 — Detail slot columns are direction-blind under the symmetric handshake
+
+**Surfaced during**: the PR #152 review (the per-node connection-accounting detail columns; E12).
+
+**Observation**: the detail columns `downstream_honest`/`downstream_adversarial` count relay-kind `downstream` entries by the linked peer's class. On directional configurations that is exactly the node's granted serving slots — the E12 measurand, and every E12 cell is directional. Under the symmetric handshake, reciprocity writes **both ends of every edge into `downstream`** (one accept records the link in both maps on both ends; the dialer mirrors on `Accepted`), so the columns count both roles — ≈ 2× the pick count — where the serving-slots reading suggests inbound grants only. Two structural facts frame this:
+
+- **Direction is unrecoverable from end-state, by design.** The link model stores *kind*, never who dialed; direction is map placement, and the symmetric handshake deliberately collapses it. Direction-aware slot attribution would need either stored initiation state (the cost [[N-039]] records against direction-dependent designs) or drain-time attribution like the refusal maps.
+- **The acceptance cap on a symmetric node scans the same both-role total** — the cap there bounds something like total symmetric degree, not inbound serving load, which is exactly the deferred [[N-032]] question. The columns therefore report faithfully what the cap sees; the directional serving-slots language is what does not transfer.
+
+**Working answer**: documented on the fields (relay-kind downstream entries; serving-slots reading scoped to directional configurations). No shipped experiment reads the columns under a symmetric configuration.
+
+**Trigger to revisit**: the first M4/symmetric consumer of the detail slot columns, or [[N-032]]'s own resolution — whichever lands first decides whether the columns need drain-time direction attribution or the cap semantics make the both-role count the right measurand anyway.
+
+## N-041 — The detail row's slot columns are relay-only while its refusal columns are kind-agnostic
+
+**Surfaced during**: the PR #152 review (the per-node connection-accounting detail columns; E12).
+
+**Observation**: `downstream_honest`/`downstream_adversarial` count the relay seam only, but `dials_refused` and `refusals_issued_*` tally every routed over-capacity `Rejected`, publisher-seam ones included (acceptance capacities are disjoint per kind since 015). An M3/M5 configuration with a `publisher.accept_cap` would therefore show publisher-seam refusals with no publisher-seam slot columns to reconcile them against — the per-node refusal counts would exceed anything the relay slot columns can explain.
+
+**Why today's surfaces are safe**: no shipped configuration caps the publisher seam, and every E12 cell is relay-only; the columns' one consumer (`docs/experiments/summarise_flooding_cell.py`) reconciles totals against `rejected_over_capacity`, which is seam-pooled on both sides of the identity.
+
+**Trigger to revisit**: the first publisher-seam capped experiment — the M3/M5 publisher-acceptance flooding surface named as unmeasured in `docs/experiments/e12-flooding-mitigation.md` §6, or a publisher-seam congestion variant of E11. The natural completion is a `downstream_publisher_honest`/`_adversarial` pair (detail-only, so no re-baseline), landed together with that experiment.
