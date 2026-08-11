@@ -494,7 +494,7 @@ Two further results are worth carrying into the Specification.
 At the narrow gate under a 10 % attacker, moving the cap from 20 to 24 takes the network from failing in seven epochs out of ten to failing in none, while the attacker's hold on each victim rises from 6.8 slots to 7.6. Under a 20 % attacker the same gate fails at both those caps and is whole at 32, where the attacker holds 15.5 slots on each victim against the 11.1 it held at the cap where the network was collapsing.
 
 > [!IMPORTANT]
-> **The harm is honest links starved of capacity, not slots lost to the adversary.** The mechanism is the same measurement read from the honest side: dials refused for want of a slot fall by two orders of magnitude across the same range that restores coverage. A cap sized only to deny the attacker is sized against the wrong quantity, and denies the honest population first.
+> **The harm is honest links starved of capacity, not slots lost to the adversary.** The mechanism is the same measurement read from the honest side, and per victim rather than in aggregate: at the recommended gate under a fifth-of-the-network attacker, the share of honest nodes that lose at least one dial to a full acceptor runs **30.6 % at a cap of 20, 14.0 % at 24 and 0.36 % at 32**. The deepest single victim loses fourteen dials at the tight cap and two at the loose one. A cap sized only to deny the attacker is sized against the wrong quantity, and denies the honest population first.
 
 A cap of about twice the fanout absorbed even an attacker holding a fifth of the network.
 
@@ -503,7 +503,7 @@ A cap of about twice the fanout absorbed even an attacker holding a fifth of the
 >
 > These two are also the only results in this Rationale that rest on a single instrument. The gate and the serving cap exist in the reference implementation and in these measurements; there is no closed-form model of either, so the agreement argument that carries the coverage results is unavailable here.
 
-The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 5 gives, arrived at from the attack side. The starvation counts show why the two agree. Widening the gate does not merely dilute the attacker, it removes the starvation: at *B* = 125 a node loses 2 934 honest dials per run at the tight cap against 12 at the loose one, where the narrow gate under the same attacker loses 12 605 and 1 320. The gate and the cap are two ways of buying the same thing, which is honest links that are not refused.[^gate]
+The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 5 gives, arrived at from the attack side. The starvation counts show why the two agree. Widening the gate does not merely dilute the attacker, it removes the starvation: at *B* = 125 a node loses 2 934 honest dials per run at the tight cap against 12 at the loose one, where the narrow gate under the same attacker loses 12 605 and 1 320. Two independent runs of those three cells, on different machines from the same configuration, seed and tool commit, agree on every one of those figures. The gate and the cap are two ways of buying the same thing, which is honest links that are not refused.[^gate]
 
 #### Two classes of fault, with different guarantees
 
