@@ -142,6 +142,15 @@ Each epoch the protocol derives a dissemination topology over the registered nod
 
 The guarantee is a property of the drawn topology, not of an individual message. For a given assignment either every honest publisher reaches every honest subscriber, or some publisher does not, in which case that publisher is cut off for the whole epoch every time it publishes. The first case is **good**, the second **bad**. This is deliberately all-or-nothing rather than an average, because an average hides the failure mode that matters: 99.99 % delivery might be a uniform trickle of losses, which is tolerable, or one publisher silenced completely, which is not.
 
+Being all-or-nothing, the criterion says nothing about magnitude, and the magnitude turns out to be worth stating. Two measurements bound it.
+
+> [!NOTE]
+> **A bad draw is a bad *topology*, not necessarily a failed delivery.** The criterion asks whether *every* honest publisher would reach everyone, so a draw counts as bad when one publisher *could* be silenced, whether or not that node published. Across the 7 104 bad draws recorded in the sweeps below, **2 148, or 30 %, delivered to every subscriber anyway**, because the publisher that would have been silenced was not the one publishing. The proportion is a property of the design rather than of luck: under M4 it is nil, because a node cut off there cannot receive either and is missed whoever publishes, while under M2 it is total, because that design's failures are almost entirely publishers who cannot be heard. *p*<sub>bad</sub> is therefore an upper bound on observed failure, by a margin each design fixes.
+>
+> **And when delivery does fall short, it falls short by one subscriber.** In every sweep cell at the assumed adversarial fraction, 100 % of failing draws missed exactly one honest subscriber out of thousands; the share stays above 90 % until the failure rate exceeds 0.1, two thousand times the design target, and reaches 76 % only at a failure rate of 0.4. The measured worst case anywhere between those is three. Failure is not partition into halves; it is one node left out.
+>
+> The exception is real but distinct. Twice in the sweep a draw missed *every* subscriber, because the publisher itself was the isolated node. That is the second term of the coverage laws rather than a new phenomenon, it is what the seeding links in M3 and M5 exist to make rare, and it is the mode that scales with nothing: one node's isolation costs the whole topic that epoch.
+
 The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>. **Everything below is a way of estimating it, a cost paid to lower it, or a condition under which it rises.**
 
 Two independent instruments estimate it, built separately. **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
@@ -504,6 +513,25 @@ A cap of about twice the fanout absorbed even an attacker holding a fifth of the
 > These two are also the only results in this Rationale that rest on a single instrument. The gate and the serving cap exist in the reference implementation and in these measurements; there is no closed-form model of either, so the agreement argument that carries the coverage results is unavailable here.
 
 The wider gate is better still: at *B* = 125 the network never enters the failing regime at any cap tested, which is the same recommendation the coverage panel of Figure 5 gives, arrived at from the attack side. The starvation counts show why the two agree. Widening the gate does not merely dilute the attacker, it removes the starvation: at *B* = 125 a node loses 2 934 honest dials per run at the tight cap against 12 at the loose one, where the narrow gate under the same attacker loses 12 605 and 1 320. Two independent runs of those three cells, on different machines from the same configuration, seed and tool commit, agree on every one of those figures. The gate and the cap are two ways of buying the same thing, which is honest links that are not refused.[^gate]
+
+#### What can be turned, and what it costs
+
+The evidence above prices a fixed set of choices; this subsection collects what a deployment may actually turn, because the parameters are not equally powerful and two of them are far cheaper than they look.
+
+**Fanout is the strong knob, and it is exponential.** A design's failure probability falls roughly as the adversarial fraction raised to the fanout, so single links matter enormously. At *N* = 20 000 one more link takes M4 from 6.8 × 10⁻⁵ to 6.1 × 10⁻⁶ and then to 5.4 × 10⁻⁷, **a factor of eleven each time**, for two further standing links and about 1.5 further copies of each message. M3 buys a factor of two to three per link at half the connection cost. Anyone who finds the delivery guarantee insufficient should reach for this first: it is the only knob whose return compounds.
+
+**Re-allocating a fixed budget is free.** M3 at (13, 7) and at (12, 8) hold the same nineteen links and the same thirty-eight standing connections, and differ by a factor of four in the downtime they absorb. Nothing is bought and nothing is spent; the same resources are simply divided better. Whenever a design has more than one link kind, that division is a parameter in its own right and the cheapest one available.
+
+**Aim at the failure mode that dominates.** The two measurements above separate failures into a subscriber who cannot receive and a publisher who cannot be heard, and the balance differs sharply by design: under M3 at (10, 4) roughly seven failures in ten are publishers. A design whose failures are mostly publisher-side is improved by seeding links specifically, not by relay links, and the reverse holds for M4. Sizing without that split spends on the wrong side.
+
+**The epoch length is a duration knob, not a probability one.** Shortening it does not lower the per-epoch failure probability; it shortens each episode of muting while making episodes proportionally more frequent, at roughly constant total exposure, and it raises the cost of rotation and the memory held for recovery. It is the right knob for traffic where a brief interruption is tolerable and a long one is not, and the wrong one for lowering *p*<sub>bad</sub>.
+
+**Two knobs sit off the coverage axis entirely.** The bucket count and the serving cap govern admission rather than reachability: they decide how verifiable the assignment is and how much of a victim's capacity an attacker can occupy, and neither appears in a coverage law. Sizing them against coverage is a category error in both directions.
+
+**And one lever is not in this protocol at all.** The adversarial fraction is the parameter every failure probability is most sensitive to, and it is set by what registration costs, which is a chain-side decision. Making identities dearer moves the whole family further than any amount of fanout.
+
+> [!WARNING]
+> **Carrying links across an epoch boundary is not a free improvement.** Holding the previous epoch's peers as a fallback, or reusing them to seed publications, would plainly improve continuity. It would also correlate consecutive draws, and the argument that muting is bounded in duration rests on those draws being independent: a subscriber unlucky in one epoch is unlucky again exactly to the extent that its peer set persists. The bounded handover overlap the Specification permits does not have this effect, because the outgoing links are released.<!-- FORWARD-REF(specification): link this to Link establishment once the sections are composed; it is where the overlap is permitted normatively. --> A longer-lived fallback is a different proposition and would need the rotation argument re-derived, not merely re-stated.
 
 #### Two classes of fault, with different guarantees
 
