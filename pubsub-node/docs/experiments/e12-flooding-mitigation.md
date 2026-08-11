@@ -71,12 +71,15 @@ Within a (B, K) cell, the ambient adversarial fraction and the
 selection shape are fixed — only the cap varies. The cap axis therefore
 isolates pure starvation damage:
 
-| B = 50 | cap 20 | cap 24 | cap 32 |
+| | cap 20 | cap 24 | cap 32 |
 |---|---|---|---|
-| K = 400 (10 %): good | **45/150** | **150/150** | 150/150 |
+| B = 50, K = 400 (10 %): good | **45/150** | **150/150** | 150/150 |
 | — starved honest dials/run | 7 590 | 2 794 | 123 |
-| K = 800 (20 %): good | **0/400** | **0/400** | **392/400** |
+| B = 50, K = 800 (20 %): good | **0/400** | **0/400** | **392/400** |
 | — starved honest dials/run | 12 605 | 7 533 | 1 320 |
+| B = 125, K = 800 (20 %): good | 388/400 | 394/400 | 396/400 |
+| — starved honest dials/run | 2 934 | 717 | 12 |
+| — victims starved ≥ 1 dial | 30.6 % | 14.0 % | 0.36 % |
 
 Two design facts fall out:
 
@@ -92,8 +95,10 @@ Two design facts fall out:
   ≈ 396.5/400), i.e. the flooding-specific residue is nearly gone.
 
 At B ≥ 125 the flooder never gains traction at any tested cap: the
-B = 125 K = 800 row reads 388 → 394 → 396/400 across the caps (the law
-at μ = 0.2 expects ≈ 396.5), and the B = 250 K = 800 cells match E10's
+B = 125 rows above climb toward the μ = 0.2 law's expectation
+(≈ 396.5/400) as the cap clears the total load — starvation collapsing
+by two orders while the attacker's slots *rise* toward their
+unconstrained 6.4 — and the B = 250 K = 800 cells match E10's
 selection-penalty baseline exactly (382–386/400 vs the r = 1 baseline
 P(bad) = 0.0443 → expected 382.3) — **statistically zero flooding
 damage on top of what the selection shape already costs**.
