@@ -127,13 +127,15 @@ observed, worst of 25 graphs):
 | | M1 | F = 29 | 245 043 | 18.9 | 58 / 44 | 8.4×10⁻⁵ |
 | | M2 | RF = 29 | 245 043 | 18.9 | 58 / 44 | 8.5×10⁻⁵ |
 
-\* RF = 11 sits on the law crossing; the measured ~1.1× tail correction
+\* RF = 11 sits on the law crossing; the carried ~1.1× tail correction
 pushes it just over δ, and a direct high-μ tail check (×1.04 ± 0.07)
 cannot clear it either way — the safe choice is RF = 12 (189 796 msgs,
-14.6 copies / honest), contingent on the correction being real: an
-independent 170 k-draw replication (PR #151 review) reads the factor at
-1.009 ± 0.029 (M3 regime; M4 run pending), so if it resolves to ~1.0,
-RF = 11 stands. M3's corrected values stay under δ everywhere.
+14.6 copies / honest). The dedicated measurement
+([`tail-correction.md`](../../../pubsub-node/docs/experiments/tail-correction.md),
+370 k draws across both designs) has since read the factor at
+0.994 ± 0.021 — no correction at the measured cells — so RF = 11 stands
+on the measured basis; RF = 12 is retained pending the pass that
+retires the correction. M3's corrected values stay under δ everywhere.
 
 Latency (not tabulated) moves the other way: M3's full-coverage depth
 falls from 5.9 to 5.0 hops across the grid (larger RF ⇒ shallower

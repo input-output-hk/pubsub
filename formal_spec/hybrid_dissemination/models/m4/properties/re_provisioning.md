@@ -73,13 +73,18 @@ N = 4 000, μ = 0.35, RF = 8, 60 000 graphs, seed 20260806) measured
 MC/law = ×1.04 (199/60 000, z = +0.6) — consistent with both no
 correction and the ×1.1 carry-over, so RF = 11 at μ_design = 0.35 sits
 within noise of the target either way and RF = 12 stays the safe
-choice. An independent replication (PR #151 review: different code and
-method, 170 000 pooled draws, M3 regime at N = 4 000) reads the tail
-factor at **1.009 ± 0.029** — excluding ×1.1 at ≈ 3.5σ in that regime;
-its M4 run is still in progress. RF = 12 therefore stands as the
-conservative pick but is **contingent on the correction being real**:
-if the factor resolves to ~1.0, RF = 11 clears δ as-is and the
-μ_design = 0.35 row reverts to its raw read.
+choice. The dedicated measurement has since landed:
+[`tail-correction.md`](../../../../../pubsub-node/docs/experiments/tail-correction.md)
+(independent code and method) pools 370 000 fresh draws across both
+designs — M3 (RF = 9, s = 5) at N = 4 000 and M4 (RF = 6) at
+N = 20 000 — and reads the factor at **0.994 ± 0.021**, rejecting ×1.1
+at z = −5.7; the cell the factor was originally measured on (M4 RF = 7,
+169 failures / 200 000 graphs) does not reproduce. On the measured
+basis RF = 11 clears δ as-is. The measurement sits near
+P(bad) ≈ 5–8×10⁻³, two decades above the operating tail, so RF = 12 is
+retained here as the conservative pick; retiring the ×1.1 correction —
+and reverting this row to RF = 11 — is deferred to a dedicated pass
+over the documents that carry it.
 
 ## 4. Answer — provisioning curve and the +1 notch (N = 20 000, δ = 10⁻⁴)
 
