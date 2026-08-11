@@ -170,7 +170,7 @@ Several words below carry an established Cardano meaning that is *not* the meani
 
 ### Architecture
 
-The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those three public inputs, and nothing else, every [node](#term-node) computes the same thing: for each topic it subscribes to, the set of peers it is permitted to link with, from which it draws the [links](#term-link) it will hold for that epoch. Messages then travel over those links.
+The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those three public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
