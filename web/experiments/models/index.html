@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Model simulator — Five dissemination models · Cardano PubSub</title>
+<title>Dissemination model simulator — Five dissemination models · Cardano PubSub</title>
 <meta name="description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/models/">
 <link rel="icon" href="../../assets/favicon.ico">
@@ -315,7 +315,7 @@
       <a href="../" class="active">Experiments</a>
       <span class="nav-menu">
         <a href="../">Overview</a>
-        <a href="./" class="active">Model simulator</a>
+        <a href="./" class="active">Dissemination model simulator</a>
         <a href="../cost-model/">Cost model</a>
       </span>
     </span>
@@ -341,9 +341,9 @@
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="../">&lsaquo;&nbsp;Experiments</a>
         <span class="crumb-sep">/</span>
-        <span class="crumb-here" aria-current="page">Model simulator</span>
+        <span class="crumb-here" aria-current="page">Dissemination model simulator</span>
       </nav>
-      <h1>Model simulator</h1>
+      <h1>Dissemination model simulator</h1>
     </div>
   </section>
 
@@ -609,8 +609,8 @@
     m1: {
       tab: 'M1 · Push',
       title: 'Random push gossip',
-      mech: 'Every node, on first receipt, pushes the message to F random peers. There is no standing graph at all; links are drawn fresh for every message.',
-      watch: 'The cascade fans out fast, but each message gambles anew: per-message randomness cannot promise that every message of every publisher gets through, so the good-graph guarantee has to come from a large fanout.',
+      mech: 'No standing graph at all: on first receipt, every node pushes to <strong>F fresh random peers</strong>.',
+      watch: 'Fans out fast, but each message gambles anew, so the guarantee has to be bought with a large fanout.',
       knobs: 'Knob: F = 3 (demo) · push targets per receipt',
       standingTitle: 'No sync phase',
       standingDesc: 'M1 holds <strong>no per-epoch links</strong>: every node draws fresh random targets at publish time, each time a message first reaches it.',
@@ -621,8 +621,8 @@
     m2: {
       tab: 'M2 · Pull',
       title: 'Pull relaying',
-      mech: 'Each node pulls from RF forwarders, redrawn every epoch; a forwarder relays every message it holds to its requesters. All propagation runs on these relay links.',
-      watch: 'Pull keeps adversaries from pushing themselves into anyone’s view, but a publisher only enters the network through its serving set, the nodes whose pulls happened to land on it. An unlucky publisher has none, and is muted. In the node implementation these are the relay links: a node’s own picks are its upstream, and the nodes that picked it are its downstream.',
+      mech: 'Each node picks <strong>RF forwarders</strong> to hear from, redrawn every epoch.',
+      watch: 'Adversaries cannot push themselves into anyone’s view, but a publisher that no honest node picked goes unheard.',
       knobs: 'Knob: RF = 3 (demo) · relay forwarders pulled from per node',
       standingDesc: 'Every node picks <strong>RF forwarders</strong> to hear from, and a pick landing on an adversary is a <strong>dead link</strong> (red, dashed).',
       hopDesc: 'Holders forward along the same relay links every hop; no new links form.',
@@ -634,8 +634,8 @@
     m3: {
       tab: 'M3 · Pull + publishing links',
       title: 'Pull relaying with publishing links',
-      mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications, so the publisher plus its targets form the initial holders.',
-      watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype, not yet the validated final design; the data decides that.',
+      mech: 'M2’s pull, plus <strong>s−1 publishing links</strong> per node carrying only its own messages.',
+      watch: 'The publishing links fix the unheard publisher; they are also the cheapest links to run and the first to suffer under churn.',
       knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
       standingDesc: 'M2’s relay links, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long) carrying only its own messages.',
       hopDesc: 'Holders forward along their relay links, the publisher having already seeded over its publishing links at hop one.',
@@ -648,8 +648,8 @@
     m4: {
       tab: 'M4 · Bidirectional',
       title: 'Bidirectional flooding',
-      mech: 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.',
-      watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out, so there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
+      mech: 'Each node picks <strong>RF peers</strong>, and every pick becomes a symmetric link that floods both ways.',
+      watch: 'One link set serves both directions, so it holds the fewest connections of the family for the same guarantee.',
       knobs: 'Knob: RF = 2 (demo) · symmetric links per node',
       standingDesc: 'Every node draws <strong>RF picks</strong>, and each becomes a <strong>symmetric link</strong> carrying traffic both ways.',
       hopDesc: 'Holders flood along every symmetric link except the one the message arrived on.',
@@ -660,8 +660,8 @@
     m5: {
       tab: 'M5 · Directed',
       title: 'Directed k<sub>in</sub>/k<sub>out</sub> gossip',
-      mech: 'Every node opens k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
-      watch: 'The general case of the family: k<sub>out</sub> = 0 recovers pull-only M2, k<sub>in</sub> = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy, and both directions are the node’s own uniform picks.',
+      mech: 'Every node opens <strong>k<sub>in</sub> inbound</strong> and <strong>k<sub>out</sub> outbound</strong> links, both its own picks.',
+      watch: 'The general case: k<sub>out</sub> = 0 is M2, k<sub>in</sub> = 0 is push relaying. Beaten on every axis once the others take their best parameters.',
       knobs: 'Knobs: k<sub>in</sub> = 2, k<sub>out</sub> = 2 (demo) · inbound and outbound links per node',
       standingDesc: 'Two directed kinds, both the node’s own picks: <strong>solid</strong> outbound, <strong>dashed</strong> inbound.',
       hopDesc: 'Holders relay along their outbound links and the inbound links of everyone who chose them.',
