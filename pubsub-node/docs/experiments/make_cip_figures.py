@@ -150,14 +150,25 @@ def arrow(x1, y1, x2, y2, stroke=RULE, w=1.6, head=7.0):
               f'{bx - px:.1f},{by - py:.1f}" fill="{stroke}"/>')
 
 
-def frame(w: int, h: int, body: list[str], title: str, desc: str) -> str:
+def frame(w: int, h: int, body: list[str], title: str, desc: str,
+          conditions: str | None = None) -> str:
+    """Wrap a figure body, stamping the conditions it was measured under.
+
+    The stamp goes inside the image rather than in the markdown caption
+    because figures get screenshotted into slides and pasted into chat, where
+    a caption does not follow them. Every number in a figure is one slice of
+    a parameter space, and the slice should travel with the picture.
+    """
+    stamp = ""
+    if conditions:
+        stamp = text(w - 14, h - 10, conditions, 9.5, "#8a887e", "end") + "\n"
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" '
         f'height="{h}" role="img" aria-labelledby="t d">\n'
         f"<title id=\"t\">{esc(title)}</title>\n<desc id=\"d\">{esc(desc)}</desc>\n"
         f'<rect width="{w}" height="{h}" rx="8" fill="{SURFACE}"/>\n'
-        + "\n".join(body)
-        + "\n</svg>\n"
+        + "\n".join(body) + "\n" + stamp
+        + "</svg>\n"
     )
 
 
@@ -385,7 +396,8 @@ def fig_validation(cells, churn=()) -> str:
                  "Each point is one experiment configuration. Horizontal position is the "
                  "probability predicted by the closed-form coverage law, vertical position "
                  "the fraction of sampled topologies that actually failed. Bars are Wilson "
-                 "95% intervals. Points lie on the diagonal across the whole range.")
+                 "95% intervals. Points lie on the diagonal across the whole range.",
+                 conditions="N = 4 000 and 20 000 · μ = 0.2")
 
 
 # ------------------------------------------------------------------ figure 5
@@ -465,7 +477,8 @@ def fig_cost_state(ops) -> str:
                  "honest node, and marker size is hops to full coverage. Both axes are "
                  "costs, so lower and further left is better, and a smaller marker reaches "
                  "the last subscriber sooner. M3 and M4 are jointly non-dominated on the "
-                 "two axes.")
+                 "two axes.",
+                 conditions="N = 20 000 · μ = 0.2 · δ = 10⁻⁴")
 
 
 # ------------------------------------------------------------------ figure 6
@@ -628,7 +641,8 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "lies inside a contending design on every axis, which is what being "
                  "dominated looks like. The churn axis is the only dashed line in the "
                  "figure, marking that it is read off the coverage law rather than "
-                 "sampled.")
+                 "sampled.",
+                 conditions="N = 20 000 · μ = 0.2 · δ = 10⁻⁴")
 
 
 # ------------------------------------------------------------------ figure 7
@@ -714,7 +728,8 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
                  "For each design, the failure rates of the configurations that were "
                  "measured, and the far lower rate of the configuration actually "
                  "proposed. The two are separated by about two orders of magnitude, "
-                 "spanned by the coverage laws rather than by measurement.")
+                 "spanned by the coverage laws rather than by measurement.",
+                 conditions="N = 20 000 · μ = 0.2 · δ = 10⁻⁴")
 
 
 # ------------------------------------------------------------------ figure 8
@@ -814,7 +829,8 @@ def fig_gate_tradeoff(g) -> str:
                  "headroom 1 and collapses below it. Attacker concentration falls as the "
                  "reciprocal of the bucket count throughout, measured at four of the seven "
                  "bucket counts and predicted at the rest. The largest bucket count "
-                 "retaining headroom is best on both.")
+                 "retaining headroom is best on both.",
+                 conditions="N = 4 000 · μ = 0.2 · pick count 16")
 
 
 # ------------------------------------------------------------------ figure 3
@@ -885,7 +901,8 @@ def fig_severity(g) -> str:
                  "subscriber. The share stays at or near 100 % until the failure rate is far "
                  "above anything this proposal targets, and falls to 76 % only at a rate of "
                  "0.4. Two cells, ringed, also produced a single draw in which every "
-                 "subscriber was missed because the publisher itself was cut off.")
+                 "subscriber was missed because the publisher itself was cut off.",
+                 conditions="N = 4 000 and 20 000 · μ = 0.20 to 0.40")
 
 
 

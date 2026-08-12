@@ -76,4 +76,5 @@
 <text x="458.0" y="518.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Bucket count B: how many groups the gate splits the population into</text>
 <text x="458.0" y="533.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = a narrower gate: fewer eligible peers per node, and the attacker's pressure divided further</text>
 <text x="38.0" y="552.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-style="italic">Both panels share the horizontal axis. The largest B leaving headroom for the pick count is coverage-exact and dilutes the attacker most.</text>
+<text x="846.0" y="550.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">N = 4 000 · μ = 0.2 · pick count 16</text>
 </svg>
