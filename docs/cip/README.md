@@ -442,14 +442,14 @@ A topic entry moves through three operations of its own, and the third is *annou
 
 **Step 2. Changing the authorised publishers.** Replaces the publisher set.
 
-1. Only the owner credential named in the entry MAY change the set.
-2. Removing a key ends that key's authority to publish; messages it signed earlier remain verifiable and are unaffected.
+1. Only the owner credential named in the entry MAY change the set. That credential MUST NOT be a publisher key: the authority to revoke has to sit outside the set it revokes from.
+2. A key is **granted** authority from the first epoch whose snapshot contains it, in the same way a node's topic interests are, so a grant is predictable and every node in the epoch agrees on it.
+3. A **revocation** takes effect at the chain tip, once it is deep enough that a rollback will not restore it; a deployment SHOULD require the same confirmation depth it uses for any other consequential registry read.
+4. Messages the key signed before its revocation remain verifiable and are unaffected.
 
-<!-- OPEN(authorisation-position): whether a recipient evaluates publisher
-     authorisation at the chain tip or at the epoch's snapshot is not fixed
-     here, and the two differ for a key added or removed mid-epoch. The receive
-     path under Messages states the order of checks, not the chain position
-     they read. Decide with the topic-registry section owner (#133). -->
+The two directions are deliberately asymmetric, and the asymmetry is the point. Both moves are in the safe direction: a node can only ever drop a message another node accepted, never accept one another node dropped. Grants wait for the snapshot because nothing is urgent about admitting a publisher and consistency is worth more; revocation cannot wait, because the case that matters is a compromised key, and an epoch is hours or days. The cost is that nodes at slightly different chain positions disagree for a few blocks about a revoked key's last messages. That is tolerable here in a way it would not be in a ledger: this protocol does not attempt consensus on what was delivered, only that what is delivered is authentic.
+
+**A revocation MUST record the hash of the last message the owner recognises from that key**, and a recipient MUST reject any message from a revoked key that does not chain back to it. Without that, revocation is not final: message timestamps are self-reported and carry no consensus meaning, so a holder of a compromised key could publish messages back-dated into the period when it was still authorised, and a recipient checking only "was this key authorised when it says it published?" would accept them. The [parent hash](#messages) each message carries is what makes the check possible, since it makes a publisher's history a chain rather than a set.
 
 **Step 3. Ending the topic.** A topic ends at an epoch boundary, announced in advance.
 
@@ -634,7 +634,7 @@ $$\mathrm{LP}(\texttt{pubsub/message/v1}) \,\|\, \mathrm{LP}(\text{topic}) \,\|\
 
 and is produced once by the publisher. Relays forward the message unchanged and never re-sign it, so authenticity is end to end and independent of the path. The **message hash** is the SHA-256 of that same preimage, excluding the signature, so that a malleable signature cannot produce a second identity for one message.
 
-A recipient MUST, in order: confirm the topic is registered; confirm the publisher key is authorised on it, or that the topic is open; verify the signature; and only then act on the message. Ordering matters here too, since an unverified message must never be recorded, forwarded, or allowed to occupy the duplicate-suppression cache.
+A recipient MUST, in order: confirm the topic is registered; confirm the publisher key is authorised on it, or that the topic is open; confirm the key has not been revoked, and that the message chains back to the last message its revocation recognises if it has; verify the signature; and only then act on the message. Ordering matters here too, since an unverified message must never be recorded, forwarded, or allowed to occupy the duplicate-suppression cache. Authorisation is read at the epoch's snapshot and revocation at the chain tip, as [The topic registry](#the-topic-registry) sets out.
 
 Delivery is ordered per (topic, publisher). The protocol defines no ordering across publishers on a topic, and two subscribers MAY observe messages from different publishers in different relative orders. An application needing a total order must impose one itself.
 
