@@ -251,10 +251,13 @@
   /* Two ways in, given equal weight: neither is the primary. */
   .route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
                 gap: 16px; margin: 30px 0 6px; }
-  .route { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px;
+  .route { position: relative; overflow: hidden; isolation: isolate;
+           display: flex; flex-direction: column; gap: 8px;
+           padding: 22px 46% 22px 22px; min-height: 188px; justify-content: flex-end;
            border: 1px solid var(--line); border-radius: 10px; text-decoration: none;
            color: inherit; background: var(--bg-soft);
            transition: border-color .15s ease, transform .15s ease; }
+  .route > * { position: relative; z-index: 1; }
   .route:hover { border-color: var(--iog-infared); transform: translateY(-2px); }
   .route-kind { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
                 text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared); }
@@ -262,9 +265,12 @@
   .route-go { margin-top: 4px; font-size: 0.9rem; color: var(--text-mute); }
   .route:hover .route-go { color: var(--iog-infared); }
 
-  /* A thumbnail of the thing itself, so the tile shows rather than describes. */
-  .route-thumb { width: 100%; max-width: 176px; height: auto; margin-bottom: 8px;
-                 align-self: center; overflow: visible; }
+  /* The figure itself, oversized and bled off the right edge: it reads as the
+     thing the tile opens rather than as an illustration sitting inside it. */
+  .route-thumb { position: absolute; z-index: 0; top: 50%; right: -7%;
+                 width: 56%; max-width: none; height: auto; overflow: visible;
+                 transform: translateY(-50%); transform-origin: 60% 50%;
+                 pointer-events: none; }
   /* The simulator's own classes, static: no animation, nothing hidden. */
   .route-thumb .edge { opacity: 0.22; stroke: var(--text-faint); fill: none; stroke-width: 3; }
   .route-thumb .edge.traversed { stroke: var(--info); opacity: 0.75; stroke-width: 5; }
@@ -273,8 +279,8 @@
   .route-thumb .node.adv { fill: var(--bad); stroke: var(--bad); }
   .route-thumb .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 3.5; }
   @media (prefers-reduced-motion: no-preference) {
-    .route-thumb { transition: transform .18s ease; }
-    .route:hover .route-thumb { transform: scale(1.03); }
+    .route-thumb { transition: transform .28s cubic-bezier(.22,.61,.36,1); }
+    .route:hover .route-thumb { transform: translateY(-50%) scale(1.07); }
   }
 
   /* Breadcrumb: same weight as the old section kind, but it says where you are
