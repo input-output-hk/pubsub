@@ -1232,8 +1232,7 @@ Three things follow.
 
 <em>Table 14: mean time between one node's departures required to sustain a given epoch length</em>
 
-<!-- Every row is derived from that design's churn budget by the relation above;
-     none is a separate measurement. -->
+<em>Every row is computed from that design's churn budget by the relation above, and none is a separate measurement; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Robustness](#robustness) gives.</em>
 
 
 </div>
