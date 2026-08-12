@@ -926,7 +926,6 @@ if (typeof document !== 'undefined') (() => {
   const $ = s => document.querySelector(s);
   const MODEL_IDS = ['m1', 'm2', 'm3', 'm4', 'm5'];
   const COLOR = id => getComputedStyle(document.documentElement).getPropertyValue(`--${id}`).trim();
-  const MARKERS = { m1: 'circle', m2: 'square', m3: 'triangle', m4: 'diamond', m5: 'pentagon' };
 
   const clamp01 = v => Math.max(0, Math.min(1, v));
   const fmtSci = v => v === 0 ? '0' : v.toExponential(2).replace('e-', 'e−');
@@ -970,13 +969,13 @@ if (typeof document !== 'undefined') (() => {
     how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
     mu: ['μ', 'Adversarial share: the fraction of the N registered nodes that are silent Byzantine — they receive every message and forward none. Nobody knows which they are. Raise it past a design’s Δμ and open <b>Tune parameters</b> to see what that design has to buy to clear δ again.'],
     N: ['N', 'Network size: nodes in the on-chain registry. H = N − μN of them are honest, and the guarantee is stated over those.'],
-    delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it. This proposal uses δ = 10⁻⁴, one bad epoch in ten thousand; the selector offers 10⁻³ and 10⁻⁵ to see what a looser or stricter target costs.'],
+    delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it. The CIP uses δ = 10⁻⁴, one bad epoch in ten thousand; the selector offers 10⁻³ and 10⁻⁵ to see what a looser or stricter target costs.'],
     epoch: ['Epoch', 'The interval a drawn topology serves. Links are drawn once at sync and then carry every message of every publisher until the next epoch.'],
     churn: ['Churn budget', 'The share of nodes that may fall silent mid-epoch before P(bad) rises past δ — silence from crashes and departures, not only from adversaries.'],
     muBudget: ['μ-budget', 'The largest adversarial share these parameters still clear δ at.'],
     msgs: ['Messages per publication', 'Total transmissions the whole network makes to deliver one published message.'],
     degree: ['Honest degree', 'In- and out-degree of an honest node, mean ± standard deviation. Uneven degrees are what eclipse attacks shop for.'],
-    preset_recommended: ['Recommended', 'The proposal’s current advice. M3 moves one unit of the same 19-link budget from initiation to pull (RF=13, s=7); M4 spends one more peer (RF=9). M1, M2 and M5 are unchanged.'],
+    preset_recommended: ['Recommended', 'The CIP’s current advice. M3 moves one unit of the same 19-link budget from initiation to pull (RF=13, s=7); M4 spends one more peer (RF=9). M1, M2 and M5 are unchanged.'],
     preset_published: ['As published', 'The operating points the closed-form write-ups were published with — kept for comparison.'],
     preset_custom: ['Custom', 'The sliders no longer match either published set. Pick a preset to go back.'],
     // The mechanism wording is the site's own, from the landing page's model strip.
@@ -990,7 +989,7 @@ if (typeof document !== 'undefined') (() => {
 
   /* ---- operating-point presets ----------------------------------------------
      "As published" is read straight out of MM.models[*].defaults, so the two can
-     never drift apart. "Recommended" is the proposal's current advice: M3 moves one
+     never drift apart. "Recommended" is the CIP's current advice: M3 moves one
      unit of the same 19-link budget from initiation to pull (RF=13, s=7) and M4
      spends one more peer (RF=9). M1, M2 and M5 are the same in both. */
   const REF_ENV = { N: 20000, mu: 0.2, delta: 1e-4 };
@@ -1117,14 +1116,8 @@ if (typeof document !== 'undefined') (() => {
   const UNITS = { 'm1:F': 'pushes/receipt', 'm2:RF': 'links/node', 'm3:RF': 'links/node',
                   'm3:s': 'holders/msg', 'm4:RF': 'links/node',
                   'm5:kin': 'links/node', 'm5:kout': 'links/node' };
-  // Radar vertex shapes, repeated in the readout so the card doubles as the legend.
-  const SWATCH = {
-    circle: '<circle cx="8" cy="8" r="5"/>',
-    square: '<rect x="3" y="3" width="10" height="10"/>',
-    triangle: '<path d="M8 2 L14 13 L2 13 Z"/>',
-    diamond: '<path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z"/>',
-    pentagon: '<path d="M8 2 L13.7 6.1 L11.5 12.9 L4.5 12.9 L2.3 6.1 Z"/>',
-  };
+  // The radar vertex colour, repeated in the readout so the card doubles as the legend.
+  const SWATCH = '<circle cx="8" cy="8" r="5"/>';
   const tabsHost = $('#design-tabs'), rowsHost = $('#model-rows'), cardsHost = $('#model-cards');
   for (const id of MODEL_IDS) {
     const m = MM.models[id];
@@ -1144,7 +1137,7 @@ if (typeof document !== 'undefined') (() => {
     row.style.setProperty('--mc', `var(--${id})`);
     row.dataset.row = id;
     row.innerHTML = `
-      <svg class="swatch" viewBox="0 0 16 16" aria-hidden="true" fill="var(--${id})" stroke="none">${SWATCH[MARKERS[id]]}</svg>
+      <svg class="swatch" viewBox="0 0 16 16" aria-hidden="true" fill="var(--${id})" stroke="none">${SWATCH}</svg>
       <span class="rname"><span class="term" data-term="model_${id}">${m.label}</span></span>
       <span class="rverdict" data-verdict="${id}"></span>
       <span class="rparams" data-params="${id}"></span>`;
@@ -1246,20 +1239,8 @@ if (typeof document !== 'undefined') (() => {
     return n;
   }
   let markerSize = 4.5, strokeW = 2;   // grown in compact mode, see drawRadar
-  function marker(shape, x, y, color, parent) {
-    const s = markerSize;
-    if (shape === 'circle') return el('circle', { cx: x, cy: y, r: s, fill: color }, parent);
-    if (shape === 'square') return el('rect', { x: x - s, y: y - s, width: 2 * s, height: 2 * s, fill: color }, parent);
-    if (shape === 'triangle') return el('path', { d: `M${x} ${y - s - 1} L${x + s + 1} ${y + s} L${x - s - 1} ${y + s} Z`, fill: color }, parent);
-    if (shape === 'diamond') return el('path', { d: `M${x} ${y - s - 1.5} L${x + s + 1.5} ${y} L${x} ${y + s + 1.5} L${x - s - 1.5} ${y} Z`, fill: color }, parent);
-    // pentagon, and the fallback: filled like the rest, so no series reads as a
-    // symbol with a meaning of its own.
-    const r = s + 1;
-    const pts = [0, 1, 2, 3, 4].map(k => {
-      const a = -Math.PI / 2 + k * 2 * Math.PI / 5;
-      return `${(x + r * Math.cos(a)).toFixed(2)} ${(y + r * Math.sin(a)).toFixed(2)}`;
-    });
-    return el('path', { d: `M${pts.join(' L')} Z`, fill: color }, parent);
+  function marker(x, y, color, parent) {
+    return el('circle', { cx: x, cy: y, r: markerSize, fill: color }, parent);
   }
   // On a phone the whole SVG is scaled down with its box, which would shrink the axis
   // labels out of legibility. Compact mode pulls the rings in and sets the type larger
@@ -1329,7 +1310,7 @@ if (typeof document !== 'undefined') (() => {
       el('path', { d, fill: 'none', stroke: c, 'stroke-width': strokeW, 'stroke-linejoin': 'round' });
       pts.forEach(([x, y], i) => {
         const g = el('g', {});
-        marker(MARKERS[id], x, y, c, g);
+        marker(x, y, c, g);
         const hit = el('circle', { cx: x, cy: y, r: markerSize * 2.4, fill: 'transparent' }, g);
         const a = axes[i];
         hit.addEventListener('mousemove', ev => {
