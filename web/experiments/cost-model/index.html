@@ -176,6 +176,10 @@
   .env-rail { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px;
               padding: 12px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
   .env-item { display: flex; align-items: center; gap: 10px; flex: 1 1 230px; min-width: 0; }
+  /* The symbol is the handle; the name is for whoever does not have it yet. */
+  .env-name { font-size: 0.72rem; color: var(--text-faint); flex: none;
+              white-space: nowrap; letter-spacing: 0.01em; }
+  @media (max-width: 620px) { .env-name { display: none; } }
   .env-item .env-key { font-family: var(--mono); font-size: 0.86rem; font-weight: 600;
                        color: var(--text); flex: none; }
   .env-item input[type=range] { flex: 1 1 auto; min-width: 70px; }
@@ -447,18 +451,21 @@
              own aria-label instead. -->
         <div class="env-item">
           <span class="env-key term" data-term="mu">μ</span>
+        <span class="env-name">adversarial share</span>
           <input type="range" id="g-mu" min="0" max="0.6" step="0.005" value="0.2"
                  aria-label="Adversarial share mu, fraction of N">
           <output class="env-val" id="o-mu" for="g-mu">0.200</output>
         </div>
         <div class="env-item">
           <span class="env-key term" data-term="N">N</span>
+        <span class="env-name">network size</span>
           <input type="range" id="g-N" min="1000" max="50000" step="1000" value="20000"
                  aria-label="Network size N, registered nodes">
           <output class="env-val" id="o-N" for="g-N">20 000</output>
         </div>
         <div class="env-item" style="flex:0 1 auto">
           <span class="env-key term" data-term="delta">δ</span>
+        <span class="env-name">failure target</span>
           <select id="g-delta" aria-label="Failure target delta"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option></select>
         </div>
         <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
@@ -919,7 +926,7 @@ if (typeof document !== 'undefined') (() => {
   const $ = s => document.querySelector(s);
   const MODEL_IDS = ['m1', 'm2', 'm3', 'm4', 'm5'];
   const COLOR = id => getComputedStyle(document.documentElement).getPropertyValue(`--${id}`).trim();
-  const MARKERS = { m1: 'circle', m2: 'square', m3: 'triangle', m4: 'diamond', m5: 'cross' };
+  const MARKERS = { m1: 'circle', m2: 'square', m3: 'triangle', m4: 'diamond', m5: 'pentagon' };
 
   const clamp01 = v => Math.max(0, Math.min(1, v));
   const fmtSci = v => v === 0 ? '0' : v.toExponential(2).replace('e-', 'e−');
@@ -963,7 +970,7 @@ if (typeof document !== 'undefined') (() => {
     how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
     mu: ['μ', 'Adversarial share: the fraction of the N registered nodes that are silent Byzantine — they receive every message and forward none. Nobody knows which they are. Raise it past a design’s Δμ and open <b>Tune parameters</b> to see what that design has to buy to clear δ again.'],
     N: ['N', 'Network size: nodes in the on-chain registry. H = N − μN of them are honest, and the guarantee is stated over those.'],
-    delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it.'],
+    delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it. This proposal uses δ = 10⁻⁴, one bad epoch in ten thousand; the selector offers 10⁻³ and 10⁻⁵ to see what a looser or stricter target costs.'],
     epoch: ['Epoch', 'The interval a drawn topology serves. Links are drawn once at sync and then carry every message of every publisher until the next epoch.'],
     churn: ['Churn budget', 'The share of nodes that may fall silent mid-epoch before P(bad) rises past δ — silence from crashes and departures, not only from adversaries.'],
     muBudget: ['μ-budget', 'The largest adversarial share these parameters still clear δ at.'],
@@ -1116,7 +1123,7 @@ if (typeof document !== 'undefined') (() => {
     square: '<rect x="3" y="3" width="10" height="10"/>',
     triangle: '<path d="M8 2 L14 13 L2 13 Z"/>',
     diamond: '<path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z"/>',
-    cross: '<path d="M3 3 L13 13 M3 13 L13 3" stroke-width="2.6" stroke="currentColor" fill="none"/>',
+    pentagon: '<path d="M8 2 L13.7 6.1 L11.5 12.9 L4.5 12.9 L2.3 6.1 Z"/>',
   };
   const tabsHost = $('#design-tabs'), rowsHost = $('#model-rows'), cardsHost = $('#model-cards');
   for (const id of MODEL_IDS) {
@@ -1231,7 +1238,7 @@ if (typeof document !== 'undefined') (() => {
   const svg = $('#radar'), tooltip = $('#tooltip');
   let lastResults = null, lastCompact = null;
   const NS = 'http://www.w3.org/2000/svg';
-  const CX = 350, CY = 300, R = 205, BASE_VIEWBOX = '0 0 700 620';
+  const CX = 305, CY = 258, R = 205, BASE_VIEWBOX = '0 0 610 536';
   function el(tag, attrs, parent) {
     const n = document.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
@@ -1245,8 +1252,14 @@ if (typeof document !== 'undefined') (() => {
     if (shape === 'square') return el('rect', { x: x - s, y: y - s, width: 2 * s, height: 2 * s, fill: color }, parent);
     if (shape === 'triangle') return el('path', { d: `M${x} ${y - s - 1} L${x + s + 1} ${y + s} L${x - s - 1} ${y + s} Z`, fill: color }, parent);
     if (shape === 'diamond') return el('path', { d: `M${x} ${y - s - 1.5} L${x + s + 1.5} ${y} L${x} ${y + s + 1.5} L${x - s - 1.5} ${y} Z`, fill: color }, parent);
-    return el('path', { d: `M${x - s} ${y - s} L${x + s} ${y + s} M${x - s} ${y + s} L${x + s} ${y - s}`,
-                        stroke: color, 'stroke-width': 2.5, fill: 'none' }, parent);
+    // pentagon, and the fallback: filled like the rest, so no series reads as a
+    // symbol with a meaning of its own.
+    const r = s + 1;
+    const pts = [0, 1, 2, 3, 4].map(k => {
+      const a = -Math.PI / 2 + k * 2 * Math.PI / 5;
+      return `${(x + r * Math.cos(a)).toFixed(2)} ${(y + r * Math.sin(a)).toFixed(2)}`;
+    });
+    return el('path', { d: `M${pts.join(' L')} Z`, fill: color }, parent);
   }
   // On a phone the whole SVG is scaled down with its box, which would shrink the axis
   // labels out of legibility. Compact mode pulls the rings in and sets the type larger
@@ -1262,6 +1275,17 @@ if (typeof document !== 'undefined') (() => {
     const nameSize = small ? 21 : 12.5, unitSize = small ? 16 : 10.5;
     markerSize = small ? 6.5 : 4.5;
     strokeW = small ? 2.6 : 2;
+    // The conditions travel with the picture: a screenshot of this figure that
+    // does not say what mu and N were is a figure that cannot be checked.
+    const supers = { '-3': '10\u207B\u00B3', '-4': '10\u207B\u2074', '-5': '10\u207B\u2075' };
+    const dExp = String(Math.round(Math.log10(state.env.delta)));
+    const cond = el('text', {
+      x: 14, y: 20, 'text-anchor': 'start', fill: 'var(--ink-mute)',
+      'font-size': small ? 15 : 10.5, 'font-family': 'var(--mono)'
+    });
+    cond.textContent = `\u03BC ${state.env.mu.toFixed(3)} \u00B7 N ${fmtInt(state.env.N)}`
+                     + ` \u00B7 \u03B4 ${supers[dExp] || state.env.delta}`;
+
     const n = axes.length;
     if (n < 3) {
       el('text', { x: CX, y: CY, 'text-anchor': 'middle', fill: 'var(--ink-mute)', 'font-size': 14 })
@@ -1288,7 +1312,7 @@ if (typeof document !== 'undefined') (() => {
                              'dominant-baseline': 'middle', fill: 'var(--ink-2)', 'font-size': nameSize,
                              'data-tip': a.tip, tabindex: '0', style: 'cursor:help' });
       el('tspan', { x: lx, 'font-weight': 600 }, t).textContent = a.label;
-      el('tspan', { x: lx, dy: '1.15em', fill: 'var(--ink-mute)', 'font-size': unitSize,
+      el('tspan', { x: lx, dy: '1.55em', fill: 'var(--ink-mute)', 'font-size': unitSize,
                     'font-family': 'var(--mono)' }, t).textContent = `${a.unit} · best ${a.outer}`;
     });
     // polygons: fills first, then strokes+markers so no fill sits on top of a line
