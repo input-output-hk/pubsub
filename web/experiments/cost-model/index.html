@@ -177,11 +177,14 @@
               padding: 12px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
   .env-item { display: flex; align-items: center; gap: 10px; flex: 1 1 230px; min-width: 0; }
   /* The symbol is the handle; the name is for whoever does not have it yet. */
-  .env-name { font-size: 0.72rem; color: var(--text-faint); flex: none;
+  .env-name { font-size: 0.72rem; color: var(--text-faint);
               white-space: nowrap; letter-spacing: 0.01em; }
   @media (max-width: 620px) { .env-name { display: none; } }
-  .env-item .env-key { font-family: var(--mono); font-size: 0.86rem; font-weight: 600;
-                       color: var(--text); flex: none; }
+  /* Symbol and name are one term: the symbol carries it, the name explains it,
+     and hovering either opens the same definition. */
+  .env-item .env-key { display: inline-flex; align-items: baseline; gap: 7px; flex: none; }
+  .env-sym { font-family: var(--mono); font-size: 1.05rem; font-weight: 700;
+             color: var(--text); line-height: 1; }
   .env-item input[type=range] { flex: 1 1 auto; min-width: 70px; }
   .env-item .env-val { font-family: var(--mono); font-size: 0.76rem; color: var(--text-mute);
                        font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
@@ -201,6 +204,38 @@
   }
   .env-rail select:hover { border-color: var(--text-mute); }
   .env-rail select:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .xselect { position: relative; flex: none; }
+  .xselect-btn {
+    font-family: var(--font-mono); font-size: 0.86rem; font-weight: 600; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 6px 30px 6px 10px; cursor: pointer; line-height: 1.2;
+    transition: border-color .12s ease;
+  }
+  .xselect-btn::after {
+    content: ''; position: absolute; right: 11px; top: 50%; width: 6px; height: 6px;
+    border-right: 1.6px solid var(--text-mute); border-bottom: 1.6px solid var(--text-mute);
+    transform: translateY(-70%) rotate(45deg); transition: transform .16s ease;
+  }
+  .xselect-btn:hover { border-color: var(--text-mute); }
+  .xselect[data-open="true"] .xselect-btn::after { transform: translateY(-30%) rotate(-135deg); }
+  .xselect-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; margin: 0;
+    padding: 5px; list-style: none; z-index: 40;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 8px 26px rgba(0,0,0,0.12);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .13s ease, transform .13s ease, visibility .13s;
+  }
+  .xselect[data-open="true"] .xselect-menu { opacity: 1; visibility: visible; transform: none; }
+  .xselect-menu li {
+    font-family: var(--font-mono); font-size: 0.86rem; color: var(--text-mute);
+    padding: 7px 12px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .xselect-menu li:hover, .xselect-menu li.is-active { background: var(--bg-alt); color: var(--text); }
+  .xselect-menu li[aria-selected="true"] { color: var(--iog-infared); font-weight: 600; }
+
   .env-rail .env-reset { flex: none; margin-left: auto; }
 
   /* ---- tab strips — the experiments page's .model-tab, reused ---- */
@@ -272,7 +307,9 @@
                  gap: 4px 20px; padding-bottom: 14px; }
   /* One column per design once there is room, rather than four with a lone M5 below. */
   @media (min-width: 1000px) { .drawer-body { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-  .tune-group { padding: 4px 0 10px; min-width: 0; }
+  .tune-group { padding: 4px 0 10px; min-width: 0; transition: opacity .15s ease; }
+  .tune-group.is-hidden { opacity: .38; }
+  .tune-group.is-hidden input[type=range] { cursor: not-allowed; }
   .tune-group .tg-head { display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
                          font-weight: 600; margin-bottom: 4px; }
   .tune-group .tg-head .chip { width: 9px; height: 9px; border-radius: 2px; background: var(--mc); flex: none; }
@@ -350,6 +387,9 @@
   tr.hidden-model td { opacity: .38; }
   td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
               vertical-align: baseline; }
+  .section-lede { color: var(--text-mute); font-size: 0.95rem; line-height: 1.6;
+                  max-width: 78ch; margin-top: 10px; }
+  .section-lede b { color: var(--text); font-weight: 600; }
   .hint { color: var(--text-faint); font-family: var(--font-mono); font-size: 0.7rem;
           letter-spacing: 0.04em; margin-top: 12px; }
 
@@ -503,23 +543,26 @@
              and close the tooltip the tap was meant to open. The controls carry their
              own aria-label instead. -->
         <div class="env-item">
-          <span class="env-key term" data-term="mu">μ</span>
-        <span class="env-name">adversarial share</span>
+          <span class="env-key term" data-term="mu"><span class="env-sym">μ</span><span class="env-name">adversarial share</span></span>
           <input type="range" id="g-mu" min="0" max="0.6" step="0.005" value="0.2"
                  aria-label="Adversarial share mu, fraction of N">
           <output class="env-val" id="o-mu" for="g-mu">0.200</output>
         </div>
         <div class="env-item">
-          <span class="env-key term" data-term="N">N</span>
-        <span class="env-name">network size</span>
+          <span class="env-key term" data-term="N"><span class="env-sym">N</span><span class="env-name">network size</span></span>
           <input type="range" id="g-N" min="1000" max="50000" step="1000" value="20000"
                  aria-label="Network size N, registered nodes">
           <output class="env-val" id="o-N" for="g-N">20 000</output>
         </div>
         <div class="env-item" style="flex:0 1 auto">
-          <span class="env-key term" data-term="delta">δ</span>
-        <span class="env-name">failure target</span>
-          <select id="g-delta" aria-label="Failure target delta"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option></select>
+          <span class="env-key term" data-term="delta"><span class="env-sym">δ</span><span class="env-name">failure target</span></span>
+          <select id="g-delta" class="visually-hidden" aria-hidden="true" tabindex="-1"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option></select>
+          <div class="xselect" id="delta-select">
+            <button type="button" class="xselect-btn" id="delta-btn"
+                    aria-haspopup="listbox" aria-expanded="false"
+                    aria-label="Failure target delta">10⁻⁴</button>
+            <ul class="xselect-menu" role="listbox" aria-label="Failure target delta"></ul>
+          </div>
         </div>
         <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
       </div>
@@ -1026,14 +1069,14 @@ if (typeof document !== 'undefined') (() => {
   /* ---- glossary — the page's prose, moved onto hover/tap/focus ---- */
   const GLOSSARY = {
     how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
-    mu: ['μ', 'Adversarial share: the fraction of the N registered nodes that are silent Byzantine — they receive every message and forward none. Nobody knows which they are. Raise it past a design’s Δμ and open <b>Tune parameters</b> to see what that design has to buy to clear δ again.'],
+    mu: ['μ', 'Adversarial share: the fraction of registered nodes that take part but never pass anything on. They accept their links, receive every message, and forward none. Nobody knows which they are. Raise it past a design’s Δμ and open <b>Tune parameters</b> to see what that design has to buy to clear δ again.'],
     N: ['N', 'Network size: nodes in the on-chain registry. H = N − μN of them are honest, and the guarantee is stated over those.'],
     delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it. The CIP uses δ = 10⁻⁴, one bad epoch in ten thousand; the selector offers 10⁻³ and 10⁻⁵ to see what a looser or stricter target costs.'],
     epoch: ['Epoch', 'The interval a drawn topology serves. Links are drawn once at sync and then carry every message of every publisher until the next epoch.'],
-    churn: ['Churn budget', 'The share of nodes that may fall silent mid-epoch before P(bad) rises past δ — silence from crashes and departures, not only from adversaries.'],
-    muBudget: ['μ-budget', 'The largest adversarial share these parameters still clear δ at.'],
-    msgs: ['Messages per publication', 'Total transmissions the whole network makes to deliver one published message.'],
-    degree: ['Honest degree', 'In- and out-degree of an honest node, mean ± standard deviation. Uneven degrees are what eclipse attacks shop for.'],
+    churn: ['Churn budget', 'How much of the network can simply go offline — crashes, restarts, operators leaving — before the design stops meeting its target. Downtime and hostility count the same here, because a node that is off looks exactly like one that refuses to forward, not only from adversaries.'],
+    muBudget: ['μ-budget', 'The most hostile network this configuration still works in: the largest share of silent nodes it can carry and still meet the target.'],
+    msgs: ['Messages per publication', 'Every transmission the whole network makes to get one published message to everyone — the total bandwidth bill for one message.'],
+    degree: ['Honest degree', 'How many links an honest node has, incoming and outgoing, on average and how much that varies. The variation matters: a node that happens to hold few links is the cheapest one to cut off.'],
     preset_recommended: ['Recommended', 'The CIP’s current advice. M3 moves one unit of the same 19-link budget from initiation to pull (RF=13, s=7); M4 spends one more peer (RF=9). M1, M2 and M5 are unchanged.'],
     preset_published: ['As published', 'The operating points the closed-form write-ups were published with — kept for comparison.'],
     preset_custom: ['Custom', 'The sliders no longer match either published set. Pick a preset to go back.'],
@@ -1204,6 +1247,7 @@ if (typeof document !== 'undefined') (() => {
 
     const group = document.createElement('div');
     group.className = 'tune-group';
+    group.dataset.group = id;
     group.style.setProperty('--mc', `var(--${id})`);
     group.innerHTML = `
       <div class="tg-head"><span class="chip"></span>${m.label}</div>
@@ -1274,6 +1318,62 @@ if (typeof document !== 'undefined') (() => {
     applyPreset(DEFAULT_PRESET);
   });
   $('#btn-reset').dataset.tip = 'Back to the recommended parameters at N = 20 000, μ = 0.20, δ = 10⁻⁴.';
+
+  // The delta control: a listbox in front of the native select, which stays the
+  // value everything else reads and writes.
+  (function deltaSelect() {
+    const sel = $('#g-delta'), box = $('#delta-select');
+    const btn = $('#delta-btn'), menu = box.querySelector('.xselect-menu');
+    const opts = [...sel.options];
+    let active = sel.selectedIndex;
+
+    opts.forEach((o, i) => {
+      const li = document.createElement('li');
+      li.textContent = o.textContent;
+      li.setAttribute('role', 'option');
+      li.dataset.i = i;
+      menu.appendChild(li);
+    });
+    const items = [...menu.children];
+
+    const paint = () => {
+      btn.textContent = opts[sel.selectedIndex].textContent;
+      items.forEach((li, i) => {
+        li.setAttribute('aria-selected', i === sel.selectedIndex ? 'true' : 'false');
+        li.classList.toggle('is-active', i === active);
+      });
+    };
+    const open = on => {
+      box.dataset.open = on ? 'true' : 'false';
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (on) { active = sel.selectedIndex; paint(); }
+    };
+    const choose = i => {
+      sel.selectedIndex = i;
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      paint(); open(false); btn.focus();
+    };
+
+    btn.addEventListener('click', () => open(box.dataset.open !== 'true'));
+    items.forEach(li => li.addEventListener('click', () => choose(+li.dataset.i)));
+    box.addEventListener('keydown', e => {
+      const isOpen = box.dataset.open === 'true';
+      if (e.key === 'Escape') { open(false); btn.focus(); return; }
+      if (!isOpen && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown')) {
+        e.preventDefault(); open(true); return;
+      }
+      if (!isOpen) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : opts.length - 1)) % opts.length;
+        paint();
+      } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
+    });
+    document.addEventListener('click', e => { if (!box.contains(e.target)) open(false); });
+    // Reset writes straight to the select, so follow it.
+    sel.addEventListener('input', paint);
+    paint();
+  })();
 
   const axHost = $('#axis-picker');
   for (const a of AXES) {
@@ -1422,7 +1522,7 @@ if (typeof document !== 'undefined') (() => {
     { h: 'msgs/msg', term: 'msgs', get: r => r.msgs, fmt: fmtInt, best: 'min' },
     { h: 'copies/honest', tip: axTip('copies'), get: r => r.copies, fmt: fmt1, best: 'min' },
     { h: 'hops full ≈', tip: axTip('hopsFull'), get: r => r.hopsFull, fmt: fmt1, best: 'min' },
-    { h: 'hops mean ≈', tip: 'Hops to the average honest node rather than the last one. Same law, smaller measured offset.', get: r => r.hopsMean, fmt: fmt1, best: 'min' },
+    { h: 'hops mean ≈', tip: 'How many forwarding steps before a typical node has the message, rather than the last one. The figure plots the last one, since that is what the guarantee is about.', get: r => r.hopsMean, fmt: fmt1, best: 'min' },
     { h: 'links/node', tip: axTip('links'), get: r => r.links, fmt: v => v.toFixed(0), best: 'min' },
     { h: 'honest in±sd', term: 'degree', get: r => r.degIn, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
     { h: 'honest out±sd', term: 'degree', get: r => r.degOut, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
@@ -1430,8 +1530,8 @@ if (typeof document !== 'undefined') (() => {
     { h: 'Δμ', tip: axTip('dmu'), get: r => r.dmu, fmt: fmt3, best: 'max' },
     { h: 'churn p_max', term: 'churn', get: r => r.churn, fmt: v => (100 * v).toFixed(1) + '%', best: 'max' },
     { h: 'collapse μ', tip: axTip('collapse'), get: r => r.collapse, fmt: fmt3, best: 'max' },
-    { h: 'ecl. deafen', tip: 'Links an adversary buys to stop a chosen node <b>hearing</b> the network — mean over victims.', get: r => r.eclipse.deafen.mean, fmt: fmt1, best: 'max' },
-    { h: 'ecl. mute', tip: 'Links an adversary buys to stop a chosen node being <b>heard</b> — mean over victims.', get: r => r.eclipse.mute.mean, fmt: fmt1, best: 'max' },
+    { h: 'ecl. deafen', tip: 'How many links an attacker must control to cut one chosen node off from <b>hearing</b> anything. Higher is better: it is the price of silencing someone.', get: r => r.eclipse.deafen.mean, fmt: fmt1, best: 'max' },
+    { h: 'ecl. mute', tip: 'How many links an attacker must control to stop one chosen node from being <b>heard</b> by anyone. Higher is better.', get: r => r.eclipse.mute.mean, fmt: fmt1, best: 'max' },
     { h: 'ecl. B (min)', tip: axTip('eclB'), get: r => r.eclipse.B, fmt: fmt1, best: 'max' },
   ];
   function drawTable(results) {
@@ -1485,6 +1585,14 @@ if (typeof document !== 'undefined') (() => {
         cardsHost.querySelector(`output[data-out="${id}:${s.key}"]`).textContent = state.params[id][s.key];
       rowsHost.querySelector(`[data-params="${id}"]`).textContent = paramStr(id);
       rowsHost.querySelector(`[data-row="${id}"]`).classList.toggle('off', !state.visible[id]);
+      // A hidden design is off the figure and out of the best-in-column
+      // comparison, so its knobs would move nothing a reader can see.
+      const grp = cardsHost.querySelector(`[data-group="${id}"]`);
+      if (grp) {
+        grp.classList.toggle('is-hidden', !state.visible[id]);
+        for (const r of grp.querySelectorAll('input[type=range]'))
+          r.disabled = !state.visible[id];
+      }
     }
 
     const results = {};
