@@ -364,6 +364,16 @@
     .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; background: var(--bg); }
     .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint { display: none !important; }
   }
+
+  /* The CIP is written but not yet submitted upstream, so it is named and
+     marked rather than linked. Swap each for an <a> when it has a home. */
+  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
+                            color: var(--text-mute); cursor: default; }
+  .nav-soon { font-size: inherit; }
+  .footer-soon { font-size: 0.9rem; }
+  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
+                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
+                border: 1px solid var(--line-strong); color: var(--text-mute); }
 </style>
 </head>
 <body>

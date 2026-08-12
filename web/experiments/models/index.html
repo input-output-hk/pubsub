@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Experiments — how the dissemination design was derived · Cardano PubSub</title>
+<title>Dissemination model simulator — Five dissemination models · Cardano PubSub</title>
 <meta name="description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/">
-<link rel="icon" href="../assets/favicon.ico">
-<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="../assets/icon-512.png">
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/models/">
+<link rel="icon" href="../../assets/favicon.ico">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="../../assets/icon-512.png">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
 
@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:title" content="Five candidate dissemination models — Cardano PubSub">
 <meta property="og:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/models/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
@@ -33,7 +33,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared.css">
+<link rel="stylesheet" href="../../shared.css">
 <style>
   body { font-size: 17px; line-height: 1.65; min-height: 100vh; display: flex; flex-direction: column; }
   main { flex: 1; }
@@ -80,27 +80,75 @@
   @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
 
   /* ---------- Page head ---------- */
-  section.page-head { padding: 56px 0 8px; }
+  section.page-head { padding: 40px 0 4px; }
   .page-head h1 {
     font-family: var(--font-display);
-    font-size: clamp(1.9rem, 4vw, 3rem);
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
     font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;
     margin-bottom: 18px;
   }
-  .page-head .lede { color: var(--text-mute); max-width: 74ch; }
-  .page-head .lede + .lede { margin-top: 12px; }
 
   /* The method, available but not in the way. */
-  .explainer { margin-top: 22px; border-top: 1px solid var(--line); }
-  .explainer > summary { cursor: pointer; padding: 14px 0 0; font-weight: 600;
-                         font-size: 0.95rem; list-style: none; }
-  .explainer > summary::-webkit-details-marker { display: none; }
-  .explainer > summary::before { content: "+"; display: inline-block; width: 1.1em;
-                                 color: var(--text-mute); font-weight: 400; }
-  .explainer[open] > summary::before { content: "\2212"; }
-  .explainer > summary:hover { color: var(--iog-cobalt-pulse); }
-  .explainer-body p { font-size: 0.95rem; line-height: 1.62; color: var(--text-mute);
-                      margin: 12px 0 0; }
+
+  /* ---------- Model tabs ---------- */
+  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 18px; }
+  .model-tab {
+    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 9px 16px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--text-mute);
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .model-tab.active { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
+    gap: 28px; align-items: stretch;
+  }
+  .stage-canvas {
+    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 22px 22px 16px;
+  }
+  .stage-canvas svg { width: 100%; height: auto; display: block; max-width: 660px; margin: 0 auto; }
+
+  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+
+  /* The step card fills the column so the buttons keep a fixed position
+     regardless of how long the step description is. */
+  .stage-side { display: flex; flex-direction: column; gap: 14px; }
+  .step-card {
+    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 20px 22px; flex: 1;
+  }
+  .step-desc { min-height: 5.2em; }
+  .step-count {
+    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .step-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
+  .step-desc { font-size: 0.92rem; color: var(--text-mute); line-height: 1.6; }
+  .step-desc strong { color: var(--text); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .controls .ctl-btn { flex: 1 1 auto; }
+  .ctl-btn {
+    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 9px 14px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--text);
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .ctl-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .ctl-btn:disabled { opacity: 0.35; cursor: default; }
+  .ctl-btn:disabled:hover { border-color: var(--line-strong); color: var(--text); }
+
+  .legend { padding: 12px 0 0; }
+  .legend-items { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-mute); }
+  .legend-item svg { width: 26px; height: 14px; flex-shrink: 0; }
 
   /* ---------- Model notes — directly below the tab bar ---------- */
   .model-notes {
@@ -113,6 +161,10 @@
     to { opacity: 1; transform: none; }
   }
   @media (prefers-reduced-motion: reduce) { .model-notes.swap { animation: none; } }
+  .model-notes .card-kicker {
+    font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--iog-infared); font-weight: 600; margin-bottom: 10px;
+  }
   .model-notes h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
   .model-notes p { font-size: 0.93rem; color: var(--text-mute); line-height: 1.6; max-width: 90ch; }
   .model-notes p + p { margin-top: 8px; }
@@ -151,8 +203,13 @@
   .edge.focus-other { opacity: 0.55; stroke-width: 1.1; }
   .node:hover { stroke-width: 2.5; cursor: default; }
 
-  @media (max-width: 900px) {
+  .hover-hint {
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
+    letter-spacing: 0.05em; text-align: center; margin-top: 12px;
+  }
 
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -168,96 +225,6 @@
   .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
                 text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
                 border: 1px solid var(--line-strong); color: var(--text-mute); }
-
-  /* Two ways in, given equal weight: neither is the primary. */
-  .route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-                gap: 16px; margin: 30px 0 6px; }
-  .route { position: relative; overflow: hidden; isolation: isolate;
-           display: flex; flex-direction: column; gap: 8px;
-           padding: 22px 46% 22px 22px; min-height: 188px; justify-content: flex-end;
-           border: 1px solid var(--line); border-radius: 10px; text-decoration: none;
-           color: inherit; background: var(--bg-soft);
-           transition: border-color .15s ease, transform .15s ease; }
-  .route > * { position: relative; z-index: 1; }
-  .route:hover { border-color: var(--iog-infared); transform: translateY(-2px); }
-  .route-kind { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
-                text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared); }
-  .route-name { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
-  .route-go { margin-top: 4px; font-size: 0.9rem; color: var(--text-mute); }
-  .route:hover .route-go { color: var(--iog-infared); }
-
-  /* The figure itself, oversized and bled off the right edge: it reads as the
-     thing the tile opens rather than as an illustration sitting inside it. */
-  .route-thumb { position: absolute; z-index: 0; top: 50%; right: -7%;
-                 width: 56%; max-width: none; height: auto; overflow: visible;
-                 transform: translateY(-50%); transform-origin: 60% 50%;
-                 pointer-events: none; }
-  /* The simulator's own classes, static: no animation, nothing hidden. */
-  .route-thumb .edge { opacity: 0.22; stroke: var(--text-faint); fill: none; stroke-width: 3; }
-  .route-thumb .edge.traversed { stroke: var(--info); opacity: 0.75; stroke-width: 5; }
-  /* Same meanings as the simulator: a link whose forwarder is adversarial is
-     dead, and a publishing link carries only its owner's own messages. */
-  .route-thumb .edge.dead { stroke: var(--bad); stroke-dasharray: 12 12; opacity: 0.4; }
-  .route-thumb .edge.seed { stroke: var(--iog-infared); stroke-dasharray: 15 12;
-                            opacity: 0.8; stroke-width: 4; }
-  .route-thumb .thumb-axis { font-family: var(--font-mono); font-size: 15px;
-                             font-weight: 600; letter-spacing: 0.08em;
-                             text-transform: uppercase; fill: var(--text-mute); }
-  .route-thumb .node { fill: var(--bg); stroke: var(--line-strong); stroke-width: 3; }
-  .route-thumb .node.informed { fill: var(--info); stroke: var(--info); }
-  .route-thumb .node.adv { fill: var(--bad); stroke: var(--bad); }
-  .route-thumb .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 3.5; }
-  /* The radar arrives with its stroke widths baked in for a full-page figure;
-     at tile size they read as heavy. */
-  .route-thumb polygon { stroke-width: 1.1; }
-  .route-thumb line { stroke-width: 0.8; }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1); }
-    .route:hover .route-thumb { transform: translateY(-50%) scale(1.14); }
-    /* The radar's outer labels sit closest to the clipped edge, so on hover it
-       draws back toward the centre far enough to read them. */
-    .route--radar .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1),
-                                             right .34s cubic-bezier(.22,.61,.36,1); }
-    .route--radar:hover .route-thumb { right: 2%; transform: translateY(-50%) scale(1.10); }
-
-    /* Parallax: the grid, then each model's shape, take the scale at slightly
-       different rates, so the layers separate for a moment on hover. */
-    .route-thumb polygon { transform-box: view-box; transform-origin: 430px 282px;
-                           transition: transform .52s cubic-bezier(.22,.61,.36,1); }
-    .route:hover .route-thumb polygon:nth-of-type(-n+4) { transform: scale(0.985); }
-    .route:hover .route-thumb polygon:nth-of-type(5) { transform: scale(1.03);
-                                                       transition-duration: .40s; }
-    .route:hover .route-thumb polygon:nth-of-type(6) { transform: scale(1.045);
-                                                       transition-duration: .46s; }
-    .route:hover .route-thumb polygon:nth-of-type(7) { transform: scale(1.06);
-                                                       transition-duration: .54s; }
-    .route:hover .route-thumb polygon:nth-of-type(8) { transform: scale(1.075);
-                                                       transition-duration: .62s; }
-    .route:hover .route-thumb polygon:nth-of-type(9) { transform: scale(1.09);
-                                                       transition-duration: .70s; }
-
-    /* Same idea on the graph, but the amounts stay small: edges terminate on
-       nodes, so layers that separate too far read as broken rather than deep.
-       The publisher's ring and the highlighted links carry most of the travel,
-       since nothing is anchored to them. */
-    .route--graph .route-thumb .edge,
-    .route--graph .route-thumb .node,
-    .route--graph .route-thumb .pub-ring {
-      transform-box: view-box; transform-origin: 260px 260px;
-      transition: transform .54s cubic-bezier(.22,.61,.36,1);
-    }
-    .route--graph:hover .route-thumb .edge { transform: scale(1.012);
-                                             transition-duration: .44s; }
-    .route--graph:hover .route-thumb .node { transform: scale(1.018);
-                                             transition-duration: .50s; }
-    .route--graph:hover .route-thumb .edge.dead { transform: scale(1.035);
-                                                  transition-duration: .60s; }
-    .route--graph:hover .route-thumb .edge.seed { transform: scale(1.05);
-                                                  transition-duration: .66s; }
-    .route--graph:hover .route-thumb .pub-ring { transform: scale(1.075);
-                                                 transition-duration: .74s; }
-  }
 
   /* Breadcrumb: same weight as the old section kind, but it says where you are
      and gets you back out. */
@@ -307,12 +274,12 @@
 </svg>
 
 <nav class="navbar" aria-label="Primary">
-  <a class="navbar-brand" href="./">
-    <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
-    <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+  <a class="navbar-brand" href="../../">
+    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
     <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-    <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
-    <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
   </a>
   <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
     <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -320,18 +287,18 @@
   </button>
   <div class="nav-collapse">
   <div class="navbar-links">
-    <a href="../#scenarios">Scenarios</a>
-    <a href="../#research">Research</a>
+    <a href="../../#scenarios">Scenarios</a>
+    <a href="../../#research">Research</a>
     <span class="nav-item nav-item--experiments is-current">
-      <a href="./" class="active">Experiments</a>
+      <a href="../" class="active">Experiments</a>
       <span class="nav-menu">
-        <a href="./" class="active">Overview</a>
-        <a href="models/">Dissemination model simulator</a>
-        <a href="cost-model/">Cost model</a>
+        <a href="../">Overview</a>
+        <a href="./" class="active">Dissemination model simulator</a>
+        <a href="../cost-model/">Cost model</a>
       </span>
     </span>
-    <a href="../#activity">Activity</a>
-    <a href="../#materials">Materials</a>
+    <a href="../../#activity">Activity</a>
+    <a href="../../#materials">Materials</a>
     <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
   </div>
   <div class="navbar-icons">
@@ -350,167 +317,70 @@
   <section class="page-head">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="../#experiments">&lsaquo;&nbsp;Experiments</a>
+        <a href="../">&lsaquo;&nbsp;Experiments</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-here" aria-current="page">Dissemination model simulator</span>
       </nav>
-      <h1>How the design was derived</h1>
-      <p class="lede">
-        Not proposing a design, deriving one. All five clear the same bar &mdash; every honest
-        publisher reaches every honest node despite silent Byzantine peers. What separates them
-        is price: the standing links each node holds, and the copies the network carries per
-        message.
-      </p>
+      <h1>Dissemination model simulator</h1>
+    </div>
+  </section>
 
-      <div class="route-grid">
-        <a class="route route--graph" href="models/">
-          <svg class="route-thumb" viewBox="24 24 472 472" aria-hidden="true">
-            <path class="edge shown traversed" d="M 443.2 175.9 Q 333.4 150.1 269.3 61.0"/>
-            <path class="edge shown traversed" d="M 403.7 398.5 Q 316.2 236.7 264.6 63.3"/>
-            <path class="edge shown traversed" d="M 461.4 252.4 Q 369.9 186.6 344.8 79.7"/>
-            <path class="edge shown traversed" d="M 339.8 442.9 Q 320.8 260.0 339.5 80.1"/>
-            <path class="edge shown dead" d="M 449.0 330.1 Q 389.7 234.2 407.3 125.9"/>
-            <path class="edge shown traversed" d="M 263.7 459.5 Q 316.2 283.3 402.3 124.2"/>
-            <path class="edge shown traversed" d="M 407.8 397.1 Q 389.7 285.8 447.4 192.5"/>
-            <path class="edge shown dead" d="M 187.1 445.8 Q 303.0 303.0 443.4 189.0"/>
-            <path class="edge shown traversed" d="M 344.1 443.2 Q 369.9 333.4 459.0 269.3"/>
-            <path class="edge shown traversed" d="M 121.5 403.7 Q 283.3 316.2 456.7 264.6"/>
-            <path class="edge shown" d="M 267.6 461.4 Q 333.4 369.9 440.3 344.8"/>
-            <path class="edge shown" d="M 77.1 339.8 Q 260.0 320.8 439.9 339.5"/>
-            <path class="edge shown dead" d="M 189.9 449.0 Q 285.8 389.7 394.1 407.3"/>
-            <path class="edge shown traversed" d="M 60.5 263.7 Q 236.7 316.2 395.8 402.3"/>
-            <path class="edge shown traversed" d="M 122.9 407.8 Q 234.2 389.7 327.5 447.4"/>
-            <path class="edge shown dead" d="M 74.2 187.1 Q 217.0 303.0 331.0 443.4"/>
-            <path class="edge shown traversed" d="M 76.8 344.1 Q 186.6 369.9 250.7 459.0"/>
-            <path class="edge shown traversed" d="M 116.3 121.5 Q 203.8 283.3 255.4 456.7"/>
-            <path class="edge shown" d="M 58.6 267.6 Q 150.1 333.4 175.2 440.3"/>
-            <path class="edge shown" d="M 180.2 77.1 Q 199.2 260.0 180.5 439.9"/>
-            <path class="edge shown dead" d="M 71.0 189.9 Q 130.3 285.8 112.7 394.1"/>
-            <path class="edge shown traversed" d="M 256.3 60.5 Q 203.8 236.7 117.7 395.8"/>
-            <path class="edge shown traversed" d="M 112.2 122.9 Q 130.3 234.2 72.6 327.5"/>
-            <path class="edge shown traversed" d="M 332.9 74.2 Q 217.0 217.0 76.6 331.0"/>
-            <path class="edge shown traversed" d="M 175.9 76.8 Q 150.1 186.6 61.0 250.7"/>
-            <path class="edge shown traversed" d="M 398.5 116.3 Q 236.7 203.8 63.3 255.4"/>
-            <path class="edge shown" d="M 252.4 58.6 Q 186.6 150.1 79.7 175.2"/>
-            <path class="edge shown" d="M 442.9 180.2 Q 260.0 199.2 80.1 180.5"/>
-            <path class="edge shown traversed" d="M 330.1 71.0 Q 234.2 130.3 125.9 112.7"/>
-            <path class="edge shown traversed" d="M 459.5 256.3 Q 283.3 203.8 124.2 117.7"/>
-            <path class="edge shown traversed" d="M 397.1 112.2 Q 285.8 130.3 192.5 72.6"/>
-            <path class="edge shown dead" d="M 445.8 332.9 Q 303.0 217.0 189.0 76.6"/>
-            <path class="edge shown seed traversed" d="M 267.7 58.5 Q 316.2 124.3 394.1 112.5"/>
-            <path class="edge shown seed traversed" d="M 263.7 60.5 Q 316.2 236.7 402.3 395.8"/>
-            <path class="edge shown seed traversed" d="M 254.7 59.9 Q 186.6 210.9 75.1 329.5"/>
-            <circle class="node informed" cx="260.0" cy="48.0" r="11.0"/>
-            <circle class="node informed" cx="341.1" cy="64.1" r="11.0"/>
-            <circle class="node informed" cx="409.9" cy="110.1" r="11.0"/>
-            <circle class="node informed" cx="455.9" cy="178.9" r="11.0"/>
-            <circle class="node informed" cx="472.0" cy="260.0" r="11.0"/>
-            <circle class="node adv" cx="455.9" cy="341.1" r="11.0"/>
-            <circle class="node informed" cx="409.9" cy="409.9" r="11.0"/>
-            <circle class="node informed" cx="341.1" cy="455.9" r="11.0"/>
-            <circle class="node informed" cx="260.0" cy="472.0" r="11.0"/>
-            <circle class="node adv" cx="178.9" cy="455.9" r="11.0"/>
-            <circle class="node informed" cx="110.1" cy="409.9" r="11.0"/>
-            <circle class="node informed" cx="64.1" cy="341.1" r="11.0"/>
-            <circle class="node informed" cx="48.0" cy="260.0" r="11.0"/>
-            <circle class="node adv" cx="64.1" cy="178.9" r="11.0"/>
-            <circle class="node informed" cx="110.1" cy="110.1" r="11.0"/>
-            <circle class="node informed" cx="178.9" cy="64.1" r="11.0"/>
-            <circle class="pub-ring on" cx="260.0" cy="48.0" r="17.0"/>
-          </svg>
-          <span class="route-kind">Step through</span>
-          <span class="route-name">Dissemination model simulator</span>
-          <span class="route-go">Open the simulator &rarr;</span>
-        </a>
-        <a class="route route--radar" href="cost-model/">
-          <svg class="route-thumb" viewBox="196 86 468 392" aria-hidden="true">
-            <polygon points="430.0,241.5 470.5,282.0 430.0,322.5 389.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-            <polygon points="430.0,201.0 511.0,282.0 430.0,363.0 349.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-            <polygon points="430.0,160.5 551.5,282.0 430.0,403.5 308.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-            <polygon points="430.0,120.0 592.0,282.0 430.0,444.0 268.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
-            <polygon points="430.0,158.1 515.8,282.0 430.0,436.9 382.5,282.0" fill="#8a887e" fill-opacity="0.07" stroke="#8a887e" stroke-width="1.4" stroke-linejoin="round"/>
-            <polygon points="430.0,194.2 490.8,282.0 430.0,436.9 391.6,282.0" fill="#bcb9ae" fill-opacity="0.07" stroke="#bcb9ae" stroke-width="1.4" stroke-linejoin="round"/>
-            <polygon points="430.0,120.0 506.7,282.0 430.0,422.5 382.7,282.0" fill="#008300" fill-opacity="0.13" stroke="#008300" stroke-width="2.4" stroke-linejoin="round"/>
-            <polygon points="430.0,156.3 592.0,282.0 430.0,436.9 268.0,282.0" fill="#eda100" fill-opacity="0.13" stroke="#eda100" stroke-width="2.4" stroke-linejoin="round"/>
-            <polygon points="430.0,194.2 490.8,282.0 430.0,444.0 392.9,282.0" fill="#4a3aa7" fill-opacity="0.13" stroke="#4a3aa7" stroke-width="2.4" stroke-linejoin="round"/>
-            <line x1="430.0" y1="282.0" x2="430.0" y2="120.0" stroke="#e2e0d8" stroke-width="1"/>
-            <line x1="430.0" y1="282.0" x2="592.0" y2="282.0" stroke="#e2e0d8" stroke-width="1"/>
-            <line x1="430.0" y1="282.0" x2="430.0" y2="444.0" stroke="#e2e0d8" stroke-width="1"/>
-            <line x1="430.0" y1="282.0" x2="268.0" y2="282.0" stroke="#c4c2b9" stroke-width="1" stroke-dasharray="4 4"/>
-            <text class="thumb-axis" x="430" y="99" text-anchor="middle">Bandwidth</text>
-            <text class="thumb-axis" x="618" y="287" text-anchor="middle">Connections</text>
-            <text class="thumb-axis" x="430" y="475" text-anchor="middle">Speed</text>
-            <text class="thumb-axis" x="242" y="287" text-anchor="middle">Churn</text>
-          </svg>
-          <span class="route-kind">Tune</span>
-          <span class="route-name">Cost model</span>
-          <span class="route-go">Open the cost model &rarr;</span>
-        </a>
+  <section>
+    <div class="container">
+      <div class="model-tabs" role="tablist" id="tabs"></div>
+
+      <div class="model-notes">
+        <div class="card-kicker" id="note-kicker"></div>
+        <h3 id="note-title"></h3>
+        <p id="note-mech"></p>
+        <p id="note-watch"></p>
+        <div class="knobs" id="note-knobs"></div>
       </div>
 
-      <details class="explainer">
-        <summary>How the models were judged</summary>
-        <div class="explainer-body">
-          <p>
-            All five were measured against one shared bar, the <strong>good graph</strong>:
-            every message of every honest publisher must reach all other honest nodes. And all
-            faced the same adversary, a fraction &mu; of silent Byzantine nodes that receive
-            every message and never relay one. Formally it is scored as the probability that
-            the honest network stays strongly connected.
-          </p>
-          <p>
-            The guarantee has to come from links that are drawn <strong>once per epoch</strong>
-            and then serve every message of every publisher for that whole epoch. The formal
-            analyses call this the <em>standing</em> structure, and it covers both link kinds:
-            relay links and publishing links. Only a structure that persists across messages
-            can promise <em>every</em> message; per-message randomness cannot. The prototype
-            node works exactly this way: it establishes its links during a sync phase, and only
-            then accepts messages for propagation.
-          </p>
-          <p>
-            <strong>Every model can clear the bar. The question is what it costs.</strong>
-            Each sizing rule grows with the target, so a stricter bound is always reachable by
-            buying more links. The price is charged on two axes that pull against each other:
-            the links every node holds whether or not anything is published, and the copies of
-            each message the network transmits. Giving publishing its own links cuts the copies
-            but adds to the links each node must hold.
-          </p>
-          <p>
-            <strong>A bad graph is rarely a broken network.</strong> Anything short of full
-            strong connectivity counts as bad, and in practice the failures are not large
-            splits but single stranded nodes. A node can strand in two ways: its outgoing
-            links all landed on adversaries, so nobody hears it, or its incoming links did,
-            so it hears nobody. Which of the two dominates is a property of the design rather
-            than of luck &mdash; under M2 and M3 most failures are publishers that cannot be
-            heard, while under M4 a stranded node is one that cannot receive.
-          </p>
-          <p>
-            That distinction decides what a bad graph actually costs. A node stranded as a
-            publisher costs nothing unless it happens to be the one publishing, and is
-            invisible to everyone else's dissemination; a node stranded as a subscriber is
-            missing whoever publishes. It is why a bad graph does not imply a lost message,
-            and why the same failure rate is worth more under one design than another.
-          </p>
+      <div class="stage">
+        <div class="stage-canvas">
+          <svg id="graph" viewBox="0 0 520 520" role="img" aria-label="Animated network graph illustrating the selected dissemination model">
+            <defs>
+              <marker id="arr-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--info)"/>
+              </marker>
+              <marker id="arr-faint" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+              </marker>
+              <marker id="arr-dead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/>
+              </marker>
+              <marker id="arr-seed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--iog-infared)"/>
+              </marker>
+            </defs>
+            <g id="g-edges"></g>
+            <g id="g-nodes"></g>
+          </svg>
+          <div class="canvas-footer">
+            <div class="legend">
+              <div class="legend-items" id="legend-items"></div>
+            </div>
+            <div class="hover-hint">Hover a node to isolate its links. Bold: chosen by the node · thin: chosen by its peers.</div>
+          </div>
         </div>
-      </details>
 
-      <details class="explainer">
-        <summary>Where the comparison stands</summary>
-        <div class="explainer-body">
-          <p>
-            Three of the five are out: M1, M2 and M5 are beaten on every axis at once, so no
-            trade-off brings them back. Of the two left, M4 leads on connections held, on time
-            to the last subscriber and on the downtime it absorbs; M3 leads on traffic, by
-            22&nbsp;%, and that is the only axis it leads.
-          </p>
-          <p>
-            The measurements lean to M4, and two things stop us naming it outright. One is a
-            question about operators rather than about the protocol: whether anyone running
-            this layer is limited by the traffic they carry or by the connections they can hold
-            open. The other is ours to close, and we are working on it: the admission
-            parameters that size the gate and the serving cap are measured against M2's wiring,
-            and those results do not carry to M4's symmetric handshake.
-          </p>
+        <div class="stage-side">
+          <div class="step-card">
+            <div class="step-count" id="step-count"></div>
+            <div class="step-title" id="step-title"></div>
+            <div class="step-desc" id="step-desc"></div>
+          </div>
+          <div class="controls">
+            <button class="ctl-btn" id="btn-prev" aria-label="Previous step">‹ Prev</button>
+            <button class="ctl-btn" id="btn-play" aria-label="Play or pause">Pause</button>
+            <button class="ctl-btn" id="btn-next" aria-label="Next step">Next ›</button>
+            <button class="ctl-btn" id="btn-replay" aria-label="Replay from the start">Replay</button>
+            <button class="ctl-btn" id="btn-shuffle" aria-label="Draw a new random graph">Reshuffle</button>
+          </div>
         </div>
-      </details>
+      </div>
+
     </div>
   </section>
 </main>
@@ -520,17 +390,17 @@
     <nav class="footer-nav" aria-label="Footer">
       <div class="footer-col">
         <div class="footer-col-title">Research</div>
-        <a href="../#scenarios">Scenarios</a>
-        <a href="../#research">Programme</a>
-        <a href="./">Dissemination models</a>
+        <a href="../../#scenarios">Scenarios</a>
+        <a href="../../#research">Programme</a>
+        <a href="../">Dissemination models</a>
         <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
-        <a href="../slides/midyear-2026.html">Midyear presentation</a>
+        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
         <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
         <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
-        <a href="../#activity">Activity &amp; latest entry</a>
+        <a href="../../#activity">Activity &amp; latest entry</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Repository</div>
@@ -542,15 +412,15 @@
     </nav>
     <div class="footer-row">
       <span class="footer-brand">
-        <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
-        <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
         <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-        <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
-        <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
       </span>
       <p class="footer-credit">
-        <img class="footer-wordmark logo-light" src="../assets/io-wordmark-pos.png" alt="Input Output">
-        <img class="footer-wordmark logo-dark" src="../assets/io-wordmark-neg.png" alt="Input Output">
+        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output">
+        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output">
         <span>2026</span>
       </p>
     </div>
@@ -717,23 +587,23 @@
     m1: {
       tab: 'M1 · Push',
       title: 'Random push gossip',
-      mech: 'Every node, on first receipt, pushes the message to F random peers. There is no standing graph at all; links are drawn fresh for every message.',
-      watch: 'The cascade fans out fast, but each message gambles anew: per-message randomness cannot promise that every message of every publisher gets through, so the good-graph guarantee has to come from a large fanout.',
+      mech: 'No standing graph at all: on first receipt, every node pushes to <strong>F fresh random peers</strong>.',
+      watch: 'Fans out fast, but each message gambles anew, so the guarantee has to be bought with a large fanout.',
       knobs: 'Knob: F = 3 (demo) · push targets per receipt',
       standingTitle: 'No sync phase',
-      standingDesc: 'M1 keeps <strong>no per-epoch links</strong>; nothing is drawn at sync that later messages could reuse. It is the only model whose links form at publish time: every node draws fresh random targets each time a message first reaches it.',
-      pubDesc: 'The <strong>publisher</strong> signs a message for its topic and pushes it out, and in M1 the links really are drawn now, at publish time, fresh for this message.',
-      hopDesc: 'Every newly reached honest node pushes to F fresh random targets, new links drawn on the spot. Copies pushed into silent adversaries are absorbed (red).',
+      standingDesc: 'M1 holds <strong>no per-epoch links</strong>: every node draws fresh random targets at publish time, each time a message first reaches it.',
+      pubDesc: 'The <strong>publisher</strong> signs its message and pushes it out, drawing its links there and then.',
+      hopDesc: 'Each newly reached node pushes to F fresh random targets; copies landing on adversaries are absorbed (red).',
       legend: []
     },
     m2: {
       tab: 'M2 · Pull',
       title: 'Pull relaying',
-      mech: 'Each node pulls from RF forwarders, redrawn every epoch; a forwarder relays every message it holds to its requesters. All propagation runs on these relay links.',
-      watch: 'Pull keeps adversaries from pushing themselves into anyone’s view, but a publisher only enters the network through its serving set, the nodes whose pulls happened to land on it. An unlucky publisher has none, and is muted. In the node implementation these are the relay links: a node’s own picks are its upstream, and the nodes that picked it are its downstream.',
+      mech: 'Each node picks <strong>RF forwarders</strong> to hear from, redrawn every epoch.',
+      watch: 'Adversaries cannot push themselves into anyone’s view, but a publisher that no honest node picked goes unheard.',
       knobs: 'Knob: RF = 3 (demo) · relay forwarders pulled from per node',
-      standingDesc: 'Every node establishes <strong>RF relay links</strong> by pulling: it picks the forwarders it wants to hear from. Arrows point the way messages flow, from forwarder to requester. A pick that lands on a silent adversary is a <strong>dead link</strong> (red, dashed): that forwarder will never relay.',
-      hopDesc: 'Every holder forwards along its per-epoch relay links to the nodes that pull from it, and no new links form. Relays into adversaries are absorbed (red).',
+      standingDesc: 'Every node picks <strong>RF forwarders</strong> to hear from, and a pick landing on an adversary is a <strong>dead link</strong> (red, dashed).',
+      hopDesc: 'Holders forward along the same relay links every hop; no new links form.',
       legend: [
         { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
         { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' }
@@ -742,11 +612,11 @@
     m3: {
       tab: 'M3 · Pull + publishing links',
       title: 'Pull relaying with publishing links',
-      mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications, so the publisher plus its targets form the initial holders.',
-      watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype, not yet the validated final design; the data decides that.',
+      mech: 'M2’s pull, plus <strong>s−1 publishing links</strong> per node carrying only its own messages.',
+      watch: 'The publishing links fix the unheard publisher; they are also the cheapest links to run and the first to suffer under churn.',
       knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
-      standingDesc: 'The same <strong>relay links</strong> as M2, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long). Every node holds its own publishing links; only the publisher’s matter for its message, so only those are drawn.',
-      hopDesc: 'Every holder forwards along its relay links; the publisher additionally sent its message directly over its publishing links at hop one.',
+      standingDesc: 'M2’s relay links, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long) carrying only its own messages.',
+      hopDesc: 'Holders forward along their relay links, the publisher having already seeded over its publishing links at hop one.',
       legend: [
         { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
         { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' },
@@ -756,11 +626,11 @@
     m4: {
       tab: 'M4 · Bidirectional',
       title: 'Bidirectional flooding',
-      mech: 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.',
-      watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out, so there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
+      mech: 'Each node picks <strong>RF peers</strong>, and every pick becomes a symmetric link that floods both ways.',
+      watch: 'One link set serves both directions, so it holds the fewest connections of the family for the same guarantee.',
       knobs: 'Knob: RF = 2 (demo) · symmetric links per node',
-      standingDesc: 'Every node draws <strong>RF picks</strong>, and every pick becomes one <strong>symmetric link</strong>, with no arrows, because the same link carries traffic both ways.',
-      hopDesc: 'Every holder floods along its symmetric links, except the one the message arrived on. Adversaries absorb their copies and stay silent.',
+      standingDesc: 'Every node draws <strong>RF picks</strong>, and each becomes a <strong>symmetric link</strong> carrying traffic both ways.',
+      hopDesc: 'Holders flood along every symmetric link except the one the message arrived on.',
       legend: [
         { kind: 'edge-sym', label: 'symmetric link' }
       ]
@@ -768,11 +638,11 @@
     m5: {
       tab: 'M5 · Directed',
       title: 'Directed k<sub>in</sub>/k<sub>out</sub> gossip',
-      mech: 'Every node opens k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
-      watch: 'The general case of the family: k<sub>out</sub> = 0 recovers pull-only M2, k<sub>in</sub> = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy, and both directions are the node’s own uniform picks.',
+      mech: 'Every node opens <strong>k<sub>in</sub> inbound</strong> and <strong>k<sub>out</sub> outbound</strong> links, both its own picks.',
+      watch: 'The general case: k<sub>out</sub> = 0 is M2, k<sub>in</sub> = 0 is push relaying. Beaten on every axis once the others take their best parameters.',
       knobs: 'Knobs: k<sub>in</sub> = 2, k<sub>out</sub> = 2 (demo) · inbound and outbound links per node',
-      standingDesc: 'Two directed link kinds, both the node’s own picks: <strong>solid arrows</strong> are outbound links (the sender chose its target), <strong>dashed arrows</strong> are inbound links (the receiver chose its forwarder). Messages flow the same way on both.',
-      hopDesc: 'Every holder relays along its epoch links: its own outbound links, plus the inbound links of every node that chose it as forwarder. Relays into adversaries are absorbed (red).',
+      standingDesc: 'Two directed kinds, both the node’s own picks: <strong>solid</strong> outbound, <strong>dashed</strong> inbound.',
+      hopDesc: 'Holders relay along their outbound links and the inbound links of everyone who chose them.',
       legend: [
         { kind: 'edge-out', label: 'outbound link (sender’s own pick)' },
         { kind: 'edge-in', label: 'inbound link (receiver’s own pick)' },
