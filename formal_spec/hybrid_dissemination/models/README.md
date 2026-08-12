@@ -46,9 +46,9 @@ Cross-model comparison at the standard operating point (N = 20 000, μ = 0.2,
 P(bad) ≤ 10⁻⁴): [`comparison.md`](comparison.md).
 
 Interactive: the closed forms live, as a radar over the properties with
-per-model parameter sliders, published as the site's
-[cost model](../../../web/experiments/cost-model/) (self-tested against the
-Python modules on load).
+per-model parameter sliders, published as the
+[cost model](https://pubsub.cardano-scaling.org/experiments/cost-model/)
+(self-tested against the Python modules on load).
 
 Validation: every model module runs a self-test when executed directly
 (law vs its own simulator); `validate.py` cross-validates the simulators
