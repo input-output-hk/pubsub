@@ -91,3 +91,41 @@ seeding heals the muted publisher (bad under M2's verdict, good under
 M3's, same relay digraph), and an in-isolated node stays bad — initiation
 links deliver only their owner's publications, so no seeding can supply a
 node that cannot receive (the law's eclipse floor carried by RF alone).
+
+## 5. The preferred split (RF = 13, s = 7)
+
+M3's budget of 19 links can be divided between relaying and seeding in
+more than one way. The pair is written (RF, *s*), where *s* counts the
+intended initial holders of a publication rather than the links opened,
+so the seeding links are *s* − 1 and the budget is RF + (*s* − 1): the
+published (12, 8) and (13, 7) both come to 19, and both hold 38 standing
+links. The two therefore cost the same in state and differ only in where
+those links sit. 200 runs.
+
+| quantity | RF = 12, s = 8 (§2) | RF = 13, s = 7 |
+|---|---|---|
+| P(bad), law | 7.9×10⁻⁵ | **4.4×10⁻⁵** |
+| honest→honest sends per message | 153 577.2 | 166 400 |
+| copies per honest node | **9.60** | 10.40 |
+| standing links, mean / max | 38.0 / 64 | 38.0 / 64 |
+| hops, full coverage | 5.87 | **5.51** |
+| hops, mean first receipt | 4.31 | **4.21** |
+| churn budget | 0.54 % | **2.17 %** |
+
+Moving one link from seeding into relaying costs 0.8 copies per honest
+node and buys four times the downtime tolerance, roughly half the failure
+probability, and a shorter path to the last subscriber — at no change in
+standing links. Seeding links carry only their owner's own publications,
+so a design that reaches its bandwidth advantage by leaning on a small
+number of them is also the one with least margin when part of that small
+number stops responding.
+
+(13, 7) is the split the CIP proposes. The formal churn analysis
+predicted the improvement and flagged it unvalidated; these measurements
+support it.
+
+The churn budgets are read off the coverage laws rather than sampled;
+every other row is measured.
+
+Configuration [`comparisons/m3-n20k-rf13-s7.toml`](../../configs/experiments/comparisons/m3-n20k-rf13-s7.toml),
+master seed 852.
