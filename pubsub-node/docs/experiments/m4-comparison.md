@@ -70,3 +70,32 @@ M4 is relay-only: the run records' `sends_by_kind.publisher` column is
 identically zero across all cells — the degenerate-column convention
 (ADR 0041), and a per-row structural check that no initiation-link
 machinery leaked into this model's runs.
+
+## 5. The preferred operating point (RF = 9)
+
+The RF = 8 point in §2 is the cheapest configuration meeting the 10⁻⁴
+target, which by construction is the one sitting closest to the cliff.
+One notch above it is cheap and buys a great deal, and RF = 9 is the
+point the CIP proposes. 200 runs, 200/200 good.
+
+| quantity | RF = 8 (§2) | RF = 9 |
+|---|---|---|
+| P(bad), law | 6.8×10⁻⁵ | **6.1×10⁻⁶** |
+| honest→honest sends per message | 188 750.6 | 214 345 |
+| copies per honest node | 11.80 | **13.40** |
+| standing links, mean / max | 16.0 / 36 | 18.0 / 37 |
+| hops, full coverage | 5.12 | **5.00** |
+| hops, mean first receipt | 4.09 | **3.90** |
+| churn budget | 1.07 % | **7.43 %** |
+
+Seven times the downtime tolerance, and an order of magnitude in P(bad),
+for 1.6 further copies per honest node and two further standing links.
+That step is what puts M4 ahead of M5 on every axis rather than trading
+against it.
+
+The churn budget is read off the coverage law at the shifted adversarial
+fraction, in the manner of [churn-tolerance.md](churn-tolerance.md),
+rather than sampled; every other row is measured.
+
+Configuration [`comparisons/m4-n20k-rf9.toml`](../../configs/experiments/comparisons/m4-n20k-rf9.toml),
+master seed 851.
