@@ -827,12 +827,9 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
      emitted by the experiments tool. check_cells_against_docs.py closes that loop
      for every configuration that has a write-up: it looks each measured quantity
      up in its design's comparison document and fails on anything it cannot find.
-     All five published operating points pass.
-
-     TODO(evidence): the two preferred splits, M3 (13, 7) and M4 RF = 9, have no
-     comparison document, so the checker reports them UNSOURCED and their figures
-     rest on the transcription alone. Both are measured and their configs are on
-     main; what is missing is the write-up. -->
+     All twenty-eight values pass, across every configuration the figures use:
+     the five published operating points and the two preferred splits, whose
+     write-ups landed with input-output-hk/pubsub#169. -->
 
 
 #### Agreement between analysis and simulation
