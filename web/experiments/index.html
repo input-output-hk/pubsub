@@ -259,9 +259,33 @@
   .route-kind { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
                 text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared); }
   .route-name { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
-  .route p { margin: 0; font-size: 0.95rem; line-height: 1.55; color: var(--text-mute); }
   .route-go { margin-top: 4px; font-size: 0.9rem; color: var(--text-mute); }
   .route:hover .route-go { color: var(--iog-infared); }
+
+  /* A thumbnail of the thing itself, so the tile shows rather than describes. */
+  .route-thumb { width: 100%; max-width: 176px; height: auto; margin-bottom: 8px;
+                 align-self: center; overflow: visible; }
+  /* The simulator's own classes, static: no animation, nothing hidden. */
+  .route-thumb .edge { opacity: 0.22; stroke: var(--text-faint); fill: none; stroke-width: 3; }
+  .route-thumb .edge.traversed { stroke: var(--info); opacity: 0.75; stroke-width: 5; }
+  .route-thumb .node { fill: var(--bg); stroke: var(--line-strong); stroke-width: 3; }
+  .route-thumb .node.informed { fill: var(--info); stroke: var(--info); }
+  .route-thumb .node.adv { fill: var(--bad); stroke: var(--bad); }
+  .route-thumb .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 3.5; }
+  @media (prefers-reduced-motion: no-preference) {
+    .route-thumb { transition: transform .18s ease; }
+    .route:hover .route-thumb { transform: scale(1.03); }
+  }
+
+  /* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
 </style>
 </head>
 <body>
@@ -306,7 +330,9 @@
 <main>
   <section class="page-head">
     <div class="container">
-      <div class="section-kind">Experiments</div>
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../#experiments">&lsaquo;&nbsp;Experiments</a>
+      </nav>
       <h1>How the design was derived</h1>
       <p class="lede">
         Not proposing a design, deriving one. All five clear the same bar &mdash; every honest
@@ -317,17 +343,71 @@
 
       <div class="route-grid">
         <a class="route" href="models/">
+          <svg class="route-thumb" viewBox="24 24 472 472" aria-hidden="true">
+            <path class="edge shown traversed" d="M 267.6 58.6 Q 333.4 150.1 440.3 175.2"/>
+            <path class="edge shown" d="M 344.1 76.8 Q 369.9 186.6 459.0 250.7"/>
+            <path class="edge shown traversed" d="M 407.8 122.9 Q 389.7 234.2 447.4 327.5"/>
+            <path class="edge shown traversed" d="M 449.0 189.9 Q 389.7 285.8 407.3 394.1"/>
+            <path class="edge shown traversed" d="M 461.4 267.6 Q 369.9 333.4 344.8 440.3"/>
+            <path class="edge shown" d="M 443.2 344.1 Q 333.4 369.9 269.3 459.0"/>
+            <path class="edge shown traversed" d="M 397.1 407.8 Q 285.8 389.7 192.5 447.4"/>
+            <path class="edge shown" d="M 330.1 449.0 Q 234.2 389.7 125.9 407.3"/>
+            <path class="edge shown" d="M 252.4 461.4 Q 186.6 369.9 79.7 344.8"/>
+            <path class="edge shown" d="M 175.9 443.2 Q 150.1 333.4 61.0 269.3"/>
+            <path class="edge shown" d="M 112.2 397.1 Q 130.3 285.8 72.6 192.5"/>
+            <path class="edge shown" d="M 71.0 330.1 Q 130.3 234.2 112.7 125.9"/>
+            <path class="edge shown" d="M 58.6 252.4 Q 150.1 186.6 175.2 79.7"/>
+            <path class="edge shown" d="M 76.8 175.9 Q 186.6 150.1 250.7 61.0"/>
+            <path class="edge shown" d="M 122.9 112.2 Q 234.2 130.3 327.5 72.6"/>
+            <path class="edge shown" d="M 189.9 71.0 Q 285.8 130.3 394.1 112.7"/>
+            <path class="edge shown traversed" d="M 263.7 60.5 Q 316.2 236.7 402.3 395.8"/>
+            <path class="edge shown" d="M 403.7 121.5 Q 316.2 283.3 264.6 456.7"/>
+            <path class="edge shown" d="M 459.5 263.7 Q 283.3 316.2 124.2 402.3"/>
+            <path class="edge shown" d="M 398.5 403.7 Q 236.7 316.2 63.3 264.6"/>
+            <path class="edge shown" d="M 256.3 459.5 Q 203.8 283.3 117.7 124.2"/>
+            <path class="edge shown" d="M 116.3 398.5 Q 203.8 236.7 255.4 63.3"/>
+            <path class="edge shown" d="M 60.5 256.3 Q 236.7 203.8 395.8 117.7"/>
+            <path class="edge shown" d="M 121.5 116.3 Q 283.3 203.8 456.7 255.4"/>
+            <circle class="node informed" cx="260.0" cy="48.0" r="11.0"/>
+            <circle class="node" cx="341.1" cy="64.1" r="11.0"/>
+            <circle class="node informed" cx="409.9" cy="110.1" r="11.0"/>
+            <circle class="node informed" cx="455.9" cy="178.9" r="11.0"/>
+            <circle class="node informed" cx="472.0" cy="260.0" r="11.0"/>
+            <circle class="node adv" cx="455.9" cy="341.1" r="11.0"/>
+            <circle class="node informed" cx="409.9" cy="409.9" r="11.0"/>
+            <circle class="node informed" cx="341.1" cy="455.9" r="11.0"/>
+            <circle class="node" cx="260.0" cy="472.0" r="11.0"/>
+            <circle class="node adv" cx="178.9" cy="455.9" r="11.0"/>
+            <circle class="node" cx="110.1" cy="409.9" r="11.0"/>
+            <circle class="node" cx="64.1" cy="341.1" r="11.0"/>
+            <circle class="node informed" cx="48.0" cy="260.0" r="11.0"/>
+            <circle class="node adv" cx="64.1" cy="178.9" r="11.0"/>
+            <circle class="node" cx="110.1" cy="110.1" r="11.0"/>
+            <circle class="node" cx="178.9" cy="64.1" r="11.0"/>
+            <circle class="pub-ring on" cx="260.0" cy="48.0" r="17.0"/>
+          </svg>
           <span class="route-kind">Step through</span>
           <span class="route-name">Model simulator</span>
-          <p>Each model's construction and forwarding rules, played at toy scale. Watch the
-             links get drawn and a message propagate, one step at a time.</p>
           <span class="route-go">Open the simulator &rarr;</span>
         </a>
         <a class="route" href="cost-model/">
+          <svg class="route-thumb" viewBox="258 110 344 344" aria-hidden="true">
+            <polygon points="430.0,241.5 470.5,282.0 430.0,322.5 389.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,201.0 511.0,282.0 430.0,363.0 349.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,160.5 551.5,282.0 430.0,403.5 308.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,120.0 592.0,282.0 430.0,444.0 268.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,158.1 515.8,282.0 430.0,436.9 382.5,282.0" fill="#8a887e" fill-opacity="0.07" stroke="#8a887e" stroke-width="1.4" stroke-linejoin="round"/>
+            <polygon points="430.0,194.2 490.8,282.0 430.0,436.9 391.6,282.0" fill="#bcb9ae" fill-opacity="0.07" stroke="#bcb9ae" stroke-width="1.4" stroke-linejoin="round"/>
+            <polygon points="430.0,120.0 506.7,282.0 430.0,422.5 382.7,282.0" fill="#008300" fill-opacity="0.13" stroke="#008300" stroke-width="2.4" stroke-linejoin="round"/>
+            <polygon points="430.0,156.3 592.0,282.0 430.0,436.9 268.0,282.0" fill="#eda100" fill-opacity="0.13" stroke="#eda100" stroke-width="2.4" stroke-linejoin="round"/>
+            <polygon points="430.0,194.2 490.8,282.0 430.0,444.0 392.9,282.0" fill="#4a3aa7" fill-opacity="0.13" stroke="#4a3aa7" stroke-width="2.4" stroke-linejoin="round"/>
+            <line x1="430.0" y1="282.0" x2="430.0" y2="120.0" stroke="#e2e0d8" stroke-width="1"/>
+            <line x1="430.0" y1="282.0" x2="592.0" y2="282.0" stroke="#e2e0d8" stroke-width="1"/>
+            <line x1="430.0" y1="282.0" x2="430.0" y2="444.0" stroke="#e2e0d8" stroke-width="1"/>
+            <line x1="430.0" y1="282.0" x2="268.0" y2="282.0" stroke="#c4c2b9" stroke-width="1" stroke-dasharray="4 4"/>
+          </svg>
           <span class="route-kind">Tune</span>
           <span class="route-name">Cost model</span>
-          <p>The closed-form laws, live. Move the adversarial fraction, the network size and
-             each model's own knobs, and watch what it costs to stay above the bar.</p>
           <span class="route-go">Open the cost model &rarr;</span>
         </a>
       </div>

@@ -247,6 +247,16 @@
   .back-link { margin-top: 14px; }
   .back-link a { color: var(--text-mute); text-decoration: none; font-size: 0.95rem; }
   .back-link a:hover { color: var(--iog-infared); }
+
+  /* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
 </style>
 </head>
 <body>
@@ -291,14 +301,17 @@
 <main>
   <section class="page-head">
     <div class="container">
-      <div class="section-kind">Experiments</div>
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../">&lsaquo;&nbsp;Experiments</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-here" aria-current="page">Model simulator</span>
+      </nav>
       <h1>Model simulator</h1>
       <p class="lede">
         Each model's construction and forwarding rules, played at toy scale. Step through
         a model to watch its links get drawn and a message propagate. Hover a node to
         isolate its links &mdash; bold: chosen by the node &middot; thin: chosen by its peers.
       </p>
-      <p class="lede back-link"><a href="../">&larr; Experiments overview</a></p>
     </div>
   </section>
 

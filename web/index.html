@@ -1211,14 +1211,6 @@
       <header class="section-head">
         <div class="section-kind">Experiments</div>
         <h2>Five candidate models, one bar</h2>
-        <p>
-          Not proposing a design, but empirically deriving one. All five face the same bar:
-          every honest publisher's message reaches every honest node despite silent
-          Byzantine peers, measured as the probability that the honest network stays
-          strongly connected. All five can clear it. What separates them is the price: how
-          many standing links every node has to hold, and how many copies of each published
-          message the network has to carry.
-        </p>
       </header>
       <div class="model-strip">
         <a class="model-row" href="experiments/models/#m1">
@@ -1235,7 +1227,7 @@
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/models/#m4">
           <span class="model-id">M4</span>
-          <span class="model-mech"><strong>Bidirectional</strong>: each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.</span>
+          <span class="model-mech"><strong>Bidirectional</strong>: each node picks RF peers; every pick becomes a symmetric link, and messages flood along all of them.</span>
         <span class="model-arrow">›</span></a>
         <a class="model-row" href="experiments/models/#m5">
           <span class="model-id">M5</span>
