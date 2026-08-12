@@ -1,0 +1,35 @@
+# Gated-symmetric ladder - K = 16, B = 10: the near-ungated endpoint.
+#
+# The pair-draw gate (edge-sym, N-039) makes picks and pickers share one
+# survivor pool of mean (N-1)/B = 400 (r = pool/K = 25). Predicted realised
+# mean degree d = 31.36 (the shared-pool overlap law d = lambda*m*(2-m);
+# ungated M4 sits at 31.94), and isolation is channel-B dominated -
+# E_iso = 8.1e-14, converging on the ungated M4 law (5.0e-14). 500 runs:
+# a degree-geometry cell, no measurable tail.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/gated-symmetric/gated-picks-b10.toml --out results/gated-symmetric/gated-picks-b10/
+
+model = "m4"
+master_seed = 1101
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 10
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 10
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 500
