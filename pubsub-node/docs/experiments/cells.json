@@ -355,7 +355,9 @@
    "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
    "standing_links_measured_mean": 37.99,
    "standing_links_max": 64,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
+   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+   "eclipse_known_links": 9.6,
+   "eclipse_gate_only": 24
   },
   {
    "model": "M4",
@@ -372,7 +374,9 @@
    "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
    "standing_links_measured_mean": 16.0,
    "standing_links_max": 36,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
+   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+   "eclipse_known_links": 12.8,
+   "eclipse_gate_only": 16
   },
   {
    "model": "M5",
@@ -389,7 +393,9 @@
    "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
    "standing_links_measured_mean": 33.99,
    "standing_links_max": 58,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
+   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+   "eclipse_known_links": 13.6,
+   "eclipse_gate_only": 34
   },
   {
    "model": "M1",
@@ -406,7 +412,9 @@
    "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
    "standing_links_measured_mean": 47.97,
    "standing_links_max": 75,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
+   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+   "eclipse_known_links": 19.2,
+   "eclipse_gate_only": 48
   },
   {
    "model": "M2",
@@ -423,7 +431,9 @@
    "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
    "standing_links_measured_mean": 47.97,
    "standing_links_max": 75,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md"
+   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+   "eclipse_known_links": 19.2,
+   "eclipse_gate_only": 48
   }
  ],
  "alternatives": [
@@ -443,7 +453,9 @@
    "msgs_per_publication": 166400,
    "measured": "200 runs",
    "config": "comparisons/m3-n20k-rf13-s7.toml",
-   "master_seed": 852
+   "master_seed": 852,
+   "eclipse_known_links": 10.4,
+   "eclipse_gate_only": 26
   },
   {
    "model": "M4",
@@ -461,7 +473,9 @@
    "churn_budget_pct": 7.43,
    "measured": "200 runs",
    "config": "comparisons/m4-n20k-rf9.toml",
-   "master_seed": 851
+   "master_seed": 851,
+   "eclipse_known_links": 14.4,
+   "eclipse_gate_only": 18
   }
  ],
  "convergence": {
@@ -1283,5 +1297,6 @@
     "publisher_isolated": false
    }
   ]
- }
+ },
+ "eclipse_note": "Corruptions to strand a chosen node. Knowing its realised links the cost is its honest degree, k(1-mu) directional and 2k(1-mu) symmetric since one corruption removes a bidirectional link once. Knowing only the public gate the cost is the eligible set, about 2k. Source: the adaptive-eclipse-cost property documents."
 }
