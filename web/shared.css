@@ -274,3 +274,10 @@ footer p {
   color: var(--text-faint);
   letter-spacing: 0.06em;
 }
+
+/* An Experiments subpage is still "under" the section, so the parent keeps its mark. */
+.navbar-links .nav-item--experiments.is-current > a { color: var(--iog-infared); }
+.navbar-links .nav-item--experiments.is-current > a::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
+  background: var(--iog-infared);
+}

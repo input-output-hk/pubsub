@@ -899,6 +899,36 @@
   .material-tile--soon { cursor: default; }
   .material-tile--soon:hover { border-color: var(--line); transform: none; }
   .material-name .soon-badge { margin-left: 9px; vertical-align: middle; }
+
+  /* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
+  }
 </style>
 </head>
 <body>
@@ -923,7 +953,14 @@
   <div class="navbar-links">
     <a href="#scenarios">Scenarios</a>
     <a href="#research">Research</a>
-    <a href="#experiments">Experiments</a>
+    <span class="nav-item nav-item--experiments">
+      <a href="#experiments">Experiments</a>
+      <span class="nav-menu">
+        <a href="experiments/">Overview</a>
+        <a href="experiments/models/">Model simulator</a>
+        <a href="experiments/cost-model/">Cost model</a>
+      </span>
+    </span>
     <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
     <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
@@ -1959,5 +1996,50 @@
   })();
 </script>
 
+
+<script>
+  /* The nav tracks the section in view. Whichever section covers the middle of
+     the viewport owns the highlight, so a short section at the end of the page
+     still claims it. */
+  (function () {
+    var links = {}, order = [];
+    document.querySelectorAll('.navbar-links a[href^="#"]').forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      if (document.getElementById(id)) { links[id] = a; order.push(id); }
+    });
+    if (!order.length) return;
+
+    var expItem = document.querySelector('.nav-item--experiments');
+    function setActive(id) {
+      order.forEach(function (k) { links[k].classList.toggle('active', k === id); });
+      if (expItem) expItem.classList.toggle('is-current', id === 'experiments');
+    }
+
+    function pick() {
+      var mid = window.innerHeight / 2, best = null, bestDist = Infinity;
+      order.forEach(function (id) {
+        var r = document.getElementById(id).getBoundingClientRect();
+        if (r.top <= mid && r.bottom >= 0) {
+          var d = Math.abs(r.top - mid);
+          if (d < bestDist) { bestDist = d; best = id; }
+        }
+      });
+      if (window.scrollY + window.innerHeight >= document.body.scrollHeight - 4) {
+        best = order[order.length - 1];
+      }
+      setActive(best);
+    }
+
+    var ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { pick(); ticking = false; });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    pick();
+  })();
+</script>
 </body>
 </html>

@@ -257,6 +257,36 @@
   .breadcrumb a:hover { text-decoration: underline; }
   .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
   .breadcrumb .crumb-here { color: var(--text-mute); }
+
+  /* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
+  }
 </style>
 </head>
 <body>
@@ -281,7 +311,14 @@
   <div class="navbar-links">
     <a href="../../#scenarios">Scenarios</a>
     <a href="../../#research">Research</a>
-    <a href="../" class="active">Experiments</a>
+    <span class="nav-item nav-item--experiments is-current">
+      <a href="../" class="active">Experiments</a>
+      <span class="nav-menu">
+        <a href="../">Overview</a>
+        <a href="./" class="active">Model simulator</a>
+        <a href="../cost-model/">Cost model</a>
+      </span>
+    </span>
     <a href="../../#activity">Activity</a>
     <a href="../../#materials">Materials</a>
     <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
