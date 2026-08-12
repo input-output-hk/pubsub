@@ -75,6 +75,10 @@
   .legend .item .lname { font-weight: 600; }
   .legend .item .lparams { color: var(--ink-2); font: 12px var(--mono); }
   .hint { color: var(--ink-mute); font-size: 12px; }
+  .warn { border-left: 4px solid #fab219; background: var(--surface); border: 1px solid var(--ring);
+          border-left-width: 4px; border-left-color: #fab219; border-radius: 6px;
+          padding: 8px 12px; font-size: 12.5px; color: var(--ink-2); }
+  .warn b { color: var(--ink); }
 
   .table-wrap { overflow-x: auto; }
   table { border-collapse: collapse; font: 12.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -127,6 +131,12 @@
       <h2>Radar axes</h2>
       <div class="axis-picker" id="axis-picker"></div>
     </div>
+    <p class="warn">⚠ <b>Closed forms, not measurements.</b> Every value on these graphs is computed
+    from the models' closed-form laws. The laws are leading-order approximations, validated against
+    Monte-Carlo simulation and prototype experiments only at specific parameter points (chiefly the
+    N&nbsp;=&nbsp;20&nbsp;000, μ&nbsp;=&nbsp;0.2 operating points, plus a handful of elevated-μ and
+    deep-tail cells); hop counts are asymptotic with fitted constants. Away from the validated
+    points, the curves are extrapolation, not measured behaviour.</p>
     <div class="panel chart-wrap">
       <svg id="radar" viewBox="0 0 640 600" role="img" aria-label="Radar chart of model properties"></svg>
       <div class="legend" id="legend"></div>
