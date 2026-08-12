@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Experiments — how the dissemination design was derived · Cardano PubSub</title>
+<title>Model simulator — Five dissemination models · Cardano PubSub</title>
 <meta name="description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/">
-<link rel="icon" href="../assets/favicon.ico">
-<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="../assets/icon-512.png">
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/models/">
+<link rel="icon" href="../../assets/favicon.ico">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="../../assets/icon-512.png">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
 
@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:title" content="Five candidate dissemination models — Cardano PubSub">
 <meta property="og:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/models/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
@@ -33,7 +33,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared.css">
+<link rel="stylesheet" href="../../shared.css">
 <style>
   body { font-size: 17px; line-height: 1.65; min-height: 100vh; display: flex; flex-direction: column; }
   main { flex: 1; }
@@ -247,21 +247,6 @@
   .back-link { margin-top: 14px; }
   .back-link a { color: var(--text-mute); text-decoration: none; font-size: 0.95rem; }
   .back-link a:hover { color: var(--iog-infared); }
-
-  /* Two ways in, given equal weight: neither is the primary. */
-  .route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-                gap: 16px; margin: 30px 0 6px; }
-  .route { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px;
-           border: 1px solid var(--line); border-radius: 10px; text-decoration: none;
-           color: inherit; background: var(--bg-soft);
-           transition: border-color .15s ease, transform .15s ease; }
-  .route:hover { border-color: var(--iog-infared); transform: translateY(-2px); }
-  .route-kind { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
-                text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared); }
-  .route-name { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
-  .route p { margin: 0; font-size: 0.95rem; line-height: 1.55; color: var(--text-mute); }
-  .route-go { margin-top: 4px; font-size: 0.9rem; color: var(--text-mute); }
-  .route:hover .route-go { color: var(--iog-infared); }
 </style>
 </head>
 <body>
@@ -271,12 +256,12 @@
 </svg>
 
 <nav class="navbar" aria-label="Primary">
-  <a class="navbar-brand" href="./">
-    <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
-    <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+  <a class="navbar-brand" href="../../">
+    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
     <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-    <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
-    <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
   </a>
   <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
     <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -284,11 +269,11 @@
   </button>
   <div class="nav-collapse">
   <div class="navbar-links">
-    <a href="../#scenarios">Scenarios</a>
-    <a href="../#research">Research</a>
-    <a href="./" class="active">Experiments</a>
-    <a href="../#activity">Activity</a>
-    <a href="../#materials">Materials</a>
+    <a href="../../#scenarios">Scenarios</a>
+    <a href="../../#research">Research</a>
+    <a href="../" class="active">Experiments</a>
+    <a href="../../#activity">Activity</a>
+    <a href="../../#materials">Materials</a>
     <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
   </div>
   <div class="navbar-icons">
@@ -307,89 +292,72 @@
   <section class="page-head">
     <div class="container">
       <div class="section-kind">Experiments</div>
-      <h1>How the design was derived</h1>
+      <h1>Model simulator</h1>
       <p class="lede">
-        Not proposing a design, deriving one. All five clear the same bar &mdash; every honest
-        publisher reaches every honest node despite silent Byzantine peers. What separates them
-        is price: the standing links each node holds, and the copies the network carries per
-        message.
+        Each model's construction and forwarding rules, played at toy scale. Step through
+        a model to watch its links get drawn and a message propagate. Hover a node to
+        isolate its links &mdash; bold: chosen by the node &middot; thin: chosen by its peers.
       </p>
+      <p class="lede back-link"><a href="../">&larr; Experiments overview</a></p>
+    </div>
+  </section>
 
-      <div class="route-grid">
-        <a class="route" href="models/">
-          <span class="route-kind">Step through</span>
-          <span class="route-name">Model simulator</span>
-          <p>Each model's construction and forwarding rules, played at toy scale. Watch the
-             links get drawn and a message propagate, one step at a time.</p>
-          <span class="route-go">Open the simulator &rarr;</span>
-        </a>
-        <a class="route" href="cost-model/">
-          <span class="route-kind">Tune</span>
-          <span class="route-name">Cost model</span>
-          <p>The closed-form laws, live. Move the adversarial fraction, the network size and
-             each model's own knobs, and watch what it costs to stay above the bar.</p>
-          <span class="route-go">Open the cost model &rarr;</span>
-        </a>
+  <section>
+    <div class="container">
+      <div class="model-tabs" role="tablist" id="tabs"></div>
+
+      <div class="model-notes">
+        <div class="card-kicker" id="note-kicker"></div>
+        <h3 id="note-title"></h3>
+        <p id="note-mech"></p>
+        <p id="note-watch"></p>
+        <div class="knobs" id="note-knobs"></div>
       </div>
 
-      <details class="explainer">
-        <summary>How the models were judged</summary>
-        <div class="explainer-body">
-          <p>
-            All five were measured against one shared bar, the <strong>good graph</strong>:
-            every message of every honest publisher must reach all other honest nodes. And all
-            faced the same adversary, a fraction &mu; of silent Byzantine nodes that receive
-            every message and never relay one. Formally it is scored as the probability that
-            the honest network stays strongly connected.
-          </p>
-          <p>
-            The guarantee has to come from links that are drawn <strong>once per epoch</strong>
-            and then serve every message of every publisher for that whole epoch. The formal
-            analyses call this the <em>standing</em> structure, and it covers both link kinds:
-            relay links and publishing links. Only a structure that persists across messages
-            can promise <em>every</em> message; per-message randomness cannot. The prototype
-            node works exactly this way: it establishes its links during a sync phase, and only
-            then accepts messages for propagation.
-          </p>
-          <p>
-            <strong>Every model can clear the bar. The question is what it costs.</strong>
-            Each sizing rule grows with the target, so a stricter bound is always reachable by
-            buying more links. The price is charged on two axes that pull against each other:
-            the links every node holds whether or not anything is published, and the copies of
-            each message the network transmits. Giving publishing its own links cuts the copies
-            but adds to the links each node must hold.
-          </p>
-          <p>
-            <strong>A bad graph is rarely a broken network.</strong> Anything short of full
-            strong connectivity counts as bad, and in practice the failures are not large
-            splits but single stranded nodes. A node whose outgoing links all landed on
-            adversaries is a dead end, and dead ends dominate the tail. A bad graph does not
-            mean a message went undelivered, though: that depends on <em>which</em> node
-            publishes. A stranded node fails only as a publisher, and is invisible to everyone
-            else's dissemination.
-          </p>
+      <div class="stage">
+        <div class="stage-canvas">
+          <svg id="graph" viewBox="0 0 520 520" role="img" aria-label="Animated network graph illustrating the selected dissemination model">
+            <defs>
+              <marker id="arr-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--info)"/>
+              </marker>
+              <marker id="arr-faint" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+              </marker>
+              <marker id="arr-dead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/>
+              </marker>
+              <marker id="arr-seed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--iog-infared)"/>
+              </marker>
+            </defs>
+            <g id="g-edges"></g>
+            <g id="g-nodes"></g>
+          </svg>
+          <div class="canvas-footer">
+            <div class="legend">
+              <div class="legend-items" id="legend-items"></div>
+            </div>
+            <div class="hover-hint">Hover a node to isolate its links. Bold: chosen by the node · thin: chosen by its peers.</div>
+          </div>
         </div>
-      </details>
 
-      <details class="explainer">
-        <summary>Where the comparison stands</summary>
-        <div class="explainer-body">
-          <p>
-            Three of the five are out: M1, M2 and M5 are beaten on every axis at once, so no
-            trade-off brings them back. Of the two left, M4 leads on connections held, on time
-            to the last subscriber and on the downtime it absorbs; M3 leads on traffic, by
-            22&nbsp;%, and that is the only axis it leads.
-          </p>
-          <p>
-            The measurements lean to M4, and two things stop us naming it outright. One is a
-            question about operators rather than about the protocol: whether anyone running
-            this layer is limited by the traffic they carry or by the connections they can hold
-            open. The other is ours to close, and we are working on it: the admission
-            parameters that size the gate and the serving cap are measured against M2's wiring,
-            and those results do not carry to M4's symmetric handshake.
-          </p>
+        <div class="stage-side">
+          <div class="step-card">
+            <div class="step-count" id="step-count"></div>
+            <div class="step-title" id="step-title"></div>
+            <div class="step-desc" id="step-desc"></div>
+          </div>
+          <div class="controls">
+            <button class="ctl-btn" id="btn-prev" aria-label="Previous step">‹ Prev</button>
+            <button class="ctl-btn" id="btn-play" aria-label="Play or pause">Pause</button>
+            <button class="ctl-btn" id="btn-next" aria-label="Next step">Next ›</button>
+            <button class="ctl-btn" id="btn-replay" aria-label="Replay from the start">Replay</button>
+            <button class="ctl-btn" id="btn-shuffle" aria-label="Draw a new random graph">Reshuffle</button>
+          </div>
         </div>
-      </details>
+      </div>
+
     </div>
   </section>
 </main>
@@ -399,17 +367,17 @@
     <nav class="footer-nav" aria-label="Footer">
       <div class="footer-col">
         <div class="footer-col-title">Research</div>
-        <a href="../#scenarios">Scenarios</a>
-        <a href="../#research">Programme</a>
-        <a href="./">Dissemination models</a>
+        <a href="../../#scenarios">Scenarios</a>
+        <a href="../../#research">Programme</a>
+        <a href="../">Dissemination models</a>
         <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
-        <a href="../slides/midyear-2026.html">Midyear presentation</a>
+        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
         <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
         <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
-        <a href="../#activity">Activity &amp; latest entry</a>
+        <a href="../../#activity">Activity &amp; latest entry</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Repository</div>
@@ -421,15 +389,15 @@
     </nav>
     <div class="footer-row">
       <span class="footer-brand">
-        <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
-        <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
         <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-        <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
-        <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
       </span>
       <p class="footer-credit">
-        <img class="footer-wordmark logo-light" src="../assets/io-wordmark-pos.png" alt="Input Output">
-        <img class="footer-wordmark logo-dark" src="../assets/io-wordmark-neg.png" alt="Input Output">
+        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output">
+        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output">
         <span>2026</span>
       </p>
     </div>
