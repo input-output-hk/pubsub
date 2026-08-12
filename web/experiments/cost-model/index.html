@@ -249,14 +249,25 @@
 
   /* ---- tuning drawer — expert surface, folded away by default ---- */
   .drawer { margin-top: 18px; border-top: 1px solid var(--line); }
-  details > summary { cursor: pointer; font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
-                      letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint);
-                      list-style: none; padding: 12px 0; display: flex; align-items: baseline; gap: 8px; }
+  /* Reads like a .read-row: same 9px rhythm, same name weight, and the marker
+     trails at the end where the verdict sits rather than leading the line. */
+  details > summary { cursor: pointer; font-family: var(--font-body); font-size: 0.9rem;
+                      font-weight: 600; color: var(--text); list-style: none;
+                      padding: 9px 0; display: flex; align-items: center; gap: 10px; }
   details > summary::-webkit-details-marker { display: none; }
-  details > summary::before { content: '▸'; font-size: 10px; transition: transform .15s ease; }
-  details[open] > summary::before { transform: rotate(90deg); }
+  details > summary::after {
+    content: ''; margin-left: auto; width: 8px; height: 8px; flex: none;
+    border-right: 1.6px solid var(--text-faint); border-bottom: 1.6px solid var(--text-faint);
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform .16s ease, border-color .16s ease;
+  }
+  details[open] > summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
   details > summary:hover { color: var(--iog-infared); }
+  details > summary:hover::after { border-color: var(--iog-infared); }
   details > summary:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .tune-name { font-weight: 600; font-size: 0.9rem; }
+  .tune-state { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+                white-space: nowrap; }
   .drawer-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
                  gap: 4px 20px; padding-bottom: 14px; }
   /* One column per design once there is room, rather than four with a lone M5 below. */
@@ -297,7 +308,13 @@
 
   /* ---- table ---- */
   .table-wrap { overflow-x: auto; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-                background: var(--card-fill); padding: 4px 16px 8px; }
+                background: var(--card-fill); padding: 4px 0 8px;
+                scrollbar-width: none; -ms-overflow-style: none; }
+  /* The inset moves onto the end cells: as container padding it sat outside the
+     sticky column's left: 0, so rows scrolled visibly through the gap. */
+  .table-wrap::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  th:first-child, td:first-child { padding-left: 16px; }
+  th:last-child, td:last-child { padding-right: 16px; }
   /* separate, not collapse: a sticky cell cannot carry a collapsed border, so the
      rules are drawn as box-shadows on the frozen column instead. */
   table { border-collapse: separate; border-spacing: 0; font-family: var(--font-mono);
@@ -510,7 +527,7 @@
 
       <div class="drawer">
         <details id="tune-details">
-          <summary id="tune-summary">Tune parameters &amp; axes</summary>
+          <summary><span class="tune-name">Tune parameters &amp; axes</span><span class="tune-state" id="tune-summary"></span></summary>
           <div class="drawer-body" id="model-cards"></div>
           <div class="axis-picker" id="axis-picker" role="group" aria-label="Axes shown"></div>
         </details>
@@ -1321,16 +1338,24 @@ if (typeof document !== 'undefined') (() => {
     for (const id of MODEL_IDS) {
       if (!state.visible[id]) continue;
       const c = COLOR(id);
-      const pts = axes.map((a, i) => pt(i, a.norm(results[id][a.key])));
+      // A vertex pinned to the rim or the centre is off the fixed scale, not merely
+      // at its end. The ranges stay fixed so the shape means the same thing in every
+      // screenshot; the saturation is marked instead of hidden.
+      const norms = axes.map(a => a.norm(results[id][a.key]));
+      const pinned = norms.map(n => n >= 0.999 || n <= 0.001);
+      const pts = axes.map((a, i) => pt(i, norms[i]));
       const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
       el('path', { d, fill: c, 'fill-opacity': 0.07, stroke: 'none' });
-      polys.push({ id, c, pts, d });
+      polys.push({ id, c, pts, d, pinned });
     }
-    for (const { id, c, pts, d } of polys) {
+    for (const { id, c, pts, d, pinned } of polys) {
       el('path', { d, fill: 'none', stroke: c, 'stroke-width': strokeW, 'stroke-linejoin': 'round' });
       pts.forEach(([x, y], i) => {
         const g = el('g', {});
         marker(x, y, c, g);
+        if (pinned[i]) el('circle', { cx: x, cy: y, r: markerSize + 3, fill: 'none',
+                                      stroke: c, 'stroke-width': 1.2, 'stroke-opacity': 0.85,
+                                      'stroke-dasharray': '2 2' }, g);
         const hit = el('circle', { cx: x, cy: y, r: markerSize * 2.4, fill: 'transparent' }, g);
         const a = axes[i];
         hit.addEventListener('mousemove', ev => {
@@ -1338,7 +1363,8 @@ if (typeof document !== 'undefined') (() => {
           tooltip.style.left = (ev.clientX + 14) + 'px';
           tooltip.style.top = (ev.clientY + 6) + 'px';
           const raw = results[id][a.key];
-          tooltip.textContent = `${MM.models[id].label} — ${a.label}: ${a.fmt(raw)} · ${a.unit}`;
+          tooltip.textContent = `${MM.models[id].label} — ${a.label}: ${a.fmt(raw)} · ${a.unit}`
+            + (pinned[i] ? ` · past the axis range, plotted at the edge` : '');
         });
         hit.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
       });
@@ -1444,8 +1470,10 @@ if (typeof document !== 'undefined') (() => {
         ` Churn budget ${(100 * r.churn).toFixed(1)} %.`;
     }
     const shown = AXES.filter(a => state.axes[a.key]);
+    // The name is fixed; only the state beside it changes, the way a readout row
+    // carries a name and its verdict.
     $('#tune-summary').textContent =
-      `Tune parameters & axes — ${preset ? PRESETS[preset].label.toLowerCase() : 'custom'}, ${shown.length}/${AXES.length} axes`;
+      `${preset ? PRESETS[preset].label.toLowerCase() : 'custom'} · ${shown.length}/${AXES.length} axes`;
     markTerms(document);
     lastResults = results;
     drawRadar(results, shown);
