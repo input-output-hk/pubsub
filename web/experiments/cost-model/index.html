@@ -1,56 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cost model — the closed-form laws, live · Cardano PubSub</title>
-<meta name="description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/cost-model/">
-<link rel="icon" href="../../assets/favicon.ico">
-<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="../../assets/icon-512.png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cost model — Compare — what each model costs · Cardano PubSub</title>
+<meta name="description" content="The five candidate dissemination models of the Cardano PubSub research compared on eight properties, evaluated live from the closed-form coverage laws at an environment you set.">
+<meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
-
-<!-- Link previews: Slack, Discord, Telegram, LinkedIn, X and search engines. -->
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Cardano PubSub">
-<meta property="og:locale" content="en">
-<meta property="og:title" content="Five candidate dissemination models — Cardano PubSub">
-<meta property="og:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/cost-model/">
-<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
-<meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Five candidate dissemination models — Cardano PubSub">
-<meta name="twitter:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
-<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../../shared.css">
+<link rel="icon" href="../../assets/favicon.ico">
 <style>
-  body { font-size: 17px; line-height: 1.65; min-height: 100vh; display: flex; flex-direction: column; }
-  main { flex: 1; }
-  .navbar { padding-right: clamp(24px, 5vw, 80px); }
-  .navbar-icons { display: flex; align-items: center; gap: 10px; }
-  .nav-icon-btn {
-    position: relative; top: auto; right: auto;
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 1px solid var(--line-strong); background: var(--bg); color: var(--text);
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    text-decoration: none; flex-shrink: 0;
-    transition: border-color .15s ease, color .15s ease;
+  /* Chrome tokens, navbar, section furniture and footer are web/shared.css verbatim,
+     inlined because this page has to work as a single file from file:// — no
+     stylesheet, no webfont, no script fetched. The system stack stands in for
+     Barlow / JetBrains Mono where they are not already installed. The m1..m5 series
+     colours stay as they were: CVD-validated as a set, and the one palette the IOG
+     brand hues cannot replace. */
+  :root {
+    color-scheme: light;
+    /* IOG brand palette — identical in every theme */
+    --iog-infared: #E52321; --iog-ember-orange: #FF532C; --iog-cobalt-pulse: #2C4FFA;
+
+    /* web/shared.css light theme, verbatim */
+    --bg: #FFFFFF; --bg-soft: #FAFAFA; --bg-alt: #F4F4F2; --bg-code: #F4F4F2;
+    --line: rgba(0,0,0,0.10); --line-strong: rgba(0,0,0,0.22);
+    --text: #0A0A0A; --text-mute: #4A4A4A; --text-faint: #888888;
+    --card-fill: #FFFFFF; --card-soft-fill: #FAFAFA; --card-stroke-faint: #E0E0E0;
+    --card-stroke: #0A0A0A; --card-stroke-soft: #888888;
+    --good: #00994A; --good-soft: #E2F5EB; --bad: #E52321; --bad-soft: #FCEAE9;
+    --warn: #A88200; --warn-soft: #FBF1CC; --info: #2C4FFA; --info-soft: #E7EBFE;
+    --accent: #E52321;
+    --nav-height: 65px;
+    /* The mark's own artwork colours, which the wordmark draws from. */
+    --mark-in: rgba(216, 44, 2, 0.7); --mark-out: #1D1D1B;
+    /* The m1..m5 series colours stay as they were — CVD-validated as a set, and the
+       one palette the brand hues cannot replace. */
+    --m1: #2a78d6; --m2: #eb6834; --m3: #1baf7a; --m4: #eda100; --m5: #e87ba4;
+    /* Barlow / JetBrains Mono are webfonts on the deployed site; no network here,
+       so the system stack behind them carries the local preview. */
+    --font-display: 'Barlow', 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
+    --font-body: var(--font-display);
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, ui-monospace, monospace;
+    --font: var(--font-body); --mono: var(--font-mono);
+
+    /* Aliases: the chart code speaks in ink/grid/axis names, the chrome in the
+       site's token names, and both resolve to the same theme values. */
+    --page: var(--bg); --page-soft: var(--bg-soft);
+    --surface: var(--card-fill); --surface-soft: var(--card-soft-fill);
+    --ink: var(--text); --ink-2: var(--text-mute); --ink-mute: var(--text-faint);
+    --grid: var(--card-stroke-faint); --axis: var(--line-strong); --ring: var(--line);
+    --crit: var(--bad); --crit-soft: var(--bad-soft);
   }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --mark-in: rgba(226, 52, 10, 0.82); --mark-out: #FFFFFF;
+    --bg: #0A0A0A; --bg-soft: #121212; --bg-alt: #181818; --bg-code: #1A1A1A;
+    --line: rgba(255,255,255,0.10); --line-strong: rgba(255,255,255,0.22);
+    --text: #F4F4F2; --text-mute: #B5B5B5; --text-faint: #7A7A7A;
+    --card-fill: #181818; --card-soft-fill: #121212; --card-stroke-faint: #2A2A2A;
+    --card-stroke: #F4F4F2; --card-stroke-soft: #7A7A7A;
+    --good: #06FF89; --good-soft: #0C2A1C; --bad: #FF5653; --bad-soft: #2A0C0B;
+    --warn: #F2FF58; --warn-soft: #2B2A0B; --info: #8FA3FF; --info-soft: #0E1638;
+    --m1: #3987e5; --m2: #d95926; --m3: #199e70; --m4: #c98500; --m5: #d55181;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  sub, sup { line-height: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body);
+         font-size: 16px; line-height: 1.6; min-height: 100vh;
+         display: flex; flex-direction: column; -webkit-font-smoothing: antialiased;
+         transition: background .2s ease, color .2s ease; }
+  main { flex: 1; }
+  /* Logo swap: POS artwork on light, NEG on dark — shared.css behaviour. */
+  .logo-light { display: block; }
+  .logo-dark { display: none; }
+  html[data-theme="dark"] .logo-light { display: none; }
+  html[data-theme="dark"] .logo-dark { display: block; }
+
+  /* ---- navbar (web/shared.css + web/experiments/index.html, verbatim behaviour) ---- */
+  .navbar { display: flex; align-items: center; justify-content: space-between; gap: 24px;
+            padding: 14px clamp(24px, 5vw, 80px); border-bottom: 1px solid var(--line);
+            background: var(--bg); font-family: var(--mono); font-size: 0.78rem;
+            letter-spacing: 0.06em; position: sticky; top: 0; z-index: 40; }
+  .navbar-brand { font-family: var(--mono); font-size: 0.78rem; text-transform: uppercase;
+                  letter-spacing: 0.14em; color: var(--text); text-decoration: none;
+                  font-weight: 700; white-space: nowrap; transition: color .12s ease; }
+  .navbar-brand:hover { color: var(--iog-infared); }
+  /* Brand lockup: the two halves of the Input Output mark flank the name, each word
+     taking the colour of the half beside it (shared.css). */
+  .navbar-brand { display: inline-flex; align-items: center; gap: 9px; }
+  .brand-half { height: 21px; width: auto; flex-shrink: 0; }
+  .brand-name { letter-spacing: 0.14em; color: var(--mark-out); }
+  .brand-scope { color: var(--mark-in); font-weight: 500; margin-right: 0.5em; }
+  .navbar-brand:hover .brand-scope { color: rgba(216, 44, 2, 1); }
+  .navbar-links { display: flex; gap: clamp(14px, 2.5vw, 28px); flex-wrap: wrap; justify-content: flex-end; }
+  .navbar-links a { color: var(--text-mute); text-decoration: none; text-transform: uppercase;
+                    letter-spacing: 0.12em; font-weight: 600; padding: 4px 0; position: relative;
+                    transition: color .12s ease; }
+  .navbar-links a:hover, .navbar-links a.active { color: var(--iog-infared); }
+  .navbar-links a.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2px;
+                                  height: 2px; background: var(--iog-infared); }
+  .navbar-icons { display: flex; align-items: center; gap: 10px; }
+  .nav-icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line-strong);
+                  background: var(--bg); color: var(--text); cursor: pointer; display: flex;
+                  align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0;
+                  padding: 0; transition: border-color .15s ease, color .15s ease; }
   .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
   .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
-
-  /* Collapsible navigation — links and icon buttons fold into a dropdown on small screens */
+  .nav-icon-btn .icon-sun { display: none; }
+  html[data-theme="dark"] .nav-icon-btn .icon-sun { display: block; }
+  html[data-theme="dark"] .nav-icon-btn .icon-moon { display: none; }
   .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
   .nav-menu-btn { display: none; }
   .nav-menu-btn .icon-close { display: none; }
@@ -58,207 +117,220 @@
   .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
   @media (max-width: 1040px) {
     .nav-menu-btn { display: flex; }
-    .nav-collapse {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
-      background: var(--bg);
-      border-bottom: 1px solid var(--line);
-      padding: 4px clamp(24px, 5vw, 80px) 18px;
-      z-index: 10;
-    }
+    .nav-collapse { display: none; position: absolute; top: 100%; left: 0; right: 0;
+                    flex-direction: column; align-items: stretch; gap: 0; background: var(--bg);
+                    border-bottom: 1px solid var(--line); padding: 4px clamp(24px, 5vw, 80px) 18px; z-index: 10; }
     .navbar.menu-open .nav-collapse { display: flex; }
     .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
     .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
     .navbar-icons { padding-top: 16px; }
   }
-  @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
+  @media (max-width: 560px) { .navbar-brand .brand-name { font-size: 0.72rem; } }
 
-  /* ---------- Page head ---------- */
-  section.page-head { padding: 40px 0 4px; }
-  .section-kind {
-    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
-    margin-bottom: 14px;
-  }
-  .page-head h1 {
-    font-family: var(--font-display);
-    font-size: clamp(1.7rem, 3vw, 2.3rem);
-    font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;
-    margin-bottom: 18px;
-  }
+  /* ---- section furniture (web/shared.css + the landing page's rhythm) ---- */
+  .container { max-width: clamp(820px, 76vw, 1280px); margin: 0 auto;
+               padding: 0 clamp(24px, 5vw, 80px); width: 100%; }
+  .section-kind { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+                  letter-spacing: 0.16em; color: var(--iog-infared); font-weight: 600; margin-bottom: 14px; }
+  section.page-head { padding: 56px 0 8px; }
+  .page-head h1 { font-family: var(--font-display); font-size: clamp(1.9rem, 4vw, 3rem);
+                  font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 18px; }
   .page-head .lede { color: var(--text-mute); max-width: 74ch; }
-  .page-head .lede + .lede { margin-top: 12px; }
+  section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+  main > section:nth-of-type(even) { background: var(--bg-soft); }
+  .section-head { margin-bottom: 32px; }
+  .section-head h2 { font-family: var(--font-display); font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+                     font-weight: 600; letter-spacing: -0.02em; }
+  .section-head p { color: var(--text-mute); max-width: 68ch; margin-top: 10px; font-size: 0.95rem; }
 
+  /* ---- footer (web/shared.css) ---- */
+  footer { border-top: 1px solid var(--line); padding: 30px 0 36px; margin-top: 40px; }
+  .footer-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 28px; padding-bottom: 30px; }
+  .footer-col { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+  .footer-col-title { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                      text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared);
+                      margin-bottom: 2px; }
+  .footer-col a { font-size: 0.9rem; color: var(--text-mute); text-decoration: none;
+                  transition: color .12s ease; }
+  .footer-col a:hover { color: var(--iog-infared); }
+  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px;
+                flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
+  .footer-brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-mono);
+                  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
+  .footer-credit { display: inline-flex; align-items: center; gap: 10px; }
+  .footer-wordmark { height: 13px; width: auto; }
+  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+             letter-spacing: 0.06em; }
 
-  /* The method, available but not in the way. */
-  .explainer { margin-top: 22px; border-top: 1px solid var(--line); }
-  .explainer > summary { cursor: pointer; padding: 14px 0 0; font-weight: 600;
-                         font-size: 0.95rem; list-style: none; }
-  .explainer > summary::-webkit-details-marker { display: none; }
-  .explainer > summary::before { content: "+"; display: inline-block; width: 1.1em;
-                                 color: var(--text-mute); font-weight: 400; }
-  .explainer[open] > summary::before { content: "\2212"; }
-  .explainer > summary:hover { color: var(--iog-cobalt-pulse); }
-  .explainer-body p { font-size: 0.95rem; line-height: 1.62; color: var(--text-mute);
-                      margin: 12px 0 0; }
+  button { font-family: var(--font-body); font-size: 0.82rem; color: var(--text); background: var(--bg);
+           border: 1px solid var(--line-strong); border-radius: 4px; padding: 6px 10px; cursor: pointer;
+           transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  button:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .ctl-btn { font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.06em;
+             text-transform: uppercase; padding: 9px 14px; border-radius: 4px; background: transparent; }
 
-  /* ---------- Model tabs ---------- */
-  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 18px; }
-  .model-tab {
-    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
-    letter-spacing: 0.06em;
-    padding: 9px 16px; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--text-mute);
-    transition: border-color .15s ease, color .15s ease, background .15s ease;
-  }
+  /* ---- environment rail — three values, no panel ---- */
+  .env-rail { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px;
+              padding: 12px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .env-item { display: flex; align-items: center; gap: 10px; flex: 1 1 230px; min-width: 0; }
+  .env-item .env-key { font-family: var(--mono); font-size: 0.86rem; font-weight: 600;
+                       color: var(--text); flex: none; }
+  .env-item input[type=range] { flex: 1 1 auto; min-width: 70px; }
+  .env-item .env-val { font-family: var(--mono); font-size: 0.76rem; color: var(--text-mute);
+                       font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
+                       min-width: 8ch; text-align: right; }
+  .env-rail select { font-family: var(--mono); font-size: 0.78rem; color: var(--text);
+                     background: var(--bg); border: 1px solid var(--line-strong);
+                     border-radius: 4px; padding: 5px 8px; }
+  .env-rail .env-reset { flex: none; margin-left: auto; }
+
+  /* ---- tab strips — the experiments page's .model-tab, reused ---- */
+  .tab-strip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tab-strip + .tab-strip { margin-top: 10px; }
+  .strip-label { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                 letter-spacing: 0.14em; color: var(--text-faint); font-weight: 600;
+                 margin-right: 4px; flex: none; }
+  .model-tab { font-family: var(--mono); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
+               padding: 9px 16px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line-strong);
+               background: transparent; color: var(--text-mute);
+               transition: border-color .15s ease, color .15s ease, background .15s ease; }
   .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
-  .model-tab.active { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
+  .model-tab[aria-pressed="true"] { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
 
-  /* ---------- Stage ---------- */
-  .stage {
-    display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
-    gap: 28px; align-items: stretch;
-  }
-  .stage-canvas {
-    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 22px 22px 16px;
-  }
-  .stage-canvas svg { width: 100%; height: auto; display: block; max-width: 660px; margin: 0 auto; }
+  /* Design tabs carry their own series colour instead of the infrared accent. */
+  .design-tab { display: inline-flex; align-items: center; gap: 8px; }
+  .design-tab .chip { width: 10px; height: 10px; border-radius: 2px; background: var(--mc); flex: none;
+                      opacity: .35; transition: opacity .15s ease; }
+  .design-tab:hover { border-color: var(--mc); color: var(--mc); }
+  .design-tab[aria-pressed="true"] { border-color: var(--mc); color: var(--mc); background: transparent; }
+  .design-tab[aria-pressed="true"] .chip { opacity: 1; }
+  .design-tab .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); }
+  .design-tab .dot.pass { background: var(--good); }
+  .design-tab .dot.fail { background: var(--bad); }
 
+  /* ---- stage — canvas + readout, the experiments page's two-column stage ---- */
+  .stage { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
+           gap: 24px; align-items: start; margin-top: 22px; }
+  .stage-canvas, .side-card { border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+                              background: var(--card-fill); padding: 20px 22px 16px; min-width: 0; }
+  .side-card h3 { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                  letter-spacing: 0.14em; color: var(--text-faint); font-weight: 600; margin-bottom: 12px; }
+  .read-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px;
+              align-items: center; padding: 9px 0; border-top: 1px solid var(--card-stroke-faint); }
+  .read-row:first-of-type { border-top: 0; padding-top: 0; }
+  .read-row .swatch { width: 16px; height: 16px; flex: none; }
+  .read-row .rname { font-weight: 600; font-size: 0.9rem; }
+  .read-row .rverdict { font-family: var(--mono); font-size: 0.74rem; justify-self: end;
+                        font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .read-row .rverdict.pass { color: var(--good); }
+  .read-row .rverdict.fail { color: var(--bad); }
+  .read-row .rparams { grid-column: 2 / -1; font-family: var(--mono); font-size: 0.72rem;
+                       color: var(--text-faint); }
+  .read-row.off { opacity: .4; }
+
+  /* ---- tuning drawer — expert surface, folded away by default ---- */
+  .drawer { margin-top: 18px; border-top: 1px solid var(--line); }
+  details > summary { cursor: pointer; font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+                      letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint);
+                      list-style: none; padding: 12px 0; display: flex; align-items: baseline; gap: 8px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: '▸'; font-size: 10px; transition: transform .15s ease; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  details > summary:hover { color: var(--iog-infared); }
+  details > summary:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .drawer-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+                 gap: 4px 20px; padding-bottom: 14px; }
+  /* One column per design once there is room, rather than four with a lone M5 below. */
+  @media (min-width: 1000px) { .drawer-body { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  .tune-group { padding: 4px 0 10px; min-width: 0; }
+  .tune-group .tg-head { display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+                         font-weight: 600; margin-bottom: 4px; }
+  .tune-group .tg-head .chip { width: 9px; height: 9px; border-radius: 2px; background: var(--mc); flex: none; }
+  .slider-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 2px 8px;
+                align-items: center; padding: 3px 0 7px; }
+  .slider-row label { grid-column: 1 / -1; color: var(--text-mute); font-size: 0.78rem;
+                      font-family: var(--mono); }
+  .slider-row input[type=range] { grid-column: 1; }
+  .slider-row output { font-family: var(--mono); font-size: 0.78rem; text-align: right;
+                       font-variant-numeric: tabular-nums; }
+  /* Ranges are styled explicitly rather than through accent-color: Chrome derives the
+     unfilled track from the accent, which turned the per-model sliders near-black. */
+  input[type=range] { width: 100%; min-width: 0; height: 18px; background: transparent;
+                      -webkit-appearance: none; appearance: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--grid); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border: none; border-radius: 50%; margin-top: -5px;
+    background: var(--mc, var(--accent)); }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--grid); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: var(--mc, var(--accent)); }
+  input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  /* ---- radar ---- */
+  svg#radar { width: 100%; max-width: 620px; height: auto; display: block; margin: 0 auto; }
   .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+  .hover-hint { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
+                letter-spacing: 0.05em; text-align: center; }
+  .axis-picker { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 2px 0 8px; }
+  .axis-picker label { display: inline-flex; gap: 6px; align-items: center; font-family: var(--font-mono);
+                       font-size: 0.74rem; color: var(--text-mute); cursor: pointer; }
 
-  /* The step card fills the column so the buttons keep a fixed position
-     regardless of how long the step description is. */
-  .stage-side { display: flex; flex-direction: column; gap: 14px; }
-  .step-card {
-    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 20px 22px; flex: 1;
+  /* ---- table ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+                background: var(--card-fill); padding: 4px 16px 8px; }
+  table { border-collapse: collapse; font-family: var(--font-mono); font-size: 0.78rem;
+          font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--card-stroke-faint); }
+  th { color: var(--text-faint); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600;
+       letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  th:first-child, td:first-child { text-align: left; }
+  td.best { font-weight: 700; color: var(--text); }
+  tr.hidden-model td { opacity: .38; }
+  td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
+              vertical-align: baseline; }
+  .hint { color: var(--text-faint); font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.04em; margin-top: 12px; }
+
+  /* ---- tooltips ----
+     One floating box serves both the glossary terms and the radar vertices. Terms are
+     reachable by keyboard (tabindex) and toggle on tap, so touch gets the same access
+     to the definitions that hover gives a mouse. */
+  .term { border-bottom: 1px dashed var(--line-strong); cursor: help; }
+  .term:hover, .term[aria-expanded="true"] { border-bottom-color: var(--iog-infared); color: var(--iog-infared); }
+  th .term, .hint .term { border-bottom-style: dotted; }
+  #tip, #tooltip { position: fixed; pointer-events: none; background: var(--card-fill);
+                   border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
+                   color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; z-index: 60; }
+  #tooltip { font-family: var(--font-mono); font-size: 0.72rem; }
+  #tip { max-width: min(320px, calc(100vw - 24px)); font-size: 0.82rem; line-height: 1.5; }
+  /* No text-transform on the key: it would turn μ and δ into their capitals. */
+  #tip .tip-key { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+                  letter-spacing: 0.12em; color: var(--iog-infared);
+                  display: block; margin-bottom: 5px; }
+  #tip b { font-weight: 600; }
+
+  /* ---- narrow viewports ---- */
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  @media (max-width: 620px) {
+    body { font-size: 15px; }
+    section.page-head { padding: 36px 0 4px; }
+    section.block { padding: 36px 0; }
+    .section-head { margin-bottom: 22px; }
+    .stage-canvas, .side-card { padding: 16px 14px 12px; }
+    .env-item { flex: 1 1 100%; }
+    .env-rail .env-reset { margin-left: 0; }
+    .model-tab { padding: 8px 12px; font-size: 0.74rem; }
+    .table-wrap { padding: 4px 10px 8px; }
+    footer { margin-top: 28px; }
   }
-  .step-desc { min-height: 5.2em; }
-  .step-count {
-    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
-    margin-bottom: 8px;
-  }
-  .step-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
-  .step-desc { font-size: 0.92rem; color: var(--text-mute); line-height: 1.6; }
-  .step-desc strong { color: var(--text); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .controls .ctl-btn { flex: 1 1 auto; }
-  .ctl-btn {
-    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 9px 14px; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--text);
-    transition: border-color .15s ease, color .15s ease;
-  }
-  .ctl-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
-  .ctl-btn:disabled { opacity: 0.35; cursor: default; }
-  .ctl-btn:disabled:hover { border-color: var(--line-strong); color: var(--text); }
-
-  .legend { padding: 12px 0 0; }
-  .legend-items { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
-  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-mute); }
-  .legend-item svg { width: 26px; height: 14px; flex-shrink: 0; }
-
-  /* ---------- Model notes — directly below the tab bar ---------- */
-  .model-notes {
-    margin: 0 0 24px; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 22px 24px;
-  }
-  .model-notes.swap { animation: notes-fade .4s ease; }
-  @keyframes notes-fade {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: none; }
-  }
-  @media (prefers-reduced-motion: reduce) { .model-notes.swap { animation: none; } }
-  .model-notes .card-kicker {
-    font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase;
-    letter-spacing: 0.14em; color: var(--iog-infared); font-weight: 600; margin-bottom: 10px;
-  }
-  .model-notes h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
-  .model-notes p { font-size: 0.93rem; color: var(--text-mute); line-height: 1.6; max-width: 90ch; }
-  .model-notes p + p { margin-top: 8px; }
-  .model-notes .knobs {
-    font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-faint);
-    letter-spacing: 0.04em; margin-top: 14px;
-  }
-
-  /* Footer chrome comes from shared.css; this page only adds the gap above it. */
-  footer { margin-top: 40px; }
-
-  /* ---------- SVG element states ---------- */
-  .node { fill: var(--card-fill); stroke: var(--line-strong); stroke-width: 1.5; transition: fill .35s ease, stroke .35s ease; }
-  .node.adv { fill: var(--text-faint); stroke: var(--text-faint); }
-  .node.informed { fill: var(--info-soft); stroke: var(--info); }
-  .node.missed { stroke: var(--bad); stroke-dasharray: 3 3; }
-  .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 1.5; opacity: 0; transition: opacity .35s ease; }
-  .pub-ring.on { opacity: 1; }
-  .node-label { font-family: var(--font-mono); font-size: 9px; fill: var(--iog-infared); font-weight: 600; opacity: 0; transition: opacity .35s ease; }
-  .node-label.on { opacity: 1; }
-
-  .edge { fill: none; stroke: var(--text-faint); stroke-width: 1; opacity: 0; transition: opacity .4s ease, stroke .4s ease; }
-  .edge.shown { opacity: 0.22; }
-  .edge.dead { stroke: var(--bad); stroke-dasharray: 4 4; }
-  .edge.dead.shown { opacity: 0.3; }
-  .edge.seed { stroke: var(--iog-infared); stroke-dasharray: 5 4; stroke-width: 1.4; }
-  .edge.seed.shown { opacity: 0.75; }
-  .edge.inpick { stroke-dasharray: 5 4; }
-  .edge.traversed { stroke: var(--info); opacity: 0.55; stroke-width: 1.4; }
-  .edge.hot { stroke: var(--info); opacity: 1; stroke-width: 2; }
-  .edge.absorbed { stroke: var(--bad); opacity: 0.8; stroke-width: 1.6; }
-
-  /* Hover focus — bold: the hovered node's own picks; thin: links others made to it */
-  .edge.dim { opacity: 0.05; }
-  .edge.focus-own { opacity: 1; stroke-width: 2.2; }
-  .edge.focus-other { opacity: 0.55; stroke-width: 1.1; }
-  .node:hover { stroke-width: 2.5; cursor: default; }
-
-  .hover-hint {
-    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
-    letter-spacing: 0.05em; text-align: center; margin-top: 12px;
-  }
-
-  @media (max-width: 900px) {
-    .stage { grid-template-columns: 1fr; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .node, .edge, .pub-ring, .node-label { transition: none; }
-  }
-
-  /* The CIP is written but not yet submitted upstream, so it is named and
-     marked rather than linked. Swap each for an <a> when it has a home. */
-  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
-                            color: var(--text-mute); cursor: default; }
-  .nav-soon { font-size: inherit; }
-  .footer-soon { font-size: 0.9rem; }
-  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
-                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
-                border: 1px solid var(--line-strong); color: var(--text-mute); }
-
-  .back-link { margin-top: 14px; }
-  .back-link a { color: var(--text-mute); text-decoration: none; font-size: 0.95rem; }
-  .back-link a:hover { color: var(--iog-infared); }
-
-  /* Breadcrumb: same weight as the old section kind, but it says where you are
-     and gets you back out. */
-  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
-                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
-  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
-  .breadcrumb a:hover { text-decoration: underline; }
-  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
-  .breadcrumb .crumb-here { color: var(--text-mute); }
-
-  /* Experiments owns two subpages; the nav says so on hover rather than hiding
+/* Experiments owns two subpages; the nav says so on hover rather than hiding
      them one click deep. */
   .nav-item { position: relative; display: inline-flex; align-items: center; }
   .nav-menu {
@@ -288,125 +360,15 @@
     .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
   }
 
-/* ---- cost model ---- */
-  /* Series colours, shared with the CIP figures so a model is the same
-     colour wherever it appears. */
-  .costmodel {
-    --m1: #2a78d6; --m2: #eb6834; --m3: #1baf7a; --m4: #eda100; --m5: #e87ba4;
-  }
-  html[data-theme="dark"] .costmodel {
-    --m1: #3987e5; --m2: #d95926; --m3: #199e70; --m4: #c98500; --m5: #d55181;
-  }
-
-  /* Tokens follow the repo's light-default / data-theme pattern; values from the
-     dataviz reference palette so the series colours are CVD-validated as a set. */
-      * { box-sizing: border-box; margin: 0; }
-  .costmodel body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--font-body); padding: 0 0 40px; }
-  .costmodel header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: baseline;
-           padding: 18px 22px 12px; border-bottom: 1px solid var(--card-stroke-faint); }
-  .costmodel header h1 { font-size: 18px; font-weight: 650; }
-  .costmodel header .sub { color: var(--text-mute); font-size: 13px; }
-  .costmodel header .spacer { flex: 1; }
-  .costmodel button { font: 12.5px var(--font-body); color: var(--text); background: var(--card-fill);
-           border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-  .costmodel button:hover { border-color: var(--text-faint); }
-  .costmodel .badge { font: 12px var(--font-mono); padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); }
-  .costmodel .badge.pass { color: var(--good); border-color: var(--good); }
-  .costmodel .badge.fail { color: var(--bad); border-color: var(--bad); }
-
-  .costmodel .layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px;
-            padding: 18px 22px; max-width: 1420px; margin: 0 auto; }
-  @media (max-width: 980px) { .costmodel .layout { grid-template-columns: 1fr; } }
-
-  /* ---- controls ---- */
-  .panel { background: var(--card-fill); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
-  .costmodel .controls { display: flex; flex-direction: column; gap: 12px; }
-  .costmodel .panel h2 { font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase;
-              color: var(--text-faint); margin-bottom: 8px; }
-  .costmodel .model-card { border-left: 4px solid var(--mc, var(--line-strong)); }
-  .costmodel .model-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .costmodel .model-head .name { font-weight: 650; }
-  .costmodel .model-head .mech { color: var(--text-mute); font-size: 12px; }
-  .costmodel .model-head input { margin-left: auto; }
-  /* The tunable constants are what the panel is for, so the value carries the
-     weight: the slider is the control, the number is the reading. */
-  .slider-row { display: grid; grid-template-columns: 108px 1fr 52px; gap: 8px; align-items: center;
-                padding: 4px 0; }
-  .costmodel .slider-row label { color: var(--text-mute); font-size: 13px; }
-  .costmodel .slider-row output { font: 600 16px var(--font-mono); text-align: right;
-                       font-variant-numeric: tabular-nums; color: var(--text); }
-  .costmodel input[type=range] { width: 100%; accent-color: var(--mc, var(--text-mute)); }
-
-  /* δ is a choice among three, so it reads as a control rather than as text. */
-  .slider-row select {
-    width: 100%; font: 600 14px var(--font-mono); color: var(--text);
-    background: var(--card-fill); border: 1px solid var(--line-strong); border-radius: 6px;
-    padding: 4px 26px 4px 9px; cursor: pointer; appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--text-mute) 50%),
-                      linear-gradient(135deg, var(--text-mute) 50%, transparent 50%);
-    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
-    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
-  }
-  .costmodel .slider-row select:hover { border-color: var(--text-mute); }
-  .costmodel .slider-row select:focus-visible { outline: 2px solid var(--good); outline-offset: 1px; }
-
-  .costmodel .readout { display: flex; gap: 8px; align-items: center; margin-top: 6px; font: 12.5px var(--font-mono); }
-  .costmodel .readout .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .costmodel .readout .dot.pass { background: var(--good); }
-  .costmodel .readout .dot.fail { background: var(--bad); }
-  .costmodel .readout .lbl { color: var(--text-mute); font-family: var(--font-body); }
-  .costmodel .readout .verdict { font-family: var(--font-body); font-weight: 600; }
-  .costmodel .readout .verdict.pass { color: var(--good); }
-  .costmodel .readout .verdict.fail { color: var(--bad); }
-
-  /* ---- viz ---- */
-  .viz { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-  .costmodel .axis-picker { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-  .costmodel .axis-picker label { display: inline-flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--text-mute); cursor: pointer; }
-  .costmodel .chart-wrap { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; justify-content: center; }
-  .costmodel svg#radar { width: min(100%, 540px); height: auto; }
-  .costmodel .legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-  .costmodel .legend .item { display: flex; gap: 8px; align-items: center; }
-  .costmodel .legend .chip { width: 18px; height: 8px; border-radius: 3px; }
-  .costmodel .legend .item .lname { font-weight: 600; }
-  .costmodel .legend .item .lparams { color: var(--text-mute); font: 12px var(--font-mono); }
-  .costmodel .hint { color: var(--text-faint); font-size: 12px; }
-  .costmodel .warn { border-left: 4px solid #fab219; background: var(--card-fill); border: 1px solid var(--line);
-          border-left-width: 4px; border-left-color: #fab219; border-radius: 6px;
-          padding: 8px 12px; font-size: 12.5px; color: var(--text-mute); }
-  .costmodel .warn b { color: var(--text); }
-
-  .costmodel .table-wrap { overflow-x: auto; }
-  .costmodel table { border-collapse: separate; border-spacing: 0; font: 12.5px var(--font-mono);
-          font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .costmodel th, .costmodel td { padding: 5px 10px; text-align: right; border-bottom: 1px solid var(--card-stroke-faint); }
-  .costmodel th { color: var(--text-faint); font: 600 11px var(--font-body); letter-spacing: .04em; }
-  .costmodel th:first-child, .costmodel td:first-child { text-align: left; }
-  /* The model name stays put while the values scroll under it, otherwise a row
-     read at the right-hand end belongs to nobody. */
-  th:first-child, td:first-child {
-    position: sticky; left: 0; z-index: 1; background: var(--card-fill);
-    box-shadow: 1px 0 0 var(--card-stroke-faint);
-  }
-  .costmodel td.best { font-weight: 700; }
-  .costmodel tr.hidden-model td { opacity: .38; }
-  .costmodel td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: baseline; }
-
-  .costmodel footer { max-width: 1420px; margin: 8px auto 0; padding: 0 22px; color: var(--text-mute); font-size: 12.5px; }
-  .costmodel footer ul { padding-left: 18px; }
-  .costmodel details { margin-top: 8px; }
-  .costmodel details li { font: 12px var(--font-mono); }
-  .costmodel details li.ok { color: var(--good); }
-  .costmodel details li.bad { color: var(--bad); }
-
-  .costmodel #tooltip { position: fixed; pointer-events: none; background: var(--card-fill); border: 1px solid var(--line-strong);
-             border-radius: 6px; padding: 6px 9px; font: 12px var(--font-mono); box-shadow: 0 2px 8px rgba(0,0,0,.15);
-             display: none; z-index: 10; }
-
-  .costmodel { background: var(--bg); color: var(--text); font-family: var(--font-body); }
-  .costmodel .layout { padding-top: 4px; }
-  .costmodel h1 { font-family: var(--font-display); letter-spacing: -0.01em; }
-
+/* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
 </style>
 </head>
 <body>
@@ -416,12 +378,12 @@
 </svg>
 
 <nav class="navbar" aria-label="Primary">
-  <a class="navbar-brand" href="../../">
-    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
-    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+  <a class="navbar-brand" href="../">
+    <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
     <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
-    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
   </a>
   <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
     <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -435,19 +397,18 @@
       <a href="../" class="active">Experiments</a>
       <span class="nav-menu">
         <a href="../">Overview</a>
-        <a href="./">Dissemination model simulator</a>
-        <a href="../cost-model/" class="active">Cost model</a>
+        <a href="../models/">Dissemination model simulator</a>
+        <a href="./" class="active">Cost model</a>
       </span>
     </span>
     <a href="../../#activity">Activity</a>
     <a href="../../#materials">Materials</a>
-    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
       <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
     </a>
-    <button class="nav-icon-btn theme-toggle" type="button" aria-label="Toggle color theme">
+    <button class="nav-icon-btn theme-toggle" id="btn-theme" type="button" aria-label="Toggle color theme">
       <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
     </button>
@@ -463,71 +424,83 @@
         <span class="crumb-sep">/</span>
         <span class="crumb-here" aria-current="page">Cost model</span>
       </nav>
+      <h1>What each design costs</h1>
+      <p class="lede">
+        The five models all clear the same bar. This page prices them: every figure is a
+        closed form from the M1–M5 analyses, evaluated live at the environment you set.
+        Hover, tap or tab to any <span class="term" data-term="how" tabindex="0">underlined term</span>
+        for what it means.
+      </p>
     </div>
   </section>
-  <div class="costmodel">
 
-<header>
-  <h1>Hybrid dissemination models — closed-forms dashboard</h1>
-  <span class="sub">M1–M5 property laws, live. Radar: outward = better (fixed reference ranges).</span>
-  <span class="spacer"></span>
-  <span id="selftest-badge" class="badge">self-test…</span>
-  <button id="btn-reset">Reset to proposed operating points</button>
-</header>
+  <section class="block" id="compare">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Comparison</div>
+        <h2>Five designs, eight properties, one environment</h2>
+      </header>
 
-<div class="layout">
-  <aside class="controls">
-    <div class="panel">
-      <h2>Environment</h2>
-      <div class="slider-row"><label for="g-mu">μ (adversarial)</label>
-        <input type="range" id="g-mu" min="0" max="0.6" step="0.005" value="0.2"><output id="o-mu">0.200</output></div>
-      <div class="slider-row"><label for="g-N">N (nodes)</label>
-        <input type="range" id="g-N" min="1000" max="50000" step="1000" value="20000"><output id="o-N">20k</output></div>
-      <div class="slider-row"><label for="g-delta">δ target</label>
-        <select id="g-delta"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option></select>
-        <output></output></div>
-    </div>
-    <div id="model-cards"></div>
-  </aside>
+      <div class="env-rail" role="group" aria-label="Environment">
+        <!-- The keys are spans, not labels: a label would forward a tap to its control
+             and close the tooltip the tap was meant to open. The controls carry their
+             own aria-label instead. -->
+        <div class="env-item">
+          <span class="env-key term" data-term="mu">μ</span>
+          <input type="range" id="g-mu" min="0" max="0.6" step="0.005" value="0.2"
+                 aria-label="Adversarial share mu, fraction of N">
+          <output class="env-val" id="o-mu" for="g-mu">0.200</output>
+        </div>
+        <div class="env-item">
+          <span class="env-key term" data-term="N">N</span>
+          <input type="range" id="g-N" min="1000" max="50000" step="1000" value="20000"
+                 aria-label="Network size N, registered nodes">
+          <output class="env-val" id="o-N" for="g-N">20 000</output>
+        </div>
+        <div class="env-item" style="flex:0 1 auto">
+          <span class="env-key term" data-term="delta">δ</span>
+          <select id="g-delta" aria-label="Failure target delta"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option></select>
+        </div>
+        <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
+      </div>
 
-  <section class="viz">
-    <div class="panel">
-      <h2>Radar axes</h2>
-      <div class="axis-picker" id="axis-picker"></div>
+      <div class="tab-strip" role="group" aria-label="Designs shown" id="design-tabs">
+        <span class="strip-label">Designs</span>
+      </div>
+
+      <div class="stage">
+        <div class="stage-canvas">
+          <svg id="radar" viewBox="0 0 700 620" role="img" aria-label="Radar chart of model properties"></svg>
+          <div class="canvas-footer">
+            <div class="hover-hint">Outward is better on every axis · hover a vertex for its value</div>
+          </div>
+        </div>
+        <div class="side-card">
+          <h3>Verdict at this point</h3>
+          <div id="model-rows"></div>
+        </div>
+      </div>
+
+      <div class="drawer">
+        <details id="tune-details">
+          <summary id="tune-summary">Tune parameters &amp; axes</summary>
+          <div class="drawer-body" id="model-cards"></div>
+          <div class="axis-picker" id="axis-picker" role="group" aria-label="Axes shown"></div>
+        </details>
+      </div>
     </div>
-    <p class="warn">⚠ <b>Closed forms, not measurements.</b> Every value on these graphs is computed
-    from the models' closed-form laws. The laws are leading-order approximations, validated against
-    Monte-Carlo simulation and prototype experiments only at specific parameter points (chiefly the
-    N&nbsp;=&nbsp;20&nbsp;000, μ&nbsp;=&nbsp;0.2 operating points, plus a handful of elevated-μ and
-    deep-tail cells); hop counts are asymptotic with fitted constants. Away from the validated
-    points, the curves are extrapolation, not measured behaviour.</p>
-    <div class="panel chart-wrap">
-      <svg id="radar" viewBox="0 0 640 600" role="img" aria-label="Radar chart of model properties"></svg>
-      <div class="legend" id="legend"></div>
-    </div>
-    <div class="panel">
-      <h2>Raw values (table view)</h2>
+  </section>
+
+  <section class="block" id="values-section">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Raw values</div>
+        <h2>Every property, numerically</h2>
+      </header>
       <div class="table-wrap"><table id="values"></table></div>
-      <p class="hint" style="margin-top:6px">Bold = best in column among visible models. Hops are asymptotic
-      (ln H / ln branching + measured offsets) — constants are simulation-only, treat as ≈.</p>
+      <p class="hint">Bold = best in column among the designs shown · closed forms only, no Monte Carlo</p>
     </div>
   </section>
-</div>
-
-<footer>
-  <ul>
-    <li>All numbers are the documented closed forms (raw laws; the retired ×1.11 tail correction is not applied). No Monte Carlo.</li>
-    <li>Property 6 (re-provisioning) is not an axis: raise μ and move the sliders until the P(bad) dot passes δ again.</li>
-    <li>Eclipse costs follow the adaptive-eclipse analyses: A = a chosen victim's mean cost (cheaper direction; M3 uses the deafen-coverage reading), B = network minimum E[min] = Σ<sub>j≥1</sub> P(D≥j)<sup>H</sup>.</li>
-    <li>Radar normalization ranges: P(bad) log₁₀ [10⁻⁸,1] · copies/honest [0,30] · hops [3,9] · links [0,70] · Δμ [0,0.10] · collapse [0.2,0.7] · eclipse A [0,25] · eclipse B [0,12]; all clamped, oriented outward = better.</li>
-  </ul>
-  <details id="selftest-details"><summary>Self-test detail</summary><ul id="selftest-list"></ul></details>
-</footer>
-<div id="tooltip"></div>
-
-
-
-  </div>
 </main>
 
 <footer>
@@ -537,9 +510,8 @@
         <div class="footer-col-title">Research</div>
         <a href="../../#scenarios">Scenarios</a>
         <a href="../../#research">Programme</a>
-        <a href="../">Dissemination models</a>
-        <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
-        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
+        <a href="./">Dissemination models</a>
+        <a href="../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
@@ -557,50 +529,23 @@
     </nav>
     <div class="footer-row">
       <span class="footer-brand">
-        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
-        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
         <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
-        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
       </span>
       <p class="footer-credit">
-        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output">
-        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output">
+        <img class="footer-wordmark logo-light" src="../assets/io-wordmark-pos.png" alt="Input Output" onerror="this.remove()">
+        <img class="footer-wordmark logo-dark" src="../assets/io-wordmark-neg.png" alt="Input Output" onerror="this.remove()">
         <span>2026</span>
       </p>
     </div>
   </div>
 </footer>
+<div id="tooltip"></div>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
 
-
-
-<script>
-(function () {
-  // ---------- Theme toggle (same behaviour as the landing page) ----------
-  var root = document.documentElement;
-  var stored = null;
-  try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
-  if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
-  document.querySelector('.theme-toggle').addEventListener('click', function () {
-    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
-  });
-
-  var navbar = document.querySelector('.navbar');
-  var menuBtn = document.querySelector('.nav-menu-btn');
-  menuBtn.addEventListener('click', function () {
-    var open = navbar.classList.toggle('menu-open');
-    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
-  document.querySelectorAll('.navbar-links a').forEach(function (link) {
-    link.addEventListener('click', function () {
-      navbar.classList.remove('menu-open');
-      menuBtn.setAttribute('aria-expanded', 'false');
-    });
-  });
-})();
-</script>
 <script>
 /* ================= MATH-BEGIN =================
    JS port of the closed forms in m1..m5 scripts/m*_model.py and the mu-shift /
@@ -688,7 +633,7 @@ const MM = (() => {
     },
     m3: {
       label: 'M3', mech: 'pull RF + s−1 initiation',
-      defaults: { RF: 13, s: 7 },
+      defaults: { RF: 12, s: 8 },
       sliders: [{ key: 'RF', label: 'RF (pull fanout)', min: 1, max: 30 },
                 { key: 's', label: 's (initial holders)', min: 1, max: 15 }],
       E(N, k, p) {
@@ -707,7 +652,7 @@ const MM = (() => {
     },
     m4: {
       label: 'M4', mech: 'bidirectional flood, RF',
-      defaults: { RF: 9 },
+      defaults: { RF: 8 },
       sliders: [{ key: 'RF', label: 'RF (peers picked)', min: 2, max: 20 }],
       E(N, k, p) {
         const H = N - k;
@@ -982,81 +927,299 @@ if (typeof document !== 'undefined') (() => {
   const fmt1 = v => v === null ? '—' : v.toFixed(1);
   const fmt3 = v => v.toFixed(3);
 
+  /* `unit`, `outer` and `tip` are presentation only: `unit` states the quantity's unit
+     on the axis label, `outer` prints the value the outer ring stands for — the best end
+     of the fixed reference range, since every axis is oriented outward = better — and
+     `tip` is the hover/tap definition, carrying the range the axis is scaled over. */
   const AXES = [
-    { key: 'pbad', label: 'P(bad)', better: 'lower',
+    { key: 'pbad', label: 'P(bad)', unit: 'probability', outer: '10⁻⁸', better: 'lower',
+      tip: 'Probability that an epoch’s sampled graph fails to reach every honest node. Has to stay under δ. Radar range 10⁻⁸ to 1, log scale.',
       norm: v => v <= 0 ? 1 : clamp01(-Math.log10(Math.max(v, 1e-8)) / 8), fmt: fmtSci },
-    { key: 'copies', label: 'copies/honest', better: 'lower', norm: v => 1 - clamp01(v / 30), fmt: fmt1 },
-    { key: 'hopsFull', label: 'hops (full) ≈', better: 'lower',
+    { key: 'copies', label: 'copies', unit: 'per honest node', outer: '0', better: 'lower',
+      tip: 'How many times the average honest node receives one published message. The per-message price of redundancy. Radar range 0 to 30.',
+      norm: v => 1 - clamp01(v / 30), fmt: fmt1 },
+    { key: 'hopsFull', label: 'hops (full) ≈', unit: 'hops', outer: '3', better: 'lower',
+      tip: 'Rounds of forwarding before the last honest node holds the message: ln H / ln branching plus a measured offset. Asymptotic, so ≈. Radar range 3 to 9.',
       norm: v => v === null ? 0 : 1 - clamp01((v - 3) / 6), fmt: fmt1 },
-    { key: 'links', label: 'links/node', better: 'lower', norm: v => 1 - clamp01(v / 70), fmt: fmt1 },
-    { key: 'dmu', label: 'μ-budget Δμ', better: 'higher', norm: v => clamp01(v / 0.10), fmt: fmt3 },
-    { key: 'collapse', label: 'collapse μ', better: 'higher', norm: v => clamp01((v - 0.2) / 0.5), fmt: fmt3 },
-    { key: 'eclA', label: 'eclipse A', better: 'higher', norm: v => clamp01(v / 25), fmt: fmt1 },
-    { key: 'eclB', label: 'eclipse B', better: 'higher', norm: v => clamp01(v / 12), fmt: fmt1 },
+    { key: 'links', label: 'links', unit: 'per node', outer: '0', better: 'lower',
+      tip: 'Standing links a compliant node holds: drawn once per epoch, then carrying every message of every publisher for that epoch. Radar range 0 to 70.',
+      norm: v => 1 - clamp01(v / 70), fmt: fmt1 },
+    { key: 'dmu', label: 'Δμ headroom', unit: 'μ, absolute', outer: '0.10', better: 'higher',
+      tip: 'How much further μ can rise, at these parameters, before P(bad) crosses δ. Radar range 0 to 0.10.',
+      norm: v => clamp01(v / 0.10), fmt: fmt3 },
+    { key: 'collapse', label: 'collapse μ', unit: 'μ, absolute', outer: '0.70', better: 'higher',
+      tip: 'The μ at which half of all epochs draw a bad graph — the point the design stops working rather than merely missing its target. Radar range 0.20 to 0.70.',
+      norm: v => clamp01((v - 0.2) / 0.5), fmt: fmt3 },
+    { key: 'eclA', label: 'eclipse A', unit: 'links to buy', outer: '25', better: 'higher',
+      tip: 'Adaptive-eclipse cost of one <b>chosen</b> victim: the mean number of links an adversary must buy, taking the cheaper direction. Radar range 0 to 25.',
+      norm: v => clamp01(v / 25), fmt: fmt1 },
+    { key: 'eclB', label: 'eclipse B', unit: 'links to buy', outer: '12', better: 'higher',
+      tip: 'Adaptive-eclipse cost of the network’s <b>cheapest</b> victim, E[min] over all honest nodes. Radar range 0 to 12.',
+      norm: v => clamp01(v / 12), fmt: fmt1 },
   ];
 
+  /* ---- glossary — the page's prose, moved onto hover/tap/focus ---- */
+  const GLOSSARY = {
+    how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
+    mu: ['μ', 'Adversarial share: the fraction of the N registered nodes that are silent Byzantine — they receive every message and forward none. Nobody knows which they are. Raise it past a design’s Δμ and open <b>Tune parameters</b> to see what that design has to buy to clear δ again.'],
+    N: ['N', 'Network size: nodes in the on-chain registry. H = N − μN of them are honest, and the guarantee is stated over those.'],
+    delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it.'],
+    epoch: ['Epoch', 'The interval a drawn topology serves. Links are drawn once at sync and then carry every message of every publisher until the next epoch.'],
+    churn: ['Churn budget', 'The share of nodes that may fall silent mid-epoch before P(bad) rises past δ — silence from crashes and departures, not only from adversaries.'],
+    muBudget: ['μ-budget', 'The largest adversarial share these parameters still clear δ at.'],
+    msgs: ['Messages per publication', 'Total transmissions the whole network makes to deliver one published message.'],
+    degree: ['Honest degree', 'In- and out-degree of an honest node, mean ± standard deviation. Uneven degrees are what eclipse attacks shop for.'],
+    preset_recommended: ['Recommended', 'The proposal’s current advice. M3 moves one unit of the same 19-link budget from initiation to pull (RF=13, s=7); M4 spends one more peer (RF=9). M1, M2 and M5 are unchanged.'],
+    preset_published: ['As published', 'The operating points the closed-form write-ups were published with — kept for comparison.'],
+    preset_custom: ['Custom', 'The sliders no longer match either published set. Pick a preset to go back.'],
+    // The mechanism wording is the site's own, from the landing page's model strip.
+    model_m1: ['M1 · push', 'Every node, on first receipt, pushes the message to F random peers.'],
+    model_m2: ['M2 · pull', 'Each node pulls from RF forwarders, redrawn every epoch.'],
+    model_m3: ['M3 · pull + publishing links', 'Per-epoch pull plus s−1 publishing links carrying only the node’s own publications.'],
+    model_m4: ['M4 · bidirectional', 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.'],
+    model_m5: ['M5 · directed', 'k_in inbound + k_out outbound links, both the node’s own picks.'],
+  };
+  const termFor = key => GLOSSARY[key];
+
+  /* ---- operating-point presets ----------------------------------------------
+     "As published" is read straight out of MM.models[*].defaults, so the two can
+     never drift apart. "Recommended" is the proposal's current advice: M3 moves one
+     unit of the same 19-link budget from initiation to pull (RF=13, s=7) and M4
+     spends one more peer (RF=9). M1, M2 and M5 are the same in both. */
+  const REF_ENV = { N: 20000, mu: 0.2, delta: 1e-4 };
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const PUBLISHED = Object.fromEntries(MODEL_IDS.map(id => [id, { ...MM.models[id].defaults }]));
+  const RECOMMENDED = { ...clone(PUBLISHED), m3: { RF: 13, s: 7 }, m4: { RF: 9 } };
+  // Quoted in the preset note; derived from the laws so the prose cannot go stale.
+  const churnAt = (id, p) => (100 * MM.compute(id, REF_ENV, p).churn).toFixed(2) + ' %';
+  const PRESETS = {
+    recommended: { label: 'Recommended', params: RECOMMENDED },
+    published: { label: 'As published', params: PUBLISHED },
+  };
+  const DEFAULT_PRESET = 'recommended';
+  // The two presets differ only in M3's split and M4's degree; the churn figures that
+  // make the case are read from the laws, so the tooltip text cannot go stale.
+  GLOSSARY.preset_recommended[1] += ` At N = 20 000, μ = 0.20, δ = 10⁻⁴ the 13/7 split tolerates
+    ${churnAt('m3', RECOMMENDED.m3)} silent nodes against ${churnAt('m3', PUBLISHED.m3)} for 12/8,
+    at the identical 19-link budget.`;
+  GLOSSARY.preset_published[1] += ` M4 at RF=8 tolerates ${churnAt('m4', PUBLISHED.m4)} silent
+    nodes there, against ${churnAt('m4', RECOMMENDED.m4)} for one more peer at RF=9.`;
+
   const state = {
-    env: { N: 20000, mu: 0.2, delta: 1e-4 },
-    params: Object.fromEntries(MODEL_IDS.map(id => [id, { ...MM.models[id].defaults }])),
+    env: { ...REF_ENV },
+    preset: DEFAULT_PRESET,
+    params: clone(PRESETS[DEFAULT_PRESET].params),
     visible: Object.fromEntries(MODEL_IDS.map(id => [id, true])),
-    axes: Object.fromEntries(AXES.map(a => [a.key, true])),
+    // The four the CIP plots. The others rest on a different adversary model,
+    // so they are offered but not shown side by side by default.
+    axes: Object.fromEntries(AXES.map(a => [a.key, ['copies', 'links', 'hopsFull', 'dmu'].includes(a.key)])),
   };
 
   /* ---- theme ---- */
+  // The key is the site-wide one, so the theme carries over from the other web/ pages.
+  // Chrome refuses localStorage on file:// — guarded, as elsewhere in web/.
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   const urlTheme = new URLSearchParams(location.search).get('theme');
-  const storedTheme = urlTheme || localStorage.getItem('mmdash-theme');
+  const storedTheme = urlTheme || store.get('pubsub-theme');
+  if (storedTheme === 'dark' || storedTheme === 'light') document.documentElement.dataset.theme = storedTheme;
+  else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
+  $('#btn-theme').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    store.set('pubsub-theme', next);
+    recompute();
+  });
 
-  /* ---- build controls ---- */
-  const cardsHost = $('#model-cards');
+  /* ---- navbar — the collapsing menu the other web/ pages use ---- */
+  const navbar = $('.navbar'), menuBtn = $('.nav-menu-btn');
+  menuBtn.addEventListener('click', () => {
+    const open = navbar.classList.toggle('menu-open');
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.querySelectorAll('.navbar-links a').forEach(a => a.addEventListener('click', () => {
+    navbar.classList.remove('menu-open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }));
+
+  /* ---- tooltips ----------------------------------------------------------------
+     One floating box, driven by delegation so dynamically built controls need no
+     wiring. Three ways in, deliberately: hover for a mouse, focus for the keyboard
+     (every term carries tabindex), and tap for touch, where there is no hover at all.
+     A tap on a plain term toggles it; on a control that already does something —
+     a preset tab, a design tab — the tooltip opens and the control still acts. */
+  const tip = $('#tip');
+  let tipEl = null;
+  function tipContent(node) {
+    const g = node.dataset.term ? termFor(node.dataset.term) : null;
+    if (g) return `<span class="tip-key">${g[0]}</span>${g[1]}`;
+    return node.dataset.tip || '';
+  }
+  function showTip(node) {
+    const html = tipContent(node);
+    if (!html) return;
+    tipEl = node;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.setAttribute('aria-hidden', 'false');
+    node.setAttribute('aria-describedby', 'tip');
+    if (node.classList.contains('term')) node.setAttribute('aria-expanded', 'true');
+    const r = node.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+    const above = r.bottom + t.height + 12 > innerHeight && r.top > t.height + 12;
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(above ? r.top - t.height - 8 : r.bottom + 8) + 'px';
+  }
+  function hideTip() {
+    if (tipEl) {
+      tipEl.removeAttribute('aria-describedby');
+      if (tipEl.classList.contains('term')) tipEl.setAttribute('aria-expanded', 'false');
+    }
+    tipEl = null;
+    tip.style.display = 'none';
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  const tipTarget = e => e.target.closest && e.target.closest('[data-term],[data-tip]');
+  document.addEventListener('pointerover', e => {
+    if (e.pointerType === 'touch') return;      // touch raises pointerover before click
+    const n = tipTarget(e);
+    if (n) showTip(n); else if (tipEl) hideTip();
+  });
+  document.addEventListener('focusin', e => { const n = tipTarget(e); if (n) showTip(n); else hideTip(); });
+  document.addEventListener('focusout', e => { if (tipTarget(e) === tipEl) hideTip(); });
+  document.addEventListener('click', e => {
+    const n = tipTarget(e);
+    if (!n) { hideTip(); return; }
+    if (n === tipEl && n.classList.contains('term')) hideTip(); else showTip(n);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
+  addEventListener('scroll', () => { if (tipEl) hideTip(); }, { passive: true });
+  // Terms are spans, so they need explicit keyboard reachability.
+  const markTerms = root => root.querySelectorAll('.term').forEach(el => {
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+    if (!el.hasAttribute('aria-expanded')) el.setAttribute('aria-expanded', 'false');
+  });
+  markTerms(document);
+
+  /* ---- build controls ----
+     Three surfaces, in the order a reader needs them: a tab per design, which says
+     what it is and switches it on the radar; a readout card, which says how it did
+     here; and a folded drawer of sliders and axes, which only a returning reader
+     opens. Units are attached here rather than in the model definitions, which stay
+     untouched. */
+  const UNITS = { 'm1:F': 'pushes/receipt', 'm2:RF': 'links/node', 'm3:RF': 'links/node',
+                  'm3:s': 'holders/msg', 'm4:RF': 'links/node',
+                  'm5:kin': 'links/node', 'm5:kout': 'links/node' };
+  // Radar vertex shapes, repeated in the readout so the card doubles as the legend.
+  const SWATCH = {
+    circle: '<circle cx="8" cy="8" r="5"/>',
+    square: '<rect x="3" y="3" width="10" height="10"/>',
+    triangle: '<path d="M8 2 L14 13 L2 13 Z"/>',
+    diamond: '<path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z"/>',
+    cross: '<path d="M3 3 L13 13 M3 13 L13 3" stroke-width="2.6" stroke="currentColor" fill="none"/>',
+  };
+  const tabsHost = $('#design-tabs'), rowsHost = $('#model-rows'), cardsHost = $('#model-cards');
   for (const id of MODEL_IDS) {
     const m = MM.models[id];
-    const card = document.createElement('div');
-    card.className = 'panel model-card';
-    card.style.setProperty('--mc', `var(--${id})`);
-    card.innerHTML = `
-      <div class="model-head"><span class="name">${m.label}</span>
-        <span class="mech">${m.mech}</span>
-        <input type="checkbox" checked data-vis="${id}" title="show on radar"></div>
+
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'model-tab design-tab';
+    tab.style.setProperty('--mc', `var(--${id})`);
+    tab.dataset.vis = id;
+    tab.dataset.term = `model_${id}`;
+    tab.setAttribute('aria-pressed', 'true');
+    tab.innerHTML = `<span class="chip"></span>${m.label}<span class="dot" data-dot="${id}"></span>`;
+    tabsHost.appendChild(tab);
+
+    const row = document.createElement('div');
+    row.className = 'read-row';
+    row.style.setProperty('--mc', `var(--${id})`);
+    row.dataset.row = id;
+    row.innerHTML = `
+      <svg class="swatch" viewBox="0 0 16 16" aria-hidden="true" fill="var(--${id})" stroke="none">${SWATCH[MARKERS[id]]}</svg>
+      <span class="rname"><span class="term" data-term="model_${id}">${m.label}</span></span>
+      <span class="rverdict" data-verdict="${id}"></span>
+      <span class="rparams" data-params="${id}"></span>`;
+    rowsHost.appendChild(row);
+
+    const group = document.createElement('div');
+    group.className = 'tune-group';
+    group.style.setProperty('--mc', `var(--${id})`);
+    group.innerHTML = `
+      <div class="tg-head"><span class="chip"></span>${m.label}</div>
       ${m.sliders.map(s => `
-        <div class="slider-row"><label>${s.label}</label>
-          <input type="range" min="${s.min}" max="${s.max}" step="1"
-                 value="${m.defaults[s.key]}" data-model="${id}" data-key="${s.key}">
-          <output data-out="${id}:${s.key}">${m.defaults[s.key]}</output></div>`).join('')}
-      <div class="readout"><span class="dot" data-dot="${id}"></span>
-        <span data-pbad="${id}"></span><span class="lbl">P(bad)</span><span class="verdict" data-verdict="${id}"></span></div>`;
-    cardsHost.appendChild(card);
+        <div class="slider-row">
+          <label for="s-${id}-${s.key}">${s.label}
+            <span style="color:var(--text-faint)">${UNITS[`${id}:${s.key}`] || ''}</span></label>
+          <input type="range" id="s-${id}-${s.key}" min="${s.min}" max="${s.max}" step="1"
+                 value="${state.params[id][s.key]}" data-model="${id}" data-key="${s.key}">
+          <output data-out="${id}:${s.key}">${state.params[id][s.key]}</output></div>`).join('')}`;
+    cardsHost.appendChild(group);
   }
+  markTerms(rowsHost);
+  tabsHost.addEventListener('click', e => {
+    const b = e.target.closest('button[data-vis]');
+    if (!b) return;
+    const id = b.dataset.vis;
+    state.visible[id] = !state.visible[id];
+    b.setAttribute('aria-pressed', state.visible[id] ? 'true' : 'false');
+    recompute();
+  });
   cardsHost.addEventListener('input', e => {
     const t = e.target;
-    if (t.dataset.model) {
-      const id = t.dataset.model, key = t.dataset.key;
-      state.params[id][key] = +t.value;
-      if (id === 'm5' && state.params.m5.kin + state.params.m5.kout < 1) {
-        const other = key === 'kin' ? 'kout' : 'kin';
-        state.params.m5[other] = 1;
-        cardsHost.querySelector(`input[data-model=m5][data-key=${other}]`).value = 1;
-      }
-      recompute();
-    } else if (t.dataset.vis) { state.visible[t.dataset.vis] = t.checked; recompute(); }
+    if (!t.dataset.model) return;
+    const id = t.dataset.model, key = t.dataset.key;
+    state.params[id][key] = +t.value;
+    if (id === 'm5' && state.params.m5.kin + state.params.m5.kout < 1) {
+      const other = key === 'kin' ? 'kout' : 'kin';
+      state.params.m5[other] = 1;
+      cardsHost.querySelector(`input[data-model=m5][data-key=${other}]`).value = 1;
+    }
+    recompute();
   });
 
   $('#g-mu').addEventListener('input', e => { state.env.mu = +e.target.value; recompute(); });
   $('#g-N').addEventListener('input', e => { state.env.N = +e.target.value; recompute(); });
   $('#g-delta').addEventListener('input', e => { state.env.delta = +e.target.value; recompute(); });
-  $('#btn-reset').addEventListener('click', () => {
-    state.env = { N: 20000, mu: 0.2, delta: 1e-4 };
-    $('#g-mu').value = 0.2; $('#g-N').value = 20000; $('#g-delta').value = '1e-4';
-    for (const id of MODEL_IDS) {
-      state.params[id] = { ...MM.models[id].defaults };
+
+  function applyPreset(name) {
+    state.preset = name;
+    state.params = clone(PRESETS[name].params);
+    for (const id of MODEL_IDS)
       for (const s of MM.models[id].sliders)
-        cardsHost.querySelector(`input[data-model=${id}][data-key=${s.key}]`).value = MM.models[id].defaults[s.key];
-    }
+        cardsHost.querySelector(`input[data-model=${id}][data-key=${s.key}]`).value = state.params[id][s.key];
     recompute();
+  }
+  // Which preset (if any) the sliders currently sit on — a nudged slider reads "custom".
+  function matchPreset() {
+    for (const [name, pre] of Object.entries(PRESETS))
+      if (MODEL_IDS.every(id => MM.models[id].sliders.every(s => state.params[id][s.key] === pre.params[id][s.key])))
+        return name;
+    return null;
+  }
+  // The preset switch is gone: this page carries the proposed operating point
+  // only, so there is nothing to switch between.
+  const presetHost = $('.preset-switch');
+  if (presetHost) {
+    presetHost.addEventListener('click', e => {
+      const b = e.target.closest('button[data-preset]');
+      if (b) applyPreset(b.dataset.preset);
+    });
+    for (const b of presetHost.querySelectorAll('button[data-preset]'))
+      b.dataset.term = `preset_${b.dataset.preset}`;
+  }
+  $('#btn-reset').addEventListener('click', () => {
+    state.env = { ...REF_ENV };
+    $('#g-mu').value = REF_ENV.mu; $('#g-N').value = REF_ENV.N; $('#g-delta').value = '1e-4';
+    applyPreset(DEFAULT_PRESET);
   });
+  $('#btn-reset').dataset.tip = 'Back to the recommended parameters at N = 20 000, μ = 0.20, δ = 10⁻⁴.';
 
   const axHost = $('#axis-picker');
   for (const a of AXES) {
     const l = document.createElement('label');
+    l.dataset.tip = a.tip;
     l.innerHTML = `<input type="checkbox" checked data-axis="${a.key}"> ${a.label}`;
     axHost.appendChild(l);
   }
@@ -1066,16 +1229,18 @@ if (typeof document !== 'undefined') (() => {
 
   /* ---- radar ---- */
   const svg = $('#radar'), tooltip = $('#tooltip');
+  let lastResults = null, lastCompact = null;
   const NS = 'http://www.w3.org/2000/svg';
-  const CX = 320, CY = 300, R = 218;
+  const CX = 350, CY = 300, R = 205, BASE_VIEWBOX = '0 0 700 620';
   function el(tag, attrs, parent) {
     const n = document.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
     (parent || svg).appendChild(n);
     return n;
   }
+  let markerSize = 4.5, strokeW = 2;   // grown in compact mode, see drawRadar
   function marker(shape, x, y, color, parent) {
-    const s = 4.5;
+    const s = markerSize;
     if (shape === 'circle') return el('circle', { cx: x, cy: y, r: s, fill: color }, parent);
     if (shape === 'square') return el('rect', { x: x - s, y: y - s, width: 2 * s, height: 2 * s, fill: color }, parent);
     if (shape === 'triangle') return el('path', { d: `M${x} ${y - s - 1} L${x + s + 1} ${y + s} L${x - s - 1} ${y + s} Z`, fill: color }, parent);
@@ -1083,28 +1248,48 @@ if (typeof document !== 'undefined') (() => {
     return el('path', { d: `M${x - s} ${y - s} L${x + s} ${y + s} M${x - s} ${y + s} L${x + s} ${y - s}`,
                         stroke: color, 'stroke-width': 2.5, fill: 'none' }, parent);
   }
+  // On a phone the whole SVG is scaled down with its box, which would shrink the axis
+  // labels out of legibility. Compact mode pulls the rings in and sets the type larger
+  // in user units, so the rendered label size stays roughly constant.
+  const isCompact = () => svg.clientWidth > 0 && svg.clientWidth < 470;
   function drawRadar(results, axes) {
     svg.innerHTML = '';
+    svg.setAttribute('viewBox', BASE_VIEWBOX);
+    lastCompact = isCompact();
+    const small = lastCompact;
+    const rad = small ? 168 : R;
+    const labelR = small ? 1.16 : 1.12;
+    const nameSize = small ? 21 : 12.5, unitSize = small ? 16 : 10.5;
+    markerSize = small ? 6.5 : 4.5;
+    strokeW = small ? 2.6 : 2;
     const n = axes.length;
     if (n < 3) {
-      el('text', { x: CX, y: CY, 'text-anchor': 'middle', fill: 'var(--text-faint)', 'font-size': 14 })
+      el('text', { x: CX, y: CY, 'text-anchor': 'middle', fill: 'var(--ink-mute)', 'font-size': 14 })
         .textContent = 'select at least 3 axes';
       return;
     }
     const angle = i => -Math.PI / 2 + i * 2 * Math.PI / n;
-    const pt = (i, r) => [CX + r * R * Math.cos(angle(i)), CY + r * R * Math.sin(angle(i))];
-    // rings + spokes (recessive)
+    const pt = (i, r) => [CX + r * rad * Math.cos(angle(i)), CY + r * rad * Math.sin(angle(i))];
+    // rings + spokes (recessive); the outer ring is drawn stronger because it is the
+    // reference boundary the caption and the per-axis "best" notes refer to.
     for (const fr of [0.25, 0.5, 0.75, 1]) {
       const d = axes.map((_, i) => pt(i, fr)).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
-      el('path', { d, fill: 'none', stroke: 'var(--card-stroke-faint)', 'stroke-width': 1 });
+      el('path', { d, fill: 'none', stroke: fr === 1 ? 'var(--axis)' : 'var(--grid)',
+                   'stroke-width': fr === 1 ? 1.4 : 1 });
     }
     axes.forEach((a, i) => {
       const [x, y] = pt(i, 1);
-      el('line', { x1: CX, y1: CY, x2: x, y2: y, stroke: 'var(--card-stroke-faint)', 'stroke-width': 1 });
-      const [lx, ly] = pt(i, 1.13);
-      const t = el('text', { x: lx, y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-                             fill: 'var(--text-mute)', 'font-size': 12.5 });
-      t.textContent = a.label;
+      el('line', { x1: CX, y1: CY, x2: x, y2: y, stroke: 'var(--grid)', 'stroke-width': 1 });
+      const [lx, ly] = pt(i, labelR);
+      // Two lines: the quantity, then its unit and the value the outer ring stands for.
+      // The label is a term in its own right — same hover / tap / focus tooltip as the
+      // table headers, so a definition is never more than one gesture away.
+      const t = el('text', { x: lx, y: ly - nameSize * 0.42, 'text-anchor': 'middle',
+                             'dominant-baseline': 'middle', fill: 'var(--ink-2)', 'font-size': nameSize,
+                             'data-tip': a.tip, tabindex: '0', style: 'cursor:help' });
+      el('tspan', { x: lx, 'font-weight': 600 }, t).textContent = a.label;
+      el('tspan', { x: lx, dy: '1.15em', fill: 'var(--ink-mute)', 'font-size': unitSize,
+                    'font-family': 'var(--mono)' }, t).textContent = `${a.unit} · best ${a.outer}`;
     });
     // polygons: fills first, then strokes+markers so no fill sits on top of a line
     const polys = [];
@@ -1117,53 +1302,55 @@ if (typeof document !== 'undefined') (() => {
       polys.push({ id, c, pts, d });
     }
     for (const { id, c, pts, d } of polys) {
-      el('path', { d, fill: 'none', stroke: c, 'stroke-width': 2, 'stroke-linejoin': 'round' });
+      el('path', { d, fill: 'none', stroke: c, 'stroke-width': strokeW, 'stroke-linejoin': 'round' });
       pts.forEach(([x, y], i) => {
         const g = el('g', {});
         marker(MARKERS[id], x, y, c, g);
-        const hit = el('circle', { cx: x, cy: y, r: 11, fill: 'transparent' }, g);
+        const hit = el('circle', { cx: x, cy: y, r: markerSize * 2.4, fill: 'transparent' }, g);
         const a = axes[i];
         hit.addEventListener('mousemove', ev => {
           tooltip.style.display = 'block';
           tooltip.style.left = (ev.clientX + 14) + 'px';
           tooltip.style.top = (ev.clientY + 6) + 'px';
           const raw = results[id][a.key];
-          tooltip.textContent = `${MM.models[id].label} — ${a.label}: ${a.fmt(raw)}`;
+          tooltip.textContent = `${MM.models[id].label} — ${a.label}: ${a.fmt(raw)} · ${a.unit}`;
         });
         hit.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
       });
     }
+    // Compact mode spends much of the fixed viewBox on empty margin; refit it to what
+    // was actually drawn so the plot fills the phone screen.
+    if (small) {
+      const b = svg.getBBox(), pad = 10;
+      svg.setAttribute('viewBox',
+        `${Math.round(b.x - pad)} ${Math.round(b.y - pad)} ${Math.round(b.width + 2 * pad)} ${Math.round(b.height + 2 * pad)}`);
+    }
   }
 
-  /* ---- legend + table ---- */
+  /* ---- table ----
+     Every header carries its definition, so the column names can stay as terse as
+     the numbers under them. */
   function paramStr(id) {
     return MM.models[id].sliders.map(s => `${s.key}=${state.params[id][s.key]}`).join(', ');
   }
-  function drawLegend() {
-    $('#legend').innerHTML = MODEL_IDS.map(id => `
-      <div class="item" style="opacity:${state.visible[id] ? 1 : 0.35}">
-        <span class="chip" style="background:var(--${id})"></span>
-        <span class="lname">${MM.models[id].label}</span>
-        <span class="lparams">${paramStr(id)}</span></div>`).join('') +
-      `<div class="hint">outward = better · vertex shape is the model's marker</div>`;
-  }
+  const axTip = key => AXES.find(a => a.key === key).tip;
   const COLS = [
-    { h: 'P(bad)', get: r => r.pbad, fmt: fmtSci, best: 'min' },
-    { h: 'vs δ', get: r => r.pass, fmt: v => v ? '✓' : '✗', cls: r => r.pass ? 'pass' : 'fail' },
-    { h: 'msgs/msg', get: r => r.msgs, fmt: fmtInt, best: 'min' },
-    { h: 'copies/honest', get: r => r.copies, fmt: fmt1, best: 'min' },
-    { h: 'hops full ≈', get: r => r.hopsFull, fmt: fmt1, best: 'min' },
-    { h: 'hops mean ≈', get: r => r.hopsMean, fmt: fmt1, best: 'min' },
-    { h: 'links/node', get: r => r.links, fmt: v => v.toFixed(0), best: 'min' },
-    { h: 'honest in±sd', get: r => r.degIn, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
-    { h: 'honest out±sd', get: r => r.degOut, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
-    { h: 'μ-budget', get: r => r.muBudget, fmt: fmt3, best: 'max' },
-    { h: 'Δμ', get: r => r.dmu, fmt: fmt3, best: 'max' },
-    { h: 'churn p_max', get: r => r.churn, fmt: v => (100 * v).toFixed(1) + '%', best: 'max' },
-    { h: 'collapse μ', get: r => r.collapse, fmt: fmt3, best: 'max' },
-    { h: 'ecl. deafen', get: r => r.eclipse.deafen.mean, fmt: fmt1, best: 'max' },
-    { h: 'ecl. mute', get: r => r.eclipse.mute.mean, fmt: fmt1, best: 'max' },
-    { h: 'ecl. B (min)', get: r => r.eclipse.B, fmt: fmt1, best: 'max' },
+    { h: 'P(bad)', tip: axTip('pbad'), get: r => r.pbad, fmt: fmtSci, best: 'min' },
+    { h: 'vs δ', term: 'delta', get: r => r.pass, fmt: v => v ? '✓' : '✗', cls: r => r.pass ? 'pass' : 'fail' },
+    { h: 'msgs/msg', term: 'msgs', get: r => r.msgs, fmt: fmtInt, best: 'min' },
+    { h: 'copies/honest', tip: axTip('copies'), get: r => r.copies, fmt: fmt1, best: 'min' },
+    { h: 'hops full ≈', tip: axTip('hopsFull'), get: r => r.hopsFull, fmt: fmt1, best: 'min' },
+    { h: 'hops mean ≈', tip: 'Hops to the average honest node rather than the last one. Same law, smaller measured offset.', get: r => r.hopsMean, fmt: fmt1, best: 'min' },
+    { h: 'links/node', tip: axTip('links'), get: r => r.links, fmt: v => v.toFixed(0), best: 'min' },
+    { h: 'honest in±sd', term: 'degree', get: r => r.degIn, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
+    { h: 'honest out±sd', term: 'degree', get: r => r.degOut, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
+    { h: 'μ-budget', term: 'muBudget', get: r => r.muBudget, fmt: fmt3, best: 'max' },
+    { h: 'Δμ', tip: axTip('dmu'), get: r => r.dmu, fmt: fmt3, best: 'max' },
+    { h: 'churn p_max', term: 'churn', get: r => r.churn, fmt: v => (100 * v).toFixed(1) + '%', best: 'max' },
+    { h: 'collapse μ', tip: axTip('collapse'), get: r => r.collapse, fmt: fmt3, best: 'max' },
+    { h: 'ecl. deafen', tip: 'Links an adversary buys to stop a chosen node <b>hearing</b> the network — mean over victims.', get: r => r.eclipse.deafen.mean, fmt: fmt1, best: 'max' },
+    { h: 'ecl. mute', tip: 'Links an adversary buys to stop a chosen node being <b>heard</b> — mean over victims.', get: r => r.eclipse.mute.mean, fmt: fmt1, best: 'max' },
+    { h: 'ecl. B (min)', tip: axTip('eclB'), get: r => r.eclipse.B, fmt: fmt1, best: 'max' },
   ];
   function drawTable(results) {
     const vis = MODEL_IDS.filter(id => state.visible[id]);
@@ -1173,12 +1360,14 @@ if (typeof document !== 'undefined') (() => {
       const vals = vis.map(id => c.get(results[id])).filter(v => v !== null && !Number.isNaN(v) && typeof v === 'number');
       if (vals.length) best[ci] = c.best === 'min' ? Math.min(...vals) : Math.max(...vals);
     });
+    const head = COLS.map(c => `<th><span class="term"${c.term ? ` data-term="${c.term}"` : ` data-tip="${c.tip}"`}>${c.h}</span></th>`).join('');
     $('#values').innerHTML =
-      `<tr><th>model</th>${COLS.map(c => `<th>${c.h}</th>`).join('')}</tr>` +
+      `<tr><th>model</th>${head}</tr>` +
       MODEL_IDS.map(id => {
         const r = results[id];
         return `<tr class="${state.visible[id] ? '' : 'hidden-model'}">
-          <td><span class="mchip" style="background:var(--${id})"></span>${MM.models[id].label} (${paramStr(id)})</td>` +
+          <td><span class="mchip" style="background:var(--${id})"></span><span class="term"
+              data-term="model_${id}">${MM.models[id].label}</span> (${paramStr(id)})</td>` +
           COLS.map((c, ci) => {
             const v = c.get(r);
             const isBest = state.visible[id] && c.best && typeof v === 'number' && v !== null && best[ci] === v;
@@ -1186,41 +1375,75 @@ if (typeof document !== 'undefined') (() => {
             return `<td class="${isBest ? 'best' : ''}"${style}>${v === null ? '—' : c.fmt(v)}</td>`;
           }).join('') + '</tr>';
       }).join('');
+    markTerms($('#values'));
   }
 
   /* ---- recompute + wire-up ---- */
   function recompute() {
-    $('#o-mu').textContent = state.env.mu.toFixed(3);
-    $('#o-N').textContent = (state.env.N / 1000) + 'k';
-    for (const id of MODEL_IDS)
+    $('#o-mu').textContent = `${state.env.mu.toFixed(3)} · ${(100 * state.env.mu).toFixed(1)} %`;
+    $('#o-N').textContent = fmtInt(state.env.N);
+
+    // Which preset the sliders sit on drives the tab state; a nudged slider reads custom.
+    const preset = matchPreset();
+    for (const b of presetHost.querySelectorAll('button[data-preset]'))
+      b.setAttribute('aria-pressed', b.dataset.preset === preset ? 'true' : 'false');
+    const stateLabel = $('#preset-state');
+    stateLabel.textContent = preset ? '' : 'custom';
+    stateLabel.classList.toggle('term', !preset);
+    if (preset) delete stateLabel.dataset.term; else stateLabel.dataset.term = 'preset_custom';
+
+    for (const id of MODEL_IDS) {
       for (const s of MM.models[id].sliders)
         cardsHost.querySelector(`output[data-out="${id}:${s.key}"]`).textContent = state.params[id][s.key];
+      rowsHost.querySelector(`[data-params="${id}"]`).textContent = paramStr(id);
+      rowsHost.querySelector(`[data-row="${id}"]`).classList.toggle('off', !state.visible[id]);
+    }
 
     const results = {};
     for (const id of MODEL_IDS) {
       const r = MM.compute(id, state.env, state.params[id]);
       results[id] = { ...r, eclA: r.eclipse.A, eclB: r.eclipse.B };
-      cardsHost.querySelector(`[data-dot="${id}"]`).className = 'dot ' + (r.pass ? 'pass' : 'fail');
-      const vd = cardsHost.querySelector(`[data-verdict="${id}"]`);
-      vd.className = 'verdict ' + (r.pass ? 'pass' : 'fail');
-      vd.textContent = r.pass ? 'meets δ' : 'misses δ';
-      cardsHost.querySelector(`[data-pbad="${id}"]`).textContent = fmtSci(r.pbad);
+      // Same verdict in two places: a dot on the design tab, the figure in the readout.
+      tabsHost.querySelector(`[data-dot="${id}"]`).className = 'dot ' + (r.pass ? 'pass' : 'fail');
+      const verdict = rowsHost.querySelector(`[data-verdict="${id}"]`);
+      verdict.className = 'rverdict ' + (r.pass ? 'pass' : 'fail');
+      verdict.textContent = `${fmtSci(r.pbad)} ${r.pass ? '✓' : '✗'}`;
+      verdict.dataset.tip = `P(bad) = ${fmtSci(r.pbad)} against δ = ${fmtSci(state.env.delta)}` +
+        ` — ${r.pass ? 'clears the target' : 'misses the target'} at μ = ${state.env.mu.toFixed(3)}.` +
+        ` Churn budget ${(100 * r.churn).toFixed(1)} %.`;
     }
-    drawRadar(results, AXES.filter(a => state.axes[a.key]));
-    drawLegend();
+    const shown = AXES.filter(a => state.axes[a.key]);
+    $('#tune-summary').textContent =
+      `Tune parameters & axes — ${preset ? PRESETS[preset].label.toLowerCase() : 'custom'}, ${shown.length}/${AXES.length} axes`;
+    markTerms(document);
+    lastResults = results;
+    drawRadar(results, shown);
     drawTable(results);
   }
 
-  /* ---- self-test ---- */
+  // Re-draw only when the radar actually crosses the compact threshold; the closed
+  // forms are far too costly to re-evaluate on every resize event.
+  addEventListener('resize', () => {
+    if (lastResults && isCompact() !== lastCompact)
+      drawRadar(lastResults, AXES.filter(a => state.axes[a.key]));
+  });
+
+  /* ---- self-test ----
+     The fixtures still run on every load — they are what ties this page to the Python
+     modules — but they are a development affordance, not something a visitor should
+     read. The result lives in the console and on window.__selfTest, nowhere on screen. */
   const tests = MM.runSelfTest();
   const fails = tests.filter(t => !t.pass);
-  const badge = $('#selftest-badge');
-  badge.textContent = fails.length ? `self-test: ${fails.length}/${tests.length} FAIL` : `self-test: ${tests.length}/${tests.length} pass`;
-  badge.classList.add(fails.length ? 'fail' : 'pass');
-  $('#selftest-list').innerHTML = tests.map(t =>
-    `<li class="${t.pass ? 'ok' : 'bad'}">${t.pass ? '✓' : '✗'} ${t.name}` +
-    (t.pass ? '' : ` — got ${t.got}, want ${t.want}`) + '</li>').join('');
-  if (fails.length) $('#selftest-details').open = true;
+  window.__selfTest = {
+    pass: fails.length === 0, passed: tests.length - fails.length, total: tests.length,
+    failures: fails, tests,
+  };
+  const summary = `[compare] self-test ${tests.length - fails.length}/${tests.length}`;
+  if (fails.length) {
+    console.error(summary + ' — FAILED', fails);
+  } else {
+    console.info(summary + ' pass');
+  }
 
   recompute();
 })();
