@@ -155,7 +155,9 @@ pub struct RunRecord {
 /// Degrees are the node's post-churn propagation-digraph degrees, so
 /// summing rows reproduces the run record's degree histograms; adversarial
 /// and down nodes are not digraph vertices and carry no degrees (absent ≠
-/// zero, like every opt-in field here).
+/// zero, like every opt-in field here). The connection-accounting columns
+/// (serving slots by linked-peer class, refused-dial counts) are defined
+/// for every class and always present — their zeros are real zeros.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PerNodeDetail {
     /// Which publish phase the row describes.
@@ -172,6 +174,27 @@ pub struct PerNodeDetail {
     /// Post-churn digraph out-degree (up-honest vertices only).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub out_degree: Option<u64>,
+    /// Relay-kind downstream entries held to honest peers at measure time.
+    /// On directional configurations these are the node's granted serving
+    /// slots. Under the symmetric handshake reciprocity writes both ends of
+    /// every edge into `downstream`, so both roles are counted (≈ 2× the
+    /// pick count) — the same total the acceptance cap scans on a symmetric
+    /// node (`IMPLEMENTATION_NOTES` N-032/N-040). Relay seam only; the
+    /// refusal columns below are kind-agnostic (N-041).
+    pub downstream_honest: u64,
+    /// Relay-kind downstream entries held to adversarial peers — on a
+    /// capped directional acceptor, capacity the adversary consumed. Same
+    /// symmetric-handshake and relay-only caveats as `downstream_honest`
+    /// (N-040/N-041).
+    pub downstream_adversarial: u64,
+    /// Routed over-capacity `Rejected` replies this node received for its
+    /// own dials in the connection drain (v1 has no retry: each refused
+    /// dial is a lost link).
+    pub dials_refused: u64,
+    /// Over-capacity refusals this node issued to honest dialers.
+    pub refusals_issued_honest: u64,
+    /// Over-capacity refusals this node issued to adversarial dialers.
+    pub refusals_issued_adversarial: u64,
     /// The wave of the node's first receipt (0 = the publisher's record).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_receipt_wave: Option<u64>,
@@ -205,6 +228,26 @@ pub fn assemble_per_node_detail(
         .enumerate()
         .map(|(index, id)| (id, (in_degrees[index], out_degrees[index])))
         .collect();
+    // Serving slots split by the linked peer's class, one end-state pass —
+    // per-run data, repeated verbatim on every publish slice like degrees.
+    let slots_of: BTreeMap<&PeerId, (u64, u64)> = population
+        .participants()
+        .map(|(id, participant)| {
+            let mut honest = 0;
+            let mut adversarial = 0;
+            for (peer, _) in participant.downstream() {
+                match population
+                    .participant(&peer)
+                    .expect("linked peer is a population member")
+                    .class()
+                {
+                    super::population::ParticipantClass::Honest => honest += 1,
+                    super::population::ParticipantClass::Adversarial => adversarial += 1,
+                }
+            }
+            (id, (honest, adversarial))
+        })
+        .collect();
     let mut rows = Vec::new();
     for (publish_index, publish) in observation.publishes.iter().enumerate() {
         for (id, participant) in population.participants() {
@@ -223,6 +266,9 @@ pub fn assemble_per_node_detail(
             let miss_cause =
                 (participant.is_up_honest() && id != &observation.publisher && !received)
                     .then(|| classify_miss(id, participant, population, &reachable));
+            let (downstream_honest, downstream_adversarial) =
+                slots_of.get(id).copied().unwrap_or((0, 0));
+            let refusals = observation.dial.refusals_issued.get(id).copied();
             rows.push(PerNodeDetail {
                 publish: publish_index as u64,
                 node: id.clone(),
@@ -230,6 +276,11 @@ pub fn assemble_per_node_detail(
                 down: participant.is_down(),
                 in_degree: degrees.map(|&(in_degree, _)| in_degree as u64),
                 out_degree: degrees.map(|&(_, out_degree)| out_degree as u64),
+                downstream_honest,
+                downstream_adversarial,
+                dials_refused: observation.dial.dials_refused.get(id).copied().unwrap_or(0),
+                refusals_issued_honest: refusals.map_or(0, |tally| tally.honest),
+                refusals_issued_adversarial: refusals.map_or(0, |tally| tally.adversarial),
                 first_receipt_wave: publish.drain.first_receipt.get(id).copied(),
                 first_delivery_origin,
                 miss_cause,

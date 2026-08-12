@@ -1,0 +1,31 @@
+# E10 Family A - gate only, B = 500 (mean degree below the calibrated RF).
+#
+# Same substitution as gate-only-b250.toml over the calibrated M2 bulk cell,
+# with the gate narrowed: out-degree is Binomial(3999, 1/500) - mean 8.0.
+# The comparison value is the coverage law read at mean degree 8 (already a
+# high-P(bad) regime pointwise); the binomial's low-degree tail should push
+# the measured value above even that. The per-run degree histograms and the
+# miss-cause decomposition attribute which defect class dominates here.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gate-only-b500.toml --out results/e10/gate-only-b500/
+
+model = "m2"
+master_seed = 903
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+bucket_count = 500 # gate only: no pick_count, every survivor dialed
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 500
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 4000

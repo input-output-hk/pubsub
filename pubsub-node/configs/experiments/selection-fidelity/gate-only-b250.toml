@@ -1,0 +1,33 @@
+# E10 Family A - gate only, B = 250 (the balanced point).
+#
+# The calibrated M2 bulk cell (m2-bulk-regime.toml: N = 4 000, mu = 0.2,
+# RF = 16, coverage-law P(bad) = 0.0088, validated 71/8000) with the model's
+# exactly-RF uniform picks replaced by the protocol's verifiable hash gate
+# alone: pick_count is absent, so every gate survivor is dialed and
+# out-degree is Binomial(3999, 1/250) - mean 16.0, the calibrated cell's RF.
+# Any P(bad) excess over the law read at mean degree 16 is the pure
+# degree-distribution penalty (Jensen on the convex defect terms), not a
+# mean shift. Program of record: docs/experiments-program.md E10.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gate-only-b250.toml --out results/e10/gate-only-b250/
+
+model = "m2"
+master_seed = 902
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+bucket_count = 250 # gate only: no pick_count, every survivor dialed
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 250
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 4000

@@ -150,9 +150,11 @@ Three files per sweep:
 
 With `--per-node-detail`, each run additionally writes
 `run-NNNNNN-detail.jsonl` — one row per node with its first-receipt wave,
-first-delivery origin, propagation-graph degrees, and (for eligible
-receivers that missed) the classified miss cause. Detail never changes the
-three main files.
+first-delivery origin, propagation-graph degrees, connection accounting
+(serving slots split by the linked peer's class; the node's own dials
+refused over capacity; refusals it issued, split by the refused dialer's
+class), and (for eligible receivers that missed) the classified miss
+cause. Detail never changes the three main files.
 
 There is no interruption resume: a stopped sweep leaves `runs.jsonl` as a
 valid prefix in canonical order with no completion claim — re-run it (same

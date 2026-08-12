@@ -98,6 +98,17 @@ impl KindTally {
     }
 }
 
+/// A node's issued over-capacity refusals, split by the refused
+/// dialer's class.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RefusalTally {
+    /// Refusals issued to honest dialers (each a lost honest link — v1
+    /// has no retry).
+    pub honest: u64,
+    /// Refusals issued to adversarial dialers.
+    pub adversarial: u64,
+}
+
 /// The driver's per-phase observation of one drain.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DrainOutcome {
@@ -117,6 +128,13 @@ pub struct DrainOutcome {
     pub severed: u64,
     /// Over-capacity `Rejected` control replies routed.
     pub rejected_over_capacity: u64,
+    /// Per-node refused dials: refused dialer → routed `Rejected` replies
+    /// it received. Populated by connection drains only; the counts sum to
+    /// `rejected_over_capacity`.
+    pub dials_refused: BTreeMap<PeerId, u64>,
+    /// Per-node issued refusals: refusing acceptor → counts split by the
+    /// refused dialer's class. Populated by connection drains only.
+    pub refusals_issued: BTreeMap<PeerId, RefusalTally>,
 }
 
 /// One publish phase's observation: the published content hash and the
@@ -468,6 +486,19 @@ impl Driver {
                         .expect("non-dissemination messages are connection control");
                     if matches!(control.plain.action, ConnectionAction::Rejected { .. }) {
                         outcome.rejected_over_capacity += 1;
+                        // A `Rejected` is routed back to its dialer: `to` is
+                        // the refused dialer, `from` the refusing acceptor.
+                        *outcome.dials_refused.entry(to.clone()).or_default() += 1;
+                        let refused = outcome.refusals_issued.entry(from.clone()).or_default();
+                        match self
+                            .population
+                            .participant(&to)
+                            .expect("delivery to a population member")
+                            .class()
+                        {
+                            ParticipantClass::Honest => refused.honest += 1,
+                            ParticipantClass::Adversarial => refused.adversarial += 1,
+                        }
                     }
                 }
                 let seen_before = dissemination_hash.as_ref().is_some_and(|hash| {
@@ -880,6 +911,15 @@ mod tests {
         // Each node dials 3 peers; each acceptor's fed cap is 1:
         // 4 accepts land in total, 8 dials are refused with a routed Rejected.
         assert_eq!(outcome.rejected_over_capacity, 8);
+        // Per-node attribution: the refused-dial counts sum to the total,
+        // and every acceptor refused exactly its two over-cap dials — all
+        // honest in this population.
+        assert_eq!(outcome.dials_refused.values().sum::<u64>(), 8);
+        assert_eq!(outcome.refusals_issued.len(), 4);
+        for tally in outcome.refusals_issued.values() {
+            assert_eq!(tally.honest, 2, "3 dials received, cap 1, 2 refused");
+            assert_eq!(tally.adversarial, 0, "no adversarial dialers exist");
+        }
         let mut accepted_upstreams = 0;
         for (_, participant) in driver.population().participants() {
             assert_eq!(participant.downstream().len(), 1, "the cap holds");
@@ -892,5 +932,82 @@ mod tests {
             accepted_upstreams += upstream.len();
         }
         assert_eq!(accepted_upstreams, 4);
+    }
+
+    // The refused dialer's class attributes each refusal: with adversarial
+    // dialers competing for capped honest slots, the acceptor-side split
+    // separates honest starvation from the cap refusing the adversary, and
+    // the dialer-side counts agree with the acceptor-side split per class.
+    #[test]
+    fn refusals_split_by_the_refused_dialers_class() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 6,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                accept_cap: Some(2),
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [4u8; 32],
+            classes: [5u8; 32],
+            sampler: [6u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let outcome = driver.establish(SetupMode::Prepopulated);
+        // Every node dials the other 5. The 4 honest acceptors each receive
+        // 5 dials against a cap of 2 → 3 refusals each; the 2 adversarial
+        // acceptors are uncapped and refuse nothing.
+        assert_eq!(outcome.rejected_over_capacity, 12);
+        assert_eq!(outcome.dials_refused.values().sum::<u64>(), 12);
+        let mut issued_to_honest = 0;
+        let mut issued_to_adversarial = 0;
+        for (acceptor, tally) in &outcome.refusals_issued {
+            assert_eq!(
+                driver
+                    .population()
+                    .participant(acceptor)
+                    .expect("acceptor in population")
+                    .class(),
+                ParticipantClass::Honest,
+                "only capped (honest) acceptors refuse",
+            );
+            assert_eq!(tally.honest + tally.adversarial, 3, "5 dials, cap 2");
+            issued_to_honest += tally.honest;
+            issued_to_adversarial += tally.adversarial;
+        }
+        assert_eq!(issued_to_honest + issued_to_adversarial, 12);
+        // Dialer-side counts agree with the acceptor-side class split.
+        let refused_of_class = |class: ParticipantClass| -> u64 {
+            outcome
+                .dials_refused
+                .iter()
+                .filter(|(id, _)| {
+                    driver
+                        .population()
+                        .participant(id)
+                        .expect("dialer in population")
+                        .class()
+                        == class
+                })
+                .map(|(_, count)| count)
+                .sum()
+        };
+        assert_eq!(refused_of_class(ParticipantClass::Honest), issued_to_honest);
+        assert_eq!(
+            refused_of_class(ParticipantClass::Adversarial),
+            issued_to_adversarial,
+        );
+        // Every dialer's accepted + refused dials account for all 5 targets.
+        for (id, participant) in driver.population().participants() {
+            let refused = outcome.dials_refused.get(id).copied().unwrap_or(0);
+            assert_eq!(
+                participant.upstream().len() as u64 + refused,
+                5,
+                "accepted + refused = dialed",
+            );
+        }
     }
 }

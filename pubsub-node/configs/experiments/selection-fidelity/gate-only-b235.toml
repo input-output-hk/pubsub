@@ -1,0 +1,32 @@
+# E10 Family A - gate only, B = 235 (the +1-link compensation check).
+#
+# Verification cell for the B design rule in
+# docs/experiments/e10-selection-fidelity.md par.4: gate-only doubles
+# P(bad) at equal mean degree (measured 2.2x at B = 250), and both defect
+# terms decay as e^(-(1-mu)*d), so sizing B for one extra link of mean
+# degree - B = (N-1)/(RF+1) ~= 235, mean degree 17.02 - should buy the
+# penalty back: predicted P(bad) ~= 2 * 0.0088 * e^(-0.8) ~= 0.0079,
+# back below the exact-K law's 0.0088 at RF = 16. 8 000 runs resolve it.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gate-only-b235.toml --out results/e10/gate-only-b235/
+
+model = "m2"
+master_seed = 904
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+bucket_count = 235 # gate only: no pick_count, every survivor dialed
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 235
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

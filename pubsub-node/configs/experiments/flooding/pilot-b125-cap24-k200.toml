@@ -1,0 +1,39 @@
+# E12 pilot - flooding mitigation under the cap, the grid's center cell:
+# B = 125, accept cap 24, K = 200 Sybils (5% of N).
+#
+# The rational level-1 flooder: the adversarial class pins the gate's
+# bucket count with no pick count (dial every valid edge - an out-of-bucket
+# dial is self-incriminating) and silent-relay fan-out; its acceptance
+# stays uncapped so every routed refusal is issued by an honest victim.
+# The honest class runs the E10-blessed gated picks (K = 16 at survivor
+# headroom r = 2) behind an absolute accept cap.
+#
+# Predictions this pilot validates before the grid runs: attacker-held
+# slots per victim ~ Binomial-thin K/B = 1.6 mean; honest in-dial load
+# ~ 15.2 mean against cap 24 (refusals present but rare). Measurement
+# needs --per-node-detail (the connection-accounting columns).
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/flooding/pilot-b125-cap24-k200.toml --out results/e12/pilot/ --per-node-detail
+
+model = "m2"
+master_seed = 1000
+
+[population]
+size = 4000
+adversarial = 200
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 125
+accept_cap = 24
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 125 # no pick_count: every valid edge is dialed
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 50

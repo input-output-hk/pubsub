@@ -34,5 +34,9 @@ __pycache__/
 # Local-only design notes (per-session scratch, not for version control)
 pubsub-node/notes/
 
+# Experiment artifacts (reproducible byte-for-byte from committed configs
+# + master seeds + tool commit; deliberately not committed)
+pubsub-node/results/
+
 # Generated at deploy time by .github/workflows/docs.yml
 web/assets/commit-activity.json
