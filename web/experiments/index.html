@@ -315,6 +315,27 @@
                                                        transition-duration: .62s; }
     .route:hover .route-thumb polygon:nth-of-type(9) { transform: scale(1.09);
                                                        transition-duration: .70s; }
+
+    /* Same idea on the graph, but the amounts stay small: edges terminate on
+       nodes, so layers that separate too far read as broken rather than deep.
+       The publisher's ring and the highlighted links carry most of the travel,
+       since nothing is anchored to them. */
+    .route--graph .route-thumb .edge,
+    .route--graph .route-thumb .node,
+    .route--graph .route-thumb .pub-ring {
+      transform-box: view-box; transform-origin: 260px 260px;
+      transition: transform .54s cubic-bezier(.22,.61,.36,1);
+    }
+    .route--graph:hover .route-thumb .edge { transform: scale(1.012);
+                                             transition-duration: .44s; }
+    .route--graph:hover .route-thumb .node { transform: scale(1.018);
+                                             transition-duration: .50s; }
+    .route--graph:hover .route-thumb .edge.dead { transform: scale(1.035);
+                                                  transition-duration: .60s; }
+    .route--graph:hover .route-thumb .edge.seed { transform: scale(1.05);
+                                                  transition-duration: .66s; }
+    .route--graph:hover .route-thumb .pub-ring { transform: scale(1.075);
+                                                 transition-duration: .74s; }
   }
 
   /* Breadcrumb: same weight as the old section kind, but it says where you are
@@ -419,7 +440,7 @@
       </p>
 
       <div class="route-grid">
-        <a class="route" href="models/">
+        <a class="route route--graph" href="models/">
           <svg class="route-thumb" viewBox="24 24 472 472" aria-hidden="true">
             <path class="edge shown traversed" d="M 443.2 175.9 Q 333.4 150.1 269.3 61.0"/>
             <path class="edge shown traversed" d="M 403.7 398.5 Q 316.2 236.7 264.6 63.3"/>

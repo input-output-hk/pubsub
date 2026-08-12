@@ -35,6 +35,260 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../shared.css">
 <style>
+  body { font-size: 17px; line-height: 1.65; min-height: 100vh; display: flex; flex-direction: column; }
+  main { flex: 1; }
+  .navbar { padding-right: clamp(24px, 5vw, 80px); }
+  .navbar-icons { display: flex; align-items: center; gap: 10px; }
+  .nav-icon-btn {
+    position: relative; top: auto; right: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--line-strong); background: var(--bg); color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    text-decoration: none; flex-shrink: 0;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
+
+  /* Collapsible navigation — links and icon buttons fold into a dropdown on small screens */
+  .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
+  .nav-menu-btn { display: none; }
+  .nav-menu-btn .icon-close { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-burger { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
+  @media (max-width: 1040px) {
+    .nav-menu-btn { display: flex; }
+    .nav-collapse {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      padding: 4px clamp(24px, 5vw, 80px) 18px;
+      z-index: 10;
+    }
+    .navbar.menu-open .nav-collapse { display: flex; }
+    .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
+    .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .navbar-icons { padding-top: 16px; }
+  }
+  @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
+
+  /* ---------- Page head ---------- */
+  section.page-head { padding: 40px 0 4px; }
+  .section-kind {
+    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
+    margin-bottom: 14px;
+  }
+  .page-head h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
+    font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;
+    margin-bottom: 18px;
+  }
+  .page-head .lede { color: var(--text-mute); max-width: 74ch; }
+  .page-head .lede + .lede { margin-top: 12px; }
+
+
+  /* The method, available but not in the way. */
+  .explainer { margin-top: 22px; border-top: 1px solid var(--line); }
+  .explainer > summary { cursor: pointer; padding: 14px 0 0; font-weight: 600;
+                         font-size: 0.95rem; list-style: none; }
+  .explainer > summary::-webkit-details-marker { display: none; }
+  .explainer > summary::before { content: "+"; display: inline-block; width: 1.1em;
+                                 color: var(--text-mute); font-weight: 400; }
+  .explainer[open] > summary::before { content: "\2212"; }
+  .explainer > summary:hover { color: var(--iog-cobalt-pulse); }
+  .explainer-body p { font-size: 0.95rem; line-height: 1.62; color: var(--text-mute);
+                      margin: 12px 0 0; }
+
+  /* ---------- Model tabs ---------- */
+  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 18px; }
+  .model-tab {
+    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 9px 16px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--text-mute);
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .model-tab.active { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
+    gap: 28px; align-items: stretch;
+  }
+  .stage-canvas {
+    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 22px 22px 16px;
+  }
+  .stage-canvas svg { width: 100%; height: auto; display: block; max-width: 660px; margin: 0 auto; }
+
+  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+
+  /* The step card fills the column so the buttons keep a fixed position
+     regardless of how long the step description is. */
+  .stage-side { display: flex; flex-direction: column; gap: 14px; }
+  .step-card {
+    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 20px 22px; flex: 1;
+  }
+  .step-desc { min-height: 5.2em; }
+  .step-count {
+    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .step-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
+  .step-desc { font-size: 0.92rem; color: var(--text-mute); line-height: 1.6; }
+  .step-desc strong { color: var(--text); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .controls .ctl-btn { flex: 1 1 auto; }
+  .ctl-btn {
+    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 9px 14px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--text);
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .ctl-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .ctl-btn:disabled { opacity: 0.35; cursor: default; }
+  .ctl-btn:disabled:hover { border-color: var(--line-strong); color: var(--text); }
+
+  .legend { padding: 12px 0 0; }
+  .legend-items { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-mute); }
+  .legend-item svg { width: 26px; height: 14px; flex-shrink: 0; }
+
+  /* ---------- Model notes — directly below the tab bar ---------- */
+  .model-notes {
+    margin: 0 0 24px; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+    background: var(--card-fill); padding: 22px 24px;
+  }
+  .model-notes.swap { animation: notes-fade .4s ease; }
+  @keyframes notes-fade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .model-notes.swap { animation: none; } }
+  .model-notes .card-kicker {
+    font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--iog-infared); font-weight: 600; margin-bottom: 10px;
+  }
+  .model-notes h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+  .model-notes p { font-size: 0.93rem; color: var(--text-mute); line-height: 1.6; max-width: 90ch; }
+  .model-notes p + p { margin-top: 8px; }
+  .model-notes .knobs {
+    font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-faint);
+    letter-spacing: 0.04em; margin-top: 14px;
+  }
+
+  /* Footer chrome comes from shared.css; this page only adds the gap above it. */
+  footer { margin-top: 40px; }
+
+  /* ---------- SVG element states ---------- */
+  .node { fill: var(--card-fill); stroke: var(--line-strong); stroke-width: 1.5; transition: fill .35s ease, stroke .35s ease; }
+  .node.adv { fill: var(--text-faint); stroke: var(--text-faint); }
+  .node.informed { fill: var(--info-soft); stroke: var(--info); }
+  .node.missed { stroke: var(--bad); stroke-dasharray: 3 3; }
+  .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 1.5; opacity: 0; transition: opacity .35s ease; }
+  .pub-ring.on { opacity: 1; }
+  .node-label { font-family: var(--font-mono); font-size: 9px; fill: var(--iog-infared); font-weight: 600; opacity: 0; transition: opacity .35s ease; }
+  .node-label.on { opacity: 1; }
+
+  .edge { fill: none; stroke: var(--text-faint); stroke-width: 1; opacity: 0; transition: opacity .4s ease, stroke .4s ease; }
+  .edge.shown { opacity: 0.22; }
+  .edge.dead { stroke: var(--bad); stroke-dasharray: 4 4; }
+  .edge.dead.shown { opacity: 0.3; }
+  .edge.seed { stroke: var(--iog-infared); stroke-dasharray: 5 4; stroke-width: 1.4; }
+  .edge.seed.shown { opacity: 0.75; }
+  .edge.inpick { stroke-dasharray: 5 4; }
+  .edge.traversed { stroke: var(--info); opacity: 0.55; stroke-width: 1.4; }
+  .edge.hot { stroke: var(--info); opacity: 1; stroke-width: 2; }
+  .edge.absorbed { stroke: var(--bad); opacity: 0.8; stroke-width: 1.6; }
+
+  /* Hover focus — bold: the hovered node's own picks; thin: links others made to it */
+  .edge.dim { opacity: 0.05; }
+  .edge.focus-own { opacity: 1; stroke-width: 2.2; }
+  .edge.focus-other { opacity: 0.55; stroke-width: 1.1; }
+  .node:hover { stroke-width: 2.5; cursor: default; }
+
+  .hover-hint {
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
+    letter-spacing: 0.05em; text-align: center; margin-top: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .node, .edge, .pub-ring, .node-label { transition: none; }
+  }
+
+  /* The CIP is written but not yet submitted upstream, so it is named and
+     marked rather than linked. Swap each for an <a> when it has a home. */
+  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
+                            color: var(--text-mute); cursor: default; }
+  .nav-soon { font-size: inherit; }
+  .footer-soon { font-size: 0.9rem; }
+  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
+                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
+                border: 1px solid var(--line-strong); color: var(--text-mute); }
+
+  .back-link { margin-top: 14px; }
+  .back-link a { color: var(--text-mute); text-decoration: none; font-size: 0.95rem; }
+  .back-link a:hover { color: var(--iog-infared); }
+
+  /* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
+
+  /* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
+  }
+
+/* ---- cost model ---- */
   /* Series colours, shared with the CIP figures so a model is the same
      colour wherever it appears. */
   .costmodel {
@@ -320,6 +574,33 @@
 
 
 
+<script>
+(function () {
+  // ---------- Theme toggle (same behaviour as the landing page) ----------
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+  if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+  document.querySelector('.theme-toggle').addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+  });
+
+  var navbar = document.querySelector('.navbar');
+  var menuBtn = document.querySelector('.nav-menu-btn');
+  menuBtn.addEventListener('click', function () {
+    var open = navbar.classList.toggle('menu-open');
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.querySelectorAll('.navbar-links a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      navbar.classList.remove('menu-open');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    });
+  });
+})();
+</script>
 <script>
 /* ================= MATH-BEGIN =================
    JS port of the closed forms in m1..m5 scripts/m*_model.py and the mu-shift /
