@@ -105,10 +105,7 @@ Together with the failure mode above, these scenarios imply requirements that ru
 
 The Specification that follows defines a protocol meeting these requirements: on-chain registration for the peer set, per-epoch verifiable randomness for the topology drawn over it, and topics as the unit of subscription. The Rationale then examines where the guarantees stop.
 
-<!-- TODO before submission upstream: CIP-0001 asks that complex proposals link a
-Cardano Problem Statement as the Motivation. Confirm whether an existing CPS
-covers ecosystem messaging; if not, decide whether to author one or to argue
-this section stands alone. -->
+No Cardano Problem Statement covers ecosystem messaging, so this section stands as the problem statement rather than pointing at one.
 
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
@@ -383,7 +380,7 @@ Six of the ten rows carry a value that is open, and they are not independent of 
 > **Drafted, not settled.** This is the subsection that states least of what it needs to. A separate response to the identity proposal tracked under [issue #103](https://github.com/input-output-hk/pubsub/issues/103) sets out which of the constraints below the rest of the Specification already depends on, and which questions remain genuinely open. What follows is the current working position and the shape of the decision, not a specification.
 
 <details>
-<summary><b>Current working position, and the open questions</b></summary>
+<summary><b>Draft</b> · the three key roles, and the open questions from issue #103</summary>
 
 **The three key roles.** Three keys with distinct roles appear in the protocol, and an implementation MUST keep them distinct.
 
@@ -828,9 +825,17 @@ M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound 
      `make_cip_figures.py --check` fails if a committed SVG is stale, so the figures
      cannot drift from the data.
 
-     TODO(evidence): cells.json is still transcribed once by hand from the comparison
-     documents rather than emitted by the experiments tool. Until it is, the figures
-     are only as good as that transcription. -->
+     cells.json is transcribed by hand from the comparison documents rather than
+     emitted by the experiments tool. check_cells_against_docs.py closes that loop
+     for every configuration that has a write-up: it looks each measured quantity
+     up in its design's comparison document and fails on anything it cannot find.
+     All five published operating points pass.
+
+     TODO(evidence): the two preferred splits, M3 (13, 7) and M4 RF = 9, have no
+     comparison document, so the checker reports them UNSOURCED and their figures
+     rest on the transcription alone. Both are measured and their configs are on
+     main; what is missing is the write-up. -->
+
 
 #### Agreement between analysis and simulation
 
