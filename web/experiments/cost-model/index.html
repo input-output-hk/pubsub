@@ -1,141 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>M-models — closed-forms dashboard</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cost model — the closed-form laws, live · Cardano PubSub</title>
+<meta name="description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/cost-model/">
+<link rel="icon" href="../../assets/favicon.ico">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="../../assets/icon-512.png">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+
+<!-- Link previews: Slack, Discord, Telegram, LinkedIn, X and search engines. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="Five candidate dissemination models — Cardano PubSub">
+<meta property="og:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/cost-model/">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Five candidate dissemination models — Cardano PubSub">
+<meta name="twitter:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared.css">
 <style>
-  /* Tokens follow the repo's light-default / data-theme pattern; values from the
-     dataviz reference palette so the series colours are CVD-validated as a set. */
-  :root {
-    color-scheme: light;
-    --page: #f9f9f7; --surface: #fcfcfb;
-    --ink: #0b0b0b; --ink-2: #52514e; --ink-mute: #898781;
-    --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
-    --good: #0ca30c; --crit: #d03b3b;
+  /* Series colours, shared with the CIP figures so a model is the same
+     colour wherever it appears. */
+  .costmodel {
     --m1: #2a78d6; --m2: #eb6834; --m3: #1baf7a; --m4: #eda100; --m5: #e87ba4;
-    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   }
-  html[data-theme="dark"] {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19;
-    --ink: #ffffff; --ink-2: #c3c2b7; --ink-mute: #898781;
-    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  html[data-theme="dark"] .costmodel {
     --m1: #3987e5; --m2: #d95926; --m3: #199e70; --m4: #c98500; --m5: #d55181;
   }
-  * { box-sizing: border-box; margin: 0; }
-  body { background: var(--page); color: var(--ink); font: 14px/1.45 var(--font); padding: 0 0 40px; }
-  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: baseline;
-           padding: 18px 22px 12px; border-bottom: 1px solid var(--grid); }
-  header h1 { font-size: 18px; font-weight: 650; }
-  header .sub { color: var(--ink-2); font-size: 13px; }
-  header .spacer { flex: 1; }
-  button { font: 12.5px var(--font); color: var(--ink); background: var(--surface);
-           border: 1px solid var(--axis); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-  button:hover { border-color: var(--ink-mute); }
-  .badge { font: 12px var(--mono); padding: 3px 9px; border-radius: 99px; border: 1px solid var(--ring); }
-  .badge.pass { color: var(--good); border-color: var(--good); }
-  .badge.fail { color: var(--crit); border-color: var(--crit); }
 
-  .layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px;
+  /* Tokens follow the repo's light-default / data-theme pattern; values from the
+     dataviz reference palette so the series colours are CVD-validated as a set. */
+      * { box-sizing: border-box; margin: 0; }
+  .costmodel body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--font-body); padding: 0 0 40px; }
+  .costmodel header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: baseline;
+           padding: 18px 22px 12px; border-bottom: 1px solid var(--card-stroke-faint); }
+  .costmodel header h1 { font-size: 18px; font-weight: 650; }
+  .costmodel header .sub { color: var(--text-mute); font-size: 13px; }
+  .costmodel header .spacer { flex: 1; }
+  .costmodel button { font: 12.5px var(--font-body); color: var(--text); background: var(--card-fill);
+           border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  .costmodel button:hover { border-color: var(--text-faint); }
+  .costmodel .badge { font: 12px var(--font-mono); padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); }
+  .costmodel .badge.pass { color: var(--good); border-color: var(--good); }
+  .costmodel .badge.fail { color: var(--bad); border-color: var(--bad); }
+
+  .costmodel .layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px;
             padding: 18px 22px; max-width: 1420px; margin: 0 auto; }
-  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 980px) { .costmodel .layout { grid-template-columns: 1fr; } }
 
   /* ---- controls ---- */
-  .panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; }
-  .controls { display: flex; flex-direction: column; gap: 12px; }
-  .panel h2 { font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase;
-              color: var(--ink-mute); margin-bottom: 8px; }
-  .model-card { border-left: 4px solid var(--mc, var(--axis)); }
-  .model-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .model-head .name { font-weight: 650; }
-  .model-head .mech { color: var(--ink-2); font-size: 12px; }
-  .model-head input { margin-left: auto; }
+  .panel { background: var(--card-fill); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .costmodel .controls { display: flex; flex-direction: column; gap: 12px; }
+  .costmodel .panel h2 { font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase;
+              color: var(--text-faint); margin-bottom: 8px; }
+  .costmodel .model-card { border-left: 4px solid var(--mc, var(--line-strong)); }
+  .costmodel .model-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .costmodel .model-head .name { font-weight: 650; }
+  .costmodel .model-head .mech { color: var(--text-mute); font-size: 12px; }
+  .costmodel .model-head input { margin-left: auto; }
   /* The tunable constants are what the panel is for, so the value carries the
      weight: the slider is the control, the number is the reading. */
   .slider-row { display: grid; grid-template-columns: 108px 1fr 52px; gap: 8px; align-items: center;
                 padding: 4px 0; }
-  .slider-row label { color: var(--ink-2); font-size: 13px; }
-  .slider-row output { font: 600 16px var(--mono); text-align: right;
-                       font-variant-numeric: tabular-nums; color: var(--ink); }
-  input[type=range] { width: 100%; accent-color: var(--mc, var(--ink-2)); }
+  .costmodel .slider-row label { color: var(--text-mute); font-size: 13px; }
+  .costmodel .slider-row output { font: 600 16px var(--font-mono); text-align: right;
+                       font-variant-numeric: tabular-nums; color: var(--text); }
+  .costmodel input[type=range] { width: 100%; accent-color: var(--mc, var(--text-mute)); }
 
   /* δ is a choice among three, so it reads as a control rather than as text. */
   .slider-row select {
-    width: 100%; font: 600 14px var(--mono); color: var(--ink);
-    background: var(--surface); border: 1px solid var(--axis); border-radius: 6px;
+    width: 100%; font: 600 14px var(--font-mono); color: var(--text);
+    background: var(--card-fill); border: 1px solid var(--line-strong); border-radius: 6px;
     padding: 4px 26px 4px 9px; cursor: pointer; appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%),
-                      linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-mute) 50%),
+                      linear-gradient(135deg, var(--text-mute) 50%, transparent 50%);
     background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
     background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
   }
-  .slider-row select:hover { border-color: var(--ink-2); }
-  .slider-row select:focus-visible { outline: 2px solid var(--good); outline-offset: 1px; }
+  .costmodel .slider-row select:hover { border-color: var(--text-mute); }
+  .costmodel .slider-row select:focus-visible { outline: 2px solid var(--good); outline-offset: 1px; }
 
-  .readout { display: flex; gap: 8px; align-items: center; margin-top: 6px; font: 12.5px var(--mono); }
-  .readout .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .readout .dot.pass { background: var(--good); }
-  .readout .dot.fail { background: var(--crit); }
-  .readout .lbl { color: var(--ink-2); font-family: var(--font); }
-  .readout .verdict { font-family: var(--font); font-weight: 600; }
-  .readout .verdict.pass { color: var(--good); }
-  .readout .verdict.fail { color: var(--crit); }
+  .costmodel .readout { display: flex; gap: 8px; align-items: center; margin-top: 6px; font: 12.5px var(--font-mono); }
+  .costmodel .readout .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .costmodel .readout .dot.pass { background: var(--good); }
+  .costmodel .readout .dot.fail { background: var(--bad); }
+  .costmodel .readout .lbl { color: var(--text-mute); font-family: var(--font-body); }
+  .costmodel .readout .verdict { font-family: var(--font-body); font-weight: 600; }
+  .costmodel .readout .verdict.pass { color: var(--good); }
+  .costmodel .readout .verdict.fail { color: var(--bad); }
 
   /* ---- viz ---- */
   .viz { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-  .axis-picker { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-  .axis-picker label { display: inline-flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
-  .chart-wrap { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; justify-content: center; }
-  svg#radar { width: min(100%, 540px); height: auto; }
-  .legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-  .legend .item { display: flex; gap: 8px; align-items: center; }
-  .legend .chip { width: 18px; height: 8px; border-radius: 3px; }
-  .legend .item .lname { font-weight: 600; }
-  .legend .item .lparams { color: var(--ink-2); font: 12px var(--mono); }
-  .hint { color: var(--ink-mute); font-size: 12px; }
-  .warn { border-left: 4px solid #fab219; background: var(--surface); border: 1px solid var(--ring);
+  .costmodel .axis-picker { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .costmodel .axis-picker label { display: inline-flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--text-mute); cursor: pointer; }
+  .costmodel .chart-wrap { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; justify-content: center; }
+  .costmodel svg#radar { width: min(100%, 540px); height: auto; }
+  .costmodel .legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+  .costmodel .legend .item { display: flex; gap: 8px; align-items: center; }
+  .costmodel .legend .chip { width: 18px; height: 8px; border-radius: 3px; }
+  .costmodel .legend .item .lname { font-weight: 600; }
+  .costmodel .legend .item .lparams { color: var(--text-mute); font: 12px var(--font-mono); }
+  .costmodel .hint { color: var(--text-faint); font-size: 12px; }
+  .costmodel .warn { border-left: 4px solid #fab219; background: var(--card-fill); border: 1px solid var(--line);
           border-left-width: 4px; border-left-color: #fab219; border-radius: 6px;
-          padding: 8px 12px; font-size: 12.5px; color: var(--ink-2); }
-  .warn b { color: var(--ink); }
+          padding: 8px 12px; font-size: 12.5px; color: var(--text-mute); }
+  .costmodel .warn b { color: var(--text); }
 
-  .table-wrap { overflow-x: auto; }
-  table { border-collapse: separate; border-spacing: 0; font: 12.5px var(--mono);
+  .costmodel .table-wrap { overflow-x: auto; }
+  .costmodel table { border-collapse: separate; border-spacing: 0; font: 12.5px var(--font-mono);
           font-variant-numeric: tabular-nums; white-space: nowrap; }
-  th, td { padding: 5px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
-  th { color: var(--ink-mute); font: 600 11px var(--font); letter-spacing: .04em; }
-  th:first-child, td:first-child { text-align: left; }
+  .costmodel th, .costmodel td { padding: 5px 10px; text-align: right; border-bottom: 1px solid var(--card-stroke-faint); }
+  .costmodel th { color: var(--text-faint); font: 600 11px var(--font-body); letter-spacing: .04em; }
+  .costmodel th:first-child, .costmodel td:first-child { text-align: left; }
   /* The model name stays put while the values scroll under it, otherwise a row
      read at the right-hand end belongs to nobody. */
   th:first-child, td:first-child {
-    position: sticky; left: 0; z-index: 1; background: var(--surface);
-    box-shadow: 1px 0 0 var(--grid);
+    position: sticky; left: 0; z-index: 1; background: var(--card-fill);
+    box-shadow: 1px 0 0 var(--card-stroke-faint);
   }
-  td.best { font-weight: 700; }
-  tr.hidden-model td { opacity: .38; }
-  td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: baseline; }
+  .costmodel td.best { font-weight: 700; }
+  .costmodel tr.hidden-model td { opacity: .38; }
+  .costmodel td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: baseline; }
 
-  footer { max-width: 1420px; margin: 8px auto 0; padding: 0 22px; color: var(--ink-2); font-size: 12.5px; }
-  footer ul { padding-left: 18px; }
-  details { margin-top: 8px; }
-  details li { font: 12px var(--mono); }
-  details li.ok { color: var(--good); }
-  details li.bad { color: var(--crit); }
+  .costmodel footer { max-width: 1420px; margin: 8px auto 0; padding: 0 22px; color: var(--text-mute); font-size: 12.5px; }
+  .costmodel footer ul { padding-left: 18px; }
+  .costmodel details { margin-top: 8px; }
+  .costmodel details li { font: 12px var(--font-mono); }
+  .costmodel details li.ok { color: var(--good); }
+  .costmodel details li.bad { color: var(--bad); }
 
-  #tooltip { position: fixed; pointer-events: none; background: var(--surface); border: 1px solid var(--axis);
-             border-radius: 6px; padding: 6px 9px; font: 12px var(--mono); box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  .costmodel #tooltip { position: fixed; pointer-events: none; background: var(--card-fill); border: 1px solid var(--line-strong);
+             border-radius: 6px; padding: 6px 9px; font: 12px var(--font-mono); box-shadow: 0 2px 8px rgba(0,0,0,.15);
              display: none; z-index: 10; }
+
+  .costmodel { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+  .costmodel .layout { padding-top: 4px; }
+  .costmodel h1 { font-family: var(--font-display); letter-spacing: -0.01em; }
+
 </style>
 </head>
 <body>
+
+<svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+</svg>
+
+<nav class="navbar" aria-label="Primary">
+  <a class="navbar-brand" href="../../">
+    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+    <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+  </a>
+  <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
+    <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+  </button>
+  <div class="nav-collapse">
+  <div class="navbar-links">
+    <a href="../../#scenarios">Scenarios</a>
+    <a href="../../#research">Research</a>
+    <span class="nav-item nav-item--experiments is-current">
+      <a href="../" class="active">Experiments</a>
+      <span class="nav-menu">
+        <a href="../">Overview</a>
+        <a href="./">Model simulator</a>
+        <a href="../cost-model/" class="active">Cost model</a>
+      </span>
+    </span>
+    <a href="../../#activity">Activity</a>
+    <a href="../../#materials">Materials</a>
+    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
+  </div>
+  <div class="navbar-icons">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+    </a>
+    <button class="nav-icon-btn theme-toggle" type="button" aria-label="Toggle color theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+  </div>
+</nav>
+
+<main>
+  <section class="page-head">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../">&lsaquo;&nbsp;Experiments</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-here" aria-current="page">Cost model</span>
+      </nav>
+    </div>
+  </section>
+  <div class="costmodel">
+
 <header>
   <h1>Hybrid dissemination models — closed-forms dashboard</h1>
   <span class="sub">M1–M5 property laws, live. Radar: outward = better (fixed reference ranges).</span>
   <span class="spacer"></span>
   <span id="selftest-badge" class="badge">self-test…</span>
   <button id="btn-reset">Reset to proposed operating points</button>
-  <button id="btn-theme">Dark / light</button>
 </header>
 
 <div class="layout">
@@ -187,6 +270,55 @@
   <details id="selftest-details"><summary>Self-test detail</summary><ul id="selftest-list"></ul></details>
 </footer>
 <div id="tooltip"></div>
+
+
+
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <nav class="footer-nav" aria-label="Footer">
+      <div class="footer-col">
+        <div class="footer-col-title">Research</div>
+        <a href="../../#scenarios">Scenarios</a>
+        <a href="../../#research">Programme</a>
+        <a href="../">Dissemination models</a>
+        <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
+        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Progress</div>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
+        <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
+        <a href="../../#activity">Activity &amp; latest entry</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Repository</div>
+        <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">Source code</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a>
+      </div>
+    </nav>
+    <div class="footer-row">
+      <span class="footer-brand">
+        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
+        <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true">
+      </span>
+      <p class="footer-credit">
+        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output">
+        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output">
+        <span>2026</span>
+      </p>
+    </div>
+  </div>
+</footer>
+
+
 
 <script>
 /* ================= MATH-BEGIN =================
@@ -592,14 +724,6 @@ if (typeof document !== 'undefined') (() => {
   /* ---- theme ---- */
   const urlTheme = new URLSearchParams(location.search).get('theme');
   const storedTheme = urlTheme || localStorage.getItem('mmdash-theme');
-  if (storedTheme) document.documentElement.dataset.theme = storedTheme;
-  else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-  $('#btn-theme').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem('mmdash-theme', next);
-    recompute();
-  });
 
   /* ---- build controls ---- */
   const cardsHost = $('#model-cards');
@@ -682,7 +806,7 @@ if (typeof document !== 'undefined') (() => {
     svg.innerHTML = '';
     const n = axes.length;
     if (n < 3) {
-      el('text', { x: CX, y: CY, 'text-anchor': 'middle', fill: 'var(--ink-mute)', 'font-size': 14 })
+      el('text', { x: CX, y: CY, 'text-anchor': 'middle', fill: 'var(--text-faint)', 'font-size': 14 })
         .textContent = 'select at least 3 axes';
       return;
     }
@@ -691,14 +815,14 @@ if (typeof document !== 'undefined') (() => {
     // rings + spokes (recessive)
     for (const fr of [0.25, 0.5, 0.75, 1]) {
       const d = axes.map((_, i) => pt(i, fr)).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
-      el('path', { d, fill: 'none', stroke: 'var(--grid)', 'stroke-width': 1 });
+      el('path', { d, fill: 'none', stroke: 'var(--card-stroke-faint)', 'stroke-width': 1 });
     }
     axes.forEach((a, i) => {
       const [x, y] = pt(i, 1);
-      el('line', { x1: CX, y1: CY, x2: x, y2: y, stroke: 'var(--grid)', 'stroke-width': 1 });
+      el('line', { x1: CX, y1: CY, x2: x, y2: y, stroke: 'var(--card-stroke-faint)', 'stroke-width': 1 });
       const [lx, ly] = pt(i, 1.13);
       const t = el('text', { x: lx, y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-                             fill: 'var(--ink-2)', 'font-size': 12.5 });
+                             fill: 'var(--text-mute)', 'font-size': 12.5 });
       t.textContent = a.label;
     });
     // polygons: fills first, then strokes+markers so no fill sits on top of a line
