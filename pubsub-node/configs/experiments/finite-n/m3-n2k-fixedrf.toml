@@ -1,0 +1,29 @@
+# Finite-N, pick count held fixed — M3 RF = 6, s = 4 at N = 2000
+# The gradient ladder raised the pick count alongside N, because holding the
+# law near 0.1 requires it, so "the deviation shrinks with population" and
+# "it shrinks with fanout" fit that data equally well. These cells hold the
+# pick count fixed at the N = 1000 value and vary N alone. The law value rises
+# with N as a result, which costs nothing: more failures is more power.
+# If the deviation persists it is the pick count; if it decays it is N.
+# mu = 0.2. Predicted P(bad) = 0.18440.
+
+model = "m3"
+master_seed = 931
+
+[population]
+size = 2000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 6
+publisher = { pick_count = 3 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 6
+publisher = { pick_count = 3 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 60000
