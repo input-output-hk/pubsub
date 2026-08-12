@@ -1,0 +1,28 @@
+# Finite-N confirmation — M3 at a different split (RF = 7, s = 3), fresh master seed
+# M3's N = 1000 ladder cell came in 8.6% above its law at z = +6.85 over
+# 60,000 draws, while M1, M2, M4 and M5 all sat within 2.4 sigma. This cell
+# is one of three that separate the possibilities: same design and split on a
+# fresh seed, the same design at a different split, and a control on a design
+# that was not an outlier.
+# mu = 0.2, N = 1000. Predicted P(bad) = 0.11788.
+
+model = "m3"
+master_seed = 914
+
+[population]
+size = 1000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 7
+publisher = { pick_count = 2 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 7
+publisher = { pick_count = 2 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 60000
