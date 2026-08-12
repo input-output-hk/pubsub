@@ -372,6 +372,13 @@
   tr.hidden-model td { opacity: .38; }
   td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
               vertical-align: baseline; }
+  /* The one thing this page must not let a reader assume: that these curves were
+     measured everywhere they can be dragged to. */
+  .caveat { margin-top: 14px; max-width: 78ch; padding: 11px 14px;
+            border: 1px solid var(--card-stroke-faint); border-left: 3px solid var(--warn);
+            border-radius: 7px; background: var(--card-fill);
+            color: var(--text-mute); font-size: 0.88rem; line-height: 1.55; }
+  .caveat b { color: var(--text); font-weight: 600; }
   .section-lede { color: var(--text-mute); font-size: 0.95rem; line-height: 1.6;
                   max-width: 78ch; margin-top: 10px; }
   .section-lede b { color: var(--text); font-weight: 600; }
@@ -512,6 +519,14 @@
         closed form from the M1–M5 analyses, evaluated live at the environment you set.
         Hover, tap or tab to any <span class="term" data-term="how" tabindex="0">underlined term</span>
         for what it means.
+      </p>
+      <p class="caveat">
+        <b>Closed forms, not measurements.</b> The laws are leading-order approximations,
+        checked against Monte-Carlo simulation and prototype runs only at particular points
+        — chiefly the <i>N</i> = 20 000, μ = 0.2 operating points, plus a handful of
+        elevated-μ and deep-tail cells — and the hop counts are asymptotic with fitted
+        constants. Move far from those points and the curves are extrapolation rather than
+        measured behaviour.
       </p>
     </div>
   </section>
