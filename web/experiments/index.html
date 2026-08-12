@@ -294,6 +294,11 @@
   @media (prefers-reduced-motion: no-preference) {
     .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1); }
     .route:hover .route-thumb { transform: translateY(-50%) scale(1.14); }
+    /* The radar's outer labels sit closest to the clipped edge, so on hover it
+       draws back toward the centre far enough to read them. */
+    .route--radar .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1),
+                                             right .34s cubic-bezier(.22,.61,.36,1); }
+    .route--radar:hover .route-thumb { right: 2%; transform: translateY(-50%) scale(1.10); }
 
     /* Parallax: the grid, then each model's shape, take the scale at slightly
        different rates, so the layers separate for a moment on hover. */
@@ -473,7 +478,7 @@
           <span class="route-name">Model simulator</span>
           <span class="route-go">Open the simulator &rarr;</span>
         </a>
-        <a class="route" href="cost-model/">
+        <a class="route route--radar" href="cost-model/">
           <svg class="route-thumb" viewBox="196 86 468 392" aria-hidden="true">
             <polygon points="430.0,241.5 470.5,282.0 430.0,322.5 389.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
             <polygon points="430.0,201.0 511.0,282.0 430.0,363.0 349.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
@@ -529,11 +534,18 @@
           <p>
             <strong>A bad graph is rarely a broken network.</strong> Anything short of full
             strong connectivity counts as bad, and in practice the failures are not large
-            splits but single stranded nodes. A node whose outgoing links all landed on
-            adversaries is a dead end, and dead ends dominate the tail. A bad graph does not
-            mean a message went undelivered, though: that depends on <em>which</em> node
-            publishes. A stranded node fails only as a publisher, and is invisible to everyone
-            else's dissemination.
+            splits but single stranded nodes. A node can strand in two ways: its outgoing
+            links all landed on adversaries, so nobody hears it, or its incoming links did,
+            so it hears nobody. Which of the two dominates is a property of the design rather
+            than of luck &mdash; under M2 and M3 most failures are publishers that cannot be
+            heard, while under M4 a stranded node is one that cannot receive.
+          </p>
+          <p>
+            That distinction decides what a bad graph actually costs. A node stranded as a
+            publisher costs nothing unless it happens to be the one publishing, and is
+            invisible to everyone else's dissemination; a node stranded as a subscriber is
+            missing whoever publishes. It is why a bad graph does not imply a lost message,
+            and why the same failure rate is worth more under one design than another.
           </p>
         </div>
       </details>
