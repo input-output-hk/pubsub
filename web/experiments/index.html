@@ -81,11 +81,6 @@
 
   /* ---------- Page head ---------- */
   section.page-head { padding: 56px 0 8px; }
-  .section-kind {
-    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
-    margin-bottom: 14px;
-  }
   .page-head h1 {
     font-family: var(--font-display);
     font-size: clamp(1.9rem, 4vw, 3rem);
@@ -94,7 +89,6 @@
   }
   .page-head .lede { color: var(--text-mute); max-width: 74ch; }
   .page-head .lede + .lede { margin-top: 12px; }
-
 
   /* The method, available but not in the way. */
   .explainer { margin-top: 22px; border-top: 1px solid var(--line); }
@@ -108,66 +102,6 @@
   .explainer-body p { font-size: 0.95rem; line-height: 1.62; color: var(--text-mute);
                       margin: 12px 0 0; }
 
-  /* ---------- Model tabs ---------- */
-  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 34px 0 22px; }
-  .model-tab {
-    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
-    letter-spacing: 0.06em;
-    padding: 9px 16px; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--text-mute);
-    transition: border-color .15s ease, color .15s ease, background .15s ease;
-  }
-  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
-  .model-tab.active { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
-
-  /* ---------- Stage ---------- */
-  .stage {
-    display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
-    gap: 28px; align-items: stretch;
-  }
-  .stage-canvas {
-    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 22px 22px 16px;
-  }
-  .stage-canvas svg { width: 100%; height: auto; display: block; max-width: 660px; margin: 0 auto; }
-
-  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
-
-  /* The step card fills the column so the buttons keep a fixed position
-     regardless of how long the step description is. */
-  .stage-side { display: flex; flex-direction: column; gap: 14px; }
-  .step-card {
-    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 20px 22px; flex: 1;
-  }
-  .step-desc { min-height: 8em; }
-  .step-count {
-    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
-    margin-bottom: 8px;
-  }
-  .step-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
-  .step-desc { font-size: 0.92rem; color: var(--text-mute); line-height: 1.6; }
-  .step-desc strong { color: var(--text); }
-
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .controls .ctl-btn { flex: 1 1 auto; }
-  .ctl-btn {
-    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 9px 14px; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--text);
-    transition: border-color .15s ease, color .15s ease;
-  }
-  .ctl-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
-  .ctl-btn:disabled { opacity: 0.35; cursor: default; }
-  .ctl-btn:disabled:hover { border-color: var(--line-strong); color: var(--text); }
-
-  .legend { padding: 12px 0 0; }
-  .legend-items { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
-  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-mute); }
-  .legend-item svg { width: 26px; height: 14px; flex-shrink: 0; }
-
   /* ---------- Model notes — directly below the tab bar ---------- */
   .model-notes {
     margin: 0 0 24px; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
@@ -179,10 +113,6 @@
     to { opacity: 1; transform: none; }
   }
   @media (prefers-reduced-motion: reduce) { .model-notes.swap { animation: none; } }
-  .model-notes .card-kicker {
-    font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase;
-    letter-spacing: 0.14em; color: var(--iog-infared); font-weight: 600; margin-bottom: 10px;
-  }
   .model-notes h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
   .model-notes p { font-size: 0.93rem; color: var(--text-mute); line-height: 1.6; max-width: 90ch; }
   .model-notes p + p { margin-top: 8px; }
@@ -221,13 +151,8 @@
   .edge.focus-other { opacity: 0.55; stroke-width: 1.1; }
   .node:hover { stroke-width: 2.5; cursor: default; }
 
-  .hover-hint {
-    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
-    letter-spacing: 0.05em; text-align: center; margin-top: 12px;
-  }
-
   @media (max-width: 900px) {
-    .stage { grid-template-columns: 1fr; }
+
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -243,10 +168,6 @@
   .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
                 text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
                 border: 1px solid var(--line-strong); color: var(--text-mute); }
-
-  .back-link { margin-top: 14px; }
-  .back-link a { color: var(--text-mute); text-decoration: none; font-size: 0.95rem; }
-  .back-link a:hover { color: var(--iog-infared); }
 
   /* Two ways in, given equal weight: neither is the primary. */
   .route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

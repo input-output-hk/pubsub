@@ -81,32 +81,14 @@
 
   /* ---------- Page head ---------- */
   section.page-head { padding: 40px 0 4px; }
-  .section-kind {
-    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
-    margin-bottom: 14px;
-  }
   .page-head h1 {
     font-family: var(--font-display);
     font-size: clamp(1.7rem, 3vw, 2.3rem);
     font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;
     margin-bottom: 18px;
   }
-  .page-head .lede { color: var(--text-mute); max-width: 74ch; }
-  .page-head .lede + .lede { margin-top: 12px; }
-
 
   /* The method, available but not in the way. */
-  .explainer { margin-top: 22px; border-top: 1px solid var(--line); }
-  .explainer > summary { cursor: pointer; padding: 14px 0 0; font-weight: 600;
-                         font-size: 0.95rem; list-style: none; }
-  .explainer > summary::-webkit-details-marker { display: none; }
-  .explainer > summary::before { content: "+"; display: inline-block; width: 1.1em;
-                                 color: var(--text-mute); font-weight: 400; }
-  .explainer[open] > summary::before { content: "\2212"; }
-  .explainer > summary:hover { color: var(--iog-cobalt-pulse); }
-  .explainer-body p { font-size: 0.95rem; line-height: 1.62; color: var(--text-mute);
-                      margin: 12px 0 0; }
 
   /* ---------- Model tabs ---------- */
   .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 18px; }
@@ -243,10 +225,6 @@
   .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
                 text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
                 border: 1px solid var(--line-strong); color: var(--text-mute); }
-
-  .back-link { margin-top: 14px; }
-  .back-link a { color: var(--text-mute); text-decoration: none; font-size: 0.95rem; }
-  .back-link a:hover { color: var(--iog-infared); }
 
   /* Breadcrumb: same weight as the old section kind, but it says where you are
      and gets you back out. */

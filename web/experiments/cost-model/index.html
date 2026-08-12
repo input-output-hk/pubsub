@@ -189,21 +189,6 @@
   .env-item .env-val { font-family: var(--mono); font-size: 0.76rem; color: var(--text-mute);
                        font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
                        min-width: 8ch; text-align: right; }
-  /* The native control brings its own chrome, which is the one thing on the page
-     that does not follow the site. Drawn here instead, caret included. */
-  .env-rail select {
-    font-family: var(--mono); font-size: 0.86rem; font-weight: 600; color: var(--text);
-    background-color: var(--bg); border: 1px solid var(--line-strong);
-    border-radius: 6px; padding: 6px 30px 6px 10px; cursor: pointer; line-height: 1.2;
-    -webkit-appearance: none; appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--text-mute) 50%),
-                      linear-gradient(135deg, var(--text-mute) 50%, transparent 50%);
-    background-position: calc(100% - 16px) 54%, calc(100% - 11px) 54%;
-    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
-    transition: border-color .12s ease;
-  }
-  .env-rail select:hover { border-color: var(--text-mute); }
-  .env-rail select:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
                      clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
   .xselect { position: relative; flex: none; }
@@ -605,6 +590,17 @@
       <header class="section-head">
         <div class="section-kind">Raw values</div>
         <h2>Every property, numerically</h2>
+        <p class="section-lede">
+          One row per design, one column per property, at the settings above. The first
+          column is what everything else is bought with: <b>P(bad)</b> is the chance an
+          epoch's wiring fails to get some publisher's message to everyone, and
+          <b>vs δ</b> is whether that beats the target. The middle columns are what it
+          costs — messages the network sends, copies each node receives, hops before the
+          last node has it, links each node holds. The last are how much room is left:
+          <b>Δμ</b> is how much more of the network could turn adversarial, <b>churn</b>
+          how much of it could simply go offline. Every heading has a definition on hover
+          or tap.
+        </p>
       </header>
       <div class="table-wrap"><table id="values"></table></div>
       <p class="hint">Bold = best in column among the designs shown · closed forms only, no Monte Carlo</p>
@@ -1077,9 +1073,6 @@ if (typeof document !== 'undefined') (() => {
     muBudget: ['μ-budget', 'The most hostile network this configuration still works in: the largest share of silent nodes it can carry and still meet the target.'],
     msgs: ['Messages per publication', 'Every transmission the whole network makes to get one published message to everyone — the total bandwidth bill for one message.'],
     degree: ['Honest degree', 'How many links an honest node has, incoming and outgoing, on average and how much that varies. The variation matters: a node that happens to hold few links is the cheapest one to cut off.'],
-    preset_recommended: ['Recommended', 'The CIP’s current advice. M3 moves one unit of the same 19-link budget from initiation to pull (RF=13, s=7); M4 spends one more peer (RF=9). M1, M2 and M5 are unchanged.'],
-    preset_published: ['As published', 'The operating points the closed-form write-ups were published with — kept for comparison.'],
-    preset_custom: ['Custom', 'The sliders no longer match either published set. Pick a preset to go back.'],
     // The mechanism wording is the site's own, from the landing page's model strip.
     model_m1: ['M1 · push', 'Every node, on first receipt, pushes the message to F random peers.'],
     model_m2: ['M2 · pull', 'Each node pulls from RF forwarders, redrawn every epoch.'],
@@ -1105,13 +1098,6 @@ if (typeof document !== 'undefined') (() => {
     published: { label: 'As published', params: PUBLISHED },
   };
   const DEFAULT_PRESET = 'recommended';
-  // The two presets differ only in M3's split and M4's degree; the churn figures that
-  // make the case are read from the laws, so the tooltip text cannot go stale.
-  GLOSSARY.preset_recommended[1] += ` At N = 20 000, μ = 0.20, δ = 10⁻⁴ the 13/7 split tolerates
-    ${churnAt('m3', RECOMMENDED.m3)} silent nodes against ${churnAt('m3', PUBLISHED.m3)} for 12/8,
-    at the identical 19-link budget.`;
-  GLOSSARY.preset_published[1] += ` M4 at RF=8 tolerates ${churnAt('m4', PUBLISHED.m4)} silent
-    nodes there, against ${churnAt('m4', RECOMMENDED.m4)} for one more peer at RF=9.`;
 
   const state = {
     env: { ...REF_ENV },
@@ -1300,17 +1286,6 @@ if (typeof document !== 'undefined') (() => {
       if (MODEL_IDS.every(id => MM.models[id].sliders.every(s => state.params[id][s.key] === pre.params[id][s.key])))
         return name;
     return null;
-  }
-  // The preset switch is gone: this page carries the proposed operating point
-  // only, so there is nothing to switch between.
-  const presetHost = $('.preset-switch');
-  if (presetHost) {
-    presetHost.addEventListener('click', e => {
-      const b = e.target.closest('button[data-preset]');
-      if (b) applyPreset(b.dataset.preset);
-    });
-    for (const b of presetHost.querySelectorAll('button[data-preset]'))
-      b.dataset.term = `preset_${b.dataset.preset}`;
   }
   $('#btn-reset').addEventListener('click', () => {
     state.env = { ...REF_ENV };
@@ -1565,20 +1540,9 @@ if (typeof document !== 'undefined') (() => {
     $('#o-mu').textContent = `${state.env.mu.toFixed(3)} · ${(100 * state.env.mu).toFixed(1)} %`;
     $('#o-N').textContent = fmtInt(state.env.N);
 
-    // matchPreset still reports whether the sliders sit on the proposed point,
-    // which the panel caption reads; the switch itself is gone, so guard the
-    // elements that presented it.
+    // Whether the sliders still sit on the proposed point; the drawer caption
+    // reports it, and nothing else does now the switch is gone.
     const preset = matchPreset();
-    if (presetHost) {
-      for (const b of presetHost.querySelectorAll('button[data-preset]'))
-        b.setAttribute('aria-pressed', b.dataset.preset === preset ? 'true' : 'false');
-    }
-    const stateLabel = $('#preset-state');
-    if (stateLabel) {
-      stateLabel.textContent = preset ? '' : 'custom';
-      stateLabel.classList.toggle('term', !preset);
-      if (preset) delete stateLabel.dataset.term; else stateLabel.dataset.term = 'preset_custom';
-    }
 
     for (const id of MODEL_IDS) {
       for (const s of MM.models[id].sliders)
