@@ -70,9 +70,6 @@ per-model analysis when picked up.
   compresses for large messages and the state axis dominates — the one
   property that could flip the M3/M4 frontier. Output: per-model traffic
   and the message-size crossover.
-- **Re-provisioning comparison** — cheapest parameters at μ_design > 0.2
-  and the +1-notch operating points (M3 (13, 7), M4 RF = 9): what
-  robustness costs; the robustness-adjusted frontier.
 - **Sustained load & hotspots** — per-node egress under a publication
   rate, the busiest node's provisioning number (balls-in-bins tail ×
   traffic), spam amplification factor.

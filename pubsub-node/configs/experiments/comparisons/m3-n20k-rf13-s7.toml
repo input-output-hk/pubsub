@@ -1,0 +1,28 @@
+# Cost/latency/degree comparison cell — M3 at the (13, 7) split rather than
+# the published (12, 8). Same budget of 19 and the same 38 standing links,
+# and this is the split the CIP rationale recommends. Source of its measured
+# figures: 166400 msgs, 10.40 copies/honest, 38.0 standing links mean / 64
+# busiest, 5.51 hops full / 4.21 mean. P(bad) law 4.39e-5, churn budget 2.17%.
+# The publisher pick_count is s-1, so s = 7 means 6.
+# N = 20000, mu = 0.2, 200 runs.
+
+model = "m3"
+master_seed = 852
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 13
+publisher = { pick_count = 6 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 13
+publisher = { pick_count = 6 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 200

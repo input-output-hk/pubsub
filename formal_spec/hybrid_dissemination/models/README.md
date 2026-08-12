@@ -14,7 +14,7 @@ analyses (`properties/`), and the executable model + simulators (`scripts/`).
 
 ## Current focus
 
-Five properties, analysed per model in each `properties/` folder:
+Six properties, analysed per model in each `properties/` folder:
 
 1. **Full coverage** — a sampled graph is **good** iff **every message of
    every honest publisher reaches all other honest nodes**. The guarantee is
@@ -32,6 +32,11 @@ Five properties, analysed per model in each `properties/` folder:
    effective adversarial fraction rises: budget (last μ_eff meeting the
    target) and collapse point (P(bad) = ½); churn reads the curve at
    μ_eff = μ + p(1−μ).
+6. **Re-provisioning** — the coverage law inverted at elevated design
+   fractions μ_design > 0.2: cheapest parameters, their cost, the
+   robustness they carry, and the +1-notch operating points at μ = 0.2;
+   cross-model synthesis in [`comparison.md`](comparison.md) §5 (the
+   robustness-adjusted frontier).
 
 Candidate properties — the analysis backlog (churn family, security,
 economics, lifecycle), short descriptions:
