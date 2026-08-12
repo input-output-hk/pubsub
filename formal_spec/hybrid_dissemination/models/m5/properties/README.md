@@ -8,7 +8,7 @@ strong-connectivity check; run it for a self-test), `sim_m5_coverage.py`
 `sim_m5_degrees.py` (degree distributions), `sweep_m5_mu_shift.py`
 (μ-shift degradation at frozen (k_in, k_out)), `sim_m5_severity.py`
 (bad-graph severity), `sweep_m5_reprovision.py` (cheapest (k_in, k_out)
-vs design μ).
+vs design μ), `sim_m5_eclipse.py` (adaptive eclipse cost).
 
 | Property | File | Verdict |
 |---|---|---|
@@ -18,6 +18,7 @@ vs design μ).
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
 | Re-provisioning (cheapest (k_in, k_out) at design μ) | [`re_provisioning.md`](re_provisioning.md) | HYBRID |
+| Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | HYBRID |
 
 Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).

@@ -7,7 +7,8 @@ forms + honest BFS; run it for a self-test), `sim_m1_coverage.py`
 (the P(bad) study), `sweep_m1_cost.py` (bandwidth/latency vs F),
 `sim_m1_degrees.py` (degree distributions), `sweep_m1_mu_shift.py`
 (μ-shift degradation at frozen F), `sim_m1_severity.py` (bad-graph
-severity), `sweep_m1_reprovision.py` (cheapest F vs design μ).
+severity), `sweep_m1_reprovision.py` (cheapest F vs design μ),
+`sim_m1_eclipse.py` (adaptive eclipse cost).
 
 | Property | File | Verdict |
 |---|---|---|
@@ -17,6 +18,7 @@ severity), `sweep_m1_reprovision.py` (cheapest F vs design μ).
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
 | Re-provisioning (cheapest F at design μ) | [`re_provisioning.md`](re_provisioning.md) | HYBRID |
+| Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | HYBRID |
 
 Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
