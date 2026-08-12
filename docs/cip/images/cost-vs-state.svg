@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 446" width="860" height="446" role="img" aria-labelledby="t d">
-<title id="t">Three costs at equal safety: bandwidth, state and latency</title>
-<desc id="d">Each design tuned to the same failure target, so the points differ only in cost. Three quantities are plotted at once: the horizontal axis is standing connections per node, the vertical axis is message copies per honest node, and marker size is hops to full coverage. Both axes are costs, so lower and further left is better, and a smaller marker reaches the last subscriber sooner. M3 and M4 are jointly non-dominated on the two axes.</desc>
+<title id="t">Three costs at each design's proposed configuration</title>
+<desc id="d">Each design shown at the configuration this proposal names for it. Three quantities are plotted at once: the horizontal axis is standing connections per node, the vertical axis is message copies per honest node, and marker size is hops to full coverage. Both axes are costs, so lower and further left is better, and a smaller marker reaches the last subscriber sooner. M3 and M4 are jointly non-dominated on the two axes.</desc>
 <rect width="860" height="446" rx="8" fill="#fcfcfb"/>
 <line x1="96.0" y1="30.0" x2="96.0" y2="366.0" stroke="#e2e0d8" stroke-width="1.0"/>
 <text x="96.0" y="385.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10</text>
@@ -20,12 +20,12 @@
 <text x="85.0" y="163.2" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">16</text>
 <line x1="96.0" y1="55.8" x2="820.0" y2="55.8" stroke="#e2e0d8" stroke-width="1.0"/>
 <text x="85.0" y="59.8" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">20</text>
-<line x1="199.4" y1="267.8" x2="578.7" y2="324.6" stroke="#6f6d64" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
-<text x="389.0" y="285.2" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">nothing beats both</text>
-<circle cx="578.7" cy="324.6" r="11.5" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="578.7" y="303.1" font-size="12" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">M3 · RF=12, s=8</text>
-<circle cx="199.4" cy="267.8" r="7.4" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="199.4" y="250.4" font-size="12" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">M4 · RF=8</text>
+<line x1="233.9" y1="226.4" x2="578.7" y2="304.0" stroke="#6f6d64" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
+<text x="406.3" y="254.2" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">nothing beats both</text>
+<circle cx="578.7" cy="304.0" r="9.6" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="578.7" y="284.4" font-size="12" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">M3 · RF=13, s=7</text>
+<circle cx="233.9" cy="226.4" r="6.8" fill="#eda100" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="233.9" y="209.7" font-size="12" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">M4 · RF=9</text>
 <circle cx="509.7" cy="221.3" r="6.8" fill="#e87ba4" stroke="#fcfcfb" stroke-width="1.6"/>
 <text x="509.7" y="204.5" font-size="12" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">M5 · (9,8)</text>
 <circle cx="751.0" cy="76.5" r="6.8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.6"/>
@@ -35,8 +35,8 @@
 <text x="110.0" y="50.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" xml:space="preserve">marker size = hops to full coverage h<tspan font-size="0.72em" dy="0.26em">full</tspan></text>
 <circle cx="132.0" cy="74.0" r="5.6" fill="#b9b6ab" stroke="#fcfcfb" stroke-width="1.6"/>
 <text x="143.7" y="78.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">4.8</text>
-<circle cx="196.0" cy="74.0" r="11.7" fill="#b9b6ab" stroke="#fcfcfb" stroke-width="1.6"/>
-<text x="213.7" y="78.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">5.9</text>
+<circle cx="196.0" cy="74.0" r="9.5" fill="#b9b6ab" stroke="#fcfcfb" stroke-width="1.6"/>
+<text x="211.5" y="78.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">5.5</text>
 <text x="458.0" y="410.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">State cost: standing links per node d</text>
 <text x="458.0" y="426.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">right = more connection slots and churn surface</text>
 <text x="0" y="0" transform="translate(26,198.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">Bandwidth cost: copies per honest node c</text>

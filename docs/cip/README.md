@@ -861,41 +861,44 @@ The hollow points extend that claim sideways. The 23 configurations above all si
 <!-- TODO(evidence): per-configuration table generated from cells.json, rather than
      restating the figure in prose. -->
 
-#### Comparison at the design target
+#### Comparison at the proposed configurations
 
-Each design was then tuned to its cheapest configuration meeting *δ* = 10⁻⁴ at *N* = 20 000, *μ* = 0.2, and the costs compared. Because every entry is equally safe by construction, the table is a pure cost comparison.
+Every design below is shown at the configuration this proposal names for it, at *N* = 20 000 and *μ* = 0.2, and every later table and figure carries the same configurations. For M1, M2 and M5 that is the cheapest one meeting *δ* = 10⁻⁴. For M3 and M4 it is the preferred split, which [Robustness](#robustness) derives below: those two designs each have a configuration at the same or nearly the same cost that absorbs several times the downtime, and carrying the superseded ones here purely to keep the failure rates level would mean comparing designs at parameters the rest of this proposal argues against.
+
+> [!IMPORTANT]
+> **The rows are therefore not equally safe, and the first column says by how much.** M4 at RF = 9 sits an order of magnitude inside the target where M2 sits just under it. This is a comparison of the configurations on offer, not a like-for-like reading at a common failure rate: a design that is both cheaper and safer than another has genuinely won, but a cost difference between two rows at different *p*<sub>bad</sub> is not by itself a verdict.
 
 <div align="center">
 <a name="table-8" id="table-8"></a>
 
-| Design | Parameters | Messages per publication | Copies per node | Standing links, mean | Standing links, busiest node | Hops (full) | Hops (mean) |
-| :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| M3 | RF = 12, *s* = 8 | **153,577** | **9.6** | 38.0 | 64 | 5.9 | 4.3 |
-| M4 | RF = 8 | 188,751 | 11.8 | **16.0** | **36** | 5.1 | 4.1 |
-| M5 | (9, 8) | 217,530 | 13.6 | 34.0 | 58 | 5.0 | 4.0 |
-| M1 | *F* = 24 | 307,201 | 19.2 | 48.0 | 75 | 5.0 | 3.6 |
-| M2 | RF = 24 | 307,162 | 19.2 | 48.0 | 75 | **4.8** | **3.6** |
+| Design | Parameters | *p*<sub>bad</sub> | Messages per publication | Copies per node | Standing links, mean | Standing links, busiest node | Hops (full) | Hops (mean) |
+| :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| M3 | RF = 13, *s* = 7 | 4.4 × 10⁻⁵ | **166,400** | **10.4** | 38.0 | 64 | 5.5 | 4.2 |
+| M4 | RF = 9 | **6.1 × 10⁻⁶** | 214,345 | 13.4 | **18.0** | **37** | 5.0 | 3.9 |
+| M5 | (9, 8) | 4.4 × 10⁻⁵ | 217,530 | 13.6 | 34.0 | 58 | 5.0 | 4.0 |
+| M1 | *F* = 24 | 7.3 × 10⁻⁵ | 307,201 | 19.2 | 48.0 | 75 | 5.0 | 3.6 |
+| M2 | RF = 24 | 7.3 × 10⁻⁵ | 307,162 | 19.2 | 48.0 | 75 | **4.8** | **3.6** |
 
-<em>Table 8: cost at equal safety</em>
+<em>Table 8: cost at each design's proposed configuration</em>
 
 </div>
 
-Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*; it is not a maximum over configurations, and each row is already the cheapest one meeting the target. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting three of those columns at once shows the shape of the trade: the two axes are costs, so lower and further left is better, and marker size is hops to the last subscriber, so a smaller marker is faster.
+Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*, not over configurations. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting three of those columns at once shows the shape of the trade: the two axes are costs, so lower and further left is better, and marker size is hops to the last subscriber, so a smaller marker is faster.
 
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
 
-![Bandwidth cost against state cost at equal safety](images/cost-vs-state.svg)
+![Three costs at each design's proposed configuration](images/cost-vs-state.svg)
 
-<em>Figure 5: three costs at equal safety — bandwidth, state, and latency as marker size</em>
+<em>Figure 5: three costs at the proposed configurations — bandwidth, state, and latency as marker size</em>
 
 </div>
 
 Three things follow, and the third is the one that matters for the choice.
 
-**Latency barely discriminates at the mean.** The whole field spans 4.8 to 5.9 forwarding steps, which at wide-area per-hop times is a few hundred milliseconds between the best and worst design, unlikely to decide anything for the use cases in the Motivation. The full depth distributions separate the designs more sharply at the tail, by two orders of magnitude in how often a subscriber waits the longest hop, but that tail is a fraction of a percent of subscribers.[^depth]
+**Latency barely discriminates at the mean.** The whole field spans 4.8 to 5.5 forwarding steps, which at wide-area per-hop times is a couple of hundred milliseconds between the best and worst design, unlikely to decide anything for the use cases in the Motivation. The full depth distributions separate the designs more sharply at the tail, by two orders of magnitude in how often a subscriber waits the longest hop, but that tail is a fraction of a percent of subscribers.[^depth]
 
-**Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's standing links exceed what its traffic would suggest because 14 of its 38 links carry only their owner's own publications, cheap to run but still connection slots to provision and still exposed to churn. The gap widens at the worst node rather than the average one: 64 connections against M4's 36.
+**Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's standing links exceed what its traffic would suggest because 12 of its 38 links carry only their owner's own publications, cheap to run but still connection slots to provision and still exposed to churn. The gap widens at the worst node rather than the average one: 64 connections against M4's 37.
 
 **M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention. See [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
 
@@ -903,7 +906,7 @@ The [Specification](#the-dissemination-design) carries both candidates rather th
 
 #### Robustness
 
-The comparison above holds every design at the same failure probability *under the assumption that all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
+The comparison above prices every design *under the assumption that all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
 
 A design's churn budget cannot be sampled directly. It is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it, the claim that downtime enters as a shift of the adversarial fraction, at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that Figure 4 has already validated.
 
@@ -911,30 +914,30 @@ It holds, in two rounds. Across five designs and five downtime levels, from none
 
 Those cells were chosen for measurability rather than for realism, so the operating points themselves were then run under heavier downtime, at 20, 25 and 30 % offline. **All nine placed the prediction inside the interval**, with a mean deviation of +0.30 and no detectable bias. The two rounds together carry the reduction from an adversarial fraction of 0.20 out to 0.44, more than doubling it, and the second round tests the configurations this proposal actually names.[^churn]
 
-The resulting budgets differ by a factor of four, and **their order is close to the reverse of the cost order in Table 8**:
+The resulting budgets span more than a factor of four:
 
 <div align="center">
 <a name="table-9" id="table-9"></a>
 
-| Design | Operating point | Downtime absorbed |
+| Design | Proposed configuration | Downtime absorbed |
 | :--: | --- | ---: |
+| M4 | RF = 9 | **7.43 %** |
 | M5 | (9, 8) | 2.18 % |
+| M3 | RF = 13, *s* = 7 | 2.17 % |
 | M1 | *F* = 24 | 1.76 % |
 | M2 | RF = 24 | 1.70 % |
-| M4 | RF = 8 | 1.07 % |
-| M3 | RF = 12, *s* = 8 | **0.54 %** |
 
-<em>Table 9: churn budget at each operating point</em>
+<em>Table 9: churn budget at each design's proposed configuration</em>
 
 </div>
 
-The design that is cheapest in bandwidth absorbs the least downtime, and the two the cost comparison ruled out absorb the most.
+At the *published* operating points this column read as almost the reverse of the cost order: the design cheapest in bandwidth, M3 at (12, 8), absorbed the least downtime of any of the five, at 0.54 %. That inverse relationship is what the two re-splits below break, and it was never a property of the mechanisms — M4 at RF = 9 is now both second-cheapest in traffic and the most tolerant by a factor of three. What it tracked was the rule used to choose parameters, which [Trade-offs and Limitations](#trade-offs-and-limitations) develops.
 
-The same figures can be read as security rather than resilience. Because an offline honest node and a silent adversary are indistinguishable, a budget for downtime is equally a margin above the assumed adversarial fraction: M3 at (13, 7) still meets the target at *μ* = 0.217 where M4 breaches it at 0.209, twice the headroom over the assumed 0.2. Downtime tolerance and adversary tolerance are one quantity here, not two. The mechanism is structural rather than incidental: M3 reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
+The same figures can be read as security rather than resilience. Because an offline honest node and a silent adversary are indistinguishable, a budget for downtime is equally a margin above the assumed adversarial fraction: against the 0.2 assumed, M3 at (13, 7) still meets the target at *μ* = 0.217 and M4 at RF = 9 at *μ* = 0.259. Downtime tolerance and adversary tolerance are one quantity here, not two. The mechanism behind M3's narrower margin is structural rather than incidental: it reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
 
 This does not overturn Table 8, but it does mean **cost alone does not select a design**. Which matters more, traffic or held connections or tolerance of an unreliable population, is a deployment question, and it is posed as an open question below.
 
-**M3's published operating point should move.** The budget of 19 can be split between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The split (RF = 13, *s* = 7) holds the same total budget and the same 38 standing links, and improves every other figure:
+**Where M3's proposed split comes from.** The budget of 19 can be divided between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The pair is written (*RF*, *s*), and *s* counts the intended initial holders of a publication rather than the links opened, so the seeding links are *s* − 1 and the budget is *RF* + (*s* − 1): 12 + 7 and 13 + 6 both come to 19. The split (RF = 13, *s* = 7) holds that same budget and the same 38 standing links, and improves every other figure:
 
 <div align="center">
 <a name="table-10" id="table-10"></a>
@@ -950,8 +953,8 @@ This does not overturn Table 8, but it does mean **cost alone does not select a 
 
 For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it.
 
-> [!WARNING]
-> **Any use of M3 in this proposal should take (13, 7).** The comparisons that follow keep (12, 8) only because it is the figure the published tables carry; a reader taking those tables as M3's best showing will under-rate it on three of the four axes.
+> [!NOTE]
+> **(13, 7) is the split every table and figure in this proposal carries**, and (12, 8) appears only in the table above, whose subject is the comparison between them. A reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes.
 
 The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives. What the experiment establishes is that the laws apply under churn, not the budget values themselves. And in the first round the measurements sat slightly above their predictions in the middle of the range. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and it does not reappear at the operating points, where the second round shows no bias. It is nonetheless unexplained. Its direction is conservative: it would make these budgets smaller rather than larger.[^churn]
 
@@ -989,9 +992,9 @@ The gap is close to two orders of magnitude for four of the five designs, and mo
 
 A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.
 
-Widening the comparison from two axes to four changes which designs are in contention, and so does letting each design take its best parameters rather than the ones the published tables carry.
+Widening the comparison from two axes to four changes which designs are in contention, and so did letting M3 and M4 take their best parameters rather than the ones the published tables carried.
 
-Every operating point in Table 8 was chosen by the same rule: the cheapest configuration meeting the failure target. That rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further copies per node and two further connections.
+That second step is worth stating plainly, because it is why Table 8 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further copies per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 8 makes visible.
 
 Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 standing links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
 
@@ -1212,27 +1215,25 @@ Three things follow.
 
 **The window is extremely lopsided.** Seconds at the bottom against hours at the top. Describing epoch length as constrained from both directions is accurate but misleading: only the upper bound is close enough to bind, and it is the one that depends on the design.
 
-**The design choice sets how often the protocol must rotate.** At any assumed reliability the designs are separated by their churn budgets alone, so M3 at (12, 8) sustains roughly a quarter of the epoch length of M5 or M3 at (13, 7). Each rotation re-derives the topology and re-establishes every connection, so rotation is not free, and this operating cost follows directly from the parameter choice.
+**The design choice sets how often the protocol must rotate.** At any assumed reliability the designs are separated by their churn budgets alone, so M4 at RF = 9 sustains roughly three and a half times the epoch length of M3 at (13, 7) or M5. Each rotation re-derives the topology and re-establishes every connection, so rotation is not free, and this operating cost follows directly from the parameter choice — within a design as well as between them, since M3 at the superseded (12, 8) sustains only a quarter of what (13, 7) does.
 
 **A chosen epoch length implies a reliability requirement.** Reading the relation the other way turns it into something a deployment can check. For a candidate epoch, each design needs the population to depart no more often than:
 
 <div align="center">
 <a name="table-14" id="table-14"></a>
 
-| Operating point | 1 hour | 6 hours | 1 day | 5 days |
+| Proposed configuration | 1 hour | 6 hours | 1 day | 5 days |
 | :--: | ---: | ---: | ---: | ---: |
 | **M4 RF = 9** | **13 hours** | **3 days** | **13 days** | **2 months** |
 | M5 (9, 8) | 2 days | 11 days | 45 days | 7 months |
 | M3 (13, 7) | 2 days | 11 days | 46 days | 7 months |
 | M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
 | M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
-| M4 RF = 8 | 4 days | 23 days | 3 months | 1.3 years |
-| M3 (12, 8) | 8 days | 46 days | 6 months | 2.5 years |
 
 <em>Table 14: mean time between one node's departures required to sustain a given epoch length</em>
 
-<!-- The M4 RF = 9 row is derived from its 7.43 % churn budget by the relation
-     above, in the same way as every other row; it is not a separate measurement. -->
+<!-- Every row is derived from that design's churn budget by the relation above;
+     none is a separate measurement. -->
 
 
 </div>
@@ -1240,7 +1241,7 @@ Three things follow.
 Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and a week, which every design clears easily. The spread across the column is the churn budgets restated, so the design proposing the largest budget asks the least of the population. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
 
 > [!NOTE]
-> One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the [beacon](#term-beacon), whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (12, 8) would need a population departing less often than once every two and a half years.
+> One coupling is worth naming because it is not yet decided. The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available. That interval is a property of the [beacon](#term-beacon), whose design is open: a per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce it does, and M3 at (13, 7) would need a population departing less often than once every seven months, against two months for M4 at RF = 9.
 
 *λ* is the one quantity here that was not measured, being a property of the deployed population rather than of the protocol. What the analysis fixes is the shape of the trade.
 

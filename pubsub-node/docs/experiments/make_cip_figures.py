@@ -401,7 +401,15 @@ def fig_validation(cells, churn=()) -> str:
 
 
 # ------------------------------------------------------------------ figure 5
-def fig_cost_state(ops) -> str:
+def fig_cost_state(ops, alternatives=()) -> str:
+    """Bandwidth against state at each design's proposed configuration.
+
+    Reads the preferred split for M3 and M4 rather than the published one, so
+    that this figure, the extrapolation figure and the trade-off radar all name
+    the same configuration when they name a design.
+    """
+    ops = list({**{o["model"]: o for o in ops},
+                **{a["model"]: a for a in alternatives if a.get("preferred")}}.values())
     W, H = 860, 446
     ml, mr, mt, mb = 96, 40, 30, 80
     pw, ph = W - ml - mr, H - mt - mb
@@ -451,7 +459,9 @@ def fig_cost_state(ops) -> str:
     # marker size carries a third axis, so it needs its own key
     b.append(text(ml + 14, mt + 20, "marker size = hops to full coverage h_{full}",
                   10.5, "#8a887e"))
-    for dx, hops in ((22, 4.8), (86, 5.9)):
+    lo_h = min(o["hops_full"] for o in ops)
+    hi_h = max(o["hops_full"] for o in ops)
+    for dx, hops in ((22, round(lo_h, 1)), (86, round(hi_h, 1))):
         r = 4 + (hops - 4.5) * 5.5
         b.append(circle(ml + 14 + dx, mt + 44, r, "#b9b6ab", SURFACE, 1.6))
         b.append(text(ml + 14 + dx + r + 6, mt + 48, f"{hops}", 10.5, "#8a887e"))
@@ -470,9 +480,9 @@ def fig_cost_state(ops) -> str:
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
              f'up = more traffic</text>')
 
-    return frame(W, H, b, "Three costs at equal safety: bandwidth, state and latency",
-                 "Each design tuned to the same failure target, so the points differ only "
-                 "in cost. Three quantities are plotted at once: the horizontal axis is "
+    return frame(W, H, b, "Three costs at each design's proposed configuration",
+                 "Each design shown at the configuration this proposal names for it. "
+                 "Three quantities are plotted at once: the horizontal axis is "
                  "standing connections per node, the vertical axis is message copies per "
                  "honest node, and marker size is hops to full coverage. Both axes are "
                  "costs, so lower and further left is better, and a smaller marker reaches "
@@ -920,7 +930,8 @@ def main() -> int:
         "derivation.svg": fig_derivation(),
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
-        "cost-vs-state.svg": fig_cost_state(d["operating_points"]),
+        "cost-vs-state.svg": fig_cost_state(d["operating_points"],
+                                            d.get("alternatives", ())),
         "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
