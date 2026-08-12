@@ -298,13 +298,29 @@
   input[type=checkbox] { accent-color: var(--accent); }
 
   /* ---- radar ---- */
-  svg#radar { width: 100%; max-width: 620px; height: auto; display: block; margin: 0 auto; }
+  svg#radar { width: 100%; max-width: 780px; height: auto; display: block; margin: 0 auto; }
   .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
   .hover-hint { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
                 letter-spacing: 0.05em; text-align: center; }
-  .axis-picker { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 2px 0 8px; }
-  .axis-picker label { display: inline-flex; gap: 6px; align-items: center; font-family: var(--font-mono);
-                       font-size: 0.74rem; color: var(--text-mute); cursor: pointer; }
+  /* The drawer holds two unrelated jobs: what the designs are, and what the
+     figure shows. Each gets a title and its own band. */
+  .tune-section + .tune-section { margin-top: 6px; border-top: 1px solid var(--card-stroke-faint); }
+  .tune-section-head { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                       letter-spacing: 0.14em; text-transform: uppercase;
+                       color: var(--text-faint); padding: 12px 0 8px; }
+
+  .axis-picker { display: flex; flex-wrap: wrap; gap: 8px 10px; padding: 0 0 14px; }
+  .axis-picker label { display: inline-flex; gap: 9px; align-items: center;
+                       font-family: var(--font-body); font-size: 0.86rem; font-weight: 500;
+                       color: var(--text-mute); cursor: pointer;
+                       border: 1px solid var(--card-stroke-faint); border-radius: 7px;
+                       padding: 7px 12px 7px 10px; transition: border-color .12s ease,
+                       color .12s ease, background .12s ease; }
+  .axis-picker label:hover { border-color: var(--line-strong); color: var(--text); }
+  .axis-picker label:has(input:checked) { color: var(--text); border-color: var(--line-strong);
+                                          background: var(--bg-alt); }
+  .axis-picker input[type=checkbox] { width: 17px; height: 17px; margin: 0; flex: none;
+                                      accent-color: var(--iog-infared); cursor: pointer; }
 
   /* ---- table ---- */
   .table-wrap { overflow-x: auto; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
@@ -528,8 +544,14 @@
       <div class="drawer">
         <details id="tune-details">
           <summary><span class="tune-name">Tune parameters &amp; axes</span><span class="tune-state" id="tune-summary"></span></summary>
-          <div class="drawer-body" id="model-cards"></div>
-          <div class="axis-picker" id="axis-picker" role="group" aria-label="Axes shown"></div>
+          <div class="tune-section">
+            <div class="tune-section-head">Design parameters</div>
+            <div class="drawer-body" id="model-cards"></div>
+          </div>
+          <div class="tune-section tune-section--axes">
+            <div class="tune-section-head">Axes shown</div>
+            <div class="axis-picker" id="axis-picker" role="group" aria-label="Axes shown"></div>
+          </div>
         </details>
       </div>
     </div>
@@ -1257,7 +1279,10 @@ if (typeof document !== 'undefined') (() => {
   for (const a of AXES) {
     const l = document.createElement('label');
     l.dataset.tip = a.tip;
-    l.innerHTML = `<input type="checkbox" checked data-axis="${a.key}"> ${a.label}`;
+    // Reflect the state rather than asserting all-on: the default shows the four
+    // the CIP plots, and a box that says otherwise is just wrong.
+    l.innerHTML = `<input type="checkbox"${state.axes[a.key] ? ' checked' : ''} `
+                + `data-axis="${a.key}"> ${a.label}`;
     axHost.appendChild(l);
   }
   axHost.addEventListener('input', e => {
@@ -1268,7 +1293,7 @@ if (typeof document !== 'undefined') (() => {
   const svg = $('#radar'), tooltip = $('#tooltip');
   let lastResults = null, lastCompact = null;
   const NS = 'http://www.w3.org/2000/svg';
-  const CX = 305, CY = 258, R = 205, BASE_VIEWBOX = '0 0 610 536';
+  const CX = 392, CY = 258, R = 205, BASE_VIEWBOX = '0 0 784 536';
   function el(tag, attrs, parent) {
     const n = document.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
@@ -1322,11 +1347,17 @@ if (typeof document !== 'undefined') (() => {
     axes.forEach((a, i) => {
       const [x, y] = pt(i, 1);
       el('line', { x1: CX, y1: CY, x2: x, y2: y, stroke: 'var(--grid)', 'stroke-width': 1 });
-      const [lx, ly] = pt(i, labelR);
+      const [lx0, ly] = pt(i, labelR);
+      // A label centred on a side vertex straddles its own axis. Push the side
+      // labels outward and hang them off the near edge instead; top and bottom
+      // stay centred, where centring is what reads.
+      const side = Math.abs(lx0 - CX) < 1 ? 0 : (lx0 > CX ? 1 : -1);
+      const anchor = side === 0 ? 'middle' : (side > 0 ? 'start' : 'end');
+      const lx = lx0 + side * 6;
       // Two lines: the quantity, then its unit and the value the outer ring stands for.
       // The label is a term in its own right — same hover / tap / focus tooltip as the
       // table headers, so a definition is never more than one gesture away.
-      const t = el('text', { x: lx, y: ly - nameSize * 0.42, 'text-anchor': 'middle',
+      const t = el('text', { x: lx, y: ly - nameSize * 0.42, 'text-anchor': anchor,
                              'dominant-baseline': 'middle', fill: 'var(--ink-2)', 'font-size': nameSize,
                              'data-tip': a.tip, tabindex: '0', style: 'cursor:help' });
       el('tspan', { x: lx, 'font-weight': 600 }, t).textContent = a.label;
