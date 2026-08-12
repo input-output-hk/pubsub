@@ -3,8 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cost model — Compare — what each model costs · Cardano PubSub</title>
-<meta name="description" content="The five candidate dissemination models of the Cardano PubSub research compared on eight properties, evaluated live from the closed-form coverage laws at an environment you set.">
+<title>Cost model — what each design costs · Cardano PubSub</title>
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/cost-model/">
+<meta name="description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="Cost model — what each design costs">
+<meta property="og:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/cost-model/">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cost model — what each design costs">
+<meta name="twitter:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
@@ -372,6 +389,13 @@
   tr.hidden-model td { opacity: .38; }
   td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
               vertical-align: baseline; }
+  /* The one thing this page must not let a reader assume: that these curves were
+     measured everywhere they can be dragged to. */
+  .caveat { margin-top: 14px; max-width: 78ch; padding: 11px 14px;
+            border: 1px solid var(--card-stroke-faint); border-left: 3px solid var(--warn);
+            border-radius: 7px; background: var(--card-fill);
+            color: var(--text-mute); font-size: 0.88rem; line-height: 1.55; }
+  .caveat b { color: var(--text); font-weight: 600; }
   .section-lede { color: var(--text-mute); font-size: 0.95rem; line-height: 1.6;
                   max-width: 78ch; margin-top: 10px; }
   .section-lede b { color: var(--text); font-weight: 600; }
@@ -512,6 +536,14 @@
         closed form from the M1–M5 analyses, evaluated live at the environment you set.
         Hover, tap or tab to any <span class="term" data-term="how" tabindex="0">underlined term</span>
         for what it means.
+      </p>
+      <p class="caveat">
+        <b>Closed forms, not measurements.</b> The laws are leading-order approximations,
+        checked against Monte-Carlo simulation and prototype runs only at particular points
+        — chiefly the <i>N</i> = 20 000, μ = 0.2 operating points, plus a handful of
+        elevated-μ and deep-tail cells — and the hop counts are asymptotic with fitted
+        constants. Move far from those points and the curves are extrapolation rather than
+        measured behaviour.
       </p>
     </div>
   </section>
