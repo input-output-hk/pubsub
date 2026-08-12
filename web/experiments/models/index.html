@@ -80,7 +80,7 @@
   @media (max-width: 480px) { .navbar-brand .brand-tag { display: none; } }
 
   /* ---------- Page head ---------- */
-  section.page-head { padding: 56px 0 8px; }
+  section.page-head { padding: 40px 0 4px; }
   .section-kind {
     font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
@@ -88,7 +88,7 @@
   }
   .page-head h1 {
     font-family: var(--font-display);
-    font-size: clamp(1.9rem, 4vw, 3rem);
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
     font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;
     margin-bottom: 18px;
   }
@@ -109,7 +109,7 @@
                       margin: 12px 0 0; }
 
   /* ---------- Model tabs ---------- */
-  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 34px 0 22px; }
+  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 18px; }
   .model-tab {
     font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
     letter-spacing: 0.06em;
@@ -140,7 +140,7 @@
     border: 1px solid var(--card-stroke-faint); border-radius: 8px;
     background: var(--card-fill); padding: 20px 22px; flex: 1;
   }
-  .step-desc { min-height: 8em; }
+  .step-desc { min-height: 5.2em; }
   .step-count {
     font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
@@ -344,11 +344,6 @@
         <span class="crumb-here" aria-current="page">Model simulator</span>
       </nav>
       <h1>Model simulator</h1>
-      <p class="lede">
-        Each model's construction and forwarding rules, played at toy scale. Step through
-        a model to watch its links get drawn and a message propagate. Hover a node to
-        isolate its links &mdash; bold: chosen by the node &middot; thin: chosen by its peers.
-      </p>
     </div>
   </section>
 
@@ -618,9 +613,9 @@
       watch: 'The cascade fans out fast, but each message gambles anew: per-message randomness cannot promise that every message of every publisher gets through, so the good-graph guarantee has to come from a large fanout.',
       knobs: 'Knob: F = 3 (demo) · push targets per receipt',
       standingTitle: 'No sync phase',
-      standingDesc: 'M1 keeps <strong>no per-epoch links</strong>; nothing is drawn at sync that later messages could reuse. It is the only model whose links form at publish time: every node draws fresh random targets each time a message first reaches it.',
-      pubDesc: 'The <strong>publisher</strong> signs a message for its topic and pushes it out, and in M1 the links really are drawn now, at publish time, fresh for this message.',
-      hopDesc: 'Every newly reached honest node pushes to F fresh random targets, new links drawn on the spot. Copies pushed into silent adversaries are absorbed (red).',
+      standingDesc: 'M1 holds <strong>no per-epoch links</strong>: every node draws fresh random targets at publish time, each time a message first reaches it.',
+      pubDesc: 'The <strong>publisher</strong> signs its message and pushes it out, drawing its links there and then.',
+      hopDesc: 'Each newly reached node pushes to F fresh random targets; copies landing on adversaries are absorbed (red).',
       legend: []
     },
     m2: {
@@ -629,8 +624,8 @@
       mech: 'Each node pulls from RF forwarders, redrawn every epoch; a forwarder relays every message it holds to its requesters. All propagation runs on these relay links.',
       watch: 'Pull keeps adversaries from pushing themselves into anyone’s view, but a publisher only enters the network through its serving set, the nodes whose pulls happened to land on it. An unlucky publisher has none, and is muted. In the node implementation these are the relay links: a node’s own picks are its upstream, and the nodes that picked it are its downstream.',
       knobs: 'Knob: RF = 3 (demo) · relay forwarders pulled from per node',
-      standingDesc: 'Every node establishes <strong>RF relay links</strong> by pulling: it picks the forwarders it wants to hear from. Arrows point the way messages flow, from forwarder to requester. A pick that lands on a silent adversary is a <strong>dead link</strong> (red, dashed): that forwarder will never relay.',
-      hopDesc: 'Every holder forwards along its per-epoch relay links to the nodes that pull from it, and no new links form. Relays into adversaries are absorbed (red).',
+      standingDesc: 'Every node picks <strong>RF forwarders</strong> to hear from, and a pick landing on an adversary is a <strong>dead link</strong> (red, dashed).',
+      hopDesc: 'Holders forward along the same relay links every hop; no new links form.',
       legend: [
         { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
         { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' }
@@ -642,8 +637,8 @@
       mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications, so the publisher plus its targets form the initial holders.',
       watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype, not yet the validated final design; the data decides that.',
       knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
-      standingDesc: 'The same <strong>relay links</strong> as M2, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long). Every node holds its own publishing links; only the publisher’s matter for its message, so only those are drawn.',
-      hopDesc: 'Every holder forwards along its relay links; the publisher additionally sent its message directly over its publishing links at hop one.',
+      standingDesc: 'M2’s relay links, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long) carrying only its own messages.',
+      hopDesc: 'Holders forward along their relay links, the publisher having already seeded over its publishing links at hop one.',
       legend: [
         { kind: 'edge-pull', label: 'relay link (forwarder → requester)' },
         { kind: 'edge-dead', label: 'dead link (pick landed on adversary)' },
@@ -656,8 +651,8 @@
       mech: 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.',
       watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out, so there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
       knobs: 'Knob: RF = 2 (demo) · symmetric links per node',
-      standingDesc: 'Every node draws <strong>RF picks</strong>, and every pick becomes one <strong>symmetric link</strong>, with no arrows, because the same link carries traffic both ways.',
-      hopDesc: 'Every holder floods along its symmetric links, except the one the message arrived on. Adversaries absorb their copies and stay silent.',
+      standingDesc: 'Every node draws <strong>RF picks</strong>, and each becomes a <strong>symmetric link</strong> carrying traffic both ways.',
+      hopDesc: 'Holders flood along every symmetric link except the one the message arrived on.',
       legend: [
         { kind: 'edge-sym', label: 'symmetric link' }
       ]
@@ -668,8 +663,8 @@
       mech: 'Every node opens k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node’s own picks: inbound links name the forwarders it hears from, outbound links the targets it relays to.',
       watch: 'The general case of the family: k<sub>out</sub> = 0 recovers pull-only M2, k<sub>in</sub> = 0 recovers push-style relaying. Two knobs trade inbound against outbound redundancy, and both directions are the node’s own uniform picks.',
       knobs: 'Knobs: k<sub>in</sub> = 2, k<sub>out</sub> = 2 (demo) · inbound and outbound links per node',
-      standingDesc: 'Two directed link kinds, both the node’s own picks: <strong>solid arrows</strong> are outbound links (the sender chose its target), <strong>dashed arrows</strong> are inbound links (the receiver chose its forwarder). Messages flow the same way on both.',
-      hopDesc: 'Every holder relays along its epoch links: its own outbound links, plus the inbound links of every node that chose it as forwarder. Relays into adversaries are absorbed (red).',
+      standingDesc: 'Two directed kinds, both the node’s own picks: <strong>solid</strong> outbound, <strong>dashed</strong> inbound.',
+      hopDesc: 'Holders relay along their outbound links and the inbound links of everyone who chose them.',
       legend: [
         { kind: 'edge-out', label: 'outbound link (sender’s own pick)' },
         { kind: 'edge-in', label: 'inbound link (receiver’s own pick)' },

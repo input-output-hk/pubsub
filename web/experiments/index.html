@@ -286,9 +286,30 @@
   .route-thumb .node.informed { fill: var(--info); stroke: var(--info); }
   .route-thumb .node.adv { fill: var(--bad); stroke: var(--bad); }
   .route-thumb .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 3.5; }
+  /* The radar arrives with its stroke widths baked in for a full-page figure;
+     at tile size they read as heavy. */
+  .route-thumb polygon { stroke-width: 1.1; }
+  .route-thumb line { stroke-width: 0.8; }
+
   @media (prefers-reduced-motion: no-preference) {
-    .route-thumb { transition: transform .28s cubic-bezier(.22,.61,.36,1); }
-    .route:hover .route-thumb { transform: translateY(-50%) scale(1.07); }
+    .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1); }
+    .route:hover .route-thumb { transform: translateY(-50%) scale(1.14); }
+
+    /* Parallax: the grid, then each model's shape, take the scale at slightly
+       different rates, so the layers separate for a moment on hover. */
+    .route-thumb polygon { transform-box: view-box; transform-origin: 430px 282px;
+                           transition: transform .52s cubic-bezier(.22,.61,.36,1); }
+    .route:hover .route-thumb polygon:nth-of-type(-n+4) { transform: scale(0.985); }
+    .route:hover .route-thumb polygon:nth-of-type(5) { transform: scale(1.03);
+                                                       transition-duration: .40s; }
+    .route:hover .route-thumb polygon:nth-of-type(6) { transform: scale(1.045);
+                                                       transition-duration: .46s; }
+    .route:hover .route-thumb polygon:nth-of-type(7) { transform: scale(1.06);
+                                                       transition-duration: .54s; }
+    .route:hover .route-thumb polygon:nth-of-type(8) { transform: scale(1.075);
+                                                       transition-duration: .62s; }
+    .route:hover .route-thumb polygon:nth-of-type(9) { transform: scale(1.09);
+                                                       transition-duration: .70s; }
   }
 
   /* Breadcrumb: same weight as the old section kind, but it says where you are
