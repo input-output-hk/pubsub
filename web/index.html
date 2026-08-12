@@ -884,6 +884,16 @@
   .update-links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px; }
 
   /* Footer chrome lives in shared.css — the subpages use the same markup. */
+
+  /* The CIP is written but not yet submitted upstream, so it is named and
+     marked rather than linked. Swap each for an <a> when it has a home. */
+  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
+                            color: var(--text-mute); cursor: default; }
+  .nav-soon { font-size: inherit; }
+  .footer-soon { font-size: 0.9rem; }
+  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
+                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
+                border: 1px solid var(--line-strong); color: var(--text-mute); }
 </style>
 </head>
 <body>
@@ -911,6 +921,7 @@
     <a href="#experiments">Experiments</a>
     <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
+    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -1167,9 +1178,10 @@
           <div class="timeline-tag"><span class="status-ahead">Planned</span></div>
           <h3>Hardening &amp; ecosystem integration</h3>
           <p>
-            A design proposal consolidates the analytical and experimental findings into a
-            concrete architecture recommendation, published as a CIP if phase&nbsp;2 time
-            permits. The scope beyond that is still taking shape; candidates include a
+            The <strong>Cardano Improvement Proposal</strong> consolidates the analytical and
+            experimental findings into a concrete architecture recommendation. It is drafted
+            and under review, and will be submitted upstream once the dissemination design is
+            named. The scope beyond that is still taking shape; candidates include a
             fee-and-incentive model that rewards honest participation, real network transport
             in the prototype node, a public testnet, and, on the research side, decentralised
             peer sampling at scales where the on-chain list no longer suffices.
