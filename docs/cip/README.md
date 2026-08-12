@@ -37,6 +37,9 @@ The Cardano ecosystem lacks a decentralised layer for [messages](#term-message) 
 
 We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain serves as the protocol's trust root. [Nodes](#term-node) [register](#term-registry) on-chain, which makes identities verifiable and costly to mass-produce. Each [epoch](#term-epoch), verifiable on-chain randomness derives a fresh, degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target. The design is grounded in formal analysis and simulation at deployment scale, cross-validated between independent implementations.
 
+> [!NOTE]
+> **This document reports what the evidence establishes; it does not yet select a design.** *Proposed* is meant literally. Two candidates remain, several parameters are deployment choices rather than results, and [Path to Active](#acceptance-criteria) lists what would close each gap.
+
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
 
