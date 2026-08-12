@@ -1383,14 +1383,20 @@ if (typeof document !== 'undefined') (() => {
     $('#o-mu').textContent = `${state.env.mu.toFixed(3)} · ${(100 * state.env.mu).toFixed(1)} %`;
     $('#o-N').textContent = fmtInt(state.env.N);
 
-    // Which preset the sliders sit on drives the tab state; a nudged slider reads custom.
+    // matchPreset still reports whether the sliders sit on the proposed point,
+    // which the panel caption reads; the switch itself is gone, so guard the
+    // elements that presented it.
     const preset = matchPreset();
-    for (const b of presetHost.querySelectorAll('button[data-preset]'))
-      b.setAttribute('aria-pressed', b.dataset.preset === preset ? 'true' : 'false');
+    if (presetHost) {
+      for (const b of presetHost.querySelectorAll('button[data-preset]'))
+        b.setAttribute('aria-pressed', b.dataset.preset === preset ? 'true' : 'false');
+    }
     const stateLabel = $('#preset-state');
-    stateLabel.textContent = preset ? '' : 'custom';
-    stateLabel.classList.toggle('term', !preset);
-    if (preset) delete stateLabel.dataset.term; else stateLabel.dataset.term = 'preset_custom';
+    if (stateLabel) {
+      stateLabel.textContent = preset ? '' : 'custom';
+      stateLabel.classList.toggle('term', !preset);
+      if (preset) delete stateLabel.dataset.term; else stateLabel.dataset.term = 'preset_custom';
+    }
 
     for (const id of MODEL_IDS) {
       for (const s of MM.models[id].sliders)
