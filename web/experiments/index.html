@@ -274,6 +274,14 @@
   /* The simulator's own classes, static: no animation, nothing hidden. */
   .route-thumb .edge { opacity: 0.22; stroke: var(--text-faint); fill: none; stroke-width: 3; }
   .route-thumb .edge.traversed { stroke: var(--info); opacity: 0.75; stroke-width: 5; }
+  /* Same meanings as the simulator: a link whose forwarder is adversarial is
+     dead, and a publishing link carries only its owner's own messages. */
+  .route-thumb .edge.dead { stroke: var(--bad); stroke-dasharray: 12 12; opacity: 0.4; }
+  .route-thumb .edge.seed { stroke: var(--iog-infared); stroke-dasharray: 15 12;
+                            opacity: 0.8; stroke-width: 4; }
+  .route-thumb .thumb-axis { font-family: var(--font-mono); font-size: 15px;
+                             font-weight: 600; letter-spacing: 0.08em;
+                             text-transform: uppercase; fill: var(--text-mute); }
   .route-thumb .node { fill: var(--bg); stroke: var(--line-strong); stroke-width: 3; }
   .route-thumb .node.informed { fill: var(--info); stroke: var(--info); }
   .route-thumb .node.adv { fill: var(--bad); stroke: var(--bad); }
@@ -387,46 +395,57 @@
       <div class="route-grid">
         <a class="route" href="models/">
           <svg class="route-thumb" viewBox="24 24 472 472" aria-hidden="true">
-            <path class="edge shown traversed" d="M 267.6 58.6 Q 333.4 150.1 440.3 175.2"/>
-            <path class="edge shown" d="M 344.1 76.8 Q 369.9 186.6 459.0 250.7"/>
-            <path class="edge shown traversed" d="M 407.8 122.9 Q 389.7 234.2 447.4 327.5"/>
-            <path class="edge shown traversed" d="M 449.0 189.9 Q 389.7 285.8 407.3 394.1"/>
-            <path class="edge shown traversed" d="M 461.4 267.6 Q 369.9 333.4 344.8 440.3"/>
-            <path class="edge shown" d="M 443.2 344.1 Q 333.4 369.9 269.3 459.0"/>
-            <path class="edge shown traversed" d="M 397.1 407.8 Q 285.8 389.7 192.5 447.4"/>
-            <path class="edge shown" d="M 330.1 449.0 Q 234.2 389.7 125.9 407.3"/>
-            <path class="edge shown" d="M 252.4 461.4 Q 186.6 369.9 79.7 344.8"/>
-            <path class="edge shown" d="M 175.9 443.2 Q 150.1 333.4 61.0 269.3"/>
-            <path class="edge shown" d="M 112.2 397.1 Q 130.3 285.8 72.6 192.5"/>
-            <path class="edge shown" d="M 71.0 330.1 Q 130.3 234.2 112.7 125.9"/>
-            <path class="edge shown" d="M 58.6 252.4 Q 150.1 186.6 175.2 79.7"/>
-            <path class="edge shown" d="M 76.8 175.9 Q 186.6 150.1 250.7 61.0"/>
-            <path class="edge shown" d="M 122.9 112.2 Q 234.2 130.3 327.5 72.6"/>
-            <path class="edge shown" d="M 189.9 71.0 Q 285.8 130.3 394.1 112.7"/>
-            <path class="edge shown traversed" d="M 263.7 60.5 Q 316.2 236.7 402.3 395.8"/>
-            <path class="edge shown" d="M 403.7 121.5 Q 316.2 283.3 264.6 456.7"/>
-            <path class="edge shown" d="M 459.5 263.7 Q 283.3 316.2 124.2 402.3"/>
-            <path class="edge shown" d="M 398.5 403.7 Q 236.7 316.2 63.3 264.6"/>
-            <path class="edge shown" d="M 256.3 459.5 Q 203.8 283.3 117.7 124.2"/>
-            <path class="edge shown" d="M 116.3 398.5 Q 203.8 236.7 255.4 63.3"/>
-            <path class="edge shown" d="M 60.5 256.3 Q 236.7 203.8 395.8 117.7"/>
-            <path class="edge shown" d="M 121.5 116.3 Q 283.3 203.8 456.7 255.4"/>
+            <path class="edge shown traversed" d="M 443.2 175.9 Q 333.4 150.1 269.3 61.0"/>
+            <path class="edge shown traversed" d="M 403.7 398.5 Q 316.2 236.7 264.6 63.3"/>
+            <path class="edge shown traversed" d="M 461.4 252.4 Q 369.9 186.6 344.8 79.7"/>
+            <path class="edge shown traversed" d="M 339.8 442.9 Q 320.8 260.0 339.5 80.1"/>
+            <path class="edge shown dead" d="M 449.0 330.1 Q 389.7 234.2 407.3 125.9"/>
+            <path class="edge shown traversed" d="M 263.7 459.5 Q 316.2 283.3 402.3 124.2"/>
+            <path class="edge shown traversed" d="M 407.8 397.1 Q 389.7 285.8 447.4 192.5"/>
+            <path class="edge shown dead" d="M 187.1 445.8 Q 303.0 303.0 443.4 189.0"/>
+            <path class="edge shown traversed" d="M 344.1 443.2 Q 369.9 333.4 459.0 269.3"/>
+            <path class="edge shown traversed" d="M 121.5 403.7 Q 283.3 316.2 456.7 264.6"/>
+            <path class="edge shown" d="M 267.6 461.4 Q 333.4 369.9 440.3 344.8"/>
+            <path class="edge shown" d="M 77.1 339.8 Q 260.0 320.8 439.9 339.5"/>
+            <path class="edge shown dead" d="M 189.9 449.0 Q 285.8 389.7 394.1 407.3"/>
+            <path class="edge shown traversed" d="M 60.5 263.7 Q 236.7 316.2 395.8 402.3"/>
+            <path class="edge shown traversed" d="M 122.9 407.8 Q 234.2 389.7 327.5 447.4"/>
+            <path class="edge shown dead" d="M 74.2 187.1 Q 217.0 303.0 331.0 443.4"/>
+            <path class="edge shown traversed" d="M 76.8 344.1 Q 186.6 369.9 250.7 459.0"/>
+            <path class="edge shown traversed" d="M 116.3 121.5 Q 203.8 283.3 255.4 456.7"/>
+            <path class="edge shown" d="M 58.6 267.6 Q 150.1 333.4 175.2 440.3"/>
+            <path class="edge shown" d="M 180.2 77.1 Q 199.2 260.0 180.5 439.9"/>
+            <path class="edge shown dead" d="M 71.0 189.9 Q 130.3 285.8 112.7 394.1"/>
+            <path class="edge shown traversed" d="M 256.3 60.5 Q 203.8 236.7 117.7 395.8"/>
+            <path class="edge shown traversed" d="M 112.2 122.9 Q 130.3 234.2 72.6 327.5"/>
+            <path class="edge shown traversed" d="M 332.9 74.2 Q 217.0 217.0 76.6 331.0"/>
+            <path class="edge shown traversed" d="M 175.9 76.8 Q 150.1 186.6 61.0 250.7"/>
+            <path class="edge shown traversed" d="M 398.5 116.3 Q 236.7 203.8 63.3 255.4"/>
+            <path class="edge shown" d="M 252.4 58.6 Q 186.6 150.1 79.7 175.2"/>
+            <path class="edge shown" d="M 442.9 180.2 Q 260.0 199.2 80.1 180.5"/>
+            <path class="edge shown traversed" d="M 330.1 71.0 Q 234.2 130.3 125.9 112.7"/>
+            <path class="edge shown traversed" d="M 459.5 256.3 Q 283.3 203.8 124.2 117.7"/>
+            <path class="edge shown traversed" d="M 397.1 112.2 Q 285.8 130.3 192.5 72.6"/>
+            <path class="edge shown dead" d="M 445.8 332.9 Q 303.0 217.0 189.0 76.6"/>
+            <path class="edge shown seed traversed" d="M 267.7 58.5 Q 316.2 124.3 394.1 112.5"/>
+            <path class="edge shown seed traversed" d="M 263.7 60.5 Q 316.2 236.7 402.3 395.8"/>
+            <path class="edge shown seed traversed" d="M 254.7 59.9 Q 186.6 210.9 75.1 329.5"/>
             <circle class="node informed" cx="260.0" cy="48.0" r="11.0"/>
-            <circle class="node" cx="341.1" cy="64.1" r="11.0"/>
+            <circle class="node informed" cx="341.1" cy="64.1" r="11.0"/>
             <circle class="node informed" cx="409.9" cy="110.1" r="11.0"/>
             <circle class="node informed" cx="455.9" cy="178.9" r="11.0"/>
             <circle class="node informed" cx="472.0" cy="260.0" r="11.0"/>
             <circle class="node adv" cx="455.9" cy="341.1" r="11.0"/>
             <circle class="node informed" cx="409.9" cy="409.9" r="11.0"/>
             <circle class="node informed" cx="341.1" cy="455.9" r="11.0"/>
-            <circle class="node" cx="260.0" cy="472.0" r="11.0"/>
+            <circle class="node informed" cx="260.0" cy="472.0" r="11.0"/>
             <circle class="node adv" cx="178.9" cy="455.9" r="11.0"/>
-            <circle class="node" cx="110.1" cy="409.9" r="11.0"/>
-            <circle class="node" cx="64.1" cy="341.1" r="11.0"/>
+            <circle class="node informed" cx="110.1" cy="409.9" r="11.0"/>
+            <circle class="node informed" cx="64.1" cy="341.1" r="11.0"/>
             <circle class="node informed" cx="48.0" cy="260.0" r="11.0"/>
             <circle class="node adv" cx="64.1" cy="178.9" r="11.0"/>
-            <circle class="node" cx="110.1" cy="110.1" r="11.0"/>
-            <circle class="node" cx="178.9" cy="64.1" r="11.0"/>
+            <circle class="node informed" cx="110.1" cy="110.1" r="11.0"/>
+            <circle class="node informed" cx="178.9" cy="64.1" r="11.0"/>
             <circle class="pub-ring on" cx="260.0" cy="48.0" r="17.0"/>
           </svg>
           <span class="route-kind">Step through</span>
@@ -434,7 +453,7 @@
           <span class="route-go">Open the simulator &rarr;</span>
         </a>
         <a class="route" href="cost-model/">
-          <svg class="route-thumb" viewBox="258 110 344 344" aria-hidden="true">
+          <svg class="route-thumb" viewBox="196 86 468 392" aria-hidden="true">
             <polygon points="430.0,241.5 470.5,282.0 430.0,322.5 389.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
             <polygon points="430.0,201.0 511.0,282.0 430.0,363.0 349.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
             <polygon points="430.0,160.5 551.5,282.0 430.0,403.5 308.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
@@ -448,6 +467,10 @@
             <line x1="430.0" y1="282.0" x2="592.0" y2="282.0" stroke="#e2e0d8" stroke-width="1"/>
             <line x1="430.0" y1="282.0" x2="430.0" y2="444.0" stroke="#e2e0d8" stroke-width="1"/>
             <line x1="430.0" y1="282.0" x2="268.0" y2="282.0" stroke="#c4c2b9" stroke-width="1" stroke-dasharray="4 4"/>
+            <text class="thumb-axis" x="430" y="99" text-anchor="middle">Bandwidth</text>
+            <text class="thumb-axis" x="618" y="287" text-anchor="middle">Connections</text>
+            <text class="thumb-axis" x="430" y="475" text-anchor="middle">Speed</text>
+            <text class="thumb-axis" x="242" y="287" text-anchor="middle">Churn</text>
           </svg>
           <span class="route-kind">Tune</span>
           <span class="route-name">Cost model</span>
