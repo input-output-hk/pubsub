@@ -186,9 +186,21 @@
   .env-item .env-val { font-family: var(--mono); font-size: 0.76rem; color: var(--text-mute);
                        font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
                        min-width: 8ch; text-align: right; }
-  .env-rail select { font-family: var(--mono); font-size: 0.78rem; color: var(--text);
-                     background: var(--bg); border: 1px solid var(--line-strong);
-                     border-radius: 4px; padding: 5px 8px; }
+  /* The native control brings its own chrome, which is the one thing on the page
+     that does not follow the site. Drawn here instead, caret included. */
+  .env-rail select {
+    font-family: var(--mono); font-size: 0.86rem; font-weight: 600; color: var(--text);
+    background-color: var(--bg); border: 1px solid var(--line-strong);
+    border-radius: 6px; padding: 6px 30px 6px 10px; cursor: pointer; line-height: 1.2;
+    -webkit-appearance: none; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-mute) 50%),
+                      linear-gradient(135deg, var(--text-mute) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 54%, calc(100% - 11px) 54%;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    transition: border-color .12s ease;
+  }
+  .env-rail select:hover { border-color: var(--text-mute); }
+  .env-rail select:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
   .env-rail .env-reset { flex: none; margin-left: auto; }
 
   /* ---- tab strips — the experiments page's .model-tab, reused ---- */
@@ -255,11 +267,11 @@
   .tune-group .tg-head .chip { width: 9px; height: 9px; border-radius: 2px; background: var(--mc); flex: none; }
   .slider-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 2px 8px;
                 align-items: center; padding: 3px 0 7px; }
-  .slider-row label { grid-column: 1 / -1; color: var(--text-mute); font-size: 0.78rem;
-                      font-family: var(--mono); }
+  .slider-row label { grid-column: 1 / -1; color: var(--text); font-size: 0.92rem;
+                      font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
   .slider-row input[type=range] { grid-column: 1; }
-  .slider-row output { font-family: var(--mono); font-size: 0.78rem; text-align: right;
-                       font-variant-numeric: tabular-nums; }
+  .slider-row output { font-family: var(--mono); font-size: 0.92rem; text-align: right;
+                       font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
   /* Ranges are styled explicitly rather than through accent-color: Chrome derives the
      unfilled track from the accent, which turned the per-model sliders near-black. */
   input[type=range] { width: 100%; min-width: 0; height: 18px; background: transparent;
@@ -286,9 +298,17 @@
   /* ---- table ---- */
   .table-wrap { overflow-x: auto; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
                 background: var(--card-fill); padding: 4px 16px 8px; }
-  table { border-collapse: collapse; font-family: var(--font-mono); font-size: 0.78rem;
-          font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* separate, not collapse: a sticky cell cannot carry a collapsed border, so the
+     rules are drawn as box-shadows on the frozen column instead. */
+  table { border-collapse: separate; border-spacing: 0; font-family: var(--font-mono);
+          font-size: 0.78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--card-stroke-faint); }
+  /* The model name stays put while the values scroll under it; a row read at the
+     right-hand end still has a name against it. */
+  th:first-child, td:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--card-fill);
+    box-shadow: 1px 0 0 var(--card-stroke-faint);
+  }
   th { color: var(--text-faint); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600;
        letter-spacing: .04em; }
   tr:last-child td { border-bottom: 0; }
@@ -383,11 +403,11 @@
 
 <nav class="navbar" aria-label="Primary">
   <a class="navbar-brand" href="../">
-    <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
-    <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
     <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-    <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
-    <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
   </a>
   <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
     <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -518,7 +538,7 @@
         <a href="../../#scenarios">Scenarios</a>
         <a href="../../#research">Programme</a>
         <a href="./">Dissemination models</a>
-        <a href="../slides/midyear-2026.html">Midyear presentation</a>
+        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
@@ -536,15 +556,15 @@
     </nav>
     <div class="footer-row">
       <span class="footer-brand">
-        <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
-        <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
         <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
-        <img class="brand-half logo-light" src="../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
-        <img class="brand-half logo-dark" src="../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
       </span>
       <p class="footer-credit">
-        <img class="footer-wordmark logo-light" src="../assets/io-wordmark-pos.png" alt="Input Output" onerror="this.remove()">
-        <img class="footer-wordmark logo-dark" src="../assets/io-wordmark-neg.png" alt="Input Output" onerror="this.remove()">
+        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output" onerror="this.remove()">
+        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output" onerror="this.remove()">
         <span>2026</span>
       </p>
     </div>
@@ -951,7 +971,7 @@ if (typeof document !== 'undefined') (() => {
       tip: 'Standing links a compliant node holds: drawn once per epoch, then carrying every message of every publisher for that epoch. Radar range 0 to 70.',
       norm: v => 1 - clamp01(v / 70), fmt: fmt1 },
     { key: 'dmu', label: 'Δμ headroom', unit: 'μ, absolute', outer: '0.10', better: 'higher',
-      tip: 'How much further μ can rise, at these parameters, before P(bad) crosses δ. Radar range 0 to 0.10.',
+      tip: 'Margin for error. The share of the network that could turn adversarial — or simply go offline, which looks the same — on top of μ, before this configuration stops meeting δ. 0.05 means it still holds with another 5 % of nodes silent. Radar range 0 to 0.10.',
       norm: v => clamp01(v / 0.10), fmt: fmt3 },
     { key: 'collapse', label: 'collapse μ', unit: 'μ, absolute', outer: '0.70', better: 'higher',
       tip: 'The μ at which half of all epochs draw a bad graph — the point the design stops working rather than merely missing its target. Radar range 0.20 to 0.70.',
