@@ -894,6 +894,11 @@
   .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
                 text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
                 border: 1px solid var(--line-strong); color: var(--text-mute); }
+  h3 .soon-badge { margin-left: 10px; vertical-align: middle; }
+  /* A tile with nowhere to go yet: same shape, no affordance. */
+  .material-tile--soon { cursor: default; }
+  .material-tile--soon:hover { border-color: var(--line); transform: none; }
+  .material-name .soon-badge { margin-left: 9px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -1173,15 +1178,25 @@
             backed by a deterministic simulation framework for controlled experiments.
           </p>
         </div>
+        <div class="timeline-entry active">
+          <div class="timeline-marker">Aug 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">In review</span></div>
+          <h3>Results published as a CIP<span class="soon-badge">soon</span></h3>
+          <p>
+            The findings are written up as a <strong>Cardano Improvement Proposal</strong>: a
+            specification of the protocol, and a rationale that sets out the adversary it is
+            analysed against, what was measured and how, and where the guarantees stop. It
+            carries the narrowing from five candidate designs to two, and is explicit about
+            what it does not settle. The draft is under internal review now and goes upstream
+            to the CIP repository once the dissemination design is named.
+          </p>
+        </div>
         <div class="timeline-entry ahead">
           <div class="timeline-marker">Ahead</div>
           <div class="timeline-tag"><span class="status-ahead">Planned</span></div>
           <h3>Hardening &amp; ecosystem integration</h3>
           <p>
-            The <strong>Cardano Improvement Proposal</strong> consolidates the analytical and
-            experimental findings into a concrete architecture recommendation. It is drafted
-            and under review, and will be submitted upstream once the dissemination design is
-            named. The scope beyond that is still taking shape; candidates include a
+            The scope beyond the proposal is still taking shape; candidates include a
             fee-and-incentive model that rewards honest participation, real network transport
             in the prototype node, a public testnet, and, on the research side, decentralised
             peer sampling at scales where the on-chain list no longer suffices.
@@ -1289,15 +1304,14 @@
           <span class="material-note">GitHub</span>
           <span class="material-arrow" aria-hidden="true">›</span>
         </a>
-        <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
+        <div class="material-tile material-tile--soon" aria-disabled="true">
           <div class="material-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M9 7h7"/><path d="M9 11h7"/></svg>
           </div>
-          <span class="material-name">Research logbook</span>
-          <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen.</p>
-          <span class="material-note">Ongoing</span>
-          <span class="material-arrow" aria-hidden="true">›</span>
-        </a>
+          <span class="material-name">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
+          <p class="material-desc">The protocol specified, and the evidence behind it: what was measured, what the guarantees cost, and where they stop.</p>
+          <span class="material-note">In review</span>
+        </div>
       </div>
     </div>
   </section>
