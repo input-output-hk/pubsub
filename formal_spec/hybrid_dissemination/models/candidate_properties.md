@@ -36,10 +36,6 @@ per-model analysis when picked up.
 - **Attribution surface** — which deviations are provable (opening more
   links than the verifiable draw budget) vs unprovable (not relaying);
   a taxonomy of punishable vs merely tolerated misbehaviour.
-- **Transmission unreliability (p_fail)** — per-transmission loss breaks
-  the standing-structure argument; effective branching ×(1−p_fail),
-  per-message delivery probability, retransmission policy. M4's doubled
-  edge redundancy should win this axis.
 - **Adversarial flooding / emergency delivery under load** — the loud
   dual of the silent adversary: coverage implicitly assumes offered
   load ≤ capacity, and adversaries control offered load. Valid messages

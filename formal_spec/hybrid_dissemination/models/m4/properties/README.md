@@ -9,7 +9,8 @@ honest-BFS + closed forms; run it for a self-test), `sim_m4_coverage.py`
 `sim_m4_degrees.py` (degree distributions), `sweep_m4_mu_shift.py`
 (μ-shift degradation at frozen RF), `sim_m4_severity.py` (bad-graph
 severity), `sweep_m4_reprovision.py` (cheapest RF vs design μ),
-`sim_m4_eclipse.py` (adaptive eclipse cost),
+`sim_m4_eclipse.py` (adaptive eclipse cost), `sweep_m4_pfail.py`
+(per-message delivery under send loss + retry economics),
 `compare_bandwidth.py` and `compare_hops.py` (cross-model runs, used by the
 comparison report).
 
@@ -22,6 +23,7 @@ comparison report).
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
 | Re-provisioning (cheapest RF at design μ) | [`re_provisioning.md`](re_provisioning.md) | HYBRID |
 | Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | HYBRID |
+| Transmission unreliability (per-message, p_fail) | [`transmission_unreliability.md`](transmission_unreliability.md) | HYBRID |
 
 Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).

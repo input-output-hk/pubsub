@@ -27,6 +27,10 @@ against independent algorithms, closing the loop a shared bug could hide in:
       if no cheaper cut sits deeper.  Max-flow (Menger) on the weakest node
       in both attack directions, all five models, at reduced fanouts where
       a deeper cut would most plausibly win.
+  (8) loss-injected flood at p_fail = 0 vs the reference simulator [exact,
+      per graph]: each sweep_m?_pfail.py cascade with loss switched off must
+      reproduce the plain dissemination exactly (sends, depths, coverage) --
+      the anchor the transmission-unreliability property stands on.
 
 Run `python3 validate.py` (~ a few minutes).  `--tail {m3,m5}` runs a
 deep-tail law validation cell instead (tens of minutes; see bottom).
@@ -400,6 +404,66 @@ def _report_tail(label, pred, bad, trials):
 
 
 # ---------------------------------------------------------------------------
+# (8) loss-injected flood at p_fail = 0 vs the reference simulator
+# ---------------------------------------------------------------------------
+
+def _pfail_equal(pf, ref):
+    """(attempted, delivered, depths) at p_fail = 0 vs the reference
+    (sends, max, mean, reached): all sends succeed, so attempted ==
+    delivered == sends and the depth profile must match exactly."""
+    at, de, ds = pf
+    return (at == de == ref[0] and max(ds) == ref[1]
+            and math.isclose(sum(ds) / len(ds), ref[2], rel_tol=1e-12)
+            and len(ds) == ref[3])
+
+
+def check_pfail_anchor(rng, graphs=25):
+    print("(8) loss-injected flood at p_fail = 0 vs reference [exact]")
+    import sweep_m1_pfail, sweep_m2_pfail, sweep_m3_pfail  # noqa: E401
+    import sweep_m4_pfail, sweep_m5_pfail                  # noqa: E401
+
+    p = M1Params(N=1500, k=300, F=12)
+    mism = sum(not _pfail_equal(
+        sweep_m1_pfail.flood_pfail(g.adj, [(0, 0)], p.H, rng, 0.0, 0),
+        _reference_disseminate(g.adj, [(0, 0)]))
+        for g in (M1Graph(p, rng) for _ in range(graphs)))
+    check(f"M1 pfail flood ({graphs} graphs)", mism == 0, f"{mism} mismatches")
+
+    p = M2Params(N=1500, k=300, RF=14)
+    mism = 0
+    for _ in range(graphs):
+        g = M3Graph(p, rng)
+        adj = g.adjacency()
+        a = sweep_m2_pfail.flood_pfail(adj, [(0, 0)], p.H, rng, 0.0, 0)
+        mism += not _pfail_equal(a, _reference_disseminate(adj, [(0, 0)]))
+    check(f"M2 pfail flood ({graphs} graphs)", mism == 0, f"{mism} mismatches")
+
+    pp = M3Params(N=1500, k=300, RF=12, s=5)
+    mism = 0
+    for _ in range(graphs):
+        g = M3Graph(pp, rng)
+        adj = g.adjacency()
+        seeds = [(0, 0)] + [(t, 1) for t in g.init_targets[0]]
+        a = sweep_m3_pfail.flood_pfail(adj, seeds, pp.H, rng, 0.0, 0)
+        mism += not _pfail_equal(a, _reference_disseminate(adj, seeds))
+    check(f"M3 pfail flood ({graphs} graphs)", mism == 0, f"{mism} mismatches")
+
+    p = M4Params(N=1500, k=300, RF=6)
+    mism = sum(not _pfail_equal(
+        sweep_m4_pfail.flood_pfail(g.adj, [(0, 0)], p.H, rng, 0.0, 0),
+        _reference_disseminate(g.adj, [(0, 0)]))
+        for g in (M4Graph(p, rng) for _ in range(graphs)))
+    check(f"M4 pfail flood ({graphs} graphs)", mism == 0, f"{mism} mismatches")
+
+    p = M5Params(N=1500, k=300, k_in=6, k_out=6)
+    mism = sum(not _pfail_equal(
+        sweep_m5_pfail.flood_pfail(g.adj, [(0, 0)], p.H, rng, 0.0, 0),
+        _reference_disseminate(g.adj, [(0, 0)]))
+        for g in (M5Graph(p, rng) for _ in range(graphs)))
+    check(f"M5 pfail flood ({graphs} graphs)", mism == 0, f"{mism} mismatches")
+
+
+# ---------------------------------------------------------------------------
 # (6) min-cut = degree, by max-flow (Menger), in both attack directions
 # ---------------------------------------------------------------------------
 
@@ -577,6 +641,7 @@ def main():
     check_flood_reference(rng)
     check_reprovision_anchor()
     check_mincut_equals_degree(rng)
+    check_pfail_anchor(rng)
     print("=" * 70)
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} FAILURE(S): " + "; ".join(FAILURES))

@@ -84,7 +84,7 @@ operating points frozen, the effective adversarial fraction swept upward
 the bandwidth winner, is the most μ-brittle** — its μ^RF in-term has
 log-sensitivity RF/μ = 60 vs 24 for M1/M2's exponential terms. M5's
 top budget is mostly margin (its cheapest integer point lands 2.3× under
-δ), not structure (sensitivity ≈ 50). M1/M2 degrade most gracefully
+the target δ = 10⁻⁴), not structure (sensitivity ≈ 50). M1/M2 degrade most gracefully
 (collapse ≈ 0.61) — a cushion bought by their 2× bandwidth. On the live
 frontier: **M4 tolerates ~2× more shift than M3** (~1.1 % vs ~0.5 % churn)
 before leaving the target — though §5 shows this gap is a property of
@@ -258,7 +258,89 @@ the repository. Read as the honest degree, which is what the property costs,
 12.80 is the defensible value; with the order statistic then applied, M4
 moves from most eclipse-resistant to second cheapest.
 
-## 7. Bottom line
+## 7. Transmission unreliability — loss tolerance and the price of repair
+
+This section asks what send loss does to each model frozen at its §1
+operating point: every honest→honest send is dropped iid with
+probability p_fail. Per-model analyses are in each
+[`transmission_unreliability.md`](m3/properties/transmission_unreliability.md);
+r per-link retries make the per-send failure p_fail^(r+1). A guarantee
+over *every message of an epoch* cannot survive per-message randomness,
+so it is re-read **per message**: ε_msg = P(one given message misses
+≥ 1 honest node), held to the same δ. The law is §4's μ-shift curve at
+μ_eff = μ + (1−μ)p_fail (a lost send silences an edge like an
+adversarial pick), with two per-message corrections. First, H does not
+shrink: a node behind lossy links still needs the message. Second, the
+muted-publisher term loses its factor H: the per-epoch law charges a
+publisher with no honest out-path (§6's mute) once for each of the H
+publishers; a message has one.
+All laws are MC-validated (each script's `--mc`, seed 20260813):
+p_fail = 0 cells reproduce the exact per-graph computation, degree
+distributions match their predicted pmfs class by class, and
+loss-injected cells at elevated p_fail agree within |z| ≤ 1.7.
+
+**Loss tolerance at the frozen operating points** — the largest p_fail
+each model absorbs while keeping ε_msg ≤ δ, without repair and with one
+retry per link, and the law read at a realistic 1 % loss. The
+churn-identity column repeats §4's p_max, which the μ_eff identity makes
+each model's *per-epoch* loss tolerance, the baseline the per-message
+reading relaxes:
+
+| model | params | churn identity (§4) | per-message | with 1 retry | ε_msg at 1 % loss |
+|---|---|---|---|---|---|
+| M2 | RF = 24 | ~1.7 % | **31.9 %** | 56 % | 5.5×10⁻⁹ |
+| M5 | (9, 8) | ~2.2 % | 5.1 % | 22.6 % | 2.1×10⁻⁵ |
+| M1 | F = 24 | ~1.8 % | 1.7 % | 12.9 % | 8.8×10⁻⁵ |
+| M4 | RF = 8 | ~1.1 % | 1.0 % | 10.2 % | 9.9×10⁻⁵ |
+| **M3** | (12, 8) | ~0.5 % | **0.9 %** | 9.6 % | **1.04×10⁻⁴** |
+
+**The per-message reading redraws the robustness map.** Models whose
+binding per-epoch term was a publisher-side event (§6's mute) pocket
+the lost H-factor, and their loss budget grows over the churn-identity
+baseline: M3 ×1.7, M5 ×2.3 — and M2 ×19, because its
+requester-less-publisher defect is a single ~5×10⁻⁹ event per message,
+leaving its 24-pull reception (19.2 honest tries per node, the family's
+deepest) as the binding term. M1 and M4, bound instead on the receiving
+side (§6's deafen), tighten slightly (H unshrunk). **At 1 % loss M3 is the only model out of budget, and
+only just**: 1.04×10⁻⁴ vs M4's 9.9×10⁻⁵, both within a few per cent
+of δ; the deep-tail caveat
+([`tail-correction.md`](../../../pubsub-node/docs/experiments/tail-correction.md))
+does not flip it.
+
+**M4 is second-worst on this axis, contrary to the expectation that its
+doubled edge redundancy (every undirected link usable in both
+directions) should win it.** An uninformed node never fires, so the
+reverse direction of an undirected link is not a second chance at the
+final hop. Bidirectionality is a degree effect the identity already
+prices: 12.8 honest tries from an 8-link budget, the family's best
+*per held link* but fewer in total than M5's 13.6 or M1/M2's 19.2. The genuine interior
+effect (B→A succeeding after a failed A→B) is measurable only in the
+bulk regime (MC ≈ 13 % below the law at p_fail ≈ 0.33) and
+negligible at the δ tail.
+
+**Repair is cheap where it is needed.** One retry covers the analysed
+0.1–10 % loss grid for every model except M3, which needs r = 2 from 10 %;
+the bandwidth price is ×(1−p^{r+1})/(1−p) ≈ ×(1+p_fail), the latency
+price ≈ p_fail timeouts per delivered send (hop depth barely moves). Retries beat the §5 notches wherever they suffice: at 1 % loss
+M3's r = 1 costs +1.0 % bandwidth against +8.3 % for the (13, 7)
+re-split. The notch, though, needs no timeout machinery. **The frontier
+survives**: at 1 % loss repaired M3 (155 140 attempted sends/message)
+still leads M4 (188 798) by 17.8 % (11.9 % if M3 instead hardens via
+the (13, 7) re-split), and the rest of the field stays 40–98 % above.
+
+**Per-epoch, loss budgets divide by the publication rate; structure
+does not.** ε_msg has a floor at p_fail = 0 (the graph draw, shared by
+all the epoch's messages), so the epoch reading is
+P(bad epoch) ≤ P(structural defect) + R·[ε_msg(p) − ε_msg(0)] for R
+messages/epoch, not ε_msg ≤ δ/R. At R = 10³ with one retry the full
+per-epoch guarantee survives to ~0.3–1 % loss for M1/M3/M4/M5 — and to
+32 % for M2 (10 % with no retries), the only model whose
+epoch-level guarantee survives realistic loss without transport repair.
+Correlated or bursty loss is out of scope (a failing peer's whole link
+set reads as churn, §4); adversaries that withhold acks inflate retry
+bandwidth, not coverage.
+
+## 8. Bottom line
 
 At P(bad) ≤ 10⁻⁴, N = 20 000, μ = 0.2: **M3 (RF = 12, s = 8) is the most
 efficient model in bandwidth** — cheapest by 19–50 %, within ~1 hop
@@ -270,11 +352,17 @@ practical choice is M3 if bandwidth is the binding resource, M4 if
 connection count / simplicity is — a choice §5 shows is stable under
 re-provisioning: M3 keeps the bandwidth lead at every analysed
 μ_design ≤ 0.35, and its μ-brittleness (§4) is cured by the (13, 7)
-re-split rather than by switching models. Note, however, that both
+re-split rather than by switching models — and under transmission loss
+(§7): at WAN-realistic 0.1–1 % loss M3 is the only model needing
+repair, and one per-link retry (+1 % bandwidth) keeps its lead at
+17.8 %. Note, however, that both
 leaders are also the two cheapest to attack (§6), so a design that
 weights adversarial cost alongside efficiency would reopen the choice.
 Of the rest, M1 is weakly dominated by M2 on bandwidth, latency and
 state — **but not on eclipse cost, where §6 finds them equal at 4.6**,
 differing only in which side gives way (M1 is deafened, M2 muted); M2's
 marginal latency win (0.2 hops) costs 2× the bandwidth and 3× the
-standing links of the leaders; M5 is best on no measured axis.
+standing links of the leaders — a price that also buys the family's one
+absolute crown under loss: ~32 % per-message tolerance, the only design
+whose epoch-level guarantee survives realistic loss without transport
+repair (§7); M5 is best on no measured axis.
