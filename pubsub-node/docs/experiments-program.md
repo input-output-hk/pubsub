@@ -235,6 +235,20 @@ security trade-off, never derived from local state.
   topology damage. Jointly with E10: the B trade-off table — at fixed pick count, the largest B
   with r ≥ 2 is both coverage-exact and flood-resilient. Measurement via the per-node
   connection-accounting detail columns; bounding cases documented below, unchanged.
+- **E18 — Gated-symmetric selection (gated M4)** [done]. Executed and documented in
+  [`docs/experiments/gated-symmetric.md`](experiments/gated-symmetric.md): the hash gate composed
+  with the symmetric handshake — N-039's revisit trigger, no published law (the cells test
+  closed-form predictions recorded before running). The pair draw makes picks and pickers share one
+  survivor pool: B enters the realised degree everywhere (d = λm(2−m), measured to three digits
+  across B = 10–500 — no r ≥ 2 plateau exists in this family), and isolation gains the
+  **empty-pool channel** e^(−(1−μ)(N−1)/B) — K-independent, so RF cannot compensate — confirmed
+  57 + 61 bad/8 000 at B = 250 against a matched-degree ungated twin at 0/8 000 (the naive
+  law-at-realised-degree transfer rejected ~440×). Design rule: size the pool, not the headroom —
+  (N−1)/B ≥ ln(H/δ)/(1−μ), with the gate coverage-free at r ≳ 3; the ordered-predicate
+  alternative is priced in the report (≈ 2/B admissibility at equal B; the frontier
+  λ_floor/(N−1) is predicate-independent). The benefit-side flooding grid (the E12 analogue under
+  the symmetric handshake) is **not config-only**: it waits on the N-032 cap semantics and the
+  N-040 direction-blind slot columns.
 
 **Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
 bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
@@ -306,6 +320,7 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E15 | Adversarial relevance classification | 5 | silent-adversary bound | analysis ready |
 | E16 | Golden push tier | 6 | golden-tier formula | needs golden feature |
 | E17 | Slashing dynamics | 7 | deposit arithmetic | needs detection + rotation |
+| E18 | Gated-symmetric selection (gated M4) | 4 | none published (N-039 boundary) — own two-channel law | **done** (gated-symmetric) |
 
 Reading the table: the confirmation experiments validate closed forms at finite N and for the
 topology the protocol actually builds; E11 and E13–E15 are where the framework is the primary
