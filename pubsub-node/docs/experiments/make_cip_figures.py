@@ -353,8 +353,24 @@ def fig_validation(cells, churn=()) -> str:
         b.append(text(X(v), mt + ph + 19, decade(v), anchor="middle"))
         b.append(text(ml - 11, Y(v) + 4, decade(v), anchor="end"))
 
-    b.append(line(X(lo), Y(lo), X(hi), Y(hi), RULE, 1.8, cap="round"))
+    # A point is not expected to sit on the diagonal: a finite sample scatters
+    # around the rate it is drawn from. The band is that scatter at two standard
+    # errors for a 4 000-draw sample, which is both the median and the most
+    # common size here. Each point's own bar is exact for its own sample; the
+    # band only gives the eye a scale, and points from larger samples should sit
+    # well inside it while the few small ones may fall outside.
+    BAND_N = 4000
+    steps = 90
+    upper, lower = [], []
+    for i in range(steps + 1):
+        v = 10 ** (lg(lo) + (lg(hi) - lg(lo)) * i / steps)
+        se = math.sqrt(max(v * (1 - v), 0.0) / BAND_N)
+        upper.append((X(v), Y(min(v + 2 * se, hi))))
+        lower.append((X(v), Y(max(v - 2 * se, lo))))
+    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in upper + lower[::-1])
+    b.append(f'<polygon points="{pts}" fill="{RULE}" fill-opacity="0.20" stroke="none"/>')
 
+    b.append(line(X(lo), Y(lo), X(hi), Y(hi), RULE, 1.8, cap="round"))
 
     everything = list(cells) + [c for c in churn if lo <= c["law"] <= hi]
     for c in everything:
@@ -381,12 +397,14 @@ def fig_validation(cells, churn=()) -> str:
     b.append(f'<text x="0" y="0" transform="translate(37,{mt + ph / 2:.1f}) rotate(-90)" '
              f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
              f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'bar = Wilson 95% interval</text>')
+             f'bar = the range consistent with that count</text>')
 
     lx = ml + 14
     b.append(text(lx, mt + 20, "one point = one tested configuration:", 11.5, INK_SOFT))
-    b.append(text(lx, mt + 38, "grey line = the law matched measurement exactly · "
-                  "hollow = measured under churn", 11, "#8a887e"))
+    b.append(text(lx, mt + 38, "grey line = law matched measurement exactly · "
+                  "band = scatter expected of a 4 000-draw sample", 11, "#8a887e"))
+    b.append(text(lx, mt + 54, "hollow = measured under honest downtime",
+                  11, "#8a887e"))
     for i, (m, col) in enumerate(SERIES.items()):
         cx = lx + 218 + i * 52
         b.append(circle(cx, mt + 16, 4.4, col, SURFACE, 1.6))
@@ -395,8 +413,10 @@ def fig_validation(cells, churn=()) -> str:
     return frame(W, H, b, "Measured against predicted epoch failure probability",
                  "Each point is one experiment configuration. Horizontal position is the "
                  "probability predicted by the closed-form coverage law, vertical position "
-                 "the fraction of sampled topologies that actually failed. Bars are Wilson "
-                 "95% intervals. Points lie on the diagonal across the whole range.",
+                 "the fraction of sampled topologies that actually failed. Each bar is the "
+                 "range of true rates consistent with that count, and the shaded band is "
+                 "the scatter a 4 000-draw sample is expected to show. Points lie along "
+                 "the diagonal across the whole range.",
                  conditions="N = 4 000 and 20 000 · μ = 0.2")
 
 
