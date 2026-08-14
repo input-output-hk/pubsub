@@ -16,7 +16,7 @@ Wilson 95 %, and why not ±1σ) are documented in the
 | | |
 |---|---|
 | Tool commit | `7da261e` (config-only successor of `3887ea7`; the instrument binary is unchanged between them) |
-| Configurations | [`configs/experiments/gated-symmetric/`](../../configs/experiments/gated-symmetric/) — nine cells, master seeds 1101–1109, N = 4 000, μ = 0.2, K = 16 throughout |
+| Configurations | [`configs/experiments/gated-symmetric/`](../../configs/experiments/gated-symmetric/) — eleven cells, master seeds 1101–1111, N = 4 000, K = 16 throughout; μ = 0.2 except the two μ-axis cells (§3) |
 | Anchors | the validated ungated M4 structure point [`m4-uniform-symmetric.toml`](../../configs/experiments/m4-uniform-symmetric.toml) (seed 44, baseline `d7e7132`) as the B → small degree endpoint; a fresh ungated pick-8 twin (seed 1109) as the matched-degree tail control |
 | Predictions | [`gated_symmetric_predictions.py`](gated_symmetric_predictions.py) — exact binomial arithmetic, no Poisson or large-r approximations |
 | Timings | 500-run gated cells ≈ 6 min at 12 workers; the two 8 000-run tail cells 93 min each; the ungated 8 000-run twin ≈ 8 min (the gate is the cost: ~16 M SHA-256 edge evaluations per run, as in [E10](e10-selection-fidelity.md) §5) |
@@ -135,6 +135,29 @@ Both 8 000-run points sit ~1σ below prediction — consistent, with the
 same mild optimism the formal folder's isolated-vertex laws show in
 reverse; nothing at this depth distinguishes sampling noise from a
 higher-order correction.
+
+### The μ axis
+
+The empty-pool exponent carries the (1−μ) the pool floor quotes; two
+further cells at the same pool (B = 250, K = 16) raise μ in steps of
+0.1 — each step multiplies per-node isolation by e^(0.1·λ) = 4.97 —
+with run counts sized for ~74 expected bad runs per point (equal
+statistical weight across the axis):
+
+| μ | bad/runs | P(bad) | Wilson 95 % | predicted |
+|---|---|---|---|---|
+| 0.2 | 57/8 000 | 0.00713 | [0.0055, 0.0092] | 0.0086 |
+| 0.3 | 75/2 000 | 0.03750 | [0.0300, 0.0468] | 0.0369 |
+| 0.4 | 76/500 | 0.15200 | [0.1232, 0.1861] | 0.1479 |
+
+Per-node isolation follows the exponent across the axis (measured
+2.2×10⁻⁶ → 1.37×10⁻⁵ → 6.9×10⁻⁵ vs predicted 2.7×10⁻⁶ → 1.34×10⁻⁵ →
+6.7×10⁻⁵). Two structural checks ride along: realised degree is
+μ-invariant as the class-blind gate requires (15.839 / 15.837 / 15.840
+across the axis), and at μ = 0.4 — where E_iso = 0.16 makes two
+independent isolation events per run likely enough to see — the
+stranded-count histogram shows 8 two-node runs among 76 bad against ~6
+expected, the second-order term appearing exactly on schedule.
 
 ## 4. The B design rule under the symmetric handshake
 

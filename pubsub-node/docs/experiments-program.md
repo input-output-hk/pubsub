@@ -243,7 +243,8 @@ security trade-off, never derived from local state.
   across B = 10–500 — no r ≥ 2 plateau exists in this family), and isolation gains the
   **empty-pool channel** e^(−(1−μ)(N−1)/B) — K-independent, so RF cannot compensate — confirmed
   57 + 61 bad/8 000 at B = 250 against a matched-degree ungated twin at 0/8 000 (the naive
-  law-at-realised-degree transfer rejected ~440×). Design rule: size the pool, not the headroom —
+  law-at-realised-degree transfer rejected ~440×), and its (1−μ) exponent confirmed across
+  μ = 0.2/0.3/0.4 at equal event counts (the μ-axis cells). Design rule: size the pool, not the headroom —
   (N−1)/B ≥ ln(H/δ)/(1−μ), with the gate coverage-free at r ≳ 3; the ordered-predicate
   alternative is priced in the report (≈ 2/B admissibility at equal B; the frontier
   λ_floor/(N−1) is predicate-independent). The benefit-side flooding grid (the E12 analogue under
