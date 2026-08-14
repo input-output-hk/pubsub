@@ -24,12 +24,15 @@ E_iso = 3200 * I;  P(bad) ~= 1 - exp(-E_iso)  (isolated-node dominance,
 same first-order convention as the formal M4 law).
 """
 import math
+import sys
 
 N = 4000
-ADV = 800
-HON = N - ADV          # 3200
 K = 16
-MU = ADV / N
+# The adversarial fraction is an optional argument (default 0.2 — the
+# calibrated shape); the mu-axis cells re-run the same arithmetic at 0.3/0.4.
+MU = float(sys.argv[1]) if len(sys.argv) > 1 else 0.2
+ADV = int(N * MU)
+HON = N - ADV
 
 def lchoose(n, k):
     if k < 0 or k > n:
