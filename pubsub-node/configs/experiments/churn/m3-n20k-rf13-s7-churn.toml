@@ -1,0 +1,35 @@
+# Churn at the proposed split — M3 (RF = 13, s = 7).
+# The op-point churn round (m3-n20k-op-churn.toml, seed 811) ran the
+# superseded (12, 8). This cell runs the split the CIP proposes, so its
+# churn budget rests on measurement at its own parameters rather than on
+# transfer from a neighbouring split.
+# The publisher pick_count is s-1, so s = 7 means 6.
+# N = 20000, mu = 0.2.
+
+model = "m3"
+master_seed = 861
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 13
+publisher = { pick_count = 6 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 13
+publisher = { pick_count = 6 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 1200
+
+# Same three levels as the op-point round, so the two are directly
+# comparable. The budget itself is at P(bad) = 1e-4 and cannot be sampled;
+# these levels sit far above it and measure the curve.
+[[axes]]
+parameter = "churn"
+values = [0.20, 0.25, 0.30]
