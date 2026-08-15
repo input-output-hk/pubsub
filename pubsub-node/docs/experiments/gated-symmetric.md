@@ -15,9 +15,9 @@ Wilson 95 %, and why not ±1σ) are documented in the
 
 | | |
 |---|---|
-| Tool commit | `7da261e` (config-only successor of `3887ea7`; the instrument binary is unchanged between them) |
+| Tool commit | `7da261e` (nine cells) / `95dfac5` (the μ-axis pair) / `1ec648b` (the anchor re-run) — config- and docs-only successors of `3887ea7`; the instrument binary is unchanged across them |
 | Configurations | [`configs/experiments/gated-symmetric/`](../../configs/experiments/gated-symmetric/) — eleven cells, master seeds 1101–1111, N = 4 000, K = 16 throughout; μ = 0.2 except the two μ-axis cells (§3) |
-| Anchors | the validated ungated M4 structure point [`m4-uniform-symmetric.toml`](../../configs/experiments/m4-uniform-symmetric.toml) (seed 44, baseline `d7e7132`) as the B → small degree endpoint; a fresh ungated pick-8 twin (seed 1109) as the matched-degree tail control |
+| Anchors | the validated ungated M4 structure point [`m4-uniform-symmetric.toml`](../../configs/experiments/m4-uniform-symmetric.toml) (seed 44, re-run at `1ec648b` for the standing-degree readout — the recorded `d7e7132`/`23d0223` baselines predate that column; the re-run is value-identical to them on every shared aggregate field) as the B → small degree endpoint; a fresh ungated pick-8 twin (seed 1109) as the matched-degree tail control |
 | Predictions | [`gated_symmetric_predictions.py`](gated_symmetric_predictions.py) — exact binomial arithmetic, no Poisson or large-r approximations |
 | Timings | 500-run gated cells ≈ 6 min at 12 workers; the two 8 000-run tail cells 93 min each; the ungated 8 000-run twin ≈ 8 min (the gate is the cost: ~16 M SHA-256 edge evaluations per run, as in [E10](e10-selection-fidelity.md) §5) |
 | References | N-039 (the pair-draw design and its recorded assumptions — this pass is its revisit trigger), ADR 0034 (symmetric handshake), ADR 0039/0040 (unified selection plane, seed derivation), [E10](e10-selection-fidelity.md) §6–§7 (why nothing there transfers to M4) |
@@ -49,8 +49,9 @@ consequences, both absent from E10's directional plane:
   survivor dialed, both ends agree, so realised degree = the pool
   exactly.
 
-Measured, 500 runs per cell (the ungated anchor row is the recorded
-seed-44 baseline, reused not re-run):
+Measured, 500 runs per cell (the ungated anchor is the shipped seed-44
+configuration, re-run at this pass's tool line — the recorded baselines
+predate the standing-degree column):
 
 | cell | r | d predicted | d measured |
 |---|---|---|---|
@@ -62,11 +63,16 @@ seed-44 baseline, reused not re-run):
 | gated picks B = 500 | 0.5 | 8.00 | **7.996** |
 | gate-only B = 125 | — | 31.99 | **31.985** |
 | gate-only B = 250 | — | 16.00 | **15.997** |
-| ungated anchor (K = 16) | — | 31.94 | 31.94 (baseline `d7e7132`) |
+| ungated anchor (K = 16) | — | 31.94 | **31.937** |
 
 The shared-pool degree law holds to three digits across the ladder,
 including the pick-truncation region at the r = 1 boundary (own picks
-14.41 predicted at B = 250 — pools smaller than K truncate).
+14.41 predicted at B = 250 — pools smaller than K truncate). Own picks
+are themselves on the ledger — the dial ledger (`dial_sends` over
+N × dial waves) reads 15.999 at B = 125 and 14.414 at B = 250 against
+the predicted 16.00 and 14.41 — so the mutual-pick overlap is measured
+arithmetic on two observables, 2·out − d: 8.002 at B = 125 (predicted
+8.00) and 12.988 at B = 250 (predicted 12.99).
 
 ## 2. The two-channel isolation law
 
@@ -117,7 +123,7 @@ at RF = d/2 — predicts 1.65×10⁻⁵. 8 000 runs decide:
 Three readings:
 
 - **The naive transfer is rejected, not merely disfavoured**: 57
-  observed against ~0.13 expected is a ~440× excess. The side-by-side
+  observed against ~0.13 expected is a ~430× excess. The side-by-side
   with the twin makes it a raw-count comparison at equal measured
   degree — ungated 0/8 000, gated 57/8 000 — with no closed form on
   either side of the headline.
@@ -140,7 +146,8 @@ higher-order correction.
 
 The empty-pool exponent carries the (1−μ) the pool floor quotes; two
 further cells at the same pool (B = 250, K = 16) raise μ in steps of
-0.1 — each step multiplies per-node isolation by e^(0.1·λ) = 4.97 —
+0.1 — each step multiplies per-node isolation by e^(0.1·λ) ≈ 4.95
+(4.97 in the exact arithmetic) —
 with run counts sized for ~74 expected bad runs per point (equal
 statistical weight across the axis):
 
@@ -150,9 +157,9 @@ statistical weight across the axis):
 | 0.3 | 75/2 000 | 0.03750 | [0.0300, 0.0468] | 0.0369 |
 | 0.4 | 76/500 | 0.15200 | [0.1232, 0.1861] | 0.1479 |
 
-Per-node isolation follows the exponent across the axis (measured
-2.2×10⁻⁶ → 1.37×10⁻⁵ → 6.9×10⁻⁵ vs predicted 2.7×10⁻⁶ → 1.34×10⁻⁵ →
-6.7×10⁻⁵). Two structural checks ride along: realised degree is
+Per-node isolation follows the exponent across the axis (stranded
+honest nodes over honest-node-runs: 2.23×10⁻⁶ → 1.34×10⁻⁵ → 7.00×10⁻⁵
+vs predicted 2.70×10⁻⁶ → 1.34×10⁻⁵ → 6.67×10⁻⁵). Two structural checks ride along: realised degree is
 μ-invariant as the class-blind gate requires (15.839 / 15.837 / 15.840
 across the axis), and at μ = 0.4 — where E_iso = 0.16 makes two
 independent isolation events per run likely enough to see — the
