@@ -1,0 +1,37 @@
+# Gated-symmetric mu axis - K = 16, B = 250 at mu = 0.3: the empty-pool
+# exponent's (1-mu) dependence, first step.
+#
+# Same cell as gated-picks-b250 with the adversarial fraction raised one
+# step: the empty-pool channel predicts isolation e^(-(1-mu)*lambda) -
+# each 0.1 of mu multiplies isolation by e^(0.1*16) = 4.95 at this pool.
+# Exact prediction (gated_symmetric_predictions.py 0.3): d = 15.84
+# (unchanged - the gate is class-blind), isolation 1.342e-5 (4.97x the
+# mu = 0.2 cell), E_iso = 0.0376, P(bad) = 0.0369 -> ~74 bad runs
+# expected in 2 000, the same event count as the mu = 0.2 tail cells.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/gated-symmetric/gated-picks-b250-mu30.toml --out results/gated-symmetric/gated-picks-b250-mu30/
+
+model = "m4"
+master_seed = 1110
+
+[population]
+size = 4000
+adversarial_fraction = 0.3
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 2000
