@@ -32,6 +32,13 @@ with open(f'{cell}/runs.jsonl') as f:
 ROUTES = ['edges_own_only_honest', 'edges_own_only_adversarial',
           'edges_mutual_honest', 'edges_mutual_adversarial',
           'edges_admitted_honest', 'edges_admitted_adversarial']
+# Per-victim rows within one run are correlated (shared edges, the
+# admission race), so the independent replicate is the run: intervals
+# are run-clustered — sd of the per-run means over sqrt(runs).
+TRACKED = ROUTES + ['downstream_honest', 'downstream_adversarial',
+                    'dials_refused', 'refusals_issued_honest',
+                    'refusals_issued_crossing_honest']
+run_means = {f: [] for f in TRACKED}
 route_sums = Counter()          # per-victim means, honest rows only
 sybil_edges = Counter(); sybil_admitted = Counter(); sybil_floor = Counter()
 honest_edges = Counter(); total_edges = Counter()
@@ -43,6 +50,7 @@ detail_files = sorted(glob.glob(f'{cell}/run-*-detail.jsonl'))
 for path in detail_files:
     rec = runs[int(path.split('run-')[1].split('-')[0])]
     s_ref = 0; i_h = i_a = 0; d_h = d_a = 0
+    run_sums = Counter(); run_victims = 0
     for line in open(path):
         row = json.loads(line)
         if row['publish'] != 0:
@@ -66,6 +74,9 @@ for path in detail_files:
         crossing_a += row['refusals_issued_crossing_adversarial']
         if row['class'] == 'honest':
             d_h += row['dials_refused']
+            run_victims += 1
+            for f in TRACKED:
+                run_sums[f] += row[f]
             for f in ROUTES:
                 route_sums[f] += row[f]
             adv = row['downstream_adversarial']
@@ -80,14 +91,28 @@ for path in detail_files:
     if s_ref != rec['rejected_over_capacity'] or i_h != d_h or i_a != d_a:
         identity_ok = False
     refused_h += d_h; refused_a += d_a
+    for f in TRACKED:
+        run_means[f].append(run_sums[f] / run_victims)
 
 n = sum(sybil_edges.values())
+
+
+def clustered(values):
+    """(mean, run-clustered SE) over the per-run means."""
+    r = len(values)
+    mean = sum(values) / r
+    var = sum((v - mean) ** 2 for v in values) / (r - 1)
+    return mean, (var / r) ** 0.5
+
+
 agg = json.load(open(f'{cell}/aggregates.json'))['experiments'][0]
 summary = {
     'cell': os.path.basename(cell),
     'runs': len(detail_files),
     'victim_rows': n,
     'routes_mean': {f: route_sums[f] / n for f in ROUTES},
+    'clustered': {f: dict(zip(('mean', 'se'), clustered(run_means[f])))
+                  for f in TRACKED},
     'sybil_edges_mean': sum(k * v for k, v in sybil_edges.items()) / n,
     'sybil_edges_hist': dict(sorted(sybil_edges.items())),
     'sybil_floor_hist': dict(sorted(sybil_floor.items())),
