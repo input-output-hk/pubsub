@@ -20,11 +20,16 @@ use crate::topic::TopicId;
 ///   gate is vacuous) or the operator opted out of verification (the
 ///   trusting-acceptors comparison arm); both resolve to `None` at
 ///   construction, never as a runtime branch.
-/// - **Cap** (`accept_cap: Option<C>`): refuse requests at or over `C`
-///   accepted links of the instance's kind on the topic with
-///   [`Admission::RejectOverCapacity`] (an explicit `Rejected` reply — the
-///   dialer cleans up its pending entry). `None` is unbounded; `0` serves
-///   no one: every new link is refused with the explicit rejection.
+/// - **Cap** (`accept_cap: Option<C>`): bound **admissions** at `C`, refusing
+///   over-budget requests with [`Admission::RejectOverCapacity`] (an explicit
+///   `Rejected` reply — the dialer cleans up its pending entry). On a
+///   directional instance the admitted set is exactly the kind-scoped link
+///   scan, so the scan is the count; on a **symmetric** instance the mirrored
+///   link set counts both roles, so the cap reads the per-epoch
+///   admitted-count instead (ADR 0042): the node's own picks never spend it
+///   and crossings are exempt at the handler, so `C` bounds precisely the
+///   edges other peers chose. `None` is unbounded; `0` admits no one: every
+///   fresh link is refused with the explicit rejection.
 ///
 /// The decision order is prelude (membership, then the idempotent
 /// already-held re-Accept) → gate → cap, so a predicate-failing request is
@@ -74,9 +79,9 @@ impl UnifiedAcceptance {
         self
     }
 
-    /// Configure the absolute per-topic serving cap for the instance's link
-    /// kind. `None` (the constructor default) is unbounded; `Some(0)`
-    /// refuses every new link with the explicit over-capacity rejection.
+    /// Configure the absolute per-topic admissions bound for the instance's
+    /// link kind. `None` (the constructor default) is unbounded; `Some(0)`
+    /// refuses every fresh link with the explicit over-capacity rejection.
     #[must_use]
     pub fn with_accept_cap(mut self, accept_cap: Option<usize>) -> Self {
         self.accept_cap = accept_cap;
@@ -93,11 +98,12 @@ impl UnifiedAcceptance {
         self
     }
 
-    /// Verify inbound requests against the **symmetric** edge predicate:
-    /// both relay seams must switch together (one flag drives the dial
-    /// side, the acceptance side, and the handshake vocabulary). Applies to
-    /// relay instances; the publisher seam stays directional and never sets
-    /// this.
+    /// Verify inbound requests against the **symmetric** edge predicate,
+    /// and bound the cap against the per-epoch admitted-count instead of
+    /// the (both-role) link scan (ADR 0042): both relay seams must switch
+    /// together (one flag drives the dial side, the acceptance side, and
+    /// the handshake vocabulary). Applies to relay instances; the publisher
+    /// seam stays directional and never sets this.
     #[must_use]
     pub fn with_symmetric(mut self, symmetric: bool) -> Self {
         self.symmetric = symmetric;
@@ -140,10 +146,18 @@ impl ConnectionAcceptanceStrategy for UnifiedAcceptance {
                 return Admission::RejectIllegitimate;
             }
         }
-        // Cap: the fed absolute serving bound; 0 refuses every new link
-        // (017-FR-013 — the explicit rejection, never a silent drop).
+        // Cap: the fed absolute admissions bound; 0 refuses every fresh link
+        // (017-FR-013 — the explicit rejection, never a silent drop). A
+        // symmetric instance bounds the per-epoch admitted-count — never the
+        // link scan, which counts both roles of every mirrored edge
+        // (ADR 0042); a directional instance's scan IS its admitted set.
         if let Some(cap) = self.accept_cap {
-            if accepted_on_topic >= cap {
+            let spent = if self.symmetric {
+                view.admitted_count(self.kind, topic)
+            } else {
+                accepted_on_topic
+            };
+            if spent >= cap {
                 return Admission::RejectOverCapacity;
             }
         }
@@ -160,8 +174,8 @@ mod tests {
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
     use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
     use crate::strategies::test_support::{
-        candidates, downstream, links_of, no_links, peer, subscriptions, topic, view,
-        view_with_upstream,
+        candidates, downstream, links_of, no_admissions, no_links, peer, subscriptions, topic,
+        view, view_with_admitted, view_with_upstream,
     };
 
     /// The first generated candidate name satisfying `predicate` — the
@@ -401,6 +415,61 @@ mod tests {
                 &view_with_upstream(&subs, &cands, &empty, no_links()),
             ),
             Admission::RejectIllegitimate,
+        );
+    }
+
+    // ADR 0042: a symmetric instance's cap bounds the per-epoch admissions
+    // count, never the link scan — mirrored symmetric state counts both
+    // roles of every edge, and the node's own picks are not admissions. A
+    // crowded downstream with no budget spent admits; an empty downstream
+    // with the budget spent refuses.
+    #[test]
+    fn symmetric_cap_reads_the_admissions_budget_not_the_scan() {
+        let subs = subscriptions(&["t1"]);
+        let cands = candidates(&[("t1", &["a"])]);
+        let policy = UnifiedAcceptance::new(peer("self"))
+            .with_symmetric(true)
+            .with_accept_cap(Some(2));
+
+        // Five held links (own picks and their mirrors under symmetric),
+        // zero admissions spent: the scan would refuse, the budget admits.
+        let held = downstream(&[
+            ("v", "t1"),
+            ("w", "t1"),
+            ("x", "t1"),
+            ("y", "t1"),
+            ("z", "t1"),
+        ]);
+        assert_eq!(
+            policy.admit(
+                &peer("a"),
+                &topic("t1"),
+                &view_with_admitted(&subs, &cands, &held, no_admissions()),
+            ),
+            Admission::Accept,
+        );
+
+        // No links held, budget spent: the scan would admit, the budget
+        // refuses.
+        let spent = BTreeMap::from([((topic("t1"), LinkKind::Relay), 2usize)]);
+        assert_eq!(
+            policy.admit(
+                &peer("a"),
+                &topic("t1"),
+                &view_with_admitted(&subs, &cands, no_links(), &spent),
+            ),
+            Admission::RejectOverCapacity,
+        );
+
+        // A directional instance at the same knobs keeps the scan.
+        let directional = UnifiedAcceptance::new(peer("self")).with_accept_cap(Some(2));
+        assert_eq!(
+            directional.admit(
+                &peer("a"),
+                &topic("t1"),
+                &view_with_admitted(&subs, &cands, &held, no_admissions()),
+            ),
+            Admission::RejectOverCapacity,
         );
     }
 

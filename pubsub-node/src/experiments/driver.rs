@@ -1058,17 +1058,15 @@ mod tests {
         }
     }
 
-    // ADR 0042 machinery (N-040): the drain records symmetric dials at
-    // emission and attributes each refusal as fresh vs crossing. Three
-    // symmetric ungated no-pick nodes at cap 1: everyone dials everyone, so
-    // every inbound request crosses the acceptor's own dial. In canonical
-    // order the first three requests are admitted (rank 0 by both peers,
-    // rank 1 by rank 0), the remaining three are refused over capacity —
-    // each refusal a crossing veto, and rank 0's accepted own dials mirror
-    // past its cap to degree 2 (the recorded scheme-A behaviour this
-    // commit still carries; the 1–2 edge dies to the double veto).
+    // ADR 0042 (N-040): the drain records symmetric dials at emission, and
+    // crossings are exempt from the admissions budget. Three symmetric
+    // ungated no-pick nodes at cap 1: everyone dials everyone, so every
+    // inbound request crosses the acceptor's own dial — nothing spends
+    // budget, nothing is refused, and the full triangle forms. (At the
+    // pre-ADR both-role scan this same fleet lost the rank-1–rank-2 edge
+    // to the crossing veto — the contrast the A cell measured.)
     #[test]
-    fn symmetric_dials_and_crossing_refusals_are_recorded() {
+    fn symmetric_crossings_are_exempt_and_dials_recorded() {
         let config = PopulationConfig {
             topic: TopicId::from_str("t0").expect("valid topic"),
             size: 3,
@@ -1095,35 +1093,78 @@ mod tests {
             assert!(!targets.contains(dialer));
         }
 
-        // Three refusals, every one a crossing: each refuser had itself
-        // dialed the peer it refused.
-        assert_eq!(outcome.rejected_over_capacity, 3);
-        assert_eq!(outcome.dials_refused.values().sum::<u64>(), 3);
-        assert_eq!(outcome.refusals_issued.len(), 3);
-        for tally in outcome.refusals_issued.values() {
-            assert_eq!(tally.honest, 1);
-            assert_eq!(tally.crossing_honest, 1);
-            assert_eq!(tally.adversarial, 0);
-            assert_eq!(tally.crossing_adversarial, 0);
+        // Every request was a crossing: no refusals, the triangle complete.
+        assert_eq!(outcome.rejected_over_capacity, 0);
+        assert!(outcome.refusals_issued.is_empty());
+        for (_, participant) in driver.population().participants() {
+            assert_eq!(participant.downstream().len(), 2);
         }
+    }
 
-        // Realised degrees: rank 0 overshoots its cap via mirrors, and the
-        // rank-1–rank-2 edge is gone although both ends selected it.
-        let ids: Vec<_> = driver
+    // ADR 0042: fresh arrivals spend the admissions budget. Honest nodes
+    // dial nobody (pick count 0) at budget 1; two adversarial flooders dial
+    // every peer. Each honest node receives two FRESH adversarial requests:
+    // the first admits, the second is refused — never as a crossing. The
+    // flooders' own mutual edge is a crossing and forms freely.
+    #[test]
+    fn fresh_arrivals_spend_the_admissions_budget() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 4,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                pick_count: Some(0),
+                accept_cap: Some(1),
+                symmetric: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: StrategySpec {
+                symmetric: true,
+                fanout: FanoutSpec::SilentRelay,
+                ..StrategySpec::open(FanoutSpec::SilentRelay)
+            },
+        };
+        let seeds = PopulationSeeds {
+            keys: [10u8; 32],
+            classes: [11u8; 32],
+            sampler: [12u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let outcome = driver.establish(SetupMode::Prepopulated);
+
+        // One refusal per honest node, all fresh — no crossing is ever
+        // refused under the budget.
+        assert_eq!(outcome.rejected_over_capacity, 2);
+        for (acceptor, tally) in &outcome.refusals_issued {
+            assert_eq!(
+                driver
+                    .population()
+                    .participant(acceptor)
+                    .expect("member")
+                    .class(),
+                ParticipantClass::Honest,
+            );
+            assert_eq!(tally.adversarial, 1);
+            assert_eq!(tally.honest, 0);
+            assert_eq!(tally.crossing_honest + tally.crossing_adversarial, 0);
+        }
+        for (_, participant) in driver.population().participants() {
+            match participant.class() {
+                // Budget 1, no own picks: exactly one admitted edge each.
+                ParticipantClass::Honest => assert_eq!(participant.downstream().len(), 1),
+                // The flooders hold their mutual edge plus whatever the
+                // honest budgets admitted (2 slots between them).
+                ParticipantClass::Adversarial => assert!(!participant.downstream().is_empty()),
+            }
+        }
+        let adversarial_total: usize = driver
             .population()
             .participants()
-            .map(|(id, _)| id.clone())
-            .collect();
-        let degree = |id: &crate::peer::PeerId| {
-            driver
-                .population()
-                .participant(id)
-                .expect("member")
-                .downstream()
-                .len()
-        };
-        assert_eq!(degree(&ids[0]), 2);
-        assert_eq!(degree(&ids[1]), 1);
-        assert_eq!(degree(&ids[2]), 1);
+            .filter(|(_, p)| p.class() == ParticipantClass::Adversarial)
+            .map(|(_, p)| p.downstream().len())
+            .sum();
+        // 2 (the mutual flooder edge, both ends) + 2 (one admitted slot per
+        // honest node).
+        assert_eq!(adversarial_total, 4);
     }
 }

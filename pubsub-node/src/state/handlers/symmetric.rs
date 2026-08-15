@@ -60,21 +60,46 @@ pub(in crate::state) fn handle(
 /// instance (the symmetric handshake establishes relay-class links; in
 /// symmetric mode that instance is configured with the symmetric predicate).
 /// One decision covers both directions — an accept records the emitter as
-/// **both** relay downstream and relay upstream (`Active`; overwriting this
-/// node's own pending dial in the crossing case, where both ends of a valid
-/// edge dialed) and replies `Accepted` under the symmetric vocabulary. The
-/// refusal arms are the shared ones; a capacity refusal inserts nothing, so
-/// no one-sided half of the pair can survive it.
+/// **both** relay downstream and relay upstream (`Active`) and replies
+/// `Accepted` under the symmetric vocabulary. The refusal arms are the
+/// shared ones; a capacity refusal inserts nothing, so no one-sided half of
+/// the pair can survive it.
+///
+/// A **crossing** — the emitter is a peer this node's own dial is already
+/// awaiting — short-circuits ahead of the policy (ADR 0042): answering the
+/// node's own selection is not an admission decision, so it faces neither
+/// gate nor cap and spends no budget. Sound without re-verification: the
+/// pair predicate is symmetric, so this node's own dial already proved the
+/// edge, and membership was checked when it dialed. A granted admission of
+/// a **fresh** request (no pending dial) spends one budget unit — the count
+/// a symmetric acceptance instance's cap bounds; the prelude's idempotent
+/// re-accept of an already-held link spends nothing.
 fn handle_request(state: &mut NodeState, emitter: PeerId, topic: TopicId) -> Vec<Effect> {
     if !super::gate_synced(state, &emitter, &topic) {
         return Vec::new();
+    }
+    let key = LinkKey::new(topic.clone(), emitter.clone(), LinkKind::Relay);
+    if state.upstream.get(&key) == Some(&LinkState::AwaitingAccept) {
+        state.downstream.insert(key.clone(), LinkState::Active);
+        state.upstream.insert(key, LinkState::Active);
+        return super::accepted_reply(state, emitter, topic, KIND);
     }
     let strategy = Arc::clone(&state.acceptance_strategy);
     let admission = strategy.admit(&emitter, &topic, &state.view());
     match admission {
         Admission::Accept => {
-            let key = LinkKey::new(topic.clone(), emitter.clone(), LinkKind::Relay);
-            state.downstream.insert(key.clone(), LinkState::Active);
+            // Only a FIRST insertion is an admission — the idempotent
+            // re-accept of an already-held link spends no budget.
+            if state
+                .downstream
+                .insert(key.clone(), LinkState::Active)
+                .is_none()
+            {
+                *state
+                    .admitted_counts
+                    .entry((topic.clone(), LinkKind::Relay))
+                    .or_insert(0) += 1;
+            }
             state.upstream.insert(key, LinkState::Active);
             super::accepted_reply(state, emitter, topic, KIND)
         }

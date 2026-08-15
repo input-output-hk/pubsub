@@ -114,7 +114,11 @@ fn symmetric_over_capacity_refusal_leaves_no_partial_pair() {
     let mut state = node_state_symmetric(
         "self",
         HashSet::from([topic("t1")]),
-        Arc::new(UnifiedAcceptance::new(peer("self")).with_accept_cap(Some(1))),
+        Arc::new(
+            UnifiedAcceptance::new(peer("self"))
+                .with_symmetric(true)
+                .with_accept_cap(Some(1)),
+        ),
     );
     apply(&mut state, Event::Synced);
     apply(&mut state, membership_joined("b", ["t1"]));
@@ -132,6 +136,115 @@ fn symmetric_over_capacity_refusal_leaves_no_partial_pair() {
     assert_eq!(rejected, vec![(peer("c"), topic("t1"))]);
     assert_eq!(upstream_state(&state, "c", "t1"), None);
     assert!(!has_downstream(&state, "c", "t1"));
+}
+
+// ADR 0042: a crossing — a request from the peer this node's own dial is
+// awaiting — is the node's own selection answered, not an admission: it
+// short-circuits ahead of the policy (here a cap of 0, which admits no one)
+// and spends no budget.
+#[test]
+fn crossing_request_bypasses_the_cap_and_spends_no_budget() {
+    let mut state = node_state_symmetric(
+        "self",
+        HashSet::from([topic("t1")]),
+        Arc::new(
+            UnifiedAcceptance::new(peer("self"))
+                .with_symmetric(true)
+                .with_accept_cap(Some(0)),
+        ),
+    );
+    apply(&mut state, Event::Synced);
+    apply(&mut state, membership_joined("b", ["t1"]));
+    apply(&mut state, membership_joined("c", ["t1"]));
+    state.upstream.insert(
+        LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
+        LinkState::AwaitingAccept,
+    );
+
+    // The crossing is accepted whole despite the serve-none cap.
+    let effects = apply(&mut state, symmetric_request_from("b", "t1"));
+    let accepted = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Accepted { .. })
+    });
+    assert_eq!(accepted, vec![(peer("b"), topic("t1"))]);
+    assert_eq!(upstream_state(&state, "b", "t1"), Some(LinkState::Active));
+    assert!(has_downstream(&state, "b", "t1"));
+
+    // No budget was spent: a fresh request still sees the full (zero) cap —
+    // refused because the cap is 0, not because the crossing consumed it.
+    let effects = apply(&mut state, symmetric_request_from("c", "t1"));
+    let rejected = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Rejected { .. })
+    });
+    assert_eq!(rejected, vec![(peer("c"), topic("t1"))]);
+}
+
+// ADR 0042: the node's own accepted dials (the mirror step) spend no budget
+// — a symmetric node's cap bounds what other peers chose, never its own
+// picks. With cap 1: a mirrored own dial occupies the link set, yet a fresh
+// arrival is still admitted; only the SECOND fresh arrival exhausts the
+// budget.
+#[test]
+fn own_mirrors_spend_no_budget_only_fresh_admissions_do() {
+    let mut state = node_state_symmetric(
+        "self",
+        HashSet::from([topic("t1")]),
+        Arc::new(
+            UnifiedAcceptance::new(peer("self"))
+                .with_symmetric(true)
+                .with_accept_cap(Some(1)),
+        ),
+    );
+    apply(&mut state, Event::Synced);
+    for p in ["b", "c", "d"] {
+        apply(&mut state, membership_joined(p, ["t1"]));
+    }
+    // This node's own dial to b, accepted: the mirror inserts both halves.
+    state.upstream.insert(
+        LinkKey::new(topic("t1"), peer("b"), LinkKind::Relay),
+        LinkState::AwaitingAccept,
+    );
+    apply(&mut state, symmetric_accepted_from("b", "t1"));
+    assert!(has_downstream(&state, "b", "t1"));
+
+    // The link scan holds b, but the budget is untouched: c admits.
+    apply(&mut state, symmetric_request_from("c", "t1"));
+    assert!(has_downstream(&state, "c", "t1"));
+
+    // c's admission spent the budget of 1: d is refused.
+    let effects = apply(&mut state, symmetric_request_from("d", "t1"));
+    let rejected = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Rejected { .. })
+    });
+    assert_eq!(rejected, vec![(peer("d"), topic("t1"))]);
+}
+
+// ADR 0042: the budget is per-epoch — the Epoch fold refunds it.
+#[test]
+fn epoch_rotation_refunds_the_admissions_budget() {
+    let mut state = node_state_symmetric(
+        "self",
+        HashSet::from([topic("t1")]),
+        Arc::new(
+            UnifiedAcceptance::new(peer("self"))
+                .with_symmetric(true)
+                .with_accept_cap(Some(1)),
+        ),
+    );
+    apply(&mut state, Event::Synced);
+    for p in ["b", "c", "d"] {
+        apply(&mut state, membership_joined(p, ["t1"]));
+    }
+    apply(&mut state, symmetric_request_from("b", "t1"));
+    let effects = apply(&mut state, symmetric_request_from("c", "t1"));
+    let rejected = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Rejected { .. })
+    });
+    assert_eq!(rejected, vec![(peer("c"), topic("t1"))]);
+
+    apply(&mut state, Event::Epoch { nonce: 1 });
+    apply(&mut state, symmetric_request_from("d", "t1"));
+    assert!(has_downstream(&state, "d", "t1"));
 }
 
 // A symmetric Rejected drops this node's pending dial; no half was inserted

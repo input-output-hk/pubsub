@@ -56,10 +56,15 @@ publishes_per_run = 1   # optional; fresh message each, no state reset
 
 Strategy tables take the full coordinate set: `bucket_count` (the
 hash-gate width; absent = ungated, and `1` is legal here as the ungated
-point on an axis), `accept_cap` (absolute per-topic serving cap; absent =
-unbounded, `0` = serve none), `accept_unverified` (default `false`:
-acceptors verify the gate iff `bucket_count` is present), and `symmetric`
-(default `false`: the bidirectional relay handshake).
+point on an axis), `accept_cap` (absolute per-topic admissions bound;
+absent = unbounded, `0` = admit none; on a directional class the bound is
+the kind-scoped link scan — the admitted set — while on a `symmetric`
+class it is the per-epoch admissions budget of ADR 0042: fresh peer
+arrivals spend it, crossings are exempt, the node's own picks are never
+vetoed, and realised degree is bounded by pick_count + accept_cap by
+construction), `accept_unverified` (default `false`: acceptors verify the
+gate iff `bucket_count` is present), and `symmetric` (default `false`:
+the bidirectional relay handshake).
 
 A class additionally turns the **publisher pair** on — standing initiation
 links, the M3/M5 wiring — by declaring a `publisher` sub-table with the
