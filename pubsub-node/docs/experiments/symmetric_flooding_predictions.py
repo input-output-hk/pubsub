@@ -23,14 +23,22 @@ Per honest node, exact binomial arithmetic (E18 conventions —
     admitted Sybil  = sum a*(1-mm)         (fresh)
 
   budget race (the E12 fair-arrival contention model, enumerated
-  exactly): given (h, a), fresh honest arrivals f_h ~ Bin(h, m*(1-mm))
-  and fresh Sybil arrivals f_s ~ Bin(a, 1-mm); the budget admits
-  min(C, f_h + f_s) and refusals hit each class in proportion to its
-  arriving load (verified 48/48 in directional E12). Refused honest
-  fresh arrivals are whole lost edges, charged at both ends: the
-  dialer-side echo (my own-only dials to honest peers face the same
-  race at the far end) is applied as an independent-victim first-order
-  correction to realised degree.
+  exactly; the pilot-calibrated form): the pick split is WITHOUT
+  replacement -- given (h, a) the node draws exactly kp = min(K, h+a)
+  distinct pool members, so its Sybil picks are hypergeometric,
+  picked_s ~ Hyper(h+a, a, kp), and the fresh Sybil load is
+  deterministic given the split: f_s = a - picked_s (every unpicked
+  admissible Sybil dials). Fresh honest arrivals f_h ~
+  Bin(h - picked_h, m) (unpicked honest members pick me independently).
+  The budget admits min(C, f_h + f_s); refusals hit each class in
+  proportion to its arriving load (verified 48/48 in directional E12).
+  A binomial per-member pick approximation misses at second order --
+  the deliverable contrast-pair and pilot config comments carry that
+  earlier registration; the miss and this calibration are documented in
+  the report. Refused honest fresh arrivals are whole lost edges,
+  charged at both ends: the dialer-side echo (my own-only dials to
+  honest peers face the same race at the far end) is applied as an
+  independent-victim first-order correction to realised degree.
 
 Scheme-A contrast cells (the pre-ADR both-role scan, run at the
 pre-change tool commit) use the stated uniform-interleaving model: at a
@@ -90,37 +98,26 @@ def member_pick_prob(B):
     return sum(q * min(K, k + 1) / (k + 1) for k, q in pmf_range(N - 2, 1.0 / B))
 
 
-def race(loads_h, loads_s, cap):
-    """E12 fair race at budget `cap` over independent per-class fresh
-    loads given as (count, pmf) lists: returns per-victim expectations
-    (admitted_h, admitted_s, refused_h, refused_s, P(any honest refusal))."""
-    adm_h = adm_s = ref_h = ref_s = p_ref_h = 0.0
-    for fh, qh in loads_h:
-        for fs, qs in loads_s:
-            q = qh * qs
-            total = fh + fs
-            if total <= cap:
-                adm_h += q * fh
-                adm_s += q * fs
-                continue
-            share = cap / total
-            adm_h += q * fh * share
-            adm_s += q * fs * share
-            ref_h += q * fh * (1 - share)
-            ref_s += q * fs * (1 - share)
-            if fh > 0:
-                p_ref_h += q
-    return adm_h, adm_s, ref_h, ref_s, p_ref_h
+def hyper_pmf(pop, successes, draws):
+    """(k, pmf) pairs of Hypergeometric(pop, successes, draws)."""
+    out = []
+    for k in range(max(0, draws - (pop - successes)), min(successes, draws) + 1):
+        q = math.exp(
+            lchoose(successes, k) + lchoose(pop - successes, draws - k) - lchoose(pop, draws)
+        )
+        if q > 1e-12:
+            out.append((k, q))
+    return out
 
 
 def cell(B, S, cap, scheme="budget"):
     """One cell's per-honest-node expectations. Returns a dict."""
     H = N - S
     m = member_pick_prob(B)
-    # Joint pool enumeration: routes and the fresh-load distributions.
+    # Joint pool enumeration: route expectations, and (capped cells) the
+    # without-replacement fair race accumulated inside the same loop.
     own_h = mut_h = adm_h = mut_s = adm_s = 0.0
-    fresh_h_pmf = {}  # marginal fresh honest arrivals
-    fresh_s_pmf = {}
+    race_adm_h = race_adm_s = race_ref_h = race_ref_s = race_p_ref_h = 0.0
     for h, qh in pmf_range(H - 1, 1.0 / B):
         for a, qa in pmf_range(S, 1.0 / B):
             q = qh * qa
@@ -131,10 +128,26 @@ def cell(B, S, cap, scheme="budget"):
             adm_h += q * h * m * (1 - mm)
             mut_s += q * a * mm
             adm_s += q * a * (1 - mm)
-            for f, qf in pmf_range(h, m * (1 - mm)):
-                fresh_h_pmf[f] = fresh_h_pmf.get(f, 0.0) + q * qf
-            for f, qf in pmf_range(a, 1 - mm):
-                fresh_s_pmf[f] = fresh_s_pmf.get(f, 0.0) + q * qf
+            if cap is None or scheme != "budget" or p == 0:
+                continue
+            kp = min(K, p)
+            for picked_s, q3 in hyper_pmf(p, a, kp):
+                fs = a - picked_s  # every unpicked admissible Sybil dials
+                picked_h = kp - picked_s
+                for fh, q4 in pmf_range(h - picked_h, m):
+                    w = q * q3 * q4
+                    total = fh + fs
+                    if total <= cap:
+                        race_adm_h += w * fh
+                        race_adm_s += w * fs
+                        continue
+                    share = cap / total
+                    race_adm_h += w * fh * share
+                    race_adm_s += w * fs * share
+                    race_ref_h += w * fh * (1 - share)
+                    race_ref_s += w * fs * (1 - share)
+                    if fh > 0:
+                        race_p_ref_h += w
     routes = {
         "own_only_h": own_h,
         "mutual_h": mut_h,
@@ -149,8 +162,12 @@ def cell(B, S, cap, scheme="budget"):
         return out
 
     if scheme == "budget":
-        a_h, a_s, r_h, r_s, p_r = race(
-            sorted(fresh_h_pmf.items()), sorted(fresh_s_pmf.items()), cap
+        a_h, a_s, r_h, r_s, p_r = (
+            race_adm_h,
+            race_adm_s,
+            race_ref_h,
+            race_ref_s,
+            race_p_ref_h,
         )
         # Dialer-side echo: my own-only dials to honest peers face the
         # same race at the far end (independent-victim first order).
