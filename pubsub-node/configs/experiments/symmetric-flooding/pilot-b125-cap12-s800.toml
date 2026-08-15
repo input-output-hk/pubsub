@@ -1,0 +1,46 @@
+# Symmetric flooding pilot: B = 125, admissions budget C = 12 (the medium
+# cap of the B = 125 ladder), S = 800 Sybil flooders (mu = 0.2).
+#
+# The grid's shakeout cell (the E12 pilot pattern): every identity and
+# every column class exercised at the mid-grid point before the core
+# cells run. Requires the ADR 0042 admissions-budget semantics.
+#
+# Predictions (docs/experiments/symmetric_flooding_predictions.py
+# `125 800 12 budget`; exact joint-pool enumeration + the E12 fair-race
+# race enumerated exactly). Per honest victim: uncapped routes
+# own-only/mutual/admitted honest = 6.40/6.40/6.40, Sybil mutual/admitted
+# = 3.20/3.20 (mutual_s is the cap-blind own-pick floor K*f); fresh loads
+# honest 6.40 + Sybil 3.20 against C = 12 -> admitted honest/Sybil =
+# 5.956/2.997, refused honest/Sybil = 0.442/0.202 per victim (~4 130
+# rejected_over_capacity per run), P(a victim refuses >= 1 honest fresh
+# dial) = 0.214. Invariants: refusals_issued_crossing_* ≡ 0;
+# edges_admitted_* <= 12 per node; total degree <= K + C = 28. Realised
+# degree ~24.51 (dialer-side echo at first order); Sybil edges ~6.20 of
+# 6.40 uncapped. Coverage: E18 E_iso = 2.2e-08 — predict 400/400 good.
+#
+# Run manually (per-node detail is the measurement):
+#
+#   experiments --config configs/experiments/symmetric-flooding/pilot-b125-cap12-s800.toml --out results/symmetric-flooding/pilot-b125-cap12-s800/ --per-node-detail
+
+model = "m4"
+master_seed = 1114
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 125
+symmetric = true
+accept_cap = 12
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 125 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400
