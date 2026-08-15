@@ -1,0 +1,41 @@
+# Symmetric flooding degeneracy check: B = 250, budget C = 3, S = 800
+# (20 % flooder at pool saturation).
+#
+# The S = 800 twin of degeneracy-b250-cap3-s40.toml: at saturation the
+# flooder's fresh pressure is ~(S/B)(1-m) ~ 0.32 — flooding is
+# structurally inert, and Sybil occupancy is essentially the cap-blind
+# own-pick floor. Predictions (symmetric_flooding_predictions.py
+# `250 800 3 budget`), per honest victim: routes h(own/mut/adm) =
+# 1.14/10.39/1.14, s(floor/adm) = 2.88/0.32; race admitted h/s =
+# 0.776/0.215, refused h/s = 0.365/0.101, P(>=1 honest refusal) = 0.169;
+# crossing refusals = 0, admitted <= 3, degree <= 19; d ~15.04, Sybil
+# edges ~3.10 (floor 2.88 of it). Coverage: E18 E_iso = 8.6e-3 ->
+# P(bad) ~ 0.0086, predict ~396.6/400 good in expectation (the
+# empty-pool channel, cap-independent).
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/symmetric-flooding/degeneracy-b250-cap3-s800.toml --out results/symmetric-flooding/degeneracy-b250-cap3-s800/ --per-node-detail
+
+model = "m4"
+master_seed = 1132
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+accept_cap = 3
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 250 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400
