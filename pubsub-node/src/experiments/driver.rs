@@ -15,7 +15,7 @@
 //! consumed and tallied by the driver.
 // 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -25,7 +25,8 @@ use crate::crypto::mock::MockCryptoScheme;
 use crate::crypto::{MessageHash, Signer, Timestamp};
 use crate::event::Event;
 use crate::message::{
-    ConnectionAction, Message, MessagePayload, PlainMessage, PublisherId, SignedMessage,
+    ConnectionAction, HandshakeKind, Message, MessagePayload, PlainMessage, PublisherId,
+    SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::state::{apply, Effect};
@@ -99,7 +100,7 @@ impl KindTally {
 }
 
 /// A node's issued over-capacity refusals, split by the refused
-/// dialer's class.
+/// dialer's class, with the crossing subset attributed alongside.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct RefusalTally {
     /// Refusals issued to honest dialers (each a lost honest link — v1
@@ -107,6 +108,14 @@ pub struct RefusalTally {
     pub honest: u64,
     /// Refusals issued to adversarial dialers.
     pub adversarial: u64,
+    /// The subset of `honest` refusals that were **crossings** — the
+    /// refuser had itself emitted a symmetric dial toward the refused
+    /// dialer, so the refusal killed an edge the refuser's own selection
+    /// wanted (ADR 0042's veto channel; zero on directional
+    /// configurations, where no symmetric dials exist).
+    pub crossing_honest: u64,
+    /// The subset of `adversarial` refusals that were crossings.
+    pub crossing_adversarial: u64,
 }
 
 /// The driver's per-phase observation of one drain.
@@ -135,6 +144,13 @@ pub struct DrainOutcome {
     /// Per-node issued refusals: refusing acceptor → counts split by the
     /// refused dialer's class. Populated by connection drains only.
     pub refusals_issued: BTreeMap<PeerId, RefusalTally>,
+    /// Symmetric-handshake dials observed at emission: dialer → the peers
+    /// it sent symmetric `Request`s to (down targets included — the dial
+    /// was emitted). The drain-time initiation record the direction-erased
+    /// end-state cannot provide (N-040): the per-node detail's route
+    /// attribution and the refusal crossing split read it. Empty on
+    /// directional configurations and for non-connection drains.
+    pub symmetric_dials: BTreeMap<PeerId, BTreeSet<PeerId>>,
 }
 
 /// One publish phase's observation: the published content hash and the
@@ -399,6 +415,19 @@ impl Driver {
         for effect in effects {
             match effect {
                 Effect::Send { to, message } => {
+                    // Drain-time initiation record: a symmetric Request is
+                    // the one moment "who dialed" exists — the constructed
+                    // link erases it (N-040). Recorded before the down
+                    // check: an emitted dial is a dial.
+                    if let Some((HandshakeKind::Symmetric, control)) = message.connection_parts() {
+                        if matches!(control.plain.action, ConnectionAction::Request { .. }) {
+                            outcome
+                                .symmetric_dials
+                                .entry(from.clone())
+                                .or_default()
+                                .insert(to.clone());
+                        }
+                    }
                     let recipient = self
                         .population
                         .participant(&to)
@@ -489,6 +518,14 @@ impl Driver {
                         // A `Rejected` is routed back to its dialer: `to` is
                         // the refused dialer, `from` the refusing acceptor.
                         *outcome.dials_refused.entry(to.clone()).or_default() += 1;
+                        // A crossing: the refuser had itself dialed the
+                        // refused dialer. Sound to read here — every
+                        // symmetric Request is emitted into the initial
+                        // wave, before any Rejected routes.
+                        let crossing = outcome
+                            .symmetric_dials
+                            .get(&from)
+                            .is_some_and(|targets| targets.contains(&to));
                         let refused = outcome.refusals_issued.entry(from.clone()).or_default();
                         match self
                             .population
@@ -496,8 +533,18 @@ impl Driver {
                             .expect("delivery to a population member")
                             .class()
                         {
-                            ParticipantClass::Honest => refused.honest += 1,
-                            ParticipantClass::Adversarial => refused.adversarial += 1,
+                            ParticipantClass::Honest => {
+                                refused.honest += 1;
+                                if crossing {
+                                    refused.crossing_honest += 1;
+                                }
+                            }
+                            ParticipantClass::Adversarial => {
+                                refused.adversarial += 1;
+                                if crossing {
+                                    refused.crossing_adversarial += 1;
+                                }
+                            }
                         }
                     }
                 }
@@ -1009,5 +1056,74 @@ mod tests {
                 "accepted + refused = dialed",
             );
         }
+    }
+
+    // ADR 0042 machinery (N-040): the drain records symmetric dials at
+    // emission and attributes each refusal as fresh vs crossing. Three
+    // symmetric ungated no-pick nodes at cap 1: everyone dials everyone, so
+    // every inbound request crosses the acceptor's own dial. In canonical
+    // order the first three requests are admitted (rank 0 by both peers,
+    // rank 1 by rank 0), the remaining three are refused over capacity —
+    // each refusal a crossing veto, and rank 0's accepted own dials mirror
+    // past its cap to degree 2 (the recorded scheme-A behaviour this
+    // commit still carries; the 1–2 edge dies to the double veto).
+    #[test]
+    fn symmetric_dials_and_crossing_refusals_are_recorded() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 3,
+            adversarial: 0,
+            honest_strategies: StrategySpec {
+                accept_cap: Some(1),
+                symmetric: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [7u8; 32],
+            classes: [8u8; 32],
+            sampler: [9u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let outcome = driver.establish(SetupMode::Prepopulated);
+
+        // The initiation record is complete: every node dialed both others.
+        assert_eq!(outcome.symmetric_dials.len(), 3);
+        for (dialer, targets) in &outcome.symmetric_dials {
+            assert_eq!(targets.len(), 2);
+            assert!(!targets.contains(dialer));
+        }
+
+        // Three refusals, every one a crossing: each refuser had itself
+        // dialed the peer it refused.
+        assert_eq!(outcome.rejected_over_capacity, 3);
+        assert_eq!(outcome.dials_refused.values().sum::<u64>(), 3);
+        assert_eq!(outcome.refusals_issued.len(), 3);
+        for tally in outcome.refusals_issued.values() {
+            assert_eq!(tally.honest, 1);
+            assert_eq!(tally.crossing_honest, 1);
+            assert_eq!(tally.adversarial, 0);
+            assert_eq!(tally.crossing_adversarial, 0);
+        }
+
+        // Realised degrees: rank 0 overshoots its cap via mirrors, and the
+        // rank-1–rank-2 edge is gone although both ends selected it.
+        let ids: Vec<_> = driver
+            .population()
+            .participants()
+            .map(|(id, _)| id.clone())
+            .collect();
+        let degree = |id: &crate::peer::PeerId| {
+            driver
+                .population()
+                .participant(id)
+                .expect("member")
+                .downstream()
+                .len()
+        };
+        assert_eq!(degree(&ids[0]), 2);
+        assert_eq!(degree(&ids[1]), 1);
+        assert_eq!(degree(&ids[2]), 1);
     }
 }

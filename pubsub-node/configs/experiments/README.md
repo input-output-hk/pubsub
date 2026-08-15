@@ -154,7 +154,15 @@ first-delivery origin, propagation-graph degrees, connection accounting
 (serving slots split by the linked peer's class; the node's own dials
 refused over capacity; refusals it issued, split by the refused dialer's
 class), and (for eligible receivers that missed) the classified miss
-cause. Detail never changes the three main files.
+cause. The slot counts are further partitioned by drain-observed
+initiation route (ADR 0042): `edges_own_only_*` (the node alone dialed),
+`edges_mutual_*` (both ends dialed — crossings), and `edges_admitted_*`
+(the peer alone dialed — what an acceptance cap governs), each split by
+the linked peer's class and summing to the slot totals; the issued
+refusals carry a `_crossing_*` subset (refusals of a peer the refuser had
+itself dialed). On directional configurations no symmetric dials exist,
+so every entry reads admitted and the crossing subsets are zero. Detail
+never changes the three main files.
 
 There is no interruption resume: a stopped sweep leaves `runs.jsonl` as a
 valid prefix in canonical order with no completion claim — re-run it (same

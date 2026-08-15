@@ -178,8 +178,8 @@ pub struct PerNodeDetail {
     /// On directional configurations these are the node's granted serving
     /// slots. Under the symmetric handshake reciprocity writes both ends of
     /// every edge into `downstream`, so both roles are counted (≈ 2× the
-    /// pick count) — the same total the acceptance cap scans on a symmetric
-    /// node (`IMPLEMENTATION_NOTES` N-032/N-040). Relay seam only; the
+    /// pick count) — the route columns below split that total by
+    /// drain-observed initiation (N-040, ADR 0042). Relay seam only; the
     /// refusal columns below are kind-agnostic (N-041).
     pub downstream_honest: u64,
     /// Relay-kind downstream entries held to adversarial peers — on a
@@ -187,6 +187,30 @@ pub struct PerNodeDetail {
     /// symmetric-handshake and relay-only caveats as `downstream_honest`
     /// (N-040/N-041).
     pub downstream_adversarial: u64,
+    /// Of `downstream_honest`, entries the node alone dialed (a
+    /// drain-observed symmetric dial with no crossing dial back): edges
+    /// from the node's own picks only. The route columns partition the
+    /// both-role totals — own-only + mutual + admitted = downstream, per
+    /// class. Zero on directional configurations, where no symmetric dials
+    /// exist and every downstream entry is peer-initiated by placement
+    /// (N-040, ADR 0042).
+    pub edges_own_only_honest: u64,
+    /// Of `downstream_adversarial`, entries the node alone dialed — its
+    /// own picks that landed on adversarial peers, the admission-free
+    /// occupancy route no acceptance policy sees (ADR 0042).
+    pub edges_own_only_adversarial: u64,
+    /// Of `downstream_honest`, entries both ends dialed (crossings —
+    /// budget-exempt under ADR 0042's admissions semantics).
+    pub edges_mutual_honest: u64,
+    /// Of `downstream_adversarial`, entries both ends dialed.
+    pub edges_mutual_adversarial: u64,
+    /// Of `downstream_honest`, entries the peer alone dialed: admissions —
+    /// what an acceptance cap governs (ADR 0042). On directional
+    /// configurations this equals `downstream_honest`.
+    pub edges_admitted_honest: u64,
+    /// Of `downstream_adversarial`, entries the peer alone dialed. On a
+    /// capped acceptor, the adversary's admission-route occupancy.
+    pub edges_admitted_adversarial: u64,
     /// Routed over-capacity `Rejected` replies this node received for its
     /// own dials in the connection drain (v1 has no retry: each refused
     /// dial is a lost link).
@@ -195,6 +219,14 @@ pub struct PerNodeDetail {
     pub refusals_issued_honest: u64,
     /// Over-capacity refusals this node issued to adversarial dialers.
     pub refusals_issued_adversarial: u64,
+    /// Of `refusals_issued_honest`, refusals of a **crossing** — the node
+    /// had itself dialed the refused honest peer, so the refusal killed an
+    /// edge its own selection wanted (ADR 0042's veto channel; identically
+    /// zero under the admissions-budget semantics and on directional
+    /// configurations).
+    pub refusals_issued_crossing_honest: u64,
+    /// Of `refusals_issued_adversarial`, refusals of a crossing.
+    pub refusals_issued_crossing_adversarial: u64,
     /// The wave of the node's first receipt (0 = the publisher's record).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_receipt_wave: Option<u64>,
@@ -206,6 +238,15 @@ pub struct PerNodeDetail {
     /// missed the message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miss_cause: Option<MissCause>,
+}
+
+/// One node's relay-kind downstream entries partitioned by drain-observed
+/// initiation route; each pair counts (honest, adversarial) linked peers.
+#[derive(Clone, Copy, Default)]
+struct RouteSlots {
+    own_only: (u64, u64),
+    mutual: (u64, u64),
+    admitted: (u64, u64),
 }
 
 /// Assemble the opt-in per-node dissection table for a run: one row per
@@ -228,24 +269,42 @@ pub fn assemble_per_node_detail(
         .enumerate()
         .map(|(index, id)| (id, (in_degrees[index], out_degrees[index])))
         .collect();
-    // Serving slots split by the linked peer's class, one end-state pass —
-    // per-run data, repeated verbatim on every publish slice like degrees.
-    let slots_of: BTreeMap<&PeerId, (u64, u64)> = population
+    // Serving slots split by the linked peer's class and by drain-observed
+    // initiation route, one end-state pass — per-run data, repeated
+    // verbatim on every publish slice like degrees. Route attribution reads
+    // the dial drain's symmetric-dial record: an entry the node alone
+    // dialed is own-only, both ends mutual, and everything else admitted —
+    // so with no symmetric dials (directional configurations, scripted
+    // populations) every entry is admitted, matching directional placement
+    // semantics. The routes partition the class totals by construction.
+    let dials = &observation.dial.symmetric_dials;
+    let dialed = |dialer: &PeerId, target: &PeerId| -> bool {
+        dials
+            .get(dialer)
+            .is_some_and(|targets| targets.contains(target))
+    };
+    let slots_of: BTreeMap<&PeerId, RouteSlots> = population
         .participants()
         .map(|(id, participant)| {
-            let mut honest = 0;
-            let mut adversarial = 0;
+            let mut slots = RouteSlots::default();
             for (peer, _) in participant.downstream() {
-                match population
+                let class = population
                     .participant(&peer)
                     .expect("linked peer is a population member")
-                    .class()
-                {
-                    super::population::ParticipantClass::Honest => honest += 1,
-                    super::population::ParticipantClass::Adversarial => adversarial += 1,
+                    .class();
+                let honest = class == super::population::ParticipantClass::Honest;
+                let route = match (dialed(id, &peer), dialed(&peer, id)) {
+                    (true, true) => &mut slots.mutual,
+                    (true, false) => &mut slots.own_only,
+                    (false, _) => &mut slots.admitted,
+                };
+                if honest {
+                    route.0 += 1;
+                } else {
+                    route.1 += 1;
                 }
             }
-            (id, (honest, adversarial))
+            (id, slots)
         })
         .collect();
     let mut rows = Vec::new();
@@ -266,8 +325,7 @@ pub fn assemble_per_node_detail(
             let miss_cause =
                 (participant.is_up_honest() && id != &observation.publisher && !received)
                     .then(|| classify_miss(id, participant, population, &reachable));
-            let (downstream_honest, downstream_adversarial) =
-                slots_of.get(id).copied().unwrap_or((0, 0));
+            let slots = slots_of.get(id).copied().unwrap_or_default();
             let refusals = observation.dial.refusals_issued.get(id).copied();
             rows.push(PerNodeDetail {
                 publish: publish_index as u64,
@@ -276,11 +334,20 @@ pub fn assemble_per_node_detail(
                 down: participant.is_down(),
                 in_degree: degrees.map(|&(in_degree, _)| in_degree as u64),
                 out_degree: degrees.map(|&(_, out_degree)| out_degree as u64),
-                downstream_honest,
-                downstream_adversarial,
+                downstream_honest: slots.own_only.0 + slots.mutual.0 + slots.admitted.0,
+                downstream_adversarial: slots.own_only.1 + slots.mutual.1 + slots.admitted.1,
+                edges_own_only_honest: slots.own_only.0,
+                edges_own_only_adversarial: slots.own_only.1,
+                edges_mutual_honest: slots.mutual.0,
+                edges_mutual_adversarial: slots.mutual.1,
+                edges_admitted_honest: slots.admitted.0,
+                edges_admitted_adversarial: slots.admitted.1,
                 dials_refused: observation.dial.dials_refused.get(id).copied().unwrap_or(0),
                 refusals_issued_honest: refusals.map_or(0, |tally| tally.honest),
                 refusals_issued_adversarial: refusals.map_or(0, |tally| tally.adversarial),
+                refusals_issued_crossing_honest: refusals.map_or(0, |tally| tally.crossing_honest),
+                refusals_issued_crossing_adversarial: refusals
+                    .map_or(0, |tally| tally.crossing_adversarial),
                 first_receipt_wave: publish.drain.first_receipt.get(id).copied(),
                 first_delivery_origin,
                 miss_cause,
@@ -759,6 +826,81 @@ mod tests {
         assert!(reachable.contains(&peer(4)), "reached via honest relay");
         assert!(!reachable.contains(&peer(3)), "behind the silent relay");
         assert!(!reachable.contains(&peer(6)), "behind the down relay");
+    }
+
+    // ADR 0042 / N-040: the detail's route columns partition each node's
+    // relay downstream by drain-observed initiation — own-only (the node
+    // alone dialed), mutual (both dialed), admitted (everything else, the
+    // scripted/directional fallback) — and the refusal crossing subset
+    // lands beside the class totals.
+    #[test]
+    fn detail_route_columns_partition_downstream_by_observed_dials() {
+        let population = scripted::nodes(4)
+            .silent(2)
+            .link(0, 1)
+            .link(0, 2)
+            .link(0, 3)
+            .build();
+        let mut driver = Driver::new(population);
+        let publish = driver.publish_drain(&peer(0), 0);
+        let mut dial = DrainOutcome::default();
+        dial.symmetric_dials
+            .entry(peer(0))
+            .or_default()
+            .extend([peer(1), peer(2)]);
+        dial.symmetric_dials
+            .entry(peer(1))
+            .or_default()
+            .insert(peer(0));
+        dial.refusals_issued.insert(
+            peer(0),
+            crate::experiments::driver::RefusalTally {
+                honest: 2,
+                adversarial: 1,
+                crossing_honest: 1,
+                crossing_adversarial: 0,
+            },
+        );
+        let observation = RunObservation {
+            publisher: peer(0),
+            down: Vec::new(),
+            dial,
+            publishes: vec![publish],
+        };
+        let population = driver.into_population();
+        let post = DisseminationModel::M2.analyze(&population, ChurnPhase::PostChurn);
+        let rows = super::assemble_per_node_detail(&population, &observation, &post);
+
+        let row = |node: &PeerId| rows.iter().find(|r| &r.node == node).expect("row exists");
+        let zero = row(&peer(0));
+        // Node 0 holds 1 (honest, both dialed → mutual), 2 (adversarial,
+        // own dial only), 3 (honest, no observed dial → admitted).
+        assert_eq!(zero.edges_mutual_honest, 1);
+        assert_eq!(zero.edges_own_only_adversarial, 1);
+        assert_eq!(zero.edges_admitted_honest, 1);
+        assert_eq!(zero.edges_own_only_honest, 0);
+        assert_eq!(zero.edges_mutual_adversarial, 0);
+        assert_eq!(zero.edges_admitted_adversarial, 0);
+        // The routes partition the class totals.
+        assert_eq!(zero.downstream_honest, 2);
+        assert_eq!(zero.downstream_adversarial, 1);
+        // The refusal crossing subsets ride beside the class split.
+        assert_eq!(zero.refusals_issued_honest, 2);
+        assert_eq!(zero.refusals_issued_crossing_honest, 1);
+        assert_eq!(zero.refusals_issued_adversarial, 1);
+        assert_eq!(zero.refusals_issued_crossing_adversarial, 0);
+        // With no observed dials, every held entry reads admitted — the
+        // directional/scripted fallback — and the partition identity holds
+        // on every row.
+        for node in [peer(1), peer(2), peer(3)] {
+            let r = row(&node);
+            assert_eq!(r.edges_own_only_honest + r.edges_own_only_adversarial, 0);
+            assert_eq!(r.edges_mutual_honest + r.edges_mutual_adversarial, 0);
+            assert_eq!(
+                r.edges_admitted_honest + r.edges_admitted_adversarial,
+                r.downstream_honest + r.downstream_adversarial,
+            );
+        }
     }
 
     // A publish record embeds the dial outcome's numbers verbatim.
