@@ -248,8 +248,29 @@ security trade-off, never derived from local state.
   (N−1)/B ≥ ln(H/δ)/(1−μ), with the gate coverage-free at r ≳ 3; the ordered-predicate
   alternative is priced in the report (≈ 2/B admissibility at equal B; the frontier
   λ_floor/(N−1) is predicate-independent). The benefit-side flooding grid (the E12 analogue under
-  the symmetric handshake) is **not config-only**: it waits on the N-032 cap semantics and the
-  N-040 direction-blind slot columns.
+  the symmetric handshake) is E19.
+- **E19 — Symmetric flooding under the admissions budget (+ the ordered arm)** [done]. Executed and
+  documented in [`docs/experiments/symmetric-flooding.md`](experiments/symmetric-flooding.md): the
+  E12 question re-asked on the symmetric handshake, carrying the machinery its answer required —
+  ADR 0042 resolved N-032 (the cap on a symmetric seam is an **admissions budget**: fresh peer
+  arrivals spend it, crossings are exempt, own picks are never vetoed, degree ≤ K + C by
+  construction) and N-040's drain-time route attribution made it measurable
+  (own-only / mutual / admitted × peer class, refusals split fresh vs crossing). Results: the
+  retired both-role scan's crossing veto measured once at its pinned commit (0.074/victim; the
+  budget's is exactly zero over ~10⁷ refusals); the pilot-calibrated without-replacement race law
+  at **zero flags across the 19-cell B × cap × Sybil grid**; the occupancy decomposition — the
+  cap-blind own-pick floor K·μ (no acceptance policy sees it) vs the gate-divided admission route
+  (S/B)(1−m); the cap-sizing rule re-anchored on the fresh-arrival load K(1−m)(1−μ); flooding
+  structurally inert at pool saturation; and the replicated **cap × empty-pool composition term**
+  (pooled 166/800 vs the uncapped law's 0.148, z = +4.75 — past the pool floor a tight cap makes
+  the bad regime worse; inside the window the term is doubly suppressed *given* the sizing rule).
+  The **ordered arm** (ADR 0043) turned E18 §4's derived pricing into measured rows: the
+  pick-repairable tail is real below the saturation boundary B < (N−1)/K (0/8 000 at equal B vs
+  the unordered 57) and vanishes above it (80/8 000 at equal density — the corrected
+  registration), while at a binding budget the 2/B looseness converts into doubled honest
+  starvation, not extra occupancy — the unordered pair's dominance is now measured, not argued.
+  Instrument notes: two pre-registered race models corrected against measurement (documented),
+  and N-042 — the wavefront budget race is class-fair but rank-concentrated dialer-side.
 
 **Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
 bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
@@ -322,6 +343,7 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E16 | Golden push tier | 6 | golden-tier formula | needs golden feature |
 | E17 | Slashing dynamics | 7 | deposit arithmetic | needs detection + rotation |
 | E18 | Gated-symmetric selection (gated M4) | 4 | none published (N-039 boundary) — own two-channel law | **done** (gated-symmetric) |
+| E19 | Symmetric flooding under the admissions budget (+ ordered arm) | 4 | own race law + E18 §4 pricing | **done** (symmetric-flooding) |
 
 Reading the table: the confirmation experiments validate closed forms at finite N and for the
 topology the protocol actually builds; E11 and E13–E15 are where the framework is the primary
