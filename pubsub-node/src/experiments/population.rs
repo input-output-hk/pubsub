@@ -265,6 +265,10 @@ pub struct StrategySpec {
     pub accept_unverified: bool,
     /// Establish relay links with the symmetric (bidirectional) handshake.
     pub symmetric: bool,
+    /// Gate a symmetric class with the **ordered** comparison predicate
+    /// (ADR 0043) — requires `symmetric`; the experiments-only measurement
+    /// arm for the construction N-039 rejected.
+    pub symmetric_ordered: bool,
     /// The publisher-seam coordinates: `Some` builds the publisher
     /// `Selection`/`UnifiedAcceptance` pair (standing initiation links);
     /// `None` keeps the seam off by construction.
@@ -303,6 +307,7 @@ impl StrategySpec {
             accept_cap: None,
             accept_unverified: false,
             symmetric: false,
+            symmetric_ordered: false,
             publisher: None,
             fanout,
         }
@@ -326,6 +331,7 @@ impl StrategySpec {
                     self_id: self_id.clone(),
                     kind: LinkKind::Publisher,
                     symmetric: false,
+                    symmetric_ordered: false,
                     bucket_count: publisher.bucket_count,
                     pick_count: publisher.pick_count,
                     seed: sampler_seed,
@@ -334,6 +340,7 @@ impl StrategySpec {
                     self_id: self_id.clone(),
                     kind: LinkKind::Publisher,
                     symmetric: false,
+                    symmetric_ordered: false,
                     bucket_count: if publisher.accept_unverified {
                         None
                     } else {
@@ -348,6 +355,7 @@ impl StrategySpec {
                 self_id: self_id.clone(),
                 kind: LinkKind::Relay,
                 symmetric: self.symmetric,
+                symmetric_ordered: self.symmetric_ordered,
                 bucket_count: self.bucket_count,
                 pick_count: self.pick_count,
                 seed: sampler_seed,
@@ -356,6 +364,7 @@ impl StrategySpec {
                 self_id: self_id.clone(),
                 kind: LinkKind::Relay,
                 symmetric: self.symmetric,
+                symmetric_ordered: self.symmetric_ordered,
                 bucket_count: if self.accept_unverified {
                     None
                 } else {

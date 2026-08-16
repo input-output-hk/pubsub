@@ -65,6 +65,13 @@ pub enum StrategyConfigError {
     /// The relay pair's two sides disagree on the symmetric switch.
     #[error("the relay selection and acceptance parameters must agree on the symmetric switch: one switch drives the dial gate, the verification predicate, and the handshake vocabulary together")]
     SymmetricMismatch,
+    /// The relay pair's two sides disagree on the ordered-predicate switch.
+    #[error("the relay selection and acceptance parameters must agree on the ordered-predicate switch: one switch drives the dial draw and its verification together")]
+    OrderedMismatch,
+    /// The ordered comparison predicate was requested without the symmetric
+    /// switch.
+    #[error("the ordered comparison predicate requires the symmetric switch: it is a variant of the symmetric-handshake gate")]
+    OrderedRequiresSymmetric,
     /// Publisher parameters carried the symmetric switch.
     #[error("publisher parameters cannot be symmetric: publisher links are directional")]
     SymmetricPublisher,
@@ -135,6 +142,10 @@ pub struct SelectionParams {
     /// leave it `false` (no published model defines symmetric publisher
     /// links — ADR 0034's boundary).
     pub symmetric: bool,
+    /// Use the **ordered** comparison predicate on a symmetric gate
+    /// (ADR 0043) — the experiments-only measurement arm; requires
+    /// `symmetric` and is set on both relay params together.
+    pub symmetric_ordered: bool,
     /// The bucket count (hash-gate width). `None` = ungated. `Some(0)` is
     /// rejected at construction; `Some(1)` is legal here (≡ ungated — the
     /// sweep config's axis point) even where the operator CLI rejects it.
@@ -158,6 +169,9 @@ pub struct AcceptanceParams {
     /// Verify with the symmetric edge predicate — set from the same flag as
     /// the dial side (both relay seams switch together).
     pub symmetric: bool,
+    /// Verify with the **ordered** comparison predicate (ADR 0043) — set
+    /// from the same flag as the dial side; requires `symmetric`.
+    pub symmetric_ordered: bool,
     /// The bucket count the acceptor verifies at — the **post-opt-out gate
     /// value**: the edge passes the seam's bucket count so acceptors verify
     /// exactly the `B` the dialers use, or `None` when verification is
@@ -200,6 +214,7 @@ fn build_selection(
         Selection::new(params.self_id, params.seed)
             .for_kind(params.kind)
             .with_symmetric(params.symmetric)
+            .with_symmetric_ordered(params.symmetric_ordered)
             .with_bucket_count(bucket_count)
             .with_pick_count(params.pick_count),
     ))
@@ -214,6 +229,7 @@ fn build_unified_acceptance(
         UnifiedAcceptance::new(params.self_id)
             .for_kind(params.kind)
             .with_symmetric(params.symmetric)
+            .with_symmetric_ordered(params.symmetric_ordered)
             .with_gate(gate)
             .with_accept_cap(params.accept_cap),
     ))
@@ -241,6 +257,14 @@ impl NodeStrategies {
         // construction validates (ADR 0028's principle).
         if relay_selection.symmetric != relay_acceptance.symmetric {
             return Err(StrategyConfigError::SymmetricMismatch);
+        }
+        // The ordered comparison predicate (ADR 0043) rides the same
+        // one-source doctrine, and is a symmetric-gate variant only.
+        if relay_selection.symmetric_ordered != relay_acceptance.symmetric_ordered {
+            return Err(StrategyConfigError::OrderedMismatch);
+        }
+        if relay_selection.symmetric_ordered && !relay_selection.symmetric {
+            return Err(StrategyConfigError::OrderedRequiresSymmetric);
         }
         let symmetric_edges = relay_selection.symmetric;
         let relay_connection = build_selection(relay_selection)?;
@@ -300,6 +324,7 @@ mod tests {
             self_id: peer("self"),
             kind,
             symmetric: false,
+            symmetric_ordered: false,
             bucket_count: None,
             pick_count: None,
             seed: [0u8; 32],
@@ -311,6 +336,7 @@ mod tests {
             self_id: peer("self"),
             kind,
             symmetric: false,
+            symmetric_ordered: false,
             bucket_count: None,
             accept_cap: None,
         }
@@ -377,6 +403,31 @@ mod tests {
         assert_eq!(
             NodeStrategies::new(selection_params(LinkKind::Relay), symmetric_accept, None).err(),
             Some(StrategyConfigError::SymmetricMismatch),
+        );
+    }
+
+    // ADR 0043: the ordered switch follows the same one-source doctrine —
+    // a pair disagreeing on it is rejected, and ordered without symmetric
+    // is rejected (the ordered predicate is a symmetric-gate variant).
+    #[test]
+    fn ordered_switch_is_validated_at_construction() {
+        let mut ordered_dial = selection_params(LinkKind::Relay);
+        ordered_dial.symmetric = true;
+        ordered_dial.symmetric_ordered = true;
+        let mut symmetric_accept = acceptance_params(LinkKind::Relay);
+        symmetric_accept.symmetric = true;
+        assert_eq!(
+            NodeStrategies::new(ordered_dial, symmetric_accept, None).err(),
+            Some(StrategyConfigError::OrderedMismatch),
+        );
+
+        let mut ordered_without_symmetric = selection_params(LinkKind::Relay);
+        ordered_without_symmetric.symmetric_ordered = true;
+        let mut ordered_accept = acceptance_params(LinkKind::Relay);
+        ordered_accept.symmetric_ordered = true;
+        assert_eq!(
+            NodeStrategies::new(ordered_without_symmetric, ordered_accept, None).err(),
+            Some(StrategyConfigError::OrderedRequiresSymmetric),
         );
     }
 

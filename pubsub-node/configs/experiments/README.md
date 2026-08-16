@@ -63,8 +63,12 @@ class it is the per-epoch admissions budget of ADR 0042: fresh peer
 arrivals spend it, crossings are exempt, the node's own picks are never
 vetoed, and realised degree is bounded by pick_count + accept_cap by
 construction), `accept_unverified` (default `false`: acceptors verify the
-gate iff `bucket_count` is present), and `symmetric` (default `false`:
-the bidirectional relay handshake).
+gate iff `bucket_count` is present), `symmetric` (default `false`: the
+bidirectional relay handshake), and `symmetric_ordered` (default
+`false`; requires `symmetric` — gates a symmetric class with the
+**ordered** comparison predicate, the directional draw under its own
+domain: ADR 0043's measurement arm for the construction N-039 rejected,
+never an operator option).
 
 A class additionally turns the **publisher pair** on — standing initiation
 links, the M3/M5 wiring — by declaring a `publisher` sub-table with the

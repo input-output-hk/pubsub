@@ -4,7 +4,9 @@
 use super::{admit_prelude, Admission, ConnectionAcceptanceStrategy};
 use crate::connection_state::LinkKind;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
+use crate::strategies::edge::{
+    is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, is_valid_edge_sym_ordered,
+};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -49,6 +51,7 @@ pub struct UnifiedAcceptance {
     self_id: PeerId,
     kind: LinkKind,
     symmetric: bool,
+    symmetric_ordered: bool,
     gate: Option<usize>,
     accept_cap: Option<usize>,
 }
@@ -63,6 +66,7 @@ impl UnifiedAcceptance {
             self_id,
             kind: LinkKind::Relay,
             symmetric: false,
+            symmetric_ordered: false,
             gate: None,
             accept_cap: None,
         }
@@ -109,6 +113,18 @@ impl UnifiedAcceptance {
         self.symmetric = symmetric;
         self
     }
+
+    /// Verify a symmetric instance's inbound requests against the
+    /// **ordered** comparison predicate (ADR 0043) — the dialer's own
+    /// directional draw, `emitter → self`, under the dedicated ordered
+    /// domain. Legal only together with the symmetric switch; the cap
+    /// semantics (the admissions budget) are unchanged. Selected by the
+    /// experiments configuration, never an operator option.
+    #[must_use]
+    pub fn with_symmetric_ordered(mut self, ordered: bool) -> Self {
+        self.symmetric_ordered = ordered;
+        self
+    }
 }
 
 impl ConnectionAcceptanceStrategy for UnifiedAcceptance {
@@ -127,7 +143,19 @@ impl ConnectionAcceptanceStrategy for UnifiedAcceptance {
         // ungated, or the operator opted out at the edge.
         if let Some(buckets) = self.gate {
             let valid = if self.symmetric {
-                is_valid_edge_sym(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+                if self.symmetric_ordered {
+                    // ADR 0043: verify the DIALER's directional draw —
+                    // emitter → self — under the ordered domain.
+                    is_valid_edge_sym_ordered(
+                        view.epoch_nonce,
+                        topic,
+                        emitter,
+                        &self.self_id,
+                        buckets,
+                    )
+                } else {
+                    is_valid_edge_sym(view.epoch_nonce, topic, emitter, &self.self_id, buckets)
+                }
             } else {
                 match self.kind {
                     LinkKind::Relay => {
@@ -172,7 +200,9 @@ mod tests {
     use super::UnifiedAcceptance;
     use crate::connection_state::LinkKind;
     use crate::strategies::acceptance::{Admission, ConnectionAcceptanceStrategy};
-    use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
+    use crate::strategies::edge::{
+        is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, is_valid_edge_sym_ordered,
+    };
     use crate::strategies::test_support::{
         candidates, downstream, links_of, no_admissions, no_links, peer, subscriptions, topic,
         view, view_with_admitted, view_with_upstream,
@@ -470,6 +500,42 @@ mod tests {
                 &view_with_admitted(&subs, &cands, &held, no_admissions()),
             ),
             Admission::RejectOverCapacity,
+        );
+    }
+
+    // ADR 0043: an ordered symmetric instance verifies the DIALER's
+    // directional draw (emitter → self) under the ordered domain — a
+    // request passing the pair draw but failing the ordered one is
+    // rejected, and vice versa.
+    #[test]
+    fn ordered_instances_verify_the_dialers_direction() {
+        let t = topic("t1");
+        let policy = UnifiedAcceptance::new(peer("self"))
+            .with_gate(Some(2))
+            .with_symmetric(true)
+            .with_symmetric_ordered(true);
+
+        let ordered_fails_pair_passes = find_candidate(|n| {
+            !is_valid_edge_sym_ordered(0, &t, &peer(n), &peer("self"), 2)
+                && is_valid_edge_sym(0, &t, &peer(n), &peer("self"), 2)
+        });
+        let cands = candidates(&[("t1", &[ordered_fails_pair_passes.as_str()])]);
+        let subs = subscriptions(&["t1"]);
+        assert_eq!(
+            policy.admit(
+                &peer(&ordered_fails_pair_passes),
+                &t,
+                &view(&subs, &cands, no_links()),
+            ),
+            Admission::RejectIllegitimate,
+        );
+
+        let ordered_passes =
+            find_candidate(|n| is_valid_edge_sym_ordered(0, &t, &peer(n), &peer("self"), 2));
+        let cands = candidates(&[("t1", &[ordered_passes.as_str()])]);
+        assert_eq!(
+            policy.admit(&peer(&ordered_passes), &t, &view(&subs, &cands, no_links())),
+            Admission::Accept,
         );
     }
 

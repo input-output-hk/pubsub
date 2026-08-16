@@ -1101,6 +1101,62 @@ mod tests {
         }
     }
 
+    // ADR 0043: under the ordered comparison predicate the realised
+    // symmetric edge set is the union of the two directions' draws — an
+    // edge exists iff either end's ordered draw admits the pair (each end
+    // dials its own survivors; the acceptor verifies the dialer's
+    // direction; the handshake constructs reciprocity as always).
+    #[test]
+    fn ordered_symmetric_edges_are_the_directional_union() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 12,
+            adversarial: 0,
+            honest_strategies: StrategySpec {
+                bucket_count: Some(2),
+                symmetric: true,
+                symmetric_ordered: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [13u8; 32],
+            classes: [14u8; 32],
+            sampler: [15u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        driver.establish(SetupMode::Prepopulated);
+
+        let topic = driver.population().topic().clone();
+        let ids: Vec<_> = driver
+            .population()
+            .participants()
+            .map(|(id, _)| id.clone())
+            .collect();
+        let mut checked = 0;
+        for x in &ids {
+            for y in &ids {
+                if x >= y {
+                    continue;
+                }
+                let expected =
+                    crate::strategies::edge::is_valid_edge_sym_ordered(0, &topic, x, y, 2)
+                        || crate::strategies::edge::is_valid_edge_sym_ordered(0, &topic, y, x, 2);
+                let held = driver
+                    .population()
+                    .participant(x)
+                    .expect("member")
+                    .downstream()
+                    .iter()
+                    .any(|(peer, _)| peer == y);
+                assert_eq!(held, expected, "edge {x}–{y}");
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 66, "all pairs checked");
+    }
+
     // ADR 0042: fresh arrivals spend the admissions budget. Honest nodes
     // dial nobody (pick count 0) at budget 1; two adversarial flooders dial
     // every peer. Each honest node receives two FRESH adversarial requests:
