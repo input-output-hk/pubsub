@@ -569,3 +569,16 @@ The principle is two-sided — **the predicate's input matches the protocol obje
 **Why today's surfaces are safe**: no shipped configuration caps the publisher seam, and every E12 cell is relay-only; the columns' one consumer (`docs/experiments/summarise_flooding_cell.py`) reconciles totals against `rejected_over_capacity`, which is seam-pooled on both sides of the identity.
 
 **Trigger to revisit**: the first publisher-seam capped experiment — the M3/M5 publisher-acceptance flooding surface named as unmeasured in `docs/experiments/e12-flooding-mitigation.md` §6, or a publisher-seam congestion variant of E11. The natural completion is a `downstream_publisher_honest`/`_adversarial` pair (detail-only, so no re-baseline), landed together with that experiment.
+
+## N-042 — The wavefront budget race is class-fair but rank-concentrated on the dialer side
+
+**Surfaced during**: the symmetric-flooding pass (ADR 0042/0043) — the ordered flooder cell's coverage dissection.
+
+**Observation**: wave canonicalisation sorts deliveries by (sender rank, recipient rank, identity), so every victim processes its arrivals in the same global sender-rank order, and budget admission is first-come. Across **classes** this is exactly fair — ranks are independent of the class draw (verified: uniform adversarial rank distribution), so refusals split by class-load share and every class-level mean the passes predicted matched. Per **node** it concentrates: once arrivals exceed budgets population-wide, a low-ranked dialer wins every race and a high-ranked dialer loses every race (measured in the ordered flooder cell: bottom-400-rank honest nodes 0 refused dials, top-400-rank 12.65 ≈ their whole honest pick count). Per-node tail events composed of many dial outcomes — total out-side death, hence starvation isolation — are amplified by orders of magnitude relative to the independent-per-victim arrival orders a real network approximates: the cell measured 14/400 bad graphs (single high-rank strandings) where independent orders predict ≈ 0.
+
+- **Class-level measurands are unaffected** — E12, E18, and the symmetric-flooding grid all predicted class-level means and identities, which the canonical order satisfies exactly.
+- The E12 §1 envelope statement covers class fairness; this note records the per-dialer boundary: the driver sits between the real network's decorrelated orders and the analytic race-winner worst case, coupling one global order across all victims.
+
+**Working answer**: recorded; the symmetric-flooding report's ordered flooder coverage row carries the attribution. Candidate instrument change when a consumer needs per-node tail fidelity under saturated budgets: a per-victim seeded arrival order (a function of (victim, run seed) rather than the global rank) — byte-affecting, hence a re-baseline generation per ADR 0036, and a natural batch partner for the parked failure-severity run-row change.
+
+**Trigger to revisit**: the first pass whose measurand is a per-node tail under saturated budgets (attacker-timing studies, retry design), or the next re-baseline-forcing instrument change — whichever lands first.
