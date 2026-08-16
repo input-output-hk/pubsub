@@ -204,6 +204,84 @@ def cell(B, S, cap, scheme="budget"):
     return out
 
 
+def cell_ordered(B, S, cap):
+    """The ordered comparison predicate's cell (ADR 0043): P(X dials Y) =
+    m/B for a picking node (Y in X's out-pool times picked), 1/B for the
+    flooder (dials its whole out-pool). Directions are independent draws,
+    so the crossing discount is (m/B) — near-vacuous — and, unlike the
+    unordered pair, own-only Sybil edges exist (a Sybil dials back only
+    if the victim sits in ITS pool). The race uses independent per-class
+    binomial loads: the unordered pass's pool coupling acts here only
+    through the tiny crossing discount."""
+    H = N - S
+    m = member_pick_prob(B)
+    q = m / B  # a picking node dials a given peer
+    routes = {
+        "mutual_h": (H - 1) * q * q,
+        "own_only_h": (H - 1) * q * (1 - q),
+        "admitted_h": (H - 1) * q * (1 - q),
+        "mutual_s": S * q * (1.0 / B),
+        "own_only_s": S * q * (1 - 1.0 / B),
+        "admitted_s": S * (1.0 / B) * (1 - q),
+    }
+    out = {"B": B, "S": S, "cap": cap, "m": m, **routes}
+    out["d_uncapped"] = sum(routes.values())
+    out["sybil_uncapped"] = routes["mutual_s"] + routes["own_only_s"] + routes["admitted_s"]
+    if cap is not None:
+        adm_h = adm_s = ref_h = ref_s = p_ref = 0.0
+        for fh, qh in pmf_range(H - 1, q * (1 - q)):
+            for fs, qs in pmf_range(S, (1.0 / B) * (1 - q)):
+                w = qh * qs
+                t = fh + fs
+                if t <= cap:
+                    adm_h += w * fh
+                    adm_s += w * fs
+                    continue
+                share = cap / t
+                adm_h += w * fh * share
+                adm_s += w * fs * share
+                ref_h += w * fh * (1 - share)
+                ref_s += w * fs * (1 - share)
+                if fh > 0:
+                    p_ref += w
+        surv = adm_h / routes["admitted_h"] if routes["admitted_h"] > 0 else 1.0
+        out.update(
+            admitted_h_capped=adm_h,
+            admitted_s_capped=adm_s,
+            refused_h=ref_h,
+            refused_s=ref_s,
+            p_any_honest_refusal=p_ref,
+            own_only_h_capped=routes["own_only_h"] * surv,
+            sybil_capped=routes["mutual_s"] + routes["own_only_s"] + adm_s,
+        )
+    return out
+
+
+def ordered_isolation(B, S):
+    """The ordered construction's honest-isolation constant at gate width
+    B (open acceptance, K picks): inbound and outbound honest edges ride
+    INDEPENDENT coin sets — P(no inbound) = (1 - m/B)^(H-1); outbound uses
+    the E18 avoid term over the out-pool (empty, or all min(K, pool)
+    picks landing on adversarial members). Past the out-pool saturation
+    boundary B > (N-1)/K the picks cover the whole pool and both
+    exponents become pool-driven — the regime where the ordered tail
+    equals the unordered pair's at equal total density."""
+    H = N - S
+    m = member_pick_prob(B)
+    no_inbound = (1 - m / B) ** (H - 1)
+    no_outbound = 0.0
+    for h, qh in pmf_range(H - 1, 1.0 / B):
+        for a, qa in pmf_range(S, 1.0 / B):
+            q = qh * qa
+            if h == 0:
+                no_outbound += q
+                continue
+            if h + a <= K or a < K:
+                continue
+            no_outbound += q * math.exp(lchoose(a, K) - lchoose(h + a, K))
+    return H * no_inbound * no_outbound
+
+
 def e18_isolation(B, S):
     """The E18 two-channel isolation constant at mu = S/N (gated picks)."""
     H = N - S
@@ -238,8 +316,16 @@ def show(c, extra=""):
 if __name__ == "__main__":
     args = sys.argv[1:]
     if len(args) >= 3:
-        B, S, cap = int(args[0]), int(args[1]), int(args[2])
+        B, S = int(args[0]), int(args[1])
+        cap = None if args[2] == "open" else int(args[2])
         scheme = args[3] if len(args) > 3 else "budget"
+        if scheme == "ordered":
+            c = cell_ordered(B, S, cap)
+            for k, v in c.items():
+                print(f"{k:>24}: {round(v, 4) if isinstance(v, float) else v}")
+            e = ordered_isolation(B, S)
+            print(f"{'ordered E_iso':>24}: {e:.3e}   P(bad)~{1 - math.exp(-e):.4g}")
+            sys.exit(0)
         c = cell(B, S, cap, scheme)
         for k, v in c.items():
             print(f"{k:>24}: {v if isinstance(v, int) else round(v, 4)}")

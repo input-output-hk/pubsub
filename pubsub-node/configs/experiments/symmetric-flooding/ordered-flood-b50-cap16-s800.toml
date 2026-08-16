@@ -1,0 +1,48 @@
+# Ordered-predicate flooder cell (ADR 0043): B = 50 ordered, budget
+# C = 16, S = 800 — the ordered mirror of budget-b50-cap16-s800.toml,
+# measuring the ~2/B admissibility doubling in the route columns.
+#
+# Under the ordered draw the crossing shield is near-vacuous (mutual_h
+# ~0.05, mutual_s ~0.06) and own-only Sybil edges EXIST (a Sybil dials
+# back only if the victim sits in its own out-pool) — predicted
+# (symmetric_flooding_predictions.py `50 800 16 ordered`; independent
+# binomial race — the unordered pass's pool coupling enters here only
+# through the vacuous crossing discount): routes per honest victim
+# own/mut/adm honest = 12.75/0.05/12.75, Sybil own/mut/adm =
+# 3.14/0.06/15.94 (uncapped Sybil occupancy 19.14 vs the unordered
+# 16.00 — the doubled admissibility's realised share at K = 16); race
+# admitted h/s = 7.106/8.888, refused h/s = 5.642/7.049 per victim,
+# P(>=1 honest refusal) = 0.99; crossing refusals ~0 (nothing crosses);
+# admitted <= 16; Sybil edges capped ~12.09 — at a binding budget the
+# looser gate converts into honest starvation (refused_h 5.64 vs the
+# unordered twin's 3.19), not extra occupancy. Coverage: ordered
+# E_iso = 5.0e-14 -> predict 400/400 good.
+#
+# Run manually (per-node detail is the measurement):
+#
+#   experiments --config configs/experiments/symmetric-flooding/ordered-flood-b50-cap16-s800.toml --out results/symmetric-flooding/ordered-flood-b50-cap16-s800/ --per-node-detail
+
+model = "m4"
+master_seed = 1137
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 50
+symmetric = true
+symmetric_ordered = true
+accept_cap = 16
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 50 # no pick_count: every out-pool member is dialed
+symmetric = true
+symmetric_ordered = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400
