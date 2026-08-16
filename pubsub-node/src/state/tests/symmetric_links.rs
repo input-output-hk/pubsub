@@ -247,6 +247,74 @@ fn epoch_rotation_refunds_the_admissions_budget() {
     assert!(has_downstream(&state, "d", "t1"));
 }
 
+// ADR 0042: severance never refunds the budget — the direction-erased link
+// set cannot attribute a severed link to a past admission, so a spent slot
+// stays spent until rotation. Tearing down the admitted edge leaves a later
+// fresh arrival refused.
+#[test]
+fn severance_does_not_refund_the_admissions_budget() {
+    let mut state = node_state_symmetric(
+        "self",
+        HashSet::from([topic("t1")]),
+        Arc::new(
+            UnifiedAcceptance::new(peer("self"))
+                .with_symmetric(true)
+                .with_accept_cap(Some(1)),
+        ),
+    );
+    apply(&mut state, Event::Synced);
+    for p in ["b", "c"] {
+        apply(&mut state, membership_joined(p, ["t1"]));
+    }
+    apply(&mut state, symmetric_request_from("b", "t1"));
+    assert!(has_downstream(&state, "b", "t1"));
+
+    apply(&mut state, symmetric_terminated_from("b", "t1"));
+    assert!(!has_downstream(&state, "b", "t1"));
+
+    let effects = apply(&mut state, symmetric_request_from("c", "t1"));
+    let rejected = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Rejected { .. })
+    });
+    assert_eq!(rejected, vec![(peer("c"), topic("t1"))]);
+}
+
+// ADR 0042: the prelude's idempotent re-accept of an already-held link is
+// not an admission — a repeated request from an admitted peer re-Accepts
+// without spending a second budget unit.
+#[test]
+fn repeated_request_from_an_admitted_peer_spends_no_second_unit() {
+    let mut state = node_state_symmetric(
+        "self",
+        HashSet::from([topic("t1")]),
+        Arc::new(
+            UnifiedAcceptance::new(peer("self"))
+                .with_symmetric(true)
+                .with_accept_cap(Some(2)),
+        ),
+    );
+    apply(&mut state, Event::Synced);
+    for p in ["b", "c", "d"] {
+        apply(&mut state, membership_joined(p, ["t1"]));
+    }
+    apply(&mut state, symmetric_request_from("b", "t1"));
+    let effects = apply(&mut state, symmetric_request_from("b", "t1"));
+    let accepted = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Accepted { .. })
+    });
+    assert_eq!(accepted, vec![(peer("b"), topic("t1"))]);
+
+    // Had the re-accept spent a unit, the budget of 2 would be exhausted
+    // and c refused; instead c takes the second unit and d is refused.
+    apply(&mut state, symmetric_request_from("c", "t1"));
+    assert!(has_downstream(&state, "c", "t1"));
+    let effects = apply(&mut state, symmetric_request_from("d", "t1"));
+    let rejected = kind_sends(&effects, "self", HandshakeKind::Symmetric, |action| {
+        matches!(action, ConnectionAction::Rejected { .. })
+    });
+    assert_eq!(rejected, vec![(peer("d"), topic("t1"))]);
+}
+
 // A symmetric Rejected drops this node's pending dial; no half was inserted
 // on either end, so the edge simply does not form.
 #[test]

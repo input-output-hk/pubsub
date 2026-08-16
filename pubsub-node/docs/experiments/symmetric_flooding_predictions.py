@@ -53,6 +53,14 @@ count, and post-refusal mirror rescue (a refused crossing whose own dial
 the peer accepted) is ignored for honest peers, counted for Sybils
 (they accept everything).
 
+The measurement falsified the interleaving assumption: the wavefront
+delivers every request in wave 0 and every mirror (Accepted reply) in
+wave 1, so the scan races arrivals only against the full C_A. The
+interleaving columns above are kept verbatim as the a-scan cell's
+original registration; the corrected wave-order tail
+E[(arrivals - C_A)+] is printed alongside as wave_refused_all
+(the report's section 1 documents the miss and the correction).
+
 Isolation: the E18 two-channel law composes at mu = S/N unchanged by
 the cap (empty-pool and all-picks-adversarial are pre-acceptance
 geometry); starvation adds a third channel only where refusals bite --
@@ -118,6 +126,7 @@ def cell(B, S, cap, scheme="budget"):
     # without-replacement fair race accumulated inside the same loop.
     own_h = mut_h = adm_h = mut_s = adm_s = 0.0
     race_adm_h = race_adm_s = race_ref_h = race_ref_s = race_p_ref_h = 0.0
+    wave_ref = 0.0
     for h, qh in pmf_range(H - 1, 1.0 / B):
         for a, qa in pmf_range(S, 1.0 / B):
             q = qh * qa
@@ -128,7 +137,19 @@ def cell(B, S, cap, scheme="budget"):
             adm_h += q * h * m * (1 - mm)
             mut_s += q * a * mm
             adm_s += q * a * (1 - mm)
-            if cap is None or scheme != "budget" or p == 0:
+            if cap is None or p == 0:
+                continue
+            if scheme != "budget":
+                # The corrected scan race (wave order): the wavefront
+                # delivers every request before any mirror lands, so the
+                # scan races ARRIVALS ONLY against the full C_A and
+                # refusals are the tail E[(arrivals - C_A)+]. Arrivals
+                # given (h, a): every admissible Sybil dials (a exactly),
+                # honest pool members pick me at rate m.
+                for j, q2 in pmf_range(h, m):
+                    excess = a + j - cap
+                    if excess > 0:
+                        wave_ref += q * q2 * excess
                 continue
             kp = min(K, p)
             for picked_s, q3 in hyper_pmf(p, a, kp):
@@ -183,6 +204,11 @@ def cell(B, S, cap, scheme="budget"):
             sybil_capped=mut_s + a_s,
         )
     else:  # scheme A: the both-role scan, uniform-interleaving model
+        # This branch is the ORIGINAL REGISTRATION, kept verbatim so the
+        # a-scan config comment stays reproducible. The measurement
+        # falsified its interleaving assumption (the wavefront delivers
+        # every request before any mirror lands); the corrected wave-order
+        # tail is printed alongside as wave_refused_all (report section 1).
         arrivals_h = mut_h + adm_h  # crossings are admissions too
         arrivals_s = mut_s + adm_s
         arrivals = arrivals_h + arrivals_s
@@ -200,6 +226,7 @@ def cell(B, S, cap, scheme="budget"):
             # my dial); honest mutual edges refused on BOTH sides die --
             # single-sided survival counted at first order.
             sybil_capped=mut_s + adm_s * accept_share,
+            wave_refused_all=wave_ref,
         )
     return out
 

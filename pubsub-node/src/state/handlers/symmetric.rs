@@ -68,12 +68,18 @@ pub(in crate::state) fn handle(
 /// A **crossing** — the emitter is a peer this node's own dial is already
 /// awaiting — short-circuits ahead of the policy (ADR 0042): answering the
 /// node's own selection is not an admission decision, so it faces neither
-/// gate nor cap and spends no budget. Sound without re-verification: the
-/// pair predicate is symmetric, so this node's own dial already proved the
-/// edge, and membership was checked when it dialed. A granted admission of
-/// a **fresh** request (no pending dial) spends one budget unit — the count
-/// a symmetric acceptance instance's cap bounds; the prelude's idempotent
-/// re-accept of an already-held link spends nothing.
+/// gate nor cap and spends no budget. Sound without re-verification under
+/// either symmetric predicate, because dials go only to gate survivors, so
+/// the pending entry itself witnesses a valid edge: under the unordered
+/// pair the two ends compute the identical draw, and under the ordered
+/// comparison predicate (ADR 0043) an edge is admissible when either
+/// direction's draw holds — this node's own direction held. Membership
+/// rides the same witness: it was checked when the node dialed (a peer
+/// leaving between dial and crossing is accepted on the dial-time view —
+/// the staleness any in-flight accept already tolerates). A granted
+/// admission of a **fresh** request (no pending dial) spends one budget
+/// unit — the count a symmetric acceptance instance's cap bounds; the
+/// prelude's idempotent re-accept of an already-held link spends nothing.
 fn handle_request(state: &mut NodeState, emitter: PeerId, topic: TopicId) -> Vec<Effect> {
     if !super::gate_synced(state, &emitter, &topic) {
         return Vec::new();

@@ -59,7 +59,12 @@ from the accidental both-role scan to the intended count:
   pending `AwaitingAccept` toward the requester short-circuits ahead of
   gate and cap — the same shape as the prelude's idempotent already-held
   re-Accept, one lifecycle step earlier — and spends no budget: answering
-  one's own selection is not an admission decision.
+  one's own selection is not an admission decision. The short-circuit
+  runs ahead of the whole admission policy, membership included: the
+  pending dial is the witness (it went only to a gate-surviving,
+  membership-checked candidate — under either symmetric predicate), so a
+  peer leaving between dial and crossing is accepted on the dial-time
+  view, the staleness any in-flight accept already tolerates.
 - **The budget is per-epoch.** No decrement on severance: the
   direction-erased link set cannot attribute a severed link to a past
   admission without the per-link state this design refuses, so a spent
@@ -68,9 +73,14 @@ from the accidental both-role scan to the intended count:
   admitted links" and "admissions granted this epoch" exists only where
   direction is erased, and this ADR owns it.)
 
-Two properties follow by construction, order-independently: total
-symmetric degree ≤ K + C, and the defensive invariant **no node holds more
-than C edges it did not choose, per epoch** — checkable per run.
+Two properties follow by construction, order-independently, both scoped
+per epoch: total symmetric degree ≤ K + C within one epoch's
+accumulation, and the defensive invariant **no node holds more than C
+edges it did not choose, per epoch** — checkable per run. (A refunding
+`Epoch` rotation leaves previously admitted edges in place while the
+budget resets, so across n epochs the standing bound is K + nC until
+link rotation/teardown — out of scope since 005 — retires carried-over
+admissions; nothing shipped fires `Epoch` today.)
 
 One conservative edge case: in a real network a crossing can race — the
 peer's request arriving before the node's own dial for that pair leaves —

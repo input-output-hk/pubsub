@@ -82,16 +82,17 @@ uniform-interleaving model of the scan race that the measurement
 falsified: in the wavefront driver all requests land in wave 0 and all
 mirrors (Accepted replies) in wave 1, so the scan races **arrivals
 only** against the full C_A — refusals are the tail
-E[(arrivals − C_A)⁺] (measured 0.93/victim vs 0.92 from the corrected
-form; the pre-registered interleaving figure of 8.23 was wrong and
-stands in the config comment as the recorded miss). The equal-effective
+E[(arrivals − C_A)⁺] (measured 0.925/victim vs 0.926 from the corrected
+form, printed by the prediction ledger as `wave_refused_all`; the
+pre-registered interleaving figure of 8.23 was wrong and stands in the
+config comment as the recorded miss). The equal-effective
 pairing under the corrected model is C_A ≈ C + crossings (≈ 22 at this
 shape); the cell pair as run compares a loose scan against a tight
 budget, which strengthens rather than weakens the veto finding (even a
 barely-binding scan vetoes measurably).
 
-## 2. The race law: pilot-calibrated, then eleven-for-eleven ×
-   nineteen cells
+## 2. The race law: pilot-calibrated, then nineteen cells at zero
+   flags
 
 The budget race is the E12 fair-arrival contention model enumerated
 exactly over the joint pool, with the pick split **without
@@ -106,9 +107,11 @@ cells within ~1 SE with no refit.
 
 The 19-cell grid (B ∈ {50, 125} × cap ladders {16, 20, 26} / {10, 12,
 16} × S ∈ {40, 400, 800}, plus the B = 250 cells) against the frozen
-config-comment predictions: **zero flags** — every z across six
-tracked columns per cell within |z| ≤ 2.6, every accounting identity
-exact, `refused_crossing ≡ 0` everywhere, max degree ≤ K + C in every
+config-comment predictions: **zero flags** — every z across the six
+model-priced columns per cell (the two admitted routes, the two mutual
+routes, own-only, and the refusal rate; the fold tracks eleven columns,
+the other five being sums and identities of these) within |z| ≤ 2.6,
+every accounting identity exact, `refused_crossing ≡ 0` everywhere, max degree ≤ K + C in every
 cell, and all sixteen B ∈ {50, 125} cells 400/400 good as predicted.
 The per-victim identity own-only = admitted (every honest fresh refusal
 kills one admitted edge at the victim and one pick at the dialer) held
@@ -119,11 +122,13 @@ to the fourth decimal in every cell.
 
 Per honest victim, Sybil occupancy = **floor + admitted**:
 
-- **The floor — own picks on Sybils — is B-independent and
-  cap-blind**: K × (Sybil pool share) ≈ K·μ, measured 0.16 → 3.20 →
-  5.76 across S = 40 → 800 → 1600 at every B, exactly the ambient
-  rate. No acceptance policy sees it; only pool composition (μ) moves
-  it. This is the structural difference from directional E12, where
+- **The floor — own picks on Sybils — is B-independent in composition
+  and cap-blind**: realised picks × (Sybil pool share), ≈ K·μ wherever
+  picks don't saturate the pool. Measured 0.16 → 3.20 → 5.76 across
+  S = 40 → 800 → 1600 — the ambient share exactly; the prefactor is K
+  at B ∈ {50, 125} and E[min(K, pool)] = 14.4 at the saturated B = 250
+  (hence 5.76 rather than K·μ = 6.4 — the ledger's exact `mutual_s`).
+  No acceptance policy sees it; only pool composition (μ) moves it. This is the structural difference from directional E12, where
   the entire attacker surface was admission-gated: under the symmetric
   handshake the victim's own selection hands the adversary its ambient
   share for free.
@@ -136,8 +141,9 @@ Per honest victim, Sybil occupancy = **floor + admitted**:
 Design reading: the flooding-resistance knob is B (shrinks the
 admission route) and C (bounds it absolutely); μ alone sets the floor.
 An operator sizing against occupancy should read
-`sybil ≈ K·μ + min(fair-race share, C·share)` — both terms measured at
-table precision across the grid.
+`sybil ≈ K·μ + min(fair-race share, C·share)` (picks saturating the
+pool shrink the first term's prefactor below K, never above) — both
+terms measured at table precision across the grid.
 
 ## 4. Starvation and the cap-sizing rule
 
@@ -229,7 +235,10 @@ cell shapes):
   **8 000/8 000 good** vs predicted E_iso = 8.3×10⁻⁸ — zero bad graphs
   at the exact gate width where the unordered pair measured 57 and 61.
   Below saturation the two independent coins do let the picks repair
-  the tail, at the price of doubled admissibility (degree 29.1 vs 16).
+  the tail, at the price of doubled admissibility (measured mean degree
+  28.77 against the unordered 16; the ledger's first-order 29.1 sits
+  ~1 % above — an unmodelled second-order residual, noted, not chased:
+  the cell's registered measurands were the tail and the density).
 - **The flooder mirror** (`ordered-flood-b50-cap16-s800`, the budget
   twin's coordinates): every race and route column within |z| ≤ 1.3 of
   the frozen predictions — including the two structural discriminators:
