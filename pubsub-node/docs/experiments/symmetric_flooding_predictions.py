@@ -309,6 +309,63 @@ def ordered_isolation(B, S):
     return H * no_inbound * no_outbound
 
 
+def cap_composition(B, S, rho):
+    """The first-order cap x empty-pool composition increment (report
+    section 6): the expected EXTRA isolated honest nodes when a victim's
+    honest fresh dials are refused at rate rho. Per honest pool member
+    the edge survives at sigma = m*mm + [mm*(1-m) + m*(1-mm)]*(1-rho) --
+    the mutual arm (cap-immune) plus the own-dial and inbound-dial arms,
+    each refusable once; mm = min(K, pool)/pool per (h, a) joint draw, so
+    at the small-pool boundary mm = 1 and sigma reduces to the report's
+    m + (1-m)(1-rho). The increment is the difference against the same
+    form at rho = 0, so the uncapped two-channel base subtracts out and
+    the result composes additively with e18_isolation."""
+    H = N - S
+    m = member_pick_prob(B)
+    delta = 0.0
+    for h, qh in pmf_range(H - 1, 1.0 / B):
+        if h == 0:
+            continue  # channel A: no honest member to lose, cap-blind
+        for a, qa in pmf_range(S, 1.0 / B):
+            p = h + a
+            mm = min(K, p) / p
+            arms = mm * (1 - m) + m * (1 - mm)
+            dead_capped = 1 - (m * mm + arms * (1 - rho))
+            dead_open = 1 - (m * mm + arms)
+            delta += qh * qa * (dead_capped**h - dead_open**h)
+    return H * delta
+
+
+def capsweep(B, S, caps):
+    """The cap trade-off curve at (B, S): per budget C, what the cap
+    blocks (fresh Sybil admissions removed, per victim) against the
+    first-order composition harm it adds (cap_composition at the cell's
+    computed refusal rate). The no-sweet-spot statement of report
+    section 6 is this table: past the pool floor no row has both
+    blocked > 0 and dE_iso ~ 0 -- the same collapsed loads drive both
+    columns -- while inside the window the sizing rule's rows block
+    real pressure at dE_iso buried under channel A's exponent."""
+    base = cell(B, S, None)
+    e_base = e18_isolation(B, S)
+    print(
+        f"B={B} S={S}  fresh loads h/s={base['admitted_h']:.3f}/"
+        f"{base['admitted_s']:.3f}  floor mutual_s={base['mutual_s']:.3f}"
+        f"  uncapped E_iso={e_base:.3e} P(bad)={1 - math.exp(-e_base):.4g}"
+    )
+    print(f"{'C':>5} {'rho':>7} {'blocked_s':>10} {'refused_h':>10} {'dE_iso':>10} {'P(bad)':>9}")
+    for cap in caps:
+        c = cell(B, S, cap)
+        rho = c["refused_h"] / c["admitted_h"] if c["admitted_h"] > 0 else 0.0
+        blocked = c["admitted_s"] - c["admitted_s_capped"]
+        de = cap_composition(B, S, rho)
+        p_bad = 1 - math.exp(-(e_base + de))
+        print(
+            f"{cap:>5} {rho:>7.4f} {blocked:>10.4f} {c['refused_h']:>10.4f}"
+            f" {de:>10.3e} {p_bad:>9.4g}"
+        )
+    print(f"{'open':>5} {0.0:>7.4f} {0.0:>10.4f} {0.0:>10.4f} {0.0:>10.3e} {1 - math.exp(-e_base):>9.4g}")
+
+
 def e18_isolation(B, S):
     """The E18 two-channel isolation constant at mu = S/N (gated picks)."""
     H = N - S
@@ -342,6 +399,11 @@ def show(c, extra=""):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if args and args[0] == "capsweep":
+        B, S = int(args[1]), int(args[2])
+        caps = [int(c) for c in args[3:]] or [0, 1, 2, 3, 4, 6, 8, 12, 16, 20, 26]
+        capsweep(B, S, caps)
+        sys.exit(0)
     if len(args) >= 3:
         B, S = int(args[0]), int(args[1])
         cap = None if args[2] == "open" else int(args[2])

@@ -194,22 +194,43 @@ this shape. The term factors structurally: to first order
 ΔP(iso) ≈ Σ_h P(h honest pool members) · (1−σ)^h with
 σ = m + (1−m)(1−ρ) — mutual edges are cap-immune, so a node dies to
 the cap only where the small-pool boundary mass and the refusal rate ρ
-are simultaneously large. Inside the E18 window (pool ≥ ~3K) the
-boundary mass carries channel A's own exponent and — **provided C is
-sized by the fresh-arrival rule** — ρ is drivable toward zero (loads
-~10+ give the √-headroom real room; measured 10⁻⁴ at the generous
-controls), so the term is doubly exponentially suppressed; the window
-guarantee is conditional on the sizing rule, not unconditional (a
-pathologically small cap harms coverage at any B — at C = 0 only
-mutual edges survive). Past the floor both factors are pinned high by
-the same quantity: the boundary mass by definition, and ρ irreducibly,
-because fresh loads collapse to small integers (mean ≈ 1.5 here) whose
-distribution is all tail — C = 3 is already twice the mean load and
-still refuses at rate ≈ 0.33. The first-order form reproduces the
-measured excess (ΔE_iso ≈ 0.05–0.08 predicted vs 0.073 measured). The
-composition therefore sharpens the E18 rule rather than moving it:
-**past the pool floor no cap sizing works, and a cap makes the bad
-regime worse**.
+are simultaneously large. The prediction ledger computes this form
+over the joint pool (`cap_composition`; the per-(h, a) pick fraction
+reduces σ to the boundary form exactly where the boundary mass lives)
+and walks the whole cap ladder from the grid-validated race law
+(`capsweep`), so the one measured corner anchors a computed trade-off
+curve rather than an extrapolation:
+
+- **At the corner (B = 250, S = 1600)** the computed increment at
+  C = 3 is ΔE_iso = 0.059 against the measured excess 0.073 — on
+  P(bad), 0.196 predicted vs 0.208 measured, z ≈ +0.8 against the
+  pooled 800 runs — and across the ladder no C both binds and stays
+  harmless. The cap's entire addressable surface is the 0.63-edge
+  fresh route over the 5.77-edge cap-blind floor; every C that blocks
+  even 8 % of it (C ≤ 6, ρ ≥ 0.08) adds ≥ 1 pp of P(bad), while by
+  C = 12 both columns are dead (≤ 0.001 edges blocked, ≤ 0.03 pp
+  added). This is structural, not a coincidence of the cells: one
+  quantity — the pool-to-picks ratio (N−1)/B against K — drives both
+  columns together, collapsing fresh loads to small all-tail integers
+  (mean ≈ 1.5; C = 3 is twice the mean and still refuses at ρ ≈ 0.33)
+  at exactly the widths where the boundary mass is large. Binding and
+  harmful coincide past the floor by construction.
+- **Inside the window the columns separate**: at B = 50 the grid's
+  sizing-rule caps (16/20/26) block 4.0/2.1/0.5 fresh Sybil edges per
+  victim at computed ΔE_iso ≤ 4×10⁻⁵ — the 400/400 grid rows sit on
+  this curve — because the boundary mass carries channel A's own
+  exponent and loads ~10+ give the √-headroom real room (ρ measured
+  10⁻⁴ at the generous controls). The guarantee stays conditional on
+  the sizing rule, and the same sweep prices the window's own cliff:
+  a pathological C = 8 at B = 50 computes to P(bad) ≈ 0.11, and C = 0
+  (mutual edges only) fails at any B.
+
+The composition therefore sharpens the E18 rule rather than moving
+it: **past the pool floor no cap both binds and stays harmless — a
+binding cap makes the bad regime worse, and a harmless one protects
+nothing**. The curve is anchored at its binding end (C = 3, two
+seeds); its quiet end — a generous cap returning P(bad) to the
+uncapped law — is computed, not measured (§9).
 
 ## 7. The ordered comparison arm, measured
 
@@ -310,9 +331,12 @@ is paid for twice at a binding budget.
 - Scheme A exists only at its pinned instrument commit; its cell is
   the recorded funeral, not a maintained configuration.
 - The composition term (§6) is measured at one shape (B = 250, C = 3,
-  μ = 0.4, two seeds); its functional form is not mapped — it lives
-  outside the recommended window and is flagged as a hazard, not
-  modelled.
+  μ = 0.4, two seeds). The first-order form and the full cap ladder
+  are computed (the ledger's `capsweep`), anchored at that binding-end
+  corner only: the curve's quiet end — a generous cap (C ≥ 12 at the
+  same shape) returning P(bad) to the uncapped 0.148 — is a computed
+  prediction with no measured cell. Either way the regime sits outside
+  the recommended window.
 - The ordered × tight-budget × saturation × high-μ corner (the ordered
   analogue of §6) is not measured: the corrected forms predict the same
   composition mechanism there, and the regime sits outside any
