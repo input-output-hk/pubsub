@@ -262,8 +262,11 @@ security trade-off, never derived from local state.
   cap-blind own-pick floor K·μ (no acceptance policy sees it) vs the gate-divided admission route
   (S/B)(1−m); the cap-sizing rule re-anchored on the fresh-arrival load K(1−m)(1−μ); flooding
   structurally inert at pool saturation; and the replicated **cap × empty-pool composition term**
-  (pooled 166/800 vs the uncapped law's 0.148, z = +4.75 — past the pool floor a tight cap makes
-  the bad regime worse; inside the window the term is doubly suppressed *given* the sizing rule).
+  (pooled 166/800 vs the uncapped law's 0.148, z = +4.75; the ledger's `capsweep` computes the
+  full cap trade-off curve from the grid-validated race law, measured at both ends — the binding
+  C = 3 corner and the pre-registered C = 12 quiet-end anchor, 59/400 bad vs registered 59.3 —
+  so past the pool floor no cap both binds and stays harmless; inside the window the term is
+  doubly suppressed *given* the sizing rule).
   The **ordered arm** (ADR 0043) turned E18 §4's derived pricing into measured rows: the
   pick-repairable tail is real below the saturation boundary B < (N−1)/K (0/8 000 at equal B vs
   the unordered 57) and vanishes above it (80/8 000 at equal density — the corrected

@@ -27,6 +27,7 @@ correlated, so the run is the replicate).
 | core grid (16), degeneracy pair (2), μ cell (1) | 1115–1133 | `01d79a3` (instrument `9865b96`) |
 | μ replicate | 1134 | `8871ed1` (instrument `9865b96`) |
 | ordered arm: two tails + flooder mirror (ADR 0043) | 1135–1137 | `1dd8722` (instrument `6d0385b`) |
+| capsweep quiet-end anchor (1 cell) | 1138 | `c0f66a4` (instrument `6d0385b` — the intervening commits are docs/tests-only) |
 
 Configs in `configs/experiments/symmetric-flooding/`; per-cell
 predictions recorded in the config comments before each cell ran
@@ -228,9 +229,14 @@ curve rather than an extrapolation:
 The composition therefore sharpens the E18 rule rather than moving
 it: **past the pool floor no cap both binds and stays harmless — a
 binding cap makes the bad regime worse, and a harmless one protects
-nothing**. The curve is anchored at its binding end (C = 3, two
-seeds); its quiet end — a generous cap returning P(bad) to the
-uncapped law — is computed, not measured (§9).
+nothing**. The curve is measured at both ends: the binding corner
+(C = 3, two seeds, 80 + 86 bad/400) and the quiet-end anchor (C = 12,
+seed 1138, pre-registered off the sweep) — registered ~59.3 bad/400,
+measured **59/400** (z = −0.04; z = −0.02 against the uncapped law,
+z = −2.5 against the C = 3 elevation), every race column on its
+registration and refusals down to 1 550 over 1.28 M victim rows. A
+never-binding cap returns the law exactly: the form's ρ mediation
+held out-of-sample.
 
 ## 7. The ordered comparison arm, measured
 
@@ -330,13 +336,12 @@ is paid for twice at a binding budget.
   dial) exactly as in directional E12.
 - Scheme A exists only at its pinned instrument commit; its cell is
   the recorded funeral, not a maintained configuration.
-- The composition term (§6) is measured at one shape (B = 250, C = 3,
-  μ = 0.4, two seeds). The first-order form and the full cap ladder
-  are computed (the ledger's `capsweep`), anchored at that binding-end
-  corner only: the curve's quiet end — a generous cap (C ≥ 12 at the
-  same shape) returning P(bad) to the uncapped 0.148 — is a computed
-  prediction with no measured cell. Either way the regime sits outside
-  the recommended window.
+- The composition term (§6) is measured at one (B, μ) shape
+  (B = 250, μ = 0.4): the binding corner (C = 3, two seeds) and the
+  quiet-end anchor (C = 12, one seed) bracket the computed cap ladder
+  (the ledger's `capsweep`); intermediate caps and other shapes are
+  computed, not measured. Either way the regime sits outside the
+  recommended window.
 - The ordered × tight-budget × saturation × high-μ corner (the ordered
   analogue of §6) is not measured: the corrected forms predict the same
   composition mechanism there, and the regime sits outside any
