@@ -9,6 +9,7 @@ Authors:
     - Denis Firsov <denis.firsov@gmail.com>
     - Jesus Diaz Vico <jesus.diaz.vico@gmail.com>
     - Dana Alibrandi <dalibrandi@gmail.com>
+    - Mauro Jaskelioff <mauro.jaskelioff@iohk.io>
 Implementors: []
 Discussions:
     - Original PR: https://github.com/cardano-foundation/CIPs/pull/?
