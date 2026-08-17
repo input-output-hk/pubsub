@@ -1,0 +1,40 @@
+# c-floor rehearsal, baseline: N = 4 000, K = 9, B = 100, OPEN
+# acceptance, S = 1 600 Sybil flooders (mu = 0.4) — the same per-node
+# pool geometry as the CIP candidates (lambda = 40, honest part 24) at
+# the composition term's home shape.
+#
+# The uncapped anchor of the three-cell curve (with cap16/cap20
+# siblings): the K = 9 two-channel isolation law's first measurement —
+# every prior law cell ran at K = 16. Predicted
+# (docs/experiments/m4_synthesis_predictions.py `cell 100 --n=4000
+# --k=9 --s=1600`): E_iso = 1.023e-2, P(bad) = 0.01018 — expect
+# ~20.4 bad / 2 000 runs. Routes per victim: h(own/mut/adm) =
+# 4.18/1.22/4.18, s(floor/adm) = 3.60/12.40 (own_only_s = 0 under the
+# pair draw), d = 25.58, Sybil edges 16.0. No cap: rejected_over_capacity
+# = 0, refusals_issued_* = 0, no degree bound beyond geometry.
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/cfloor-n4k-k9-b100-open.toml --out results/m4-synthesis/cfloor-n4k-k9-b100-open/ --per-node-detail
+
+model = "m4"
+master_seed = 1142
+
+[population]
+size = 4000
+adversarial = 1600
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+bucket_count = 100
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 100 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 2000

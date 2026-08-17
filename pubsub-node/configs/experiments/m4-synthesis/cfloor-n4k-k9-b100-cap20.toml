@@ -1,0 +1,41 @@
+# c-floor rehearsal, mid-slope point: N = 4 000, K = 9, B = 100,
+# admissions budget C = 20, S = 1 600 flooders (mu = 0.4).
+#
+# The curve's middle point (siblings: open baseline, cap16): C = 20 is
+# c ~ 0.8 headroom over the 16.6 total fresh load — binding at the
+# tail. Predictions (m4_synthesis_predictions.py `cell 100 20 --n=4000
+# --k=9 --s=1600` + `capsweep`): race admitted h/s = 4.039/11.969,
+# refused h/s = 0.145/0.430 per victim (~1 380 rejected_over_capacity
+# per run), P(>=1 honest refusal) = 0.182, rho = 0.0348; d = 24.86,
+# Sybil edges 15.57 (floor 3.60 + admitted 11.97). Coverage: dE_iso =
+# 2.495e-2 on the uncapped E_iso = 1.023e-2 -> P(bad) = 0.03457 —
+# expect ~34.6 bad / 1 000 runs, ~3.4x the baseline law. Invariants:
+# refusals_issued_crossing_* = 0; edges_admitted_* <= 20; total degree
+# <= K + C = 29.
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/cfloor-n4k-k9-b100-cap20.toml --out results/m4-synthesis/cfloor-n4k-k9-b100-cap20/ --per-node-detail
+
+model = "m4"
+master_seed = 1144
+
+[population]
+size = 4000
+adversarial = 1600
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+bucket_count = 100
+symmetric = true
+accept_cap = 20
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 100 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 1000
