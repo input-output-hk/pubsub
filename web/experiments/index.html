@@ -502,12 +502,20 @@
             22&nbsp;%, and that is the only axis it leads.
           </p>
           <p>
-            The measurements lean to M4, and two things stop us naming it outright. One is a
-            question about operators rather than about the protocol: whether anyone running
-            this layer is limited by the traffic they carry or by the connections they can hold
-            open. The other is ours to close, and we are working on it: the admission
-            parameters that size the gate and the serving cap are measured against M2's wiring,
-            and those results do not carry to M4's symmetric handshake.
+            The measurements lean to M4, and one thing stops us naming it outright: a question
+            about operators rather than about the protocol, namely whether anyone running this
+            layer is limited by the traffic they carry or by the connections they can hold
+            open.
+          </p>
+          <p>
+            The second reason we used to give has gone. The admission parameters that size the
+            gate and the serving cap were measured against M2's wiring, and those results did
+            not carry to M4's symmetric handshake. That seam has since been measured on its
+            own. The acceptance cap becomes an admissions budget that bounds only the links a
+            node did not choose; the adversary keeps a share of every node through that node's
+            own picks, which no cap can reach; and the candidate pool has a floor past which no
+            cap both binds and stays harmless. What is still open there is a closed-form model,
+            not coverage.
           </p>
         </div>
       </details>
