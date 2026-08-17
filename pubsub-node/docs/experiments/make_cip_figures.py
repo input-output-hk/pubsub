@@ -35,6 +35,10 @@ INK_SOFT = "#52514e"
 GRID = "#e2e0d8"
 RULE = "#b9b6ab"
 
+# Reserved strip at the foot of a stamped figure, holding the conditions line
+# and nothing else.
+STAMP_BAND = 26
+
 SUPERS = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
@@ -158,15 +162,22 @@ def frame(w: int, h: int, body: list[str], title: str, desc: str,
     because figures get screenshotted into slides and pasted into chat, where
     a caption does not follow them. Every number in a figure is one slice of
     a parameter space, and the slice should travel with the picture.
+
+    A stamped figure is drawn STAMP_BAND taller than the body asks for, and
+    the stamp sits in that band alone. Placing it inside the body's own last
+    line let a long axis title or legend note run into it from the left,
+    which cost the reader exactly the numbers the stamp exists to carry.
     """
     stamp = ""
+    fh = h
     if conditions:
-        stamp = text(w - 14, h - 10, conditions, 9.5, "#8a887e", "end") + "\n"
+        fh = h + STAMP_BAND
+        stamp = text(w - 14, fh - 11, conditions, 9.5, "#8a887e", "end") + "\n"
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" '
-        f'height="{h}" role="img" aria-labelledby="t d">\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {fh}" width="{w}" '
+        f'height="{fh}" role="img" aria-labelledby="t d">\n'
         f"<title id=\"t\">{esc(title)}</title>\n<desc id=\"d\">{esc(desc)}</desc>\n"
-        f'<rect width="{w}" height="{h}" rx="8" fill="{SURFACE}"/>\n'
+        f'<rect width="{w}" height="{fh}" rx="8" fill="{SURFACE}"/>\n'
         + "\n".join(body) + "\n" + stamp
         + "</svg>\n"
     )
