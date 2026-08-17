@@ -48,6 +48,12 @@ design no longer meets its target against that attacker. This is the direct
 answer to "at what point does the system become vulnerable given a fixed attacker
 budget", and it inverts the usual reading, since here *smaller is worse*.
 
+This is a **reparameterisation, not new mathematics**. Every coverage law
+already takes *μ*; substituting *μ* = *A*/*N* and sweeping *N* reuses the closed
+forms as they stand. The one quantity worth naming is the **critical size**
+*N*\*, the root of p<sub>bad</sub>(*N*, *A*/*N*) = *δ*, below which a design stops
+meeting its target against that attacker.
+
 Controls: *A* (identity count), *δ*, design selection, and the per-design
 parameters already exposed by the compare-designs tool.
 
@@ -79,10 +85,13 @@ cases defined first. The view should therefore present *X* as an explicit,
 user-supplied assumption rather than shipping a default that reads as a
 recommendation.
 
-Open input, needs a decision before build: whether to model a **per-topic**
-deposit, which is what the topic-maintainer self-regulation idea implies, or a
-single global registration deposit. The two give different curves, and the
-on-chain topic registry can express either.
+The companion statement is the one an operator can act on: holding a fraction
+*μ* at size *N* costs the attacker *μ*·*N*·*D*, so **attack cost scales linearly
+in network size**. Growth buys security at a fixed deposit; shrinkage sells it.
+
+A single global registration deposit is assumed. Per-topic deposit sizing set by
+topic maintainers was floated in the session and not pursued, so it is out of
+scope here.
 
 ### View 3: the parameter surface
 
@@ -126,9 +135,20 @@ What is missing is exactly the reframing above:
 | gate floor / pool floor / unmeasured range | no |
 | epoch length | no |
 
-The two shortest paths are to add an *A*-and-*N* mode alongside the existing *μ*
-input, and to surface *B*, *C* and *r*, which the page does not model at all
-today.
+The first two rows are the new page. The rest are the extension to this one,
+which does not model *B*, *C* or *r* at all today.
+
+## Where these live
+
+**Views 1 and 2 belong on a new page**, not in the compare-designs tool. They
+answer a different question — *is my deployment safe at my size and deposit* —
+and they invert the existing framing, since a smaller network is worse here and
+neutral there. None of their inputs (*A*, *X*, *D*) exist on the current page,
+whose radar already carries eight axes with four shown, and whose single
+self-contained file and self-test are worth not destabilising.
+
+**View 3 belongs in the compare-designs tool**, as an extension. Same laws, same
+operating points, same reader.
 
 ## Division of labour
 
@@ -155,15 +175,14 @@ the compare-designs page's existing axes or operating points.
 
 ## Open questions
 
-1. Per-topic or global deposit, per View 2.
-2. What attacker capital *X* to offer as an illustrative default, or whether to
+1. What attacker capital *X* to offer as an illustrative default, or whether to
    ship none and require the reader to supply one.
-3. Whether the views live in the CIP as static generated figures, on the site as
+2. Whether the views ship in the CIP as static generated figures, on the site as
    interactive pages, or both. The session's wording covers both surfaces; static
    figures need a generator in the CIP's existing figure pipeline.
-4. Whether the unmeasured range is drawn with a visual treatment or omitted. It
+3. Whether the unmeasured range is drawn with a visual treatment or omitted. It
    is the range most readers will actually be in, so omitting it may be worse
    than drawing it with an explicit caveat.
-5. Whether View 1 should carry the **hardened backbone / golden channel** variant
+4. Whether View 1 should carry the **hardened backbone / golden channel** variant
    discussed for small-scale use cases such as stake pool notifications, since
    that is precisely the regime where the curves say the open design struggles.
