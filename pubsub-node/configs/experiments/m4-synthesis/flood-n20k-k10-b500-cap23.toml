@@ -1,0 +1,47 @@
+# M4 synthesis flooding anchor: N = 20 000, K = 10, B = 500, admissions
+# budget C = 23, S = 4 000 Sybil flooders (mu = 0.2, the wholesale
+# attack — every admissible pair dialed, uncapped acceptance,
+# silent-relay fan-out; the E19 adversary convention at CIP scale).
+#
+# The E19 race machinery's first measurement at N = 20 000: the
+# recommendation coordinates under full flooding pressure. Predictions
+# (docs/experiments/m4_synthesis_predictions.py
+# `cell 500 23 --k=10 --s=4000` + `capsweep 500 23 --k=10 --s=4000`),
+# per honest victim: routes h(own/mut/adm) = 6.00/2.00/6.00, s(floor/adm)
+# = 2.00/6.00 (own_only_s = 0 under the pair draw); fresh loads honest
+# 6.00 + Sybil 6.00 against C = 23 -> admitted h/s = 5.997/5.997,
+# refused h/s = 0.0025/0.0025 (~80 rejected_over_capacity per run),
+# P(a victim refuses >= 1 honest fresh dial) = 0.0026, rho = 0.00042.
+# Sybil edges ~8.00 (floor 2.00 + admitted 6.00 — the flooder's whole
+# reach is its S/B pool share, divided by the gate), d ~21.99.
+# Invariants: refusals_issued_crossing_* = 0; edges_admitted_* <= 23;
+# total degree <= K + C = 33. Coverage: E18 E_iso = 5.05e-6 plus the
+# composition increment dE_iso = 7.4e-6 at rho = 0.00042 -> P(bad) =
+# 1.25e-5 — predict 400/400 good (expected bad 0.005).
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/flood-n20k-k10-b500-cap23.toml --out results/m4-synthesis/flood-n20k-k10-b500-cap23/ --per-node-detail
+
+model = "m4"
+master_seed = 1140
+
+[population]
+size = 20000
+adversarial = 4000
+topic = "t0"
+
+[strategies.honest]
+pick_count = 10
+bucket_count = 500
+symmetric = true
+accept_cap = 23
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 500 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400
