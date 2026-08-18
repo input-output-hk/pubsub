@@ -303,7 +303,7 @@ def compare(N, S):
          "law; published op-point row"),
         ("M3 gated K=13 s=7 B=769 (r=2 max)",
          sum(m3_isolation(N, 13, 769, S, 7, 769)), 2 * (N - 1) / 769,
-         "derived (forms E10-validated)"),
+         "measured 400/400 (seed 1149)"),
         ("M3 gated K=12 s=8 B=833 (r=2)",
          sum(m3_isolation(N, 12, 833, S, 8, 833)), 2 * (N - 1) / 833,
          "derived"),
