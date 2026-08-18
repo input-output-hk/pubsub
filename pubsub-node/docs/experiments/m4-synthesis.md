@@ -1,9 +1,9 @@
-# The gated + capped M4 recommendation — synthesis (DRAFT)
+# The gated + capped M4 recommendation — synthesis
 
-> DRAFT for maintainer review — branch `experiments-m4-synthesis`,
-> uncommitted until review per convention. All sections complete;
-> eleven pre-registered cells (seeds 1139–1149), every one verified
-> against its frozen registration.
+> Reviewed and committed 2026-08-18. Eleven pre-registered cells
+> (seeds 1139–1149), every one verified against its frozen
+> registration; two coverage lines missed as recorded, corrections
+> documented in §8.
 
 The question: the CIP's M4 finalist runs ungated and uncapped — simple
 to flood. What do the hash gate and the acceptance cap cost and buy at
@@ -12,13 +12,15 @@ parameter set should a gated deployment use? This pass composes the
 measured results of E10 (gated selection fidelity), E12 (flooding under
 the cap, directional), E18 (gated-symmetric coverage), and E19
 (symmetric flooding under the admissions budget) through an
-(N, K)-parameterised prediction ledger, and anchors the answer with six
-pre-registered cells at CIP scale and at the CIP's pick count.
+(N, K)-parameterised prediction ledger, and anchors the answer with
+eleven pre-registered cells at CIP scale and at the CIP's pick count.
 
 ## Provenance
 
-Instrument: `6d0385b` (the E19 instrument — every later commit on the
-E19/synthesis branches is docs/tests/config-only; byte chain in
+Instrument: `6d0385b` (the E19 instrument) plus one detail-only
+instrument commit on this branch, `048457f` (the N-041 publisher slot
+pair — spot-checked byte-identical on all seven baseline sweeps);
+every other commit is configs/docs/python (byte chain in
 `notes/experiments-baselines/`). Ledger:
 [`m4_synthesis_predictions.py`](m4_synthesis_predictions.py) — the
 E18/E19 forms with N and K lifted to parameters; it reproduces the
@@ -72,9 +74,11 @@ economics:
 ## 2. The gate's cost at the CIP's pick count — and the one-pick fix
 
 E18's "coverage-free at r ≳ 3" rule was measured at K = 16, where the
-all-picks-adversarial channel (μ^K ≈ 10⁻¹¹) is invisible. At K = 9 it
-re-enters (0.2⁹ ≈ 5×10⁻⁷ per node, ×16 000 honest nodes), and the rule
-does not transfer — the B ladder at N = 20 000, K = 9 (ledger,
+all-picks-adversarial channel (μ^K ≈ 10⁻¹¹) is invisible. At K = 9 its
+μ^K factor grows to 0.2⁹ ≈ 5×10⁻⁷ — large enough that, multiplied by
+the channel's other arm (no honest member picked me) and the 16 000
+honest nodes, it re-enters the budget (the table's exact form) — and
+the rule does not transfer — the B ladder at N = 20 000, K = 9 (ledger,
 validated by the cells below):
 
 | B | 250 | 400 | 500 | 625 | 740 (r = 3) |
@@ -99,8 +103,10 @@ Geometry in both gated cells matched the ledger to the third decimal
 (routes, the binomial-at-μ class split, refusals ≈ 0 by construction,
 max degree exactly K + C). And the cost columns — extracted from the
 same run rows, in the m4-comparison's own units — show the armor is
-**free on every CIP axis**: the shared-pool geometry deflates realised
-degree enough to cancel the extra pick.
+**free on every CIP axis but one**: the shared-pool geometry deflates
+realised degree enough to cancel the extra pick, and the single
+exception is mean first-receipt latency, ~1 % slower (3.95 vs 3.90
+hops; full-coverage hops equal).
 
 | quantity (the CIP's units) | ungated K = 9 (published) | gated K = 10, B = 500, C = 23 (measured, seed 1139) |
 |---|---|---|
@@ -117,9 +123,10 @@ degree enough to cancel the extra pick.
 fraction, the churn-tolerance.md manner — the method reproduces the
 published ungated 7.43 % at 7.44 %. The gated K = 9 row's churn budget
 is 2.65 %: the reduced-headroom cost restated on the operational
-axis.) The framing for the CIP: **the armor costs nothing on any
-quoted axis — one extra pick buys the gate, the cap, and a slightly
-better tail and churn budget than the point the CIP already chose.**
+axis.) The framing for the CIP: **the armor's total price is ~1 % of
+mean latency — one extra pick buys the gate, the cap, slightly lower
+bandwidth, and a slightly better tail and churn budget than the point
+the CIP already chose.**
 
 ## 3. The flooding anchor: the E19 machinery at CIP scale
 
@@ -147,14 +154,27 @@ defense's economic statement.
 The ledger's `capsweep` walks the whole C ladder from the
 grid-validated race law (the E19 §6 first-order composition form,
 measured at both ends on the E19 branch and re-validated at K = 9 by
-§5). At the recommendation shape (K = 10, B = 500, load ≈ 12):
+§5). At the recommendation shape (K = 10, B = 500, load = 12.0),
+under wholesale flooding:
 
-- C ≤ 16 spends coverage measurably (ΔE_iso ≥ 2×10⁻³);
-- C = 19 (c = 2) still adds ~12× the uncapped law — **the E12 c ≥ 2
-  floor does not transfer to small K**;
-- C = 23 (c ≈ 3.3) is the smallest coverage-neutral cap (composed
-  P(bad) 1.25×10⁻⁵ measured 400/400);
-- C ≥ 28 is inert against the wholesale flooder.
+- C = 16 spends coverage measurably (ΔE_iso = 5.4×10⁻⁴ — two decades
+  over the uncapped law); tighter caps escalate from there;
+- C = 19 (c = 2) composes to 1.02×10⁻⁴ — **landing exactly on the CIP
+  target with zero margin: the E12 c ≥ 2 floor does not transfer to
+  small K**;
+- **C = 23 (c ≈ 3.2)**: composed 1.25×10⁻⁵ — 8× inside the target
+  (measured 400/400, seed 1140) — with the ambient contribution
+  unmeasurable (the parity cell's 25 refusals over 6.4 M victim rows);
+- C = 25 (c ≈ 3.6) is strictly neutral even under attack
+  (ΔE_iso ≤ ⅓ of the law); C ≥ 28 is inert.
+
+The criterion behind "coverage-neutral", pinned: ambient contribution
+below measurement resolution AND the composed under-attack law inside
+the CIP target with material margin. C = 23 is the smallest cap
+meeting that; the §1/§9 headroom floor **c ≈ 3.5 is the stricter
+figure** (ΔE ≪ E even under wholesale attack, C ≈ 25 here) — the
+recommendation's C = 23 trades that last ~2× of composed under-attack
+tail for a tighter admissions bound, and either choice is defensible.
 
 ## 5. The c-floor rehearsal: the composition form at K = 9, measured
 
@@ -169,8 +189,9 @@ to N = 4 000 (K = 9, B = 100, μ = 0.4, λ = 40 — seeds 1142–1144):
 
 The race columns are exact in all three cells (every |z| ≤ 0.5;
 crossings ≡ 0; max degree = K + C exact), so ρ — the form's input —
-is measured precisely as predicted everywhere. The mid-slope coverage
-point ran at ~40 % of the first-order prediction: z = −2.52, inside
+is measured precisely as predicted everywhere. The mid-slope point's
+composition *increment* ran at ~40 % of the first-order prediction
+(the point itself at 58 %): z = −2.52, inside
 the program's |z| ≤ 2.6 convention but outside the Wilson interval,
 and recorded here as a characterized bias rather than noise — **the
 first-order composition form is conservative at mid-slope** (it
@@ -183,9 +204,10 @@ precision law; no CIP-scale c-cell is needed.
 ## 6. The recommendation (both rows measured; the choice is the CIP's)
 
 - **K = 10, B = 500, C = 23** — equal or better than the ungated CIP
-  point on every quoted axis (§2's table: tail, copies, hops, churn
-  budget), plus the flood divisor 500, admissions bounded at 23, and
-  the degree ceiling 33. The extra pick is absorbed by the shared-pool
+  point on every quoted axis except ~1 % of mean latency (§2's table:
+  tail, copies, links, full-coverage hops, and churn budget all equal
+  or better; mean first receipt 3.95 vs 3.90 hops), plus the flood
+  divisor 500, admissions bounded at 23, and the degree ceiling 33. The extra pick is absorbed by the shared-pool
   degree deflation; net bandwidth is slightly *lower* (13.00 vs 13.40
   copies/honest).
 - **K = 9, B = 500, C = 23** — the CIP's own pick count: cheapest
@@ -210,7 +232,8 @@ B = 250 (0.0171 vs measured 0.0193, inside Wilson), the B = 235
 +1-link compensation (0.0076 vs E10's 0.0079, measured 0.0085), the
 r = 1 cliff (4.4× vs E10's ≈ 5×), and both published N = 20 000
 ungated operating points (M2 K = 24 → 7.3×10⁻⁵; M3 K = 12, s = 8 →
-7.8×10⁻⁵). M3's mechanics per the 2026-08-17 alignment: every node
+7.8×10⁻⁵). M3's mechanics, per the fan-out seam itself
+(`strategies/fanout/forward_to_relays.rs`): every node
 holds s−1 seeding picks; own publications ride relay downstream ∪
 seeds (so the mute channel is seed-rescued — the cross-seam product);
 the deaf channel is **not** rescued (seeds carry only the seeder's own
@@ -236,7 +259,7 @@ The ledger's `compare` mode (N = 20 000, μ = 0.2, target ≤ 10⁻⁴):
 | M3 ungated K = 12, s = 8 (op point) | 7.8×10⁻⁵ | open | law; published row |
 | M3 gated K = 13, s = 7, B = 769 (r = 2 max) | 5.8×10⁻⁵ | 52 | measured 400/400 (seed 1149; degree 37.98 vs ~38.0, both seams' geometry on the ledger) |
 | M3 gated K = 12, s = 8, B = 833 (r = 2) | 1.5×10⁻⁴ ✗ | 48 | derived |
-| M3 gated at M4-equal surface (B = 1000) | 1.9×10⁻³ ✗ | 40 | derived; **no pick count meets the target here** |
+| M3 gated at M4-equal surface (B = 1000) | 1.8×10⁻³ ✗ | 40 | derived; **no pick count meets the target here** |
 
 Three structural findings:
 
@@ -253,9 +276,10 @@ Three structural findings:
   picks in bandwidth.
 - **M3 armors two surfaces.** Its publisher seam adds its own contact
   surface 2(N−1)/B_p (seed-intake attacks — a different threat, not
-  summed into the table) and has never been exercised capped (N-41);
-  M4's reciprocity collapses deaf/mute into one channel with one gate,
-  one cap, and the measured budget semantics.
+  summed into the table), measured capped for the first time by §8's
+  cells (N-041), which found the seed-rescue coupling that seam's cap
+  must be sized against; M4's reciprocity collapses deaf/mute into one
+  channel with one gate, one cap, and the measured budget semantics.
 
 **The equal-surface separation, measured.** The one point where both
 curves are testable is attack surface 32, and the pre-registered pair
@@ -264,7 +288,7 @@ measured it:
 
 | cell | registered | measured |
 |---|---|---|
-| gated M3, K = 13, s = 7, both seams B = 1 250 | P(bad) = 0.0431 → 17.2 bad/400; ≥ 99.8 % deaf-class | **17/400 bad (z = −0.06); 17 of 17 deaf-class** (every bad run at min-publisher-coverage 19/20 — one unreachable receiver; zero stranded publishers — mute seed-rescued as predicted); standing degree 37.0 |
+| gated M3, K = 13, s = 7, both seams B = 1 250 | P(bad) = 0.0431 → 17.2 bad/400; ≥ 99.8 % deaf-class | **17/400 bad (z = −0.06); 17 of 17 deaf-class** (every bad run at min-publisher-coverage 19/20 — one or two unreachable receivers, missed_hist {1: 16, 2: 1}; zero stranded publishers — mute seed-rescued as predicted); standing degree 37.0 |
 | gated M4, K = 10, B = 625, C = 23 | 9.7×10⁻⁶ → 400/400 good | **400/400**; d = 16.876 vs 16.87; routes 6.876/3.124/6.876 vs 6.87/3.13/6.87; 13 refusals/6.4 M rows; crossings ≡ 0; max degree 33 = K + C exact |
 
 At identical attack surface, the directional design fails at a
@@ -279,10 +303,11 @@ Verdict for the CIP debate: **under armor, M4's dominance widens, and
 its central mechanism is measured** — the ungated comparison already
 favored M4 on cost; the gated one adds that M3 cannot reach M4's
 attack-cost-per-reliability point at all, with the equal-surface gap
-demonstrated by the cliff pair. Remaining measurement, only if the
-architect wants the recommendation-row chip too: the op-point
-consistency cell (K = 13, B = 769) and the publisher-seam gate/cap
-cell (N-41) — the forms above are their frozen registrations.
+demonstrated by the cliff pair, the best compliant M3 row anchored at
+its own coordinates (seed 1149), and the publisher seam's cap measured
+by §8. Every feasible row of the table above is measured; the two
+infeasible rows are derived from the same forms the cliff pair
+anchored.
 
 ## 8. The publisher seam under its cap: the seed-rescue coupling
 
@@ -295,10 +320,13 @@ reach — the mute-side harm.
 
 - **The race transfers exactly.** Both cells' refusal columns landed
   on their registrations to 0.1 % (seed 1147: 10 223/run vs 10 216;
-  seed 1148: 23 060 vs 23 063), with the per-class splits and the new
-  slot columns on their predicted values (probe and cells alike). The
-  publisher cap-sizing rule is the same fresh-arrival + headroom form
-  with the intake load (s−1)-driven.
+  seed 1148: 23 060 vs 23 063), and the new slot columns folded on
+  their registered values with run-clustered SEs — seed 1147:
+  publisher downstream h/a = 3.5991 ± 0.0019 / 1.1995 ± 0.0008 vs the
+  registered ~3.60/1.20; seed 1148: 1.8320 ± 0.0022 / 2.4010 ± 0.0012
+  vs ~1.83/2.40 (the summariser folds the pair; the summaries preserve
+  them). The publisher cap-sizing rule is the same fresh-arrival +
+  headroom form with the intake load (s−1)-driven.
 - **The registered coverage line missed, and the miss is the
   finding.** Seed 1147 measured 2 mute-class bad runs against a
   registered ~0.01: the class-blind rescue model was wrong because the
@@ -404,7 +432,7 @@ leans on) is the natural hardening step and is listed in §11.
 - **One shape per finding**: the seed-rescue coupling is measured at
   (B_p = 100, C_p ∈ {10}, μ ∈ {0.2, 0.4}); the cliff at surface 32;
   the c-floor at one (B, μ) per K. Functional forms carry the rest.
-- **Out of scope entirely**: small networks (deferred 2026-08-17);
+- **Out of scope entirely**: small networks (deferred);
   retry/rotation and adaptive victims (N-037); the incentive/chain
   layer; view sampling (the E12-derived sizing note stands as
   exploration).
@@ -418,9 +446,8 @@ leans on) is the natural hardening step and is listed in §11.
   + the failure-severity batch, one re-baseline generation, validated
   by the two frozen re-runs (seed 1148 → ~84.8/400; the E19 ordered
   flooder → ≈ 400/400).
-- Program-of-record entry and this branch's PR after E19 (#177)
-  merges; the comparison page's `web/experiments/` port proposed for
-  review.
+- This branch's PR (E19 is merged; the E20 program entry is landed);
+  the comparison page's `web/experiments/` port proposed for review.
 - Decisions this report presents but does not make: K = 10 gated at
   full parity vs K = 9 gated with priced headroom (§2/§6 carry both
   rows measured); the deposit-priced attacker size.

@@ -279,10 +279,12 @@ security trade-off, never derived from local state.
   the (N, K)-parameterised prediction ledger (`m4_synthesis_predictions.py` — the E18/E19 forms
   lifted to parameters, the directional/M3 forms validated against E10 and the published ungated
   op points, B = 1 recovering each ungated law exactly) plus eleven pre-registered cells at CIP
-  scale and at the CIP's pick count (seeds 1139–1149, all on their frozen registrations).
+  scale and at the CIP's pick count (seeds 1139–1149, every one verified against its frozen
+  registration — two coverage lines missed as recorded, the seed-rescue corrections documented).
   Headlines: **gated M4 at K = 10, B = 500, C = 23 is equal-or-better than the ungated CIP op
-  point on every quoted axis** (P(bad) 5.1e-6 vs 6.1e-6, copies/honest 13.00 vs 13.40 — the
-  shared pool absorbs the extra pick, hops at parity, churn budget 7.57 % vs 7.43 %) with flood
+  point on every quoted axis except ~1 % of mean latency** (P(bad) 5.1e-6 vs 6.1e-6,
+  copies/honest 13.00 vs 13.40 — the shared pool absorbs the extra pick, hops 5.00/3.95 vs
+  5.00/3.90, churn budget 7.57 % vs 7.43 %) with flood
   divisor 500 and degree ≤ K + C exact; the cap-headroom floor is K-dependent (c ≈ 3.5 at
   K = 9–10, the three-point composition-curve rehearsal); the gated model comparison under the
   equal-attack-surface normalization (directional 2/B vs the pair draw's 1/B) shows **the pair

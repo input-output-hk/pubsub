@@ -10,9 +10,9 @@ at the gated candidates around it. Reproduction record: at
 (the budget cell 50/800/16 to the fourth decimal; the capsweep rows at
 250/1600 including both measured anchors, C = 3 -> P(bad) 0.1965 and
 C = 12 -> 0.1482); an 8-run live probe at N = 20 000, K = 9, B = 500,
-C = 23 matched d = 20.77 measured vs 20.78 predicted with max degree
-exactly K + C. Forms carried over verbatim, only N/K lifted to
-parameters:
+C = 23 matched the capped-degree prediction d = 20.77 exactly
+(d_uncapped 20.78; the cap barely binds there) with max degree exactly
+K + C. Forms carried over verbatim, only N/K lifted to parameters:
 
   pool          lambda = (N-1)/B; honest part h ~ Bin(H-1, 1/B),
                 Sybil part a ~ Bin(S, 1/B)
@@ -196,13 +196,14 @@ def directional_isolation(N, K, B, S, gate_only=False):
     survivor (no pick count): both channels collapse to the empty-pool
     coin e^(-(1-mu)lambda) — E10's measured gate-only doubling.
 
-    Validation record (E10, measured at N = 4000, K = 16, S = 800):
-    ungated -> 0.0088 (the M2 law); gated picks at r = 2 (B = 125) ->
-    law-exact (measured pooled 0.00872); gate-only at B = 235 -> 0.0078
-    vs E10's prediction 0.0079 and measured 0.0085; gate-only at
-    B = 250 -> 0.0177 vs measured 0.0193 [0.0154, 0.0240] (the 2x
-    doubling). M2 ungated op point N = 20000, K = 24 -> 7.4e-5 (the
-    published <= 1e-4 row)."""
+    Validation record (E10, measured at N = 4000, K = 16, S = 800;
+    the figures below are THIS code's outputs at those points):
+    ungated -> 0.00858 (the M2 law 0.0088); gated picks at r = 2
+    (B = 125) -> 0.00859, law-exact (measured pooled 0.00872);
+    gate-only at B = 235 -> 0.0076 vs E10's prediction 0.0079 and
+    measured 0.0085; gate-only at B = 250 -> 0.0171 vs measured 0.0193
+    [0.0154, 0.0240] (the 2x doubling). M2 ungated op point N = 20000,
+    K = 24 -> 7.26e-5 (the published <= 1e-4 row)."""
     H = N - S
     m_d = 1.0 if gate_only else member_pick_prob(N, K, B)
     e_mute = H * (1 - m_d / B) ** (H - 1)
