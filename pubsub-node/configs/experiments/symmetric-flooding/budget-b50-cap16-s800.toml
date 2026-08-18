@@ -1,0 +1,49 @@
+# Symmetric flooding, admissions-budget contrast cell: B = 50, budget
+# C = 16, S = 800 Sybil flooders (mu = 0.2).
+#
+# The scheme-A contrast twin of a-scan-b50-cap32-s800.toml at equal
+# effective arrival budget (C = C_A − K). RUNS ONLY AT OR AFTER the
+# ADR 0042 cap-semantics commit: `accept_cap` on a symmetric seam must
+# mean the admissions budget (fresh peer arrivals only, crossings
+# exempt, own picks never vetoed) for these predictions to apply.
+#
+# Predictions (docs/experiments/symmetric_flooding_predictions.py
+# `50 800 16 budget`; the fresh-arrival race is the E12 fair-arrival
+# contention model, enumerated exactly). Per honest victim: fresh loads
+# honest 10.24 + Sybil 12.80 against C = 16 -> admitted honest/Sybil =
+# 7.05/8.81, refused honest/Sybil = 3.19/3.99 (~22 960
+# rejected_over_capacity per run), P(a victim refuses >= 1 honest
+# fresh dial) = 0.91. Invariants: refusals_issued_crossing_* ≡ 0 (the
+# budget never vetoes a crossing — the twin's measured veto channel,
+# held at zero); edges_admitted_* <= 16 per node; total degree <= K + C
+# = 32. Columns: mutual_s = 3.20 (the cap-blind own-pick floor K*f),
+# Sybil edges total ~12.01, realised degree ~28.7 (dialer-side echo
+# applied at first order). Coverage: E18 E_iso = 7.9e-13, honest degree
+# ~16.7 post-race — predict 400/400 good.
+#
+# Run manually (per-node detail is the measurement):
+#
+#   experiments --config configs/experiments/symmetric-flooding/budget-b50-cap16-s800.toml --out results/symmetric-flooding/budget-b50-cap16-s800/ --per-node-detail
+
+model = "m4"
+master_seed = 1113
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 50
+symmetric = true
+accept_cap = 16
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 50 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

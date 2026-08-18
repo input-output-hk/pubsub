@@ -15,7 +15,7 @@
 //! consumed and tallied by the driver.
 // 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -25,7 +25,8 @@ use crate::crypto::mock::MockCryptoScheme;
 use crate::crypto::{MessageHash, Signer, Timestamp};
 use crate::event::Event;
 use crate::message::{
-    ConnectionAction, Message, MessagePayload, PlainMessage, PublisherId, SignedMessage,
+    ConnectionAction, HandshakeKind, Message, MessagePayload, PlainMessage, PublisherId,
+    SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::state::{apply, Effect};
@@ -99,7 +100,7 @@ impl KindTally {
 }
 
 /// A node's issued over-capacity refusals, split by the refused
-/// dialer's class.
+/// dialer's class, with the crossing subset attributed alongside.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct RefusalTally {
     /// Refusals issued to honest dialers (each a lost honest link — v1
@@ -107,6 +108,14 @@ pub struct RefusalTally {
     pub honest: u64,
     /// Refusals issued to adversarial dialers.
     pub adversarial: u64,
+    /// The subset of `honest` refusals that were **crossings** — the
+    /// refuser had itself emitted a symmetric dial toward the refused
+    /// dialer, so the refusal killed an edge the refuser's own selection
+    /// wanted (ADR 0042's veto channel; zero on directional
+    /// configurations, where no symmetric dials exist).
+    pub crossing_honest: u64,
+    /// The subset of `adversarial` refusals that were crossings.
+    pub crossing_adversarial: u64,
 }
 
 /// The driver's per-phase observation of one drain.
@@ -135,6 +144,13 @@ pub struct DrainOutcome {
     /// Per-node issued refusals: refusing acceptor → counts split by the
     /// refused dialer's class. Populated by connection drains only.
     pub refusals_issued: BTreeMap<PeerId, RefusalTally>,
+    /// Symmetric-handshake dials observed at emission: dialer → the peers
+    /// it sent symmetric `Request`s to (down targets included — the dial
+    /// was emitted). The drain-time initiation record the direction-erased
+    /// end-state cannot provide (N-040): the per-node detail's route
+    /// attribution and the refusal crossing split read it. Empty on
+    /// directional configurations and for non-connection drains.
+    pub symmetric_dials: BTreeMap<PeerId, BTreeSet<PeerId>>,
 }
 
 /// One publish phase's observation: the published content hash and the
@@ -399,6 +415,19 @@ impl Driver {
         for effect in effects {
             match effect {
                 Effect::Send { to, message } => {
+                    // Drain-time initiation record: a symmetric Request is
+                    // the one moment "who dialed" exists — the constructed
+                    // link erases it (N-040). Recorded before the down
+                    // check: an emitted dial is a dial.
+                    if let Some((HandshakeKind::Symmetric, control)) = message.connection_parts() {
+                        if matches!(control.plain.action, ConnectionAction::Request { .. }) {
+                            outcome
+                                .symmetric_dials
+                                .entry(from.clone())
+                                .or_default()
+                                .insert(to.clone());
+                        }
+                    }
                     let recipient = self
                         .population
                         .participant(&to)
@@ -489,6 +518,14 @@ impl Driver {
                         // A `Rejected` is routed back to its dialer: `to` is
                         // the refused dialer, `from` the refusing acceptor.
                         *outcome.dials_refused.entry(to.clone()).or_default() += 1;
+                        // A crossing: the refuser had itself dialed the
+                        // refused dialer. Sound to read here — every
+                        // symmetric Request is emitted into the initial
+                        // wave, before any Rejected routes.
+                        let crossing = outcome
+                            .symmetric_dials
+                            .get(&from)
+                            .is_some_and(|targets| targets.contains(&to));
                         let refused = outcome.refusals_issued.entry(from.clone()).or_default();
                         match self
                             .population
@@ -496,8 +533,18 @@ impl Driver {
                             .expect("delivery to a population member")
                             .class()
                         {
-                            ParticipantClass::Honest => refused.honest += 1,
-                            ParticipantClass::Adversarial => refused.adversarial += 1,
+                            ParticipantClass::Honest => {
+                                refused.honest += 1;
+                                if crossing {
+                                    refused.crossing_honest += 1;
+                                }
+                            }
+                            ParticipantClass::Adversarial => {
+                                refused.adversarial += 1;
+                                if crossing {
+                                    refused.crossing_adversarial += 1;
+                                }
+                            }
                         }
                     }
                 }
@@ -1009,5 +1056,171 @@ mod tests {
                 "accepted + refused = dialed",
             );
         }
+    }
+
+    // ADR 0042 (N-040): the drain records symmetric dials at emission, and
+    // crossings are exempt from the admissions budget. Three symmetric
+    // ungated no-pick nodes at cap 1: everyone dials everyone, so every
+    // inbound request crosses the acceptor's own dial — nothing spends
+    // budget, nothing is refused, and the full triangle forms. (At the
+    // pre-ADR both-role scan this same fleet lost the rank-1–rank-2 edge
+    // to the crossing veto — the contrast the A cell measured.)
+    #[test]
+    fn symmetric_crossings_are_exempt_and_dials_recorded() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 3,
+            adversarial: 0,
+            honest_strategies: StrategySpec {
+                accept_cap: Some(1),
+                symmetric: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [7u8; 32],
+            classes: [8u8; 32],
+            sampler: [9u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let outcome = driver.establish(SetupMode::Prepopulated);
+
+        // The initiation record is complete: every node dialed both others.
+        assert_eq!(outcome.symmetric_dials.len(), 3);
+        for (dialer, targets) in &outcome.symmetric_dials {
+            assert_eq!(targets.len(), 2);
+            assert!(!targets.contains(dialer));
+        }
+
+        // Every request was a crossing: no refusals, the triangle complete.
+        assert_eq!(outcome.rejected_over_capacity, 0);
+        assert!(outcome.refusals_issued.is_empty());
+        for (_, participant) in driver.population().participants() {
+            assert_eq!(participant.downstream().len(), 2);
+        }
+    }
+
+    // ADR 0043: under the ordered comparison predicate the realised
+    // symmetric edge set is the union of the two directions' draws — an
+    // edge exists iff either end's ordered draw admits the pair (each end
+    // dials its own survivors; the acceptor verifies the dialer's
+    // direction; the handshake constructs reciprocity as always).
+    #[test]
+    fn ordered_symmetric_edges_are_the_directional_union() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 12,
+            adversarial: 0,
+            honest_strategies: StrategySpec {
+                bucket_count: Some(2),
+                symmetric: true,
+                symmetric_ordered: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [13u8; 32],
+            classes: [14u8; 32],
+            sampler: [15u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        driver.establish(SetupMode::Prepopulated);
+
+        let topic = driver.population().topic().clone();
+        let ids: Vec<_> = driver
+            .population()
+            .participants()
+            .map(|(id, _)| id.clone())
+            .collect();
+        let mut checked = 0;
+        for x in &ids {
+            for y in &ids {
+                if x >= y {
+                    continue;
+                }
+                let expected =
+                    crate::strategies::edge::is_valid_edge_sym_ordered(0, &topic, x, y, 2)
+                        || crate::strategies::edge::is_valid_edge_sym_ordered(0, &topic, y, x, 2);
+                let held = driver
+                    .population()
+                    .participant(x)
+                    .expect("member")
+                    .downstream()
+                    .iter()
+                    .any(|(peer, _)| peer == y);
+                assert_eq!(held, expected, "edge {x}–{y}");
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 66, "all pairs checked");
+    }
+
+    // ADR 0042: fresh arrivals spend the admissions budget. Honest nodes
+    // dial nobody (pick count 0) at budget 1; two adversarial flooders dial
+    // every peer. Each honest node receives two FRESH adversarial requests:
+    // the first admits, the second is refused — never as a crossing. The
+    // flooders' own mutual edge is a crossing and forms freely.
+    #[test]
+    fn fresh_arrivals_spend_the_admissions_budget() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 4,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                pick_count: Some(0),
+                accept_cap: Some(1),
+                symmetric: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: StrategySpec {
+                symmetric: true,
+                fanout: FanoutSpec::SilentRelay,
+                ..StrategySpec::open(FanoutSpec::SilentRelay)
+            },
+        };
+        let seeds = PopulationSeeds {
+            keys: [10u8; 32],
+            classes: [11u8; 32],
+            sampler: [12u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let outcome = driver.establish(SetupMode::Prepopulated);
+
+        // One refusal per honest node, all fresh — no crossing is ever
+        // refused under the budget.
+        assert_eq!(outcome.rejected_over_capacity, 2);
+        for (acceptor, tally) in &outcome.refusals_issued {
+            assert_eq!(
+                driver
+                    .population()
+                    .participant(acceptor)
+                    .expect("member")
+                    .class(),
+                ParticipantClass::Honest,
+            );
+            assert_eq!(tally.adversarial, 1);
+            assert_eq!(tally.honest, 0);
+            assert_eq!(tally.crossing_honest + tally.crossing_adversarial, 0);
+        }
+        for (_, participant) in driver.population().participants() {
+            match participant.class() {
+                // Budget 1, no own picks: exactly one admitted edge each.
+                ParticipantClass::Honest => assert_eq!(participant.downstream().len(), 1),
+                // The flooders hold their mutual edge plus whatever the
+                // honest budgets admitted (2 slots between them).
+                ParticipantClass::Adversarial => assert!(!participant.downstream().is_empty()),
+            }
+        }
+        let adversarial_total: usize = driver
+            .population()
+            .participants()
+            .filter(|(_, p)| p.class() == ParticipantClass::Adversarial)
+            .map(|(_, p)| p.downstream().len())
+            .sum();
+        // 2 (the mutual flooder edge, both ends) + 2 (one admitted slot per
+        // honest node).
+        assert_eq!(adversarial_total, 4);
     }
 }

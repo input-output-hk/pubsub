@@ -23,7 +23,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use crate::connection_state::{LinkKey, LinkState};
+use crate::connection_state::{LinkKey, LinkKind, LinkState};
 use crate::peer::PeerId;
 use crate::topic::TopicId;
 
@@ -51,9 +51,27 @@ pub struct NodeView<'a> {
     /// predicate (ADR 0024/0030/0031). Folded from the last `Epoch` event;
     /// stable across `Heartbeat` dial ticks within an epoch.
     pub epoch_nonce: u64,
+    /// Peer-initiated admissions granted this epoch, per (topic, kind) —
+    /// the admissions budget's spent count (ADR 0042). Read through
+    /// [`admitted_count`](Self::admitted_count) by a symmetric acceptance
+    /// instance, whose cap bounds it instead of the link scan (mirrored
+    /// symmetric state counts both roles; the node's own picks are not
+    /// admissions).
+    pub(crate) admitted_counts: &'a BTreeMap<(TopicId, LinkKind), usize>,
 }
 
 impl<'a> NodeView<'a> {
+    /// Peer-initiated admissions granted this epoch for `kind` links on
+    /// `topic` — what a symmetric acceptance instance's cap bounds
+    /// (ADR 0042).
+    #[must_use]
+    pub fn admitted_count(&self, kind: LinkKind, topic: &TopicId) -> usize {
+        self.admitted_counts
+            .get(&(topic.clone(), kind))
+            .copied()
+            .unwrap_or(0)
+    }
+
     /// The candidate peers on `topic`, with the node's own id excluded.
     ///
     /// Iterates in the stored (sorted) order minus the node itself — exactly

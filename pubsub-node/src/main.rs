@@ -5,7 +5,7 @@ use clap::Parser;
 use pubsub_node::{
     selection_seed_bytes, AcceptanceParams, FanoutStrategyKind, InMemoryNetwork,
     InMemorySubscriptionRegistry, InMemoryTopicRegistry, LinkKind, MockCryptoScheme, Node,
-    NodeStrategies, PeerId, SelectionParams, Signer, TestVerifier, Verifier,
+    NodeStrategies, PeerId, SelectionParams, Signer, StrategyConfigError, TestVerifier, Verifier,
 };
 
 /// Minimal Cardano pub/sub node: registers on a shared (single-process)
@@ -161,62 +161,7 @@ async fn main() {
     let signer: Arc<dyn Signer> =
         Arc::new(scheme.signer(scheme.keypair_from_alias(&args.self_id.to_string()).private));
 
-    // Selection-plane construction: per-seam knobs map straight into the param
-    // structs; the acceptance-side bucket count is the post-opt-out gate value
-    // (None when --*-accept-unverified is set), so "verification follows the
-    // seam's bucket count, with an explicit opt-out" is resolved right here at
-    // the edge. The publisher pair goes through the same fallible call.
-    // 017-FR-011 (opt-out at construction), 017-FR-008 (presence activation).
-    let seed_bytes = args.selection_seed.map_or([0u8; 32], selection_seed_bytes);
-    let publisher_active = args.publisher_bucket_count.is_some()
-        || args.publisher_pick_count.is_some()
-        || args.publisher_accept_cap.is_some()
-        || args.publisher_accept_unverified;
-    let strategies = NodeStrategies::new(
-        SelectionParams {
-            self_id: args.self_id.clone(),
-            kind: LinkKind::Relay,
-            symmetric: args.relay_symmetric,
-            bucket_count: args.relay_bucket_count,
-            pick_count: args.relay_pick_count,
-            seed: seed_bytes,
-        },
-        AcceptanceParams {
-            self_id: args.self_id.clone(),
-            kind: LinkKind::Relay,
-            symmetric: args.relay_symmetric,
-            bucket_count: if args.relay_accept_unverified {
-                None
-            } else {
-                args.relay_bucket_count
-            },
-            accept_cap: args.relay_accept_cap,
-        },
-        publisher_active.then(|| {
-            (
-                SelectionParams {
-                    self_id: args.self_id.clone(),
-                    kind: LinkKind::Publisher,
-                    symmetric: false,
-                    bucket_count: args.publisher_bucket_count,
-                    pick_count: args.publisher_pick_count,
-                    seed: seed_bytes,
-                },
-                AcceptanceParams {
-                    self_id: args.self_id.clone(),
-                    kind: LinkKind::Publisher,
-                    symmetric: false,
-                    bucket_count: if args.publisher_accept_unverified {
-                        None
-                    } else {
-                        args.publisher_bucket_count
-                    },
-                    accept_cap: args.publisher_accept_cap,
-                },
-            )
-        }),
-    )
-    .unwrap_or_else(|e| {
+    let strategies = build_strategies(&args).unwrap_or_else(|e| {
         eprintln!("pubsub-node: {e}");
         std::process::exit(2);
     });
@@ -283,6 +228,71 @@ enum FlagError {
 // activation needs a dial knob), 017-FR-014 (seed required iff sampling);
 // spec Clarifications 2026-07-31. The pre-017 symmetric-requires-hash-gated
 // rule is gone: symmetric composes with every plane point.
+/// Selection-plane construction: per-seam knobs map straight into the param
+/// structs; the acceptance-side bucket count is the post-opt-out gate value
+/// (None when `--*-accept-unverified` is set), so "verification follows the
+/// seam's bucket count, with an explicit opt-out" is resolved right here at
+/// the edge. The publisher pair goes through the same fallible call. The
+/// ordered comparison predicate has no CLI knob — it is an
+/// experiments-configuration coordinate only (ADR 0043), so both seams pass
+/// `symmetric_ordered: false`.
+// 017-FR-011 (opt-out at construction), 017-FR-008 (presence activation).
+fn build_strategies(args: &Args) -> Result<NodeStrategies, StrategyConfigError> {
+    let seed_bytes = args.selection_seed.map_or([0u8; 32], selection_seed_bytes);
+    let publisher_active = args.publisher_bucket_count.is_some()
+        || args.publisher_pick_count.is_some()
+        || args.publisher_accept_cap.is_some()
+        || args.publisher_accept_unverified;
+    NodeStrategies::new(
+        SelectionParams {
+            self_id: args.self_id.clone(),
+            kind: LinkKind::Relay,
+            symmetric: args.relay_symmetric,
+            symmetric_ordered: false,
+            bucket_count: args.relay_bucket_count,
+            pick_count: args.relay_pick_count,
+            seed: seed_bytes,
+        },
+        AcceptanceParams {
+            self_id: args.self_id.clone(),
+            kind: LinkKind::Relay,
+            symmetric: args.relay_symmetric,
+            symmetric_ordered: false,
+            bucket_count: if args.relay_accept_unverified {
+                None
+            } else {
+                args.relay_bucket_count
+            },
+            accept_cap: args.relay_accept_cap,
+        },
+        publisher_active.then(|| {
+            (
+                SelectionParams {
+                    self_id: args.self_id.clone(),
+                    kind: LinkKind::Publisher,
+                    symmetric: false,
+                    symmetric_ordered: false,
+                    bucket_count: args.publisher_bucket_count,
+                    pick_count: args.publisher_pick_count,
+                    seed: seed_bytes,
+                },
+                AcceptanceParams {
+                    self_id: args.self_id.clone(),
+                    kind: LinkKind::Publisher,
+                    symmetric: false,
+                    symmetric_ordered: false,
+                    bucket_count: if args.publisher_accept_unverified {
+                        None
+                    } else {
+                        args.publisher_bucket_count
+                    },
+                    accept_cap: args.publisher_accept_cap,
+                },
+            )
+        }),
+    )
+}
+
 fn validate_flag_combinations(args: &Args) -> Result<(), FlagError> {
     if matches!(args.relay_bucket_count, Some(b) if b < 2) {
         return Err(FlagError::BucketCountTooSmall {

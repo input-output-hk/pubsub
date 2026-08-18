@@ -37,6 +37,11 @@ const PUBLISHER_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/publisher-edge/v1";
 /// correlate with the directional predicate.
 const SYM_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge-sym/v1";
 
+/// The ordered symmetric comparison arm's domain (ADR 0043) — an
+/// independent draw from both the directional relay domain and the
+/// unordered symmetric domain.
+const SYM_ORDERED_EDGE_DOMAIN: &[u8] = b"pubsub/bucketed-pull/edge-sym-ordered/v1";
+
 /// The verifiable directional edge predicate: `requester → candidate` on `topic`
 /// under the epoch `nonce` is valid iff `H(nonce, topic, requester, candidate)
 /// mod buckets == 0` (ADR 0024/0031). Pure and public — both peers compute it,
@@ -77,6 +82,33 @@ pub fn is_valid_edge_publisher(
 ) -> bool {
     is_valid_edge_in(
         PUBLISHER_EDGE_DOMAIN,
+        nonce,
+        topic,
+        requester,
+        candidate,
+        buckets,
+    )
+}
+
+/// The **ordered** symmetric comparison predicate (ADR 0043): the
+/// directional draw — `requester → candidate`, initiation-dependent —
+/// under its own dedicated domain, on the symmetric handshake. An edge is
+/// admissible if either direction's draw holds (≈ 2/B total pair
+/// density); the two ends' survivor sets need not agree, and validity is
+/// not a pure function of the pair — the costs N-039 records against this
+/// construction for the protocol. Exists so the E18 §4 pricing of the
+/// rejected alternative is measured rather than derived; selected by the
+/// experiments configuration only, never an operator option.
+#[must_use]
+pub fn is_valid_edge_sym_ordered(
+    nonce: u64,
+    topic: &TopicId,
+    requester: &PeerId,
+    candidate: &PeerId,
+    buckets: usize,
+) -> bool {
+    is_valid_edge_in(
+        SYM_ORDERED_EDGE_DOMAIN,
         nonce,
         topic,
         requester,
@@ -196,6 +228,41 @@ mod tests {
             diverges,
             "the symmetric domain must not mirror the directional one"
         );
+    }
+
+    // ADR 0043: the ordered comparison domain is an independent draw from
+    // BOTH the directional relay domain and the unordered symmetric domain.
+    #[test]
+    fn sym_ordered_domain_is_an_independent_draw() {
+        use super::{is_valid_edge_sym, is_valid_edge_sym_ordered};
+        let t = topic("t1");
+        // Same preimage layout as the directional (a→b) draw and, with
+        // "a" < "b", the same peer order as the symmetric pair — only the
+        // domain tag differs in each comparison.
+        let diverges_from_relay = (0..256u64).any(|nonce| {
+            is_valid_edge(nonce, &t, &peer("a"), &peer("b"), 4)
+                != is_valid_edge_sym_ordered(nonce, &t, &peer("a"), &peer("b"), 4)
+        });
+        let diverges_from_pair = (0..256u64).any(|nonce| {
+            is_valid_edge_sym(nonce, &t, &peer("a"), &peer("b"), 4)
+                != is_valid_edge_sym_ordered(nonce, &t, &peer("a"), &peer("b"), 4)
+        });
+        assert!(diverges_from_relay, "must not mirror the relay domain");
+        assert!(diverges_from_pair, "must not mirror the pair domain");
+    }
+
+    // ADR 0043: the ordered draw is initiation-dependent — the two
+    // directions of some pair must disagree (the property the unordered
+    // pair deliberately lacks, `symmetric_predicate_is_order_independent`).
+    #[test]
+    fn sym_ordered_predicate_is_direction_dependent() {
+        use super::is_valid_edge_sym_ordered;
+        let t = topic("t1");
+        let diverges = (0..256u64).any(|nonce| {
+            is_valid_edge_sym_ordered(nonce, &t, &peer("a"), &peer("b"), 4)
+                != is_valid_edge_sym_ordered(nonce, &t, &peer("b"), &peer("a"), 4)
+        });
+        assert!(diverges, "the ordered draw must depend on direction");
     }
 
     // Over a sweep of nonces the symmetric density also approximates 1/B.

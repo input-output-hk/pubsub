@@ -158,6 +158,12 @@ pub struct StrategyTable {
     /// Default `false` (directional links).
     #[serde(default)]
     pub symmetric: bool,
+    /// Gate a symmetric class with the **ordered** comparison predicate —
+    /// the directional draw under its own domain (ADR 0043's measurement
+    /// arm). Requires `symmetric = true`. Default `false` (the unordered
+    /// pair — the protocol's choice).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub symmetric_ordered: bool,
     /// The publisher-seam coordinates: present = the publisher pair is on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publisher: Option<PublisherTable>,
@@ -221,6 +227,7 @@ impl StrategyTable {
             accept_cap: self.accept_cap,
             accept_unverified: self.accept_unverified,
             symmetric: self.symmetric,
+            symmetric_ordered: self.symmetric_ordered,
             publisher: self.publisher.as_ref().map(|publisher| PublisherSpec {
                 pick_count: publisher.pick_count,
                 bucket_count: publisher.bucket_count,
@@ -1196,6 +1203,29 @@ mod tests {
         assert_eq!(adversarial.accept_cap, None);
         assert!(!adversarial.accept_unverified, "defaults to verifying");
         assert!(!adversarial.symmetric, "defaults to directional");
+    }
+
+    // ADR 0043: the ordered comparison coordinate parses with the
+    // symmetric switch and is rejected without it.
+    #[test]
+    fn symmetric_ordered_requires_the_symmetric_switch() {
+        let with_symmetric = base_toml().replace("\"m2\"", "\"m4\"").replacen(
+            "pick_count = 4",
+            "pick_count = 4\nbucket_count = 3\nsymmetric = true\nsymmetric_ordered = true",
+            1,
+        );
+        let description = parse_sweep_description(&with_symmetric).expect("valid description");
+        assert!(description.honest_strategies.symmetric_ordered);
+        assert!(!description.adversarial_strategies.symmetric_ordered);
+
+        let without_symmetric = base_toml().replacen(
+            "pick_count = 4",
+            "pick_count = 4\nsymmetric_ordered = true",
+            1,
+        );
+        let error = parse_sweep_description(&without_symmetric)
+            .expect_err("ordered without symmetric must be rejected");
+        assert!(error.to_string().contains("requires the symmetric switch"));
     }
 
     #[test]

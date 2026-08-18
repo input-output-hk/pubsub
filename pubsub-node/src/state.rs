@@ -134,6 +134,14 @@ pub(crate) struct NodeState {
     /// `Syncing`; set once by the `Synced` transition, which also establishes
     /// connections. The behavioural mode marker the dial waits on.
     synced: bool,
+    /// Peer-initiated admissions granted this epoch, per (topic, kind) —
+    /// the admissions budget's spent count (ADR 0042). Incremented at the
+    /// symmetric admission fold site only (a directional seam's kind-scoped
+    /// link scan already equals its admitted set); crossings and idempotent
+    /// re-accepts spend nothing; never decremented on severance (the
+    /// direction-erased link set cannot attribute a severed link to a past
+    /// admission); cleared by the `Epoch` fold — the budget is per-epoch.
+    admitted_counts: BTreeMap<(TopicId, LinkKind), usize>,
 }
 
 impl NodeState {
@@ -172,6 +180,7 @@ impl NodeState {
             symmetric_edges: strategies.symmetric_edges,
             seen: HashSet::new(),
             synced: false,
+            admitted_counts: BTreeMap::new(),
         }
     }
 
@@ -185,6 +194,7 @@ impl NodeState {
             upstream: &self.upstream,
             downstream: &self.downstream,
             epoch_nonce: self.epoch_nonce,
+            admitted_counts: &self.admitted_counts,
         }
     }
 
@@ -573,6 +583,8 @@ fn handle_synced(state: &mut NodeState) -> Vec<Effect> {
 /// then dial), narrowing the cross-node verification skew an epoch change opens.
 fn handle_epoch(state: &mut NodeState, nonce: u64) -> Vec<Effect> {
     state.epoch_nonce = nonce;
+    // The admissions budget is per-epoch (ADR 0042): rotation refunds it.
+    state.admitted_counts.clear();
     Vec::new()
 }
 
