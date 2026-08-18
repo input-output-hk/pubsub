@@ -310,6 +310,12 @@ def compare(N, S):
         ("M3 gated K=13 s=7 B=1000 (M4-equal surface)",
          sum(m3_isolation(N, 13, 1000, S, 7, 1000)), 2 * (N - 1) / 1000,
          "derived; no K meets 1e-4 here (pool-limited deaf)"),
+        ("M3 gated K=13 s=7 B=1250 (the cliff pair)",
+         sum(m3_isolation(N, 13, 1250, S, 7, 1250)), 2 * (N - 1) / 1250,
+         "measured 17/400 bad, all deaf-class (seed 1145)"),
+        ("M4 gated K=10 B=625 C=23 (the cliff pair)",
+         e18_isolation(N, 10, 625, S), (N - 1) / 625,
+         "measured 400/400 (seed 1146)"),
     ]
     print(f"N={N} S={S} (mu={S / N:.2f})  target P(bad) <= 1e-4")
     print(f"{'configuration':>44} {'P(bad)':>10} {'surface':>8}  provenance")
