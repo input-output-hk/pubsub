@@ -165,8 +165,9 @@ under wholesale flooding:
 - **C = 23 (c ≈ 3.2)**: composed 1.25×10⁻⁵ — 8× inside the target
   (measured 400/400, seed 1140) — with the ambient contribution
   unmeasurable (the parity cell's 25 refusals over 6.4 M victim rows);
-- C = 25 (c ≈ 3.6) is strictly neutral even under attack
-  (ΔE_iso ≤ ⅓ of the law); C ≥ 28 is inert.
+- C = 25 (the ceiling of the c ≈ 3.5 sizing; exactly c = 3.75) is
+  strictly neutral even under attack (ΔE_iso ≤ ⅓ of the law); C ≥ 28
+  is inert.
 
 The criterion behind "coverage-neutral", pinned: ambient contribution
 below measurement resolution AND the composed under-attack law inside
@@ -207,9 +208,9 @@ precision law; no CIP-scale c-cell is needed.
   point on every quoted axis except ~1 % of mean latency (§2's table:
   tail, copies, links, full-coverage hops, and churn budget all equal
   or better; mean first receipt 3.95 vs 3.90 hops), plus the flood
-  divisor 500, admissions bounded at 23, and the degree ceiling 33. The extra pick is absorbed by the shared-pool
-  degree deflation; net bandwidth is slightly *lower* (13.00 vs 13.40
-  copies/honest).
+  divisor 500, admissions bounded at 23, and the degree ceiling 33.
+  The extra pick is absorbed by the shared-pool degree deflation; net
+  bandwidth is slightly *lower* (13.00 vs 13.40 copies/honest).
 - **K = 9, B = 500, C = 23** — the CIP's own pick count: cheapest
   (11.78 copies/honest measured), headroom reduced 6× (3.6×10⁻⁵) and
   churn budget reduced to 2.65 %, all defense properties equal.
