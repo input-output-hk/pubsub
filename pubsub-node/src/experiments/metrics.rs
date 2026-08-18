@@ -180,7 +180,8 @@ pub struct PerNodeDetail {
     /// every edge into `downstream`, so both roles are counted (≈ 2× the
     /// pick count) — the route columns below split that total by
     /// drain-observed initiation (N-040, ADR 0042). Relay seam only; the
-    /// refusal columns below are kind-agnostic (N-041).
+    /// publisher seam has its own pair below, so the kind-agnostic refusal
+    /// columns reconcile per seam (N-041, completed).
     pub downstream_honest: u64,
     /// Relay-kind downstream entries held to adversarial peers — on a
     /// capped directional acceptor, capacity the adversary consumed. Same
@@ -211,6 +212,15 @@ pub struct PerNodeDetail {
     /// Of `downstream_adversarial`, entries the peer alone dialed. On a
     /// capped acceptor, the adversary's admission-route occupancy.
     pub edges_admitted_adversarial: u64,
+    /// **Publisher-kind** downstream entries held `Active` to honest peers
+    /// — the node's own accepted seeding links (the dialer is the sender
+    /// on this seam, so downstream = the node's seed targets). Completes
+    /// the N-041 accounting: publisher-seam refusals in the kind-agnostic
+    /// refusal columns now have slot columns to reconcile against.
+    pub downstream_publisher_honest: u64,
+    /// Publisher-kind downstream entries held `Active` to adversarial
+    /// peers (N-041).
+    pub downstream_publisher_adversarial: u64,
     /// Routed over-capacity `Rejected` replies this node received for its
     /// own dials in the connection drain (v1 has no retry: each refused
     /// dial is a lost link).
@@ -247,6 +257,30 @@ struct RouteSlots {
     own_only: (u64, u64),
     mutual: (u64, u64),
     admitted: (u64, u64),
+    /// Publisher-kind `Active` downstream, (honest, adversarial) —
+    /// N-041's seam-completing pair, outside the relay route partition.
+    publisher: (u64, u64),
+}
+
+/// A node's `Active` publisher-kind downstream split by the linked peer's
+/// class — N-041's seam-completing pair. Active only: a pending dial is
+/// not yet a link, and only `Active` entries carry traffic.
+fn publisher_slots(participant: &Participant, population: &Population) -> (u64, u64) {
+    let mut split = (0u64, 0u64);
+    for (peer, _, state) in participant.publisher_downstream() {
+        if state != LinkState::Active {
+            continue;
+        }
+        match population
+            .participant(&peer)
+            .expect("linked peer is a population member")
+            .class()
+        {
+            super::population::ParticipantClass::Honest => split.0 += 1,
+            super::population::ParticipantClass::Adversarial => split.1 += 1,
+        }
+    }
+    split
 }
 
 /// Assemble the opt-in per-node dissection table for a run: one row per
@@ -304,6 +338,7 @@ pub fn assemble_per_node_detail(
                     route.1 += 1;
                 }
             }
+            slots.publisher = publisher_slots(participant, population);
             (id, slots)
         })
         .collect();
@@ -342,6 +377,8 @@ pub fn assemble_per_node_detail(
                 edges_mutual_adversarial: slots.mutual.1,
                 edges_admitted_honest: slots.admitted.0,
                 edges_admitted_adversarial: slots.admitted.1,
+                downstream_publisher_honest: slots.publisher.0,
+                downstream_publisher_adversarial: slots.publisher.1,
                 dials_refused: observation.dial.dials_refused.get(id).copied().unwrap_or(0),
                 refusals_issued_honest: refusals.map_or(0, |tally| tally.honest),
                 refusals_issued_adversarial: refusals.map_or(0, |tally| tally.adversarial),
@@ -584,11 +621,16 @@ fn receipts_via_sends(outcome: &DrainOutcome) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{assemble_run_record, MissCauseCounts, RunIdentity};
-    use crate::experiments::driver::{DrainOutcome, Driver, RunObservation};
+    use crate::connection_state::LinkState;
+    use crate::experiments::driver::{DrainOutcome, Driver, RunObservation, SetupMode};
     use crate::experiments::graph::{ChurnPhase, DisseminationModel};
-    use crate::experiments::population::Population;
+    use crate::experiments::population::{
+        FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, PublisherSpec,
+        StrategySpec,
+    };
     use crate::experiments::scripted::{self, peer};
     use crate::peer::PeerId;
+    use crate::topic::TopicId;
 
     fn identity() -> RunIdentity {
         RunIdentity {
@@ -901,6 +943,83 @@ mod tests {
                 r.downstream_honest + r.downstream_adversarial,
             );
         }
+    }
+
+    // N-041 (completed): the detail's publisher pair counts each node's
+    // Active publisher-kind downstream entries split by the linked peer's
+    // class — the seam-completing slot columns the kind-agnostic refusal
+    // columns reconcile against. Verified against a recount of the
+    // participants' own publisher downstream.
+    #[test]
+    fn detail_publisher_columns_count_active_seed_targets_by_class() {
+        use std::str::FromStr;
+        let publisher_pair = Some(PublisherSpec {
+            pick_count: Some(3),
+            bucket_count: None,
+            accept_cap: None,
+            accept_unverified: false,
+        });
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 6,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                pick_count: Some(2),
+                publisher: publisher_pair.clone(),
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: StrategySpec {
+                pick_count: Some(2),
+                publisher: publisher_pair,
+                ..StrategySpec::open(FanoutSpec::SilentRelay)
+            },
+        };
+        let seeds = PopulationSeeds {
+            keys: [21u8; 32],
+            classes: [22u8; 32],
+            sampler: [23u8; 32],
+        };
+        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let dial = driver.establish(SetupMode::Prepopulated);
+        let publisher = driver
+            .population()
+            .participants()
+            .find(|(_, p)| p.class() == ParticipantClass::Honest)
+            .map(|(id, _)| id.clone())
+            .expect("an honest node");
+        let publish = driver.publish_drain(&publisher, 0);
+        let observation = RunObservation {
+            publisher,
+            down: Vec::new(),
+            dial,
+            publishes: vec![publish],
+        };
+        let population = driver.into_population();
+        let post = DisseminationModel::M3.analyze(&population, ChurnPhase::PostChurn);
+        let rows = super::assemble_per_node_detail(&population, &observation, &post);
+
+        let mut nonzero = 0;
+        for row in &rows {
+            let participant = population.participant(&row.node).expect("member");
+            let (mut honest, mut adversarial) = (0u64, 0u64);
+            for (peer, _, state) in participant.publisher_downstream() {
+                if state != LinkState::Active {
+                    continue;
+                }
+                match population.participant(&peer).expect("member").class() {
+                    ParticipantClass::Honest => honest += 1,
+                    ParticipantClass::Adversarial => adversarial += 1,
+                }
+            }
+            assert_eq!(row.downstream_publisher_honest, honest, "node {}", row.node);
+            assert_eq!(
+                row.downstream_publisher_adversarial, adversarial,
+                "node {}",
+                row.node
+            );
+            nonzero += u64::from(honest + adversarial > 0);
+        }
+        assert!(nonzero > 0, "the publisher seam established links");
     }
 
     // A publish record embeds the dial outcome's numbers verbatim.
