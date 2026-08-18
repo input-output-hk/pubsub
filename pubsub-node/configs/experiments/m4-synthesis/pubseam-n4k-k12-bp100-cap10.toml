@@ -1,0 +1,54 @@
+# Publisher-seam gate + cap cell: N = 4 000, relay pick_count 12
+# (ungated, open — the topology carrier), publisher seam gated at
+# B_p = 100 with seed-intake budget C_p = 10, S = 800 publisher-seam
+# flooders (mu = 0.2; publisher table with no pick_count — every
+# admissible seed target dialed; relay side stays a plain silent relay).
+#
+# The first capped publisher-seam experiment (N-041's named surface,
+# run at the commit that lands its detail slot pair): the seed-intake
+# denial attack measured. The seam is INVERTED (the dialer is the
+# sender): the victim's cap governs its publisher UPSTREAM (seed
+# intake), so refusals starve the DIALERS' first-hop reach — the
+# mute-side harm; hearing is untouched (cross-seam independence).
+#
+# Predictions (m4_synthesis_predictions.py primitives; m_p =
+# member_pick_prob(4000, 6, 100) = 0.1500; wave-order race, arrivals
+# only vs C_p, proportional split): intake loads per victim honest
+# 4.80 + flooder 8.00 against C_p = 10 -> admitted h/s = 3.601/6.006,
+# refused h/s = 1.198/1.994 (~10 216 rejected_over_capacity per run),
+# P(>=1 honest seed refused) = 0.730, rho_p = 0.250. The new columns:
+# per honest node downstream_publisher h/a ~ 3.60/1.20 (6 seed picks;
+# honest targets survive at 1-rho_p, flooder targets accept
+# everything); per flooder ~ 24.0/8.0 (32 honest reachable x admitted
+# share 6.006/8, plus all 8 fellow flooders). Identity: sum of flooder
+# downstream_publisher_honest ~ H x admitted_s. Probe at the instrument
+# commit (4 runs, scratch seed): 3.59/1.21, 24.07/7.93, 10 165
+# rejected/run — all on the registration. Coverage: deaf-dominated
+# P(bad) ~ 2.6e-5 -> predict 400/400 good (seed starvation raises the
+# mute term only to ~2.2e-5 at 4.8 effective seeds — the harm is
+# first-hop redundancy, not coverage, per the cross-seam product).
+#
+# Run manually (per-node detail is the measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/pubseam-n4k-k12-bp100-cap10.toml --out results/m4-synthesis/pubseam-n4k-k12-bp100-cap10/ --per-node-detail
+
+model = "m3"
+master_seed = 1147
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 12
+publisher = { pick_count = 6, bucket_count = 100, accept_cap = 10 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 12
+publisher = { bucket_count = 100 } # no pick_count: every admissible seed target dialed
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400
