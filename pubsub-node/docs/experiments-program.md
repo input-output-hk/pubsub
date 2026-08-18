@@ -274,6 +274,26 @@ security trade-off, never derived from local state.
   starvation, not extra occupancy — the unordered pair's dominance is now measured, not argued.
   Instrument notes: two pre-registered race models corrected against measurement (documented),
   and N-042 — the wavefront budget race is class-fair but rank-concentrated dialer-side.
+- **E20 — The M4 synthesis: the gated recommendation and the gated model comparison** [done].
+  Executed and documented in [`docs/experiments/m4-synthesis.md`](experiments/m4-synthesis.md):
+  the (N, K)-parameterised prediction ledger (`m4_synthesis_predictions.py` — the E18/E19 forms
+  lifted to parameters, the directional/M3 forms validated against E10 and the published ungated
+  op points, B = 1 recovering each ungated law exactly) plus eleven pre-registered cells at CIP
+  scale and at the CIP's pick count (seeds 1139–1149, all on their frozen registrations).
+  Headlines: **gated M4 at K = 10, B = 500, C = 23 is equal-or-better than the ungated CIP op
+  point on every quoted axis** (P(bad) 5.1e-6 vs 6.1e-6, copies/honest 13.00 vs 13.40 — the
+  shared pool absorbs the extra pick, hops at parity, churn budget 7.57 % vs 7.43 %) with flood
+  divisor 500 and degree ≤ K + C exact; the cap-headroom floor is K-dependent (c ≈ 3.5 at
+  K = 9–10, the three-point composition-curve rehearsal); the gated model comparison under the
+  equal-attack-surface normalization (directional 2/B vs the pair draw's 1/B) shows **the pair
+  draw runs twice the pool per unit of surface** — no M3 pick count meets the target at M4-equal
+  surface, measured by the equal-surface cliff pair (gated M3 17/400 bad, all deaf-class, vs M4
+  400/400 at surface 32); the first capped publisher-seam cells (N-041 completed) found the
+  **seed-rescue coupling** (a binding seed-intake cap starves exactly the rescuing seeds,
+  f = μ + (1−μ)ρ_p — size C_p to clear the intake load) and fired N-042's trigger (rank
+  dissection recorded; the instrument fix chartered with frozen validation re-runs). Report §9
+  catalogues the gated closed forms with epistemic grades; the formal-team review of them is the
+  named hardening step.
 
 **Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
 bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
@@ -347,6 +367,7 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E17 | Slashing dynamics | 7 | deposit arithmetic | needs detection + rotation |
 | E18 | Gated-symmetric selection (gated M4) | 4 | none published (N-039 boundary) — own two-channel law | **done** (gated-symmetric) |
 | E19 | Symmetric flooding under the admissions budget (+ ordered arm) | 4 | own race law + E18 §4 pricing | **done** (symmetric-flooding) |
+| E20 | M4 synthesis: the gated recommendation + gated model comparison | 4 | the (N, K)-parameterised ledger (E10/E18/E19 forms; B = 1 = the ungated laws) | **done** (m4-synthesis) |
 
 Reading the table: the confirmation experiments validate closed forms at finite N and for the
 topology the protocol actually builds; E11 and E13–E15 are where the framework is the primary
