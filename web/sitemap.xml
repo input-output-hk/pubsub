@@ -21,6 +21,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://pubsub.cardano-scaling.org/experiments/parameters/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://pubsub.cardano-scaling.org/slides/midyear-2026.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
