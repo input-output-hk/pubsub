@@ -281,3 +281,23 @@ footer p {
   content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
   background: var(--iog-infared);
 }
+
+
+/* ---- glossary tooltips ----
+   A term carries a dashed underline and opens one floating definition box.
+   Three ways in, deliberately: hover for a mouse, focus for the keyboard (every
+   term is given a tabindex), and tap for touch, where there is no hover at all.
+   The tool pages inline this same block; keeping it here lets any page opt in
+   by adding the #tip element and the small engine that drives it. */
+.term { border-bottom: 1px dashed var(--line-strong); cursor: help; }
+.term:hover, .term[aria-expanded="true"] { border-bottom-color: var(--iog-infared); color: var(--iog-infared); }
+summary .term, .hint .term, figcaption .term { border-bottom-style: dotted; }
+#tip { position: fixed; pointer-events: none; background: var(--card-fill);
+       border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
+       color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; z-index: 60;
+       max-width: min(340px, calc(100vw - 24px)); font-size: 0.82rem; line-height: 1.5; }
+/* No text-transform on the key: it would turn the Greek letters into their capitals. */
+#tip .tip-key { font-family: var(--font-mono, monospace); font-size: 0.7rem; font-weight: 600;
+                letter-spacing: 0.12em; color: var(--iog-infared);
+                display: block; margin-bottom: 5px; text-transform: none; }
+#tip b { font-weight: 600; }
