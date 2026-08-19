@@ -805,9 +805,6 @@ def fig_gate_tradeoff(g) -> str:
     # the region where the gate leaves enough eligible peers for the pick count
     b.append(f'<rect x="{ml:.1f}" y="{top:.1f}" width="{X(rec["B"]) - ml:.1f}" '
              f'height="{ph1 + (bot - top - ph1) + ph2:.1f}" fill="#1e8f5e" opacity="0.045"/>')
-    b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
-    b.append(text(ml + 8, top + 30, "the gate still leaves each node at least twice the "
-                  "eligible peers it must pick from", 9.5, "#8a887e"))
 
     for c in cells:
         b.append(line(X(c["B"]), top, X(c["B"]), bot + ph2, GRID, 1))
@@ -819,6 +816,11 @@ def fig_gate_tradeoff(g) -> str:
     for v in (0, 5, 10, 20):
         b.append(line(ml, Y2(v), ml + pw, Y2(v), GRID, 1))
         b.append(text(ml - 10, Y2(v) + 4, v, 10.5, INK_SOFT, "end"))
+
+    # after the gridlines, so they are not painted over
+    b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
+    b.append(text(ml + 8, top + 30, "the gate still leaves each node at least twice the "
+                  "eligible peers it must pick from", 9.5, "#8a887e"))
 
     lawy = Y1(g["law"])
     b.append(line(ml, lawy, ml + pw, lawy, "#52514e", 1.4, dash="5 4"))
@@ -961,7 +963,7 @@ def fig_bucket_bounds(g) -> str:
     arrives at. The headroom floor alone was the rule earlier drafts carried,
     and above a few thousand participants it stops meeting the target at all.
     """
-    W, H = 860, 440
+    W, H = 860, 456
     ml, mr = 92, 190
     top, ph = 46, 300
     pw = W - ml - mr
@@ -982,8 +984,7 @@ def fig_bucket_bounds(g) -> str:
     b = []
     # the region that misses the target, named once rather than per curve
     b.append(f'<rect x="{ml}" y="{top}" width="{pw}" height="{Y(delta) - top:.1f}" '
-             f'fill="#b03a36" fill-opacity="0.05"/>')
-    b.append(text(ml + 10, top + 16, "misses the target", 10.5, "#b03a36"))
+             f'fill="#b23b3b" fill-opacity="0.05"/>')
 
     for e in range(-5, 0):
         v = 10.0 ** e
@@ -993,15 +994,25 @@ def fig_bucket_bounds(g) -> str:
         b.append(line(X(v), top, X(v), top + ph, GRID))
         b.append(text(X(v), top + ph + 18, f"{v:,}".replace(",", "\u2009"), 10.5,
                       INK_SOFT, "middle"))
+
+    # after the gridlines, for the same reason
+    b.append(text(ml + 10, top + 16, "misses the target", 10.5, "#b23b3b"))
     b.append(line(ml, top + ph, ml + pw, top + ph, RULE, 1.2))
-    b.append(text(ml + pw / 2, top + ph + 38, "participants on the topic, N", 11.5,
-                  INK_SOFT, "middle"))
-    b.append(f'<text x="26" y="{top + ph / 2:.0f}" transform="rotate(-90 26 '
-             f'{top + ph / 2:.0f})" text-anchor="middle" font-size="11.5" '
-             f'fill="{INK_SOFT}">failure probability per epoch</text>')
+    b.append(text(ml + pw / 2, top + ph + 40, "participants on the topic, N_{T}",
+                  12.5, INK, "middle", "600"))
+    b.append(text(ml + pw / 2, top + ph + 56,
+                  "log scale, each gridline \u00d710", 11, INK_SOFT, "middle"))
+    b.append(f'<text x="0" y="0" transform="translate(24,{top + ph / 2:.1f}) rotate(-90)" '
+             f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
+             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" '
+             f'xml:space="preserve">{runs("p_{bad} per epoch")}</text>')
+    b.append(f'<text x="0" y="0" transform="translate(39,{top + ph / 2:.1f}) rotate(-90)" '
+             f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
+             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
+             f'lower is better</text>')
 
     # the target itself
-    b.append(line(ml, Y(delta), ml + pw, Y(delta), "#b03a36", 1.6, dash="5 4"))
+    b.append(line(ml, Y(delta), ml + pw, Y(delta), "#b23b3b", 1.6, dash="5 4"))
 
     def path(key, colour, width, dash=None):
         pts = " ".join(f"{'M' if i == 0 else 'L'}{X(c['n']):.1f} {Y(c[key]):.1f}"
@@ -1035,7 +1046,7 @@ def fig_bucket_bounds(g) -> str:
     key(SERIES["M5"], "the rule", "smallest of the three bounds")
     key(SERIES["M1"], "headroom alone", "the retired one-line rule")
     b.append(f'<line x1="{lx}" y1="{ly}" x2="{lx + 20}" y2="{ly}" '
-             f'stroke="#b03a36" stroke-width="1.6" stroke-dasharray="5 4"/>')
+             f'stroke="#b23b3b" stroke-width="1.6" stroke-dasharray="5 4"/>')
     b.append(text(lx + 26, ly + 4, "target \u03b4", 10.5, INK))
     ly += 24
     b.append(text(lx, ly + 4, "solid: k = 10 (specified)", 9.5, INK_SOFT))

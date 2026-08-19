@@ -1,9 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 466" width="860" height="466" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 482" width="860" height="482" role="img" aria-labelledby="t d">
 <title id="t">What each bucket-count rule delivers, against topic size</title>
 <desc id="d">The failure probability reached by two ways of sizing the bucket count. Taking the smallest of the three bounds the Specification states holds the failure probability at the target across the whole range. Reading only the selection-headroom floor, as earlier drafts did, misses the target above a few thousand participants, and at twenty thousand participants with nine picks it misses it by roughly two orders of magnitude.</desc>
-<rect width="860" height="466" rx="8" fill="#fcfcfb"/>
-<rect x="92" y="46" width="578" height="225.0" fill="#b03a36" fill-opacity="0.05"/>
-<text x="102.0" y="62.0" font-size="10.5" fill="#b03a36" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">misses the target</text>
+<rect width="860" height="482" rx="8" fill="#fcfcfb"/>
+<rect x="92" y="46" width="578" height="225.0" fill="#b23b3b" fill-opacity="0.05"/>
 <line x1="92.0" y1="346.0" x2="670.0" y2="346.0" stroke="#e2e0d8" stroke-width="1.0"/>
 <text x="82.0" y="350.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">10⁻⁵</text>
 <line x1="92.0" y1="271.0" x2="670.0" y2="271.0" stroke="#e2e0d8" stroke-width="1.0"/>
@@ -26,10 +25,13 @@
 <text x="534.6" y="364.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">20 000</text>
 <line x1="670.0" y1="46.0" x2="670.0" y2="346.0" stroke="#e2e0d8" stroke-width="1.0"/>
 <text x="670.0" y="364.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">50 000</text>
+<text x="102.0" y="62.0" font-size="10.5" fill="#b23b3b" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">misses the target</text>
 <line x1="92.0" y1="346.0" x2="670.0" y2="346.0" stroke="#b9b6ab" stroke-width="1.2"/>
-<text x="381.0" y="384.0" font-size="11.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">participants on the topic, N</text>
-<text x="26" y="196" transform="rotate(-90 26 196)" text-anchor="middle" font-size="11.5" fill="#52514e">failure probability per epoch</text>
-<line x1="92.0" y1="271.0" x2="670.0" y2="271.0" stroke="#b03a36" stroke-width="1.6" stroke-dasharray="5 4"/>
+<text x="381.0" y="386.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600" xml:space="preserve">participants on the topic, N<tspan font-size="0.72em" dy="0.26em">T</tspan></text>
+<text x="381.0" y="402.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">log scale, each gridline ×10</text>
+<text x="0" y="0" transform="translate(24,196.0) rotate(-90)" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" xml:space="preserve">p<tspan font-size="0.72em" dy="0.26em">bad</tspan><tspan dy="-0.26em"> per epoch</tspan></text>
+<text x="0" y="0" transform="translate(39,196.0) rotate(-90)" text-anchor="middle" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">lower is better</text>
+<line x1="92.0" y1="271.0" x2="670.0" y2="271.0" stroke="#b23b3b" stroke-width="1.6" stroke-dasharray="5 4"/>
 <path d="M92.0 229.5 L141.7 217.4 L194.4 200.8 L244.1 190.5 L296.8 177.3 L346.5 165.8 L399.2 154.3 L446.3 143.4 L481.9 135.9 L510.6 129.3 L534.6 123.8 L567.6 116.8 L594.5 110.8 L621.5 104.9 L647.7 99.1 L670.0 94.2" fill="none" stroke="#2a78d6" stroke-width="1.6" stroke-dasharray="5 4" stroke-linejoin="round"/>
 <path d="M92.0 288.7 L141.7 273.3 L194.4 258.4 L244.1 245.3 L296.8 232.0 L346.5 220.0 L399.2 207.6 L446.3 196.7 L481.9 188.6 L510.6 182.1 L534.6 176.6 L567.6 169.2 L594.5 163.2 L621.5 157.2 L647.7 151.4 L670.0 146.4" fill="none" stroke="#2a78d6" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M92.0 274.7 L141.7 276.1 L194.4 273.6 L244.1 272.0 L296.8 272.9 L346.5 272.3 L399.2 271.1 L446.3 271.0 L481.9 271.2 L510.6 271.1 L534.6 271.0 L567.6 271.0 L594.5 271.0 L621.5 271.0 L647.7 271.0 L670.0 271.0" fill="none" stroke="#e87ba4" stroke-width="1.6" stroke-dasharray="5 4" stroke-linejoin="round"/>
@@ -43,11 +45,11 @@
 <line x1="688" y1="97" x2="708" y2="97" stroke="#2a78d6" stroke-width="2.2"/>
 <text x="714.0" y="101.0" font-size="10.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">headroom alone</text>
 <text x="688.0" y="116.0" font-size="9.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">the retired one-line rule</text>
-<line x1="688" y1="138" x2="708" y2="138" stroke="#b03a36" stroke-width="1.6" stroke-dasharray="5 4"/>
+<line x1="688" y1="138" x2="708" y2="138" stroke="#b23b3b" stroke-width="1.6" stroke-dasharray="5 4"/>
 <text x="714.0" y="142.0" font-size="10.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">target δ</text>
 <text x="688.0" y="166.0" font-size="9.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">solid: k = 10 (specified)</text>
 <text x="688.0" y="179.0" font-size="9.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">dashed: k = 9</text>
 <text x="522.6" y="112.8" font-size="10.5" fill="#2a78d6" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">9.2 × 10⁻³ at k = 9</text>
 <text x="522.6" y="126.8" font-size="9.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">ninety-two times the target</text>
-<text x="846.0" y="455.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">μ = 0.2, δ = 10⁻⁴, gated M4 laws</text>
+<text x="846.0" y="471.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">μ = 0.2, δ = 10⁻⁴, gated M4 laws</text>
 </svg>
