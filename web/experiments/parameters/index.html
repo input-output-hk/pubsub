@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parameter surface — what your size and your attacker imply · Cardano PubSub</title>
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/parameters/">
+<meta name="description" content="An attacker buys identities, not a percentage. Fix its budget, move the network size, and see the gate width, the admissions budget and the pick count that follow — and where the design stops meeting its target.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="Parameter surface — what your size and your attacker imply">
+<meta property="og:description" content="An attacker buys identities, not a percentage. Fix its budget, move the network size, and see the parameters that follow.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/parameters/">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Parameter surface — what your size and your attacker imply">
+<meta name="twitter:description" content="An attacker buys identities, not a percentage. Fix its budget, move the network size, and see the parameters that follow.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../../assets/favicon.ico">
+<style>
+  /* Chrome tokens, navbar, section furniture and footer are web/shared.css verbatim,
+     inlined because this page has to work as a single file from file:// — no
+     stylesheet, no webfont, no script fetched. The system stack stands in for
+     Barlow / JetBrains Mono where they are not already installed. The m1..m5 series
+     colours stay as they were: CVD-validated as a set, and the one palette the IOG
+     brand hues cannot replace. */
+  :root {
+    color-scheme: light;
+    /* IOG brand palette — identical in every theme */
+    --iog-infared: #E52321; --iog-ember-orange: #FF532C; --iog-cobalt-pulse: #2C4FFA;
+
+    /* web/shared.css light theme, verbatim */
+    --bg: #FFFFFF; --bg-soft: #FAFAFA; --bg-alt: #F4F4F2; --bg-code: #F4F4F2;
+    --line: rgba(0,0,0,0.10); --line-strong: rgba(0,0,0,0.22);
+    --text: #0A0A0A; --text-mute: #4A4A4A; --text-faint: #888888;
+    --card-fill: #FFFFFF; --card-soft-fill: #FAFAFA; --card-stroke-faint: #E0E0E0;
+    --card-stroke: #0A0A0A; --card-stroke-soft: #888888;
+    --good: #00994A; --good-soft: #E2F5EB; --bad: #E52321; --bad-soft: #FCEAE9;
+    --warn: #A88200; --warn-soft: #FBF1CC; --info: #2C4FFA; --info-soft: #E7EBFE;
+    --accent: #E52321;
+    --nav-height: 65px;
+    /* The mark's own artwork colours, which the wordmark draws from. */
+    --mark-in: rgba(216, 44, 2, 0.7); --mark-out: #1D1D1B;
+    /* The m1..m5 series colours stay as they were — CVD-validated as a set, and the
+       one palette the brand hues cannot replace. */
+    --m1: #2a78d6; --m2: #eb6834; --m3: #1baf7a; --m4: #eda100; --m5: #e87ba4;
+    /* Barlow / JetBrains Mono are webfonts on the deployed site; no network here,
+       so the system stack behind them carries the local preview. */
+    --font-display: 'Barlow', 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
+    --font-body: var(--font-display);
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, ui-monospace, monospace;
+    --font: var(--font-body); --mono: var(--font-mono);
+
+    /* Aliases: the chart code speaks in ink/grid/axis names, the chrome in the
+       site's token names, and both resolve to the same theme values. */
+    --page: var(--bg); --page-soft: var(--bg-soft);
+    --surface: var(--card-fill); --surface-soft: var(--card-soft-fill);
+    --ink: var(--text); --ink-2: var(--text-mute); --ink-mute: var(--text-faint);
+    --grid: var(--card-stroke-faint); --axis: var(--line-strong); --ring: var(--line);
+    --crit: var(--bad); --crit-soft: var(--bad-soft);
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --mark-in: rgba(226, 52, 10, 0.82); --mark-out: #FFFFFF;
+    --bg: #0A0A0A; --bg-soft: #121212; --bg-alt: #181818; --bg-code: #1A1A1A;
+    --line: rgba(255,255,255,0.10); --line-strong: rgba(255,255,255,0.22);
+    --text: #F4F4F2; --text-mute: #B5B5B5; --text-faint: #7A7A7A;
+    --card-fill: #181818; --card-soft-fill: #121212; --card-stroke-faint: #2A2A2A;
+    --card-stroke: #F4F4F2; --card-stroke-soft: #7A7A7A;
+    --good: #06FF89; --good-soft: #0C2A1C; --bad: #FF5653; --bad-soft: #2A0C0B;
+    --warn: #F2FF58; --warn-soft: #2B2A0B; --info: #8FA3FF; --info-soft: #0E1638;
+    --m1: #3987e5; --m2: #d95926; --m3: #199e70; --m4: #c98500; --m5: #d55181;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  sub, sup { line-height: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body);
+         font-size: 16px; line-height: 1.6; min-height: 100vh;
+         display: flex; flex-direction: column; -webkit-font-smoothing: antialiased;
+         transition: background .2s ease, color .2s ease; }
+  main { flex: 1; }
+  /* Logo swap: POS artwork on light, NEG on dark — shared.css behaviour. */
+  .logo-light { display: block; }
+  .logo-dark { display: none; }
+  html[data-theme="dark"] .logo-light { display: none; }
+  html[data-theme="dark"] .logo-dark { display: block; }
+
+  /* ---- navbar (web/shared.css + web/experiments/index.html, verbatim behaviour) ---- */
+  .navbar { display: flex; align-items: center; justify-content: space-between; gap: 24px;
+            padding: 14px clamp(24px, 5vw, 80px); border-bottom: 1px solid var(--line);
+            background: var(--bg); font-family: var(--mono); font-size: 0.78rem;
+            letter-spacing: 0.06em; position: sticky; top: 0; z-index: 40; }
+  .navbar-brand { font-family: var(--mono); font-size: 0.78rem; text-transform: uppercase;
+                  letter-spacing: 0.14em; color: var(--text); text-decoration: none;
+                  font-weight: 700; white-space: nowrap; transition: color .12s ease; }
+  .navbar-brand:hover { color: var(--iog-infared); }
+  /* Brand lockup: the two halves of the Input Output mark flank the name, each word
+     taking the colour of the half beside it (shared.css). */
+  .navbar-brand { display: inline-flex; align-items: center; gap: 9px; }
+  .brand-half { height: 21px; width: auto; flex-shrink: 0; }
+  .brand-name { letter-spacing: 0.14em; color: var(--mark-out); }
+  .brand-scope { color: var(--mark-in); font-weight: 500; margin-right: 0.5em; }
+  .navbar-brand:hover .brand-scope { color: rgba(216, 44, 2, 1); }
+  .navbar-links { display: flex; gap: clamp(14px, 2.5vw, 28px); flex-wrap: wrap; justify-content: flex-end; }
+  .navbar-links a { color: var(--text-mute); text-decoration: none; text-transform: uppercase;
+                    letter-spacing: 0.12em; font-weight: 600; padding: 4px 0; position: relative;
+                    transition: color .12s ease; }
+  .navbar-links a:hover, .navbar-links a.active { color: var(--iog-infared); }
+  .navbar-links a.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2px;
+                                  height: 2px; background: var(--iog-infared); }
+  .navbar-icons { display: flex; align-items: center; gap: 10px; }
+  .nav-icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line-strong);
+                  background: var(--bg); color: var(--text); cursor: pointer; display: flex;
+                  align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0;
+                  padding: 0; transition: border-color .15s ease, color .15s ease; }
+  .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
+  .nav-icon-btn .icon-sun { display: none; }
+  html[data-theme="dark"] .nav-icon-btn .icon-sun { display: block; }
+  html[data-theme="dark"] .nav-icon-btn .icon-moon { display: none; }
+  .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
+  .nav-menu-btn { display: none; }
+  .nav-menu-btn .icon-close { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-burger { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
+  @media (max-width: 1040px) {
+    .nav-menu-btn { display: flex; }
+    .nav-collapse { display: none; position: absolute; top: 100%; left: 0; right: 0;
+                    flex-direction: column; align-items: stretch; gap: 0; background: var(--bg);
+                    border-bottom: 1px solid var(--line); padding: 4px clamp(24px, 5vw, 80px) 18px; z-index: 10; }
+    .navbar.menu-open .nav-collapse { display: flex; }
+    .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
+    .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .navbar-icons { padding-top: 16px; }
+  }
+  @media (max-width: 560px) { .navbar-brand .brand-name { font-size: 0.72rem; } }
+
+  /* ---- section furniture (web/shared.css + the landing page's rhythm) ---- */
+  .container { max-width: clamp(820px, 76vw, 1280px); margin: 0 auto;
+               padding: 0 clamp(24px, 5vw, 80px); width: 100%; }
+  .section-kind { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+                  letter-spacing: 0.16em; color: var(--iog-infared); font-weight: 600; margin-bottom: 14px; }
+  section.page-head { padding: 56px 0 8px; }
+  .page-head h1 { font-family: var(--font-display); font-size: clamp(1.9rem, 4vw, 3rem);
+                  font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 18px; }
+  .page-head .lede { color: var(--text-mute); max-width: 74ch; }
+  section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+  main > section:nth-of-type(even) { background: var(--bg-soft); }
+  .section-head { margin-bottom: 32px; }
+  .section-head h2 { font-family: var(--font-display); font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+                     font-weight: 600; letter-spacing: -0.02em; }
+  .section-head p { color: var(--text-mute); max-width: 68ch; margin-top: 10px; font-size: 0.95rem; }
+
+  /* ---- footer (web/shared.css) ---- */
+  footer { border-top: 1px solid var(--line); padding: 30px 0 36px; margin-top: 40px; }
+  .footer-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 28px; padding-bottom: 30px; }
+  .footer-col { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+  .footer-col-title { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                      text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared);
+                      margin-bottom: 2px; }
+  .footer-col a { font-size: 0.9rem; color: var(--text-mute); text-decoration: none;
+                  transition: color .12s ease; }
+  .footer-col a:hover { color: var(--iog-infared); }
+  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px;
+                flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
+  .footer-brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-mono);
+                  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
+  .footer-credit { display: inline-flex; align-items: center; gap: 10px; }
+  .footer-wordmark { height: 13px; width: auto; }
+  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+             letter-spacing: 0.06em; }
+
+  button { font-family: var(--font-body); font-size: 0.82rem; color: var(--text); background: var(--bg);
+           border: 1px solid var(--line-strong); border-radius: 4px; padding: 6px 10px; cursor: pointer;
+           transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  button:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .ctl-btn { font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.06em;
+             text-transform: uppercase; padding: 9px 14px; border-radius: 4px; background: transparent; }
+
+  /* ---- environment rail — three values, no panel ---- */
+  .env-rail { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px;
+              padding: 12px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .env-item { display: flex; align-items: center; gap: 10px; flex: 1 1 230px; min-width: 0; }
+  /* The symbol is the handle; the name is for whoever does not have it yet. */
+  .env-name { font-size: 0.72rem; color: var(--text-faint);
+              white-space: nowrap; letter-spacing: 0.01em; }
+  @media (max-width: 620px) { .env-name { display: none; } }
+  /* Symbol and name are one term: the symbol carries it, the name explains it,
+     and hovering either opens the same definition. */
+  .env-item .env-key { display: inline-flex; align-items: baseline; gap: 7px; flex: none; }
+  .env-sym { font-family: var(--mono); font-size: 1.05rem; font-weight: 700;
+             color: var(--text); line-height: 1; }
+  .env-item input[type=range] { flex: 1 1 auto; min-width: 70px; }
+  .env-item .env-val { font-family: var(--mono); font-size: 0.76rem; color: var(--text-mute);
+                       font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
+                       min-width: 8ch; text-align: right; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .xselect { position: relative; flex: none; }
+  .xselect-btn {
+    font-family: var(--font-mono); font-size: 0.86rem; font-weight: 600; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 6px 30px 6px 10px; cursor: pointer; line-height: 1.2;
+    transition: border-color .12s ease;
+  }
+  .xselect-btn::after {
+    content: ''; position: absolute; right: 11px; top: 50%; width: 6px; height: 6px;
+    border-right: 1.6px solid var(--text-mute); border-bottom: 1.6px solid var(--text-mute);
+    transform: translateY(-70%) rotate(45deg); transition: transform .16s ease;
+  }
+  .xselect-btn:hover { border-color: var(--text-mute); }
+  .xselect[data-open="true"] .xselect-btn::after { transform: translateY(-30%) rotate(-135deg); }
+  .xselect-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; margin: 0;
+    padding: 5px; list-style: none; z-index: 40;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 8px 26px rgba(0,0,0,0.12);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .13s ease, transform .13s ease, visibility .13s;
+  }
+  .xselect[data-open="true"] .xselect-menu { opacity: 1; visibility: visible; transform: none; }
+  .xselect-menu li {
+    font-family: var(--font-mono); font-size: 0.86rem; color: var(--text-mute);
+    padding: 7px 12px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .xselect-menu li:hover, .xselect-menu li.is-active { background: var(--bg-alt); color: var(--text); }
+  .xselect-menu li[aria-selected="true"] { color: var(--iog-infared); font-weight: 600; }
+
+  .env-rail .env-reset { flex: none; margin-left: auto; }
+
+  /* ---- tab strips — the experiments page's .model-tab, reused ---- */
+  .tab-strip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tab-strip + .tab-strip { margin-top: 10px; }
+  .strip-label { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                 letter-spacing: 0.14em; color: var(--text-faint); font-weight: 600;
+                 margin-right: 4px; flex: none; }
+  .model-tab { font-family: var(--mono); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
+               padding: 9px 16px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line-strong);
+               background: transparent; color: var(--text-mute);
+               transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .model-tab[aria-pressed="true"] { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
+
+  /* Design tabs carry their own series colour instead of the infrared accent. */
+  .design-tab { display: inline-flex; align-items: center; gap: 8px; }
+  .design-tab .chip { width: 10px; height: 10px; border-radius: 2px; background: var(--mc); flex: none;
+                      opacity: .35; transition: opacity .15s ease; }
+  .design-tab:hover { border-color: var(--mc); color: var(--mc); }
+  .design-tab[aria-pressed="true"] { border-color: var(--mc); color: var(--mc); background: transparent; }
+  .design-tab[aria-pressed="true"] .chip { opacity: 1; }
+  .design-tab .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); }
+  .design-tab .dot.pass { background: var(--good); }
+  .design-tab .dot.fail { background: var(--bad); }
+
+  /* ---- stage — canvas + readout, the experiments page's two-column stage ---- */
+  .stage { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
+           gap: 24px; align-items: start; margin-top: 22px; }
+  .stage-canvas, .side-card { border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+                              background: var(--card-fill); padding: 20px 22px 16px; min-width: 0; }
+  .side-card h3 { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                  letter-spacing: 0.14em; color: var(--text-faint); font-weight: 600; margin-bottom: 12px; }
+  .read-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px;
+              align-items: center; padding: 9px 0; border-top: 1px solid var(--card-stroke-faint); }
+  .read-row:first-of-type { border-top: 0; padding-top: 0; }
+  .read-row .swatch { width: 16px; height: 16px; flex: none; }
+  .read-row .rname { font-weight: 600; font-size: 0.9rem; }
+  .read-row .rverdict { font-family: var(--mono); font-size: 0.74rem; justify-self: end;
+                        font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .read-row .rverdict.pass { color: var(--good); }
+  .read-row .rverdict.fail { color: var(--bad); }
+  .read-row .rparams { grid-column: 2 / -1; font-family: var(--mono); font-size: 0.72rem;
+                       color: var(--text-faint); }
+  .read-row.off { opacity: .4; }
+
+  /* ---- tuning drawer — expert surface, folded away by default ---- */
+  .drawer { margin-top: 18px; border-top: 1px solid var(--line); }
+  /* Reads like a .read-row: same 9px rhythm, same name weight, and the marker
+     trails at the end where the verdict sits rather than leading the line. */
+  details > summary { cursor: pointer; font-family: var(--font-body); font-size: 0.9rem;
+                      font-weight: 600; color: var(--text); list-style: none;
+                      padding: 9px 0; display: flex; align-items: center; gap: 10px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::after {
+    content: ''; margin-left: auto; width: 8px; height: 8px; flex: none;
+    border-right: 1.6px solid var(--text-faint); border-bottom: 1.6px solid var(--text-faint);
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform .16s ease, border-color .16s ease;
+  }
+  details[open] > summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+  details > summary:hover { color: var(--iog-infared); }
+  details > summary:hover::after { border-color: var(--iog-infared); }
+  details > summary:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .tune-name { font-weight: 600; font-size: 0.9rem; }
+  .tune-state { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+                white-space: nowrap; }
+  .drawer-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+                 gap: 4px 20px; padding-bottom: 14px; }
+  /* One column per design once there is room, rather than four with a lone M5 below. */
+  @media (min-width: 1000px) { .drawer-body { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  .tune-group { padding: 4px 0 10px; min-width: 0; transition: opacity .15s ease; }
+  .tune-group.is-hidden { opacity: .38; }
+  .tune-group.is-hidden input[type=range] { cursor: not-allowed; }
+  .tune-group .tg-head { display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+                         font-weight: 600; margin-bottom: 4px; }
+  .tune-group .tg-head .chip { width: 9px; height: 9px; border-radius: 2px; background: var(--mc); flex: none; }
+  .slider-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 2px 8px;
+                align-items: center; padding: 3px 0 7px; }
+  .slider-row label { grid-column: 1 / -1; color: var(--text); font-size: 0.92rem;
+                      font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .slider-row input[type=range] { grid-column: 1; }
+  .slider-row output { font-family: var(--mono); font-size: 0.92rem; text-align: right;
+                       font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+  /* Ranges are styled explicitly rather than through accent-color: Chrome derives the
+     unfilled track from the accent, which turned the per-model sliders near-black. */
+  input[type=range] { width: 100%; min-width: 0; height: 18px; background: transparent;
+                      -webkit-appearance: none; appearance: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--grid); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border: none; border-radius: 50%; margin-top: -5px;
+    background: var(--mc, var(--accent)); }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--grid); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: var(--mc, var(--accent)); }
+  input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  /* ---- radar ---- */
+  svg#radar { width: 100%; max-width: 780px; height: auto; display: block; margin: 0 auto; }
+  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+  .hover-hint { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
+                letter-spacing: 0.05em; text-align: center; }
+  /* The drawer holds two unrelated jobs: what the designs are, and what the
+     figure shows. Each gets a title and its own band. */
+  .tune-section + .tune-section { margin-top: 6px; border-top: 1px solid var(--card-stroke-faint); }
+  .tune-section-head { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                       letter-spacing: 0.14em; text-transform: uppercase;
+                       color: var(--text-faint); padding: 12px 0 8px; }
+
+  .axis-picker { display: flex; flex-wrap: wrap; gap: 8px 10px; padding: 0 0 14px; }
+  .axis-picker label { display: inline-flex; gap: 9px; align-items: center;
+                       font-family: var(--font-body); font-size: 0.86rem; font-weight: 500;
+                       color: var(--text-mute); cursor: pointer;
+                       border: 1px solid var(--card-stroke-faint); border-radius: 7px;
+                       padding: 7px 12px 7px 10px; transition: border-color .12s ease,
+                       color .12s ease, background .12s ease; }
+  .axis-picker label:hover { border-color: var(--line-strong); color: var(--text); }
+  .axis-picker label:has(input:checked) { color: var(--text); border-color: var(--line-strong);
+                                          background: var(--bg-alt); }
+  .axis-picker input[type=checkbox] { width: 17px; height: 17px; margin: 0; flex: none;
+                                      accent-color: var(--iog-infared); cursor: pointer; }
+
+  /* ---- table ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+                background: var(--card-fill); padding: 4px 0 8px;
+                scrollbar-width: none; -ms-overflow-style: none; }
+  /* The inset moves onto the end cells: as container padding it sat outside the
+     sticky column's left: 0, so rows scrolled visibly through the gap. */
+  .table-wrap::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  th:first-child, td:first-child { padding-left: 16px; }
+  th:last-child, td:last-child { padding-right: 16px; }
+  /* separate, not collapse: a sticky cell cannot carry a collapsed border, so the
+     rules are drawn as box-shadows on the frozen column instead. */
+  table { border-collapse: separate; border-spacing: 0; font-family: var(--font-mono);
+          font-size: 0.78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--card-stroke-faint); }
+  /* The model name stays put while the values scroll under it; a row read at the
+     right-hand end still has a name against it. */
+  th:first-child, td:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--card-fill);
+    box-shadow: 1px 0 0 var(--card-stroke-faint);
+  }
+  th { color: var(--text-faint); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600;
+       letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  th:first-child, td:first-child { text-align: left; }
+  td.best { font-weight: 700; color: var(--text); }
+  tr.hidden-model td { opacity: .38; }
+  td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
+              vertical-align: baseline; }
+  /* The one thing this page must not let a reader assume: that these curves were
+     measured everywhere they can be dragged to. */
+  .caveat { margin-top: 14px; max-width: 78ch; padding: 11px 14px;
+            border: 1px solid var(--card-stroke-faint); border-left: 3px solid var(--warn);
+            border-radius: 7px; background: var(--card-fill);
+            color: var(--text-mute); font-size: 0.88rem; line-height: 1.55; }
+  .caveat b { color: var(--text); font-weight: 600; }
+  .section-lede { color: var(--text-mute); font-size: 0.95rem; line-height: 1.6;
+                  max-width: 78ch; margin-top: 10px; }
+  .section-lede b { color: var(--text); font-weight: 600; }
+  .hint { color: var(--text-faint); font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.04em; margin-top: 12px; }
+
+  /* ---- tooltips ----
+     One floating box serves both the glossary terms and the radar vertices. Terms are
+     reachable by keyboard (tabindex) and toggle on tap, so touch gets the same access
+     to the definitions that hover gives a mouse. */
+  .term { border-bottom: 1px dashed var(--line-strong); cursor: help; }
+  .term:hover, .term[aria-expanded="true"] { border-bottom-color: var(--iog-infared); color: var(--iog-infared); }
+  th .term, .hint .term { border-bottom-style: dotted; }
+  #tip, #tooltip { position: fixed; pointer-events: none; background: var(--card-fill);
+                   border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
+                   color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; z-index: 60; }
+  #tooltip { font-family: var(--font-mono); font-size: 0.72rem; }
+  #tip { max-width: min(320px, calc(100vw - 24px)); font-size: 0.82rem; line-height: 1.5; }
+  /* No text-transform on the key: it would turn μ and δ into their capitals. */
+  #tip .tip-key { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+                  letter-spacing: 0.12em; color: var(--iog-infared);
+                  display: block; margin-bottom: 5px; }
+  #tip b { font-weight: 600; }
+
+  /* ---- narrow viewports ---- */
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  @media (max-width: 620px) {
+    body { font-size: 15px; }
+    section.page-head { padding: 36px 0 4px; }
+    section.block { padding: 36px 0; }
+    .section-head { margin-bottom: 22px; }
+    .stage-canvas, .side-card { padding: 16px 14px 12px; }
+    .env-item { flex: 1 1 100%; }
+    .env-rail .env-reset { margin-left: 0; }
+    .model-tab { padding: 8px 12px; font-size: 0.74rem; }
+    .table-wrap { padding: 4px 10px 8px; }
+    footer { margin-top: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
+  }
+
+/* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
+</style>
+<style>
+  /* Page-local furniture. Everything above is web/shared.css verbatim. */
+  .ps-grid { display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 900px) { .ps-grid { grid-template-columns: 1fr; } }
+  .ps-panel { border: 1px solid var(--card-stroke-faint); border-radius: 10px; background: var(--card-soft-fill); padding: 18px 18px 14px; }
+  .ps-panel + .ps-panel { margin-top: 18px; }
+  .ps-panel h3 { font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); margin: 0 0 14px; font-weight: 600; }
+  .ps-field { margin-bottom: 16px; }
+  .ps-field:last-child { margin-bottom: 4px; }
+  .ps-field label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem; margin-bottom: 6px; gap: 10px; }
+  .ps-field label .v { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text); font-variant-numeric: tabular-nums; }
+  .ps-field input[type=range] { width: 100%; accent-color: var(--accent); }
+  .ps-field select, .ps-field input[type=number] { width: 100%; font-family: var(--font-mono); font-size: 0.88rem; padding: 6px 8px; border: 1px solid var(--card-stroke-faint); border-radius: 6px; background: var(--card-fill); color: var(--text); }
+  .ps-seg { display: flex; gap: 0; border: 1px solid var(--card-stroke-faint); border-radius: 6px; overflow: hidden; }
+  .ps-seg button { flex: 1; padding: 7px 6px; font-size: 0.82rem; font-family: var(--font-display); border: 0; background: var(--card-fill); color: var(--text-mute); cursor: pointer; }
+  .ps-seg button[aria-pressed=true] { background: var(--accent); color: #fff; }
+  .ps-hint { font-size: 0.8rem; color: var(--text-faint); line-height: 1.45; margin-top: 6px; }
+  .ps-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .ps-stat { border: 1px solid var(--card-stroke-faint); border-radius: 8px; padding: 12px 13px; background: var(--card-fill); }
+  .ps-stat .k { font-size: 0.74rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 5px; }
+  .ps-stat .n { font-family: var(--font-mono); font-size: 1.18rem; color: var(--text); font-variant-numeric: tabular-nums; }
+  .ps-stat .s { font-size: 0.78rem; color: var(--text-mute); margin-top: 4px; line-height: 1.4; }
+  .ps-stat.good .n { color: var(--good); } .ps-stat.bad .n { color: var(--bad); } .ps-stat.warn .n { color: var(--warn); }
+  .ps-bind { display: inline-block; font-size: 0.7rem; font-family: var(--font-mono); padding: 1px 6px; border-radius: 4px; background: var(--info-soft); color: var(--info); margin-left: 6px; }
+  figure.ps-fig { margin: 26px 0 0; }
+  figure.ps-fig figcaption { font-size: 0.84rem; color: var(--text-mute); margin-top: 10px; line-height: 1.5; }
+  .ps-chart { width: 100%; height: auto; display: block; overflow: visible; }
+  .ps-verdict { border-left: 3px solid var(--accent); padding: 12px 16px; background: var(--bg-alt); border-radius: 0 8px 8px 0; margin-top: 22px; font-size: 0.95rem; line-height: 1.6; }
+  .ps-test { font-family: var(--font-mono); font-size: 0.78rem; margin-top: 26px; padding: 10px 14px; border-radius: 8px; }
+  .ps-test.pass { background: var(--good-soft); color: var(--good); }
+  .ps-test.fail { background: var(--bad-soft); color: var(--bad); }
+</style>
+</head>
+<body>
+<svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+</svg>
+<nav class="navbar" aria-label="Primary">
+  <a class="navbar-brand" href="../">
+    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+  </a>
+  <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
+    <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+  </button>
+  <div class="nav-collapse">
+  <div class="navbar-links">
+    <a href="../../#scenarios">Scenarios</a>
+    <a href="../../#research">Research</a>
+    <span class="nav-item nav-item--experiments is-current">
+      <a href="../">Experiments</a>
+      <span class="nav-menu">
+        <a href="../">Overview</a>
+        <a href="../models/">Dissemination model simulator</a>
+        <a href="../cost-model/">Compare designs</a>
+        <a href="./" class="active">Parameter surface</a>
+      </span>
+    </span>
+    <a href="../../#activity">Activity</a>
+    <a href="../../#materials">Materials</a>
+  </div>
+  <div class="navbar-icons">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+    </a>
+    <button class="nav-icon-btn theme-toggle" id="btn-theme" type="button" aria-label="Toggle color theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+  </div>
+</nav>
+
+<main>
+<section class="section">
+  <div class="container">
+    <p class="eyebrow">Experiments · parameter relationships</p>
+    <h1>What your size and your attacker imply</h1>
+    <p class="lede">
+      Every chart this project publishes fixes the adversarial share and varies something else.
+      That hides the relationship that matters most to a deployment, because an attacker does not
+      buy a percentage — it buys identities. With a deposit <em>D</em> and capital <em>X</em> it
+      affords <em>A</em> = ⌊<em>X</em>/<em>D</em>⌋ of them, and the fraction it holds
+      <strong>rises as the network shrinks</strong>. This page fixes the attacker and moves the
+      network instead.
+    </p>
+    <p>
+      It also derives, rather than assumes, the three admission parameters. The bucket count
+      <em>B</em>, the admissions budget <em>C</em> and the pick count <em>k</em> all follow from the
+      network size, the failure target and the downtime a deployment sizes against — and which
+      constraint binds changes as you move. The laws are the gated ones; the
+      <a href="../cost-model/">design comparison</a> next door runs the ungated laws that
+      chose the design in the first place.
+    </p>
+  </div>
+</section>
+
+<section class="section section--alt">
+  <div class="container">
+    <div class="ps-grid">
+      <div>
+        <div class="ps-panel">
+          <h3>The environment</h3>
+          <div class="ps-field">
+            <label for="c-n">Network size <em>N</em><span class="v" id="v-n">20 000</span></label>
+            <input type="range" id="c-n" min="0" max="1000" value="1000">
+            <div class="ps-hint">Participants registered on the topic. Logarithmic, 100 to 50 000.</div>
+          </div>
+          <div class="ps-field">
+            <label>How the attacker is specified</label>
+            <div class="ps-seg" role="group">
+              <button type="button" id="m-count" aria-pressed="true">Fixed identities</button>
+              <button type="button" id="m-frac" aria-pressed="false">Fixed fraction</button>
+            </div>
+            <div class="ps-hint" id="mode-hint">The attacker's budget is what is fixed; its share of the network follows from the size.</div>
+          </div>
+          <div class="ps-field" id="f-a">
+            <label for="c-a">Attacker identities <em>A</em><span class="v" id="v-a">4 000</span></label>
+            <input type="range" id="c-a" min="0" max="1000" value="1000">
+          </div>
+          <div class="ps-field" id="f-mu" hidden>
+            <label for="c-mu">Adversarial share <em>μ</em><span class="v" id="v-mu">0.20</span></label>
+            <input type="range" id="c-mu" min="1" max="60" value="20">
+          </div>
+          <div class="ps-field">
+            <label for="c-delta">Failure target <em>δ</em></label>
+            <select id="c-delta">
+              <option value="1e-3">10⁻³ per epoch</option>
+              <option value="1e-4" selected>10⁻⁴ per epoch</option>
+              <option value="1e-5">10⁻⁵ per epoch</option>
+              <option value="1e-6">10⁻⁶ per epoch</option>
+            </select>
+          </div>
+          <div class="ps-field">
+            <label for="c-p">Honest downtime <em>p</em><span class="v" id="v-p">7.5 %</span></label>
+            <input type="range" id="c-p" min="0" max="150" value="75">
+            <div class="ps-hint">An offline honest node is indistinguishable from a silent adversary, so downtime shifts the fraction the parameters must survive.</div>
+          </div>
+        </div>
+
+        <div class="ps-panel">
+          <h3>The pick count</h3>
+          <div class="ps-field">
+            <div class="ps-seg" role="group">
+              <button type="button" id="k-derive" aria-pressed="true">Derive from the target</button>
+              <button type="button" id="k-manual" aria-pressed="false">Set by hand</button>
+            </div>
+          </div>
+          <div class="ps-field" id="f-k" hidden>
+            <label for="c-k">Pick count <em>k</em><span class="v" id="v-k">10</span></label>
+            <input type="range" id="c-k" min="4" max="20" value="10">
+          </div>
+          <div class="ps-hint" id="k-note"></div>
+        </div>
+
+        <div class="ps-panel">
+          <h3>Deposit</h3>
+          <div class="ps-field">
+            <label for="c-d">Deposit per identity<span class="v" id="v-d">500 ₳</span></label>
+            <input type="range" id="c-d" min="0" max="1000" value="415">
+            <div class="ps-hint" id="d-note"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="ps-out" id="out"></div>
+        <div class="ps-verdict" id="verdict"></div>
+
+        <figure class="ps-fig">
+          <svg class="ps-chart" id="chart-pbad" viewBox="0 0 720 330" role="img" aria-label="Failure probability against network size"></svg>
+          <figcaption id="cap-pbad"></figcaption>
+        </figure>
+
+        <figure class="ps-fig">
+          <svg class="ps-chart" id="chart-b" viewBox="0 0 720 300" role="img" aria-label="The three bucket-count bounds against network size"></svg>
+          <figcaption id="cap-b"></figcaption>
+        </figure>
+
+        <div class="ps-test" id="selftest">running self-test…</div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="container">
+    <nav class="footer-nav" aria-label="Footer">
+      <div class="footer-col">
+        <div class="footer-col-title">Research</div>
+        <a href="../../#scenarios">Scenarios</a>
+        <a href="../../#research">Programme</a>
+        <a href="./">Dissemination models</a>
+        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Progress</div>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
+        <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
+        <a href="../../#activity">Activity &amp; latest entry</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Repository</div>
+        <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">Source code</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a>
+      </div>
+    </nav>
+    <div class="footer-row">
+      <span class="footer-brand">
+        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+      </span>
+      <p class="footer-credit">
+        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output" onerror="this.remove()">
+        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output" onerror="this.remove()">
+        <span>2026</span>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * The gated coverage laws, ported from the experiments programme's
+ * prediction ledger (pubsub-node/docs/experiments/m4_synthesis_predictions.py).
+ * That file is the source of truth; this is a transcription, and the
+ * self-test at the foot of the page pins it to the ledger's own published
+ * values. If the two ever disagree, the ledger is right.
+ * ------------------------------------------------------------------ */
+
+const LG_C = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+              -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+function lgamma(x) {
+  let y = x, tmp = x + 5.5;
+  tmp -= (x + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) ser += LG_C[j] / ++y;
+  return -tmp + Math.log(2.5066282746310005 * ser / x);
+}
+function lchoose(n, k) {
+  if (k < 0 || k > n) return -Infinity;
+  return lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1);
+}
+function binomPmf(n, p, k) {
+  if (k < 0 || k > n) return 0;
+  if (p === 0) return k === 0 ? 1 : 0;
+  if (p >= 1) return k === n ? 1 : 0;
+  return Math.exp(lchoose(n, k) + k * Math.log(p) + (n - k) * Math.log(1 - p));
+}
+/* Binomial support truncated at ten standard deviations, as the ledger does. */
+function pmfRange(n, p, tol) {
+  tol = tol || 1e-15;
+  if (n === 0 || p === 0) return [[0, 1]];
+  if (p >= 1) return [[n, 1]];                    // B = 1: the pool is everyone
+  const mean = n * p, sd = Math.sqrt(n * p * (1 - p));
+  const lo = Math.max(0, Math.floor(mean - 10 * sd) - 2);
+  const hi = Math.min(n, Math.floor(mean + 10 * sd) + 2);
+  const out = [];
+  for (let k = lo; k <= hi; k++) { const q = binomPmf(n, p, k); if (q > tol) out.push([k, q]); }
+  return out;
+}
+/* m: the probability a given pool member is among the picks. */
+function memberPickProb(N, K, B) {
+  let s = 0;
+  for (const [k, q] of pmfRange(N - 2, 1 / B)) s += q * Math.min(K, k + 1) / (k + 1);
+  return s;
+}
+/* The two-channel isolation law: an empty honest pool, or every pick
+ * adversarial AND no honest pool member picking me. */
+function isolationE(N, K, B, S) {
+  const H = N - S, m = memberPickProb(N, K, B);
+  const as = pmfRange(S, 1 / B);
+  let tot = 0;
+  for (const [h, qh] of pmfRange(H - 1, 1 / B)) {
+    const f = qh * Math.pow(1 - m, h);
+    if (f < 1e-24 && h > (H - 1) / B) break;
+    if (h === 0) { tot += f; continue; }
+    let inner = 0;
+    for (const [a, qa] of as) {
+      if (h + a <= K || a < K) continue;
+      inner += qa * Math.exp(lchoose(a, K) - lchoose(h + a, K));
+    }
+    tot += f * inner;
+  }
+  return H * tot;
+}
+const pbad = (N, K, B, S) => 1 - Math.exp(-isolationE(N, K, B, S));
+/* Realised degree, the compact exact form: lambda * m * (2 - m). */
+const degree = (N, K, B) => ((N - 1) / B) * memberPickProb(N, K, B) * (2 - memberPickProb(N, K, B));
+
+/* ---- the Specification's derivation rules ---- */
+function poolFloorB(N, mu, delta) {
+  const H = (1 - mu) * N;
+  return Math.floor((N - 1) * (1 - mu) / Math.log(H / delta));
+}
+const headroomB = (N, k) => Math.floor((N - 1) / (2 * k));
+/* Largest B whose gated law still meets the target. Bisection on the
+ * monotone region; returns 0 when even B = 1 misses. */
+function targetB(N, k, S, delta, hi) {
+  if (pbad(N, k, 1, S) > delta) return 0;
+  let lo = 1, high = Math.max(2, hi);
+  if (pbad(N, k, high, S) <= delta) return high;
+  for (let i = 0; i < 24 && high - lo > 1; i++) {
+    const mid = Math.floor((lo + high) / 2);
+    if (pbad(N, k, mid, S) <= delta) lo = mid; else high = mid;
+  }
+  return lo;
+}
+function chooseB(N, k, S, delta) {
+  const mu = S / N;
+  const pool = poolFloorB(N, mu, delta);
+  const head = headroomB(N, k);
+  const tgt = targetB(N, k, S, delta, Math.max(pool, head));
+  const cands = [["target", tgt], ["pool", pool], ["headroom", head]];
+  let best = cands[0];
+  for (const c of cands) if (c[1] < best[1]) best = c;
+  const B = Math.max(1, best[1]);
+  return { B: B < 2 ? 1 : B, off: best[1] < 2, binding: best[0], target: tgt, pool, headroom: head };
+}
+/* C >= L + c*sqrt(L) on the whole fresh admission load, honest and adversarial. */
+function capRule(N, k, B, S, c) {
+  const m = Math.min(1, k * B / (N - 1));
+  const mu = S / N;
+  const L = (1 - m) * (k * (1 - mu) + S / B);
+  return { L, C: Math.ceil(L + c * Math.sqrt(L)) };
+}
+/* Smallest pick count meeting the target once downtime is folded in. */
+function deriveK(N, S, delta, p, kMax) {
+  const muEff = (S / N) + p * (1 - S / N);
+  const Seff = Math.round(muEff * N);
+  for (let k = 4; k <= (kMax || 20); k++) {
+    const r = chooseB(N, k, Seff, delta);
+    if (r.B >= 1 && pbad(N, k, r.B, Seff) <= delta) return k;
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Chart helpers — plain SVG, no dependencies, theme via currentColor
+ * and the shared tokens.
+ * ------------------------------------------------------------------ */
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(t, a) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+const fmtSci = v => { if (v === 0) return "0"; let e = Math.floor(Math.log10(v)); let m = v / Math.pow(10, e); if (m >= 9.95) { m /= 10; e++; } return m.toFixed(1) + "×10" + sup(e); };
+function sup(n) { const M = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" }; return String(n).split("").map(c => M[c] || c).join(""); }
+const fmtN = n => n >= 1000 ? n.toLocaleString("en-US").replace(/,/g, " ") : String(n);
+
+/* Measured range: the finite-N corpus runs 1 000 to 20 000; below that
+ * nothing in this programme is measured. */
+const MEASURED = [1000, 20000];
+const NMIN = 100, NMAX = 50000;
+const lgN = v => Math.log10(v);
+
+function axesFrame(svg, W, H, pad, xlab, ylab) {
+  svg.innerHTML = "";
+  const ink = css("--text"), mute = css("--text-mute"), grid = css("--line");
+  svg.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "transparent" }));
+  const g = svgEl("g", {});
+  svg.appendChild(g);
+  // measured / unmeasured shading on x
+  const xs = v => pad.l + (lgN(v) - lgN(NMIN)) / (lgN(NMAX) - lgN(NMIN)) * (W - pad.l - pad.r);
+  g.appendChild(svgEl("rect", { x: xs(NMIN), y: pad.t, width: xs(MEASURED[0]) - xs(NMIN), height: H - pad.t - pad.b, fill: mute, opacity: 0.07 }));
+  const lbl = svgEl("text", { x: (xs(NMIN) + xs(MEASURED[0])) / 2, y: H - pad.b - 8, "text-anchor": "middle", fill: mute, "font-size": 10, opacity: 0.85 });
+  lbl.textContent = "not measured";
+  g.appendChild(lbl);
+  // x ticks
+  for (const v of [100, 300, 1000, 3000, 10000, 30000]) {
+    if (v < NMIN || v > NMAX) continue;
+    g.appendChild(svgEl("line", { x1: xs(v), y1: pad.t, x2: xs(v), y2: H - pad.b, stroke: grid }));
+    const t = svgEl("text", { x: xs(v), y: H - pad.b + 16, "text-anchor": "middle", fill: mute, "font-size": 11 });
+    t.textContent = fmtN(v); g.appendChild(t);
+  }
+  g.appendChild(svgEl("line", { x1: pad.l, y1: H - pad.b, x2: W - pad.r, y2: H - pad.b, stroke: css("--line-strong") }));
+  const xt = svgEl("text", { x: (W - pad.r + pad.l) / 2, y: H - 6, "text-anchor": "middle", fill: mute, "font-size": 11.5 });
+  xt.textContent = xlab; g.appendChild(xt);
+  const yt = svgEl("text", { x: 12, y: (H - pad.b + pad.t) / 2, "text-anchor": "middle", fill: mute, "font-size": 11.5, transform: "rotate(-90 12 " + ((H - pad.b + pad.t) / 2) + ")" });
+  yt.textContent = ylab; g.appendChild(yt);
+  return { g, xs, ink, mute, grid };
+}
+
+function drawPbad(state) {
+  const svg = document.getElementById("chart-pbad");
+  const W = 720, H = 330, pad = { l: 58, r: 16, t: 16, b: 40 };
+  const { g, xs, mute, grid } = axesFrame(svg, W, H, pad, "network size N (log)", "P(bad) per epoch (log)");
+  const TOP = 0, BOT = -9;                       // log10 range
+  const ys = v => pad.t + (Math.log10(Math.max(v, 1e-9)) - TOP) / (BOT - TOP) * (H - pad.t - pad.b);
+  for (let e = 0; e >= -9; e -= 3) {
+    g.appendChild(svgEl("line", { x1: pad.l, y1: ys(Math.pow(10, e)), x2: W - pad.r, y2: ys(Math.pow(10, e)), stroke: grid }));
+    const t = svgEl("text", { x: pad.l - 8, y: ys(Math.pow(10, e)) + 4, "text-anchor": "end", fill: mute, "font-size": 11 });
+    t.textContent = "10" + sup(e); g.appendChild(t);
+  }
+  // target line
+  const tgt = svgEl("line", { x1: pad.l, y1: ys(state.delta), x2: W - pad.r, y2: ys(state.delta), stroke: css("--bad"), "stroke-dasharray": "5 4", "stroke-width": 1.5 });
+  g.appendChild(tgt);
+  const tl = svgEl("text", { x: W - pad.r - 4, y: ys(state.delta) - 6, "text-anchor": "end", fill: css("--bad"), "font-size": 11 });
+  tl.textContent = "target δ"; g.appendChild(tl);
+
+  // sweep
+  const pts = [], STEPS = 46;
+  let crossing = null;
+  for (let i = 0; i <= STEPS; i++) {
+    const N = Math.round(Math.pow(10, lgN(NMIN) + (lgN(NMAX) - lgN(NMIN)) * i / STEPS));
+    const S = state.fixedCount ? Math.min(state.A, Math.floor(N * 0.9)) : Math.round(state.mu * N);
+    const muN = S / N;
+    const muEff = muN + state.p * (1 - muN);
+    const Seff = Math.min(Math.round(muEff * N), N - 2);
+    if (Seff >= N - 2 || N - Seff < 4) continue;
+    const r = chooseB(N, state.k, Seff, state.delta);
+    const v = pbad(N, state.k, r.B, Seff);
+    pts.push([N, v]);
+    if (crossing === null && v > state.delta) crossing = N;
+  }
+  // ordered ascending in N; crossing is the largest N that still fails
+  let cross = null;
+  for (const [N, v] of pts) { if (v > state.delta) cross = N; }
+  let d = "";
+  pts.forEach(([N, v], i) => { d += (i ? "L" : "M") + xs(N).toFixed(1) + " " + ys(v).toFixed(1); });
+  g.appendChild(svgEl("path", { d, fill: "none", stroke: css("--m4"), "stroke-width": 2.4, "stroke-linejoin": "round" }));
+
+  if (cross) {
+    g.appendChild(svgEl("line", { x1: xs(cross), y1: pad.t, x2: xs(cross), y2: H - pad.b, stroke: css("--bad"), "stroke-width": 1.2, opacity: 0.65 }));
+    const t = svgEl("text", { x: xs(cross) + 6, y: pad.t + 28, fill: css("--bad"), "font-size": 11.5 });
+    t.textContent = "fails below N ≈ " + fmtN(cross); g.appendChild(t);
+  }
+  // marker at the configured N
+  const S0 = state.S, v0 = state.pbad;
+  g.appendChild(svgEl("circle", { cx: xs(state.N), cy: ys(v0), r: 4.5, fill: css("--m4"), stroke: css("--bg"), "stroke-width": 2 }));
+  state.crossing = cross;
+  document.getElementById("cap-pbad").textContent =
+    (state.fixedCount
+      ? "Failure probability as the network shrinks, with the attacker holding a fixed " + fmtN(state.A) + " identities. Smaller is worse here: the same budget buys a larger share of a smaller network."
+      : "Failure probability as the network shrinks at a fixed adversarial share of " + state.mu.toFixed(2) + ".")
+    + " The bucket count and admissions budget are re-derived at every point. Shaded region: below the smallest network any cell in this programme measured.";
+}
+
+function drawBounds(state) {
+  const svg = document.getElementById("chart-b");
+  const W = 720, H = 300, pad = { l: 58, r: 16, t: 16, b: 40 };
+  const { g, xs, mute, grid } = axesFrame(svg, W, H, pad, "network size N (log)", "bucket count B (log)");
+  const TOP = 4, BOT = 0;
+  const ys = v => pad.t + (Math.log10(Math.max(v, 1)) - TOP) / (BOT - TOP) * (H - pad.t - pad.b);
+  for (let e = 0; e <= 4; e++) {
+    g.appendChild(svgEl("line", { x1: pad.l, y1: ys(Math.pow(10, e)), x2: W - pad.r, y2: ys(Math.pow(10, e)), stroke: grid }));
+    const t = svgEl("text", { x: pad.l - 8, y: ys(Math.pow(10, e)) + 4, "text-anchor": "end", fill: mute, "font-size": 11 });
+    t.textContent = "10" + sup(e); g.appendChild(t);
+  }
+  const series = { target: [], pool: [], headroom: [], chosen: [] };
+  const STEPS = 40;
+  for (let i = 0; i <= STEPS; i++) {
+    const N = Math.round(Math.pow(10, lgN(NMIN) + (lgN(NMAX) - lgN(NMIN)) * i / STEPS));
+    const S = state.fixedCount ? Math.min(state.A, Math.floor(N * 0.9)) : Math.round(state.mu * N);
+    const muN = S / N, muEff = muN + state.p * (1 - muN);
+    const Seff = Math.min(Math.round(muEff * N), N - 2);
+    if (N - Seff < 4) continue;
+    const r = chooseB(N, state.k, Seff, state.delta);
+    series.target.push([N, Math.max(r.target, 1)]);
+    series.pool.push([N, Math.max(r.pool, 1)]);
+    series.headroom.push([N, Math.max(r.headroom, 1)]);
+    series.chosen.push([N, r.B]);
+  }
+  const style = {
+    headroom: { c: css("--m1"), w: 1.4, dash: "4 3", label: "headroom, r ≥ 2" },
+    pool: { c: css("--m3"), w: 1.4, dash: "4 3", label: "pool floor" },
+    target: { c: css("--m5"), w: 1.4, dash: "4 3", label: "failure target" },
+    chosen: { c: css("--text"), w: 2.6, dash: "", label: "B in force (the smallest)" },
+  };
+  for (const key of ["headroom", "pool", "target", "chosen"]) {
+    const s = style[key]; let d = "";
+    series[key].forEach(([N, v], i) => { d += (i ? "L" : "M") + xs(N).toFixed(1) + " " + ys(v).toFixed(1); });
+    const p = svgEl("path", { d, fill: "none", stroke: s.c, "stroke-width": s.w, "stroke-linejoin": "round" });
+    if (s.dash) p.setAttribute("stroke-dasharray", s.dash);
+    g.appendChild(p);
+  }
+  // legend
+  let lx = pad.l + 6;
+  for (const key of ["chosen", "target", "pool", "headroom"]) {
+    const s = style[key];
+    const ln = svgEl("line", { x1: lx, y1: pad.t + 8, x2: lx + 16, y2: pad.t + 8, stroke: s.c, "stroke-width": s.w });
+    if (s.dash) ln.setAttribute("stroke-dasharray", s.dash);
+    g.appendChild(ln);
+    const t = svgEl("text", { x: lx + 21, y: pad.t + 12, fill: mute, "font-size": 10.5 });
+    t.textContent = s.label; g.appendChild(t);
+    lx += 30 + s.label.length * 5.6;
+  }
+  document.getElementById("cap-b").textContent =
+    "The three bounds the Specification places on the bucket count, and the one in force at each size — always the smallest. Which bound binds is a property of the pick count, not a constant of the design: at the pick counts these designs use, the failure target binds well before the headroom floor does.";
+}
+
+/* ------------------------------------------------------------------ *
+ * State, wiring, render
+ * ------------------------------------------------------------------ */
+const el = id => document.getElementById(id);
+const state = { N: 20000, A: 4000, mu: 0.2, fixedCount: true, delta: 1e-4, p: 0.075, k: 10, deriveK: true, D: 500 };
+
+const sliderToN = v => Math.round(Math.pow(10, lgN(NMIN) + (lgN(NMAX) - lgN(NMIN)) * v / 1000));
+const nToSlider = n => Math.round((lgN(n) - lgN(NMIN)) / (lgN(NMAX) - lgN(NMIN)) * 1000);
+const sliderToA = v => Math.round(Math.pow(10, 1 + 3.7 * v / 1000));      // 10 .. ~50 000
+const aToSlider = a => Math.round((Math.log10(a) - 1) / 3.7 * 1000);
+const sliderToD = v => Math.round(Math.pow(10, 1 + 4 * v / 1000));         // 10 .. 100 000 ada
+
+function render() {
+  const N = state.N;
+  const S0 = state.fixedCount ? Math.min(state.A, Math.floor(N * 0.9)) : Math.round(state.mu * N);
+  const muN = S0 / N;
+  const muEff = muN + state.p * (1 - muN);
+  const S = Math.min(Math.round(muEff * N), N - 3);
+
+  if (state.deriveK) {
+    const k = deriveK(N, S0, state.delta, state.p, 20);
+    state.k = k || 20;
+    el("k-note").textContent = k
+      ? "k = " + k + " is the smallest pick count meeting the target here. Note what a smaller k costs: it needs a wider candidate pool to hit the same target, which means a lower bucket count — and the bucket count is the attacker's price per targeted edge. Reliability and attack price both rise with k."
+      : "No pick count up to 20 meets the target here.";
+    el("c-k").value = state.k; el("v-k").textContent = state.k;
+  } else {
+    el("k-note").textContent = "Set by hand. The derived value is what the Specification's rule would choose.";
+  }
+
+  const r = chooseB(N, state.k, S, state.delta);
+  const cap = capRule(N, state.k, r.B, S, 3.5);
+  const v = pbad(N, state.k, r.B, S);
+  const d = degree(N, state.k, r.B);
+  const surface = (N - 1) / r.B;
+  state.S = S; state.pbad = v;
+
+  const ok = v <= state.delta;
+  const stat = (k, n, s, cls) => '<div class="ps-stat ' + (cls || "") + '"><div class="k">' + k + '</div><div class="n">' + n + '</div><div class="s">' + s + '</div></div>';
+  el("out").innerHTML = [
+    stat("P(bad) per epoch", fmtSci(v), ok ? "inside the target" : "above the target", ok ? "good" : "bad"),
+    stat("Adversarial share", muEff.toFixed(3), state.fixedCount ? fmtN(S0) + " identities of " + fmtN(N) + (state.p > 0 ? ", downtime folded in" : "") : "as set", muEff > 0.35 ? "warn" : ""),
+    stat("Bucket count B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? "topic too small to bucket" : "bound by the " + r.binding, r.off ? "warn" : ""),
+    stat("Admissions budget C", String(cap.C), "fresh load " + cap.L.toFixed(1) + ", headroom c = 3.5"),
+    stat("Pick count k", String(state.k), state.deriveK ? "derived" : "set by hand"),
+    stat("Standing links", d.toFixed(1), "mean; ceiling " + (state.k + cap.C) + " exact"),
+    stat("Attack surface", r.off ? fmtN(N - 1) : Math.round(surface).toLocaleString("en-US"), "victims one identity may reach"),
+    stat("Price of a targeted edge", r.off ? "1 deposit" : fmtN(r.B) + " deposits", r.off ? "no gate: name any victim" : "≈ " + fmtN(Math.round(r.B * state.D)) + " ₳ at this deposit"),
+  ].join("");
+
+  el("d-note").textContent = "An attacker with " + fmtN(state.A) + " identities has committed " +
+    fmtN(state.A * state.D) + " ₳. One hostile link beside a chosen node costs about " +
+    (r.off ? "one deposit" : fmtN(r.B) + " deposits") + " in expectation.";
+
+  drawPbad(state);
+  drawBounds(state);
+
+  const crossTxt = state.crossing
+    ? "Against this attacker the design stops meeting its target below about " + fmtN(state.crossing) + " participants"
+    : "Against this attacker the design meets its target across the whole range plotted";
+  el("verdict").innerHTML = "<strong>" + crossTxt + ".</strong> " +
+    (r.off
+      ? "At this size the gate is off: every registered peer is eligible, and the admissions budget is the only bound left. A budget of at least N−1 restores the position, which is to say the topic should run as a full mesh."
+      : "At the configured size the bucket count is bound by the <strong>" + r.binding + "</strong>, giving a gate " + fmtN(r.B) + " buckets wide, an admissions budget of " + cap.C + ", and a degree ceiling of " + (state.k + cap.C) + " that holds whatever order requests arrive in.");
+}
+
+/* ---- controls ---- */
+function seg(aId, bId, onA, onB) {
+  el(aId).addEventListener("click", () => { el(aId).setAttribute("aria-pressed", "true"); el(bId).setAttribute("aria-pressed", "false"); onA(); render(); });
+  el(bId).addEventListener("click", () => { el(bId).setAttribute("aria-pressed", "true"); el(aId).setAttribute("aria-pressed", "false"); onB(); render(); });
+}
+el("c-n").addEventListener("input", e => { state.N = sliderToN(+e.target.value); el("v-n").textContent = fmtN(state.N); render(); });
+el("c-a").addEventListener("input", e => { state.A = sliderToA(+e.target.value); el("v-a").textContent = fmtN(state.A); render(); });
+el("c-mu").addEventListener("input", e => { state.mu = +e.target.value / 100; el("v-mu").textContent = state.mu.toFixed(2); render(); });
+el("c-delta").addEventListener("change", e => { state.delta = +e.target.value; render(); });
+el("c-p").addEventListener("input", e => { state.p = +e.target.value / 1000; el("v-p").textContent = (state.p * 100).toFixed(1) + " %"; render(); });
+el("c-k").addEventListener("input", e => { state.k = +e.target.value; el("v-k").textContent = state.k; render(); });
+el("c-d").addEventListener("input", e => { state.D = sliderToD(+e.target.value); el("v-d").textContent = fmtN(state.D) + " ₳"; render(); });
+seg("m-count", "m-frac",
+  () => { state.fixedCount = true; el("f-a").hidden = false; el("f-mu").hidden = true; el("mode-hint").textContent = "The attacker's budget is what is fixed; its share of the network follows from the size."; },
+  () => { state.fixedCount = false; el("f-a").hidden = true; el("f-mu").hidden = false; el("mode-hint").textContent = "The conventional framing: the share is held constant as the network moves."; });
+seg("k-derive", "k-manual",
+  () => { state.deriveK = true; el("f-k").hidden = true; },
+  () => { state.deriveK = false; el("f-k").hidden = false; });
+
+/* ---- self-test: pin the transcription to the ledger's published values ---- */
+(function selfTest() {
+  const near = (a, b, tol) => Math.abs(a - b) / Math.abs(b) < (tol || 0.02);
+  const cases = [
+    ["gated K=10 B=500", () => isolationE(20000, 10, 500, 4000), 5.053e-6],
+    ["gated K=9 B=500", () => isolationE(20000, 9, 500, 4000), 3.611e-5],
+    ["gated K=9 B=1111", () => isolationE(20000, 9, 1111, 4000), 9.205e-3],
+    ["B=1 recovers ungated K=9", () => isolationE(20000, 9, 1, 4000), 6.066e-6],
+    ["degree K=10 B=500", () => degree(20000, 10, 500), 17.501],
+    ["pool floor N=20k", () => poolFloorB(20000, 0.2, 1e-4), 846],
+    ["C at c=2, K=9 B=500", () => capRule(20000, 9, 500, 4000, 2).C, 19],
+    ["C at c=3, K=9 B=500", () => capRule(20000, 9, 500, 4000, 3).C, 23],
+  ];
+  const fails = [];
+  for (const [name, fn, want] of cases) {
+    let got; try { got = fn(); } catch (e) { fails.push(name + " threw"); continue; }
+    if (!near(got, want)) fails.push(name + ": " + got.toPrecision(4) + " vs " + want);
+  }
+  const box = el("selftest");
+  if (fails.length) { box.className = "ps-test fail"; box.textContent = "self-test FAILED — " + fails.join("; "); }
+  else { box.className = "ps-test pass"; box.textContent = "self-test passed — " + cases.length + " values reproduced from the experiments ledger (m4_synthesis_predictions.py)"; }
+})();
+
+/* ---- theme toggle, matching the rest of the site ---- */
+(function theme() {
+  const btn = el("btn-theme"); if (!btn) return;
+  const KEY = "pubsub-theme";
+  const set = t => { document.documentElement.setAttribute("data-theme", t); try { localStorage.setItem(KEY, t); } catch (e) {} };
+  let cur; try { cur = localStorage.getItem(KEY); } catch (e) {}
+  if (cur) set(cur);
+  btn.addEventListener("click", () => {
+    const now = document.documentElement.getAttribute("data-theme");
+    const next = now === "dark" ? "light" : (now === "light" ? "dark" : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark"));
+    set(next); render();
+  });
+})();
+
+el("v-n").textContent = fmtN(state.N);
+el("v-a").textContent = fmtN(state.A);
+el("v-d").textContent = fmtN(state.D) + " ₳";
+el("c-n").value = nToSlider(state.N);
+el("c-a").value = aToSlider(state.A);
+render();
+</script>
+</body>
+</html>
