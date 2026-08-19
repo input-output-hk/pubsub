@@ -385,7 +385,11 @@
        letter-spacing: .04em; }
   tr:last-child td { border-bottom: 0; }
   th:first-child, td:first-child { text-align: left; }
-  td.best { font-weight: 700; color: var(--text); }
+  /* Bold alone did not carry: the winner in each column also takes a wash of its
+     own series colour, which doubles as a reminder of which row it belongs to. */
+  td.best { font-weight: 700; color: var(--text);
+            background: color-mix(in srgb, var(--best-tint, var(--text)) 15%, transparent);
+            border-radius: 3px; }
   tr.hidden-model td { opacity: .38; }
   td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
               vertical-align: baseline; }
@@ -478,14 +482,31 @@
 </style>
 <style>
   /* Page-local furniture. Everything above is web/shared.css verbatim. */
-  /* The head runs straight into the tool otherwise: the caveat box needs air under it. */
-  section.page-head { padding-bottom: 40px; }
-  .page-head .caveat { margin-bottom: 0; }
-  /* The two mode strips sit side by side where there is room, and stack below it. */
-  .strip-row { display: flex; flex-wrap: wrap; gap: 10px 38px; align-items: flex-start; }
+  section.page-head { padding-bottom: 34px; }
+  .page-sub { font-family: var(--font-display); font-size: clamp(1.05rem, 1.7vw, 1.35rem);
+              font-weight: 600; color: var(--text-mute); margin: -6px 0 20px; letter-spacing: -0.01em; }
+  /* The two mode strips sit side by side where there is room, and stack below it.
+     Reset rides the same row, pushed to the far end. */
+  .strip-row { display: flex; flex-wrap: wrap; gap: 12px 38px; align-items: center; }
   .strip-row > .tab-strip { flex: 0 1 auto; }
   .strip-row > .tab-strip + .tab-strip { margin-top: 0; }
-  @media (max-width: 860px) { .strip-row { flex-direction: column; gap: 10px; } }
+  .strip-row > #btn-reset { margin-left: auto; flex: none; }
+  @media (max-width: 860px) {
+    .strip-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .strip-row > #btn-reset { margin-left: 0; }
+  }
+  /* The two choices of one control are one control: no gap, shared border. */
+  .seg { display: inline-flex; }
+  .seg .model-tab { border-radius: 0; margin-left: -1px; }
+  .seg .model-tab:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
+  .seg .model-tab:last-child { border-radius: 0 4px 4px 0; }
+  .seg .model-tab[aria-pressed="true"] { position: relative; z-index: 1; }
+  /* Give the charts the room: the readout column only has to fit its numbers. */
+  #surface .stage { grid-template-columns: minmax(0, 1fr) minmax(200px, 250px); }
+  @media (max-width: 900px) { #surface .stage { grid-template-columns: 1fr; } }
+  .prose-cols { columns: 2; column-gap: 44px; max-width: 78ch; }
+  .prose-cols p { margin: 0 0 14px; break-inside: avoid; }
+  @media (max-width: 760px) { .prose-cols { columns: 1; } }
   .ps-hint { font-size: 0.8rem; color: var(--text-faint); line-height: 1.45; margin-top: 6px; }
   .ps-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
   /* .model-tab already carries its own pressed state from the shared sheet.
@@ -575,16 +596,23 @@
         <span class="crumb-here" aria-current="page">Parameter surface</span>
       </nav>
       <h1>Parameter surface</h1>
-      <p class="lede">
-        Every other chart here fixes the adversarial share and varies something else. That hides
+      <p class="page-sub">Fixing the attacker, not its share</p>
+      <div class="prose-cols">
+        <p>Every other chart here fixes the adversarial share and varies something else. That hides
         the relationship a deployment cares about most, because an attacker does not buy a
         percentage — it buys <span class="term" data-term="deposit">identities</span>, and the
         share they represent <b>rises as the network shrinks</b>. This page fixes the attacker
         and moves the network instead, deriving the
         <span class="term" data-term="B">bucket count</span>,
         <span class="term" data-term="C">admissions budget</span> and
-        <span class="term" data-term="k">pick count</span> that follow.
-      </p>
+        <span class="term" data-term="k">pick count</span> that follow.</p>
+        <p>
+          The three admission parameters are <em>derived</em> here rather than assumed. Each is
+          bound by whichever constraint is tightest at the size you have chosen, and which one that
+          is changes as you move — which is the whole reason the second chart draws all three
+          rather than only the one in force.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -620,24 +648,34 @@
             <ul class="xselect-menu" role="listbox" aria-label="Failure target delta"></ul>
           </div>
         </div>
-        <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
+        <div class="env-item" id="f-k" hidden>
+          <span class="env-key term" data-term="k"><span class="env-sym">k</span><span class="env-name">pick count</span></span>
+          <input type="range" id="c-k" min="4" max="20" value="10" aria-label="Pick count k">
+          <output class="env-val" id="v-k" for="c-k">10</output>
+        </div>
+        <div class="env-item">
+          <span class="env-key term" data-term="deposit"><span class="env-sym">D</span><span class="env-name">deposit</span></span>
+          <input type="range" id="c-d" min="0" max="1000" value="415" aria-label="Deposit per identity in ada">
+          <output class="env-val" id="v-d" for="c-d">500 ₳</output>
+        </div>
       </div>
 
       <div class="strip-row">
-      <div class="tab-strip" role="group" aria-label="How the attacker is specified">
-        <span class="strip-label">Attacker</span>
-        <button type="button" class="model-tab" id="m-count" aria-pressed="true">Fixed identities</button>
-        <button type="button" class="model-tab" id="m-frac" aria-pressed="false">Fixed share</button>
-      </div>
-      <div class="tab-strip" role="group" aria-label="How the pick count is chosen">
-        <span class="strip-label">Pick count</span>
-        <button type="button" class="model-tab" id="k-derive" aria-pressed="true">Derive from the target</button>
-        <button type="button" class="model-tab" id="k-manual" aria-pressed="false">Set by hand</button>
-        <span class="env-item" id="f-k" hidden style="flex:0 1 220px">
-          <input type="range" id="c-k" min="4" max="20" value="10" aria-label="Pick count k">
-          <output class="env-val" id="v-k" for="c-k">10</output>
-        </span>
-      </div>
+        <div class="tab-strip" role="group" aria-label="How the attacker is specified">
+          <span class="strip-label">Attacker</span>
+          <span class="seg">
+            <button type="button" class="model-tab" id="m-count" aria-pressed="true">Fixed identities</button>
+            <button type="button" class="model-tab" id="m-frac" aria-pressed="false">Fixed share</button>
+          </span>
+        </div>
+        <div class="tab-strip" role="group" aria-label="How the pick count is chosen">
+          <span class="strip-label">Pick count</span>
+          <span class="seg">
+            <button type="button" class="model-tab" id="k-derive" aria-pressed="true">Derive from the target</button>
+            <button type="button" class="model-tab" id="k-manual" aria-pressed="false">Set by hand</button>
+          </span>
+        </div>
+        <button class="ctl-btn" id="btn-reset" type="button">Reset</button>
       </div>
 
       <div class="stage">
@@ -660,11 +698,6 @@
         <div class="side-card">
           <h3>What follows</h3>
           <div class="ps-out" id="out"></div>
-          <div class="env-item" style="margin-top:16px">
-            <span class="env-key term" data-term="deposit"><span class="env-sym">D</span><span class="env-name">deposit</span></span>
-            <input type="range" id="c-d" min="0" max="1000" value="415" aria-label="Deposit per identity in ada">
-            <output class="env-val" id="v-d" for="c-d">500 ₳</output>
-          </div>
           <div class="ps-hint" id="d-note"></div>
           <div class="ps-hint" id="k-note" style="margin-top:10px"></div>
         </div>
@@ -672,6 +705,7 @@
 
     </div>
   </section>
+
 </main>
 
 <div id="tip" role="tooltip" aria-hidden="true"></div>
@@ -1029,7 +1063,7 @@ function render() {
   el("out").innerHTML = [
     stat("P(bad) per epoch", fmtSci(v), ok ? "inside the target" : "above the target", ok ? "good" : "bad", "pbad"),
     stat("Adversarial share", muEff.toFixed(3), state.fixedCount ? fmtN(S0) + " identities of " + fmtN(N) + (state.p > 0 ? ", downtime folded in" : "") : "as set", muEff > 0.35 ? "warn" : "", "mu"),
-    stat("Bucket count B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? "topic too small to bucket" : "bound by the " + r.binding, r.off ? "warn" : "", "B"),
+    stat("Bucket count B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? (r.binding === "target" ? "no gate width meets the target here" : "topic too small to bucket") : "bound by the " + r.binding, r.off ? "warn" : "", "B"),
     stat("Admissions budget C", String(cap.C), "fresh load " + cap.L.toFixed(1) + ", headroom c = 3.5", "", "C"),
     stat("Pick count k", String(state.k), state.deriveK ? "derived" : "set by hand", "", "k"),
     stat("Standing links", d.toFixed(1), "mean; ceiling " + (state.k + cap.C) + " exact", "", "links"),
@@ -1050,7 +1084,9 @@ function render() {
     : "Against this attacker the design meets its target across the whole range plotted";
   el("verdict").innerHTML = "<strong>" + crossTxt + ".</strong> " +
     (r.off
-      ? "At this size the gate is off: every registered peer is eligible, and the admissions budget is the only bound left. A budget of at least N−1 restores the position, which is to say the topic should run as a full mesh."
+      ? (r.binding === "target"
+          ? "At this size no gate width meets the target against this attacker, so the gate is off: every registered peer is eligible and the admissions budget is the only bound left. The attacker simply holds too much of the network for the topology to be repaired by narrowing who may link to whom."
+          : "At this size the gate is off: every registered peer is eligible, and the admissions budget is the only bound left. A budget of at least N−1 restores the position, which is to say the topic should run as a full mesh.")
       : "At the configured size the bucket count is bound by the <strong>" + r.binding + "</strong>, giving a gate " + fmtN(r.B) + " buckets wide, an admissions budget of " + cap.C + ", and a degree ceiling of " + (state.k + cap.C) + " that holds whatever order requests arrive in.");
 }
 
@@ -1114,9 +1150,19 @@ el("btn-reset").addEventListener("click", () => {
   state.D = 500; state.deriveK = true; state.fixedCount = true;
   el("c-n").value = nToSlider(state.N); el("v-n").textContent = fmtN(state.N);
   el("c-a").value = aToSlider(state.A); el("v-a").textContent = fmtN(state.A);
+  el("c-mu").value = 20; el("v-mu").textContent = "0.20";
   el("c-p").value = 75; el("v-p").textContent = "7.5 %";
   el("c-d").value = 415; el("v-d").textContent = "500 ₳";
-  el("c-delta").selectedIndex = 1; el("c-delta").dispatchEvent(new Event("input", { bubbles: true }));
+  el("c-k").value = 10; el("v-k").textContent = "10";
+  // the mode toggles are part of the configuration, so Reset returns them too
+  el("m-count").setAttribute("aria-pressed", "true");
+  el("m-frac").setAttribute("aria-pressed", "false");
+  el("f-a").hidden = false; el("f-mu").hidden = true;
+  el("k-derive").setAttribute("aria-pressed", "true");
+  el("k-manual").setAttribute("aria-pressed", "false");
+  el("f-k").hidden = true;
+  el("c-delta").selectedIndex = 1;
+  el("c-delta").dispatchEvent(new Event("input", { bubbles: true }));   // repaints the listbox and renders
 });
 el("c-p").addEventListener("input", e => { state.p = +e.target.value / 1000; el("v-p").textContent = (state.p * 100).toFixed(1) + " %"; render(); });
 el("c-k").addEventListener("input", e => { state.k = +e.target.value; el("v-k").textContent = state.k; render(); });
