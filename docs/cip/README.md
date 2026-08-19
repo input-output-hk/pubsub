@@ -315,7 +315,11 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 > [!TIP]
 > At the reference shape of this proposal — *N*<sub>T</sub> = 20 000, *μ* = 0.2, *δ* = 10⁻⁴ — the rule gives *RF* = 10 for a deployment sizing against honest downtime up to 7.5 %, and *RF* = 9 where 2.6 % suffices. This proposal states *RF* = 10. Below about 2.6 % the two are equivalent on reliability and *RF* = 9 is cheaper; above it, *RF* = 9 misses the target on downtime alone.
 
-One link is a large step and a small bill, which is why the rule is worth stating rather than approximating. Each additional pick divides the failure probability by roughly seven under the gate, so *RF* = 10 reaches 5.1 × 10⁻⁶ where *RF* = 9 reaches 3.6 × 10⁻⁵. It is very nearly free, for a reason particular to the gate: a node and its permitted peers draw from the same restricted pool, so pairs select each other far more often than they would at large, and each such crossing is one link rather than two. That deflation more than absorbs the extra pick — *RF* = 10 gated holds fewer standing links than *RF* = 9 ungated, 17.5 against 18.0, and carries fewer copies per node, 13.0 against 13.4. The whole price is about one per cent of mean time to first receipt.[^synthesis]
+One link is a large step and a small bill, which is why the rule is worth stating rather than approximating. Each additional pick divides the failure probability by roughly seven under the gate, so *RF* = 10 reaches 5.1 × 10⁻⁶ where *RF* = 9 reaches 3.6 × 10⁻⁵.
+
+Against the ungated figures earlier drafts of this proposal carried, the tenth pick is free, for a reason particular to the gate: a node and its permitted peers draw from the same restricted pool, so pairs select each other far more often than they would at large, and each such crossing is one link rather than two. That deflation more than absorbs it — *RF* = 10 gated holds 17.5 standing links against ungated *RF* = 9's 18.0, and carries 13.0 copies per node against 13.4, for about one per cent more time to first receipt.
+
+Against the cheaper *gated* alternative it is not free, and the bill is worth seeing before the rule is applied. *RF* = 9 gated holds 16.0 standing links and carries 11.8 copies, so the tenth pick costs about a tenth of each. **That is a per-topic figure, and it multiplies**: across the twenty-five subscriptions [What a node pays](#what-a-node-pays-and-how-it-scales) uses, it is roughly 400 connections against 440, and 2.4 Mbit/s against 2.6. What it buys is the downtime the rule is about, 2.6 % against 7.5 %.[^synthesis]
 
 #### The serving cap
 
@@ -1104,6 +1108,8 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 Both quantities scale linearly, so the ratio between the designs never changes. What changes is which one becomes the binding constraint. Bandwidth stays modest throughout: even twenty-five busy topics is a couple of megabits, which any always-on operator already has. Connection count does not stay modest. At ten topics M3 asks a node to hold 380 connections against M4's 180, and at twenty-five it is 950 against 450.
 
 **This is the strongest argument yet for M4**, and it did not appear in the single-topic comparison, where 38 against 18 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
+
+The same multiplication governs the [pick count](#the-dissemination-design), which is why that rule is stated per topic rather than per node. One additional relay link is about a tenth of a topic's cost — invisible on a single subscription, and around forty connections and a quarter of a megabit at twenty-five. A deployment sizing its pick count against its downtime rate is therefore sizing it against its subscription profile at the same time, and the two are best read together.
 
 > [!NOTE]
 > These counts are of [links](#term-link), and a link is identified by a peer, a topic *and* a link kind. The [Specification](#link-establishment) permits an implementation to carry every link to one peer over a single transport connection, and recommends it, so **the columns above are upper bounds on transport connections** rather than connection counts.
