@@ -39,7 +39,7 @@ The Cardano ecosystem lacks a decentralised layer for [messages](#term-message) 
 We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain serves as the protocol's trust root. [Nodes](#term-node) [register](#term-registry) on-chain, which makes identities verifiable and costly to mass-produce. Each [epoch](#term-epoch), verifiable on-chain randomness derives a fresh, degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target. The design is grounded in formal analysis and simulation at deployment scale, cross-validated between independent implementations.
 
 > [!NOTE]
-> **This document reports what the evidence establishes; it does not yet select a design.** *Proposed* is meant literally. Two candidates remain, several parameters are deployment choices rather than results, and [Path to Active](#acceptance-criteria) lists what would close each gap.
+> **This document reports what the evidence establishes, and selects a design on it.** *Proposed* is meant literally in what remains: several parameters are deployment choices rather than results, the pick count follows a rule whose input is a property of the deployed population, and the closed forms the selection rests on have not been independently derived. [Path to Active](#acceptance-criteria) lists what would close each gap.
 
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
@@ -135,7 +135,7 @@ This section specifies the protocol, and what it aims at is an interoperable imp
 
 The proposal does not yet reach the standard above, and what it leaves open is of four kinds. Each one is marked where it arises rather than only here, so a reader meets it alongside the mechanism it affects.
 
-- **The dissemination design is not yet fixed.** Which link kinds exist, how many links a node opens of each, and in which direction they carry traffic remain open; two candidates stand, and the evidence measures both without selecting between them. Until the question closes an implementation MUST treat the choice as configuration. When it closes, this proposal will either specify one design or specify both, with their trade-offs stated. See [The dissemination design](#the-dissemination-design).
+- **The dissemination design is fixed; its pick count is a rule rather than a value.** One symmetric relay link kind, no separate seeding kind — the [Specification](#the-dissemination-design) states it, and the [Rationale](#why-the-symmetric-design) argues it. What the rule reads is the honest downtime rate a deployment sizes against, which is a property of the deployed population rather than of the protocol, and the difference between a low and a high assumption is one link per node.
 - **Three components are given as interfaces rather than mechanisms.** The [randomness beacon](#epochs-and-the-randomness-beacon), [address resolution](#address-resolution) and the on-chain validators state the requirements they must meet, and a conforming deployment MAY satisfy each in more than one way.
 - **Six of the ten parameters in [Table 4](#table-4) carry a rule or a bound rather than a value.**
 - **The transport is left to the deployment.** What is fixed here are the canonical byte strings every implementation must agree on, not the framing or session layer that carries them, subject to the rule that a peer's identity is taken from the signed preimage and never from the connection it arrived over.
@@ -289,42 +289,33 @@ From its eligible set on each topic and for each link kind, a node picks *k* of 
 
 #### The dissemination design
 
-<!-- OPEN(dissemination-design): this subsection fixes the link kinds, their
-     pick counts, whether links are directional or symmetric, and whether a
-     separate publication-seeding kind exists. The evidence does not select
-     between M3 at (RF = 13, s = 7) and M4 at RF = 9; the Rationale's
-     "Where this leaves the choice" states why. Selection is tracked as
-     input-output-hk/pubsub#85 and turns on a fact about operators, namely
-     whether a participating node's binding constraint is the traffic it
-     carries or the connections it can hold open. Nothing outside this
-     subsection depends on the answer: the gate, the headroom rule, the
-     serving cap, the handshake, the message format and recovery are all
-     stated in terms of "each link kind and its pick count k". -->
+Everything above is stated for a link kind with a pick count. This subsection fixes which link kinds exist, how many links a node opens of each, and in which direction they carry traffic.
 
-Everything above is stated for a link kind with a pick count. What remains is to fix which link kinds exist, how many links a node opens of each, and in which direction they carry traffic. **This proposal does not yet fix them.** Two candidates remain, and the evidence measures both without selecting between them.
+**A node holds one link kind per topic: a symmetric relay link.** There is no separate publication-seeding kind. A node's own publications and the messages it relays for others travel the same links; a link carries traffic in both directions and is established once for the pair rather than once per direction. Its gate domain tag is `pubsub/gate/relay/v1`, and the pair is sorted by identity bytes before the gate is evaluated, as [the verifiable gate](#the-verifiable-gate) requires of a symmetric kind. The design is the one the analysis calls M4, and the [Rationale](#why-the-symmetric-design) sets out why it rather than the directional alternative.
 
-Both candidates share every mechanism defined elsewhere in this section. They differ in four respects, and those four are what this subsection will state when the question closes:
-
-- the **link kinds** in use, and the gate domain tag each evaluates under;
-- the **pick count** *k* for each kind, and hence the total pick budget *K* per topic;
-- whether a link is **directional**, carrying traffic one way and established by one end, or **symmetric**, carrying traffic both ways and established once for the pair;
-- whether a separate **seeding link kind** exists, carrying only its owner's own publications rather than relaying others'.
+Three consequences are worth stating where an implementer meets them. Because a link is symmetric, a node's realised degree on a topic is its pick count plus the admissions it granted, bounded by *k* + *C* exactly. Because there is no seeding kind, a publisher reaches the network through the same links a subscriber does, so there is one gate, one serving cap and one sizing rule per topic rather than two of each. And because a pair draws one gate value rather than two, a single registered identity is admissible to (*N*<sub>T</sub> − 1)/*B* peers rather than twice that — which is the quantity an attacker pays for, and the [Rationale](#why-the-symmetric-design) shows is what decides the comparison.
 
 <div align="center">
 <a name="table-3" id="table-3"></a>
 
-| | Relay links | Seeding links | Direction | Pick budget *K* | Standing links, mean / busiest |
+| | Relay links | Seeding links | Direction | Pick budget *K* | Standing links, mean / ceiling |
 | :--: | ---: | ---: | :--: | ---: | ---: |
-| Candidate M3 | *RF* = 13 | *s* − 1 = 6 | directional | 19 | 38 / 64 |
-| Candidate M4 | *RF* = 9 | none | symmetric | 9 | 18 / 37 |
+| Specified | *RF* = 10 | none | symmetric | 10 | 17.5 / 33 |
 
-<em>Table 3: the two candidate dissemination designs, each at its best known parameters</em>
+<em>Table 3: the dissemination design, at the reference shape of this proposal</em>
 
 </div>
 
-The two are jointly non-dominated: M3 carries 22 % less traffic, M4 holds less than half the links, reaches its last subscriber sooner and absorbs more than three times the honest downtime. The [Rationale](#where-this-leaves-the-choice) measures all four axes and states, explicitly, that they do not select a winner. What would select one is a fact about the operators expected to run the layer rather than about the protocol, and it is posed in the [Open Questions](#open-questions). The decision is tracked as [issue #85](https://github.com/input-output-hk/pubsub/issues/85).
+The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bounds admissions, a node's own picks are never charged against it, and so a node's degree on a topic cannot exceed *k* + *C* whatever order requests arrive in.
 
-Until it closes, an implementation targeting this proposal MUST treat the dissemination design as configuration, and MUST NOT assume either candidate elsewhere. Everything in this section outside this subsection is stated in terms of link kinds and their pick counts, and holds unchanged under either.
+**The pick count is derived rather than fixed here, and what it reads is honest downtime.** An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary — [Evidence](#evidence) sets out why — so downtime consumes the same budget adversarial behaviour does, and a pick count sized against the adversarial fraction alone under-provisions by exactly the downtime a deployment expects to see.
+
+*k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give.
+
+> [!TIP]
+> At the reference shape of this proposal — *N*<sub>T</sub> = 20 000, *μ* = 0.2, *δ* = 10⁻⁴ — the rule gives *RF* = 10 for a deployment sizing against honest downtime up to 7.5 %, and *RF* = 9 where 2.6 % suffices. This proposal states *RF* = 10. Below about 2.6 % the two are equivalent on reliability and *RF* = 9 is cheaper; above it, *RF* = 9 misses the target on downtime alone.
+
+One link is a large step and a small bill, which is why the rule is worth stating rather than approximating. Each additional pick divides the failure probability by roughly seven under the gate, so *RF* = 10 reaches 5.1 × 10⁻⁶ where *RF* = 9 reaches 3.6 × 10⁻⁵. It is very nearly free, for a reason particular to the gate: a node and its permitted peers draw from the same restricted pool, so pairs select each other far more often than they would at large, and each such crossing is one link rather than two. That deflation more than absorbs the extra pick — *RF* = 10 gated holds fewer standing links than *RF* = 9 ungated, 17.5 against 18.0, and carries fewer copies per node, 13.0 against 13.4. The whole price is about one per cent of mean time to first receipt.[^synthesis]
 
 #### The serving cap
 
@@ -365,7 +356,7 @@ Every parameter this Specification fixes or leaves open, with the value it takes
 | *η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
 | *B* | How narrow the verifiable gate is | **Derived per topic:** the smallest of the failure-target, pool-floor and headroom bounds, or 1 where that is below 2 | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | *r* | Candidates the gate leaves per link opened | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| *k*, *K* | Links a node opens per kind, and in total per topic | **Open:** set by the dissemination design | [The dissemination design](#the-dissemination-design), [issue #85](https://github.com/input-output-hk/pubsub/issues/85) |
+| *k*, *K* | Links a node opens per kind, and in total per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [The dissemination design](#the-dissemination-design) |
 | *δ*, *μ* | The failure target, and the adversarial fraction sized against | **Open**, and agreed deployment-wide, since the gate and cap rules both read them | [Open Questions](#open-questions) |
 | *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [What the protocol guarantees instead](#what-the-protocol-guarantees-instead) |
@@ -916,7 +907,7 @@ Three things follow, and the third is the one that matters for the choice.
 
 **M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention. See [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
 
-The [Specification](#the-dissemination-design) carries both candidates rather than one, for the reason this subsection begins to establish: it fixes only what each design costs, and the one below fixes what each gives up under an unreliable population, and the two do not agree.<!-- FORWARD-REF(specification): partly resolved. The Specification now states everything independent of the choice, and marks the dissemination design itself OPEN with both candidates and their parameters. What still blocks naming one is not evidence but a fact about operators, whether traffic or held connections binds; see input-output-hk/pubsub#85. Delete this comment when that issue closes and the Specification names a single design. -->
+Cost alone does not settle it, which is the reason this subsection stops here: it fixes only what each design costs, the one below fixes what each gives up under an unreliable population, and the two do not agree. What settles it is neither of those but the [admission rules](#why-the-symmetric-design), under which the directional candidate cannot reach the reliability target at equal attack cost.
 
 #### Robustness
 
@@ -1027,16 +1018,16 @@ The shapes carry the argument. **M4 is the most even, and it is the only design 
 
 The churn axis is where the re-split does its visible work, even though it does not change who leads. At M3's published split of (12, 8) that vertex is 0.54 % against M4's 7.43 %, less than a tenth of the way out, so the shape is a spike on bandwidth and very little else. Moving one link from seeding to relaying, at the same budget and the same standing links, quadruples it. That is the same design under a different split, not a different design, which is what makes the selection rule rather than the mechanism the thing to fix.
 
-The re-split is not free on the axis M3 leads, and the figure is drawn the conservative way round. The two splits hold the same nineteen links and the same thirty-eight standing connections, and the extra relay link is paid for in traffic: 10.4 copies per node against 9.6. Against M4 at RF = 9 that is a bandwidth lead of 22 % rather than the 28 % the published split would show. So M3 is plotted at its best *overall* split rather than its best *bandwidth* split, and the one axis it leads is drawn at its narrowest defensible margin. A reader weighing traffic against connections — the question [Where this leaves the choice](#where-this-leaves-the-choice) turns on — should know that M3 has a further 6 % of bandwidth available to it, at the cost of three quarters of its churn tolerance and a longer path to the last subscriber.
+The re-split is not free on the axis M3 leads, and the figure is drawn the conservative way round. The two splits hold the same nineteen links and the same thirty-eight standing connections, and the extra relay link is paid for in traffic: 10.4 copies per node against 9.6. Against M4 at RF = 9 that is a bandwidth lead of 22 % rather than the 28 % the published split would show. So M3 is plotted at its best *overall* split rather than its best *bandwidth* split, and the one axis it leads is drawn at its narrowest defensible margin. A reader weighing traffic against connections — the axis on which [the comparison](#why-the-symmetric-design) was for a long time held open — should know that M3 has a further 6 % of bandwidth available to it, at the cost of three quarters of its churn tolerance and a longer path to the last subscriber.
 
 > [!IMPORTANT]
 > The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
 
 **On the choice of axes.** These four are the quantities that are both measured, independent of one another, and derived under the *same* adversary. That last condition is what keeps the figure readable as a single comparison, and it is why the cost of an adaptive eclipse is not a fifth spoke: it is priced against an adversary that corrupts chosen nodes once an epoch is under way, which the coverage analysis explicitly excludes. Plotting it beside four quantities measured under the silent adversary would imply the five are commensurable when they rest on different assumptions about what the attacker can do. It is carried in [Table 11](#table-11) instead, where both readings of it can be stated. Three further quantities were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 8; it is left off the figure only because four axes already carry the argument. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
-#### Where this leaves the choice
+#### Why the symmetric design
 
-Two designs remain in contention, and neither dominates the other. M3 at (13, 7) is cheaper in traffic; M4 at RF = 9 holds less than half the connections, reaches its last subscriber sooner, and absorbs more than three times the downtime:
+For most of this programme two designs stood, and on the coverage models neither dominated the other. M3 at (13, 7) is cheaper in traffic; M4 at RF = 9 holds less than half the connections, reaches its last subscriber sooner, and absorbs more than three times the downtime:
 
 <div align="center">
 <a name="table-11" id="table-11"></a>
@@ -1050,16 +1041,46 @@ Two designs remain in contention, and neither dominates the other. M3 at (13, 7)
 | Corruptions to strand a chosen node, knowing its links | 10.4 | **14.4** |
 | … knowing only the public gate | 26 | 18 |
 
-<em>Table 11: the two remaining candidates, each at its best known parameters</em>
+<em>Table 11: the two candidates as the coverage models measure them, which is to say ungated</em>
+
+</div>
+
+**That table decides nothing, because no deployment gets to run either design the way it was measured.** The [gate](#the-verifiable-gate) is not an option a deployment exercises. It is derived per topic from the topic's own size, and on any topic large enough for bounded fanout to be worth having, it is on. Both candidates have since been measured under the gate and the admissions budget, at the scale and the pick counts this proposal specifies, and the comparison changes character when they are.[^synthesis]
+
+<div align="center">
+<a name="table-11b" id="table-11b"></a>
+
+| | M3 gated, best compliant | M4 gated, as specified |
+| :--: | ---: | ---: |
+| Parameters | *RF* = 13, *s* = 7, *B* = 769 | *RF* = 10, *B* = 500, *C* = 23 |
+| Failure probability | 5.8 × 10⁻⁵ | **5.1 × 10⁻⁶** |
+| Peers one identity may reach | 52 | **40** |
+| Identities to strand a chosen node, knowing only the public gate | 26 | **40** |
+| At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
+| Seams carrying a gate and a cap | 2 | **1** |
+
+<em>Table 11b: the same two designs under the admission rules this proposal specifies</em>
 
 </div>
 
 > [!IMPORTANT]
-> **The evidence leans to M4, and this proposal stops short of naming it for one specific reason.** M4 leads four of the five coverage-model quantities — connections, latency, downtime absorbed and failure probability — and the one M3 leads is bandwidth, by 22 %. Nor is that a balanced trade at deployment scale: [what a node pays](#what-a-node-pays-and-how-it-scales) shows the axis M3 wins staying cheap in absolute terms as subscriptions multiply, a couple of megabits at twenty-five topics, while the axis M4 wins becomes a hard limit at 950 connections against 450.
+> **Under armour the question stops being a trade-off and becomes a feasibility test.** The quantity to hold equal between two designs is not the link count but the **attack surface per registered identity** — how many victims one deposit buys a place beside — because that is what an attacker actually pays for. A symmetric pair draws one gate value covering both directions, so one identity is admissible to (*N*<sub>T</sub> − 1)/*B* peers. A directional design draws each direction independently and pays twice, so the same identity reaches 2(*N*<sub>T</sub> − 1)/*B* peers. Holding surface equal therefore forces the directional design to twice the bucket count, which leaves it drawing from **half the candidate pool**.
 >
-> What holds the choice open is narrower than a tie. Two things would close it. The first is a fact about deployment rather than about the protocol: whether any operator expected to run this layer is genuinely bandwidth-bound *and* on few enough topics that connection count never binds. The second was an evidence gap that was ours to close, and it has since been closed: **the admission parameters are now measured on M4's symmetric handshake.**[^symgate] The gate's coverage cost and its value against a flooding adversary have both been run on symmetric links, the acceptance cap has been given semantics that survive a handshake erasing direction, and the sorted-pair gate has been measured against its alternative rather than argued for. What that pass establishes is that the symmetric seam needs its own sizing rules rather than the directional ones — an adversarial floor the cap cannot reach, an arrival-based anchor for the budget, and a pool floor past which the budget stops being a usable instrument — and those rules are now stated in the Specification. None of it weakens the case for M4; it removes a reason for not stating that case. What holds the choice open is therefore the first question alone, which needs evidence from operators rather than further simulation, together with the closed-form model the admission parameters still lack.
+> That halving is decisive, and it is a fact about geometry rather than about tuning. The failure mode it feeds is a node whose every permitted pick is adversarial, and once the pool is comparable to the pick count, raising the pick count cannot help — there is nothing left in the pool to reach for — while lowering it re-opens the same channel from the other side. At M4's attack surface the directional design reaches 1.8 × 10⁻³ and **no pick count meets the target at all**. The two curves are testable together at one point, and the measurement there is a count rather than an estimate: the directional design failed 17 runs in 400, every one of them by the pool-limited channel the argument predicts, against zero failures in 400 for the symmetric twin.[^synthesis]
 
-What the evidence does establish is that the field is two, not five, and that the axes on which they differ are measured rather than assumed.
+**Weighting the axes does not decide this, and no longer needs to.** A weighting is how you choose among candidates that all clear the bar; it has nothing to say about one that does not. This matters because it retires the question that held the choice open for so long. That question — whether an operator's binding constraint is the traffic it carries or the connections it holds — was a question about bandwidth, which is the one axis the directional design leads. An answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, so the answer no longer changes the outcome. It is a real question about deployment and it is worth answering; it is not this decision.
+
+> [!NOTE]
+> **The axes do not divide into security and performance as cleanly as they look.** Of the quantities in Table 11, only copies per node is straightforwardly a performance figure. Downtime absorbed is an availability property — how much of the honest population can be offline before delivery fails — and time to the last subscriber is a liveness bound on topics carrying urgent traffic. A reader who weights security above optimisation is therefore weighting up three of the four axes the symmetric design already leads, and weighting down the one it does not.
+
+**One seam rather than two.** The directional design carries a second surface this comparison does not even charge it for. Its publication-seeding links are a separate kind with their own gate, their own serving cap and their own sizing rule, and the seam inverts: a node's cap there governs what it will *accept* from publishers, so refusals starve the dialler's first hop rather than its own. Measured under a binding cap, that seam turns out to strangle exactly the links that would have rescued an otherwise-muted publisher, which is a coupling that has to be sized around.[^synthesis] The symmetric design has no such seam. Reciprocity collapses both failure directions into one channel with one gate, one cap and one budget rule — and every normative statement elsewhere in this proposal is written once rather than twice as a result.
+
+> [!WARNING]
+> **What this argument still rests on, stated plainly.** The gated laws behind Table 11b were derived inside the experiments programme and validated against measurement — they reproduce each design's published ungated law when the gate is made vacuous, and every feasible row above is anchored by a measured cell. They have not been independently derived, with stated assumptions and proofs, in the manner of the formal analysis that carries the ungated coverage results. A review of them is the outstanding step, and it is the one this selection most depends on.[^synthesis]
+>
+> The selection is also robust in a narrower range than the argument may suggest. Every measurement here is at thousands of participants. Connection count — the axis on which the symmetric design's advantage is largest — is also the axis that stops separating the two as topics shrink, since multiplexing recovers more for the design holding more links. The regime this proposal is least able to speak to is a few hundred participants, and nothing above is measured there.
+
+What the evidence establishes beyond the selection is that the field was two rather than five, and that the axes on which the two differ are measured rather than assumed.
 
 #### What a node pays, and how it scales
 
@@ -1271,7 +1292,7 @@ Short epochs are undemanding: an hourly epoch asks only that a node stay up for 
 - Whether a deposit should decay in the absence of positively supplied evidence of participation, following the approach Ethereum's inactivity leak takes to liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
 - The epoch length itself. The Evidence subsection bounds it from both directions and shows the upper bound is the binding one, but the bound depends on how often a node drops out, which is a property of the deployed population rather than of the protocol and was not measured. Settling the epoch length means settling that rate first, and the two have to be argued together with the failure target.
 - What population the topics that matter actually draw from. Multiplexing is now permitted, and the arithmetic above shows it saves almost nothing at *N* = 20 000 and a great deal below a few thousand, so the size of the topics a deployment expects to carry decides whether connection count separates the two designs at all. That is a question about who registers, not about the protocol.
-- Which of the two remaining designs to adopt. The measurements lean to M4, which leads four of the five coverage quantities, so what is open is narrower than a tie. Two things would close it. Whether any operator expected to run the layer is genuinely bandwidth-bound rather than connection-bound is a question about stake pools, wallet backends and dApp infrastructure, and needs evidence from them rather than further simulation. The admission parameters were the other half of this question and are no longer part of it: the bucket count and the acceptance cap have since been measured on M4's symmetric handshake, which needs its own sizing rules rather than the directional ones.[^symgate] What they still lack is a closed-form model, carried as its own criterion below.
+- The honest downtime rate a deployment sizes against. It now sets the pick count as well as bounding the epoch, since downtime and adversarial silence are the same thing to the rest of the network, and at the reference shape the difference between sizing against 2.6 % and 7.5 % is one link on every node. It is a property of the deployed population and was not measured here.
 - How the design behaves on small topics. The use cases include topics whose direct participants number in the tens, and every measurement here is at thousands. Whether such a topic is served by this protocol at all, by a degenerate parameterisation of it, or by something else, is not settled, and it interacts with the choice of design: connection count is what separates the two candidates and it stops separating them as topics shrink.
 - The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure, and against the observation that a subscriber only needs its own upstream set captured rather than the network, before parameters are fixed.
 - The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
@@ -1290,8 +1311,8 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 
 **Before a design can be built from this**
 
-- [ ] A dissemination design is selected and its parameters fixed. The evidence narrows the field to two and does not choose between them; what decides it is whether an operator's binding constraint is traffic or held connections.
-- [ ] The admission parameters gain a closed-form model. The verifiable gate and the serving cap exist only in the reference implementation and in the measurements of them, so they are the one part of this proposal resting on a single instrument.
+- [x] A dissemination design is selected. The gated comparison makes the directional candidate infeasible at equal attack surface rather than merely more expensive, so the choice no longer turns on an operator's binding constraint.[^synthesis] Its pick count follows a rule whose input — the honest downtime rate — remains a deployment choice.
+- [ ] The gated closed forms are independently derived. The verifiable gate and the serving cap now have closed forms, validated against measurement and recovering the ungated laws where the gate is made vacuous, but derived inside the experiments programme rather than in the manner of the formal analysis.[^synthesis] The selection of a dissemination design rests on them.
 - [x] Those parameters gain evidence covering both candidate designs. The directional measurements run M2's wiring and carry to M3 and M5; a further pass covers M4's symmetric handshake, which needs its own sizing rules rather than the directional ones.[^symgate]
 - [ ] The randomness beacon is specified. It sets the epoch floor and, through it, decides whether the churn ceiling binds at all.
 - [ ] Node behaviour is specified at the seams the analysis does not reach: refused-dial retry within an epoch, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients.
