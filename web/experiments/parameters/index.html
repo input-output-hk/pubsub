@@ -478,22 +478,11 @@
 </style>
 <style>
   /* Page-local furniture. Everything above is web/shared.css verbatim. */
-  .ps-grid { display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 28px; align-items: start; }
-  @media (max-width: 900px) { .ps-grid { grid-template-columns: 1fr; } }
-  .ps-panel { border: 1px solid var(--card-stroke-faint); border-radius: 10px; background: var(--card-soft-fill); padding: 18px 18px 14px; }
-  .ps-panel + .ps-panel { margin-top: 18px; }
-  .ps-panel h3 { font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); margin: 0 0 14px; font-weight: 600; }
-  .ps-field { margin-bottom: 16px; }
-  .ps-field:last-child { margin-bottom: 4px; }
-  .ps-field label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem; margin-bottom: 6px; gap: 10px; }
-  .ps-field label .v { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text); font-variant-numeric: tabular-nums; }
-  .ps-field input[type=range] { width: 100%; accent-color: var(--accent); }
-  .ps-field select, .ps-field input[type=number] { width: 100%; font-family: var(--font-mono); font-size: 0.88rem; padding: 6px 8px; border: 1px solid var(--card-stroke-faint); border-radius: 6px; background: var(--card-fill); color: var(--text); }
-  .ps-seg { display: flex; gap: 0; border: 1px solid var(--card-stroke-faint); border-radius: 6px; overflow: hidden; }
-  .ps-seg button { flex: 1; padding: 7px 6px; font-size: 0.82rem; font-family: var(--font-display); border: 0; background: var(--card-fill); color: var(--text-mute); cursor: pointer; }
-  .ps-seg button[aria-pressed=true] { background: var(--accent); color: #fff; }
   .ps-hint { font-size: 0.8rem; color: var(--text-faint); line-height: 1.45; margin-top: 6px; }
-  .ps-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .ps-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  /* .model-tab already carries its own pressed state from the shared sheet.
+     hidden needs winning back from the flex display the env-item sets. */
+  [hidden] { display: none !important; }
   .ps-stat { border: 1px solid var(--card-stroke-faint); border-radius: 8px; padding: 12px 13px; background: var(--card-fill); }
   .ps-stat .k { font-size: 0.74rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 5px; }
   .ps-stat .n { font-family: var(--font-mono); font-size: 1.18rem; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -507,6 +496,22 @@
   .ps-test { font-family: var(--font-mono); font-size: 0.78rem; margin-top: 26px; padding: 10px 14px; border-radius: 8px; }
   .ps-test.pass { background: var(--good-soft); color: var(--good); }
   .ps-test.fail { background: var(--bad-soft); color: var(--bad); }
+
+  /* ---- glossary tooltips ----
+     Lifted from the compare-designs page so a term behaves the same on both.
+     Three ways in: hover for a mouse, focus for the keyboard, tap for touch. */
+  .term { border-bottom: 1px dashed var(--line-strong); cursor: help; }
+  .term:hover, .term[aria-expanded="true"] { border-bottom-color: var(--iog-infared); color: var(--iog-infared); }
+  .ps-stat .k .term, .ps-hint .term, figcaption .term { border-bottom-style: dotted; }
+  #tip { position: fixed; pointer-events: none; background: var(--card-fill);
+         border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
+         color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; z-index: 60;
+         max-width: min(340px, calc(100vw - 24px)); font-size: 0.82rem; line-height: 1.5; }
+  /* No text-transform on the key: it would turn the Greek letters into their capitals. */
+  #tip .tip-key { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+                  letter-spacing: 0.12em; color: var(--iog-infared);
+                  display: block; margin-bottom: 5px; text-transform: none; }
+  #tip b { font-weight: 600; }
 </style>
 </head>
 <body>
@@ -554,118 +559,122 @@
 </nav>
 
 <main>
-<section class="section">
-  <div class="container">
-    <p class="eyebrow">Experiments · parameter relationships</p>
-    <h1>What your size and your attacker imply</h1>
-    <p class="lede">
-      Every chart this project publishes fixes the adversarial share and varies something else.
-      That hides the relationship that matters most to a deployment, because an attacker does not
-      buy a percentage — it buys identities. With a deposit <em>D</em> and capital <em>X</em> it
-      affords <em>A</em> = ⌊<em>X</em>/<em>D</em>⌋ of them, and the fraction it holds
-      <strong>rises as the network shrinks</strong>. This page fixes the attacker and moves the
-      network instead.
-    </p>
-    <p>
-      It also derives, rather than assumes, the three admission parameters. The bucket count
-      <em>B</em>, the admissions budget <em>C</em> and the pick count <em>k</em> all follow from the
-      network size, the failure target and the downtime a deployment sizes against — and which
-      constraint binds changes as you move. The laws are the gated ones; the
-      <a href="../cost-model/">design comparison</a> next door runs the ungated laws that
-      chose the design in the first place.
-    </p>
-  </div>
-</section>
-
-<section class="section section--alt">
-  <div class="container">
-    <div class="ps-grid">
-      <div>
-        <div class="ps-panel">
-          <h3>The environment</h3>
-          <div class="ps-field">
-            <label for="c-n">Network size <em>N</em><span class="v" id="v-n">20 000</span></label>
-            <input type="range" id="c-n" min="0" max="1000" value="1000">
-            <div class="ps-hint">Participants registered on the topic. Logarithmic, 100 to 50 000.</div>
-          </div>
-          <div class="ps-field">
-            <label>How the attacker is specified</label>
-            <div class="ps-seg" role="group">
-              <button type="button" id="m-count" aria-pressed="true">Fixed identities</button>
-              <button type="button" id="m-frac" aria-pressed="false">Fixed fraction</button>
-            </div>
-            <div class="ps-hint" id="mode-hint">The attacker's budget is what is fixed; its share of the network follows from the size.</div>
-          </div>
-          <div class="ps-field" id="f-a">
-            <label for="c-a">Attacker identities <em>A</em><span class="v" id="v-a">4 000</span></label>
-            <input type="range" id="c-a" min="0" max="1000" value="1000">
-          </div>
-          <div class="ps-field" id="f-mu" hidden>
-            <label for="c-mu">Adversarial share <em>μ</em><span class="v" id="v-mu">0.20</span></label>
-            <input type="range" id="c-mu" min="1" max="60" value="20">
-          </div>
-          <div class="ps-field">
-            <label for="c-delta">Failure target <em>δ</em></label>
-            <select id="c-delta">
-              <option value="1e-3">10⁻³ per epoch</option>
-              <option value="1e-4" selected>10⁻⁴ per epoch</option>
-              <option value="1e-5">10⁻⁵ per epoch</option>
-              <option value="1e-6">10⁻⁶ per epoch</option>
-            </select>
-          </div>
-          <div class="ps-field">
-            <label for="c-p">Honest downtime <em>p</em><span class="v" id="v-p">7.5 %</span></label>
-            <input type="range" id="c-p" min="0" max="150" value="75">
-            <div class="ps-hint">An offline honest node is indistinguishable from a silent adversary, so downtime shifts the fraction the parameters must survive.</div>
-          </div>
-        </div>
-
-        <div class="ps-panel">
-          <h3>The pick count</h3>
-          <div class="ps-field">
-            <div class="ps-seg" role="group">
-              <button type="button" id="k-derive" aria-pressed="true">Derive from the target</button>
-              <button type="button" id="k-manual" aria-pressed="false">Set by hand</button>
-            </div>
-          </div>
-          <div class="ps-field" id="f-k" hidden>
-            <label for="c-k">Pick count <em>k</em><span class="v" id="v-k">10</span></label>
-            <input type="range" id="c-k" min="4" max="20" value="10">
-          </div>
-          <div class="ps-hint" id="k-note"></div>
-        </div>
-
-        <div class="ps-panel">
-          <h3>Deposit</h3>
-          <div class="ps-field">
-            <label for="c-d">Deposit per identity<span class="v" id="v-d">500 ₳</span></label>
-            <input type="range" id="c-d" min="0" max="1000" value="415">
-            <div class="ps-hint" id="d-note"></div>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div class="ps-out" id="out"></div>
-        <div class="ps-verdict" id="verdict"></div>
-
-        <figure class="ps-fig">
-          <svg class="ps-chart" id="chart-pbad" viewBox="0 0 720 330" role="img" aria-label="Failure probability against network size"></svg>
-          <figcaption id="cap-pbad"></figcaption>
-        </figure>
-
-        <figure class="ps-fig">
-          <svg class="ps-chart" id="chart-b" viewBox="0 0 720 300" role="img" aria-label="The three bucket-count bounds against network size"></svg>
-          <figcaption id="cap-b"></figcaption>
-        </figure>
-
-        <div class="ps-test" id="selftest">running self-test…</div>
-      </div>
+  <section class="page-head">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../">&lsaquo;&nbsp;Experiments</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-here" aria-current="page">Parameter surface</span>
+      </nav>
+      <h1>Parameter surface</h1>
+      <p class="lede">
+        Every other chart here fixes the adversarial share and varies something else. That hides
+        the relationship a deployment cares about most, because an attacker does not buy a
+        percentage — it buys <span class="term" data-term="deposit">identities</span>, and the
+        share they represent <b>rises as the network shrinks</b>. This page fixes the attacker
+        and moves the network instead, deriving the
+        <span class="term" data-term="B">bucket count</span>,
+        <span class="term" data-term="C">admissions budget</span> and
+        <span class="term" data-term="k">pick count</span> that follow.
+        Hover, tap or tab to any <span class="term" data-term="how" tabindex="0">underlined term</span>
+        for what it means.
+      </p>
+      <p class="caveat">
+        <b>Derived, not measured.</b> These are the gated closed forms, transcribed from the
+        experiments programme's prediction ledger and pinned to it by the self-test at the foot
+        of the page. Simulation covers one thousand to twenty thousand participants; outside
+        that band the curves are the laws alone. The
+        <a href="../cost-model/">design comparison</a> next door runs the <i>ungated</i> laws
+        over all five designs — the ones that chose the design in the first place.
+      </p>
     </div>
-  </div>
-</section>
+  </section>
+
+  <section class="block" id="surface">
+    <div class="container">
+
+      <div class="env-rail" role="group" aria-label="Environment">
+        <div class="env-item">
+          <span class="env-key term" data-term="N"><span class="env-sym">N</span><span class="env-name">network size</span></span>
+          <input type="range" id="c-n" min="0" max="1000" value="1000" aria-label="Network size N, logarithmic">
+          <output class="env-val" id="v-n" for="c-n">20 000</output>
+        </div>
+        <div class="env-item" id="f-a">
+          <span class="env-key term" data-term="A"><span class="env-sym">A</span><span class="env-name">attacker identities</span></span>
+          <input type="range" id="c-a" min="0" max="1000" value="1000" aria-label="Attacker identity count A, logarithmic">
+          <output class="env-val" id="v-a" for="c-a">4 000</output>
+        </div>
+        <div class="env-item" id="f-mu" hidden>
+          <span class="env-key term" data-term="mu"><span class="env-sym">μ</span><span class="env-name">adversarial share</span></span>
+          <input type="range" id="c-mu" min="1" max="60" value="20" aria-label="Adversarial share mu">
+          <output class="env-val" id="v-mu" for="c-mu">0.20</output>
+        </div>
+        <div class="env-item">
+          <span class="env-key term" data-term="downtime"><span class="env-sym">p</span><span class="env-name">honest downtime</span></span>
+          <input type="range" id="c-p" min="0" max="150" value="75" aria-label="Honest downtime rate p">
+          <output class="env-val" id="v-p" for="c-p">7.5 %</output>
+        </div>
+        <div class="env-item" style="flex:0 1 auto">
+          <span class="env-key term" data-term="delta"><span class="env-sym">δ</span><span class="env-name">failure target</span></span>
+          <select id="c-delta" class="visually-hidden" aria-hidden="true" tabindex="-1"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option><option value="1e-6">10⁻⁶</option></select>
+          <div class="xselect" id="delta-select">
+            <button type="button" class="xselect-btn" id="delta-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Failure target delta">10⁻⁴</button>
+            <ul class="xselect-menu" role="listbox" aria-label="Failure target delta"></ul>
+          </div>
+        </div>
+        <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
+      </div>
+
+      <div class="tab-strip" role="group" aria-label="How the attacker is specified">
+        <span class="strip-label">Attacker</span>
+        <button type="button" class="model-tab" id="m-count" aria-pressed="true">Fixed identities</button>
+        <button type="button" class="model-tab" id="m-frac" aria-pressed="false">Fixed share</button>
+      </div>
+      <div class="tab-strip" role="group" aria-label="How the pick count is chosen">
+        <span class="strip-label">Pick count</span>
+        <button type="button" class="model-tab" id="k-derive" aria-pressed="true">Derive from the target</button>
+        <button type="button" class="model-tab" id="k-manual" aria-pressed="false">Set by hand</button>
+        <span class="env-item" id="f-k" hidden style="flex:0 1 220px">
+          <input type="range" id="c-k" min="4" max="20" value="10" aria-label="Pick count k">
+          <output class="env-val" id="v-k" for="c-k">10</output>
+        </span>
+      </div>
+
+      <div class="stage">
+        <div class="stage-canvas">
+          <div class="ps-verdict" id="verdict"></div>
+
+          <figure class="ps-fig">
+            <svg class="ps-chart" id="chart-pbad" viewBox="0 0 720 330" role="img" aria-label="Failure probability against network size"></svg>
+            <figcaption id="cap-pbad"></figcaption>
+          </figure>
+
+          <figure class="ps-fig">
+            <svg class="ps-chart" id="chart-b" viewBox="0 0 720 300" role="img" aria-label="The three bucket-count bounds against network size"></svg>
+            <figcaption id="cap-b"></figcaption>
+          </figure>
+
+          <div class="ps-test" id="selftest">running self-test…</div>
+        </div>
+
+        <div class="side-card">
+          <h3>What follows</h3>
+          <div class="ps-out" id="out"></div>
+          <div class="env-item" style="margin-top:16px">
+            <span class="env-key term" data-term="deposit"><span class="env-sym">D</span><span class="env-name">deposit</span></span>
+            <input type="range" id="c-d" min="0" max="1000" value="415" aria-label="Deposit per identity in ada">
+            <output class="env-val" id="v-d" for="c-d">500 ₳</output>
+          </div>
+          <div class="ps-hint" id="d-note"></div>
+          <div class="ps-hint" id="k-note" style="margin-top:10px"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
 </main>
 
+<div id="tip" role="tooltip" aria-hidden="true"></div>
 <footer>
   <div class="container">
     <nav class="footer-nav" aria-label="Footer">
@@ -1014,16 +1023,18 @@ function render() {
   state.S = S; state.pbad = v;
 
   const ok = v <= state.delta;
-  const stat = (k, n, s, cls) => '<div class="ps-stat ' + (cls || "") + '"><div class="k">' + k + '</div><div class="n">' + n + '</div><div class="s">' + s + '</div></div>';
+  const stat = (k, n, s, cls, term) => '<div class="ps-stat ' + (cls || "") + '"><div class="k">' +
+    (term ? '<span class="term" data-term="' + term + '">' + k + '</span>' : k) +
+    '</div><div class="n">' + n + '</div><div class="s">' + s + '</div></div>';
   el("out").innerHTML = [
-    stat("P(bad) per epoch", fmtSci(v), ok ? "inside the target" : "above the target", ok ? "good" : "bad"),
-    stat("Adversarial share", muEff.toFixed(3), state.fixedCount ? fmtN(S0) + " identities of " + fmtN(N) + (state.p > 0 ? ", downtime folded in" : "") : "as set", muEff > 0.35 ? "warn" : ""),
-    stat("Bucket count B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? "topic too small to bucket" : "bound by the " + r.binding, r.off ? "warn" : ""),
-    stat("Admissions budget C", String(cap.C), "fresh load " + cap.L.toFixed(1) + ", headroom c = 3.5"),
-    stat("Pick count k", String(state.k), state.deriveK ? "derived" : "set by hand"),
-    stat("Standing links", d.toFixed(1), "mean; ceiling " + (state.k + cap.C) + " exact"),
-    stat("Attack surface", r.off ? fmtN(N - 1) : Math.round(surface).toLocaleString("en-US"), "victims one identity may reach"),
-    stat("Price of a targeted edge", r.off ? "1 deposit" : fmtN(r.B) + " deposits", r.off ? "no gate: name any victim" : "≈ " + fmtN(Math.round(r.B * state.D)) + " ₳ at this deposit"),
+    stat("P(bad) per epoch", fmtSci(v), ok ? "inside the target" : "above the target", ok ? "good" : "bad", "pbad"),
+    stat("Adversarial share", muEff.toFixed(3), state.fixedCount ? fmtN(S0) + " identities of " + fmtN(N) + (state.p > 0 ? ", downtime folded in" : "") : "as set", muEff > 0.35 ? "warn" : "", "mu"),
+    stat("Bucket count B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? "topic too small to bucket" : "bound by the " + r.binding, r.off ? "warn" : "", "B"),
+    stat("Admissions budget C", String(cap.C), "fresh load " + cap.L.toFixed(1) + ", headroom c = 3.5", "", "C"),
+    stat("Pick count k", String(state.k), state.deriveK ? "derived" : "set by hand", "", "k"),
+    stat("Standing links", d.toFixed(1), "mean; ceiling " + (state.k + cap.C) + " exact", "", "links"),
+    stat("Attack surface", r.off ? fmtN(N - 1) : Math.round(surface).toLocaleString("en-US"), "victims one identity may reach", "", "surface"),
+    stat("Price of a targeted edge", r.off ? "1 deposit" : fmtN(r.B) + " deposits", r.off ? "no gate: name any victim" : "≈ " + fmtN(Math.round(r.B * state.D)) + " ₳ at this deposit", "", "price"),
   ].join("");
 
   el("d-note").textContent = "An attacker with " + fmtN(state.A) + " identities has committed " +
@@ -1032,6 +1043,7 @@ function render() {
 
   drawPbad(state);
   drawBounds(state);
+  markTerms(el("out"));
 
   const crossTxt = state.crossing
     ? "Against this attacker the design stops meeting its target below about " + fmtN(state.crossing) + " participants"
@@ -1050,16 +1062,157 @@ function seg(aId, bId, onA, onB) {
 el("c-n").addEventListener("input", e => { state.N = sliderToN(+e.target.value); el("v-n").textContent = fmtN(state.N); render(); });
 el("c-a").addEventListener("input", e => { state.A = sliderToA(+e.target.value); el("v-a").textContent = fmtN(state.A); render(); });
 el("c-mu").addEventListener("input", e => { state.mu = +e.target.value / 100; el("v-mu").textContent = state.mu.toFixed(2); render(); });
-el("c-delta").addEventListener("change", e => { state.delta = +e.target.value; render(); });
+el("c-delta").addEventListener("input", e => { state.delta = +e.target.value; render(); });
+/* The delta control: a listbox in front of the native select, which stays the
+   value everything else reads and writes. Lifted from the compare-designs page. */
+(function deltaSelect() {
+  const sel = el("c-delta"), box = el("delta-select");
+  const btn = el("delta-btn"), menu = box.querySelector(".xselect-menu");
+  const opts = [...sel.options];
+  let active = sel.selectedIndex;
+  opts.forEach((o, i) => {
+    const li = document.createElement("li");
+    li.textContent = o.textContent;
+    li.setAttribute("role", "option");
+    li.dataset.i = i;
+    menu.appendChild(li);
+  });
+  const items = [...menu.children];
+  const paint = () => {
+    btn.textContent = opts[sel.selectedIndex].textContent;
+    items.forEach((li, i) => {
+      li.setAttribute("aria-selected", i === sel.selectedIndex ? "true" : "false");
+      li.classList.toggle("is-active", i === active);
+    });
+  };
+  const open = on => {
+    box.dataset.open = on ? "true" : "false";
+    btn.setAttribute("aria-expanded", on ? "true" : "false");
+    if (on) { active = sel.selectedIndex; paint(); }
+  };
+  const choose = i => {
+    sel.selectedIndex = i;
+    sel.dispatchEvent(new Event("input", { bubbles: true }));
+    paint(); open(false); btn.focus();
+  };
+  btn.addEventListener("click", () => open(box.dataset.open !== "true"));
+  items.forEach(li => li.addEventListener("click", () => choose(+li.dataset.i)));
+  box.addEventListener("keydown", e => {
+    const isOpen = box.dataset.open === "true";
+    if (e.key === "Escape") { open(false); btn.focus(); return; }
+    if (!isOpen && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) { e.preventDefault(); open(true); return; }
+    if (!isOpen) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(active + 1, items.length - 1); paint(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(active - 1, 0); paint(); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(active); }
+  });
+  document.addEventListener("click", e => { if (!box.contains(e.target)) open(false); });
+  paint();
+})();
+el("btn-reset").addEventListener("click", () => {
+  state.N = 20000; state.A = 4000; state.mu = 0.2; state.p = 0.075; state.delta = 1e-4;
+  state.D = 500; state.deriveK = true; state.fixedCount = true;
+  el("c-n").value = nToSlider(state.N); el("v-n").textContent = fmtN(state.N);
+  el("c-a").value = aToSlider(state.A); el("v-a").textContent = fmtN(state.A);
+  el("c-p").value = 75; el("v-p").textContent = "7.5 %";
+  el("c-d").value = 415; el("v-d").textContent = "500 ₳";
+  el("c-delta").selectedIndex = 1; el("c-delta").dispatchEvent(new Event("input", { bubbles: true }));
+});
 el("c-p").addEventListener("input", e => { state.p = +e.target.value / 1000; el("v-p").textContent = (state.p * 100).toFixed(1) + " %"; render(); });
 el("c-k").addEventListener("input", e => { state.k = +e.target.value; el("v-k").textContent = state.k; render(); });
 el("c-d").addEventListener("input", e => { state.D = sliderToD(+e.target.value); el("v-d").textContent = fmtN(state.D) + " ₳"; render(); });
 seg("m-count", "m-frac",
-  () => { state.fixedCount = true; el("f-a").hidden = false; el("f-mu").hidden = true; el("mode-hint").textContent = "The attacker's budget is what is fixed; its share of the network follows from the size."; },
-  () => { state.fixedCount = false; el("f-a").hidden = true; el("f-mu").hidden = false; el("mode-hint").textContent = "The conventional framing: the share is held constant as the network moves."; });
+  () => { state.fixedCount = true; el("f-a").hidden = false; el("f-mu").hidden = true; },
+  () => { state.fixedCount = false; el("f-a").hidden = true; el("f-mu").hidden = false; });
 seg("k-derive", "k-manual",
   () => { state.deriveK = true; el("f-k").hidden = true; },
   () => { state.deriveK = false; el("f-k").hidden = false; });
+
+/* ------------------------------------------------------------------ *
+ * Glossary. Written for a reader who has not read the CIP: plain words
+ * first, the symbol second, and no term defined using another one that
+ * is not itself here.
+ * ------------------------------------------------------------------ */
+const GLOSSARY = {
+  how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
+  gate: ['The gate', 'A public lottery on each pair of nodes, computed from a hash. It decides which peers a node is <b>allowed</b> to link to this epoch — not which it picks, which stays private. Nobody can influence their own draw, so an attacker cannot choose whose neighbour it becomes.'],
+  N: ['N — network size', 'Registered participants on this one topic. It is not the whole network, and a node pays these costs again for every topic it subscribes to.'],
+  A: ['A — attacker identities', 'How many registered identities the attacker holds. This is the honest way to describe an attacker, because identities cost a deposit: the attacker picks a spend, not a percentage. Its share of the network then depends on how big the network is.'],
+  mu: ['μ — adversarial share', 'The fraction of registered nodes that accept their links, receive everything and forward nothing. Nobody can tell which they are. A perfectly honest node that is simply offline counts exactly the same way.'],
+  delta: ['δ — failure target', 'The per-epoch chance of a bad draw the deployment is prepared to live with. P(bad) has to stay under it. 10⁻⁴ means about one bad epoch in ten thousand.'],
+  pbad: ['P(bad)', 'The chance that one epoch draws a topology in which at least one honest node is cut off — either it hears nothing, or what it publishes fails to reach everyone.'],
+  B: ['B — bucket count', 'How narrow the gate is. Roughly one peer in B passes it for any given node, so a node may link to about (N−1)/B of the topic. A larger B is a narrower gate: fewer peers to choose from, and a higher price for an attacker aiming at somebody specific.'],
+  C: ['C — admissions budget', 'How many links a node will accept from peers that dialled it, per topic per epoch. A node’s own picks are never charged against it, so an attacker who floods early can never make a node refuse a peer it chose itself. Refusing past C is normal behaviour, not a fault.'],
+  k: ['k — pick count', 'How many peers a node links to on this topic. Every extra link is another independent chance that an honest peer connects it to the rest of the network — worth roughly a factor of seven here — and is paid for in bandwidth and open connections.'],
+  surface: ['Attack surface', 'How many different victims one registered identity is allowed to sit beside. It is the attacker’s opportunity per deposit, which makes it the fair yardstick for comparing designs: it is measured in the attacker’s own budget unit, before any design-specific machinery applies.'],
+  price: ['Price of a targeted edge', 'What it costs to get one hostile link beside a node chosen in advance. With no gate, one deposit — you simply dial them. With a gate, that identity has to win the lottery for that particular victim, so it costs about B deposits in expectation. Broad flooding is diluted; aimed attacks are repriced.'],
+  downtime: ['Honest downtime', 'The share of honest nodes offline during an epoch. To everyone else an offline node looks exactly like a hostile one — it holds its links and forwards nothing — so downtime consumes the same budget an attacker does, and the parameters have to survive both together.'],
+  links: ['Standing links', 'Connections a node holds open for this topic for the whole epoch, carrying every message. The ceiling is exact rather than typical: a node cannot exceed its own picks plus its admissions budget, whatever order requests arrive in.'],
+  deposit: ['Deposit', 'Ada locked for as long as a registered identity stands. It is the whole of the resistance to fake identities: it makes them cost money, which is why an attacker buys a fixed number of them rather than a fixed share of the network.'],
+  binding: ['Which bound binds', 'Three separate limits apply to the gate width, and the one in force is simply the smallest of them. Which of the three that is changes with the pick count and the network size — so a rule that only ever checks one of them can pick a gate that misses the target.'],
+  poolfloor: ['Pool floor', 'A gate can be too narrow. Past a point the set of peers a node may pick from is so small that it is sometimes empty, and no amount of fanout repairs a pool that was never populated.'],
+  headroom: ['Selection headroom (r)', 'How many peers the gate leaves eligible for each link a node has to open. Below two, a node has no real choice left and the topology stops being a random draw. It says when the maths applies — not how reliable the result is.'],
+  target: ['The failure-target bound', 'The widest gate whose failure probability still meets δ. At the pick counts these designs use it is usually this bound that binds, well before the headroom floor does.'],
+  measured: ['The measured range', 'Every simulation in this programme ran between one thousand and twenty thousand participants. Below that the curve is the law alone, and the law has not been checked there.'],
+  crossing: ['Crossing point', 'The network size below which this configuration stops meeting its target against this attacker. Smaller is worse here: the same bought identities are a larger share of a smaller network.'],
+  epoch: ['Epoch', 'The interval that one drawn topology serves. Links are drawn once from fresh public randomness and then carry every message until the next redraw.'],
+};
+
+/* One floating box, by delegation, so cards rebuilt on every render need no wiring. */
+const tip = el("tip");
+let tipEl = null;
+function tipContent(node) {
+  const g = node.dataset.term ? GLOSSARY[node.dataset.term] : null;
+  if (g) return '<span class="tip-key">' + g[0] + "</span>" + g[1];
+  return node.dataset.tip || "";
+}
+function showTip(node) {
+  const html = tipContent(node);
+  if (!html) return;
+  tipEl = node;
+  tip.innerHTML = html;
+  tip.style.display = "block";
+  tip.setAttribute("aria-hidden", "false");
+  node.setAttribute("aria-describedby", "tip");
+  if (node.classList.contains("term")) node.setAttribute("aria-expanded", "true");
+  const r = node.getBoundingClientRect(), t = tip.getBoundingClientRect();
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+  const above = r.bottom + t.height + 12 > innerHeight && r.top > t.height + 12;
+  tip.style.left = Math.round(left) + "px";
+  tip.style.top = Math.round(above ? r.top - t.height - 8 : r.bottom + 8) + "px";
+}
+function hideTip() {
+  if (tipEl) {
+    tipEl.removeAttribute("aria-describedby");
+    if (tipEl.classList.contains("term")) tipEl.setAttribute("aria-expanded", "false");
+  }
+  tipEl = null;
+  tip.style.display = "none";
+  tip.setAttribute("aria-hidden", "true");
+}
+const tipTarget = e => e.target.closest && e.target.closest("[data-term],[data-tip]");
+document.addEventListener("pointerover", e => {
+  if (e.pointerType === "touch") return;          // touch raises pointerover before click
+  const n = tipTarget(e);
+  if (n) showTip(n); else if (tipEl) hideTip();
+});
+document.addEventListener("focusin", e => { const n = tipTarget(e); if (n) showTip(n); else hideTip(); });
+document.addEventListener("focusout", e => { if (tipTarget(e) === tipEl) hideTip(); });
+document.addEventListener("click", e => {
+  const n = tipTarget(e);
+  if (!n) { hideTip(); return; }
+  if (n === tipEl && n.classList.contains("term")) hideTip(); else showTip(n);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") hideTip(); });
+addEventListener("scroll", () => { if (tipEl) hideTip(); }, { passive: true });
+/* Terms are spans, so they need explicit keyboard reachability. Re-run after
+   every render, because the stat cards are rebuilt each time. */
+function markTerms(root) {
+  (root || document).querySelectorAll(".term").forEach(e => {
+    if (!e.hasAttribute("tabindex")) e.setAttribute("tabindex", "0");
+    if (!e.hasAttribute("aria-expanded")) e.setAttribute("aria-expanded", "false");
+  });
+}
 
 /* ---- self-test: pin the transcription to the ledger's published values ---- */
 (function selfTest() {
@@ -1104,6 +1257,7 @@ el("v-d").textContent = fmtN(state.D) + " ₳";
 el("c-n").value = nToSlider(state.N);
 el("c-a").value = aToSlider(state.A);
 render();
+markTerms(document);
 </script>
 </body>
 </html>
