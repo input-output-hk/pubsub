@@ -53,7 +53,7 @@ P(bad) ≤ 10⁻⁴): [`comparison.md`](comparison.md).
 
 Interactive: the closed forms live, as a radar over the properties with
 per-model parameter sliders, published as the
-[cost model](https://pubsub.cardano-scaling.org/experiments/cost-model/)
+[cost model](https://pubsub.cardano-scaling.org/experiments/compare-designs/)
 (self-tested against the Python modules on load).
 
 Validation: every model module runs a self-test when executed directly

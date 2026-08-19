@@ -478,6 +478,9 @@
 </style>
 <style>
   /* Page-local furniture. Everything above is web/shared.css verbatim. */
+  /* The head runs straight into the tool otherwise: the caveat box needs air under it. */
+  section.page-head { padding-bottom: 40px; }
+  .page-head .caveat { margin-bottom: 0; }
   .ps-hint { font-size: 0.8rem; color: var(--text-faint); line-height: 1.45; margin-top: 6px; }
   .ps-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
   /* .model-tab already carries its own pressed state from the shared sheet.
@@ -539,7 +542,7 @@
       <span class="nav-menu">
         <a href="../">Overview</a>
         <a href="../models/">Dissemination model simulator</a>
-        <a href="../cost-model/">Compare designs</a>
+        <a href="../compare-designs/">Compare designs</a>
         <a href="./" class="active">Parameter surface</a>
       </span>
     </span>
@@ -584,7 +587,7 @@
         experiments programme's prediction ledger and pinned to it by the self-test at the foot
         of the page. Simulation covers one thousand to twenty thousand participants; outside
         that band the curves are the laws alone. The
-        <a href="../cost-model/">design comparison</a> next door runs the <i>ungated</i> laws
+        <a href="../compare-designs/">design comparison</a> next door runs the <i>ungated</i> laws
         over all five designs — the ones that chose the design in the first place.
       </p>
     </div>
