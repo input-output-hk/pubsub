@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Compare designs — what each one costs · Cardano PubSub</title>
-<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/cost-model/">
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/compare-designs/">
 <meta name="description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cardano PubSub">
 <meta property="og:locale" content="en">
 <meta property="og:title" content="Compare designs — what each one costs">
 <meta property="og:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
-<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/cost-model/">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/compare-designs/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
@@ -385,7 +385,11 @@
        letter-spacing: .04em; }
   tr:last-child td { border-bottom: 0; }
   th:first-child, td:first-child { text-align: left; }
-  td.best { font-weight: 700; color: var(--text); }
+  /* Bold alone did not carry: the winner in each column also takes a wash of its
+     own series colour, which doubles as a reminder of which row it belongs to. */
+  td.best { font-weight: 700; color: var(--text);
+            background: color-mix(in srgb, var(--best-tint, var(--text)) 15%, transparent);
+            border-radius: 3px; }
   tr.hidden-model td { opacity: .38; }
   td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
               vertical-align: baseline; }
@@ -636,7 +640,7 @@
         </p>
       </header>
       <div class="table-wrap"><table id="values"></table></div>
-      <p class="hint">Bold = best in column among the designs shown · closed forms only, no Monte Carlo</p>
+      <p class="hint">Tinted = best in column among the designs shown, in that design's own colour · closed forms only, no Monte Carlo</p>
     </div>
   </section>
 </main>
@@ -1561,7 +1565,9 @@ if (typeof document !== 'undefined') (() => {
           COLS.map((c, ci) => {
             const v = c.get(r);
             const isBest = state.visible[id] && c.best && typeof v === 'number' && v !== null && best[ci] === v;
-            const style = c.cls ? ` style="color:var(--${c.cls(r) === 'pass' ? 'good' : 'crit'})"` : '';
+            const decl = (c.cls ? `color:var(--${c.cls(r) === 'pass' ? 'good' : 'crit'});` : '')
+                       + (isBest ? `--best-tint:var(--${id});` : '');
+            const style = decl ? ` style="${decl}"` : '';
             return `<td class="${isBest ? 'best' : ''}"${style}>${v === null ? '—' : c.fmt(v)}</td>`;
           }).join('') + '</tr>';
       }).join('');
