@@ -1,6 +1,7 @@
 # Parameter-relationship visualisations for the CIP and the companion site
 
-Status: draft for review. Written against the 2026-08-17 Ezequiel/Will session.
+Status: draft for review. Written against the 2026-08-17 Ezequiel/Will
+session; View 3's sizing rules revised against E20.
 
 ## Why this exists
 
@@ -99,19 +100,60 @@ The relationships between *N*, the pick budget *K*, the bucket count *B*, the
 admissions budget *C*, and the epoch length. This is the view Ezequiel's tool or
 table is expected to source, and the site should render rather than recompute.
 
+**The sizing rules below are E20's, and they replace the ones this section
+carried in its first draft.** E20 is the first pass to measure the gate and the
+admissions budget at the CIP's own operating shape — *N* = 20 000, *k* = 9 or
+10, *μ* = 0.2. Both earlier rules were calibrated at *k* = 16, where the
+all-picks-adversarial term *μ*<sup>*k*</sup> ≈ 10⁻¹¹ is invisible; at *k* = 9 it
+is 5 × 10⁻⁷, large enough to re-enter the coverage budget, and neither rule
+transfers. A view drawn against the superseded rules would render a safe region
+that is not safe.
+
 Minimum content:
 
-- *B* is derived, not configured: *B* = ⌊(*N*<sub>T</sub>−1)/2*k*⌋, with the
-  headroom rule *r* = (*N*<sub>T</sub>−1)/(*B*·*k*) ≥ 2 shown as the binding
-  constraint and the saturation boundary *B* = (*N*<sub>T</sub>−1)/*k* shown as
-  the upper one;
-- *C* sized on fresh honest arrival, *k*(1−*m*)(1−*μ*) with
-  *m* = min(1, *k*·*B*/(*N*<sub>T</sub>−1)), **not** on a multiple of the pick
-  count, which is a directional result superseded for symmetric links;
+- ***B* is derived, and at the CIP's pick count the coverage target is what
+  binds it — not the headroom floor.** *B* is maximal subject to three
+  constraints at once: the gated coverage law meeting the failure target *δ*,
+  the pool floor (*N*<sub>T</sub>−1)/*B* ≥ ln(*H*/*δ*)/(1−*μ*), and the
+  selection headroom *r* = (*N*<sub>T</sub>−1)/(*B*·*k*) ≥ 2. Which of the three
+  binds is *k*-dependent, so the view should draw all three and let the reader
+  see the smallest rather than hard-code one as *the* constraint. At *N* =
+  20 000, *μ* = 0.2, *δ* = 10⁻⁴ and *k* = 9 the target binds at *B* ≈ 730
+  (*r* ≈ 3), the pool floor at *B* = 847, and the headroom floor not until
+  *B* = 1111 — where p<sub>bad</sub> is 9.2 × 10⁻³, ninety-two times the target.
+  **The one-line rule *B* = ⌊(*N*<sub>T</sub>−1)/2*k*⌋ returns exactly that last
+  value**, which is why it is the rule the view must not draw as safe.
+- ***C* is sized on the total fresh arrival load, with a *k*-dependent headroom
+  term**: *C* ≥ *L* + *c*·√*L*, where
+  *L* = (1−*m*)·[*k*(1−*μ*) + *A*/*B*] and
+  *m* = min(1, *k*·*B*/(*N*<sub>T</sub>−1)) is the share of a node's own picks
+  answered as crossings rather than arriving as admissions. Two corrections to
+  the earlier form. *L* carries the attacker's fresh pressure *A*/*B* alongside
+  the honest term *k*(1−*m*)(1−*μ*), because those arrivals consume budget
+  whether the node wants them or not, so a cap clearing only the honest half is
+  short by about half. And *c* is *k*-dependent — *c* ≈ 2 at *k* = 16,
+  **c ≈ 3.5 at *k* = 9–10** — so the sizing cannot be quoted without its pick
+  count. At the CIP shape (*k* = 10, *B* = 500, *A* = 4 000), *L* = 12.0: the
+  honest-only rule gives *C* = 11 and p<sub>bad</sub> 1.5 × 10⁻², *c* = 2 gives
+  *C* = 19 and 1.0 × 10⁻⁴ — on target with no margin — and *c* ≈ 3.5 gives
+  *C* ≈ 25, against the measured recommendation of 23.
+- **The *C* axis is one-sided, and the view should show it that way.**
+  Tighter than the rule is not safer: past the pool floor a cap that binds makes
+  isolation measurably worse through the composition channel, and no value both
+  binds and stays harmless. Looser is inert. The *C* axis is therefore a
+  one-sided cliff, not a trade-off, and drawing it as a trade-off inverts the
+  advice.
 - the **cap-blind floor** *k*·*μ*, so a reader can see the share of a node's
   connections that no acceptance policy reaches and that only gate width moves;
 - epoch length against the churn ceiling, since the beacon floors the epoch and
-  the epoch decides whether the churn budget binds at all.
+  the epoch decides whether the churn budget binds at all. The churn budgets
+  drawn here must be the **gated** ones, which differ sharply by pick count:
+  7.57 % at *k* = 10 against 2.65 % at *k* = 9, where the ungated figure the
+  site carries today is 7.43 %.
+
+Because *L* contains *A*, the admissions budget now consumes the attacker's
+identity count — the same input View 1 is built on. The two views share a slider
+rather than merely a subject.
 
 ## What already exists
 
@@ -160,6 +202,22 @@ and this specification should not duplicate it. The split that avoids collision:
 - **The site renders**, and must not introduce a second, independently maintained
   copy of the maths.
 
+**That tool now exists.** E20 landed
+`pubsub-node/docs/experiments/m4_synthesis_predictions.py`, the E18/E19 forms
+with *N*, *k*, *B*, *C* and the attacker size lifted to parameters, with modes
+for the *B* ladder, a single cell, the cap sweep, and the cross-model
+comparison. It is the natural back end for this view, and it covers the site's
+current page as well as the new surface: the gate is vacuous at *B* = 1, and the
+ledger there returns 6.066 × 10⁻⁶ against the CIP's published ungated M4 law of
+6.1 × 10⁻⁶. One implementation can therefore serve both the ungated figures the
+compare-designs tool renders today and the gated surface View 3 adds, with *B*
+as the slider between them.
+
+E20 also proposes porting its comparison into `web/experiments/` as a follow-on.
+That lands in the same place as View 3 and on the same laws, so the two should be
+settled as one piece of work rather than arriving as two ports of the same
+surface.
+
 The current page violates that split already: its self-test fixtures are
 hand-copied constants stamped 2026-08-11, with nothing re-reading the Python, so
 drift in `formal_spec/**` will not be detected until someone re-runs it by hand.
@@ -182,7 +240,11 @@ the compare-designs page's existing axes or operating points.
    figures need a generator in the CIP's existing figure pipeline.
 3. Whether the unmeasured range is drawn with a visual treatment or omitted. It
    is the range most readers will actually be in, so omitting it may be worse
-   than drawing it with an explicit caveat.
+   than drawing it with an explicit caveat. E20 gives the boundary a number in
+   one direction at least: its CIP-scale cells are law-consistency anchors
+   rather than tail measurements, since 400 runs resolve nothing below about
+   10⁻²·⁵. Everything below that line on a p<sub>bad</sub> axis is the ledger
+   speaking, not a measurement, whatever *N* the reader has chosen.
 4. Whether View 1 should carry the **hardened backbone / golden channel** variant
    discussed for small-scale use cases such as stake pool notifications, since
    that is precisely the regime where the curves say the open design struggles.
