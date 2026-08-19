@@ -5,15 +5,35 @@
 > registration; two coverage lines missed as recorded, corrections
 > documented in §8.
 
-The question: the CIP's M4 finalist runs ungated and uncapped — simple
-to flood. What do the hash gate and the acceptance cap cost and buy at
-the CIP's own operating shape (N = 20 000, K = 9, μ = 0.2), and what
-parameter set should a gated deployment use? This pass composes the
-measured results of E10 (gated selection fidelity), E12 (flooding under
-the cap, directional), E18 (gated-symmetric coverage), and E19
-(symmetric flooding under the admissions budget) through an
-(N, K)-parameterised prediction ledger, and anchors the answer with
-eleven pre-registered cells at CIP scale and at the CIP's pick count.
+The question: the CIP's M4 finalist runs ungated and uncapped, so
+flooding it is nearly free. What do the hash gate and the acceptance
+cap cost and buy at the CIP's own operating shape (N = 20 000, K = 9,
+μ = 0.2), and what parameter set should a gated deployment use? This
+pass composes the measured results of
+[E10](e10-selection-fidelity.md) (gated selection fidelity),
+[E12](e12-flooding-mitigation.md) (flooding under the cap,
+directional), [E18](gated-symmetric.md) (gated-symmetric coverage),
+and [E19](symmetric-flooding.md) (symmetric flooding under the
+admissions budget) through an (N, K)-parameterised prediction ledger.
+Eleven pre-registered cells anchor the answer at CIP scale and at the
+CIP's pick count.
+
+**Terminology.** *The gate* is the hash-gated edge predicate: a
+per-(topic, pair) hash test of width B admits an edge with
+probability 1/B, and the admitted candidates around a node form its
+*pool* (mean size λ = (N−1)/B). *The cap* — the *admissions budget*
+C of ADR 0042 — bounds how many dialed-in edges a node accepts.
+*Armor* is shorthand for gate and cap together. A *seam* is one
+connection surface of the node: the relay seam carries dissemination;
+the publisher seam carries seeding (the two link kinds of
+feature 015). *Deaf* and *mute* name the two isolation directions: a
+deaf node has no honest source to hear from; a mute node has no
+honest peer that hears it. *The pair draw* is M4's symmetric
+handshake — one hash coin admits the pair and covers both
+directions; the *directional draw* (M2/M3) draws an independent coin
+per direction. E-numbers cite
+[the program of record](../experiments-program.md); N-numbers cite
+`specs/IMPLEMENTATION_NOTES.md`.
 
 ## Provenance
 
@@ -73,15 +93,15 @@ economics:
    c ≈ 3.5 at K = 9–10). Tighter is not safer (the composition
    channel); looser is inert.
 
-## 2. The gate's cost at the CIP's pick count — and the one-pick fix
+## 2. The gate's cost at the CIP's pick count
 
-E18's "coverage-free at r ≳ 3" rule was measured at K = 16, where the
-all-picks-adversarial channel (μ^K ≈ 10⁻¹¹) is invisible. At K = 9 its
-μ^K factor grows to 0.2⁹ ≈ 5×10⁻⁷ — large enough that, multiplied by
-the channel's other arm (no honest member picked me) and the 16 000
-honest nodes, it re-enters the budget (the table's exact form) — and
-the rule does not transfer — the B ladder at N = 20 000, K = 9 (ledger,
-validated by the cells below):
+E18's "coverage-free at r ≳ 3" rule was measured at K = 16. There the
+all-picks-adversarial channel is invisible (μ^K ≈ 10⁻¹¹). At K = 9 the
+μ^K factor grows to 0.2⁹ ≈ 5×10⁻⁷. Multiplied by the channel's other
+arm (no honest member picked the node) and by the 16 000 honest
+nodes, it re-enters the reliability budget; §9 carries the exact
+form. The K = 16 rule therefore does not transfer. The B ladder at
+N = 20 000, K = 9, from the ledger and validated by the cells below:
 
 | B | 250 | 400 | 500 | 625 | 740 (r = 3) |
 |---|---|---|---|---|---|
@@ -125,10 +145,11 @@ hops; full-coverage hops equal).
 fraction, the churn-tolerance.md manner — the method reproduces the
 published ungated 7.43 % at 7.44 %. The gated K = 9 row's churn budget
 is 2.65 %: the reduced-headroom cost restated on the operational
-axis.) The framing for the CIP: **the armor's total price is ~1 % of
-mean latency — one extra pick buys the gate, the cap, slightly lower
-bandwidth, and a slightly better tail and churn budget than the point
-the CIP already chose.**
+axis.) Summary for the CIP: **at K = 10 the gate and cap together
+cost ~1 % of mean first-receipt latency, and every other quoted
+axis — tail, bandwidth, standing links, full-coverage hops, churn
+budget — is equal or slightly better than the ungated point the CIP
+already chose.**
 
 ## 3. The flooding anchor: the E19 machinery at CIP scale
 
@@ -149,8 +170,9 @@ composition — no acceptance policy sees it); the admitted route is
 bounded by min(fair-race share, C) and priced by B (fresh pressure
 (S/B)(1−m) = 6.0 even with every adversarial identity flooding); the
 budget's invariant degree ≤ K + C holds exactly. Attack cost scales
-∝ B per victim edge; identities are deposit-priced, so B = 500 is the
-defense's economic statement.
+∝ B per victim edge. Identities are deposit-priced, so B sets the
+price of one targeted hostile edge: about 500 deposits at the
+recommended width.
 
 ## 4. The cap trade-off (capsweep) at CIP scale
 
@@ -194,13 +216,13 @@ to N = 4 000 (K = 9, B = 100, μ = 0.4, λ = 40 — seeds 1142–1144):
 The race columns are exact in all three cells (every |z| ≤ 0.5;
 crossings ≡ 0; max degree = K + C exact), so ρ — the form's input —
 is measured precisely as predicted everywhere. The mid-slope point's
-composition *increment* ran at ~40 % of the first-order prediction
-(the point itself at 58 %): z = −2.52, inside
-the program's |z| ≤ 2.6 convention but outside the Wilson interval,
-and recorded here as a characterized bias rather than noise — **the
-first-order composition form is conservative at mid-slope** (it
-understated slightly at E19's deep-binding corner, was exact at the
-quiet end, and overstates between). Consequences: the K-dependent
+composition *increment* ran at ~40 % of the first-order prediction;
+the point itself ran at 58 %. That is z = −2.52: inside the program's
+|z| ≤ 2.6 convention, outside the Wilson interval, and recorded as a
+characterized bias rather than noise. **The first-order composition
+form is conservative at mid-slope**: it understated slightly at E19's
+deep-binding corner, was exact at the quiet end, and overstates
+between. Consequences: the K-dependent
 headroom floor c ≈ 3.5 stands and errs safe (caps sized by the form
 overprotect slightly); the form is a design upper bound, not a
 precision law; no CIP-scale c-cell is needed.
@@ -221,30 +243,38 @@ precision law; no CIP-scale c-cell is needed.
   concentration per victim with no admission control (E12's
   documented-not-simulated row).
 
-## 7. M3 under the same armor: the pair draw buys twice the pool per
-   unit of attack surface
+## 7. M3 under the same armor
 
-The fair comparison is between armored models — the ungated comparison
-graph answers a different question, since every ungated model is
-floodable at will. The ledger's directional forms (`directional
-isolation`: the deaf coin = all gated picks adversarial, hypergeometric
-over the pool; the mute coin = no honest node picked me; independent
-per direction) are validated against E10's measured points before use:
-the ungated M2 law (computed 0.0086 vs 0.0088), gated picks at r = 2
-(0.00859 vs the measured pooled 0.00872), the gate-only doubling at
-B = 250 (0.0171 vs measured 0.0193, inside Wilson), the B = 235
-+1-link compensation (0.0076 vs E10's 0.0079, measured 0.0085), the
-r = 1 cliff (4.4× vs E10's ≈ 5×), and both published N = 20 000
-ungated operating points (M2 K = 24 → 7.3×10⁻⁵; M3 K = 12, s = 8 →
-7.8×10⁻⁵). M3's mechanics, per the fan-out seam itself
-(`strategies/fanout/forward_to_relays.rs`): every node
-holds s−1 seeding picks; own publications ride relay downstream ∪
-seeds (so the mute channel is seed-rescued — the cross-seam product);
-the deaf channel is **not** rescued (seeds carry only the seeder's own
-publications, and a deaf node fails the every-publisher check for
-every publisher that did not seed it directly); two independent gates
-(B_relay, B_publisher); direction inversion (relay acceptor caps
-downstream serving, publisher acceptor caps upstream seed intake).
+This section compares the two designs with the armor on. The finding,
+stated up front and evidenced below: per unit of attack surface, the
+pair draw runs candidate pools twice the directional draw's size, and
+that geometry decides the comparison.
+
+The fair comparison is between armored models: every ungated model is
+floodable at will, so the ungated comparison graph answers a question
+no deployment gets to ask. The ledger's directional isolation forms
+(the deaf coin: all gated picks adversarial, hypergeometric over the
+pool; the mute coin: no honest node picked me; the two directions
+independent) are validated against E10's measured points before use:
+the ungated M2 law (computed 0.0086 vs 0.0088); gated picks at r = 2
+(0.00859 vs the measured pooled 0.00872); the gate-only doubling at
+B = 250 (0.0171 vs measured 0.0193, inside Wilson); the B = 235
++1-link compensation (0.0076 vs E10's prediction 0.0079, measured
+0.0085); the r = 1 cliff (4.4× vs E10's ≈ 5×); and both published
+N = 20 000 ungated operating points (M2 K = 24 → 7.3×10⁻⁵; M3 K = 12,
+s = 8 → 7.8×10⁻⁵).
+
+M3's mechanics follow the fan-out seam itself
+(`strategies/fanout/forward_to_relays.rs`). Every node holds s−1
+seeding picks. A node's own publications ride its relay downstream
+and its seeds together, so the mute channel is seed-rescued — the
+cross-seam product of §9. The deaf channel is **not** rescued: seeds
+carry only the seeder's own publications, so a deaf node still fails
+the every-publisher check for every publisher that did not seed it
+directly. The two seams carry two independent gates (B_relay,
+B_publisher), and the acceptance direction inverts between them: a
+relay acceptor caps its downstream serving, a publisher acceptor caps
+its upstream seed intake.
 
 **The normalization, argued — and the alternative, named.** The
 table fixes attack surface per deposit-priced identity on the relay
@@ -305,7 +335,7 @@ Three structural findings:
 
 **The equal-surface separation, measured.** The one point where both
 curves are testable is attack surface 32, and the pre-registered pair
-(seeds 1145–1146, the first gated two-seam configuration ever run)
+(seeds 1145–1146; the program's first gated two-seam configuration)
 measured it:
 
 | cell | registered | measured |
@@ -321,17 +351,17 @@ are consistent with, a factor of ≈ 4 400. The pool-limited deaf
 channel — the mechanism behind the comparison's infeasibility row — is
 now a measured fact at CIP scale, failure mode included.
 
-Verdict for the CIP debate: **under armor, M4's dominance widens, and
-its central mechanism is measured** — the ungated comparison already
-favored M4 on cost; the gated one adds that at equal total reach per
-identity M3 cannot reach M4's attack-cost-per-reliability point at
-all (and remains ~9× behind at 19 picks vs 10 under the alternative
-normalization), with the equal-surface gap
-demonstrated by the cliff pair, the best compliant M3 row anchored at
-its own coordinates (seed 1149), and the publisher seam's cap measured
-by §8. Every feasible row of the table above is measured; the two
-infeasible rows are derived from the same forms the cliff pair
-anchored.
+Verdict for the CIP debate: **under armor, M4's advantage widens, and
+its central mechanism is measured.** The ungated comparison already
+favored M4 on cost. The gated comparison adds that, at equal total
+reach per identity, M3 cannot reach M4's attack-cost-per-reliability
+point at any pick count; under the alternative normalization it
+remains ~9× behind at 19 picks against 10. The equal-surface gap is
+demonstrated by the measured pair above, the best compliant M3 row is
+anchored at its own coordinates (seed 1149), and the publisher seam's
+cap is measured by §8. Every feasible row of the table is measured;
+the two infeasible rows are derived from the same forms the measured
+pair anchored.
 
 ## 8. The publisher seam under its cap: the seed-rescue coupling
 
@@ -359,8 +389,9 @@ reach — the mute-side harm.
   seed fails at **f = μ + (1−μ)·ρ_p** per pick and rescue-failure
   compounds as f^(s−1): a binding seed-intake cap reaches coverage
   through the mute channel, the inverted-seam analogue of E19 §6's
-  composition term. Design rule: **size C_p to clear the intake load
-  or the armor eats the first-hop rescue.**
+  composition term. Design rule: **size C_p to clear the intake
+  load** — a binding publisher cap disables the seed rescue it is
+  meant to protect.
 - **The corrected form, tested out-of-sample where it is powered
   (seed 1148, μ = 0.4, ρ_p = 0.49), was itself exceeded — by the
   instrument, quantifiably.** Measured 188/400 bad (181 mute / 7
@@ -381,17 +412,17 @@ reach — the mute-side harm.
 
 The gated analogues of the formal folder's ungated laws, as this
 program has derived and measured them. Two epistemic grades appear,
-and the table says which is which: **compact** forms (closed
-expressions in the formal team's style, exact or first-order as
-noted) and **exact-arithmetic** forms (finite enumerations over the
-pool distributions — deterministic arithmetic with no simulation in
+and each law's table row says which is which. **Compact** forms are
+closed expressions in the formal team's style, exact or first-order
+as noted. **Exact-arithmetic** forms are finite enumerations over the
+pool distributions: deterministic arithmetic with no simulation in
 it, the same evidentiary standing as a closed form, just not
-compressible to one line). Everything below lives executably in
+compressible to one line. Everything below lives executably in
 [`m4_synthesis_predictions.py`](m4_synthesis_predictions.py); B = 1
 recovers each model's published ungated law (verified: M4 K = 9 →
 6.07×10⁻⁶; M2 K = 24 → 7.3×10⁻⁵; M3 K = 12, s = 8 → 7.8×10⁻⁵).
 
-Symbols, used in both tables:
+Symbols, used throughout:
 
 | symbol | meaning |
 |---|---|
@@ -407,33 +438,66 @@ Symbols, used in both tables:
 | p, p_max, μ_eff = μ + p(1−μ) | honest downtime fraction, its budget, the shifted fraction ([churn-tolerance.md](churn-tolerance.md)) |
 | δ | the reliability target (P(bad) ≤ δ) |
 
-**M4 (symmetric, unordered pair draw)** — one seam, one coin per pair:
+**M4 (symmetric, unordered pair draw)** — one seam, one coin per
+pair. The forms, in the property pages' manner:
 
-| law | form | grade | measured |
-|---|---|---|---|
-| realised degree | d = λ·m·(2−m) | compact, exact | E18 to 3 digits across B = 10–500; this pass at N = 20 000 to the 3rd decimal |
-| isolation (two channels) | E_iso = H·Σ_{h,a} P(h)P(a)·(1−m)^h·[h = 0 or all min(K, n) picks adversarial (hypergeometric)] | exact-arithmetic; channel A compactly ≈ H·e^{−(1−μ)λ} | E18 (B = 250/500, μ-axis); the K = 9 law first measured by the c-floor baseline (z = +0.81); every anchor here |
-| pair components (the reduction's leading correction) | E_pair: a mutually linked pair, both pools honest-dead otherwise (ledger `paircomp`) | exact-arithmetic | ≤ 3.3×10⁻⁴·E_iso at every shape in this report, ≤ 1.7×10⁻⁸ at the CIP candidates; the powered cells show zero pair excess |
-| pool-floor rule | (N−1)/B ≥ ln(H/δ)/(1−μ) | compact, from channel A | E18's design rule |
-| pick-decade rule | one pick ≈ one decade of tail at μ = 0.2: per-pick factor μ·e^{−(1−μ)} ≈ 1/11 (0.7 decades from the pick arm, 0.35 from the inbound arm) | compact, first-order | §2's ladder; K = 9/10 rows measured |
-| admissions race | without-replacement pick split (hypergeometric) + fresh Bin arrivals, proportional refusals | exact-arithmetic | E19: zero flags across 19 cells; this pass at N = 20 000 |
-| cap composition | ΔE_iso = H·Σ P(h,a)[(1−σ_ρ)^h − (1−σ_0)^h], σ = m·mm + (mm(1−m)+m(1−mm))(1−ρ) | first-order (upper bound; conservative at mid-slope) | E19 §6 both ends; the three-point K = 9 rehearsal |
-| cap rule | C ≥ load + c·√load, load = fresh arrivals; c ≈ 2 at K = 16, **c ≈ 3.5 at K = 9–10** | compact, calibrated | E12 (K = 16); §5 (K = 9) |
-| churn budget | read P(bad) at μ_eff = μ + p(1−μ), solve for the downtime budget p_max | compact composition | reproduces the published ungated 7.43 %; §2's gated budgets |
+$$d \;=\; \lambda\,m\,(2-m)
+\qquad\qquad
+E_{\mathrm{iso}} \;=\; H\;\mathbb{E}_{h,a}\!\left[(1-m)^{h}\left(\mathbf{1}\{h=0\} \;+\; \mathbf{1}\{h>0\}\,\frac{\binom{a}{k}}{\binom{h+a}{k}}\right)\right],\quad k=\min(K,\,h+a)$$
+
+$$E_{\mathrm{pair}} \;=\; \frac{H(H-1)}{2B}\left[(S_{\alpha}+S_{\beta})^{2}-S_{\beta}^{2}\right]$$
+
+(the per-side dead-else sums S_α, S_β are defined in the ledger's
+`pair_component`, with its own derivation note and validation record)
+
+$$\Delta E_{\mathrm{iso}} \;=\; H\;\mathbb{E}_{h,a}\!\left[(1-\sigma_{\rho})^{h}-(1-\sigma_{0})^{h}\right],
+\qquad
+\sigma_{\rho} \;=\; m\,mm \;+\; \bigl(mm\,(1-m)+m\,(1-mm)\bigr)(1-\rho)$$
+
+$$\frac{N-1}{B} \;\ge\; \frac{\ln(H/\delta)}{1-\mu}
+\qquad\qquad
+C \;\ge\; \mathrm{load} + c\sqrt{\mathrm{load}}
+\qquad\qquad
+\mu_{\mathrm{eff}} \;=\; \mu + p\,(1-\mu)$$
+
+| law | grade | measured |
+|---|---|---|
+| realised degree d | compact, exact | E18 to 3 digits across B = 10–500; this pass at N = 20 000 to the 3rd decimal |
+| isolation E_iso (two channels: empty-of-honest pool; all picks adversarial and no honest picker) | exact-arithmetic; channel A compactly ≈ H·e^{−(1−μ)λ} | E18 (B = 250/500, μ-axis); the K = 9 law first measured by the c-floor baseline (z = +0.81); every anchor here |
+| pair components E_pair (the reduction's leading correction: a mutually linked pair, both pools honest-dead otherwise) | exact-arithmetic | ≤ 3.3×10⁻⁴·E_iso at every shape in this report, ≤ 1.7×10⁻⁸ at the CIP candidates; the powered cells show zero pair excess |
+| pool-floor rule | compact, from channel A | E18's design rule |
+| pick-decade rule: one pick ≈ one decade of tail at μ = 0.2, per-pick factor μ·e^{−(1−μ)} ≈ 1/11 (0.7 decades from the pick arm, 0.35 from the inbound arm) | compact, first-order | §2's ladder; K = 9/10 rows measured |
+| admissions race: without-replacement pick split (hypergeometric) + fresh binomial arrivals, proportional refusals | exact-arithmetic | E19: zero flags across 19 cells; this pass at N = 20 000 |
+| cap composition ΔE_iso | first-order (upper bound; conservative at mid-slope) | E19 §6 both ends; the three-point K = 9 rehearsal |
+| cap rule: c ≈ 2 at K = 16, **c ≈ 3.5 at K = 9–10** (load = fresh arrivals) | compact, calibrated | E12 (K = 16); §5 (K = 9) |
+| churn budget: read P(bad) at μ_eff, solve for p_max | compact composition | reproduces the published ungated 7.43 %; §2's gated budgets |
 
 **M3 (directional relay + per-node seeding)** — two seams, two coins
-per directed pair; deaf and mute are cross-seam products (hearing =
-own relay picks ∪ inbound seeds; being-heard = inbound relay picks ∪
-own seeds):
+per directed pair. Deaf and mute are cross-seam products: hearing =
+own relay picks ∪ inbound seeds; being heard = inbound relay picks ∪
+own seeds.
 
-| law | form | grade | measured |
-|---|---|---|---|
-| deaf channel | E_deaf = H·E_{h,a}[C(a, k)/C(h+a, k)], k = min(K, h+a) | exact-arithmetic; compactly μ^K when pools ≫ K, **pool-limited when λ ≲ 2K** (floor H·e^{−(1−μ)λ}, K-independent) | E10 (r-ladder, K = 16); the cliff cell (17/400, all deaf, z = −0.06) |
-| mute channel, unrescued | E = H·(1−m_d/B)^{H−1} ≈ H·e^{−(1−μ)·E[picks]} | compact, exact | E10's gate-only doubling and B = 235 compensation; M2's op point |
-| seed rescue | × P(all min(s−1, pub-pool) seeds fail); per-seed failure **f = μ + (1−μ)·ρ_p** under a binding intake cap | exact-arithmetic pool part; f compact, first-order | §8: the class-blind form refuted, f measured directionally, magnitude instrument-bounded (N-042) |
-| seed-intake race | wave-order tail E[(A − C_p)⁺], A = Bin(H−1, m_p/B_p) + Bin(S, 1/B_p) | exact-arithmetic | §8: refusals within 0.1 % at two shapes |
-| headroom rule | r = (N−1)/(B·K) ≥ 2 for law-exact selection | compact | E10 (measured cliff at r = 1) |
-| per-identity surface | directional ≈ 2/B per pair vs the pair draw's 1/B | compact | the E19 ordered arm; §7's normalization |
+$$E_{\mathrm{deaf}} \;=\; H\;\mathbb{E}_{h,a}\!\left[\frac{\binom{a}{k}}{\binom{h+a}{k}}\right],\;\; k=\min(K,\,h+a)
+\qquad\qquad
+E_{\mathrm{mute}} \;=\; H\left(1-\frac{m_d}{B}\right)^{H-1} \;\approx\; H\,e^{-(1-\mu)\,\mathbb{E}[\mathrm{picks}]}$$
+
+$$E_{\mathrm{stranded}} \;=\; E_{\mathrm{mute}}\;\cdot\;P\!\left(\text{all } \min(s{-}1,\,\text{pool}_p) \text{ seeds fail}\right),
+\qquad
+f \;=\; \mu + (1-\mu)\,\rho_{p} \;\;\text{per seed under a binding intake cap}$$
+
+$$\mathbb{E}\!\left[(A - C_{p})^{+}\right],
+\quad A = \mathrm{Bin}(H{-}1,\,m_{p}/B_{p}) + \mathrm{Bin}(S,\,1/B_{p})
+\qquad\qquad
+\text{surface: directional } \tfrac{2(N-1)}{B_r} \text{ vs the pair draw's } \tfrac{N-1}{B}$$
+
+| law | grade | measured |
+|---|---|---|
+| deaf channel E_deaf | exact-arithmetic; compactly μ^K when pools ≫ K, **pool-limited when λ ≲ 2K** (floor H·e^{−(1−μ)λ}, K-independent) | E10 (r-ladder, K = 16); the cliff cell (17/400, all deaf, z = −0.06) |
+| mute channel E_mute, unrescued | compact, exact | E10's gate-only doubling and B = 235 compensation; M2's op point |
+| seed rescue (E_stranded's second factor; f under a binding cap) | exact-arithmetic pool part; f compact, first-order | §8: the class-blind form refuted, f measured directionally, magnitude instrument-bounded (N-042) |
+| seed-intake race (the wave-order tail) | exact-arithmetic | §8: refusals within 0.1 % at two shapes |
+| headroom rule r = λ/K ≥ 2 for law-exact selection | compact | E10 (measured cliff at r = 1) |
+| per-identity surface | compact | the E19 ordered arm; §7's normalization |
 
 **The isolated-vertex reduction, scoped.** Every P(bad) above reads
 1 − e^{−E}: the expectations count singly isolated vertices, so
@@ -487,13 +551,15 @@ hardening step and is listed in §11.
 - **Cells at CIP scale are law-consistency anchors**, not tail
   measurements: 400 runs resolve nothing below ~10⁻²·⁵ — the tail
   claims are the ledger's, anchored where the curves are powered (the
-  cliff pair, the c-floor rehearsal, E18/E19's deep-tail cells).
+  equal-surface pair of §7, the c-floor rehearsal, E18/E19's
+  deep-tail cells).
 - **All tail forms are isolated-vertex reductions**, shared with the
   formal folder's laws; the leading pair-component correction is
   enumerated and bounded negligible in §9, larger components are
   higher-order still.
 - **One shape per finding**: the seed-rescue coupling is measured at
-  (B_p = 100, C_p ∈ {10}, μ ∈ {0.2, 0.4}); the cliff at surface 32;
+  (B_p = 100, C_p ∈ {10}, μ ∈ {0.2, 0.4}); the equal-surface
+  separation at surface 32;
   the c-floor at one (B, μ) per K. Functional forms carry the rest.
 - **Out of scope entirely**: small networks (deferred);
   retry/rotation and adaptive victims (N-037); the incentive/chain
