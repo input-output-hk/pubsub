@@ -1061,6 +1061,7 @@ For most of this programme two designs stood, and on the coverage models neither
 | :--: | ---: | ---: |
 | Parameters | *RF* = 13, *s* = 7, *B* = 769 | *RF* = 10, *B* = 500, *C* = 23 |
 | Failure probability | 5.8 × 10⁻⁵ | **5.1 × 10⁻⁶** |
+| Honest downtime absorbed | 1.58 % | **7.57 %** |
 | Peers one identity may reach | 52 | **40** |
 | Identities to strand a chosen node, knowing only the public gate | 26 | **40** |
 | At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
@@ -1069,6 +1070,8 @@ For most of this programme two designs stood, and on the coverage models neither
 <em>Table 11b: the same two designs under the admission rules this proposal specifies</em>
 
 </div>
+
+The downtime row is worth pausing on, because it moves the wrong way for the directional design. Ungated it absorbed 2.17 % against the symmetric design's 7.43 %, a factor of three. Under the admission rules the gap widens to a factor of five, and the reason is the same missing conjunction: with no honest picker able to repair both directions at once, every node lost to downtime is a node that cannot rescue anyone. Availability is where the two taxes compound rather than merely add.
 
 > [!IMPORTANT]
 > **Under armour the question stops being a trade-off and becomes a frontier.** The claim is not that the directional design cannot meet the target — it can, and was measured doing so at its own coordinates. It is that once the attacker's price is fixed, each design has a best reliability it can buy at that price, and the directional design's floor sits above the symmetric one's at every price point. Two structural taxes put it there, and neither is a tuning artefact.
