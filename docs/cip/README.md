@@ -1152,6 +1152,29 @@ Coverage is unaffected while the gate leaves each node at least twice as many el
 > [!TIP]
 > The rule follows from the shape, with one boundary these measurements could not see: **the largest bucket count that still leaves headroom is the most dilutive, and it is coverage-exact only where the pick count is large enough to hide the all-picks-adversarial term**. Anything wider hands the attacker proportionally more concentration for no gain. Anything narrower pays a coverage penalty — and at a small pick count that penalty arrives well before the headroom floor does, so headroom alone is not a sufficient rule.[^synthesis]
 
+That boundary is what the [Specification's rule](#the-verifiable-gate) exists to
+respect, and it is worth seeing in the units the rule is judged in. Figure 9
+plots not the three bounds themselves — they are all very nearly proportional to
+the topic's size, so on log axes they are parallel lines a reader cannot
+separate — but the failure probability each way of sizing arrives at.
+
+<div align="center">
+<a name="figure-9" id="figure-9"></a>
+
+![What each bucket-count rule delivers](images/bucket-bounds.svg)
+
+<em>Figure 9: what each way of sizing the bucket count delivers, against topic size</em>
+
+</div>
+
+Taking the smallest of the three bounds holds the failure probability at the
+target across the whole range. Reading only the headroom floor — the one-line
+rule earlier drafts of this proposal carried — leaves the target behind above a
+few thousand participants, and at twenty thousand with nine picks it misses by
+9.2 × 10⁻³ against 10⁻⁴, ninety-two times over. The gap widens with the topic,
+because the headroom floor grows in proportion to the topic while the coverage
+budget does not.[^synthesis]
+
 Two further results are worth carrying into the Specification.
 
 **Where a deployment forgoes the pick count and lets the gate alone set degree, it pays a factor of two in failure probability, and one extra link buys it back.** Sizing the gate for one more link than the model's pick count restores the ungated law: measured at a ratio of 2.27 against 2.26 predicted. Around six per cent more traffic is the gate's entire coverage price wherever it is priced at all.

@@ -1,1368 +1,1582 @@
 {
- "_comment": "Machine-readable results backing the CIP evidence figures. Transcribed once from pubsub-node/docs/experiments/m{2,3,4,5}-comparison.md; law values are recomputed here from each model's published closed form and agree with the documents to four significant digits. The experiments tool should emit this file directly in future so the transcription step disappears.",
- "parameters": {
-  "adversarial_fraction": 0.2,
-  "design_target": 0.0001,
-  "operating_point_network_size": 20000
- },
- "provenance": {
-  "comparison_docs": "pubsub-node/docs/experiments/",
-  "configs": "pubsub-node/configs/experiments/",
-  "reproduce": "cargo build --release --features experiments --bins; experiments --config <config> --out <dir>"
- },
- "coverage_cells": [
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=6, s=4",
-   "bad": 213,
-   "runs": 600,
-   "law": 0.33738392,
-   "formal_bad": 209,
-   "formal_runs": 600,
-   "config": "m3-n4k-rf6-s4.toml",
-   "master_seed": 503,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=8, s=3",
-   "bad": 215,
-   "runs": 1000,
-   "law": 0.1969033,
-   "formal_bad": 195,
-   "formal_runs": 1000,
-   "config": "m3-n4k-rf8-s3.toml",
-   "master_seed": 504,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "RF=8, s=3",
-   "bad": 209,
-   "runs": 300,
-   "law": 0.66804707,
-   "formal_bad": 194,
-   "formal_runs": 300,
-   "config": "m3-n20k-rf8-s3.toml",
-   "master_seed": 505,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=10, s=4",
-   "bad": 75,
-   "runs": 8000,
-   "law": 0.0087627,
-   "formal_bad": 74,
-   "formal_runs": 8000,
-   "config": "m3-n4k-rf10-s4.toml",
-   "master_seed": 602,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=9, s=5",
-   "bad": 150,
-   "runs": 30000,
-   "law": 0.00534384,
-   "formal_bad": 178,
-   "formal_runs": 30000,
-   "config": "m3-n4k-rf9-s5-tail.toml",
-   "master_seed": 608,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=3",
-   "bad": 200,
-   "runs": 200,
-   "law": 0.99999088,
-   "formal_bad": 2000,
-   "formal_runs": 2000,
-   "config": "m4-n20k-rf3.toml",
-   "master_seed": 501,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=4",
-   "bad": 624,
-   "runs": 1000,
-   "law": 0.64731399,
-   "formal_bad": 2585,
-   "formal_runs": 4000,
-   "config": "m4-n20k-rf4.toml",
-   "master_seed": 502,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=5",
-   "bad": 719,
-   "runs": 8000,
-   "law": 0.08932564,
-   "formal_bad": 749,
-   "formal_runs": 8000,
-   "config": "m4-n20k-rf5.toml",
-   "master_seed": 607,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=6",
-   "bad": 251,
-   "runs": 30000,
-   "law": 0.00836381,
-   "formal_bad": 260,
-   "formal_runs": 30000,
-   "config": "m4-n20k-rf6-tail.toml",
-   "master_seed": 705,
-   "tool_commit": "2102b6f"
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(4,4)",
-   "bad": 172,
-   "runs": 500,
-   "law": 0.33948629,
-   "formal_bad": 187,
-   "formal_runs": 500,
-   "config": "m5-n4k-4-4.toml",
-   "master_seed": 506,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(3,6)",
-   "bad": 311,
-   "runs": 1500,
-   "law": 0.20373982,
-   "formal_bad": 306,
-   "formal_runs": 1500,
-   "config": "m5-n4k-3-6.toml",
-   "master_seed": 507,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6,3)",
-   "bad": 337,
-   "runs": 1500,
-   "law": 0.20373982,
-   "formal_bad": 285,
-   "formal_runs": 1500,
-   "config": "m5-n4k-6-3.toml",
-   "master_seed": 508,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6,3) resample",
-   "bad": 1240,
-   "runs": 6000,
-   "law": 0.20373982,
-   "formal_bad": null,
-   "formal_runs": null,
-   "config": "m5-n4k-6-3-tight.toml",
-   "master_seed": 601,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(5,5)",
-   "bad": 70,
-   "runs": 2000,
-   "law": 0.03641943,
-   "formal_bad": 63,
-   "formal_runs": 2000,
-   "config": "m5-n4k-5-5.toml",
-   "master_seed": 603,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6,6)",
-   "bad": 28,
-   "runs": 8000,
-   "law": 0.00330911,
-   "formal_bad": 31,
-   "formal_runs": 8000,
-   "config": "m5-n4k-6-6.toml",
-   "master_seed": 604,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M5",
-   "N": 20000,
-   "params": "(4,4)",
-   "bad": 175,
-   "runs": 200,
-   "law": 0.87561258,
-   "formal_bad": 172,
-   "formal_runs": 200,
-   "config": "m5-n20k-4-4.toml",
-   "master_seed": 509,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=10",
-   "bad": 637,
-   "runs": 1000,
-   "law": 0.65479781,
-   "formal_bad": 660,
-   "formal_runs": 1000,
-   "config": "m1-n4k-f10.toml",
-   "master_seed": 510,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=12",
-   "bad": 388,
-   "runs": 2000,
-   "law": 0.19246363,
-   "formal_bad": 372,
-   "formal_runs": 2000,
-   "config": "m1-n4k-f12.toml",
-   "master_seed": 511,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M1",
-   "N": 20000,
-   "params": "F=12",
-   "bad": 255,
-   "runs": 400,
-   "law": 0.66065445,
-   "formal_bad": 268,
-   "formal_runs": 400,
-   "config": "m1-n20k-f12.toml",
-   "master_seed": 512,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=14",
-   "bad": 172,
-   "runs": 4000,
-   "law": 0.04202782,
-   "formal_bad": 165,
-   "formal_runs": 4000,
-   "config": "m1-n4k-f14.toml",
-   "master_seed": 605,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=16",
-   "bad": 72,
-   "runs": 8000,
-   "law": 0.00858044,
-   "formal_bad": 82,
-   "formal_runs": 8000,
-   "config": "m1-n4k-f16.toml",
-   "master_seed": 606,
-   "tool_commit": "21acd36"
-  },
-  {
-   "model": "M2",
-   "N": 4000,
-   "params": "RF=16",
-   "bad": 71,
-   "runs": 8000,
-   "law": 0.00879589,
-   "formal_bad": 65,
-   "formal_runs": 8000,
-   "config": "m2-bulk-regime.toml",
-   "master_seed": 4016,
-   "tool_commit": "493bb2f"
-  },
-  {
-   "model": "M2",
-   "N": 20000,
-   "params": "RF=16",
-   "bad": 9,
-   "runs": 150,
-   "law": 0.04321256,
-   "formal_bad": 4,
-   "formal_runs": 150,
-   "config": "m2-operating-point.toml (pick_count=16)",
-   "master_seed": 20016,
-   "tool_commit": "493bb2f"
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=9, s=5",
-   "bad": 912,
-   "runs": 170000,
-   "law": 0.00534418,
-   "formal_bad": null,
-   "formal_runs": null,
-   "config": "tail/m3-n4k-rf9-s5-deeptail.toml",
-   "master_seed": 821,
-   "tool_commit": "standing-degree change on experiments/churn-sweep",
-   "note": "Deep-tail power run. Sized to resolve the small-component correction at 3 sigma, which 3e4-draw samples cannot. Independent seed from the 30000-draw cell above, so the two pool."
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=6",
-   "bad": 886,
-   "runs": 110000,
-   "law": 0.00836381,
-   "formal_bad": 260,
-   "formal_runs": 30000,
-   "config": "m4-n20k-rf6-tail.toml",
-   "master_seed": 822,
-   "tool_commit": "2102b6f",
-   "note": "deep-tail power run on an independent master seed; pools with the 30,000-draw cell above"
-  }
- ],
- "operating_points": [
-  {
-   "model": "M3",
-   "params": "RF=12, s=8",
-   "config": "m3-n20k-op.toml",
-   "master_seed": 701,
-   "msgs_per_publication": 153577.2,
-   "copies_per_node": 9.6,
-   "standing_links": 38,
-   "hops_full": 5.87,
-   "hops_mean": 4.31,
-   "p_bad": 7.849e-05,
-   "churn_budget_pct": 0.54,
-   "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
-   "standing_links_measured_mean": 37.99,
-   "standing_links_max": 64,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
-   "eclipse_known_links": 9.6,
-   "eclipse_gate_only": 24
-  },
-  {
-   "model": "M4",
-   "params": "RF=8",
-   "config": "m4-n20k-op.toml",
-   "master_seed": 702,
-   "msgs_per_publication": 188750.6,
-   "copies_per_node": 11.8,
-   "standing_links": 16,
-   "hops_full": 5.12,
-   "hops_mean": 4.09,
-   "p_bad": 6.762e-05,
-   "churn_budget_pct": 1.07,
-   "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
-   "standing_links_measured_mean": 16.0,
-   "standing_links_max": 36,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
-   "eclipse_known_links": 12.8,
-   "eclipse_gate_only": 16
-  },
-  {
-   "model": "M5",
-   "params": "(9,8)",
-   "config": "m5-n20k-op.toml",
-   "master_seed": 703,
-   "msgs_per_publication": 217529.7,
-   "copies_per_node": 13.6,
-   "standing_links": 34,
-   "hops_full": 5.0,
-   "hops_mean": 3.97,
-   "p_bad": 4.388e-05,
-   "churn_budget_pct": 2.18,
-   "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
-   "standing_links_measured_mean": 33.99,
-   "standing_links_max": 58,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
-   "eclipse_known_links": 13.6,
-   "eclipse_gate_only": 34
-  },
-  {
-   "model": "M1",
-   "params": "F=24",
-   "config": "m1-n20k-op.toml",
-   "master_seed": 704,
-   "msgs_per_publication": 307200.8,
-   "copies_per_node": 19.2,
-   "standing_links": 48,
-   "hops_full": 5.0,
-   "hops_mean": 3.61,
-   "p_bad": 7.257e-05,
-   "churn_budget_pct": 1.76,
-   "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
-   "standing_links_measured_mean": 47.97,
-   "standing_links_max": 75,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
-   "eclipse_known_links": 19.2,
-   "eclipse_gate_only": 48
-  },
-  {
-   "model": "M2",
-   "params": "RF=24",
-   "config": "m2-operating-point.toml",
-   "master_seed": 42,
-   "msgs_per_publication": 307162.1,
-   "copies_per_node": 19.2,
-   "standing_links": 48,
-   "hops_full": 4.78,
-   "hops_mean": 3.6,
-   "p_bad": 7.339e-05,
-   "churn_budget_pct": 1.7,
-   "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
-   "standing_links_measured_mean": 47.97,
-   "standing_links_max": 75,
-   "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
-   "eclipse_known_links": 19.2,
-   "eclipse_gate_only": 48
-  }
- ],
- "alternatives": [
-  {
-   "model": "M3",
-   "params": "RF=13, s=7",
-   "note": "same budget and standing links as (12,8); the churn-preferred split. Measured at the operating point: 10.40 copies, 38.0/64 links, 5.51 hops.",
-   "copies_per_node": 10.4,
-   "standing_links": 38,
-   "hops_full": 5.51,
-   "p_bad": 4.39e-05,
-   "churn_budget_pct": 2.17,
-   "preferred": true,
-   "hops_mean": 4.21,
-   "standing_links_measured_mean": 38.0,
-   "standing_links_max": 64,
-   "msgs_per_publication": 166400,
-   "measured": "200 runs",
-   "config": "comparisons/m3-n20k-rf13-s7.toml",
-   "master_seed": 852,
-   "eclipse_known_links": 10.4,
-   "eclipse_gate_only": 26
-  },
-  {
-   "model": "M4",
-   "params": "RF=9",
-   "preferred": true,
-   "note": "one notch above the published RF=8. Measured at the operating point: 13.40 copies, 18.0/37 links, 5.00 hops full / 3.90 mean, 200/200 good.",
-   "copies_per_node": 13.4,
-   "standing_links": 18,
-   "standing_links_measured_mean": 18.0,
-   "standing_links_max": 37,
-   "hops_full": 5.0,
-   "hops_mean": 3.9,
-   "msgs_per_publication": 214345,
-   "p_bad": 6.07e-06,
-   "churn_budget_pct": 7.43,
-   "measured": "200 runs",
-   "config": "comparisons/m4-n20k-rf9.toml",
-   "master_seed": 851,
-   "eclipse_known_links": 14.4,
-   "eclipse_gate_only": 18
-  }
- ],
- "convergence": {
-  "dial_waves": 2,
-  "note": "Topology convergence took exactly 2 dial waves in every run of every operating point (200 runs each; M2 40). A wave is one request/response round, so the floor on epoch length is a small number of round-trips."
- },
- "churn_cells": [
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=16",
-   "churn_pct": 2.0,
-   "mu_eff": 0.216,
-   "bad": 46,
-   "runs": 4000,
-   "law": 0.01085598,
-   "at_operating_point": false
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=16",
-   "churn_pct": 5.0,
-   "mu_eff": 0.24,
-   "bad": 60,
-   "runs": 4000,
-   "law": 0.01542819,
-   "at_operating_point": false
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=16",
-   "churn_pct": 8.0,
-   "mu_eff": 0.264,
-   "bad": 105,
-   "runs": 4000,
-   "law": 0.02188371,
-   "at_operating_point": false
-  },
-  {
-   "model": "M1",
-   "N": 4000,
-   "params": "F=16",
-   "churn_pct": 12.0,
-   "mu_eff": 0.296,
-   "bad": 139,
-   "runs": 4000,
-   "law": 0.03474548,
-   "at_operating_point": false
-  },
-  {
-   "model": "M2",
-   "N": 4000,
-   "params": "RF=16",
-   "churn_pct": 2.0,
-   "mu_eff": 0.216,
-   "bad": 41,
-   "runs": 4000,
-   "law": 0.01112197,
-   "at_operating_point": false
-  },
-  {
-   "model": "M2",
-   "N": 4000,
-   "params": "RF=16",
-   "churn_pct": 5.0,
-   "mu_eff": 0.24,
-   "bad": 71,
-   "runs": 4000,
-   "law": 0.01579205,
-   "at_operating_point": false
-  },
-  {
-   "model": "M2",
-   "N": 4000,
-   "params": "RF=16",
-   "churn_pct": 8.0,
-   "mu_eff": 0.264,
-   "bad": 115,
-   "runs": 4000,
-   "law": 0.02237954,
-   "at_operating_point": false
-  },
-  {
-   "model": "M2",
-   "N": 4000,
-   "params": "RF=16",
-   "churn_pct": 12.0,
-   "mu_eff": 0.296,
-   "bad": 136,
-   "runs": 4000,
-   "law": 0.03548927,
-   "at_operating_point": false
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=10, s=4",
-   "churn_pct": 2.0,
-   "mu_eff": 0.216,
-   "bad": 67,
-   "runs": 4000,
-   "law": 0.01288552,
-   "at_operating_point": false
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=10, s=4",
-   "churn_pct": 5.0,
-   "mu_eff": 0.24,
-   "bad": 105,
-   "runs": 4000,
-   "law": 0.02242009,
-   "at_operating_point": false
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=10, s=4",
-   "churn_pct": 8.0,
-   "mu_eff": 0.264,
-   "bad": 154,
-   "runs": 4000,
-   "law": 0.03808178,
-   "at_operating_point": false
-  },
-  {
-   "model": "M3",
-   "N": 4000,
-   "params": "RF=10, s=4",
-   "churn_pct": 12.0,
-   "mu_eff": 0.296,
-   "bad": 308,
-   "runs": 4000,
-   "law": 0.07465993,
-   "at_operating_point": false
-  },
-  {
-   "model": "M4",
-   "N": 4000,
-   "params": "RF=5",
-   "churn_pct": 2.0,
-   "mu_eff": 0.216,
-   "bad": 118,
-   "runs": 4000,
-   "law": 0.02854844,
-   "at_operating_point": false
-  },
-  {
-   "model": "M4",
-   "N": 4000,
-   "params": "RF=5",
-   "churn_pct": 5.0,
-   "mu_eff": 0.24,
-   "bad": 233,
-   "runs": 4000,
-   "law": 0.05226402,
-   "at_operating_point": false
-  },
-  {
-   "model": "M4",
-   "N": 4000,
-   "params": "RF=5",
-   "churn_pct": 8.0,
-   "mu_eff": 0.264,
-   "bad": 373,
-   "runs": 4000,
-   "law": 0.09016757,
-   "at_operating_point": false
-  },
-  {
-   "model": "M4",
-   "N": 4000,
-   "params": "RF=5",
-   "churn_pct": 12.0,
-   "mu_eff": 0.296,
-   "bad": 679,
-   "runs": 4000,
-   "law": 0.17152085,
-   "at_operating_point": false
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6, 6)",
-   "churn_pct": 2.0,
-   "mu_eff": 0.216,
-   "bad": 20,
-   "runs": 4000,
-   "law": 0.00566639,
-   "at_operating_point": false
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6, 6)",
-   "churn_pct": 5.0,
-   "mu_eff": 0.24,
-   "bad": 47,
-   "runs": 4000,
-   "law": 0.0119217,
-   "at_operating_point": false
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6, 6)",
-   "churn_pct": 8.0,
-   "mu_eff": 0.264,
-   "bad": 100,
-   "runs": 4000,
-   "law": 0.0235192,
-   "at_operating_point": false
-  },
-  {
-   "model": "M5",
-   "N": 4000,
-   "params": "(6, 6)",
-   "churn_pct": 12.0,
-   "mu_eff": 0.296,
-   "bad": 214,
-   "runs": 4000,
-   "law": 0.05341623,
-   "at_operating_point": false
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "RF=12, s=8",
-   "churn_pct": 20.0,
-   "mu_eff": 0.36,
-   "bad": 70,
-   "runs": 1200,
-   "law": 0.06288536,
-   "at_operating_point": true
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "RF=12, s=8",
-   "churn_pct": 25.0,
-   "mu_eff": 0.4,
-   "bad": 240,
-   "runs": 1200,
-   "law": 0.19352667,
-   "at_operating_point": true
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "RF=12, s=8",
-   "churn_pct": 30.0,
-   "mu_eff": 0.44,
-   "bad": 575,
-   "runs": 1200,
-   "law": 0.46774463,
-   "at_operating_point": true
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=8",
-   "churn_pct": 20.0,
-   "mu_eff": 0.36,
-   "bad": 28,
-   "runs": 1200,
-   "law": 0.02128573,
-   "at_operating_point": true
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=8",
-   "churn_pct": 25.0,
-   "mu_eff": 0.4,
-   "bad": 77,
-   "runs": 1200,
-   "law": 0.06251985,
-   "at_operating_point": true
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=8",
-   "churn_pct": 30.0,
-   "mu_eff": 0.44,
-   "bad": 193,
-   "runs": 1200,
-   "law": 0.16301195,
-   "at_operating_point": true
-  },
-  {
-   "model": "M5",
-   "N": 20000,
-   "params": "(9, 8)",
-   "churn_pct": 20.0,
-   "mu_eff": 0.36,
-   "bad": 24,
-   "runs": 1200,
-   "law": 0.01890165,
-   "at_operating_point": true
-  },
-  {
-   "model": "M5",
-   "N": 20000,
-   "params": "(9, 8)",
-   "churn_pct": 25.0,
-   "mu_eff": 0.4,
-   "bad": 74,
-   "runs": 1200,
-   "law": 0.05939543,
-   "at_operating_point": true
-  },
-  {
-   "model": "M5",
-   "N": 20000,
-   "params": "(9, 8)",
-   "churn_pct": 30.0,
-   "mu_eff": 0.44,
-   "bad": 208,
-   "runs": 1200,
-   "law": 0.16463135,
-   "at_operating_point": true
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "(13, 7)",
-   "churn_pct": 20.0,
-   "mu_eff": 0.36,
-   "bad": 39,
-   "runs": 1200,
-   "law": 0.0280599,
-   "at_operating_point": true
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "(13, 7)",
-   "churn_pct": 25.0,
-   "mu_eff": 0.4,
-   "bad": 131,
-   "runs": 1200,
-   "law": 0.09533409,
-   "at_operating_point": true
-  },
-  {
-   "model": "M3",
-   "N": 20000,
-   "params": "(13, 7)",
-   "churn_pct": 30.0,
-   "mu_eff": 0.44,
-   "bad": 321,
-   "runs": 1200,
-   "law": 0.2696411,
-   "at_operating_point": true
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=9",
-   "churn_pct": 25.0,
-   "mu_eff": 0.4,
-   "bad": 28,
-   "runs": 2000,
-   "law": 0.01406152,
-   "at_operating_point": true
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=9",
-   "churn_pct": 30.0,
-   "mu_eff": 0.44,
-   "bad": 82,
-   "runs": 2000,
-   "law": 0.04370916,
-   "at_operating_point": true
-  },
-  {
-   "model": "M4",
-   "N": 20000,
-   "params": "RF=9",
-   "churn_pct": 35.0,
-   "mu_eff": 0.48,
-   "bad": 254,
-   "runs": 2000,
-   "law": 0.1221012,
-   "at_operating_point": true
-  }
- ],
- "churn_cells_note": "Coverage under honest downtime, scored against each design's law read at the shifted adversarial fraction mu_eff = mu + p(1-mu). at_operating_point marks the cells run at the deployed parameters. See docs/experiments/churn-tolerance.md.",
- "tail_correction": {
-  "cell": "M3 RF=9, s=5 at N=4000",
-  "pooled_bad": 1240,
-  "pooled_draws": 230000,
-  "factor": 1.009,
-  "factor_1sigma": 0.029,
-  "rejects_1_11_at_z": -3.37,
-  "note": "The laws count single cut-off nodes exactly and small cut-off groups only approximately, and have been carried as ~1.11x optimistic in the deep tail. Measured at this cell the factor is 1.009 +/- 0.029, and 1.11 is rejected. The M4 cell is still running.",
-  "m4": {
-   "model": "M4",
-   "N": 20000,
-   "RF": 6,
-   "runs": 110000,
-   "bad": 886,
-   "law": 0.008363,
-   "ratio": 0.963,
-   "z": -1.13,
-   "pooled_with_published_30k": {
-    "bad": 1146,
-    "runs": 140000,
-    "ratio": 0.9787,
-    "se": 0.0289
-   },
-   "note": "The second deep-tail power run, on the other design. Independent master seed so it pools with the published 30,000-draw cell rather than replacing it. Together with M3's 1.009 +/- 0.029 this rejects the 1.11 factor both studies had carried at more than five standard errors."
-  }
- },
- "dominated": [
-  {
-   "model": "M5",
-   "params": "(9, 8)",
-   "by": "M4 RF=9",
-   "note": "beaten on every axis: 13.6 copies against 13.4, 34 links against 18, 5.00 hops equal, 2.18 % churn budget against 7.43 %."
-  },
-  {
-   "model": "M1",
-   "params": "F=24",
-   "by": "M5 (9, 8)",
-   "note": "beaten on all four cost and robustness axes; leads only adaptive eclipse cost."
-  }
- ],
- "gate_tradeoff": {
-  "N": 4000,
-  "RF": 16,
-  "law": 0.0088,
-  "sybils_for_concentration": 200,
-  "note": "E10 headroom ladder against E12 attacker concentration. Coverage is measured throughout. Concentration is the thinning prediction K/B, measured at B in {50, 125, 250, 500} by E12 and matching to within 2 % wherever the serving cap leaves room; the remaining bucket counts are predicted only. Source: docs/experiments/e10-selection-fidelity.md and e12-flooding-mitigation.md.",
-  "cells": [
-   {
-    "B": 10,
-    "r": 25.0,
-    "runs": 8000,
-    "bad": 77,
-    "lo": 0.0077,
-    "hi": 0.012
-   },
-   {
-    "B": 50,
-    "r": 5.0,
-    "runs": 8000,
-    "bad": 57,
-    "lo": 0.0055,
-    "hi": 0.0092,
-    "concentration_measured": true
-   },
-   {
-    "B": 125,
-    "r": 2.0,
-    "runs": 8000,
-    "bad": 64,
-    "lo": 0.0063,
-    "hi": 0.0102,
-    "recommended": true,
-    "concentration_measured": true
-   },
-   {
-    "B": 167,
-    "r": 1.5,
-    "runs": 8000,
-    "bad": 81,
-    "lo": 0.0082,
-    "hi": 0.0126
-   },
-   {
-    "B": 250,
-    "r": 1.0,
-    "runs": 4000,
-    "bad": 177,
-    "lo": 0.0383,
-    "hi": 0.0511,
-    "concentration_measured": true
-   },
-   {
-    "B": 333,
-    "r": 0.75,
-    "runs": 4000,
-    "bad": 1473,
-    "lo": 0.353,
-    "hi": 0.383
-   },
-   {
-    "B": 500,
-    "r": 0.5,
-    "runs": 4000,
-    "bad": 4000,
-    "lo": 0.999,
-    "hi": 1.0,
-    "concentration_measured": true
-   }
-  ]
- },
- "cap_tradeoff": {
-  "N": 4000,
-  "pick_count": 16,
-  "caps": [
-   20,
-   24,
-   32
+  "_comment": "Machine-readable results backing the CIP evidence figures. Transcribed once from pubsub-node/docs/experiments/m{2,3,4,5}-comparison.md; law values are recomputed here from each model's published closed form and agree with the documents to four significant digits. The experiments tool should emit this file directly in future so the transcription step disappears.",
+  "parameters": {
+    "adversarial_fraction": 0.2,
+    "design_target": 0.0001,
+    "operating_point_network_size": 20000
+  },
+  "provenance": {
+    "comparison_docs": "pubsub-node/docs/experiments/",
+    "configs": "pubsub-node/configs/experiments/",
+    "reproduce": "cargo build --release --features experiments --bins; experiments --config <config> --out <dir>"
+  },
+  "coverage_cells": [
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=6, s=4",
+      "bad": 213,
+      "runs": 600,
+      "law": 0.33738392,
+      "formal_bad": 209,
+      "formal_runs": 600,
+      "config": "m3-n4k-rf6-s4.toml",
+      "master_seed": 503,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=8, s=3",
+      "bad": 215,
+      "runs": 1000,
+      "law": 0.1969033,
+      "formal_bad": 195,
+      "formal_runs": 1000,
+      "config": "m3-n4k-rf8-s3.toml",
+      "master_seed": 504,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=8, s=3",
+      "bad": 209,
+      "runs": 300,
+      "law": 0.66804707,
+      "formal_bad": 194,
+      "formal_runs": 300,
+      "config": "m3-n20k-rf8-s3.toml",
+      "master_seed": 505,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "bad": 75,
+      "runs": 8000,
+      "law": 0.0087627,
+      "formal_bad": 74,
+      "formal_runs": 8000,
+      "config": "m3-n4k-rf10-s4.toml",
+      "master_seed": 602,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=9, s=5",
+      "bad": 150,
+      "runs": 30000,
+      "law": 0.00534384,
+      "formal_bad": 178,
+      "formal_runs": 30000,
+      "config": "m3-n4k-rf9-s5-tail.toml",
+      "master_seed": 608,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=3",
+      "bad": 200,
+      "runs": 200,
+      "law": 0.99999088,
+      "formal_bad": 2000,
+      "formal_runs": 2000,
+      "config": "m4-n20k-rf3.toml",
+      "master_seed": 501,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=4",
+      "bad": 624,
+      "runs": 1000,
+      "law": 0.64731399,
+      "formal_bad": 2585,
+      "formal_runs": 4000,
+      "config": "m4-n20k-rf4.toml",
+      "master_seed": 502,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=5",
+      "bad": 719,
+      "runs": 8000,
+      "law": 0.08932564,
+      "formal_bad": 749,
+      "formal_runs": 8000,
+      "config": "m4-n20k-rf5.toml",
+      "master_seed": 607,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=6",
+      "bad": 251,
+      "runs": 30000,
+      "law": 0.00836381,
+      "formal_bad": 260,
+      "formal_runs": 30000,
+      "config": "m4-n20k-rf6-tail.toml",
+      "master_seed": 705,
+      "tool_commit": "2102b6f"
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(4,4)",
+      "bad": 172,
+      "runs": 500,
+      "law": 0.33948629,
+      "formal_bad": 187,
+      "formal_runs": 500,
+      "config": "m5-n4k-4-4.toml",
+      "master_seed": 506,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(3,6)",
+      "bad": 311,
+      "runs": 1500,
+      "law": 0.20373982,
+      "formal_bad": 306,
+      "formal_runs": 1500,
+      "config": "m5-n4k-3-6.toml",
+      "master_seed": 507,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6,3)",
+      "bad": 337,
+      "runs": 1500,
+      "law": 0.20373982,
+      "formal_bad": 285,
+      "formal_runs": 1500,
+      "config": "m5-n4k-6-3.toml",
+      "master_seed": 508,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6,3) resample",
+      "bad": 1240,
+      "runs": 6000,
+      "law": 0.20373982,
+      "formal_bad": null,
+      "formal_runs": null,
+      "config": "m5-n4k-6-3-tight.toml",
+      "master_seed": 601,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(5,5)",
+      "bad": 70,
+      "runs": 2000,
+      "law": 0.03641943,
+      "formal_bad": 63,
+      "formal_runs": 2000,
+      "config": "m5-n4k-5-5.toml",
+      "master_seed": 603,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6,6)",
+      "bad": 28,
+      "runs": 8000,
+      "law": 0.00330911,
+      "formal_bad": 31,
+      "formal_runs": 8000,
+      "config": "m5-n4k-6-6.toml",
+      "master_seed": 604,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(4,4)",
+      "bad": 175,
+      "runs": 200,
+      "law": 0.87561258,
+      "formal_bad": 172,
+      "formal_runs": 200,
+      "config": "m5-n20k-4-4.toml",
+      "master_seed": 509,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=10",
+      "bad": 637,
+      "runs": 1000,
+      "law": 0.65479781,
+      "formal_bad": 660,
+      "formal_runs": 1000,
+      "config": "m1-n4k-f10.toml",
+      "master_seed": 510,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=12",
+      "bad": 388,
+      "runs": 2000,
+      "law": 0.19246363,
+      "formal_bad": 372,
+      "formal_runs": 2000,
+      "config": "m1-n4k-f12.toml",
+      "master_seed": 511,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M1",
+      "N": 20000,
+      "params": "F=12",
+      "bad": 255,
+      "runs": 400,
+      "law": 0.66065445,
+      "formal_bad": 268,
+      "formal_runs": 400,
+      "config": "m1-n20k-f12.toml",
+      "master_seed": 512,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=14",
+      "bad": 172,
+      "runs": 4000,
+      "law": 0.04202782,
+      "formal_bad": 165,
+      "formal_runs": 4000,
+      "config": "m1-n4k-f14.toml",
+      "master_seed": 605,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "bad": 72,
+      "runs": 8000,
+      "law": 0.00858044,
+      "formal_bad": 82,
+      "formal_runs": 8000,
+      "config": "m1-n4k-f16.toml",
+      "master_seed": 606,
+      "tool_commit": "21acd36"
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "bad": 71,
+      "runs": 8000,
+      "law": 0.00879589,
+      "formal_bad": 65,
+      "formal_runs": 8000,
+      "config": "m2-bulk-regime.toml",
+      "master_seed": 4016,
+      "tool_commit": "493bb2f"
+    },
+    {
+      "model": "M2",
+      "N": 20000,
+      "params": "RF=16",
+      "bad": 9,
+      "runs": 150,
+      "law": 0.04321256,
+      "formal_bad": 4,
+      "formal_runs": 150,
+      "config": "m2-operating-point.toml (pick_count=16)",
+      "master_seed": 20016,
+      "tool_commit": "493bb2f"
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=9, s=5",
+      "bad": 912,
+      "runs": 170000,
+      "law": 0.00534418,
+      "formal_bad": null,
+      "formal_runs": null,
+      "config": "tail/m3-n4k-rf9-s5-deeptail.toml",
+      "master_seed": 821,
+      "tool_commit": "standing-degree change on experiments/churn-sweep",
+      "note": "Deep-tail power run. Sized to resolve the small-component correction at 3 sigma, which 3e4-draw samples cannot. Independent seed from the 30000-draw cell above, so the two pool."
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=6",
+      "bad": 886,
+      "runs": 110000,
+      "law": 0.00836381,
+      "formal_bad": 260,
+      "formal_runs": 30000,
+      "config": "m4-n20k-rf6-tail.toml",
+      "master_seed": 822,
+      "tool_commit": "2102b6f",
+      "note": "deep-tail power run on an independent master seed; pools with the 30,000-draw cell above"
+    }
   ],
-  "note": "E12 serving-cap axis at N = 4 000, honest pick count 16. Within a (bucket count, attacker size) cell only the cap varies, so the cap axis isolates starvation damage from slot concentration. 150 runs per cell, 400 for the saturating attacker. Source: docs/experiments/e12-flooding-mitigation.md. The B = 125 row was re-run independently to recover the starvation counts, which the original write-up tabulated only for B = 50; its good counts reproduced the published values exactly.",
-  "series": [
-   {
-    "label": "B = 125, attacker at 20 %",
-    "B": 125,
-    "attacker_pct": 20,
-    "colour": "#1e8f5e",
-    "recommended": true,
-    "good": [
-     [
-      388,
-      400
-     ],
-     [
-      394,
-      400
-     ],
-     [
-      396,
-      400
-     ]
-    ],
-    "starved_per_run": [
-     2934,
-     717,
-     12
-    ],
-    "adv_slots": [
-     5.94,
-     6.29,
-     6.4
-    ],
-    "measured": "re-run locally from the committed config, seed and tool commit; good counts reproduced the published 388/394/396 of 400 exactly",
-    "victims_starved_share": [
-     0.3061,
-     0.14,
-     0.0036
-    ],
-    "deepest_victim_lost_dials": [
-     14,
-     10,
-     2
-    ],
-    "source": "per-victim depth from the cell summaries; independently reproduced from config, seed and tool commit"
-   },
-   {
-    "label": "B = 50, attacker at 10 %",
-    "B": 50,
-    "attacker_pct": 10,
-    "colour": "#eda100",
-    "good": [
-     [
-      45,
-      150
-     ],
-     [
-      150,
-      150
-     ],
-     [
-      150,
-      150
-     ]
-    ],
-    "starved_per_run": [
-     7590,
-     2794,
-     123
-    ],
-    "adv_slots": [
-     6.83,
-     7.57,
-     null
+  "operating_points": [
+    {
+      "model": "M3",
+      "params": "RF=12, s=8",
+      "config": "m3-n20k-op.toml",
+      "master_seed": 701,
+      "msgs_per_publication": 153577.2,
+      "copies_per_node": 9.6,
+      "standing_links": 38,
+      "hops_full": 5.87,
+      "hops_mean": 4.31,
+      "p_bad": 7.849e-05,
+      "churn_budget_pct": 0.54,
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 37.99,
+      "standing_links_max": 64,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+      "eclipse_known_links": 9.6,
+      "eclipse_gate_only": 24
+    },
+    {
+      "model": "M4",
+      "params": "RF=8",
+      "config": "m4-n20k-op.toml",
+      "master_seed": 702,
+      "msgs_per_publication": 188750.6,
+      "copies_per_node": 11.8,
+      "standing_links": 16,
+      "hops_full": 5.12,
+      "hops_mean": 4.09,
+      "p_bad": 6.762e-05,
+      "churn_budget_pct": 1.07,
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 16.0,
+      "standing_links_max": 36,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+      "eclipse_known_links": 12.8,
+      "eclipse_gate_only": 16
+    },
+    {
+      "model": "M5",
+      "params": "(9,8)",
+      "config": "m5-n20k-op.toml",
+      "master_seed": 703,
+      "msgs_per_publication": 217529.7,
+      "copies_per_node": 13.6,
+      "standing_links": 34,
+      "hops_full": 5.0,
+      "hops_mean": 3.97,
+      "p_bad": 4.388e-05,
+      "churn_budget_pct": 2.18,
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 33.99,
+      "standing_links_max": 58,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+      "eclipse_known_links": 13.6,
+      "eclipse_gate_only": 34
+    },
+    {
+      "model": "M1",
+      "params": "F=24",
+      "config": "m1-n20k-op.toml",
+      "master_seed": 704,
+      "msgs_per_publication": 307200.8,
+      "copies_per_node": 19.2,
+      "standing_links": 48,
+      "hops_full": 5.0,
+      "hops_mean": 3.61,
+      "p_bad": 7.257e-05,
+      "churn_budget_pct": 1.76,
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 47.97,
+      "standing_links_max": 75,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+      "eclipse_known_links": 19.2,
+      "eclipse_gate_only": 48
+    },
+    {
+      "model": "M2",
+      "params": "RF=24",
+      "config": "m2-operating-point.toml",
+      "master_seed": 42,
+      "msgs_per_publication": 307162.1,
+      "copies_per_node": 19.2,
+      "standing_links": 48,
+      "hops_full": 4.78,
+      "hops_mean": 3.6,
+      "p_bad": 7.339e-05,
+      "churn_budget_pct": 1.7,
+      "churn_budget_status": "read off the model's coverage law at mu + p(1-mu); that reduction is validated by E13 across mu_eff 0.20-0.44, including at the operating points themselves. The budget sits at P(bad)=1e-4 and is not directly samplable.",
+      "standing_links_measured_mean": 47.97,
+      "standing_links_max": 75,
+      "standing_links_source": "measured over 200 graphs (M2: 40); see docs/experiments/standing-degree.md",
+      "eclipse_known_links": 19.2,
+      "eclipse_gate_only": 48
+    }
+  ],
+  "alternatives": [
+    {
+      "model": "M3",
+      "params": "RF=13, s=7",
+      "note": "same budget and standing links as (12,8); the churn-preferred split. Measured at the operating point: 10.40 copies, 38.0/64 links, 5.51 hops.",
+      "copies_per_node": 10.4,
+      "standing_links": 38,
+      "hops_full": 5.51,
+      "p_bad": 4.39e-05,
+      "churn_budget_pct": 2.17,
+      "preferred": true,
+      "hops_mean": 4.21,
+      "standing_links_measured_mean": 38.0,
+      "standing_links_max": 64,
+      "msgs_per_publication": 166400,
+      "measured": "200 runs",
+      "config": "comparisons/m3-n20k-rf13-s7.toml",
+      "master_seed": 852,
+      "eclipse_known_links": 10.4,
+      "eclipse_gate_only": 26
+    },
+    {
+      "model": "M4",
+      "params": "RF=9",
+      "preferred": true,
+      "note": "one notch above the published RF=8. Measured at the operating point: 13.40 copies, 18.0/37 links, 5.00 hops full / 3.90 mean, 200/200 good.",
+      "copies_per_node": 13.4,
+      "standing_links": 18,
+      "standing_links_measured_mean": 18.0,
+      "standing_links_max": 37,
+      "hops_full": 5.0,
+      "hops_mean": 3.9,
+      "msgs_per_publication": 214345,
+      "p_bad": 6.07e-06,
+      "churn_budget_pct": 7.43,
+      "measured": "200 runs",
+      "config": "comparisons/m4-n20k-rf9.toml",
+      "master_seed": 851,
+      "eclipse_known_links": 14.4,
+      "eclipse_gate_only": 18
+    }
+  ],
+  "convergence": {
+    "dial_waves": 2,
+    "note": "Topology convergence took exactly 2 dial waves in every run of every operating point (200 runs each; M2 40). A wave is one request/response round, so the floor on epoch length is a small number of round-trips."
+  },
+  "churn_cells": [
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 46,
+      "runs": 4000,
+      "law": 0.01085598,
+      "at_operating_point": false
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 60,
+      "runs": 4000,
+      "law": 0.01542819,
+      "at_operating_point": false
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 105,
+      "runs": 4000,
+      "law": 0.02188371,
+      "at_operating_point": false
+    },
+    {
+      "model": "M1",
+      "N": 4000,
+      "params": "F=16",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 139,
+      "runs": 4000,
+      "law": 0.03474548,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 41,
+      "runs": 4000,
+      "law": 0.01112197,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 71,
+      "runs": 4000,
+      "law": 0.01579205,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 115,
+      "runs": 4000,
+      "law": 0.02237954,
+      "at_operating_point": false
+    },
+    {
+      "model": "M2",
+      "N": 4000,
+      "params": "RF=16",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 136,
+      "runs": 4000,
+      "law": 0.03548927,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 67,
+      "runs": 4000,
+      "law": 0.01288552,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 105,
+      "runs": 4000,
+      "law": 0.02242009,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 154,
+      "runs": 4000,
+      "law": 0.03808178,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 4000,
+      "params": "RF=10, s=4",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 308,
+      "runs": 4000,
+      "law": 0.07465993,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 118,
+      "runs": 4000,
+      "law": 0.02854844,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 233,
+      "runs": 4000,
+      "law": 0.05226402,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 373,
+      "runs": 4000,
+      "law": 0.09016757,
+      "at_operating_point": false
+    },
+    {
+      "model": "M4",
+      "N": 4000,
+      "params": "RF=5",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 679,
+      "runs": 4000,
+      "law": 0.17152085,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 2.0,
+      "mu_eff": 0.216,
+      "bad": 20,
+      "runs": 4000,
+      "law": 0.00566639,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 5.0,
+      "mu_eff": 0.24,
+      "bad": 47,
+      "runs": 4000,
+      "law": 0.0119217,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 8.0,
+      "mu_eff": 0.264,
+      "bad": 100,
+      "runs": 4000,
+      "law": 0.0235192,
+      "at_operating_point": false
+    },
+    {
+      "model": "M5",
+      "N": 4000,
+      "params": "(6, 6)",
+      "churn_pct": 12.0,
+      "mu_eff": 0.296,
+      "bad": 214,
+      "runs": 4000,
+      "law": 0.05341623,
+      "at_operating_point": false
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=12, s=8",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 70,
+      "runs": 1200,
+      "law": 0.06288536,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=12, s=8",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 240,
+      "runs": 1200,
+      "law": 0.19352667,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "RF=12, s=8",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 575,
+      "runs": 1200,
+      "law": 0.46774463,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=8",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 28,
+      "runs": 1200,
+      "law": 0.02128573,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=8",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 77,
+      "runs": 1200,
+      "law": 0.06251985,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=8",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 193,
+      "runs": 1200,
+      "law": 0.16301195,
+      "at_operating_point": true
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(9, 8)",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 24,
+      "runs": 1200,
+      "law": 0.01890165,
+      "at_operating_point": true
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(9, 8)",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 74,
+      "runs": 1200,
+      "law": 0.05939543,
+      "at_operating_point": true
+    },
+    {
+      "model": "M5",
+      "N": 20000,
+      "params": "(9, 8)",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 208,
+      "runs": 1200,
+      "law": 0.16463135,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "(13, 7)",
+      "churn_pct": 20.0,
+      "mu_eff": 0.36,
+      "bad": 39,
+      "runs": 1200,
+      "law": 0.0280599,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "(13, 7)",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 131,
+      "runs": 1200,
+      "law": 0.09533409,
+      "at_operating_point": true
+    },
+    {
+      "model": "M3",
+      "N": 20000,
+      "params": "(13, 7)",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 321,
+      "runs": 1200,
+      "law": 0.2696411,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=9",
+      "churn_pct": 25.0,
+      "mu_eff": 0.4,
+      "bad": 28,
+      "runs": 2000,
+      "law": 0.01406152,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=9",
+      "churn_pct": 30.0,
+      "mu_eff": 0.44,
+      "bad": 82,
+      "runs": 2000,
+      "law": 0.04370916,
+      "at_operating_point": true
+    },
+    {
+      "model": "M4",
+      "N": 20000,
+      "params": "RF=9",
+      "churn_pct": 35.0,
+      "mu_eff": 0.48,
+      "bad": 254,
+      "runs": 2000,
+      "law": 0.1221012,
+      "at_operating_point": true
+    }
+  ],
+  "churn_cells_note": "Coverage under honest downtime, scored against each design's law read at the shifted adversarial fraction mu_eff = mu + p(1-mu). at_operating_point marks the cells run at the deployed parameters. See docs/experiments/churn-tolerance.md.",
+  "tail_correction": {
+    "cell": "M3 RF=9, s=5 at N=4000",
+    "pooled_bad": 1240,
+    "pooled_draws": 230000,
+    "factor": 1.009,
+    "factor_1sigma": 0.029,
+    "rejects_1_11_at_z": -3.37,
+    "note": "The laws count single cut-off nodes exactly and small cut-off groups only approximately, and have been carried as ~1.11x optimistic in the deep tail. Measured at this cell the factor is 1.009 +/- 0.029, and 1.11 is rejected. The M4 cell is still running.",
+    "m4": {
+      "model": "M4",
+      "N": 20000,
+      "RF": 6,
+      "runs": 110000,
+      "bad": 886,
+      "law": 0.008363,
+      "ratio": 0.963,
+      "z": -1.13,
+      "pooled_with_published_30k": {
+        "bad": 1146,
+        "runs": 140000,
+        "ratio": 0.9787,
+        "se": 0.0289
+      },
+      "note": "The second deep-tail power run, on the other design. Independent master seed so it pools with the published 30,000-draw cell rather than replacing it. Together with M3's 1.009 +/- 0.029 this rejects the 1.11 factor both studies had carried at more than five standard errors."
+    }
+  },
+  "dominated": [
+    {
+      "model": "M5",
+      "params": "(9, 8)",
+      "by": "M4 RF=9",
+      "note": "beaten on every axis: 13.6 copies against 13.4, 34 links against 18, 5.00 hops equal, 2.18 % churn budget against 7.43 %."
+    },
+    {
+      "model": "M1",
+      "params": "F=24",
+      "by": "M5 (9, 8)",
+      "note": "beaten on all four cost and robustness axes; leads only adaptive eclipse cost."
+    }
+  ],
+  "gate_tradeoff": {
+    "N": 4000,
+    "RF": 16,
+    "law": 0.0088,
+    "sybils_for_concentration": 200,
+    "note": "E10 headroom ladder against E12 attacker concentration. Coverage is measured throughout. Concentration is the thinning prediction K/B, measured at B in {50, 125, 250, 500} by E12 and matching to within 2 % wherever the serving cap leaves room; the remaining bucket counts are predicted only. Source: docs/experiments/e10-selection-fidelity.md and e12-flooding-mitigation.md.",
+    "cells": [
+      {
+        "B": 10,
+        "r": 25.0,
+        "runs": 8000,
+        "bad": 77,
+        "lo": 0.0077,
+        "hi": 0.012
+      },
+      {
+        "B": 50,
+        "r": 5.0,
+        "runs": 8000,
+        "bad": 57,
+        "lo": 0.0055,
+        "hi": 0.0092,
+        "concentration_measured": true
+      },
+      {
+        "B": 125,
+        "r": 2.0,
+        "runs": 8000,
+        "bad": 64,
+        "lo": 0.0063,
+        "hi": 0.0102,
+        "recommended": true,
+        "concentration_measured": true
+      },
+      {
+        "B": 167,
+        "r": 1.5,
+        "runs": 8000,
+        "bad": 81,
+        "lo": 0.0082,
+        "hi": 0.0126
+      },
+      {
+        "B": 250,
+        "r": 1.0,
+        "runs": 4000,
+        "bad": 177,
+        "lo": 0.0383,
+        "hi": 0.0511,
+        "concentration_measured": true
+      },
+      {
+        "B": 333,
+        "r": 0.75,
+        "runs": 4000,
+        "bad": 1473,
+        "lo": 0.353,
+        "hi": 0.383
+      },
+      {
+        "B": 500,
+        "r": 0.5,
+        "runs": 4000,
+        "bad": 4000,
+        "lo": 0.999,
+        "hi": 1.0,
+        "concentration_measured": true
+      }
     ]
-   },
-   {
-    "label": "B = 50, attacker at 20 %",
-    "B": 50,
-    "attacker_pct": 20,
-    "colour": "#4a3aa7",
-    "good": [
-     [
-      0,
-      400
-     ],
-     [
-      0,
-      400
-     ],
-     [
-      392,
-      400
-     ]
+  },
+  "cap_tradeoff": {
+    "N": 4000,
+    "pick_count": 16,
+    "caps": [
+      20,
+      24,
+      32
     ],
-    "starved_per_run": [
-     12605,
-     7533,
-     1320
-    ],
-    "adv_slots": [
-     11.06,
-     13.06,
-     15.49
+    "note": "E12 serving-cap axis at N = 4 000, honest pick count 16. Within a (bucket count, attacker size) cell only the cap varies, so the cap axis isolates starvation damage from slot concentration. 150 runs per cell, 400 for the saturating attacker. Source: docs/experiments/e12-flooding-mitigation.md. The B = 125 row was re-run independently to recover the starvation counts, which the original write-up tabulated only for B = 50; its good counts reproduced the published values exactly.",
+    "series": [
+      {
+        "label": "B = 125, attacker at 20 %",
+        "B": 125,
+        "attacker_pct": 20,
+        "colour": "#1e8f5e",
+        "recommended": true,
+        "good": [
+          [
+            388,
+            400
+          ],
+          [
+            394,
+            400
+          ],
+          [
+            396,
+            400
+          ]
+        ],
+        "starved_per_run": [
+          2934,
+          717,
+          12
+        ],
+        "adv_slots": [
+          5.94,
+          6.29,
+          6.4
+        ],
+        "measured": "re-run locally from the committed config, seed and tool commit; good counts reproduced the published 388/394/396 of 400 exactly",
+        "victims_starved_share": [
+          0.3061,
+          0.14,
+          0.0036
+        ],
+        "deepest_victim_lost_dials": [
+          14,
+          10,
+          2
+        ],
+        "source": "per-victim depth from the cell summaries; independently reproduced from config, seed and tool commit"
+      },
+      {
+        "label": "B = 50, attacker at 10 %",
+        "B": 50,
+        "attacker_pct": 10,
+        "colour": "#eda100",
+        "good": [
+          [
+            45,
+            150
+          ],
+          [
+            150,
+            150
+          ],
+          [
+            150,
+            150
+          ]
+        ],
+        "starved_per_run": [
+          7590,
+          2794,
+          123
+        ],
+        "adv_slots": [
+          6.83,
+          7.57,
+          null
+        ]
+      },
+      {
+        "label": "B = 50, attacker at 20 %",
+        "B": 50,
+        "attacker_pct": 20,
+        "colour": "#4a3aa7",
+        "good": [
+          [
+            0,
+            400
+          ],
+          [
+            0,
+            400
+          ],
+          [
+            392,
+            400
+          ]
+        ],
+        "starved_per_run": [
+          12605,
+          7533,
+          1320
+        ],
+        "adv_slots": [
+          11.06,
+          13.06,
+          15.49
+        ]
+      }
     ]
-   }
-  ]
- },
- "severity": {
-  "note": "How many honest subscribers a failing draw actually misses, folded from the mu sweep's missed_hist. A failing draw is bimodal: it misses one subscriber, or it misses every subscriber because the publisher itself was cut off. Nothing measured lies between 3 and H-1. Source: docs/experiments/mu-sweep.md.",
-  "cells": [
-   {
-    "model": "M1",
-    "N": 4000,
+  },
+  "severity": {
+    "note": "How many honest subscribers a failing draw actually misses, folded from the mu sweep's missed_hist. A failing draw is bimodal: it misses one subscriber, or it misses every subscriber because the publisher itself was cut off. Nothing measured lies between 3 and H-1. Source: docs/experiments/mu-sweep.md.",
+    "cells": [
+      {
+        "model": "M1",
+        "N": 4000,
+        "mu": 0.2,
+        "runs": 4000,
+        "bad": 35,
+        "p_bad": 0.00875,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M1",
+        "N": 4000,
+        "mu": 0.25,
+        "runs": 4000,
+        "bad": 79,
+        "p_bad": 0.01975,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M1",
+        "N": 4000,
+        "mu": 0.3,
+        "runs": 4000,
+        "bad": 146,
+        "p_bad": 0.0365,
+        "share_one_node": 0.9932,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M1",
+        "N": 4000,
+        "mu": 0.35,
+        "runs": 4000,
+        "bad": 312,
+        "p_bad": 0.078,
+        "share_one_node": 0.9615,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M3",
+        "N": 20000,
+        "mu": 0.3,
+        "runs": 2000,
+        "bad": 17,
+        "p_bad": 0.0085,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M3",
+        "N": 20000,
+        "mu": 0.35,
+        "runs": 2000,
+        "bad": 107,
+        "p_bad": 0.0535,
+        "share_one_node": 0.972,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M3",
+        "N": 20000,
+        "mu": 0.4,
+        "runs": 2000,
+        "bad": 368,
+        "p_bad": 0.184,
+        "share_one_node": 0.9212,
+        "worst_missed": 3,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M3",
+        "N": 4000,
+        "mu": 0.25,
+        "runs": 4000,
+        "bad": 10,
+        "p_bad": 0.0025,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M3",
+        "N": 4000,
+        "mu": 0.3,
+        "runs": 4000,
+        "bad": 64,
+        "p_bad": 0.016,
+        "share_one_node": 0.9844,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M3",
+        "N": 4000,
+        "mu": 0.35,
+        "runs": 4000,
+        "bad": 270,
+        "p_bad": 0.0675,
+        "share_one_node": 0.9741,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 20000,
+        "mu": 0.3,
+        "runs": 2000,
+        "bad": 7,
+        "p_bad": 0.0035,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 20000,
+        "mu": 0.35,
+        "runs": 2000,
+        "bad": 37,
+        "p_bad": 0.0185,
+        "share_one_node": 0.973,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 20000,
+        "mu": 0.4,
+        "runs": 2000,
+        "bad": 113,
+        "p_bad": 0.0565,
+        "share_one_node": 0.9735,
+        "worst_missed": 3,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 4000,
+        "mu": 0.2,
+        "runs": 4000,
+        "bad": 84,
+        "p_bad": 0.021,
+        "share_one_node": 0.9881,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 4000,
+        "mu": 0.25,
+        "runs": 4000,
+        "bad": 295,
+        "p_bad": 0.07375,
+        "share_one_node": 0.9559,
+        "worst_missed": 3,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 4000,
+        "mu": 0.3,
+        "runs": 4000,
+        "bad": 790,
+        "p_bad": 0.1975,
+        "share_one_node": 0.9038,
+        "worst_missed": 3,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M4",
+        "N": 4000,
+        "mu": 0.35,
+        "runs": 4000,
+        "bad": 1623,
+        "p_bad": 0.40575,
+        "share_one_node": 0.7634,
+        "worst_missed": 2599,
+        "publisher_isolated": true
+      },
+      {
+        "model": "M5",
+        "N": 20000,
+        "mu": 0.3,
+        "runs": 2000,
+        "bad": 4,
+        "p_bad": 0.002,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M5",
+        "N": 20000,
+        "mu": 0.35,
+        "runs": 2000,
+        "bad": 15,
+        "p_bad": 0.0075,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M5",
+        "N": 20000,
+        "mu": 0.4,
+        "runs": 2000,
+        "bad": 56,
+        "p_bad": 0.028,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M5",
+        "N": 4000,
+        "mu": 0.2,
+        "runs": 4000,
+        "bad": 6,
+        "p_bad": 0.0015,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M5",
+        "N": 4000,
+        "mu": 0.25,
+        "runs": 4000,
+        "bad": 20,
+        "p_bad": 0.005,
+        "share_one_node": 1.0,
+        "worst_missed": 1,
+        "publisher_isolated": false
+      },
+      {
+        "model": "M5",
+        "N": 4000,
+        "mu": 0.3,
+        "runs": 4000,
+        "bad": 116,
+        "p_bad": 0.029,
+        "share_one_node": 0.9569,
+        "worst_missed": 2799,
+        "publisher_isolated": true
+      },
+      {
+        "model": "M5",
+        "N": 4000,
+        "mu": 0.35,
+        "runs": 4000,
+        "bad": 374,
+        "p_bad": 0.0935,
+        "share_one_node": 0.9439,
+        "worst_missed": 2,
+        "publisher_isolated": false
+      }
+    ]
+  },
+  "eclipse_note": "Corruptions to strand a chosen node. Knowing its realised links the cost is its honest degree, k(1-mu) directional and 2k(1-mu) symmetric since one corruption removes a bidirectional link once. Knowing only the public gate the cost is the eligible set, about 2k. Source: the adaptive-eclipse-cost property documents.",
+  "bucket_bounds": {
+    "_comment": "Bucket-count bounds against topic size, at mu = 0.2 and delta = 1e-4. Computed from the experiments programme's prediction ledger (m4_synthesis_predictions.py, branch experiments-m4-synthesis); regenerate with gen_bounds_data.py once that lands on main.",
     "mu": 0.2,
-    "runs": 4000,
-    "bad": 35,
-    "p_bad": 0.00875,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M1",
-    "N": 4000,
-    "mu": 0.25,
-    "runs": 4000,
-    "bad": 79,
-    "p_bad": 0.01975,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M1",
-    "N": 4000,
-    "mu": 0.3,
-    "runs": 4000,
-    "bad": 146,
-    "p_bad": 0.0365,
-    "share_one_node": 0.9932,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M1",
-    "N": 4000,
-    "mu": 0.35,
-    "runs": 4000,
-    "bad": 312,
-    "p_bad": 0.078,
-    "share_one_node": 0.9615,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M3",
-    "N": 20000,
-    "mu": 0.3,
-    "runs": 2000,
-    "bad": 17,
-    "p_bad": 0.0085,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M3",
-    "N": 20000,
-    "mu": 0.35,
-    "runs": 2000,
-    "bad": 107,
-    "p_bad": 0.0535,
-    "share_one_node": 0.972,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M3",
-    "N": 20000,
-    "mu": 0.4,
-    "runs": 2000,
-    "bad": 368,
-    "p_bad": 0.184,
-    "share_one_node": 0.9212,
-    "worst_missed": 3,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M3",
-    "N": 4000,
-    "mu": 0.25,
-    "runs": 4000,
-    "bad": 10,
-    "p_bad": 0.0025,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M3",
-    "N": 4000,
-    "mu": 0.3,
-    "runs": 4000,
-    "bad": 64,
-    "p_bad": 0.016,
-    "share_one_node": 0.9844,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M3",
-    "N": 4000,
-    "mu": 0.35,
-    "runs": 4000,
-    "bad": 270,
-    "p_bad": 0.0675,
-    "share_one_node": 0.9741,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 20000,
-    "mu": 0.3,
-    "runs": 2000,
-    "bad": 7,
-    "p_bad": 0.0035,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 20000,
-    "mu": 0.35,
-    "runs": 2000,
-    "bad": 37,
-    "p_bad": 0.0185,
-    "share_one_node": 0.973,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 20000,
-    "mu": 0.4,
-    "runs": 2000,
-    "bad": 113,
-    "p_bad": 0.0565,
-    "share_one_node": 0.9735,
-    "worst_missed": 3,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 4000,
-    "mu": 0.2,
-    "runs": 4000,
-    "bad": 84,
-    "p_bad": 0.021,
-    "share_one_node": 0.9881,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 4000,
-    "mu": 0.25,
-    "runs": 4000,
-    "bad": 295,
-    "p_bad": 0.07375,
-    "share_one_node": 0.9559,
-    "worst_missed": 3,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 4000,
-    "mu": 0.3,
-    "runs": 4000,
-    "bad": 790,
-    "p_bad": 0.1975,
-    "share_one_node": 0.9038,
-    "worst_missed": 3,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M4",
-    "N": 4000,
-    "mu": 0.35,
-    "runs": 4000,
-    "bad": 1623,
-    "p_bad": 0.40575,
-    "share_one_node": 0.7634,
-    "worst_missed": 2599,
-    "publisher_isolated": true
-   },
-   {
-    "model": "M5",
-    "N": 20000,
-    "mu": 0.3,
-    "runs": 2000,
-    "bad": 4,
-    "p_bad": 0.002,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M5",
-    "N": 20000,
-    "mu": 0.35,
-    "runs": 2000,
-    "bad": 15,
-    "p_bad": 0.0075,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M5",
-    "N": 20000,
-    "mu": 0.4,
-    "runs": 2000,
-    "bad": 56,
-    "p_bad": 0.028,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M5",
-    "N": 4000,
-    "mu": 0.2,
-    "runs": 4000,
-    "bad": 6,
-    "p_bad": 0.0015,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M5",
-    "N": 4000,
-    "mu": 0.25,
-    "runs": 4000,
-    "bad": 20,
-    "p_bad": 0.005,
-    "share_one_node": 1.0,
-    "worst_missed": 1,
-    "publisher_isolated": false
-   },
-   {
-    "model": "M5",
-    "N": 4000,
-    "mu": 0.3,
-    "runs": 4000,
-    "bad": 116,
-    "p_bad": 0.029,
-    "share_one_node": 0.9569,
-    "worst_missed": 2799,
-    "publisher_isolated": true
-   },
-   {
-    "model": "M5",
-    "N": 4000,
-    "mu": 0.35,
-    "runs": 4000,
-    "bad": 374,
-    "p_bad": 0.0935,
-    "share_one_node": 0.9439,
-    "worst_missed": 2,
-    "publisher_isolated": false
-   }
-  ]
- },
- "eclipse_note": "Corruptions to strand a chosen node. Knowing its realised links the cost is its honest degree, k(1-mu) directional and 2k(1-mu) symmetric since one corruption removes a bidirectional link once. Knowing only the public gate the cost is the eligible set, about 2k. Source: the adaptive-eclipse-cost property documents."
+    "delta": 0.0001,
+    "reference_n": 20000,
+    "curves": [
+      {
+        "n": 1000,
+        "pool": 50,
+        "headroom_k9": 55,
+        "target_k9": 50,
+        "pbad_headroom_k9": 0.0003579979567305269,
+        "pbad_rule_k9": 8.92194924866363e-05,
+        "headroom_k10": 49,
+        "target_k10": 50,
+        "pbad_headroom_k10": 5.806633070315481e-05,
+        "pbad_rule_k10": 5.806633070315481e-05
+      },
+      {
+        "n": 1400,
+        "pool": 69,
+        "headroom_k9": 77,
+        "target_k9": 68,
+        "pbad_headroom_k9": 0.0005184343323693108,
+        "pbad_rule_k9": 8.56273994831458e-05,
+        "headroom_k10": 69,
+        "target_k10": 69,
+        "pbad_headroom_k10": 9.319924866113549e-05,
+        "pbad_rule_k10": 9.319924866113549e-05
+      },
+      {
+        "n": 2000,
+        "pool": 96,
+        "headroom_k9": 111,
+        "target_k9": 95,
+        "pbad_headroom_k9": 0.0008629728796984981,
+        "pbad_rule_k9": 9.230019497374897e-05,
+        "headroom_k10": 99,
+        "target_k10": 96,
+        "pbad_headroom_k10": 0.00014728361747629037,
+        "pbad_rule_k10": 8.989593632369175e-05
+      },
+      {
+        "n": 2800,
+        "pool": 132,
+        "headroom_k9": 155,
+        "target_k9": 130,
+        "pbad_headroom_k9": 0.001184279864629434,
+        "pbad_rule_k9": 9.685916255341986e-05,
+        "headroom_k10": 139,
+        "target_k10": 132,
+        "pbad_headroom_k10": 0.0002203870204041669,
+        "pbad_rule_k10": 9.612599557895507e-05
+      },
+      {
+        "n": 4000,
+        "pool": 185,
+        "headroom_k9": 222,
+        "target_k9": 180,
+        "pbad_headroom_k9": 0.001775391009507965,
+        "pbad_rule_k9": 9.425203833413054e-05,
+        "headroom_k10": 199,
+        "target_k10": 184,
+        "pbad_headroom_k10": 0.00033081885897601193,
+        "pbad_rule_k10": 9.371977377115037e-05
+      },
+      {
+        "n": 5600,
+        "pool": 254,
+        "headroom_k9": 311,
+        "target_k9": 245,
+        "pbad_headroom_k9": 0.002527643044555883,
+        "pbad_rule_k9": 9.602929974228402e-05,
+        "headroom_k10": 279,
+        "target_k10": 253,
+        "pbad_headroom_k10": 0.000478586002615633,
+        "pbad_rule_k10": 9.903260577526218e-05
+      },
+      {
+        "n": 8000,
+        "pool": 356,
+        "headroom_k9": 444,
+        "target_k9": 339,
+        "pbad_headroom_k9": 0.003598577549157156,
+        "pbad_rule_k9": 9.959755695332362e-05,
+        "headroom_k10": 399,
+        "target_k10": 353,
+        "pbad_headroom_k10": 0.0007006141026226764,
+        "pbad_rule_k10": 9.742864097062043e-05
+      },
+      {
+        "n": 11000,
+        "pool": 481,
+        "headroom_k9": 611,
+        "target_k9": 449,
+        "pbad_headroom_k9": 0.005020879684697999,
+        "pbad_rule_k9": 9.989436963964149e-05,
+        "headroom_k10": 549,
+        "target_k10": 476,
+        "pbad_headroom_k10": 0.0009783410765743517,
+        "pbad_rule_k10": 9.866582468409657e-05
+      },
+      {
+        "n": 14000,
+        "pool": 604,
+        "headroom_k9": 777,
+        "target_k9": 551,
+        "pbad_headroom_k9": 0.006327420807049733,
+        "pbad_rule_k9": 9.936740384008935e-05,
+        "headroom_k10": 699,
+        "target_k10": 596,
+        "pbad_headroom_k10": 0.0012561083053885813,
+        "pbad_rule_k10": 9.750551332565749e-05
+      },
+      {
+        "n": 17000,
+        "pool": 726,
+        "headroom_k9": 944,
+        "target_k9": 646,
+        "pbad_headroom_k9": 0.007745949334471702,
+        "pbad_rule_k9": 9.975535400952307e-05,
+        "headroom_k10": 849,
+        "target_k10": 715,
+        "pbad_headroom_k10": 0.0015338539600349144,
+        "pbad_rule_k10": 9.850870516459054e-05
+      },
+      {
+        "n": 20000,
+        "pool": 847,
+        "headroom_k9": 1111,
+        "target_k9": 733,
+        "pbad_headroom_k9": 0.009162817566008896,
+        "pbad_rule_k9": 9.993827897292196e-05,
+        "headroom_k10": 999,
+        "target_k10": 832,
+        "pbad_headroom_k10": 0.0018115531156145392,
+        "pbad_rule_k10": 9.842321747288718e-05
+      },
+      {
+        "n": 25000,
+        "pool": 1046,
+        "headroom_k9": 1388,
+        "target_k9": 861,
+        "pbad_headroom_k9": 0.011367769854403242,
+        "pbad_rule_k9": 9.991737442804904e-05,
+        "headroom_k10": 1249,
+        "target_k10": 1025,
+        "pbad_headroom_k10": 0.0022742517880544044,
+        "pbad_rule_k10": 9.96954629445268e-05
+      },
+      {
+        "n": 30000,
+        "pool": 1244,
+        "headroom_k9": 1666,
+        "target_k9": 972,
+        "pbad_headroom_k9": 0.013681496761457246,
+        "pbad_rule_k9": 9.987397723332236e-05,
+        "headroom_k10": 1499,
+        "target_k10": 1214,
+        "pbad_headroom_k10": 0.0027367632242667472,
+        "pbad_rule_k10": 9.966258073734746e-05
+      },
+      {
+        "n": 36000,
+        "pool": 1479,
+        "headroom_k9": 1999,
+        "target_k9": 1089,
+        "pbad_headroom_k9": 0.016382824834242138,
+        "pbad_rule_k9": 9.993450188883202e-05,
+        "headroom_k10": 1799,
+        "target_k10": 1437,
+        "pbad_headroom_k10": 0.0032915139581142228,
+        "pbad_rule_k10": 9.963554424885501e-05
+      },
+      {
+        "n": 43000,
+        "pool": 1750,
+        "headroom_k9": 2388,
+        "target_k9": 1207,
+        "pbad_headroom_k9": 0.01958160362471939,
+        "pbad_rule_k9": 9.984674102658797e-05,
+        "headroom_k10": 2149,
+        "target_k10": 1692,
+        "pbad_headroom_k10": 0.003938349196465851,
+        "pbad_rule_k10": 9.931337119539752e-05
+      },
+      {
+        "n": 50000,
+        "pool": 2019,
+        "headroom_k9": 2777,
+        "target_k9": 1310,
+        "pbad_headroom_k9": 0.022770043215789015,
+        "pbad_rule_k9": 9.992498830002638e-05,
+        "headroom_k10": 2499,
+        "target_k10": 1943,
+        "pbad_headroom_k10": 0.004584775045515244,
+        "pbad_rule_k10": 9.954800635236793e-05
+      }
+    ],
+    "marks": {
+      "k9": {
+        "headroom_b": 1111,
+        "headroom_pbad": 0.009162817566008896,
+        "chosen_b": 733,
+        "chosen_pbad": 9.993827897292196e-05
+      },
+      "k10": {
+        "headroom_b": 999,
+        "headroom_pbad": 0.0018115531156145392,
+        "chosen_b": 832,
+        "chosen_pbad": 9.842321747288718e-05
+      }
+    }
+  }
 }
