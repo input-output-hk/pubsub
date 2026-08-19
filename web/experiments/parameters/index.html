@@ -925,8 +925,6 @@ function drawPbad(state) {
   // target line
   const tgt = svgEl("line", { x1: pad.l, y1: ys(state.delta), x2: W - pad.r, y2: ys(state.delta), stroke: css("--bad"), "stroke-dasharray": "5 4", "stroke-width": 1.5 });
   g.appendChild(tgt);
-  const tl = svgEl("text", { x: W - pad.r - 4, y: ys(state.delta) - 6, "text-anchor": "end", fill: css("--bad"), "font-size": 11 });
-  tl.textContent = "target δ"; g.appendChild(tl);
 
   // sweep
   const pts = [], STEPS = 46;
@@ -950,6 +948,24 @@ function drawPbad(state) {
   pts.forEach(([N, v], i) => { d += (i ? "L" : "M") + xs(N).toFixed(1) + " " + ys(v).toFixed(1); });
   g.appendChild(svgEl("path", { d, fill: "none", stroke: css("--m4"), "stroke-width": 2.4, "stroke-linejoin": "round" }));
 
+  // The curve needs naming: chart 2 carries a legend, and this one was relying on
+  // its caption alone.
+  {
+    let lx = pad.l + 6;
+    const key = [
+      ["--m4", 2.4, "", "P(bad) at the derived B, C and k"],
+      ["--bad", 1.5, "5 4", "failure target δ"],
+    ];
+    for (const [tok, w, dash, label] of key) {
+      const ln = svgEl("line", { x1: lx, y1: pad.t + 8, x2: lx + 16, y2: pad.t + 8, stroke: css(tok), "stroke-width": w });
+      if (dash) ln.setAttribute("stroke-dasharray", dash);
+      g.appendChild(ln);
+      const t = svgEl("text", { x: lx + 21, y: pad.t + 12, fill: mute, "font-size": 10.5 });
+      t.textContent = label; g.appendChild(t);
+      lx += 30 + label.length * 5.6;
+    }
+  }
+
   if (cross) {
     g.appendChild(svgEl("line", { x1: xs(cross), y1: pad.t, x2: xs(cross), y2: H - pad.b, stroke: css("--bad"), "stroke-width": 1.2, opacity: 0.65 }));
     const t = svgEl("text", { x: xs(cross) + 6, y: pad.t + 28, fill: css("--bad"), "font-size": 11.5 });
@@ -963,7 +979,7 @@ function drawPbad(state) {
     (state.fixedCount
       ? "Failure probability as the network shrinks, with the attacker holding a fixed " + fmtN(state.A) + " identities. Smaller is worse here: the same budget buys a larger share of a smaller network."
       : "Failure probability as the network shrinks at a fixed adversarial share of " + state.mu.toFixed(2) + ".")
-    + " The bucket count and admissions budget are re-derived at every point. Shaded region: below the smallest network any cell in this programme measured.";
+    + " The bucket count and admissions budget are re-derived at every point. The shaded band is below the smallest network this programme has measured.";
 }
 
 function drawBounds(state) {
