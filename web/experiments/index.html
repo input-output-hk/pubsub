@@ -470,31 +470,29 @@
         <summary>How the models were judged</summary>
         <div class="explainer-body">
           <p>
-            All five were measured against one shared bar, the <strong>good graph</strong>:
+            All five were measured against one shared bar, the <strong><span class="term" data-term="goodgraph">good graph</span></strong>:
             every message of every honest publisher must reach all other honest nodes. And all
-            faced the same adversary, a fraction &mu; of silent Byzantine nodes that receive
-            every message and never relay one. Formally it is scored as the probability that
-            the honest network stays strongly connected.
+            faced the same adversary, a fraction <span class="term" data-term="mu">&mu;</span> of <span class="term" data-term="byzantine">silent Byzantine nodes</span> that receive
+            every message and never relay one. Formally it is scored as the probability that the honest network stays <span class="term" data-term="connected">strongly connected</span>.
           </p>
           <p>
-            The guarantee has to come from links that are drawn <strong>once per epoch</strong>
+            The guarantee has to come from links that are drawn <strong><span class="term" data-term="epoch">once per epoch</span></strong>
             and then serve every message of every publisher for that whole epoch. The formal
-            analyses call this the <em>standing</em> structure, and it covers both link kinds:
-            relay links and publishing links. Only a structure that persists across messages
+            analyses call this the <span class="term" data-term="standing"><em>standing</em> structure</span>, and it covers both link kinds:
+            <span class="term" data-term="relaylinks">relay links</span> and <span class="term" data-term="publinks">publishing links</span>. Only a structure that persists across messages
             can promise <em>every</em> message; per-message randomness cannot. The prototype
-            node works exactly this way: it establishes its links during a sync phase, and only
+            node works exactly this way: it establishes its links during a <span class="term" data-term="sync">sync phase</span>, and only
             then accepts messages for propagation.
           </p>
           <p>
             <strong>Every model can clear the bar. The question is what it costs.</strong>
             Each sizing rule grows with the target, so a stricter bound is always reachable by
             buying more links. The price is charged on two axes that pull against each other:
-            the links every node holds whether or not anything is published, and the copies of
-            each message the network transmits. Giving publishing its own links cuts the copies
+            the <span class="term" data-term="links">links every node holds</span> whether or not anything is published, and the <span class="term" data-term="copies">copies</span> of each message the network transmits. Giving publishing its own links cuts the copies
             but adds to the links each node must hold.
           </p>
           <p>
-            <strong>A bad graph is rarely a broken network.</strong> Anything short of full
+            <strong>A <span class="term" data-term="goodgraph">bad graph</span> is rarely a broken network.</strong> Anything short of full
             strong connectivity counts as bad, and in practice the failures are not large
             splits but single stranded nodes. A node can strand in two ways: its outgoing
             links all landed on adversaries, so nobody hears it, or its incoming links did,
@@ -516,9 +514,9 @@
         <summary>Where the comparison stands</summary>
         <div class="explainer-body">
           <p>
-            Three of the five are out: M1, M2 and M5 are beaten on every axis at once, so no
+            Three of the five are out: <span class="term" data-term="models">M1, M2 and M5</span> are beaten on every axis at once, so no
             trade-off brings them back. Of the two left, M4 leads on connections held, on time
-            to the last subscriber and on the downtime it absorbs; M3 leads on traffic, by
+            to the last subscriber and on the <span class="term" data-term="churn">downtime it absorbs</span>; M3 leads on traffic, by
             22&nbsp;%, and that is the only axis it leads.
           </p>
           <p>
@@ -528,13 +526,12 @@
             open.
           </p>
           <p>
-            The second reason we used to give has gone. The admission parameters that size the
-            gate and the serving cap were measured against M2's wiring, and those results did
-            not carry to M4's symmetric handshake. That seam has since been measured on its
+            The second reason we used to give has gone. The admission parameters that size the <span class="term" data-term="gate">gate</span> and the <span class="term" data-term="cap">serving cap</span> were measured against M2's wiring, and those results did
+            not carry to M4's <span class="term" data-term="handshake">symmetric handshake</span>. That seam has since been measured on its
             own. The acceptance cap becomes an admissions budget that bounds only the links a
             node did not choose; the adversary keeps a share of every node through that node's
-            own picks, which no cap can reach; and the candidate pool has a floor past which no
-            cap both binds and stays harmless. What is still open there is a closed-form model,
+            own picks, which no cap can reach; and the <span class="term" data-term="pool">candidate pool</span> has a floor past which no
+            cap both binds and stays harmless. What is still open there is a <span class="term" data-term="closedform">closed-form model</span>,
             not coverage.
           </p>
         </div>
@@ -1085,5 +1082,87 @@
 })();
 </script>
 
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+<script>
+/* ---- glossary tooltips ----
+   Styles live in shared.css; this is the engine and the vocabulary. Written for a
+   reader who has not read the CIP: plain words first, symbol second. */
+(function () {
+  "use strict";
+  var GLOSSARY = {
+    goodgraph: ['A good graph', 'An epoch whose drawn wiring works: every message from every honest publisher reaches every other honest node. Anything short of that is a <b>bad graph</b>, and how often one is drawn is <b>P(bad)</b>.'],
+    pbad: ['P(bad)', 'The chance that one epoch draws a wiring in which at least one honest node is cut off — either it hears nothing, or what it publishes fails to reach everyone. It is the single number every design is judged on, and the failure target is the bar it has to stay under.'],
+    connected: ['Strongly connected', 'A property of the wiring: from every honest node there is a path, following links in the direction they carry traffic, to every other honest node. It is the precise form of the promise that everyone can reach everyone.'],
+    byzantine: ['Silent Byzantine nodes', 'Registered participants that accept their links and receive every message, and forward none of it. Nobody can tell which they are. An honest node that is simply offline behaves identically, which is why downtime is counted the same way.'],
+    mu: ['μ — adversarial share', 'The fraction of registered nodes that behave that way. The analysis fixes it before the wiring is drawn.'],
+    epoch: ['Epoch', 'The interval one drawn wiring serves. Links are established once, from fresh public randomness, and then carry every message of every publisher until the next redraw.'],
+    standing: ['The standing structure', 'The links that persist for a whole epoch, as opposed to anything chosen per message. The guarantee has to rest on these: per-message randomness cannot promise that <i>every</i> message arrives, because each one would roll its own dice.'],
+    relaylinks: ['Relay links', 'Links a node holds to forward other people’s messages onward. In some designs these are the only kind.'],
+    publinks: ['Publishing links', 'Extra links carrying only their owner’s own publications, rather than relaying anyone else’s. Giving publishing its own links cuts the copies the network carries but adds to the links each node must hold.'],
+    sync: ['Sync phase', 'The startup window in which a node establishes its links for the epoch. It accepts messages for propagation only once that is done, so the wiring is settled before traffic flows.'],
+    links: ['Standing links', 'Connections a node keeps open for a topic for the whole epoch, whether or not anything is published. One of the two prices a design is charged.'],
+    copies: ['Copies per message', 'How many times the network transmits one published message to get it to everyone. The other price. It pulls against standing links: designs that cut one tend to add to the other.'],
+    gate: ['The gate', 'A public lottery on each pair of nodes, computed from a hash. It decides which peers a node is <b>allowed</b> to link to this epoch — not which it picks, which stays private. Nobody can influence their own draw, so an attacker cannot choose whose neighbour it becomes.'],
+    cap: ['Serving cap / admissions budget', 'How many links a node will accept from peers that dialled it. Framed as an admissions budget it bounds only the links a node did <i>not</i> choose, so an attacker who arrives early can never make a node refuse a peer it selected itself.'],
+    handshake: ['Symmetric handshake', 'A link established once for the pair and carrying traffic both ways, rather than one drawn per direction. It changes what the gate and the cap do, which is why results measured on a one-way design did not carry over.'],
+    pool: ['Candidate pool', 'The set of peers the gate leaves a node eligible to link to. Its floor matters: past a point the pool is small enough to be sometimes empty, and no amount of extra links repairs a pool that was never populated.'],
+    closedform: ['Closed form', 'A formula you can evaluate directly, rather than a number obtained by running simulations. The coverage results have both; the admission parameters so far have measurements without a matching formula.'],
+    churn: ['Downtime absorbed', 'How much of the honest network can be offline before a design stops meeting its target. Downtime and hostility count the same here, because a node that is off looks exactly like one refusing to forward.'],
+    models: ['M1 – M5', 'The five candidate dissemination designs the programme measured: push, pull, pull with publishing links, bidirectional, and directed. They differ in how links are drawn and which direction they carry.'],
+  };
+  var tip = document.getElementById('tip');
+  if (!tip) return;
+  var tipEl = null;
+  function tipContent(node) {
+    var g = node.dataset.term ? GLOSSARY[node.dataset.term] : null;
+    if (g) return '<span class="tip-key">' + g[0] + '</span>' + g[1];
+    return node.dataset.tip || '';
+  }
+  function showTip(node) {
+    var html = tipContent(node);
+    if (!html) return;
+    tipEl = node;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.setAttribute('aria-hidden', 'false');
+    node.setAttribute('aria-describedby', 'tip');
+    if (node.classList.contains('term')) node.setAttribute('aria-expanded', 'true');
+    var r = node.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+    var above = r.bottom + t.height + 12 > innerHeight && r.top > t.height + 12;
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(above ? r.top - t.height - 8 : r.bottom + 8) + 'px';
+  }
+  function hideTip() {
+    if (tipEl) {
+      tipEl.removeAttribute('aria-describedby');
+      if (tipEl.classList.contains('term')) tipEl.setAttribute('aria-expanded', 'false');
+    }
+    tipEl = null;
+    tip.style.display = 'none';
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  var tipTarget = function (e) { return e.target.closest && e.target.closest('[data-term],[data-tip]'); };
+  document.addEventListener('pointerover', function (e) {
+    if (e.pointerType === 'touch') return;       // touch raises pointerover before click
+    var n = tipTarget(e);
+    if (n) showTip(n); else if (tipEl) hideTip();
+  });
+  document.addEventListener('focusin', function (e) { var n = tipTarget(e); if (n) showTip(n); else hideTip(); });
+  document.addEventListener('focusout', function (e) { if (tipTarget(e) === tipEl) hideTip(); });
+  document.addEventListener('click', function (e) {
+    var n = tipTarget(e);
+    if (!n) { hideTip(); return; }
+    if (n === tipEl && n.classList.contains('term')) hideTip(); else showTip(n);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+  addEventListener('scroll', function () { if (tipEl) hideTip(); }, { passive: true });
+  // Terms are spans, so they need explicit keyboard reachability.
+  document.querySelectorAll('.term').forEach(function (e) {
+    if (!e.hasAttribute('tabindex')) e.setAttribute('tabindex', '0');
+    if (!e.hasAttribute('aria-expanded')) e.setAttribute('aria-expanded', 'false');
+  });
+})();
+</script>
 </body>
 </html>

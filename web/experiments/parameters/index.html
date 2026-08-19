@@ -481,6 +481,11 @@
   /* The head runs straight into the tool otherwise: the caveat box needs air under it. */
   section.page-head { padding-bottom: 40px; }
   .page-head .caveat { margin-bottom: 0; }
+  /* The two mode strips sit side by side where there is room, and stack below it. */
+  .strip-row { display: flex; flex-wrap: wrap; gap: 10px 38px; align-items: flex-start; }
+  .strip-row > .tab-strip { flex: 0 1 auto; }
+  .strip-row > .tab-strip + .tab-strip { margin-top: 0; }
+  @media (max-width: 860px) { .strip-row { flex-direction: column; gap: 10px; } }
   .ps-hint { font-size: 0.8rem; color: var(--text-faint); line-height: 1.45; margin-top: 6px; }
   .ps-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
   /* .model-tab already carries its own pressed state from the shared sheet.
@@ -618,6 +623,7 @@
         <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
       </div>
 
+      <div class="strip-row">
       <div class="tab-strip" role="group" aria-label="How the attacker is specified">
         <span class="strip-label">Attacker</span>
         <button type="button" class="model-tab" id="m-count" aria-pressed="true">Fixed identities</button>
@@ -631,6 +637,7 @@
           <input type="range" id="c-k" min="4" max="20" value="10" aria-label="Pick count k">
           <output class="env-val" id="v-k" for="c-k">10</output>
         </span>
+      </div>
       </div>
 
       <div class="stage">
@@ -647,7 +654,7 @@
             <figcaption id="cap-b"></figcaption>
           </figure>
 
-          <div class="ps-test" id="selftest">running self-test…</div>
+          <div class="ps-test" id="selftest" hidden></div>
         </div>
 
         <div class="side-card">
@@ -1225,9 +1232,11 @@ function markTerms(root) {
     let got; try { got = fn(); } catch (e) { fails.push(name + " threw"); continue; }
     if (!near(got, want)) fails.push(name + ": " + got.toPrecision(4) + " vs " + want);
   }
+  /* The check still runs on every load — it is what guarantees these curves match
+     the experiments ledger. It only speaks when it has something to report. */
   const box = el("selftest");
   if (fails.length) { box.className = "ps-test fail"; box.textContent = "self-test FAILED — " + fails.join("; "); }
-  else { box.className = "ps-test pass"; box.textContent = "self-test passed — " + cases.length + " values reproduced from the experiments ledger (m4_synthesis_predictions.py)"; }
+  else { box.remove(); }
 })();
 
 /* ---- theme toggle, matching the rest of the site ---- */
