@@ -31,6 +31,7 @@ Usage:
   m4_synthesis_predictions.py table              # B ladder at the CIP shape
   m4_synthesis_predictions.py cell B [cap]       # one cell's routes + race
   m4_synthesis_predictions.py capsweep B [C...]  # cap trade-off curve at B
+  m4_synthesis_predictions.py paircomp B         # 2-component term vs E_iso
   (N, K, S overridable via flags --n --k --s; defaults 20000, 9, 4000)
 
 The cell/capsweep race models FLOODER adversaries (every admissible pair
@@ -144,6 +145,48 @@ def cell(N, K, B, S, cap=None):
             sybil_capped=mut_s + r_adm_s,
         )
     return out
+
+
+def pair_component(N, K, B, S):
+    """The leading correction to the isolated-vertex reduction: the
+    expected number of detached TWO-node components (a mutually linked
+    honest pair with no other honest link on either side). Per side,
+    with h ~ Bin(H-2, 1/B), a ~ Bin(S, 1/B), pool n = 1 + h + a (the
+    partner conditioned in) and k = min(K, n):
+
+      alpha = C(a, k-1)/C(n, k)   picks land in {partner} u adversarial,
+                                  partner included (the linking arm)
+      beta  = C(a, k)  /C(n, k)   picks all adversarial, partner missed
+
+    weighted by the inbound-dead factor (1-m)^h; the pair is linked if
+    either side picked the other, so
+
+      E_pair = C(H,2) * (1/B) * [(S_alpha + S_beta)^2 - S_beta^2].
+
+    Validation record (this code's outputs): E_pair/E_iso <= 3.3e-4 at
+    every shape in the synthesis report and <= 1.7e-8 at the CIP
+    candidates (K = 10, B = 500 -> 8.4e-14 vs 5.05e-6; ungated K = 9,
+    B = 1 -> 8.3e-14 vs 6.07e-6). Predicted pair events across the six
+    powered gated cells (E18's mu axis + the c-floor rehearsal) sum to
+    ~0.03; the cells' missed_hist shows zero pair excess — every
+    multi-victim bad run is Poisson-consistent with independent single
+    strandings (mu = 0.4, B = 250: 8 runs at missed = 2 vs 5.9 expected
+    doubles, z ~ +0.9)."""
+    H = N - S
+    m = member_pick_prob(N, K, B)
+    s_alpha = s_beta = 0.0
+    for h, qh in pmf_range(H - 2, 1.0 / B):
+        w = qh * (1.0 - m) ** h
+        for a, qa in pmf_range(S, 1.0 / B):
+            n = 1 + h + a
+            k = min(K, n)
+            denom = lchoose(n, k)
+            alpha = math.exp(lchoose(a, k - 1) - denom) if k - 1 <= a else 0.0
+            beta = math.exp(lchoose(a, k) - denom) if k <= a else 0.0
+            s_alpha += w * qa * alpha
+            s_beta += w * qa * beta
+    linked = (s_alpha + s_beta) ** 2 - s_beta**2
+    return (H * (H - 1) / 2) * (1.0 / B) * linked
 
 
 def e18_isolation(N, K, B, S):
@@ -308,6 +351,10 @@ def compare(N, S):
         ("M3 gated K=12 s=8 B=833 (r=2)",
          sum(m3_isolation(N, 12, 833, S, 8, 833)), 2 * (N - 1) / 833,
          "derived"),
+        ("M3 gated K=13 s=7 B=500 (equal deafen-cost norm.)",
+         sum(m3_isolation(N, 13, 500, S, 7, 500)), 2 * (N - 1) / 500,
+         "derived; the alternative normalization: feasible, "
+         "19 picks vs 10, double the reach per identity"),
         ("M3 gated K=13 s=7 B=1000 (M4-equal surface)",
          sum(m3_isolation(N, 13, 1000, S, 7, 1000)), 2 * (N - 1) / 1000,
          "derived; no K meets 1e-4 here (pool-limited deaf)"),
@@ -380,3 +427,9 @@ if __name__ == "__main__":
         e = d + m
         print(f"E_deaf={d:.4e}  E_mute_seedfail={m:.4e}  E={e:.4e}  "
               f"P(bad)~{1 - math.exp(-e):.4g}")
+    elif mode == "paircomp":
+        B = int(args[1])
+        ep = pair_component(N, K, B, S)
+        ei = e18_isolation(N, K, B, S)
+        print(f"E_pair={ep:.3e}  E_iso={ei:.3e}  "
+              f"ratio={ep / ei if ei else float('nan'):.2e}")

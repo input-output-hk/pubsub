@@ -289,13 +289,18 @@ security trade-off, never derived from local state.
   K = 9–10, the three-point composition-curve rehearsal); the gated model comparison under the
   equal-attack-surface normalization (directional 2/B vs the pair draw's 1/B) shows **the pair
   draw runs twice the pool per unit of surface** — no M3 pick count meets the target at M4-equal
-  surface, measured by the equal-surface cliff pair (gated M3 17/400 bad, all deaf-class, vs M4
-  400/400 at surface 32); the first capped publisher-seam cells (N-041 completed) found the
+  total surface (the equal-deafen-cost alternative normalization prices feasible but ~9× behind
+  at 19 picks vs 10 — both normalizations stated in report §7), measured by the equal-surface
+  cliff pair (gated M3 17/400 bad, all deaf-class, vs M4 400/400 at surface 32); the first
+  capped publisher-seam cells (N-041 completed) found the
   **seed-rescue coupling** (a binding seed-intake cap starves exactly the rescuing seeds,
   f = μ + (1−μ)ρ_p — size C_p to clear the intake load) and fired N-042's trigger (rank
   dissection recorded; the instrument fix chartered with frozen validation re-runs). Report §9
-  catalogues the gated closed forms with epistemic grades; the formal-team review of them is the
-  named hardening step.
+  catalogues the gated closed forms with epistemic grades, a symbol table, and the
+  isolated-vertex reduction scoped (the enumerated pair-component term is ≤ 3.3e-4 of E_iso at
+  every measured shape; the powered cells show zero pair excess); the PR's formal review
+  independently re-derived the forms and reproduced every quoted number — the remaining
+  hardening step is a derivation document in the formal folder's style.
 
 **Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
 bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
