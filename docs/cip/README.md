@@ -137,7 +137,7 @@ The proposal does not yet reach the standard above, and what it leaves open is o
 
 - **The dissemination design is fixed; its pick count is a rule rather than a value.** One symmetric relay link kind, no separate seeding kind — the [Specification](#the-dissemination-design) states it, and the [Rationale](#why-the-symmetric-design) argues it. What the rule reads is the honest downtime rate a deployment sizes against, which is a property of the deployed population rather than of the protocol, and the difference between a low and a high assumption is one link per node.
 - **Three components are given as interfaces rather than mechanisms.** The [randomness beacon](#epochs-and-the-randomness-beacon), [address resolution](#address-resolution) and the on-chain validators state the requirements they must meet, and a conforming deployment MAY satisfy each in more than one way.
-- **Six of the ten parameters in [Table 4](#table-4) carry a rule or a bound rather than a value.**
+- **Seven of the eleven parameters in [Table 4](#table-4) carry a rule or a bound rather than a value.**
 - **The transport is left to the deployment.** What is fixed here are the canonical byte strings every implementation must agree on, not the framing or session layer that carries them, subject to the rule that a peer's identity is taken from the signed preimage and never from the connection it arrived over.
 
 Everything else is settled. The gate, link establishment, the message format, dissemination and recovery are all stated in terms of link kinds, rules and interfaces, so closing one of these questions supplies a value or a component without reinterpreting the design around it, and the [Versioning](#versioning) rules say how each such change reaches a running deployment.
