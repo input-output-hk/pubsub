@@ -284,6 +284,18 @@ A node identity is an Ed25519 public key,[^ed25519] and wherever it enters a pre
 
 ### Topology derivation
 
+> [!NOTE]
+> **Reading the model tags.** Five dissemination designs were analysed and this proposal
+> selects one of them, so some of what follows is general and some is a property of the
+> design chosen. Two tags mark the difference where it is not otherwise obvious.
+> `[holds: …]` restricts the algebra — the expression means something only for the designs
+> or link kinds named. `[cal: …]` records where an empirical constant was measured, as
+> design and population, which matters because several were calibrated on designs this
+> proposal rejects. **An untagged formula holds for any of the designs and carries no
+> measured constant.** Tags are for the reader; they impose no requirement on an
+> implementation beyond the rule they qualify.
+
+
 Everything in this subsection is a pure function of the epoch's snapshot, *η*<sub>e</sub>, and the deriving node's own identity. No message is exchanged and no peer is consulted. Two nodes running the same derivation over the same inputs obtain the same answer, which is what lets an acceptor check a dialler's claim rather than take it.
 
 <div align="center">
@@ -300,7 +312,7 @@ The figure is drawn at exactly the sizing rule fixed below: 32 registered peers,
 The two halves of that picture differ in who can check them, and the split is the whole of the design's honesty about what it enforces. **Rows one and two are recomputable by anyone holding the chain**, so an acceptor, or any third party, can reject or expose a link outside the permitted set. **Row three is the node's own randomness and is not checkable by anyone**, because a private pick is what keeps the topology a random graph rather than a published one. Concretely, an acceptor presented with a dial verifies three things and nothing else:
 
 - the dialler is registered on this topic, in the snapshot this epoch derives from;
-- the gate holds for the ordered pair, recomputed from public data alone;
+- the gate holds for the pair, recomputed from public data alone — sorted by identity bytes for a symmetric kind, ordered for a directional one;
 - accepting would not exceed the serving cap *C*.
 
 Nobody can check *which* eligible peers a node chose, or that it opened any links at all. The gate bounds where an adversary may place itself; it does not compel anyone to participate.
@@ -326,7 +338,7 @@ The gate is evaluated on the **ordered** pair for a directional link and on the 
 The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 > [!TIP]
-> **The quantity the gate really changes is the price of *targeting*.** Ungated, one registered identity buys a hostile link beside whichever node the attacker names, so the price of one hostile edge on a chosen victim is one deposit. Gated, that identity is admissible to a *chosen* victim only with probability 1/*B*, so the same edge costs about *B* deposits in expectation — five hundred at the bucket count this proposal specifies — and the [serving cap](#the-serving-cap) ends the auction at *C* admitted edges however large the budget. Broad flooding is diluted; aimed attacks are repriced. The second is the one the [CPS](../cps/README.md) is about.
+> **The quantity the gate really changes is the price of *targeting*.** Ungated, one registered identity buys a hostile link beside whichever node the attacker names, so the price of one hostile edge on a chosen victim is one deposit. Gated, that identity is admissible to a *chosen* victim only with probability 1/*B* [holds: symmetric kinds — a directional design draws each direction independently and reaches 2/*B*], so the same edge costs about *B* deposits in expectation — five hundred at the bucket count this proposal specifies — and the [serving cap](#the-serving-cap) ends the auction at *C* admitted edges however large the budget. Broad flooding is diluted; aimed attacks are repriced. The second is the one the [CPS](../cps/README.md) is about.
 
 #### Selection headroom and the bucket count
 
@@ -334,11 +346,11 @@ Narrowing has a cost, and it is paid in the randomness of the draw. If the gate 
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-**The rule.** For each link kind, *B* MUST be the smallest of three bounds, and MUST be 1 — the gate off — where that smallest value is below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy.
+**The rule.** For each link kind, *B* MUST be the smallest of three bounds, and MUST be 1 — the gate off — where that smallest value is below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy [cal: the threshold follows from the headroom floor above and inherits its calibration].
 
-- ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ*.
+- ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ* [holds: per design — each design has its own coverage law, so this bound is not comparable across them; cal: E20 at *N* = 20 000].
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
-- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio is per link kind; the floor of two is measured, and the [Rationale](#choosing-the-admission-parameters) states on which design.
+- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2 [cal: the floor of two is measured on M2 at *N* = 4 000 at a large pick count, and is unmeasured under a symmetric kind]. The ratio itself is general and is applied per link kind; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
 
 Only the first requires evaluating the coverage law; the other two are arithmetic. The [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies all three live over a topic-size axis, and marks where the curves stop being backed by measurement.
 
@@ -395,16 +407,16 @@ The gate bounds who may dial a node; the [serving cap](#term-cap) bounds how man
 >
 > The budget is per epoch and is NOT restored when a link is severed, because the direction that would justify restoring it is precisely what the handshake erased.
 
-*C* is sized against honest arrival rather than against the adversary, and reading it the other way round gets its direction backwards. Raising the budget hands an attacker more slots on each victim and nevertheless preserves delivery, because the damage a tight budget does is honest links refused for want of capacity, and those are far more numerous than the adversary's. The quantity to size against is the whole fresh load a node should expect to admit in an epoch, honest and adversarial together: *L* = (1 − *m*)·[*k*(1 − *μ*) + *A*/*B*], where *m* = min(1, *k*·*B*/(*N*<sub>T</sub> − 1)) is the share of a node's own picks that are answered as crossings rather than arriving as admissions, and *A* is the adversarial identity count the deployment sizes against. The adversary's arrivals consume budget whether the node wants them or not, so a cap clearing only the honest term *k*(1 − *m*)(1 − *μ*) is short by roughly half. ***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is itself a property of the pick count — about 2 where the pick count is large, and about 3.5 at the pick counts the candidate designs use. Sizing tighter than the rule is not the safe direction: a binding budget composes into the coverage law rather than sitting beside it, so the *C* axis is a one-sided cliff and not a trade-off.[^synthesis] The [Rationale](#choosing-the-admission-parameters) sets out the evidence and Figure 8 plots the reversal.
+*C* is sized against honest arrival rather than against the adversary, and reading it the other way round gets its direction backwards. Raising the budget hands an attacker more slots on each victim and nevertheless preserves delivery, because the damage a tight budget does is honest links refused for want of capacity, and those are far more numerous than the adversary's. The quantity to size against is the whole fresh load a node should expect to admit in an epoch, honest and adversarial together: *L* = (1 − *m*)·[*k*(1 − *μ*) + *A*/*B*], where *m* = min(1, *k*·*B*/(*N*<sub>T</sub> − 1)) is the share of a node's own picks that are answered as crossings rather than arriving as admissions [holds: symmetric kinds — a crossing is both ends selecting each other, which a directional kind cannot produce, so *m* = 0 there], and *A* is the adversarial identity count the deployment sizes against. The adversary's arrivals consume budget whether the node wants them or not, so a cap clearing only the honest term *k*(1 − *m*)(1 − *μ*) is short by roughly half. ***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is about 2 [cal: M2 at *N* = 4 000, large pick count] and about 3.5 [cal: E20 at *N* = 20 000, at the candidate pick counts] — the value moves with the pick count, and its measurement moves with the design. Sizing tighter than the rule is not the safe direction: a binding budget composes into the coverage law rather than sitting beside it, so the *C* axis is a one-sided cliff and not a trade-off.[^synthesis] The [Rationale](#choosing-the-admission-parameters) sets out the evidence and Figure 8 plots the reversal.
 
 > [!WARNING]
-> **No acceptance policy can reach the adversary's baseline share.** Under a symmetric kind a node reaches an adversary through its own picks as readily as the adversary reaches it, and a node's own picks are selections rather than admissions, so the budget never sees them. That floor is about *k*·*μ* links per node, and the only parameter that moves it is the bucket count, through the size and composition of the candidate pool. The budget governs the additional, attacker-initiated route and nothing else. Sizing *C* against the adversary therefore spends honest capacity against a term it cannot reach — which is the structural difference from a directional kind, where the whole of the attacker's surface is admission-gated.
+> **No acceptance policy can reach the adversary's baseline share.** Under a symmetric kind a node reaches an adversary through its own picks as readily as the adversary reaches it, and a node's own picks are selections rather than admissions, so the budget never sees them. That floor is about *k*·*μ* links per node [holds: symmetric kinds — a directional design's whole attacker surface is admission-gated and has no such floor]. It is measured flat in the bucket count across the operating window, so no admission parameter moves it; only the pick count does. The budget governs the additional, attacker-initiated route and nothing else. Sizing *C* against the adversary therefore spends honest capacity against a term it cannot reach — which is the structural difference from a directional kind, where the whole of the attacker's surface is admission-gated.
 
 Because the gate divides an attacker's identities across *B* buckets before any of them reach a victim, the cap is a second line rather than the first. The two compose: the gate makes concentration rare, and the cap bounds what concentration can achieve when it happens.
 
 #### What the rules do on a small topic
 
-*B* is a function of the topic's own size, recomputed per epoch, so nothing here needs a separate mode for small topics; the same rules produce one. As *N*<sub>T</sub> falls the gate narrows until it cannot: the gate switches off when the smallest of the three bounds drops below 2, every registered peer becomes eligible, and a node that cannot find *k* of them links to all of them. The headroom bound alone reaches that point at *N*<sub>T</sub> − 1 < 4*k*, around thirty-seven participants for a pick count of 9, but the failure target can switch the gate off on a larger topic than that, and where it does is a function of *δ* and *μ* rather than of *k* alone. That crossover is not measured, and this proposal does not claim a figure for it — though the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) will walk the bounds down to it for a given target and adversarial share, and marks where the curves stop being backed by measurement. Below it the protocol degenerates continuously into a fully connected mesh, which is the correct answer at that scale: the reason fanout is bounded at all is cost at twenty thousand nodes, and at thirty that constraint is absent.
+*B* is a function of the topic's own size, recomputed per epoch, so nothing here needs a separate mode for small topics; the same rules produce one. As *N*<sub>T</sub> falls the gate narrows until it cannot: the gate switches off when the smallest of the three bounds drops below 2, every registered peer becomes eligible, and a node that cannot find *k* of them links to all of them. The headroom bound alone reaches that point at *N*<sub>T</sub> − 1 < 4*k* [cal: the inner factor is the headroom floor of two and inherits its calibration], around forty-one participants at the pick count of 10 this proposal specifies, but the failure target can switch the gate off on a larger topic than that, and where it does is a function of *δ* and *μ* rather than of *k* alone. That crossover is not measured, and this proposal does not claim a figure for it — though the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) will walk the bounds down to it for a given target and adversarial share, and marks where the curves stop being backed by measurement. Below it the protocol degenerates continuously into a fully connected mesh, which is the correct answer at that scale: the reason fanout is bounded at all is cost at twenty thousand nodes, and at thirty that constraint is absent.
 
 > [!WARNING]
 > **The gate switching off is a loss of defence, not merely a parameter reaching its floor.** Its contribution against a flooding adversary is to divide that adversary's reach by *B*, so at *B* = 1 an attacker's every identity may dial every victim and the serving cap is the only remaining bound. On a topic that small a cap of *C* ≥ *N*<sub>T</sub> − 1 restores the position, since a node that accepts everyone cannot be crowded out of anything; a deployment that instead keeps a tight cap on a small topic has the worst of both.
@@ -436,7 +448,7 @@ An acceptor evaluates a Request in this order, and the order is normative becaus
 3. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
 4. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
 5. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
-6. **Gate.** The gate MUST hold for the ordered pair as the requester's role requires, recomputed by the acceptor from public data.
+6. **Gate.** The gate MUST hold for the pair, recomputed by the acceptor from public data: on the pair sorted by identity bytes for a symmetric kind, and on the ordered pair for a directional one. The single kind this proposal specifies is symmetric, so an acceptor evaluates the sorted pair and the requester's role does not enter.
 7. **Cap.** If the request answers a selection the acceptor has itself made — a *crossing* — it is completed regardless of the budget. Otherwise it is an admission, and the acceptor refuses it once *C* admissions have been granted for that kind on *T* in this epoch.
 
 A failure at 1, 2, 3, 4 or 6 is dropped without reply. These are conditions an honest dialler never meets, since it reads the same registry and computes the same gate, so a reply would inform only a peer that is probing. A failure at 7 is answered with **Rejected**, because capacity is a normal and honest outcome that the dialler should distinguish from unreachability. An honest dialler never sees a silent drop, since it computes the same gate the acceptor does.
@@ -892,10 +904,12 @@ For most of this programme two designs stood, and on the coverage models neither
 | Links, mean / busiest | 38 / 64 | **18 / 37** |
 | Hops to the last subscriber | 5.5 | **5.0** |
 | Downtime absorbed | 2.17 % | **7.43 %** |
-| Corruptions to strand a chosen node, knowing its links | 10.4 | **14.4** |
-| … knowing only the public gate | 26 | 18 |
+| Corruptions to strand a chosen node, knowing its links <sup>a</sup> | 10.4 | **14.4** |
+| … knowing only the public gate <sup>b</sup> | 26 | 18 |
 
 <em>Table 10: the two candidates as the coverage models measure them, which is to say ungated</em>
+
+<em><sup>a</sup> Two different formulas, not a measured difference: <em>k</em>(1−<em>μ</em>) where the links that can strand a node are directional, 2<em>k</em>(1−<em>μ</em>) where they are symmetric, since a symmetric pick yields two usable directions. <sup>b</sup> The eligible set the gate leaves, evaluated here at the headroom floor; at the bucket counts this proposal specifies the same quantity is 26 against 40 — see Table 10b.</em>
 
 </div>
 
