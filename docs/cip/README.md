@@ -36,7 +36,7 @@ License: CC-BY-4.0
 
 The Cardano ecosystem lacks a decentralised layer for [messages](#term-message) that must be trustworthy but do not belong on the chain itself. Emergency alerts to stake pool operators, notifications from pools to their delegators, dApp and wallet messaging, and governance communication all run on centralised infrastructure today. Nothing binds a message to the on-chain identity of its sender, and delivery depends on a single service, so coordination around a Byzantine-fault-tolerant chain does not inherit its guarantees. Existing peer-to-peer solutions such as GossipSub[^gossipsub] do not close the gap: their resistance to eclipse rests on a discovery layer that admits freely created identities.
 
-We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain is the protocol's trust root and carries none of its traffic. [Nodes](#term-node) [register](#term-registry) on chain, which makes identities verifiable and costly to mass-produce, and per-epoch on-chain randomness draws a degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target, grounded in formal analysis and simulation at deployment scale and cross-validated between independent implementations.
+We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain is the protocol's trust root and carries none of its traffic. [Nodes](#term-node) [register](#term-registry) on chain, which makes identities verifiable and costly to mass-produce, and per-epoch on-chain randomness draws a degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target, grounded in formal analysis and in simulation at deployment scale. The coverage results are cross-validated between independent implementations; the results that add the admission rules on top of them rest on one, which the Rationale states.
 
 Anchoring on the chain is a deliberate trade rather than a free choice. It is what supplies a membership list that cannot be cheaply inflated and randomness no participant can steer; it is also a dependency on the system this layer is most often needed to coordinate around. The Rationale states where that dependency binds and what remains substitutable.
 
@@ -70,7 +70,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted a
 
 ### Architecture
 
-The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those three public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
+The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, a parameter output records what the deployment sizes itself against, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those four public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
@@ -121,12 +121,20 @@ One output per deployment, created when the registries are deployed. It does two
 
 **It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so that a node has one thing to be configured with and every other on-chain object it reads is reached from there. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
 
-**It carries the three assumptions the admission rules read.** The [bucket count](#term-b), the [serving cap](#term-cap) and the pick count are all derived rather than configured, and their derivations read three quantities that are properties of the deployed population rather than of any topic: the adversarial fraction *μ* sized against, the per-epoch failure target *δ*, and the honest downtime rate *p*. Every node MUST derive the same admission parameters, since the gate is recomputed by the acceptor and by any third party auditing a link, so these three MUST be read from one place. The topic-dependent inputs are not carried here: *N*<sub>T</sub> comes from the snapshot and is already common knowledge.
+**It carries everything every node must agree on that is not a property of a topic.** The [bucket count](#term-b), the [serving cap](#term-cap) and the pick count are all derived rather than configured, and every node MUST derive the same values, since the gate is recomputed by the acceptor and by any third party auditing a link. Their inputs divide in two. *N*<sub>T</sub> is a property of a topic, comes from the snapshot, and is already common knowledge. The rest are properties of the deployment, and MUST be read from this output:
+
+- *T*<sub>epoch</sub>, the epoch length, so that every node agrees where an epoch begins and ends;
+- *μ*, the adversarial fraction sized against, and *A*, the adversarial identity count — the first read by the bucket-count and pick-count rules, the second by the serving cap;
+- *δ*, the per-epoch failure target;
+- *p*, the honest downtime rate sized against.
+
+No node may substitute its own value for any of these. A node that did would compute a different gate, and would be refused by peers that computed the agreed one.
 
 Two rules govern changes.
 
 1. A change MUST be read from the **registration-cutoff snapshot**, as the registries are, and MUST NOT be read at the chain tip.
-2. A change MUST take effect at an **announced epoch**. Moving any of the three alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
+2. A change MUST take effect at an **announced epoch**, recorded as a pending change against the epoch it applies from. Moving any of these values alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
+3. A pending change MUST be announced before the registration cutoff of the epoch it applies from, MAY be moved later or cancelled before that cutoff, and MUST NOT be brought forward — bringing one forward would apply values that some nodes had already derived an epoch without. Once the epoch has arrived the pending values are promoted to current; until they are, a node reading the snapshot MUST use the pending values from that epoch onward and the current ones before it.
 
 > [!IMPORTANT]
 > **An output that can be changed is an authority, and this proposal does not settle who holds it.** Whoever may spend the parameter output can move a network-wide security parameter. The authority is bounded — the values are public, every node reads them, and their effect on the gate is recomputable and auditable by anyone — but it is real, and it is the one place in this design where a single party can change what every node computes. Four arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
@@ -229,18 +237,18 @@ Retirement is the orderly path. A node that simply stops responding leaves its e
 1. The claim MUST NOT succeed before the epoch recorded in the entry as `claimable_from`.
 2. That epoch MUST be at least one epoch after the retirement, for the reasons given under [The node registry](#the-node-registry).
 
-**Step 5. The snapshot and the registration cutoff.** Each epoch is derived from a *snapshot* of both registries, taken at that epoch's **registration cutoff**.
+**Step 5. The snapshot and the registration cutoff.** Each epoch is derived from a *snapshot* of both registries and of the parameter output, taken at that epoch's **registration cutoff**.
 
 1. The cutoff MUST fall strictly before the point at which the epoch's randomness *η*<sub>e</sub> is determined.
 2. A node MUST derive the epoch from the snapshot, and MUST NOT derive it from the chain as it currently stands.
-3. The snapshot fixes exactly the inputs the topology is a function of: the registered identities and their topic interests. The endpoint is read at the tip and is not fixed by it.
+3. The snapshot fixes exactly the inputs the topology is a function of: the registered identities, their topic interests, and the parameters the admission rules read. The endpoint is read at the tip and is not fixed by it.
 
 The cutoff ordering is what makes neighbour selection non-influenceable: a node registering, retiring or changing its topics cannot see the randomness it will be positioned by, so it cannot choose an identity or a moment that places it near a chosen victim. The converse obligation falls on the beacon, and is stated in [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon).
 
 > [!WARNING]
 > **A node derives an epoch from the snapshot, not from the chain as it currently stands.** The plain reading, that a node reads the registry and computes its peers, is wrong in the one case that matters: a registration that lands after the cutoff is visible at the tip and is *not* part of the epoch. Two nodes deriving from different chain positions would disagree about who is registered and refuse each other's dials. Deriving from the cutoff snapshot is what makes the derivation agree across the network.
 
-The datum schemas for all three, in CDDL,[^cddl] are collected under [Registry schemas](#registry-schemas). They are placed there because they fix an encoding rather than a mechanism: nothing in this section's rules depends on reading them, and no entry is contended for — a node entry is spent only by its own operator and a topic entry only by its owner, so there is no competition for a shared output and no ordering problem for a validator to resolve. What every implementation does need from the chain is the ability to **enumerate both registries at a fixed chain position**, since the topology derives from that snapshot rather than from the tip.
+The datum schemas for all three, in CDDL,[^cddl] are collected under [Registry schemas](#registry-schemas). They are placed there because they fix an encoding rather than a mechanism: nothing in this section's rules depends on reading them, and no entry is contended for — a node entry is spent only by its own operator and a topic entry only by its owner, so there is no competition for a shared output and no ordering problem for a validator to resolve. What every implementation does need from the chain is the ability to **enumerate both registries, and read the parameter output, at a fixed chain position**, since the topology derives from that snapshot rather than from the tip.
 
 ### Epochs and the randomness beacon
 
@@ -420,7 +428,7 @@ An acceptor evaluates a Request in this order, and the order is normative becaus
 4. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
 5. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
 6. **Gate.** The gate MUST hold for the ordered pair as the requester's role requires, recomputed by the acceptor from public data.
-7. **Cap.** If the acceptor already holds *C* links of that kind on *T*, it refuses.
+7. **Cap.** If the request answers a selection the acceptor has itself made — a *crossing* — it is completed regardless of the budget. Otherwise it is an admission, and the acceptor refuses it once *C* admissions have been granted for that kind on *T* in this epoch.
 
 A failure at 1, 2, 3, 4 or 6 is dropped without reply. These are conditions an honest dialler never meets, since it reads the same registry and computes the same gate, so a reply would inform only a peer that is probing. A failure at 7 is answered with **Rejected**, because capacity is a normal and honest outcome that the dialler should distinguish from unreachability. An honest dialler never sees a silent drop, since it computes the same gate the acceptor does.
 
@@ -463,7 +471,7 @@ Delivery is ordered per (topic, publisher). The protocol defines no ordering acr
 
 ### Dissemination, recovery and retention
 
-**Forwarding.** On receiving a message that verifies and is not a duplicate, a node delivers it to its local application if it subscribes to the topic, and forwards it on its links for that topic, excluding the link it arrived on. Relay links carry every message on their topic; a seeding link, where the dissemination design has one, carries only its owner's own publications. Publishing is the same path with no arrival link to exclude.
+**Forwarding.** On receiving a message that verifies and is not a duplicate, a node delivers it to its local application if it subscribes to the topic, and forwards it on its links for that topic, excluding the link it arrived on. Publishing is the same path with no arrival link to exclude.
 
 **Duplicate suppression.** A node keeps the message hashes it has seen and drops a message whose hash it already holds. Suppression is by content hash rather than by the identifying triple, deliberately: two different messages bearing the same triple are equivocation, and both must propagate so that any node holding both can recognise it.
 
@@ -473,7 +481,7 @@ Delivery is ordered per (topic, publisher). The protocol defines no ordering acr
 
 **Retention.** Recovery is served out of peers' caches. Each node keeps messages it has forwarded for a bounded window, and that one cache does three jobs: it suppresses duplicates, it makes equivocation detectable, and it answers recovery requests. Nothing else stores a topic's history. There are no archival nodes in this proposal, and the chain holds no message content.
 
-The window has a floor, and the floor follows from what rotation is for. Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. **The retention window MUST be at least one epoch**, since a shorter one would expire precisely the messages rotation exists to let a subscriber recover. Detecting the gap costs up to a further epoch where detection is left to rotation alone, so the window SHOULD approach two; the [Rationale](#what-the-protocol-guarantees-instead) sets out why. Its value beyond the floor is a per-topic parameter carried in the topic registry, is open, and is posed in the [Open Questions](#open-questions).
+The window has a floor, and the floor follows from what rotation is for. Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. **The retention window MUST be at least one epoch**, since a shorter one would expire precisely the messages rotation exists to let a subscriber recover, and **SHOULD be at least two**, since detecting the gap costs up to a further epoch where detection is left to rotation alone. The [Rationale](#what-the-protocol-guarantees-instead) sets out both. Its value beyond the floor is a per-topic parameter carried in the topic registry, is open, and is posed in the [Open Questions](#open-questions).
 
 Long-range replay is out of scope. A node offline for longer than the retention window, or one whose messages were withheld widely enough that no reachable cache still holds them, has no path back to what it missed within this proposal. Recovering content beyond the cache window would need dedicated replication nodes, which are future work; the [Rationale](#what-the-protocol-guarantees-instead) states the limitation and what it does and does not imply.
 
@@ -513,7 +521,7 @@ Three things version independently, because they change for unrelated reasons an
 
 **The protocol as a whole** is versioned by this CIP. A change that alters what a conforming node computes, rather than what it encodes, is a new revision of this document. Because every node in an epoch must derive the same topology, such a change cannot be rolled out gradually: it takes effect at an announced epoch, and nodes MUST agree on which epoch that is before it arrives.
 
-Within these rules, the changes this proposal anticipates are additive. Fixing the dissemination design adds link kinds and their parameters. Fixing the beacon source supplies *η* without altering how it is consumed. New link kinds, new payload conventions and per-topic policy all extend the registries rather than reinterpreting them.
+Within these rules, the changes this proposal anticipates are additive. Adding a link kind adds its gate domain tag and its own sizing rules. Fixing the beacon source supplies *η* without altering how it is consumed. New link kinds, new payload conventions and per-topic policy all extend the registries rather than reinterpreting them.
 
 
 The [Rationale](#rationale-how-does-this-cip-achieve-its-goals) that follows is what this design is answerable to: it sets out the adversary the protocol is analysed against, what was measured and how, what the guarantees cost, and where they stop.
@@ -1116,7 +1124,7 @@ Three qualifications:
 
 **Retention is a cache, and the epoch sets its floor.** What a subscriber recovers comes from other nodes' caches rather than from storage. Each node keeps recently forwarded messages for a bounded window, the same cache that suppresses duplicates and detects equivocation, and answers recovery requests from it. Nothing in this proposal keeps a topic's history: there are no archival nodes, and the chain records no message content.
 
-Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. Its oldest missing message is then already a full epoch old, and it must still detect the gap before it can ask for anything. Detection by the adjacent epoch's peer set costs up to a further epoch, so **the window has to approach two epochs**. It does not have to exceed that by much, and [Table 12](#table-12) is why: runs of consecutive muting are not a regime the design has to cover, so the window is sized for one episode plus its detection rather than for a worst case that compounds. A detection mechanism with a cadence independent of the epoch would buy the second epoch back; this proposal specifies none, so the floor is stated at the cost rotation alone imposes.<!-- Provenance: input-output-hk/pubsub discussion #144, which sets out the rotation/detection/deterrence layering this subsection renders, and poses the detection-delay-against-anchor-cost question as open. -->
+Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. Its oldest missing message is then already a full epoch old, and it must still detect the gap before it can ask for anything. Detection by the adjacent epoch's peer set costs up to a further epoch, which is why the [Specification](#dissemination-recovery-and-retention) puts the floor at one epoch and the recommendation at two. It does not have to exceed that by much, and [Table 12](#table-12) is why: runs of consecutive muting are not a regime the design has to cover, so the window is sized for one episode plus its detection rather than for a worst case that compounds. A detection mechanism with a cadence independent of the epoch would buy the second epoch back; this proposal specifies none, so the floor is stated at the cost rotation alone imposes.<!-- Provenance: input-output-hk/pubsub discussion #144, which sets out the rotation/detection/deterrence layering this subsection renders, and poses the detection-delay-against-anchor-cost question as open. -->
 
 > [!NOTE]
 > **Why revocation is retroactive, and why an expiry window is not the answer to back-dating.**
@@ -1315,7 +1323,9 @@ parameters =
   ]
 
 assumptions =
-  [ mu             : ratio         ; adversarial fraction sized against
+  [ t_epoch        : uint          ; epoch length, in slots
+  , mu             : ratio         ; adversarial fraction sized against
+  , adversary_ids  : uint          ; A: adversarial identity count sized against
   , delta          : ratio         ; per-epoch failure target
   , p_down         : ratio         ; honest downtime rate sized against
   ]
@@ -1328,6 +1338,8 @@ authority =
 parameters_redeemer =
     [ 0, assumptions, effective_from : epoch_no ]  ; announce a change
   / [ 1 ]                                          ; cancel a pending change
+  / [ 2 ]                                          ; promote a pending change once its
+                                                   ; epoch has arrived
 
 ; --- node registry -----------------------------------------------------------
 ; Datum of one node-registry entry. One entry per participating node.
