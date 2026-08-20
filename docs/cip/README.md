@@ -99,7 +99,7 @@ Together with the failure mode above, these scenarios imply requirements that ru
 - **Authenticity and integrity.** A recipient must be able to verify that a message originated with the claimed publisher and reached them as written, without trusting the path it arrived over. A signature that verifies establishes both, so integrity needs no separate mechanism.
 - **Censorship resistance.** Availability restated against an adversary that chooses its target: suppressing a message must require luck rather than choice. Isolation cannot be prevented in every draw: a subscriber whose every peer happens to be adversarial receives nothing, however small the adversarial fraction. The requirement is therefore that such isolation be rare, that it end when the topology is next drawn, and that it not be repeatable at will. The Rationale quantifies the first two.
 - **Non-influenceable neighbour selection.** Which peers a node disseminates with must be set by the protocol, not negotiated between participants, and no participant may steer that choice: not by registering additional identities, not by timing its own registration, not by influencing the randomness it derives from. This is what a discovery layer with freely created identities fails to provide, and what makes the requirement above achievable at all.
-- **Bounded cost per node.** No node may have to hold connections, or carry traffic, in proportion to the size of the network — the Rationale measures these as *standing [links](#term-link) per node* and *copies per honest node*. Both must stay bounded as the network grows, or only well-resourced operators will participate and the centralisation returns informally.
+- **Bounded cost per node.** No node may have to hold connections, or carry traffic, in proportion to the size of the network — the Rationale measures these as *[links](#term-link) per node* and *deliveries per node*. Both must stay bounded as the network grows, or only well-resourced operators will participate and the centralisation returns informally.
 - **Openness to arbitrary payloads.** The scenarios differ widely in content and cadence. The protocol carries topics, and does not interpret what those topics transport.
 
 The Specification that follows defines a protocol meeting these requirements: on-chain registration for the peer set, per-epoch verifiable randomness for the topology drawn over it, and topics as the unit of subscription. The Rationale then examines where the guarantees stop.
@@ -315,9 +315,9 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 
 One link is a large step and a small bill, which is why the rule is worth stating rather than approximating. Each additional pick divides the failure probability by roughly seven under the gate, so *RF* = 10 reaches 5.1 × 10⁻⁶ where *RF* = 9 reaches 3.6 × 10⁻⁵.
 
-Against the ungated figures earlier drafts of this proposal carried, the tenth pick is free, for a reason particular to the gate: a node and its permitted peers draw from the same restricted pool, so pairs select each other far more often than they would at large, and each such crossing is one link rather than two. That deflation more than absorbs it — *RF* = 10 gated holds 17.5 standing links against ungated *RF* = 9's 18.0, and carries 13.0 copies per node against 13.4, for about one per cent more time to first receipt.
+Against the ungated figures earlier drafts of this proposal carried, the tenth pick is free, for a reason particular to the gate: a node and its permitted peers draw from the same restricted pool, so pairs select each other far more often than they would at large, and each such crossing is one link rather than two. That deflation more than absorbs it — *RF* = 10 gated holds 17.5 links against ungated *RF* = 9's 18.0, and carries 13.0 deliveries per node against 13.4, for about one per cent more time to first receipt.
 
-Against the cheaper *gated* alternative it is not free, and the bill is worth seeing before the rule is applied. *RF* = 9 gated holds 16.0 standing links and carries 11.8 copies, so the tenth pick costs about a tenth of each. **That is a per-topic figure, and it multiplies**: across the twenty-five subscriptions [What a node pays](#what-a-node-pays-and-how-it-scales) uses, it is roughly 400 connections against 440, and 2.4 Mbit/s against 2.6. What it buys is the downtime the rule is about, 2.6 % against 7.5 %.[^synthesis]
+Against the cheaper *gated* alternative it is not free, and the bill is worth seeing before the rule is applied. *RF* = 9 gated holds 16.0 links and carries 11.8 copies, so the tenth pick costs about a tenth of each. **That is a per-topic figure, and it multiplies**: across the twenty-five subscriptions [What a node pays](#what-a-node-pays-and-how-it-scales) uses, it is roughly 400 connections against 440, and 2.4 Mbit/s against 2.6. What it buys is the downtime the rule is about, 2.6 % against 7.5 %.[^synthesis]
 
 #### The serving cap
 
@@ -774,8 +774,8 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | Coverage | Epoch failure probability, *p*<sub>bad</sub> | Probability that a drawn epoch topology fails to carry some honest publisher's messages to every honest subscriber |
 | | Design target, *δ* | The value of *p*<sub>bad</sub> a configuration is sized to meet |
 | Cost | Transmissions per publication, *m* | Honest-to-honest message copies sent per published message, duplicates included |
-| | Copies per honest node, *c* | Copies of each published message received by an average honest node |
-| | Standing links per node, *d* and *d̂* | Connections held open for the whole epoch, mean and maximum, counting a node's own picks and the links others opened to it |
+| | Deliveries per node, *c* | Copies of each published message received by an average honest node, duplicates included |
+| | Links per node, *d* and *d̂* | Links held for the whole epoch, mean and maximum, counting a node's own picks and the links others opened to it |
 | Latency | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
 | | Mean first receipt, *h*<sub>mean</sub> | Forwarding depth at which a typical honest subscriber first receives |
 | Resilience | Adversarial fraction, *μ* | Share of registered nodes that accept their links and forward nothing |
@@ -798,7 +798,7 @@ $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
 Downtime relates to the drop-out rate and the epoch length by *p* = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
 
-A note on two of the cost metrics. Transmissions per publication and copies per honest node are the same quantity divided differently, *c* = *m* / *H* with *H* the honest count, so either may be quoted. Both include duplicates, since a duplicate is suppressed only after crossing the network. And for standing links the maximum matters as much as the mean, because connection slots are provisioned for the worst-affected node.
+A note on two of the cost metrics. Transmissions per publication and deliveries per node are the same quantity divided differently, *c* = *m* / *H* with *H* the honest count, so either may be quoted. Both include duplicates, since a duplicate is suppressed only after crossing the network. And for links the maximum matters as much as the mean, because connection slots are provisioned for the worst-affected node.
 
 #### Designs evaluated
 
@@ -874,7 +874,7 @@ Every design below is shown at the configuration this proposal names for it, at 
 <div align="center">
 <a name="table-8" id="table-8"></a>
 
-| Design | Parameters | *p*<sub>bad</sub> | Messages per publication | Copies per node | Standing links, mean | Standing links, busiest node | Hops (full) | Hops (mean) |
+| Design | Parameters | *p*<sub>bad</sub> | Messages per publication | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Hops (mean) |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | M3 | RF = 13, *s* = 7 | 4.4 × 10⁻⁵ | **166,400** | **10.4** | 38.0 | 64 | 5.5 | 4.2 |
 | M4 | RF = 9 | **6.1 × 10⁻⁶** | 214,345 | 13.4 | **18.0** | **37** | 5.0 | 3.9 |
@@ -901,7 +901,7 @@ Three things follow, and the third is the one that matters for the choice.
 
 **Latency barely discriminates at the mean.** The whole field spans 4.8 to 5.5 forwarding steps, which at wide-area per-hop times is a couple of hundred milliseconds between the best and worst design, unlikely to decide anything for the use cases in the Motivation. The full depth distributions separate the designs more sharply at the tail, by two orders of magnitude in how often a subscriber waits the longest hop, but that tail is a fraction of a percent of subscribers.[^depth]
 
-**Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's standing links exceed what its traffic would suggest because 12 of its 38 links carry only their owner's own publications, cheap to run but still connection slots to provision and still exposed to churn. The gap widens at the worst node rather than the average one: 64 connections against M4's 37.
+**Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's links exceed what its traffic would suggest because 12 of its 38 links carry only their owner's own publications, cheap to run but still connection slots to provision and still exposed to churn. The gap widens at the worst node rather than the average one: 64 connections against M4's 37.
 
 **M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention. See [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
 
@@ -940,12 +940,12 @@ The same figures can be read as security rather than resilience. Because an offl
 
 This does not overturn Table 8, but it does mean **cost alone does not select a design**. Which matters more, traffic or held connections or tolerance of an unreliable population, is a deployment question, and it is posed as an open question below.
 
-**Where M3's proposed split comes from.** The budget of 19 can be divided between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The pair is written (*RF*, *s*), and *s* counts the intended initial holders of a publication rather than the links opened, so the seeding links are *s* − 1 and the budget is *RF* + (*s* − 1): 12 + 7 and 13 + 6 both come to 19. The split (RF = 13, *s* = 7) holds that same budget and the same 38 standing links, and improves every other figure:
+**Where M3's proposed split comes from.** The budget of 19 can be divided between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The pair is written (*RF*, *s*), and *s* counts the intended initial holders of a publication rather than the links opened, so the seeding links are *s* − 1 and the budget is *RF* + (*s* − 1): 12 + 7 and 13 + 6 both come to 19. The split (RF = 13, *s* = 7) holds that same budget and the same 38 links, and improves every other figure:
 
 <div align="center">
 <a name="table-10" id="table-10"></a>
 
-| M3 split | *p*<sub>bad</sub> | Copies per node | Standing links | Downtime absorbed |
+| M3 split | *p*<sub>bad</sub> | Deliveries per node | Links | Downtime absorbed |
 | :--: | ---: | ---: | ---: | ---: |
 | RF = 12, *s* = 8 | 7.9 × 10⁻⁵ | 9.6 | 38 | 0.54 % |
 | **RF = 13, *s* = 7** | **4.4 × 10⁻⁵** | 10.4 | 38 | **2.17 %** |
@@ -954,7 +954,7 @@ This does not overturn Table 8, but it does mean **cost alone does not select a 
 
 </div>
 
-For 0.8 further copies per honest node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it.
+For 0.8 further deliveries per node, a factor of four in downtime tolerance and a halved failure probability. The formal churn analysis predicted this and flagged it unvalidated; the measurements support it.
 
 > [!NOTE]
 > **(13, 7) is the split every table and figure in this proposal carries**, and (12, 8) appears only in the table above, whose subject is the comparison between them. A reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes.
@@ -997,9 +997,9 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 
 Widening the comparison from two axes to four changes which designs are in contention, and so did letting M3 and M4 take their best parameters rather than the ones the published tables carried.
 
-That second step is worth stating plainly, because it is why Table 8 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further copies per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 8 makes visible.
+That second step is worth stating plainly, because it is why Table 8 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further deliveries per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 8 makes visible.
 
-Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 standing links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
+Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
 
 In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted grey shapes rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is drawn dashed, and is the only dashed line in the figure, because it is read off the coverage laws rather than sampled directly. The enclosed area of these shapes has no meaning, the axes being different quantities in different units, so only position along each individual axis should be compared.
 
@@ -1012,11 +1012,11 @@ In the figure below every axis is oriented so that outward is better, and each d
 
 </div>
 
-The shapes carry the argument. **M4 is the most even, and it is the only design to reach the outer ring twice**: eighteen standing links against M3's thirty-eight and M2's forty-eight, and 7.43 % downtime absorbed against 2.17 % and 1.70 %. Both margins are wide. **M2 is fastest** to its last subscriber, by 0.2 hops over the next design, which the latency discussion above puts in proportion, and is innermost on everything else. **M3 at (13, 7) leads bandwidth**, and that is the only axis it leads; on churn tolerance it sits under a third of the way out.
+The shapes carry the argument. **M4 is the most even, and it is the only design to reach the outer ring twice**: eighteen links against M3's thirty-eight and M2's forty-eight, and 7.43 % downtime absorbed against 2.17 % and 1.70 %. Both margins are wide. **M2 is fastest** to its last subscriber, by 0.2 hops over the next design, which the latency discussion above puts in proportion, and is innermost on everything else. **M3 at (13, 7) leads bandwidth**, and that is the only axis it leads; on churn tolerance it sits under a third of the way out.
 
-The churn axis is where the re-split does its visible work, even though it does not change who leads. At M3's published split of (12, 8) that vertex is 0.54 % against M4's 7.43 %, less than a tenth of the way out, so the shape is a spike on bandwidth and very little else. Moving one link from seeding to relaying, at the same budget and the same standing links, quadruples it. That is the same design under a different split, not a different design, which is what makes the selection rule rather than the mechanism the thing to fix.
+The churn axis is where the re-split does its visible work, even though it does not change who leads. At M3's published split of (12, 8) that vertex is 0.54 % against M4's 7.43 %, less than a tenth of the way out, so the shape is a spike on bandwidth and very little else. Moving one link from seeding to relaying, at the same budget and the same links, quadruples it. That is the same design under a different split, not a different design, which is what makes the selection rule rather than the mechanism the thing to fix.
 
-The re-split is not free on the axis M3 leads, and the figure is drawn the conservative way round. The two splits hold the same nineteen links and the same thirty-eight standing connections, and the extra relay link is paid for in traffic: 10.4 copies per node against 9.6. Against M4 at RF = 9 that is a bandwidth lead of 22 % rather than the 28 % the published split would show. So M3 is plotted at its best *overall* split rather than its best *bandwidth* split, and the one axis it leads is drawn at its narrowest defensible margin. A reader weighing traffic against connections — the axis on which [the comparison](#why-the-symmetric-design) was for a long time held open — should know that M3 has a further 6 % of bandwidth available to it, at the cost of three quarters of its churn tolerance and a longer path to the last subscriber.
+The re-split is not free on the axis M3 leads, and the figure is drawn the conservative way round. The two splits hold the same nineteen links and the same thirty-eight connections, and the extra relay link is paid for in traffic: 10.4 deliveries per node against 9.6. Against M4 at RF = 9 that is a bandwidth lead of 22 % rather than the 28 % the published split would show. So M3 is plotted at its best *overall* split rather than its best *bandwidth* split, and the one axis it leads is drawn at its narrowest defensible margin. A reader weighing traffic against connections — the axis on which [the comparison](#why-the-symmetric-design) was for a long time held open — should know that M3 has a further 6 % of bandwidth available to it, at the cost of three quarters of its churn tolerance and a longer path to the last subscriber.
 
 > [!IMPORTANT]
 > The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
@@ -1032,8 +1032,8 @@ For most of this programme two designs stood, and on the coverage models neither
 
 | | M3 (13, 7) | M4 (RF = 9) |
 | :--: | ---: | ---: |
-| Copies per honest node | **10.4** | 13.4 |
-| Standing links, mean / busiest | 38 / 64 | **18 / 37** |
+| Deliveries per node | **10.4** | 13.4 |
+| Links, mean / busiest | 38 / 64 | **18 / 37** |
 | Hops to the last subscriber | 5.5 | **5.0** |
 | Downtime absorbed | 2.17 % | **7.43 %** |
 | Corruptions to strand a chosen node, knowing its links | 10.4 | **14.4** |
@@ -1080,7 +1080,7 @@ The downtime row is worth pausing on, because it moves the wrong way for the dir
 **Weighting the axes does not decide this, and no longer needs to.** A weighting is how you choose among candidates that all clear the bar; it has nothing to say about one that does not. This matters because it retires the question that held the choice open for so long. That question — whether an operator's binding constraint is the traffic it carries or the connections it holds — was a question about bandwidth, which is the one axis the directional design leads. An answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, so the answer no longer changes the outcome. It is a real question about deployment and it is worth answering; it is not this decision.
 
 > [!NOTE]
-> **The axes do not divide into security and performance as cleanly as they look.** Of the quantities in Table 11, only copies per node is straightforwardly a performance figure. Downtime absorbed is an availability property — how much of the honest population can be offline before delivery fails — and time to the last subscriber is a liveness bound on topics carrying urgent traffic. A reader who weights security above optimisation is therefore weighting up three of the four axes the symmetric design already leads, and weighting down the one it does not.
+> **The axes do not divide into security and performance as cleanly as they look.** Of the quantities in Table 11, only deliveries per node is straightforwardly a performance figure. Downtime absorbed is an availability property — how much of the honest population can be offline before delivery fails — and time to the last subscriber is a liveness bound on topics carrying urgent traffic. A reader who weights security above optimisation is therefore weighting up three of the four axes the symmetric design already leads, and weighting down the one it does not.
 
 **One seam rather than two, and the comparison charges only one.** The surface figures above count the directional design's relay seam alone; it carries a second armoured surface that was not added in, so the normalisation is generous to it throughout. Its publication-seeding links are a separate kind with their own gate, their own serving cap and their own sizing rule, and the seam inverts: a node's cap there governs what it will *accept* from publishers, so refusals starve the dialler's first hop rather than its own. Measured under a binding cap, that seam turns out to strangle exactly the links that would have rescued an otherwise-muted publisher, which is a coupling that has to be sized around.[^synthesis] The symmetric design has no such seam. Reciprocity collapses both failure directions into one channel with one gate, one cap and one budget rule — and every normative statement elsewhere in this proposal is written once rather than twice as a result.
 
@@ -1100,7 +1100,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 
 | Topics a node subscribes to | M3 (13, 7) | | M4 (RF = 9) | |
 | :--: | ---: | ---: | ---: | ---: |
-| | ingress | connections | ingress | connections |
+| | ingress | links | ingress | links |
 | 1 | **83 kbit/s** | 38 | 107 kbit/s | **18** |
 | 5 | **416 kbit/s** | 190 | 536 kbit/s | **90** |
 | 10 | **832 kbit/s** | 380 | 1.1 Mbit/s | **180** |
@@ -1197,9 +1197,9 @@ The starvation counts show why the coverage panel and the attack side agree. Wid
 
 The evidence above prices a fixed set of choices; this subsection collects what a deployment may actually turn, because the parameters are not equally powerful and two of them are far cheaper than they look.
 
-**Fanout is the strong knob, and it is exponential.** A design's failure probability falls roughly as the adversarial fraction raised to the fanout, so single links matter enormously. Ungated, one more link takes the symmetric design from 6.8 × 10⁻⁵ to 6.1 × 10⁻⁶ and then to 5.4 × 10⁻⁷ at *N* = 20 000, a factor of eleven each time. Under the gate at the bucket count this proposal specifies the ladder runs 2.7 × 10⁻⁴, 3.6 × 10⁻⁵, 5.1 × 10⁻⁶, 7.5 × 10⁻⁷ across pick counts of eight to eleven — **a factor of about seven each time**, for roughly one and a half further standing links and 1.2 further copies of each message.[^synthesis] The gate costs some of the knob's return and none of its character: it is still the only parameter whose return compounds, and anyone who finds the delivery guarantee insufficient should reach for it first. What the gate does change is the directional design's version of it, whose return collapses once the candidate pool binds — past that point further links have nothing left to reach for, which is the mechanism behind [the comparison](#why-the-symmetric-design).
+**Fanout is the strong knob, and it is exponential.** A design's failure probability falls roughly as the adversarial fraction raised to the fanout, so single links matter enormously. Ungated, one more link takes the symmetric design from 6.8 × 10⁻⁵ to 6.1 × 10⁻⁶ and then to 5.4 × 10⁻⁷ at *N* = 20 000, a factor of eleven each time. Under the gate at the bucket count this proposal specifies the ladder runs 2.7 × 10⁻⁴, 3.6 × 10⁻⁵, 5.1 × 10⁻⁶, 7.5 × 10⁻⁷ across pick counts of eight to eleven — **a factor of about seven each time**, for roughly one and a half further links and 1.2 further copies of each message.[^synthesis] The gate costs some of the knob's return and none of its character: it is still the only parameter whose return compounds, and anyone who finds the delivery guarantee insufficient should reach for it first. What the gate does change is the directional design's version of it, whose return collapses once the candidate pool binds — past that point further links have nothing left to reach for, which is the mechanism behind [the comparison](#why-the-symmetric-design).
 
-**Re-allocating a fixed budget is free.** M3 at (13, 7) and at (12, 8) hold the same nineteen links and the same thirty-eight standing connections, and differ by a factor of four in the downtime they absorb. Nothing is bought and nothing is spent; the same resources are simply divided better. Whenever a design has more than one link kind, that division is a parameter in its own right and the cheapest one available.
+**Re-allocating a fixed budget is free.** M3 at (13, 7) and at (12, 8) hold the same nineteen links and the same thirty-eight connections, and differ by a factor of four in the downtime they absorb. Nothing is bought and nothing is spent; the same resources are simply divided better. Whenever a design has more than one link kind, that division is a parameter in its own right and the cheapest one available.
 
 **Aim at the failure mode that dominates.** The two measurements above separate failures into a subscriber who cannot receive and a publisher who cannot be heard, and the balance differs sharply by design: under M3 at (10, 4) roughly seven failures in ten are publishers. A design whose failures are mostly publisher-side is improved by seeding links specifically, not by relay links, and the reverse holds for M4. Sizing without that split spends on the wrong side.
 
@@ -1408,7 +1408,7 @@ The criteria above fall into three groups and only the first blocks a specificat
 
 [^wilson]: The Wilson score interval, used throughout for a proportion estimated from a finite number of draws. It is preferred to the normal approximation here because the failure rates measured are small and the approximation's coverage degrades badly as a proportion approaches zero. Intervals are quoted at 95 % and computed at each sample's own size.
 
-[^degrees]: Standing links per node. Counted as the distinct (peer, link kind) pairs a node holds an established link with, in either direction and regardless of the counterparty's class, since an adversary still occupies a connection slot; a symmetric link is counted once. Measured over 200 graphs per operating point (M2: 40). The propagation-digraph degrees the framework reports elsewhere are a different and smaller quantity, omitting links that carry no dissemination traffic, which under M3 is fourteen of its thirty-eight. Method and the one unresolved discrepancy against the earlier figures: [`docs/experiments/standing-degree.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/standing-degree.md).
+[^degrees]: Links per node. Counted as the distinct (peer, link kind) pairs a node holds an established link with, in either direction and regardless of the counterparty's class, since an adversary still occupies a connection slot; a symmetric link is counted once. Measured over 200 graphs per operating point (M2: 40). The propagation-digraph degrees the framework reports elsewhere are a different and smaller quantity, omitting links that carry no dissemination traffic, which under M3 is fourteen of its thirty-eight. Method and the one unresolved discrepancy against the earlier figures: [`docs/experiments/standing-degree.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/standing-degree.md).
 
 [^reproduction]: Reproducing the measurements. Each result is identified by a tool commit, a sweep configuration, and a master seed; those three reproduce the output files byte-for-byte, independently of how many runs execute in parallel. All three are recorded per configuration in [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json), which is also the source the figures in this section are generated from; the configurations themselves are under [`configs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments) and the per-design comparisons, including the statistical conventions, under [`docs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/docs/experiments).
 
