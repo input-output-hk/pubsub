@@ -125,20 +125,16 @@ The Specification that follows defines a protocol meeting these requirements: on
      section do not. Link text stays the bare word, so the prose reads
      unchanged. -->
 
-This section specifies the protocol, and what it aims at is an interoperable implementation written from this document alone. It is ordered by how settled its parts are rather than by the order a node executes them.
+This section specifies the protocol, and what it aims at is an interoperable implementation written from this document alone. It follows the shape of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links.
 
-**Settled, and stated first:** the vocabulary, the shape of the system, the canonical encodings every implementation must agree on, what an epoch and its randomness are, how a node derives the links it will hold, and the parameter surface that follows.
+Four things are left to the deployment rather than fixed here, and each is stated where it arises rather than only in this list.
 
-**Drafted, and collapsed after them:** the on-chain registries, identity and keys, link establishment, the message format, dissemination and recovery, and versioning. These are written out in full and are the current working text; they are collapsed because they have not been reviewed to the standard the settled sections have, not because they are empty.
-
-The proposal does not yet reach the standard above, and what it leaves open is of four kinds. Each one is marked where it arises rather than only here, so a reader meets it alongside the mechanism it affects.
-
-- **The dissemination design is fixed; its pick count is a rule rather than a value.** One symmetric relay link kind, no separate seeding kind — the [Specification](#the-dissemination-design) states it, and the [Rationale](#why-the-symmetric-design) argues it. What the rule reads is the honest downtime rate a deployment sizes against, which is a property of the deployed population rather than of the protocol, and the difference between a low and a high assumption is one link per node.
 - **Three components are given as interfaces rather than mechanisms.** The [randomness beacon](#epochs-and-the-randomness-beacon), [address resolution](#address-resolution) and the on-chain validators state the requirements they must meet, and a conforming deployment MAY satisfy each in more than one way.
-- **Seven of the eleven parameters in [Table 4](#table-4) carry a rule or a bound rather than a value.**
 - **The transport is left to the deployment.** What is fixed here are the canonical byte strings every implementation must agree on, not the framing or session layer that carries them, subject to the rule that a peer's identity is taken from the signed preimage and never from the connection it arrived over.
+- **Seven of the eleven parameters in [Table 4](#table-4) carry a rule or a bound rather than a value**, so that a deployment supplies a number without reinterpreting a mechanism.
+- **Whether an identity is anchored to a credential that already carries a trust relationship** is posed in the [Open Questions](#open-questions); the requirements any such anchoring must meet are stated under [Identity and keys](#identity-and-keys).
 
-Everything else is settled. The gate, link establishment, the message format, dissemination and recovery are all stated in terms of link kinds, rules and interfaces, so closing one of these questions supplies a value or a component without reinterpreting the design around it, and the [Versioning](#versioning) rules say how each such change reaches a running deployment.
+The [Versioning](#versioning) rules say how a change to any of these reaches a running deployment.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
@@ -371,17 +367,7 @@ Every parameter this Specification fixes or leaves open, with the value it takes
 
 ### Identity and keys
 
-> [!NOTE]
-> **Everything from here on is drafted rather than settled, and is collapsed.**
-> These subsections are written out in full and are the current working text; they are
-> collapsed because they have not been reviewed to the standard the sections above have,
-> and each carries its open questions inside it. Expand a section to read it.
-
-> [!WARNING]
-> **Drafted, not settled.** This is the subsection that states least of what it needs to. A separate response to the identity proposal tracked under [issue #103](https://github.com/input-output-hk/pubsub/issues/103) sets out which of the constraints below the rest of the Specification already depends on, and which questions remain genuinely open. What follows is the current working position and the shape of the decision, not a specification.
-
-<details>
-<summary><b>Draft</b> · the three key roles, and the open questions from issue #103</summary>
+This section fixes the three key roles the protocol distinguishes, the constraints the rest of the Specification places on an identity, and the registration proof that binds one. It does not fix whether an identity is anchored to a credential that already carries a trust relationship; that question is posed in the [Open Questions](#open-questions), and the requirement any anchoring would have to meet is stated below.
 
 **The three key roles.** Three keys with distinct roles appear in the protocol, and an implementation MUST keep them distinct.
 
@@ -391,21 +377,17 @@ Every parameter this Specification fixes or leaves open, with the value it takes
 
 A publisher key MAY coincide with a node identity key, and a single publisher key MAY be authorised on several topics, but the roles do not imply one another: authorisation to publish does not admit a key to the node registry, and registration does not authorise publication.
 
-**What the rest of the Specification already leans on.** Identity is the raw Ed25519 public key rather than a hash of it, because peers verify signatures against it directly on every handshake and because the [gate preimage](#the-verifiable-gate) consumes it raw. Anything that gates participation must be **snapshottable** — evaluable at a fixed chain position, identically by every node — since the topology derives from the registration-cutoff snapshot rather than from the chain tip. A change to either reopens something else in this section.
+**What the rest of the Specification leans on.** Identity is the raw Ed25519 public key rather than a hash of it, because peers verify signatures against it directly on every handshake and because the [gate preimage](#the-verifiable-gate) consumes it raw. Anything that gates participation MUST be **snapshottable** — evaluable at a fixed chain position, identically by every node — since the topology derives from the registration-cutoff snapshot rather than from the chain tip. Any future anchoring to an existing credential MUST preserve both properties, or it reopens the derivation rather than extending it.
 
-**What is open.**
+**Proof of possession.** A registration transaction MUST carry a signature by the node identity key over
 
-- **Anchoring to an existing Cardano credential.** As this proposal stands, any keypair plus a deposit is an identity. Binding a credential that already carries a trust relationship — an SPO cold key, a dRep certificate — would make an identity more than that, and could price its deposit by the reputation behind it. The fork everything else hangs from is whether anchoring is *consensus-relevant*, changing who may register, what deposit is required, or the identifier itself, or merely a *verifiable attribute* that nothing in derivation or admission reads.
-- **Proof of possession at registration.** Without it, an operator can lock a deposit against a public key it does not hold. Because an identity may hold at most one entry, squatting a key that is known in advance blocks its legitimate holder from registering at all. An anchor needs its own proof of possession for the same reason.
-- **A display encoding.** This section excludes "a display form" without ever defining one. Bech32 under a `pubsub` prefix is the candidate, and is needed whether or not the identifier is derived.
-- **How many node identities one trust anchor may derive**, which is already carried in the [Open Questions](#open-questions).
+$$\mathrm{LP}(\texttt{pubsub/register/v1}) \,\|\, \mathrm{LP}(id) \,\|\, \mathrm{LP}(op)$$
 
-</details>
+where *id* is the node identity key and *op* the operator credential. Without it an operator can lock a deposit against a public key it does not hold, and because an identity may hold at most one entry, squatting a key that is known in advance would block its legitimate holder from registering at all. Any anchoring mechanism added later needs its own proof of possession for the same reason.
+
+**Display encoding.** A node identity is displayed as Bech32[^bech32] under the human-readable prefix `pubsub`. The encoding is for display and interchange only: every preimage in this proposal consumes the raw key bytes, never a display form.
 
 ### On-chain state
-
-<details>
-<summary><b>Draft</b> · registry schemas and CDDL — one open question on authorisation position</summary>
 
 The protocol holds two registries on chain. Each entry is a script output whose datum carries the entry's content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This proposal specifies the datum schemas, in CDDL,[^cddl] and the state transitions they must admit, and leaves the validator implementation to the deployment.
 
@@ -574,12 +556,8 @@ ipv4      = bytes .size 4
 ipv6      = bytes .size 16
 ```
 
-</details>
 
 ### Link establishment
-
-<details>
-<summary><b>Draft</b> · handshake preimage, the normative order of checks, teardown</summary>
 
 Links are opened by a signed handshake. The dialler sends a **Request** naming the topic and, by the message's kind, the link kind. The acceptor replies **Accepted**, replies **Rejected** if it is at its serving cap, or silently drops the request. Either end MAY send **Terminated** to tear down an established link, and MUST send one for each link it holds when shutting down.
 
@@ -608,12 +586,8 @@ A dialler that is rejected does not retry that peer within the epoch, and its re
 
 Nodes tear down every link at the end of an epoch and derive afresh. An implementation MAY overlap the two, holding the outgoing epoch's links while establishing the incoming epoch's, and this is RECOMMENDED for topics carrying time-critical traffic. It MUST NOT forward messages over links derived for an epoch that has ended.
 
-</details>
 
 ### Messages
-
-<details>
-<summary><b>Draft</b> · message format, signing, and the receive path</summary>
 
 A message is identified by the triple (topic, publisher, sequence number), and that triple is what makes loss detectable and recovery precise. Sequence numbers are per (topic, publisher), begin at zero, and increase by one for each message that publisher publishes on that topic. A publisher MUST NOT reuse a sequence number; doing so is equivocation, and is detectable by any node holding both messages. It is one of the two faults this protocol makes self-evidencing, the other being a link outside the permitted set, and the [Rationale](#two-classes-of-fault-with-different-guarantees) explains why the list stops there.
 
@@ -641,12 +615,8 @@ A recipient MUST, in order: confirm the topic is registered; confirm the publish
 
 Delivery is ordered per (topic, publisher). The protocol defines no ordering across publishers on a topic, and two subscribers MAY observe messages from different publishers in different relative orders. An application needing a total order must impose one itself.
 
-</details>
 
 ### Dissemination, recovery and retention
-
-<details>
-<summary><b>Draft</b> · forwarding, duplicate suppression, gap detection, the retention floor</summary>
 
 **Forwarding.** On receiving a message that verifies and is not a duplicate, a node delivers it to its local application if it subscribes to the topic, and forwards it on its links for that topic, excluding the link it arrived on. Relay links carry every message on their topic; a seeding link, where the dissemination design has one, carries only its owner's own publications. Publishing is the same path with no arrival link to exclude.
 
@@ -662,12 +632,8 @@ The window has a floor, and the floor follows from what rotation is for. Rotatio
 
 Long-range replay is out of scope. A node offline for longer than the retention window, or one whose messages were withheld widely enough that no reachable cache still holds them, has no path back to what it missed within this proposal. Recovering content beyond the cache window would need dedicated replication nodes, which are future work; the [Rationale](#what-the-protocol-guarantees-instead) states the limitation and what it does and does not imply.
 
-</details>
 
 ### Versioning
-
-<details>
-<summary><b>Draft</b> · what versions independently, and how a change reaches a deployment</summary>
 
 Three things version independently, because they change for unrelated reasons and on unrelated timescales.
 
@@ -679,7 +645,6 @@ Three things version independently, because they change for unrelated reasons an
 
 Within these rules, the changes this proposal anticipates are additive. Fixing the dissemination design adds link kinds and their parameters. Fixing the beacon source supplies *η* without altering how it is consumed. New link kinds, new payload conventions and per-topic policy all extend the registries rather than reinterpreting them.
 
-</details>
 
 The [Rationale](#rationale-how-does-this-cip-achieve-its-goals) that follows is what this design is answerable to: it sets out the adversary the protocol is analysed against, what was measured and how, what the guarantees cost, and where they stop.
 
@@ -1381,6 +1346,8 @@ The criteria above fall into three groups and only the first blocks a specificat
 [^gossipsub]: Dimitris Vyzovitis, Yusef Napora, Dirk McCormick, David Dias and Yiannis Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>. The peer scoring and mesh hardening referred to here are specified in gossipsub v1.1, *Security extensions to improve on attack resilience and bootstrapping*: <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>.
 
 [^libp2p]: libp2p, the modular networking stack GossipSub is most widely deployed on. <https://libp2p.io>. Peer discovery in the usual deployment is its Kademlia DHT, in which a peer identity is a self-generated key pair rather than an entry in any registry: <https://github.com/libp2p/specs/tree/master/kad-dht>.
+
+[^bech32]: Bech32 address format, BIP-0173, as used across Cardano for human-facing identifiers. <https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki>. Used here for display only; every preimage in this proposal consumes raw key bytes.
 
 [^cddl]: Concise Data Definition Language (CDDL), RFC 8610. <https://www.rfc-editor.org/rfc/rfc8610>. The registry schemas in this proposal are written against it, as CIP-0001 requires of a proposal that defines the structure of on-chain data.
 
