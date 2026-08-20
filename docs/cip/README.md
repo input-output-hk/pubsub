@@ -275,7 +275,7 @@ $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
 The rule has an upper boundary as well as a lower one, and past it the gate stops being a defence at all. The boundary is where the candidate pool stops being large enough to draw from. The probability that a node's pool is empty altogether is about e<sup>−(1−*μ*)(*N*<sub>T</sub>−1)/*B*</sup>, and it does not depend on the pick count, so no amount of fanout compensates for a pool that was never populated; requiring that term to stay under the failure target is what gives the **pool floor** *B*<sub>pool</sub> above. Narrowing past it leaves a candidate pool no larger than the pick count itself: a node takes everything eligible, and the gate has stopped dividing an attacker's pressure because there is nothing left to divide. The [serving cap](#the-serving-cap) inverts at the same boundary, since past it no value of *C* both binds and stays harmless — one loose enough to be safe protects nothing, and one tight enough to bind makes isolation measurably more likely. The headroom rule alone does **not** keep a deployment inside this boundary: at *k* = 9 and *N*<sub>T</sub> = 20 000 it permits *B* = 1 111 against a pool floor of 847, which is why the bound is stated normatively above rather than left implied.[^synthesis] The [Rationale](#choosing-the-admission-parameters) prices both edges.
 
-*B* is therefore derived per topic and per epoch rather than configured, and every node MUST derive the same value, since the gate is recomputed by the acceptor and by any third party auditing a link. *N*<sub>T</sub> comes from the snapshot and is already common knowledge; the failure target *δ* and the adversarial fraction *μ* a deployment sizes against are not, and because the bounds above read both, **they are part of the agreed parameter set rather than assumptions of the analysis**, and MUST be carried where every node reads one value for them. Both are open, and are posed in the [Open Questions](#open-questions). A deployment MAY instead forgo the pick step and let the gate alone set a node's degree, sizing *B* so that the expected eligible count is *k*+1; the [Rationale](#choosing-the-admission-parameters) measures this variant at roughly six per cent more traffic and the same coverage.
+*B* is therefore derived per topic and per epoch rather than configured, and every node MUST derive the same value, since the gate is recomputed by the acceptor and by any third party auditing a link. Its two kinds of input are read from different places. *N*<sub>T</sub> comes from the snapshot and is already common knowledge. The failure target *δ* and the adversarial fraction *μ* are not properties of a topic but of the deployment, and because the bounds above read both, they MUST be read from the [parameter output](#the-parameter-output) rather than configured per node. What values they should take is open, and is posed in the [Open Questions](#open-questions). A deployment MAY instead forgo the pick step and let the gate alone set a node's degree, sizing *B* so that the expected eligible count is *k*+1; the [Rationale](#choosing-the-admission-parameters) measures this variant at roughly six per cent more traffic and the same coverage.
 
 #### Selection
 
@@ -304,7 +304,7 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 
 **The pick count is derived rather than fixed here, and what it reads is honest downtime.** An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary — [Evidence](#evidence) sets out why — so downtime consumes the same budget adversarial behaviour does, and a pick count sized against the adversarial fraction alone under-provisions by exactly the downtime a deployment expects to see.
 
-*k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give.
+*k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are read from the [parameter output](#the-parameter-output).
 
 > [!TIP]
 > At the reference shape of this proposal — *N*<sub>T</sub> = 20 000, *μ* = 0.2, *δ* = 10⁻⁴ — the rule gives *RF* = 10 for a deployment sizing against honest downtime up to 7.5 %, and *RF* = 9 where 2.6 % suffices. This proposal states *RF* = 10. Below about 2.6 % the two are equivalent on reliability and *RF* = 9 is cheaper; above it, *RF* = 9 misses the target on downtime alone.
@@ -355,7 +355,7 @@ Every parameter this Specification fixes or leaves open, with the value it takes
 | *B* | How narrow the verifiable gate is | **Derived per topic:** the smallest of the failure-target, pool-floor and headroom bounds, or 1 where that is below 2 | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | *r* | Candidates the gate leaves per link opened | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | *k*, *K* | Links a node opens per kind, and in total per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [The dissemination design](#the-dissemination-design) |
-| *δ*, *μ* | The failure target, and the adversarial fraction sized against | **Open**, and agreed deployment-wide, since the gate and cap rules both read them | [Open Questions](#open-questions) |
+| *δ*, *μ*, *p* | The failure target, the adversarial fraction sized against, and the honest downtime rate | **Open.** Carried in the [parameter output](#the-parameter-output), since the gate, cap and pick-count rules all read them | [Open Questions](#open-questions) |
 | *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [What the protocol guarantees instead](#what-the-protocol-guarantees-instead) |
 | deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
@@ -389,7 +389,31 @@ where *id* is the node identity key and *op* the operator credential. Without it
 
 ### On-chain state
 
-The protocol holds two registries on chain. Each entry is a script output whose datum carries the entry's content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This proposal specifies the datum schemas, in CDDL,[^cddl] and the state transitions they must admit, and leaves the validator implementation to the deployment.
+The protocol holds three things on chain: a **parameter output** that identifies the deployment and carries the assumptions its admission rules are derived from, a **node registry**, and a **topic registry**. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This proposal specifies the datum schemas, in CDDL,[^cddl] and the state transitions they must admit, and leaves the validator implementation to the deployment.
+
+#### The parameter output
+
+One output per deployment, created when the registries are deployed. It does two jobs.
+
+**It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so that a node has one thing to be configured with and every other on-chain object it reads is reached from there. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
+
+**It carries the three assumptions the admission rules read.** The [bucket count](#term-b), the [serving cap](#term-cap) and the pick count are all derived rather than configured, and their derivations read three quantities that are properties of the deployed population rather than of any topic: the adversarial fraction *μ* sized against, the per-epoch failure target *δ*, and the honest downtime rate *p*. Every node MUST derive the same admission parameters, since the gate is recomputed by the acceptor and by any third party auditing a link, so these three MUST be read from one place. The topic-dependent inputs are not carried here: *N*<sub>T</sub> comes from the snapshot and is already common knowledge.
+
+Two rules govern changes.
+
+1. A change MUST be read from the **registration-cutoff snapshot**, as the registries are, and MUST NOT be read at the chain tip.
+2. A change MUST take effect at an **announced epoch**. Moving any of the three alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
+
+> [!IMPORTANT]
+> **An output that can be changed is an authority, and this proposal does not settle who holds it.** Whoever may spend the parameter output can move a network-wide security parameter. The authority is bounded — the values are public, every node reads them, and their effect on the gate is recomputable and auditable by anyone — but it is real, and it is the one place in this design where a single party can change what every node computes. Four arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
+>
+> **No parameter output at all.** Fix *μ*, *δ* and *p* as constants of this proposal; changing one is a new revision of this document, taking effect at an announced epoch. No standing authority, at the cost of a document revision for a number a deployment might reasonably want to tune.
+>
+> **An immutable output.** Created at deployment and never spent. A change means deploying a new instance that nodes migrate to. No standing authority either, at the cost of making any change an overlay-wide cutover.
+>
+> **Governance-controlled.** A Cardano governance action moves the values. No privileged party, at the cost of the heaviest process for the smallest change.
+>
+> **An authorised credential**, named in the output and held by whoever deployed it. Simplest, and standing central control.
 
 #### The node registry
 
@@ -495,6 +519,33 @@ The cutoff ordering is what makes neighbour selection non-influenceable: a node 
 #### CDDL
 
 ```cddl
+; --- parameter output --------------------------------------------------------
+; One output per deployment. Identifies the deployment, and carries the three
+; assumptions the admission rules are derived from.
+
+parameters =
+  [ registries     : [ node_registry : script_hash, topic_registry : script_hash ]
+  , current        : assumptions
+  , pending        : null / [ assumptions, effective_from : epoch_no ]
+  , authority      : authority
+  , format         : uint
+  ]
+
+assumptions =
+  [ mu             : ratio         ; adversarial fraction sized against
+  , delta          : ratio         ; per-epoch failure target
+  , p_down         : ratio         ; honest downtime rate sized against
+  ]
+
+authority =
+    [ 0 ]                          ; immutable; the output is never spent
+  / [ 1, credential ]              ; this credential may announce a change
+
+; Redeemer for spending the parameter output.
+parameters_redeemer =
+    [ 0, assumptions, effective_from : epoch_no ]  ; announce a change
+  / [ 1 ]                                          ; cancel a pending change
+
 ; --- node registry -----------------------------------------------------------
 ; Datum of one node-registry entry. One entry per participating node.
 
@@ -546,6 +597,8 @@ node_key      = bytes .size 32     ; Ed25519 public key
 publisher_key = bytes .size 32     ; Ed25519 public key
 topic_id      = bytes .size 32     ; blake2b-256 of the topic's creating output
 credential    = $hash28            ; key hash or script hash, as in CIP-0019
+script_hash   = $hash28            ; the hash of a registry validator
+ratio         = [ numerator : uint, denominator : uint ]  ; exact; never floating point
 coin          = uint
 epoch_no      = uint               ; dissemination epoch index, not a ledger epoch
 
@@ -1301,6 +1354,7 @@ Short epochs are undemanding: an hourly epoch asks only that a node stay up for 
 - What population the topics that matter actually draw from. Multiplexing is now permitted, and the arithmetic above shows it saves almost nothing at *N* = 20 000 and a great deal below a few thousand, so the size of the topics a deployment expects to carry decides whether connection count separates the two designs at all. That is a question about who registers, not about the protocol.
 - The honest downtime rate a deployment sizes against. It now sets the pick count as well as bounding the epoch, since downtime and adversarial silence are the same thing to the rest of the network, and at the reference shape the difference between sizing against 2.6 % and 7.5 % is one link on every node. It is a property of the deployed population and was not measured here.
 - How the design behaves on small topics. The use cases include topics whose direct participants number in the tens, and every measurement here is at thousands. Whether such a topic is served by this protocol at all, by a degenerate parameterisation of it, or by something else, is not settled, and it interacts with the choice of design: connection count is what separates the two candidates and it stops separating them as topics shrink.
+- Who may change the [parameter output](#the-parameter-output), and therefore the assumptions every node's admission parameters are derived from. The four arrangements are set out where the output is specified: no output at all with the values fixed as constants of this proposal, an immutable output, a governance action, or an authorised credential. The choice is between a standing authority over a network-wide security parameter and a heavier path for every change.
 - The adversarial fraction the deployment should be sized against. The analysis is carried out at a single value throughout, and that value is an assumption about who registers and what registration costs them rather than a result of the analysis. It should be justified against the registry's actual cost structure, and against the observation that a subscriber only needs its own peer set captured rather than the network, before parameters are fixed.
 - The per-epoch failure probability to target, which is likewise a choice rather than a derived quantity. It cannot be read independently of epoch length: the same per-epoch figure is a rare event at multi-day epochs and a routine one at short epochs, so the target and the epoch length have to be argued together.
 - The cadence of on-chain position commitments against their cost, and whether topics carrying urgent traffic require a cadence finer than the epoch.
