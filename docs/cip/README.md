@@ -338,7 +338,7 @@ $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
 - ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ*.
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
-- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2.
+- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio is per link kind; the floor of two is measured, and the [Rationale](#choosing-the-admission-parameters) states on which design.
 
 Only the first requires evaluating the coverage law; the other two are arithmetic. The [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies all three live over a topic-size axis, and marks where the curves stop being backed by measurement.
 
@@ -998,6 +998,15 @@ The two pull in opposite directions on the same knob, and both sides are now mea
 </div>
 
 Coverage is unaffected while the gate leaves each node at least twice as many eligible peers as it needs to pick from: across that plateau the measured failure rate is 279 in 32 000, against a law of 0.0088. **Verifiability is free where the gate leaves headroom.** Remove the headroom and it stops being free: at parity the failure rate is five times the law, and below parity the draw collapses. In the other direction the gate divides an attacker's pressure by the bucket count, so a wider gate concentrates a flooder's identities on fewer victims. That division is not an approximation: an attacker holding *A* identities lands *A*/*B* slots on the average victim, and across a grid of bucket counts, serving caps and attacker sizes the measured means match that prediction in 36 of 48 cells to within 2 %, with the per-victim distributions taking the predicted Poisson shape. The exceptions are all in one direction and are the defence working: where the attacker's share approaches what the cap leaves free, the cap truncates it below *A*/*B*.[^gate]
+
+> [!NOTE]
+> **The headroom floor of two is a directional measurement, and the design this proposal specifies is symmetric.** The plateau above was measured on M2 at *N* = 4 000, in the regime where the pick count is large.[^gate] Two parts of it generalise differently.
+>
+> The *ratio* carries across designs unchanged. A node's own eligible set is about (*N*<sub>T</sub> − 1)/*B* whether its link kind is symmetric or directional — sorting the pair changes how many peers one identity is admissible to across both directions, not how many candidates a node draws its own picks from — and the rule is stated per link kind, which is what a design with two kinds requires.
+>
+> The *value* of the floor has not been measured under a symmetric kind. Under M4 a node is cut off only if its own picks all landed adversarial **and** no honest peer picked it, so the candidate pool enters the failure probability twice rather than once, and nothing here shows the plateau sits at two rather than higher. E18 prices what the gate costs in coverage under symmetric links[^symgate] and is the experiment that would settle it.
+>
+> The consequence is narrow, but it lands where the bound actually binds. At the pick counts this proposal specifies the failure target binds and the headroom floor is slack, so its exact value is not in use. The headroom floor becomes the binding bound on topics below a few thousand participants — which is also the range [Limits of this evidence](#limits-of-this-evidence) says nothing here reaches.
 
 > [!TIP]
 > The rule follows from the shape, with one boundary these measurements could not see: **the largest bucket count that still leaves headroom is the most dilutive, and it is coverage-exact only where the pick count is large enough to hide the all-picks-adversarial term**. Anything wider hands the attacker proportionally more concentration for no gain. Anything narrower pays a coverage penalty — and at a small pick count that penalty arrives well before the headroom floor does, so headroom alone is not a sufficient rule.[^synthesis]
