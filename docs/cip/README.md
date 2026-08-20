@@ -58,8 +58,6 @@ Two things Cardano already maintains are what make an answer possible. An on-cha
 
 This section specifies the protocol. It aims at an implementation written from this document alone, and it follows the order of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links. Parameters and versioning come last, once the mechanisms that read them have been stated.
 
-Where this proposal leaves something to a deployment — a component it states requirements for rather than specifying, or a parameter it gives a rule for rather than a value — it says so in the subsection that defines the thing, so that a reader meets it alongside the mechanism it affects.
-
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ### Architecture
