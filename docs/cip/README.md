@@ -111,7 +111,13 @@ The protocol holds three things on chain: a **parameter output** that identifies
 
 One output per deployment, created when the registries are deployed. It does two jobs.
 
-**It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so that a node has one thing to be configured with and every other on-chain object it reads is reached from there. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
+**It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so every other on-chain object a node reads is reached from here. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
+
+A node is configured with the script hash of the parameter output itself, in the same way it is configured with a genesis hash. That is the one value an operator supplies out of band.
+
+**Exactly one parameter output MUST exist per deployment, and the validator MUST enforce that.** A one-shot minting policy is the RECOMMENDED mechanism: the policy permits a single mint, the validator requires the resulting token to be present in the output, and a node takes the output holding that token. Without an enforced singleton, anyone could pay to create a second output at the same script carrying a plausible datum, and nothing in this proposal would say which one a node should read.
+
+**A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute defaults, and MUST NOT carry forward values read in an earlier epoch. A node acting on parameters other than the agreed ones computes a different gate, so its dials are refused by peers that computed the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
 **It carries everything every node must agree on that is not a property of a topic.** The [bucket count](#term-b), the [serving cap](#term-cap) and the pick count are all derived rather than configured, and every node MUST derive the same values, since the gate is recomputed by the acceptor and by any third party auditing a link. Their inputs divide in two. *N*<sub>T</sub> is a property of a topic, comes from the snapshot, and is already common knowledge. The rest are properties of the deployment, and MUST be read from this output:
 
@@ -344,7 +350,38 @@ Narrowing has a cost, and it is paid in the randomness of the draw. If the gate 
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-**The rule.** All three of the following are **ceilings** on *B*, and *B* MUST NOT exceed the smallest of them. It SHOULD be close to that ceiling, since a wider gate divides an attacker's reach further, and it MUST be 1 — the gate off — where the smallest ceiling is below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy [measured on: inherited from the headroom floor above, and no more general than it is].
+**Only one parameter has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) disagree about which links are legal, and refuse each other. Nothing checks a dialler's pick count, and the [serving cap](#term-cap) is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone. **The bucket count is therefore selected from a published table; the pick count and the serving cap follow rules.**
+
+*B* MUST be the value the table below gives for the topic's registered population, taken from the epoch's snapshot. Both ends of any link read the same snapshot, so both select the same row.
+
+<div align="center">
+<a name="table-1" id="table-1"></a>
+
+| Registered nodes on the topic | *B* | Mask bits | Recommended *k* |
+| ---: | ---: | :--: | ---: |
+| 2 – 40 | 1 | 0 — gate off | 10 |
+| 41 – 80 | 2 | 1 | 10 |
+| 81 – 160 | 4 | 2 | 10 |
+| 161 – 320 | 8 | 3 | 10 |
+| 321 – 640 | 16 | 4 | 10 |
+| 641 – 1 293 | 32 | 5 | 10 |
+| 1 294 – 2 703 | 64 | 6 | 10 |
+| 2 704 – 5 641 | 128 | 7 | 10 |
+| 5 642 – 11 750 | 256 | 8 | 10 |
+| 11 751 and above | 512 | 9 | 10 |
+
+<em>Table 1: the bucket count, by topic population</em>
+
+</div>
+
+**Every value is a power of two, and that is the point.** The gate reduces to a mask: a candidate is eligible when the low *mask bits* of the gate hash are all zero. No division, no modulo, no logarithm, and no rounding rule to agree on — which matters because this is the one value two implementations cannot be allowed to compute differently. At *B* = 1 the mask is empty and every registered peer is eligible.
+
+Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for. The [Appendix](#admission-parameter-bands) derives each row, prices what it gives up, and lists what remains to be measured.
+
+> [!NOTE]
+> **The top row specifies *B* = 512, and the measured configuration is *B* = 500.** Every gated figure this proposal quotes was measured at 500. 512 is a 2.4 % narrower gate — 39.1 expected eligible peers against 40.0 — which is the conservative direction for an attacker's reach and the marginally unsafe direction for coverage. One re-run at *N*<sub>T</sub> = 20 000 closes the gap, and it is the first item on the pending list in the Appendix. The table carries 512 rather than 500 so that every row keeps the mask property.
+
+**Where the table comes from.** All three of the following are **ceilings** on *B*, and no row exceeds the smallest of them at its lowest population. The table takes the gate off where the smallest ceiling falls below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy [measured on: inherited from the headroom floor below, and no more general than it is].
 
 - ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ* [applies to: one design at a time — each design has its own coverage law, so this bound is not comparable between designs] [measured on: the symmetric design at 20 000 nodes].
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
@@ -1449,7 +1486,7 @@ These evaluate the rules this document states, at points other than the ones it 
 Several of these words carry an established Cardano meaning that is *not* the meaning used here, and a reader who imports the familiar one will misread the design. Each term is also defined where it first appears; this table collects them, and names the colliding term where there is one. The quantities used to *measure* a design rather than to configure one are in [Table 5](#table-5).
 
 <div align="center">
-<a name="table-1" id="table-1"></a>
+<a name="table-14" id="table-14"></a>
 
 | Term | In this proposal | Not to be confused with |
 | --- | --- | --- |
@@ -1467,9 +1504,85 @@ Several of these words carry an established Cardano meaning that is *not* the me
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | How many peers the gate leaves a node eligible to link to, per link it must open. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
 | <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic for one link kind that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
 
-<em>Table 1: the protocol's vocabulary, and where it collides with an established term</em>
+<em>Table 14: the protocol's vocabulary, and where it collides with an established term</em>
 
 </div>
+
+### Admission parameter bands
+
+How [Table 1](#table-1) was built, what it gives up, and what remains to be measured.
+
+**Each row's floor is where the ceilings change their answer.** A row's population floor is the
+smallest population at which the smallest of the three ceilings first reaches that power of two,
+evaluated at *μ* = 0.2, *δ* = 10⁻⁴ and *k* = 10. At every floor, the row's *B* equals that
+smallest ceiling exactly. Both computable ceilings rise with population, so a row that is safe at
+its floor is safe across its whole range. The table is therefore an integer encoding of the
+continuous rule's own steps rather than a separate approximation of it.
+
+**What a row gives up.** A row holds one *B* across a range in which the ceiling keeps rising, so
+a topic near the top of a row runs a narrower divisor than the ceiling would allow. An adversarial
+registration is then eligible to a larger share of any given node's candidate pool, so an attacker
+reaches a given share of a target's neighbourhood with fewer registered identities. Every closed
+row keeps that below a factor of two, by construction: a row's top is one node below the
+population at which the ceiling reaches twice the row's *B*.
+
+| At the top of row | Ceiling | Row *B* | Loss |
+| ---: | ---: | ---: | ---: |
+| 80 | 3 | 2 | 1.50× |
+| 160 | 7 | 4 | 1.75× |
+| 320 | 15 | 8 | 1.88× |
+| 640 | 31 | 16 | 1.94× |
+| 1 293 | 63 | 32 | 1.97× |
+| 2 703 | 127 | 64 | 1.98× |
+| 5 641 | 255 | 128 | 1.99× |
+| 11 750 | 511 | 256 | 2.00× |
+
+<em>Table 15: what each closed row gives up at its top</em>
+
+At the populations this proposal is sized for the loss is much smaller, because those sit low in
+their rows rather than at the top: **1.10×** at three thousand nodes, the delivery-critical
+population; **1.45×** at four thousand; **1.65×** at twenty thousand.
+
+> [!WARNING]
+> **The top row is open, and its loss is not bounded.** Above 11 751 nodes the table holds
+> *B* = 512 however large the topic becomes, while the ceiling keeps rising: the loss reaches
+> 2.00× at 24 438 nodes, 3.19× at forty thousand and 7.62× at a hundred thousand. The claim that
+> no row gives up more than a factor of two holds for the closed rows only. A deployment expecting
+> to exceed roughly twenty-five thousand nodes on one topic needs a further row, and this proposal
+> does not provide one because nothing has been measured above twenty thousand.
+
+**Below the gate.** The first row switches the gate off. That is not the same as a complete graph.
+A complete graph needs the pick count to reach the membership, at *N*<sub>T</sub> ≤ *k* + 1 —
+eleven nodes at *k* = 10. Between there and the top of the first row the graph is neither gated
+nor complete: each node picks *k* peers, a pair is linked if either end picked the other, and the
+expected share of possible links present is 1 − (1 − *k*/(*N*<sub>T</sub> − 1))². At *k* = 10 that
+runs 0.99 at twelve nodes, 0.78 at twenty, 0.57 at thirty and 0.45 at forty. A deployment that
+wants the completeness guarantee on a topic in that range has to raise the pick count to get it.
+
+**What remains to be measured.** Nothing in the table below twenty thousand nodes has been
+measured, and the rows are listed here in the order it is worth measuring them.
+
+1. **The top row's floor.** Confirm *B* = 512 meets the failure target at 11 751 nodes. The only
+   published anchor for the failure-target ceiling is at twenty thousand nodes, which does not
+   certify a smaller population. This is the one unverified safety claim in the table.
+2. **The top row at twenty thousand.** Re-run the measured configuration at *B* = 512 rather than
+   500, to confirm the 2.4 % narrowing is immaterial. Until this lands, the figures quoted
+   elsewhere in this proposal are at 500 and the table specifies 512.
+3. **The delivery-critical row**, 2 704 – 5 641. Measure coverage at three thousand nodes at
+   *B* = 128, and re-run the existing four-thousand-node cell at *B* = 128 against its own ceiling
+   of 185.
+4. **The tight rows**, 41 – 1 293. Nothing has ever been measured at three-digit populations, and
+   these are the rows where the gate leaves the least headroom. Measure at each floor.
+5. **The first row.** Confirm completeness at eleven nodes and below, and measure realised degree
+   and isolation at twelve, twenty, thirty and forty against the density curve above.
+
+**What the table does not carry.** The serving cap is not in it. The cap is the acceptor's own
+capacity commitment, so two nodes that size it differently do not disagree about which links are
+legal — one simply admits fewer. It follows the rule under
+[the serving cap](#the-serving-cap) instead, and its value depends on the adversarial identity
+count a deployment sizes against, which is not a property of a topic's population. The pick count
+is carried as a recommendation for the same reason: nothing checks a dialler's pick count, so
+getting it wrong costs the node coverage rather than interoperability.
 
 ### Registry schemas
 
