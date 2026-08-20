@@ -208,15 +208,18 @@ def fig_architecture() -> str:
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
 
-    def band(y, h, title):
+    def band(y, h, n, title):
+        # numbered, so the Specification's subsections can name which layer they are
         b.append(rect(38, y, W - 76, h, SURFACE, GRID, 1.2, rx=8))
-        b.append(text(58, y + 24, title, 12.5, INK, weight="600"))
+        b.append(circle(66, y + 19, 11, INK, INK, 0))
+        b.append(text(66, y + 23, str(n), 11.5, SURFACE, "middle", "700"))
+        b.append(text(84, y + 24, title, 12.5, INK, weight="600"))
 
     def box(x, y, w, h, head, stroke=RULE, head_fill=INK):
         b.append(rect(x, y, w, h, SURFACE, stroke, 1.4))
         b.append(text(x + w / 2, y + h / 2 + 4, head, 11.5, head_fill, "middle", "600"))
 
-    band(38, 96, "On the Cardano chain")
+    band(38, 96, 1, "On the Cardano chain")
     box(60, 80, 236, 38, "Node registry", verifiable)
     box(312, 80, 236, 38, "Topic registry", verifiable)
     box(564, 80, 236, 38, "Randomness beacon", verifiable)
@@ -226,7 +229,7 @@ def fig_architecture() -> str:
         b.append(arrow(x, 134, x, 170, RULE, 1.6))
         b.append(text(x + 10, 156, lab, 10, "#8a887e"))
 
-    band(178, 118, "In every node, from those inputs alone")
+    band(178, 118, 2, "In every node, from those inputs alone")
     stages = [(60, "Registered peers", verifiable), (254, "Verifiable gate", verifiable),
               (448, "Pick", private), (642, "Link set", INK_SOFT)]
     for x, head, col in stages:
@@ -242,7 +245,7 @@ def fig_architecture() -> str:
     b.append(arrow(430, 296, 430, 332, RULE, 1.6))
     b.append(text(440, 318, "one signed handshake per link", 10, "#8a887e"))
 
-    band(340, 116, "Over those links, until the epoch ends")
+    band(340, 116, 3, "Over those links, until the epoch ends")
     b.append(text(430, 390, "signed once by the publisher, verified by every recipient",
                   10, "#8a887e", "middle"))
     for x, lab in ((130, "publisher"), (320, "relay"), (540, "relay"), (770, "subscriber")):
@@ -258,7 +261,7 @@ def fig_architecture() -> str:
     b.append(text(430, 442, "any number of relays", 10.5, INK_SOFT, "middle"))
 
     return frame(W, H, b, "The protocol at a glance",
-                 "Three bands read downward. The Cardano chain holds a node registry, a "
+                 "Three numbered bands read downward. Band 1, the Cardano chain, holds a node registry, a "
                  "topic registry and a per-epoch randomness beacon, contributing "
                  "membership, publisher keys and the epoch randomness respectively. Every "
                  "node turns those public inputs into its registered peers on a topic, "

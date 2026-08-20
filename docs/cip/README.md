@@ -56,7 +56,7 @@ Two things Cardano already maintains are what make an answer possible. An on-cha
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
 
-This section specifies the protocol. It aims at an implementation written from this document alone, and it follows the order of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links. Parameters and versioning come last, once the mechanisms that read them have been stated.
+This section specifies the protocol. It aims at an implementation written from this document alone, and it is ordered by the three bands of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links. Parameters and versioning come last, once the mechanisms that read them have been stated.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
@@ -72,6 +72,16 @@ The chain is the protocol's trust root and carries none of its traffic. Two regi
 <em>Figure 1: the protocol at a glance</em>
 
 </div>
+
+The figure's three bands are the order of this section.
+
+| Band | What it holds | Specified in |
+| :--: | --- | --- |
+| **1** | What the chain supplies: the two registries, the parameter output, and the epoch's randomness | [Identity and keys](#identity-and-keys), [On-chain state](#on-chain-state), [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon) |
+| **2** | What every node computes from those inputs alone: eligible peers, the gate, its own private pick, the link set | [Canonical encoding](#canonical-encoding-and-domain-separation), [Topology derivation](#topology-derivation) |
+| **3** | What travels over the links once they stand | [Messages](#messages), [Dissemination, recovery and retention](#dissemination-recovery-and-retention) |
+
+The arrow between bands 2 and 3 is one signed handshake per link, which [Link establishment](#link-establishment) specifies.
 
 Three properties of that arrangement carry most of the design.
 
