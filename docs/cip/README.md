@@ -1309,6 +1309,76 @@ The criteria above fall into three groups and only the first blocks a specificat
 
 ## References
 
+Footnote markers throughout this document carry method notes on individual measurements.
+Rendered pages collect those at the foot of the page rather than here. This section lists the
+external work the proposal relies on, the related process documents, and where its own
+evidence and tooling live.
+
+### Prior art
+
+- Vyzovitis, Napora, McCormick, Dias and Psaras. *GossipSub: Attack-Resilient Message
+  Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754.
+  <https://arxiv.org/abs/2007.02754>
+- *gossipsub v1.1 — Security extensions to improve on attack resilience and bootstrapping.*
+  <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>
+- libp2p. <https://libp2p.io> — and its Kademlia DHT, the peer discovery layer in the usual
+  deployment: <https://github.com/libp2p/specs/tree/master/kad-dht>
+- Lewis-Pye, Neu, Roughgarden and Zanolini. *Accountable Liveness.* IACR ePrint 2025/693.
+  <https://eprint.iacr.org/2025/693>
+
+### External specifications this proposal builds on
+
+- RFC 2119 — the normative keywords. <https://www.rfc-editor.org/rfc/rfc2119>
+- RFC 8032 — EdDSA, of which Ed25519 is the instantiation used here.
+  <https://www.rfc-editor.org/rfc/rfc8032>
+- FIPS 180-4 — SHA-256.
+  <https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf>
+- RFC 7693 — BLAKE2b, truncated to 256 bits for topic identifiers.
+  <https://www.rfc-editor.org/rfc/rfc7693>
+- RFC 8610 — CDDL, the schema language the registry datums are written in.
+  <https://www.rfc-editor.org/rfc/rfc8610>
+- BIP-0173 — Bech32, used for the display form of a node identity.
+  <https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki>
+
+### Related CIPs and CPSs
+
+- The problem statement this proposal answers: [CPS](../cps/README.md), in this repository.
+- CIP-0001 — the CIP process, and the structure this document follows.
+- CIP-9999 — what a Cardano Problem Statement is.
+- CIP-0019 — Cardano addresses, whose credential form the registry datums reuse.
+
+### This proposal's evidence
+
+Every measurement is identified by a tool commit, a sweep configuration and a master seed.
+
+- Experiment write-ups, including the statistical conventions:
+  <https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/docs/experiments>
+- The per-configuration record the figures are generated from:
+  <https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json>
+- Sweep configurations:
+  <https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments>
+- The formal analysis, including the cost of an adaptive eclipse:
+  <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/hybrid_dissemination/models/m4/properties/adaptive_eclipse_cost.md>
+
+### Companion tools
+
+These evaluate the rules this document states, at points other than the ones it fixes.
+
+- The parameter surface — derives the bucket count, the admissions budget and the pick count
+  from a topic size, a failure target and a downtime rate, and shows which bound binds:
+  <https://pubsub.cardano-scaling.org/experiments/parameters/>
+- Design comparison — each design's coverage law, with the adversarial fraction, network size
+  and failure target as controls:
+  <https://pubsub.cardano-scaling.org/experiments/compare-designs/>
+- The dissemination simulator, steppable message by message:
+  <https://pubsub.cardano-scaling.org/experiments/models/#m4>
+
+### Open items tracked outside this document
+
+- The randomness beacon source: <https://github.com/input-output-hk/pubsub/issues/22>
+
+### Method notes
+
 [^accountable-liveness]: Andrew Lewis-Pye, Joachim Neu, Tim Roughgarden and Luca Zanolini. *Accountable Liveness.* IACR ePrint Archive, Report 2025/693. <https://eprint.iacr.org/2025/693>. Establishes accountability for liveness violations as a distinct problem from accountability for safety violations, and proves it unattainable both in networks that are more often asynchronous than synchronous and under an adversarial majority, neither restriction applying to safety accountability. Also formalises the guarantees underlying Ethereum's inactivity-leak mechanism.
 
 [^gossipsub]: Dimitris Vyzovitis, Yusef Napora, Dirk McCormick, David Dias and Yiannis Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>. The peer scoring and mesh hardening referred to here are specified in gossipsub v1.1, *Security extensions to improve on attack resilience and bootstrapping*: <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>.
