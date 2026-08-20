@@ -56,16 +56,9 @@ Two things Cardano already maintains are what make an answer possible. An on-cha
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
 
-This section specifies the protocol, and what it aims at is an interoperable implementation written from this document alone. It follows the shape of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links.
+This section specifies the protocol. It aims at an implementation written from this document alone, and it follows the order of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links. Parameters and versioning come last, once the mechanisms that read them have been stated.
 
-Four things are left to the deployment rather than fixed here, and each is stated where it arises rather than only in this list.
-
-- **Three components are given as interfaces rather than mechanisms.** The [randomness beacon](#epochs-and-the-randomness-beacon), [address resolution](#address-resolution) and the on-chain validators state the requirements they must meet, and a conforming deployment MAY satisfy each in more than one way.
-- **The transport is left to the deployment.** What is fixed here are the canonical byte strings every implementation must agree on, not the framing or session layer that carries them, subject to the rule that a peer's identity is taken from the signed preimage and never from the connection it arrived over.
-- **Most of the parameters in [Table 3](#table-3) carry a rule or a bound rather than a value**, so that a deployment supplies a number without reinterpreting a mechanism.
-- **Whether an identity is anchored to a credential that already carries a trust relationship** is posed in the [Open Questions](#open-questions); the requirements any such anchoring must meet are stated under [Identity and keys](#identity-and-keys).
-
-The [Versioning](#versioning) rules say how a change to any of these reaches a running deployment.
+Where this proposal leaves something to a deployment — a component it states requirements for rather than specifying, or a parameter it gives a rule for rather than a value — it says so in the subsection that defines the thing, so that a reader meets it alongside the mechanism it affects.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
@@ -449,7 +442,7 @@ Every handshake message is signed by the emitter's node identity key over
 
 $$\mathrm{LP}(\texttt{pubsub/link/v1}) \,\|\, \mathrm{LP}(id) \,\|\, \texttt{action} \,\|\, \mathrm{LP}(T) \,\|\, \texttt{kind} \,\|\, e$$
 
-where *id* is the emitter's identity key, `action` and `kind` are one byte each, *T* is the topic identifier and *e* is the eight-byte epoch index. The identity in the preimage, not the transport's notion of who sent the frame, is the identity the acceptor evaluates everything against.
+where *id* is the emitter's identity key, `action` and `kind` are one byte each, *T* is the topic identifier and *e* is the eight-byte epoch index. The identity in the preimage, not the transport's notion of who sent the frame, is the identity the acceptor evaluates everything against. This proposal does not specify a transport. What it fixes are the byte strings every implementation must agree on, not the framing or session layer that carries them, subject to the rule just stated: a peer's identity is taken from the signed preimage and never from the connection it arrived over.
 
 An acceptor evaluates a Request in this order, and the order is normative because it determines what a refusal reveals:
 
