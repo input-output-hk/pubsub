@@ -75,7 +75,7 @@ The chain is the protocol's trust root and carries none of its traffic. Two regi
 
 Three properties of that arrangement carry most of the design.
 
-**Derivation replaces discovery.** A node does not ask peers who its peers should be. It reads the [registry](#term-registry), applies a public predicate, and dials the result. There is no gossiped view of the network to poison, because there is no view: the peers a node may consider are the registry itself. This is what removes the attack surface the [CPS](../cps/README.md) identifies in discovery layers that admit freely created identities.
+**Derivation replaces discovery.** A node does not ask peers who its peers should be. It reads the [registry](#term-registry), applies a public predicate, and dials the result. There is no gossiped view of the network to poison, because there is no view: the peers a node may consider are the registry itself. This is what removes the attack surface the [CPS](../cps/README.md) identifies in discovery layers that admit freely created identities. Hardening such a layer instead was the design this proposal started from, and it was set aside: the hardened peer sampler was found to admit a targeted eclipse under an adversary that only withholds, which is the same adversary this proposal is analysed against.
 
 **The topology is checkable, not merely asserted.** Because the predicate is a function of public data, any participant can recompute which links a given node was permitted to hold in a given epoch and check the ones it actually holds. A node that dials outside its permitted set produces signed evidence of having done so.
 
@@ -1281,6 +1281,7 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 - [x] The gated closed forms are independently derived. The verifiable gate and the serving cap have closed forms, validated against measurement, recovering the ungated laws where the gate is made vacuous, and independently re-derived and reproduced number for number in review.[^synthesis] A derivation document in the formal analysis's style is the remaining write-up.
 - [x] Those parameters gain evidence covering both candidate designs. The directional measurements run M2's wiring and carry to M3 and M5; a further pass covers M4's symmetric handshake, which needs its own sizing rules rather than the directional ones.[^symgate]
 - [ ] The randomness beacon is specified. It sets the epoch floor and, through it, decides whether the churn ceiling binds at all.
+- [ ] The relationship to CIP-0137 is stated. Both proposals carry topic-based publish/subscribe on Cardano in the Network category. Whether they are alternatives, whether one can carry the other's traffic, and whether a deployment would run both, is not settled here and should be settled with that proposal's authors.
 - [ ] Node behaviour is specified at the seams the analysis does not reach: refused-dial retry within an epoch, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients.
 
 **Choices this proposal poses rather than answers**
@@ -1323,6 +1324,10 @@ evidence and tooling live.
   <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>
 - libp2p. <https://libp2p.io> — and its Kademlia DHT, the peer discovery layer in the usual
   deployment: <https://github.com/libp2p/specs/tree/master/kad-dht>
+- Antonov and Voulgaris. *SecureCyclon: Dependable Peer Sampling.* ICDCS 2023, pp. 1–12.
+  <https://doi.org/10.1109/ICDCS57875.2023.00041> — the hardened peer-sampling protocol this
+  design was originally built on top of, and the peer-reviewed state of the art for the layer
+  this proposal replaces.
 - Lewis-Pye, Neu, Roughgarden and Zanolini. *Accountable Liveness.* IACR ePrint 2025/693.
   <https://eprint.iacr.org/2025/693>
 
@@ -1340,12 +1345,26 @@ evidence and tooling live.
 - BIP-0173 — Bech32, used for the display form of a node identity.
   <https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki>
 
-### Related CIPs and CPSs
+### Related CIPs
 
-- The problem statement this proposal answers: [CPS](../cps/README.md), in this repository.
-- CIP-0001 — the CIP process, and the structure this document follows.
-- CIP-9999 — what a Cardano Problem Statement is.
+- CIP-0137, *Decentralized Message Queue*. <https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137> — a Network-category proposal for topic-based message
+  diffusion on Cardano, and the closest existing work in the ecosystem. Its participants are
+  stake pool operators authenticated by their operational certificates, so its Sybil resistance
+  comes from active stake; its overlay is built by the existing connection-churn machinery. It
+  states no delivery guarantee and no resistance to targeted censorship, which is the gap the
+  [CPS](../cps/README.md) is about. The two proposals overlap in purpose and differ in where
+  identity and topology come from; a full relationship statement is
+  [outstanding work](#acceptance-criteria).
 - CIP-0019 — Cardano addresses, whose credential form the registry datums reuse.
+- The problem statement this proposal answers: [CPS](../cps/README.md), in this repository.
+
+### This proposal's own prior work
+
+- *PubSub Technical Report 1: Three-Layer Stack Findings and a Path Forward* — the evaluation of
+  the inherited three-layer design this proposal replaces:
+  <https://github.com/input-output-hk/pubsub/blob/main/docs/technical-report-1.md>
+- The architecture building blocks and the staged design synthesis behind the current shape:
+  <https://github.com/input-output-hk/pubsub/tree/main/docs>
 
 ### This proposal's evidence
 
@@ -1359,6 +1378,10 @@ Every measurement is identified by a tool commit, a sweep configuration and a ma
   <https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments>
 - The formal analysis, including the cost of an adaptive eclipse:
   <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/hybrid_dissemination/models/m4/properties/adaptive_eclipse_cost.md>
+- The peer-sampling survey, and the analysis of SecureCyclon under a silent adversary that
+  motivated deriving the topology rather than sampling peers:
+  <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/related_work/related_peersampling.md>
+  and <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/peer_sampling/secure_cyclon/REPORT.md>
 
 ### Companion tools
 

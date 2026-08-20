@@ -48,7 +48,9 @@ Existing channels each provide some of these, none all three. An end-to-end encr
 
 Mature gossip protocols, of which GossipSub is the widely deployed example, are engineered against message-level attacks such as flooding and spam, and mitigate them with peer scoring and mesh hardening.[^gossipsub] Their resistance to *eclipse* — a victim whose every neighbour is adversarial, and whose view of the network is therefore controlled — rests on the peer discovery layer beneath, and in the common libp2p deployment that layer admits freely created identities.[^libp2p] An adversary willing to run many of them can influence which peers a target connects to, and neither peer scoring nor mesh hardening restores a guarantee lost at the point of neighbour selection.
 
-The missing ingredient is therefore not a better gossip mechanism. It is a peer set whose membership is costly to inflate and whose topology no participant can steer.
+Hardening the layer beneath has been tried, and it is the closest existing work to this problem. SecureCyclon is the Byzantine-hardened descendant of CYCLON, designed to keep peer sampling dependable under attack, and it carries nine separate defences.[^securecyclon] Analysis of it under the weakest adversary that still defeats delivery — one that stays rate-honest and well-formed, and varies only which peers it contacts, which descriptors it passes on, and what it withholds — found a reliable targeted eclipse of a chosen victim at a low adversarial share.[^cyclonreport] The defences cannot reach that behaviour, because none of them can prove what a peer chose to send or to withhold, and a peer that does not respond is indistinguishable from one that has churned.
+
+That result is what shapes this statement. The missing ingredient is not a better gossip mechanism, and not a better sampler either. It is a peer set whose membership is costly to inflate and whose topology no participant can steer — including no participant who is prepared to behave impeccably except for what it quietly declines to pass on.
 
 ### Why this is hard to solve on the chain it protects
 
@@ -119,16 +121,29 @@ A solution must provide the following. The first three are what the failure of e
 - Vyzovitis, Napora, McCormick, Dias and Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>
 - *gossipsub v1.1 — Security extensions to improve on attack resilience and bootstrapping.* <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>
 - libp2p. <https://libp2p.io> — and its Kademlia DHT, the peer discovery layer in the usual deployment: <https://github.com/libp2p/specs/tree/master/kad-dht>
+- Antonov and Voulgaris. *SecureCyclon: Dependable Peer Sampling.* 43rd IEEE International Conference on Distributed Computing Systems, ICDCS 2023, pp. 1–12. <https://doi.org/10.1109/ICDCS57875.2023.00041>
+- The peer-sampling survey this statement draws on, and the analysis of SecureCyclon under a silent adversary: <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/related_work/related_peersampling.md> and <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/peer_sampling/secure_cyclon/REPORT.md>
 
 ### Related documents
 
 - A proposed solution to this statement: [CIP](../cip/README.md), in this repository.
+- CIP-0137, *Decentralized Message Queue*. <https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137> — an existing Network-category proposal for
+  topic-based message diffusion on Cardano. It addresses part of this problem for stake pool
+  operators, authenticating participants by their operational certificates so that Sybil
+  resistance follows from active stake. It states no delivery guarantee and no resistance to
+  targeted censorship, which is what this statement asks a solution to supply.
 - The broader survey the four scenarios were drawn from: <https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md>
-- CIP-9999 — what a Cardano Problem Statement is, and how a solution links to one.
+- *PubSub Technical Report 1: Three-Layer Stack Findings and a Path Forward* — the evaluation
+  that led to this statement:
+  <https://github.com/input-output-hk/pubsub/blob/main/docs/technical-report-1.md>
 
 ### Method notes
 
 [^gossipsub]: Dimitris Vyzovitis, Yusef Napora, Dirk McCormick, David Dias and Yiannis Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>. The peer scoring and mesh hardening referred to here are specified in gossipsub v1.1, *Security extensions to improve on attack resilience and bootstrapping*: <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>.
+
+[^securecyclon]: Antonov and Voulgaris. *SecureCyclon: Dependable Peer Sampling.* 43rd IEEE International Conference on Distributed Computing Systems, ICDCS 2023, pp. 1–12. <https://doi.org/10.1109/ICDCS57875.2023.00041> The hardened descendant of CYCLON, and the peer-reviewed state of the art in Byzantine-resilient partial-view peer sampling.
+
+[^cyclonreport]: Silent attacks on SecureCyclon. The adversary is rate-honest and sends only well-formed, single-chain descriptors; it varies only which peer it contacts, which descriptors it forwards, and what it withholds. Four attack shapes were measured, of which three are targeted at a chosen victim. Method and results: <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/peer_sampling/secure_cyclon/REPORT.md>. This is the project's own analysis and has not been separately peer-reviewed.
 
 [^libp2p]: libp2p, the modular networking stack GossipSub is most widely deployed on. <https://libp2p.io>. Peer discovery in the usual deployment is its Kademlia DHT, in which a peer identity is a self-generated key pair rather than an entry in any registry: <https://github.com/libp2p/specs/tree/master/kad-dht>.
 
