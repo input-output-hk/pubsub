@@ -325,12 +325,17 @@ Narrowing has a cost, and it is paid in the randomness of the draw. If the gate 
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-*B* MUST satisfy three constraints at once, and SHOULD be the largest value satisfying all three: the [selection headroom](#term-r) *r* ≥ 2 for every link kind in use, the pool floor of the paragraph below, and the deployment's failure target *δ*, evaluated on the gated coverage law. Which of the three binds is a property of the pick count rather than a constant of the design. Where the pick count is large the headroom floor binds and a wider gate is very nearly free coverage-wise, which is the regime the directional measurements were taken in. At the pick counts the candidate designs use it is the failure target that binds, and by a wide margin: at *N*<sub>T</sub> = 20 000, *μ* = 0.2 and *δ* = 10⁻⁴ with *k* = 9, the target admits *B* up to about 730, the pool floor up to 847, and the headroom floor not until 1 111 — where the failure probability is 9.2 × 10⁻³, ninety-two times the target. **A rule reading only the headroom floor therefore selects a gate width that misses the target by two orders of magnitude.**[^synthesis] The [Rationale](#choosing-the-admission-parameters) measures all three edges.
+**The rule.** For each link kind, *B* MUST be the smallest of three bounds, and MUST be 1 — the gate off — where that smallest value is below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy.
 
-> [!TIP]
-> The rule an implementation applies, for each link kind, is the smallest of three bounds: *B*<sub>target</sub>, the largest *B* whose gated coverage law meets *δ*; *B*<sub>pool</sub> = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic; and *B*<sub>headroom</sub> = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋. If the smallest is below 2, set *B* = 1 and leave the gate off: the topic is too small to bucket, and gating it would cost coverage for resistance it cannot buy. Only the first requires evaluating the coverage law; the other two are arithmetic. The rule is applied live, over a topic-size axis, by the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/).
+- ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ*.
+- ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
+- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2.
 
-The rule has an upper boundary as well as a lower one, and past it the gate stops being a defence at all. The boundary is where the candidate pool stops being large enough to draw from. The probability that a node's pool is empty altogether is about e<sup>−(1−*μ*)(*N*<sub>T</sub>−1)/*B*</sup>, and it does not depend on the pick count, so no amount of fanout compensates for a pool that was never populated; requiring that term to stay under the failure target is what gives the **pool floor** *B*<sub>pool</sub> above. Narrowing past it leaves a candidate pool no larger than the pick count itself: a node takes everything eligible, and the gate has stopped dividing an attacker's pressure because there is nothing left to divide. The [serving cap](#the-serving-cap) inverts at the same boundary, since past it no value of *C* both binds and stays harmless — one loose enough to be safe protects nothing, and one tight enough to bind makes isolation measurably more likely. The headroom rule alone does **not** keep a deployment inside this boundary: at *k* = 9 and *N*<sub>T</sub> = 20 000 it permits *B* = 1 111 against a pool floor of 847, which is why the bound is stated normatively above rather than left implied.[^synthesis] The [Rationale](#choosing-the-admission-parameters) prices both edges.
+Only the first requires evaluating the coverage law; the other two are arithmetic. The [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies all three live over a topic-size axis, and marks where the curves stop being backed by measurement.
+
+Which bound binds is a property of the pick count rather than a constant of the design, and the difference is large. At *N*<sub>T</sub> = 20 000, *μ* = 0.2 and *δ* = 10⁻⁴ with *k* = 9, the failure target admits *B* up to about 730 and the pool floor up to 847 — but the headroom floor not until 1 111, where the failure probability is 9.2 × 10⁻³, ninety-two times the target. **A rule reading only the headroom floor misses the target by two orders of magnitude.**[^synthesis]
+
+Past the pool floor the gate stops being a defence rather than merely narrowing further. The probability that a node's pool is empty altogether is about e<sup>−(1−*μ*)(*N*<sub>T</sub>−1)/*B*</sup>, and it does not depend on the pick count, so no amount of fanout compensates for a pool that was never populated. Narrow past it and the pool is no larger than the pick count itself: a node takes everything eligible, and there is nothing left for the gate to divide. The [serving cap](#the-serving-cap) inverts at the same boundary — past it no value of *C* both binds and stays harmless. The [Rationale](#choosing-the-admission-parameters) prices both edges.
 
 *B* is therefore derived per topic and per epoch rather than configured, and every node MUST derive the same value, since the gate is recomputed by the acceptor and by any third party auditing a link. Its two kinds of input are read from different places. *N*<sub>T</sub> comes from the snapshot and is already common knowledge. The failure target *δ* and the adversarial fraction *μ* are not properties of a topic but of the deployment, and because the bounds above read both, they MUST be read from the [parameter output](#the-parameter-output) rather than configured per node. What values they should take is open, and is posed in the [Open Questions](#open-questions). A deployment MAY instead forgo the pick step and let the gate alone set a node's degree, sizing *B* so that the expected eligible count is *k*+1; the [Rationale](#choosing-the-admission-parameters) measures this variant at roughly six per cent more traffic and the same coverage.
 
@@ -359,7 +364,7 @@ Two consequences follow where an implementer meets them. A node's realised degre
 
 The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bounds admissions, a node's own picks are never charged against it, and so a node's degree on a topic cannot exceed *k* + *C* whatever order requests arrive in.
 
-**The pick count is derived rather than fixed here, and what it reads is honest downtime.** An honest node that is offline for an epoch is indistinguishable, to every other node, from a silent adversary — [Evidence](#evidence) sets out why — so downtime consumes the same budget adversarial behaviour does, and a pick count sized against the adversarial fraction alone under-provisions by exactly the downtime a deployment expects to see.
+**The pick count is derived rather than fixed here, and what it reads is honest downtime.** An offline honest node and a silent adversary are the same thing to the rest of the network, for the reason [the adversary](#the-adversary-this-proposal-defends-against) sets out, so a pick count sized against the adversarial fraction alone under-provisions by exactly the downtime a deployment expects.
 
 *k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are read from the [parameter output](#the-parameter-output).
 
@@ -379,7 +384,7 @@ The gate bounds who may dial a node; the [serving cap](#term-cap) bounds how man
 > [!IMPORTANT]
 > **The budget bounds only what a node did not choose.** A node's own picks can never be refused on account of it. That is the property a cap on total degree lacks: where a node's own links are counted against it, an adversary that floods early makes the node refuse peers it had itself selected, so arriving first buys a veto over honest selection. Counting admissions alone closes that channel, and a node MUST count an admission as it grants it — it MUST NOT recover the figure by counting its links at the end of the epoch, since a symmetric handshake erases which side initiated.
 >
-> Two consequences follow by construction, whatever order requests arrive in: a node's degree on a symmetric kind is at most *k* + *C* in an epoch, and a node never holds more than *C* links it did not choose. The budget is per epoch and is NOT restored when a link is severed, because the direction that would justify restoring it is precisely what the handshake erased.
+> The budget is per epoch and is NOT restored when a link is severed, because the direction that would justify restoring it is precisely what the handshake erased.
 
 *C* is sized against honest arrival rather than against the adversary, and reading it the other way round gets its direction backwards. Raising the budget hands an attacker more slots on each victim and nevertheless preserves delivery, because the damage a tight budget does is honest links refused for want of capacity, and those are far more numerous than the adversary's. The quantity to size against is the whole fresh load a node should expect to admit in an epoch, honest and adversarial together: *L* = (1 − *m*)·[*k*(1 − *μ*) + *A*/*B*], where *m* = min(1, *k*·*B*/(*N*<sub>T</sub> − 1)) is the share of a node's own picks that are answered as crossings rather than arriving as admissions, and *A* is the adversarial identity count the deployment sizes against. The adversary's arrivals consume budget whether the node wants them or not, so a cap clearing only the honest term *k*(1 − *m*)(1 − *μ*) is short by roughly half. ***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is itself a property of the pick count — about 2 where the pick count is large, and about 3.5 at the pick counts the candidate designs use. Sizing tighter than the rule is not the safe direction: a binding budget composes into the coverage law rather than sitting beside it, so the *C* axis is a one-sided cliff and not a trade-off.[^synthesis] The [Rationale](#choosing-the-admission-parameters) sets out the evidence and Figure 8 plots the reversal.
 
@@ -422,7 +427,7 @@ A failure at 1, 2, 3, 4 or 6 is dropped without reply. These are conditions an h
 A dialler that is rejected does not retry that peer within the epoch, and its realised degree may therefore fall short of *k*. Sizing the serving cap by the rule above is what keeps that outcome rare rather than routine, and the next epoch redraws regardless.
 
 > [!NOTE]
-> A [link](#term-link) is logical. It is identified by a peer, a topic and a link kind, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. The consequence for cost is worth carrying forward: the connection counts throughout the [Rationale](#what-a-node-pays-and-how-it-scales) are *link* counts, and are upper bounds on transport connections. As a node's subscriptions multiply, its transport connections tend towards the number of distinct peers rather than the number of links.
+> A [link](#term-link) is logical. It is identified by a peer, a topic and a link kind, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. Every count in this proposal is a count of links, which [What a node pays](#what-a-node-pays-and-how-it-scales) shows is an upper bound on transport connections.
 
 Nodes tear down every link at the end of an epoch and derive afresh. An implementation MAY overlap the two, holding the outgoing epoch's links while establishing the incoming epoch's, and this is RECOMMENDED for topics carrying time-critical traffic. It MUST NOT forward messages over links derived for an epoch that has ended.
 
@@ -480,19 +485,19 @@ Every parameter this Specification fixes or leaves open, with the value it takes
 <div align="center">
 <a name="table-3" id="table-3"></a>
 
-| Symbol | Controls | Value | Where argued |
+| Symbol | Controls | Value | Argued |
 | :--: | --- | --- | --- |
-| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Open.** Bounded below by the beacon interval and above by the churn budget | [How long an epoch may be](#how-long-an-epoch-may-be) |
-| n/a | The registration cutoff | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) |
-| *η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
-| *B* | How narrow the verifiable gate is | **Derived per topic:** the smallest of the failure-target, pool-floor and headroom bounds, or 1 where that is below 2 | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| *r* | Candidates the gate leaves per link opened | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| *k*, *K* | Links a node opens per kind, and in total per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [The dissemination design](#the-dissemination-design) |
-| *δ*, *μ*, *p* | The failure target, the adversarial fraction sized against, and the honest downtime rate | **Open.** Carried in the [parameter output](#the-parameter-output), since the gate, cap and pick-count rules all read them | [Open Questions](#open-questions) |
-| *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [What the protocol guarantees instead](#what-the-protocol-guarantees-instead) |
-| deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
-| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [The node registry](#the-node-registry) |
+| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Open.** Bounded below by the beacon interval and above by the churn budget | [→](#how-long-an-epoch-may-be) |
+| n/a | The registration cutoff | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [→](#lifecycle-and-the-registration-cutoff) |
+| *η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [→](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
+| *B* | How narrow the verifiable gate is | **Derived per topic:** the smallest of the failure-target, pool-floor and headroom bounds, or 1 where that is below 2 | [→](#choosing-the-admission-parameters) |
+| *r* | Candidates the gate leaves per link opened | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [→](#choosing-the-admission-parameters) |
+| *k*, *K* | Links a node opens per kind, and in total per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [→](#the-dissemination-design) |
+| *δ*, *μ*, *p* | The failure target, the adversarial fraction sized against, and the honest downtime rate | **Open.** Carried in the [parameter output](#the-parameter-output), since the gate, cap and pick-count rules all read them | [→](#open-questions) |
+| *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [→](#choosing-the-admission-parameters) |
+| retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [→](#what-the-protocol-guarantees-instead) |
+| deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [→](#open-questions) |
+| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [→](#the-node-registry) |
 
 <em>Table 3: the parameters this Specification fixes and leaves open</em>
 
@@ -820,6 +825,10 @@ Figure 6 places the two side by side. Solid marks are configurations whose failu
 </div>
 
 The gap is close to two orders of magnitude for four of the five designs, and more than three for M4 at RF = 9, whose proposed point sits an order of magnitude inside the target rather than just under it. The laws are expected to be accurate across it, because the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly; Figure 4 confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
+
+#### Backward compatibility
+
+There is nothing to be compatible with. This proposal defines a new layer that no existing Cardano component consumes, and it changes no ledger rule, no network protocol and no existing on-chain structure. A node runs alongside a Cardano node and reads from it; a Cardano node that knows nothing of this proposal is unaffected by its presence, and the registries it uses are ordinary script outputs. Nodes that do not register take no part in any topology and are not addressable by it. The compatibility questions that do arise are internal to the protocol and are governed by [Versioning](#versioning).
 
 ### Trade-offs and Limitations
 
@@ -1211,7 +1220,9 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 
 <!-- For core categories (Ledger, Plutus, Network, Consensus) the following SHOULD be included: -->
 
-- [ ] Implementation present within block producing nodes used by 80%+ of stake
+- [ ] Two interoperating implementations, and adoption by operators representing a substantial share of the stake-pool population.
+
+The criterion CIP-0001 suggests for core categories — implementation present within block producing nodes used by 80 % or more of stake — does not apply as written. A pub/sub node runs alongside a Cardano node and does not validate blocks, so the protocol is adopted by operators rather than shipped inside the block-producing node. The criterion above is the equivalent for a layer of that shape.
 
 ### Implementation Plan
 <!-- A plan to meet those criteria or `N/A` if an implementation plan is not applicable. -->
@@ -1379,6 +1390,14 @@ host_name = text .size (1..255)
 ipv4      = bytes .size 4
 ipv6      = bytes .size 16
 ```
+
+## Acknowledgements
+
+This proposal rests on work by the formal-methods and experiments teams on the Cardano
+pub/sub project, whose independent analysis and simulation produced the coverage laws and
+the measurements this document reports, and whose disagreements are the reason several of
+its claims are stated as narrowly as they are. The design questions it leaves open were
+sharpened in review by the authors listed above.
 
 ## Copyright
 <!-- The CIP must be explicitly licensed under acceptable copyright terms. Uncomment the license you wish to use (delete the other one) and ensure it matches the License field in the header.
