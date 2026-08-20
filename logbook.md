@@ -4,6 +4,24 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-08-20 — Brainstorm: M4 selected as the dissemination design, oversaturation for small topics, bucket count as a published parameter
+
+**M4 is the dissemination design.** The group selected M4 over M3 and M5, on the strength of its symmetric link structure and the structural advantages that follow from it. That confirms the direction the CIP draft already takes rather than changing it.
+
+**Small topics are answered with redundancy, not with tuning.** For topics on the order of ten participants the agreed approach is oversaturation — let the topology form a clique — rather than adjusting parameters dynamically for small networks, since the structure moves away from a clique of its own accord as a topic grows. Simulations are still needed to price this in connections per node, because a small topic pays proportionally more per node than a large one.
+
+**Bucket count as a published parameter — a direction, not yet a mechanism.** The bucket count B relates to network size and the nominal attacker budget, so it would need revising if a topic's population shrinks. Publishing it on chain, potentially per topic, was discussed as the route to updating it as network size fluctuates, with the specification staying high level about how that happens. The detail is unresolved and this is recorded as a direction under discussion rather than a settled mechanism.
+
+**The documentation is too dense to read comfortably.** The specification and rationale text as it stands was found hard going. Agreed direction: plain, clear, human-readable prose is the primary artefact, with dense data and detailed results kept separately for technical reference.
+
+**The CIP draft goes out for review.** A formal CIP draft is being prepared for team review and will be submitted as a pull request, with the group reviewing once it is available. Two follow-ups on the experiments side: remove a statistical bias in the reported experimental results, and circulate the probability computation. The identity documentation is to be reviewed for possible refactoring.
+
+**Decisions.** *Aligned:* M4 is the selected dissemination design; small topics are handled by redundancy and oversaturation rather than size-dependent parameter tuning; human-readable prose in plain English is the primary documentation artefact, with dense data held separately. *Needs further discussion:* whether the bucket count is published on chain, and per topic, with the specification staying high level about it.
+
+**Next.** Prepare the formal CIP draft and submit it as a pull request for team review; simulate the per-node connection cost of oversaturated small topics; remove the statistical bias from the reported experimental results and circulate the probability computation; review the identity documentation for possible refactoring. The group: review the CIP draft once available.
+
+---
+
 ## 2026-08-13 — Brainstorm: security-first weighting, canonical hash gating, and what a chain fork does to an epoch topology
 
 **The instrument and the laws now agree.** Will reported a week and a half of near-continuous simulation, including long overnight sweeps, and the outcome is that the closed-form laws and the simulation results line up closely once the residual noise and bias are removed. That removes the last standing doubt about whether the comparison figures are an artefact of the measurement rather than a property of the models.
