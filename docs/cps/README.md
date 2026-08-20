@@ -114,6 +114,20 @@ A solution must provide the following. The first three are what the failure of e
 
 ## References
 
+### Prior art
+
+- Vyzovitis, Napora, McCormick, Dias and Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>
+- *gossipsub v1.1 — Security extensions to improve on attack resilience and bootstrapping.* <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>
+- libp2p. <https://libp2p.io> — and its Kademlia DHT, the peer discovery layer in the usual deployment: <https://github.com/libp2p/specs/tree/master/kad-dht>
+
+### Related documents
+
+- A proposed solution to this statement: [CIP](../cip/README.md), in this repository.
+- The broader survey the four scenarios were drawn from: <https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md>
+- CIP-9999 — what a Cardano Problem Statement is, and how a solution links to one.
+
+### Method notes
+
 [^gossipsub]: Dimitris Vyzovitis, Yusef Napora, Dirk McCormick, David Dias and Yiannis Psaras. *GossipSub: Attack-Resilient Message Propagation in the Filecoin and ETH2.0 Networks.* arXiv:2007.02754. <https://arxiv.org/abs/2007.02754>. The peer scoring and mesh hardening referred to here are specified in gossipsub v1.1, *Security extensions to improve on attack resilience and bootstrapping*: <https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md>.
 
 [^libp2p]: libp2p, the modular networking stack GossipSub is most widely deployed on. <https://libp2p.io>. Peer discovery in the usual deployment is its Kademlia DHT, in which a peer identity is a self-generated key pair rather than an entry in any registry: <https://github.com/libp2p/specs/tree/master/kad-dht>.
