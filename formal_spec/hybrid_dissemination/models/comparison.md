@@ -155,15 +155,19 @@ freeze the operating points and sweep the effective adversarial
 fraction upward. The values are read from the law, and MC runs
 validate them at elevated μ. The table reports the **budget** (the
 largest μ_eff that keeps P(bad) ≤ 10⁻⁴, with churn reading
-p_max = Δμ/(1−μ)) and the **collapse point** (P(bad) = ½):
+p_max = Δμ/(1−μ)) and the **collapse point** (P(bad) = ½). A larger
+value is better in all three data columns. The rows are sorted from
+the best to the worst budget, and bold marks the best value in each
+column. **M4 wins this section on the budget**, and M1/M2 win the
+collapse point. M3, the bandwidth winner of §2, sits at the bar:
 
 | model | parameters | budget μ_eff (Δμ) | churn p_max | collapse μ_eff |
 |---|---|---|---|---|
-| M4 | RF = 9 | 0.259 (+0.059) | ~7.4 % | 0.55 |
+| **M4** | RF = 9 | **0.259 (+0.059)** | **~7.4 %** | 0.55 |
 | M1 | F = 25 | 0.247 (+0.047) | ~5.9 % | **0.62** |
 | M2 | RF = 25 | 0.247 (+0.047) | ~5.8 % | **0.62** |
 | M5 | (9, 8) | 0.217 (+0.017) | ~2.2 % | 0.49 |
-| **M3** | (13, 7) | 0.217 (+0.017) | ~2.2 % | 0.47 |
+| M3 | (13, 7) | 0.217 (+0.017) | ~2.2 % | 0.47 |
 
 **Every selected point clears p_max ≥ 2 % by construction.** The
 spread above the bar is itself informative: M4 holds ~3.7× the
@@ -323,13 +327,23 @@ here: at branching factors of ~10–20, the depth-2 shell is much larger
 than the depth-1 shell. Thus Menger's disjoint-path count saturates at
 the degree.
 
+How to read the table: each value is a number of corruptions, and a
+larger value is better for the network. The deafen and mute columns
+give the mean cost of each attack. Column A gives the cost to strand
+one chosen victim. Column B gives the minimum cost across all 16 000
+honest nodes, for an adversary that accepts any victim. Bold marks the
+extremes of each threat column, in both directions: the most resistant
+models (M1/M2, at 20.0 and 5.0) and the cheapest targets (M3 at 10.4
+on threat A, M5 at 3.7 on threat B). **M1 and M2 win this section on
+both threats:**
+
 | model | parameters | deafen | mute | **A: chosen victim** | **B: any victim** | B via |
 |---|---|---|---|---|---|---|
-| **M3** | (13, 7) | 10.4 | 15.2 | **10.4** | 3.8 | deafen |
+| M3 | (13, 7) | 10.4 | 15.2 | 10.4 | 3.8 | deafen |
 | M4 | RF = 9 | 14.4 | 14.4 | 14.4 | 4.5 | either |
-| M5 | (9, 8) | 13.6 | 13.6 | 13.6 | **3.7** | joint |
-| M1 | F = 25 | 20.0 | 20.0 | **20.0** | 5.0 | deafen |
-| M2 | RF = 25 | 20.0 | 20.0 | **20.0** | 5.0 | mute |
+| M5 | (9, 8) | 13.6 | 13.6 | 13.6 | 3.7 | joint |
+| M1 | F = 25 | 20.0 | 20.0 | **20.0** | **5.0** | deafen |
+| M2 | RF = 25 | 20.0 | 20.0 | **20.0** | **5.0** | mute |
 
 **The two threat models rank the family differently, and the gap is
 2.7–4×.** A *chosen* victim pays its own draw. Thus M3 is the cheapest
@@ -413,15 +427,25 @@ largest p_fail that each model absorbs and keeps ε_msg ≤ δ: without
 repair, and with one retry per link. It also gives the law read at a
 realistic 1 % loss. The churn-identity column repeats §4's p_max. The
 μ_eff identity makes that value each model's *per-epoch* loss
-tolerance — the baseline that the per-message reading relaxes:
+tolerance — the baseline that the per-message reading relaxes.
+
+How to read the table: in the churn-identity, per-message, and
+with-1-retry columns, a larger value is better (the model absorbs more
+loss). In the ε_msg column, a smaller value is better (fewer message
+failures). The rows are sorted from the best to the worst per-message
+tolerance, and bold marks the best value in each column. **M2 wins
+this section**: it is best per message, best with one retry, and best
+in ε_msg. M4 is best in the per-epoch churn identity. M3, the
+bandwidth winner of §2, is the weakest model here, but every model
+clears the realistic 1 % bar:
 
 | model | params | churn identity (§4) | per-message | with 1 retry | ε_msg at 1 % loss |
 |---|---|---|---|---|---|
-| M2 | RF = 25 | ~5.8 % | **33.7 %** | 58 % | **2.5×10⁻⁹** |
-| M4 | RF = 9 | ~7.4 % | 7.2 % | 26.9 % | 9.3×10⁻⁶ |
+| **M2** | RF = 25 | ~5.8 % | **33.7 %** | **58 %** | **2.5×10⁻⁹** |
+| M4 | RF = 9 | **~7.4 %** | 7.2 % | 26.9 % | 9.3×10⁻⁶ |
 | M1 | F = 25 | ~5.9 % | 5.6 % | 23.7 % | 4.0×10⁻⁵ |
 | M5 | (9, 8) | ~2.2 % | 5.1 % | 22.6 % | 2.1×10⁻⁵ |
-| **M3** | (13, 7) | ~2.2 % | 4.25 % | 20.6 % | 2.2×10⁻⁵ |
+| M3 | (13, 7) | ~2.2 % | 4.25 % | 20.6 % | 2.2×10⁻⁵ |
 
 **Every model clears WAN-realistic loss without repair.** At 1 % iid
 loss, the worst ε_msg in the family is M1's 4.0×10⁻⁵, 2.5× under δ.
