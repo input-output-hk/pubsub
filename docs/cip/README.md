@@ -44,65 +44,11 @@ We propose a decentralised topic-based publish/subscribe protocol anchored on Ca
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
 
-### The gap
+The problem this proposal answers is stated in the accompanying [Cardano Problem Statement](../cps/README.md): Cardano has no standard way to deliver a message that must be trustworthy but does not belong in a transaction, and the channels carrying that traffic today sit outside the ecosystem's trust model. Substituting an unanchored peer-to-peer protocol does not close the gap, because resistance to eclipse rests on a discovery layer that admits freely created identities. The CPS sets out the gap, the four motivating scenarios, the stakeholders, and what any solution has to provide.
 
-Cardano does not run itself. Behind the protocol sits a network of people and services that must hear from one another for the system to function: stake pool operators must learn of a critical vulnerability before it is exploited, delegators that their pool is retiring, voters that a governance action is open while there is still time to act on it. The chain's security and governance models quietly presume this communication happens: incident response assumes operators can be reached, accountability assumes constituents hear from their representatives.
+Two things Cardano already maintains are what make an answer possible. An on-chain registry with an associated cost is a Sybil-resisted membership list. Its per-epoch randomness is verifiable as well as unpredictable. A dissemination layer anchored on both can offer what neither a centralised broker nor an unanchored gossip mesh can: a peer set costly to inflate, and a topology no participant can steer.
 
-Yet Cardano has no standard way to deliver a [message](#term-message) that must be trustworthy but does not belong in a transaction. The chain settles state; it is not a medium for the operational and time-sensitive traffic around that state. Today that traffic runs on infrastructure outside the ecosystem's trust model: mailing lists, Discord and Telegram channels, vendor push services, each provider's own backend.
-
-Traffic of this kind needs three of the four classic communication-security properties:
-
-- **Authenticity.** The recipient can verify who sent a message.
-- **Integrity.** It arrived as written.
-- **Availability.** It reaches everyone it should, when it should.
-
-Confidentiality, the fourth, is not required here: these messages are broadcasts, meant to be read.
-
-Existing channels each provide some of these properties, none all three. An end-to-end encrypted messenger preserves integrity and confidentiality, but its notion of identity has no connection to Cardano's: an operator receiving an urgent notice cannot verify that it came from the protocol team it appears to come from, that it is the current version, or that other operators received it too. Availability fares worse, because each channel is a single privately run service: messages can be dropped, delayed, or delivered selectively, through outage, compromise, or policy, and the recipient cannot tell which. The chain beneath is Byzantine-fault-tolerant; the channel used to coordinate around it is not, and the weaker layer sets the effective guarantee.
-
-### Why existing peer-to-peer messaging does not close it
-
-Substituting a peer-to-peer protocol for the centralised channel removes the operator but does not, on its own, supply the missing guarantee.
-
-Mature gossip protocols, of which GossipSub is the widely deployed example, are engineered against message-level attacks such as flooding and spam, and mitigate them with peer scoring and mesh hardening.[^gossipsub] Their resistance to *eclipse* — a victim whose every neighbour is adversarial, and whose view of the network is therefore controlled — rests on the peer discovery layer beneath, and in the common libp2p deployment that layer admits freely created identities.[^libp2p] An adversary willing to run many of them can influence which peers a target connects to, and neither peer scoring nor mesh hardening restores a guarantee lost at the point of neighbour selection.
-
-The missing ingredient is therefore not a better gossip mechanism. It is a peer set whose membership is costly to inflate and whose topology no participant can steer. Cardano maintains both already: an on-chain [registry](#term-registry) with an associated cost is exactly a Sybil-resisted membership list, and its per-epoch randomness is verifiable as well as unpredictable. A dissemination layer anchored on both can offer what neither a centralised broker nor an unanchored gossip mesh can.
-
-### Use cases and stakeholders
-
-Four scenarios have driven the design so far, drawn from a [broader survey of candidate use cases](https://github.com/input-output-hk/pubsub/blob/main/docs/actor-use-case-analysis.md). Each is given with the counts that shape the protocol and with what it asks of the design.
-
-<div align="center">
-<a name="table-1" id="table-1"></a>
-
-| Scenario | Publishers | Direct participants | What it asks of the design |
-| --- | --- | --- | --- |
-| Protocol teams → stake pool operators: emergency alerts | ~10 | ~3,000 SPO nodes, always-on | The strongest delivery guarantee |
-| Stake pools → delegators: announcements | Hundreds | Wallet backends, mediated | Best-effort only |
-| Governance bodies and dReps → community: proposals, voting alerts, voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Delivery inside a voting deadline |
-| dApps → users: position and protocol alerts | Tens | Wallet backends, mediated | Delivery targeted by address |
-
-<em>Table 1: the four motivating scenarios</em>
-
-</div>
-
-The design is tuned to the rows where a missed message carries a cost — operational for an unheeded vulnerability alert, financial for a dApp position alert — and the first of them also sets the scale it is evaluated at. The mediated rows are less demanding but smaller, and the Rationale is explicit that its evidence does not reach topics of tens of nodes. Two further things follow from the table.
-
-First, **the audience is large but the participant set is not.** Recipients in the hundreds of thousands are reached through wallet infrastructure providers, of which there are on the order of ten. The [nodes](#term-node) that must disseminate are the always-on operators — stake pools, wallet backends, dApp and governance infrastructure — in the low thousands today and dominated by the roughly three thousand stake pools. The Rationale evaluates at four thousand nodes to match that and twenty thousand as headroom, a scale at which a topology bounded in connections per node, and derivable in full by every participant, is tractable rather than aspirational.
-
-Second, **the participants are already registered on-chain, or can be.** Stake pool operators are registered by construction, which makes an on-chain trust root a natural fit rather than an imposition: the registry substantially exists, and the identities in it are already backed by a cost.
-
-### What a solution has to provide
-
-Together with the failure mode above, these scenarios imply requirements that rule out both incumbent options:
-
-- **Authenticity and integrity.** A recipient must be able to verify that a message originated with the claimed publisher and reached them as written, without trusting the path it arrived over. A signature that verifies establishes both, so integrity needs no separate mechanism.
-- **Censorship resistance.** Availability restated against an adversary that chooses its target: suppressing a message must require luck rather than choice. Isolation cannot be prevented in every draw: a subscriber whose every peer happens to be adversarial receives nothing, however small the adversarial fraction. The requirement is therefore that such isolation be rare, that it end when the topology is next drawn, and that it not be repeatable at will. The Rationale quantifies the first two.
-- **Non-influenceable neighbour selection.** Which peers a node disseminates with must be set by the protocol, not negotiated between participants, and no participant may steer that choice: not by registering additional identities, not by timing its own registration, not by influencing the randomness it derives from. This is what a discovery layer with freely created identities fails to provide, and what makes the requirement above achievable at all.
-- **Bounded cost per node.** No node may have to hold connections, or carry traffic, in proportion to the size of the network — the Rationale measures these as *[links](#term-link) per node* and *deliveries per node*. Both must stay bounded as the network grows, or only well-resourced operators will participate and the centralisation returns informally.
-- **Openness to arbitrary payloads.** The scenarios differ widely in content and cadence. The protocol carries topics, and does not interpret what those topics transport.
-
-The Specification that follows defines a protocol meeting these requirements: on-chain registration for the peer set, per-epoch verifiable randomness for the topology drawn over it, and topics as the unit of subscription. The Rationale then examines where the guarantees stop.
+**Which scenario this proposal is sized for.** The CPS scenarios differ by two orders of magnitude in how many nodes sit directly on a topic, and this proposal is designed and evaluated against the largest: emergency alerts from protocol teams to the roughly three thousand always-on stake pool nodes, which is also the scenario with the strongest delivery requirement. The Rationale evaluates at four thousand nodes to match today's stake-pool population and twenty thousand as headroom above it. The other three scenarios reach their audience through wallet backends, so the nodes directly on such a topic may number in the tens. The same rules serve them — the gate narrows with a topic's size and switches off where a topic is too small to bucket — but **nothing in this proposal is measured at that scale**, and [Limits of this evidence](#limits-of-this-evidence) states what that does and does not establish. A reader weighing the mediated scenarios should read it before the comparison.
 
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
@@ -131,7 +77,7 @@ Four things are left to the deployment rather than fixed here, and each is state
 
 - **Three components are given as interfaces rather than mechanisms.** The [randomness beacon](#epochs-and-the-randomness-beacon), [address resolution](#address-resolution) and the on-chain validators state the requirements they must meet, and a conforming deployment MAY satisfy each in more than one way.
 - **The transport is left to the deployment.** What is fixed here are the canonical byte strings every implementation must agree on, not the framing or session layer that carries them, subject to the rule that a peer's identity is taken from the signed preimage and never from the connection it arrived over.
-- **Seven of the eleven parameters in [Table 4](#table-4) carry a rule or a bound rather than a value**, so that a deployment supplies a number without reinterpreting a mechanism.
+- **Seven of the eleven parameters in [Table 3](#table-3) carry a rule or a bound rather than a value**, so that a deployment supplies a number without reinterpreting a mechanism.
 - **Whether an identity is anchored to a credential that already carries a trust relationship** is posed in the [Open Questions](#open-questions); the requirements any such anchoring must meet are stated under [Identity and keys](#identity-and-keys).
 
 The [Versioning](#versioning) rules say how a change to any of these reaches a running deployment.
@@ -140,10 +86,10 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted a
 
 ### Terminology
 
-Several words below carry an established Cardano meaning that is *not* the meaning used here, and a reader who imports the familiar one will misread the design rather than merely miss a nuance. The table fixes the protocol's vocabulary, and names the colliding term where one exists; the right-hand column is empty for the entries that are simply defined here and collide with nothing. The quantities used to *measure* a design, rather than to configure one, are defined separately in [Table 6](#table-6).
+Several words below carry an established Cardano meaning that is *not* the meaning used here, and a reader who imports the familiar one will misread the design rather than merely miss a nuance. The table fixes the protocol's vocabulary, and names the colliding term where one exists; the right-hand column is empty for the entries that are simply defined here and collide with nothing. The quantities used to *measure* a design, rather than to configure one, are defined separately in [Table 5](#table-5).
 
 <div align="center">
-<a name="table-2" id="table-2"></a>
+<a name="table-1" id="table-1"></a>
 
 | Term | In this proposal | Not to be confused with |
 | --- | --- | --- |
@@ -161,7 +107,7 @@ Several words below carry an established Cardano meaning that is *not* the meani
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | How many peers the gate leaves a node eligible to link to, per link it must open. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
 | <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic for one link kind that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
 
-<em>Table 2: the protocol's vocabulary, and where it collides with an established term</em>
+<em>Table 1: the protocol's vocabulary, and where it collides with an established term</em>
 
 </div>
 
@@ -180,7 +126,7 @@ The chain is the protocol's trust root and carries none of its traffic. Two regi
 
 Three properties of that arrangement carry most of the design.
 
-**Derivation replaces discovery.** A node does not ask peers who its peers should be. It reads the [registry](#term-registry), applies a public predicate, and dials the result. There is no gossiped view of the network to poison, because there is no view: the peers a node may consider are the registry itself. This is what removes the attack surface the [Motivation](#motivation-why-is-this-cip-necessary) identified in discovery layers that admit freely created identities.
+**Derivation replaces discovery.** A node does not ask peers who its peers should be. It reads the [registry](#term-registry), applies a public predicate, and dials the result. There is no gossiped view of the network to poison, because there is no view: the peers a node may consider are the registry itself. This is what removes the attack surface the [CPS](../cps/README.md) identifies in discovery layers that admit freely created identities.
 
 **The topology is checkable, not merely asserted.** Because the predicate is a function of public data, any participant can recompute which links a given node was permitted to hold in a given epoch and check the ones it actually holds. A node that dials outside its permitted set produces signed evidence of having done so.
 
@@ -260,7 +206,7 @@ The gate is evaluated on the **ordered** pair for a directional link and on the 
 The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 > [!TIP]
-> **The quantity the gate really changes is the price of *targeting*.** Ungated, one registered identity buys a hostile link beside whichever node the attacker names, so the price of one hostile edge on a chosen victim is one deposit. Gated, that identity is admissible to a *chosen* victim only with probability 1/*B*, so the same edge costs about *B* deposits in expectation — five hundred at the bucket count this proposal specifies — and the [serving cap](#the-serving-cap) ends the auction at *C* admitted edges however large the budget. Broad flooding is diluted; aimed attacks are repriced. The second is the one the [Motivation](#motivation-why-is-this-cip-necessary) is about.
+> **The quantity the gate really changes is the price of *targeting*.** Ungated, one registered identity buys a hostile link beside whichever node the attacker names, so the price of one hostile edge on a chosen victim is one deposit. Gated, that identity is admissible to a *chosen* victim only with probability 1/*B*, so the same edge costs about *B* deposits in expectation — five hundred at the bucket count this proposal specifies — and the [serving cap](#the-serving-cap) ends the auction at *C* admitted edges however large the budget. Broad flooding is diluted; aimed attacks are repriced. The second is the one the [CPS](../cps/README.md) is about.
 
 #### Selection headroom and the bucket count
 
@@ -290,13 +236,13 @@ Everything above is stated for a link kind with a pick count. This subsection fi
 Three consequences are worth stating where an implementer meets them. Because a link is symmetric, a node's realised degree on a topic is its pick count plus the admissions it granted, bounded by *k* + *C* exactly. Because there is no seeding kind, a publisher reaches the network through the same links a subscriber does, so there is one gate, one serving cap and one sizing rule per topic rather than two of each. And because a pair draws one gate value rather than two, a single registered identity is admissible to (*N*<sub>T</sub> − 1)/*B* peers rather than twice that — which is the quantity an attacker pays for, and the [Rationale](#why-the-symmetric-design) shows is what decides the comparison.
 
 <div align="center">
-<a name="table-3" id="table-3"></a>
+<a name="table-2" id="table-2"></a>
 
 | Link kind | Direction | Picks per node, *RF* | Links per node, mean / ceiling |
 | :--: | :--: | ---: | ---: |
 | relay | symmetric | 10 | 17.5 / 33 |
 
-<em>Table 3: the dissemination design, at the reference shape of this proposal</em>
+<em>Table 2: the dissemination design, at the reference shape of this proposal</em>
 
 </div>
 
@@ -342,10 +288,10 @@ Because the gate divides an attacker's identities across *B* buckets before any 
 
 ### Parameters
 
-Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The quantities used to *measure* a design rather than to configure one, including the failure target *δ* and the adversarial fraction *μ*, are defined in [Table 6](#table-6) and are not repeated here.
+Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The quantities used to *measure* a design rather than to configure one, including the failure target *δ* and the adversarial fraction *μ*, are defined in [Table 5](#table-5) and are not repeated here.
 
 <div align="center">
-<a name="table-4" id="table-4"></a>
+<a name="table-3" id="table-3"></a>
 
 | Symbol | Controls | Value | Where argued |
 | :--: | --- | --- | --- |
@@ -361,7 +307,7 @@ Every parameter this Specification fixes or leaves open, with the value it takes
 | deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
 | withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [The node registry](#the-node-registry) |
 
-<em>Table 4: the parameters this Specification fixes and leaves open</em>
+<em>Table 3: the parameters this Specification fixes and leaves open</em>
 
 </div>
 
@@ -706,7 +652,7 @@ The [Rationale](#rationale-how-does-this-cip-achieve-its-goals) that follows is 
 It must also explain how the proposal affects the backward compatibility of existing solutions when applicable. If the proposal responds to a CPS, the 'Rationale' section should explain how it addresses the CPS, and answer any questions that the CPS poses for potential solutions.
 -->
 
-The [Motivation](#motivation-why-is-this-cip-necessary) set out five requirements, and the [Specification](#specification) defines a protocol claiming to meet them. Two of them are structural and are met by construction rather than by measurement: **authenticity**, which follows from publisher signatures verifiable against the on-chain [registry](#term-registry), and **payload-agnostic topics**, which is a matter of the protocol declining to interpret what it carries. A third, **non-influenceable neighbour selection**, rests on the randomness source and the registration cutoff, and is treated under the guarantees below rather than measured.
+The [CPS](../cps/README.md) set out five goals, and the [Specification](#specification) defines a protocol claiming to meet them. Two of them are structural and are met by construction rather than by measurement: **authenticity**, which follows from publisher signatures verifiable against the on-chain [registry](#term-registry), and **payload-agnostic topics**, which is a matter of the protocol declining to interpret what it carries. A third, **non-influenceable neighbour selection**, rests on the randomness source and the registration cutoff, and is treated under the guarantees below rather than measured.
 
 The remaining two are quantitative, and are what the evidence in this section is for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is; rarity is the failure probability measured throughout, brevity is bounded by the [epoch](#term-epoch), and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network; both are measured, and what a node actually pays is set out under the trade-offs.
 
@@ -765,7 +711,7 @@ Two of them are design inputs rather than outcomes: *μ*, the fraction of nodes 
 Every figure and table in this section is one slice of a parameter space, and four constants fix which slice. They are collected here because a reader comparing two figures needs to know whether they were measured at the same point, and each figure repeats the ones it depends on so that it can be read on its own.
 
 <div align="center">
-<a name="table-5" id="table-5"></a>
+<a name="table-4" id="table-4"></a>
 
 | Constant | Value | What it is | Where it comes from |
 | :--: | :--: | --- | --- |
@@ -774,7 +720,7 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | *δ* | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
 | *k* | varies by design | Peers a node picks per topic per link kind, written *RF* for relay links | The knob each design is tuned by; the comparison holds *δ* fixed and lets *k* differ |
 
-<em>Table 5: the constants every figure in this section is measured at</em>
+<em>Table 4: the constants every figure in this section is measured at</em>
 
 </div>
 
@@ -784,7 +730,7 @@ Every figure and table in this section is one slice of a parameter space, and fo
 > A reader who wants the values under their own assumptions can have them. Every design's coverage law is [available interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/), with *μ*, *N* and *δ* as controls, so the comparison below can be re-derived at any point in that space rather than only at the one this section fixes. The admission parameters have [their own tool](https://pubsub.cardano-scaling.org/experiments/parameters/), which applies the rules of this section rather than evaluating a fixed configuration: it derives the bucket count, the admissions budget and the pick count from a topic size, a target and a downtime rate, and shows which of the bounds is the one binding at that point. The laws are what the tool evaluates, and [Figure 4](#figure-4) is the evidence that they predict what the reference implementation actually does.
 
 <div align="center">
-<a name="table-6" id="table-6"></a>
+<a name="table-5" id="table-5"></a>
 
 | Category | Metric | Measurement |
 | :--: | --- | --- |
@@ -799,7 +745,7 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
 | | Adversary's identities, *A* | How many registered identities one adversary holds, as distinct from the share *μ* of the population they amount to. The gate leaves *A*/*B* of them eligible for any chosen victim |
 
-<em>Table 6: performance metrics</em>
+<em>Table 5: performance metrics</em>
 
 </div>
 
@@ -824,7 +770,7 @@ Five dissemination designs were analysed against the metrics above. They were no
 The choices are: whether a node *pushes* messages to peers it selected, or *pulls* from peers it selected, which determines the failure a node can suffer, being unable to receive or being unable to be heard; whether a link carries traffic in one direction or both; and whether a node has a dedicated way to seed its own publications separate from the links it relays over. Each design's tuning parameter is the number of peers a node selects, which is the knob that trades cost against *p*<sub>bad</sub>. That count is the [pick count](#term-pick-count), written *RF* below for its relay-link case. Where a design has a second link kind for a node's own publications, the peers picked that way are counted separately: *s* − 1 of them under M3, whose *s* counts the intended initial holders rather than the links opened, and *F* under M1.
 
 <div align="center">
-<a name="table-7" id="table-7"></a>
+<a name="table-6" id="table-6"></a>
 
 | Design | Mechanism | Tuning parameters |
 | :--: | --- | --- |
@@ -834,7 +780,7 @@ The choices are: whether a node *pushes* messages to peers it selected, or *pull
 | M4 | Each node draws *RF* peers; links are bidirectional and flood | *RF* |
 | M5 | Directed: each node opens *k*<sub>in</sub> inbound and *k*<sub>out</sub> outbound links | *k*<sub>in</sub>, *k*<sub>out</sub> |
 
-<em>Table 7: the dissemination designs evaluated</em>
+<em>Table 6: the dissemination designs evaluated</em>
 
 </div>
 
@@ -889,7 +835,7 @@ Every design below is shown at the configuration this proposal names for it, at 
 > **The rows are therefore not equally safe, and the first column says by how much.** M4 at RF = 9 sits an order of magnitude inside the target where M2 sits just under it. This is a comparison of the configurations on offer, not a like-for-like reading at a common failure rate: a design that is both cheaper and safer than another has genuinely won, but a cost difference between two rows at different *p*<sub>bad</sub> is not by itself a verdict.
 
 <div align="center">
-<a name="table-8" id="table-8"></a>
+<a name="table-7" id="table-7"></a>
 
 | Design | Parameters | *p*<sub>bad</sub> | Messages per publication | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Hops (mean) |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -899,7 +845,7 @@ Every design below is shown at the configuration this proposal names for it, at 
 | M1 | *F* = 24 | 7.3 × 10⁻⁵ | 307,201 | 19.2 | 48.0 | 75 | 5.0 | 3.6 |
 | M2 | RF = 24 | 7.3 × 10⁻⁵ | 307,162 | 19.2 | 48.0 | 75 | **4.8** | **3.6** |
 
-<em>Table 8: cost at each design's proposed configuration</em>
+<em>Table 7: cost at each design's proposed configuration</em>
 
 </div>
 
@@ -937,7 +883,7 @@ Those cells were chosen for measurability rather than for realism, so the operat
 The resulting budgets span more than a factor of four:
 
 <div align="center">
-<a name="table-9" id="table-9"></a>
+<a name="table-8" id="table-8"></a>
 
 | Design | Proposed configuration | Downtime absorbed |
 | :--: | --- | ---: |
@@ -947,7 +893,7 @@ The resulting budgets span more than a factor of four:
 | M1 | *F* = 24 | 1.76 % |
 | M2 | RF = 24 | 1.70 % |
 
-<em>Table 9: churn budget at each design's proposed configuration</em>
+<em>Table 8: churn budget at each design's proposed configuration</em>
 
 </div>
 
@@ -955,19 +901,19 @@ At the *published* operating points this column read as almost the reverse of th
 
 The same figures can be read as security rather than resilience. Because an offline honest node and a silent adversary are indistinguishable, a budget for downtime is equally a margin above the assumed adversarial fraction: against the 0.2 assumed, M3 at (13, 7) still meets the target at *μ* = 0.217 and M4 at RF = 9 at *μ* = 0.259. Downtime tolerance and adversary tolerance are one quantity here, not two. The mechanism behind M3's narrower margin is structural rather than incidental: it reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
 
-This does not overturn Table 8, but it does mean **cost alone does not select a design**. Which matters more, traffic or held connections or tolerance of an unreliable population, is a deployment question, and it is posed as an open question below.
+This does not overturn Table 7, but it does mean **cost alone does not select a design**. Which matters more, traffic or held connections or tolerance of an unreliable population, is a deployment question, and it is posed as an open question below.
 
 **Where M3's proposed split comes from.** The budget of 19 can be divided between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. The pair is written (*RF*, *s*), and *s* counts the intended initial holders of a publication rather than the links opened, so the seeding links are *s* − 1 and the budget is *RF* + (*s* − 1): 12 + 7 and 13 + 6 both come to 19. The split (RF = 13, *s* = 7) holds that same budget and the same 38 links, and improves every other figure:
 
 <div align="center">
-<a name="table-10" id="table-10"></a>
+<a name="table-9" id="table-9"></a>
 
 | M3 split | *p*<sub>bad</sub> | Deliveries per node | Links | Downtime absorbed |
 | :--: | ---: | ---: | ---: | ---: |
 | RF = 12, *s* = 8 | 7.9 × 10⁻⁵ | 9.6 | 38 | 0.54 % |
 | **RF = 13, *s* = 7** | **4.4 × 10⁻⁵** | 10.4 | 38 | **2.17 %** |
 
-<em>Table 10: two splits of M3's budget of 19</em>
+<em>Table 9: two splits of M3's budget of 19</em>
 
 </div>
 
@@ -985,9 +931,9 @@ The budgets above remain read off the laws rather than observed, for the reason 
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
-**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in [Table 8](#table-8) are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
+**The worst-case connection count is a sample minimum, not a bound.** Mean held connections are now measured on both instruments and agree exactly.[^degrees] The busiest-node figures in [Table 7](#table-7) are different in kind: the largest value in a sample, and an extreme-value statistic grows with the number of graphs drawn and with the population size. A longer run, or a larger deployment, would find a larger one. They should be read as measured lower bounds on the worst case rather than as limits to provision against.
 
-**Every measurement is at thousands of participants; some use cases are at tens.** The evidence runs at *N* = 4 000 and *N* = 20 000, chosen against the stake-pool population. Three of the four scenarios in [Table 1](#table-1) reach their audience through wallet backends, and the number of nodes *directly* on such a topic may be tens rather than thousands. Nothing here establishes how the design behaves there, and there is reason to expect it differs in kind rather than degree: the coverage laws are asymptotic in *N*, the gate divides a population into *B* buckets that cannot be finer than the population itself, and the connection advantage that separates the two candidate designs weakens as topics shrink. A topic of fifty is not a small instance of this analysis; it is outside it.
+**Every measurement is at thousands of participants; some use cases are at tens.** The evidence runs at *N* = 4 000 and *N* = 20 000, chosen against the stake-pool population. Three of the four scenarios in the [CPS](../cps/README.md) reach their audience through wallet backends, and the number of nodes *directly* on such a topic may be tens rather than thousands. Nothing here establishes how the design behaves there, and there is reason to expect it differs in kind rather than degree: the coverage laws are asymptotic in *N*, the gate divides a population into *B* buckets that cannot be finer than the population itself, and the connection advantage that separates the two candidate designs weakens as topics shrink. A topic of fifty is not a small instance of this analysis; it is outside it.
 
 **The laws carry a small systematic error, and it differs by design.** Pooled across the corpus the measurements sit about 2 % above the laws. That figure is two effects of opposite sign which nearly cancel: M3's law is optimistic where the pick count is low, by about 6 % at *RF* = 6 and around 2 % at the *RF* = 13 it is proposed with, at any population tested; M2's is pessimistic on small populations and converges as they grow.[^finiten] Both operating points sit where the error is around 2 %, which moves a target of 10⁻⁴ to roughly 1.02 × 10⁻⁴ and changes no conclusion here. It bounds something else, though: two designs whose errors differ by several percent in opposite directions cannot be told apart more finely than that, and some of the margins separating the two candidates are of that order.
 
@@ -1014,7 +960,7 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 
 Widening the comparison from two axes to four changes which designs are in contention, and so did letting M3 and M4 take their best parameters rather than the ones the published tables carried.
 
-That second step is worth stating plainly, because it is why Table 8 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further deliveries per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 8 makes visible.
+That second step is worth stating plainly, because it is why Table 7 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further deliveries per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 7 makes visible.
 
 Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 copies against 13.6, 18 links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
 
@@ -1038,14 +984,14 @@ The re-split is not free on the axis M3 leads, and the figure is drawn the conse
 > [!IMPORTANT]
 > The general form is worth stating, because it governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
 
-**On the choice of axes.** These four are the quantities that are both measured, independent of one another, and derived under the *same* adversary. That last condition is what keeps the figure readable as a single comparison, and it is why the cost of an adaptive eclipse is not a fifth spoke: it is priced against an adversary that corrupts chosen nodes once an epoch is under way, which the coverage analysis explicitly excludes. Plotting it beside four quantities measured under the silent adversary would imply the five are commensurable when they rest on different assumptions about what the attacker can do. It is carried in [Table 11](#table-11) instead, where both readings of it can be stated. Three further quantities were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 8; it is left off the figure only because four axes already carry the argument. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
+**On the choice of axes.** These four are the quantities that are both measured, independent of one another, and derived under the *same* adversary. That last condition is what keeps the figure readable as a single comparison, and it is why the cost of an adaptive eclipse is not a fifth spoke: it is priced against an adversary that corrupts chosen nodes once an epoch is under way, which the coverage analysis explicitly excludes. Plotting it beside four quantities measured under the silent adversary would imply the five are commensurable when they rest on different assumptions about what the attacker can do. It is carried in [Table 10](#table-10) instead, where both readings of it can be stated. Three further quantities were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 7; it is left off the figure only because four axes already carry the argument. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
 #### Why the symmetric design
 
 For most of this programme two designs stood, and on the coverage models neither dominated the other. M3 at (13, 7) is cheaper in traffic; M4 at RF = 9 holds less than half the connections, reaches its last subscriber sooner, and absorbs more than three times the downtime:
 
 <div align="center">
-<a name="table-11" id="table-11"></a>
+<a name="table-10" id="table-10"></a>
 
 | | M3 (13, 7) | M4 (RF = 9) |
 | :--: | ---: | ---: |
@@ -1056,14 +1002,14 @@ For most of this programme two designs stood, and on the coverage models neither
 | Corruptions to strand a chosen node, knowing its links | 10.4 | **14.4** |
 | … knowing only the public gate | 26 | 18 |
 
-<em>Table 11: the two candidates as the coverage models measure them, which is to say ungated</em>
+<em>Table 10: the two candidates as the coverage models measure them, which is to say ungated</em>
 
 </div>
 
 **That table decides nothing, because no deployment gets to run either design the way it was measured.** The [gate](#the-verifiable-gate) is not an option a deployment exercises. It is derived per topic from the topic's own size, and on any topic large enough for bounded fanout to be worth having, it is on. Both candidates have since been measured under the gate and the admissions budget, at the scale and the pick counts this proposal specifies, and the comparison changes character when they are.[^synthesis]
 
 <div align="center">
-<a name="table-11b" id="table-11b"></a>
+<a name="table-10b" id="table-10b"></a>
 
 | | M3 gated, best compliant | M4 gated, as specified |
 | :--: | ---: | ---: |
@@ -1075,7 +1021,7 @@ For most of this programme two designs stood, and on the coverage models neither
 | At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
 | Seams carrying a gate and a cap | 2 | **1** |
 
-<em>Table 11b: the same two designs under the admission rules this proposal specifies</em>
+<em>Table 10b: the same two designs under the admission rules this proposal specifies</em>
 
 </div>
 
@@ -1097,12 +1043,12 @@ The downtime row is worth pausing on, because it moves the wrong way for the dir
 **Weighting the axes does not decide this, and no longer needs to.** A weighting is how you choose among candidates that all clear the bar; it has nothing to say about one that does not. This matters because it retires the question that held the choice open for so long. That question — whether an operator's binding constraint is the traffic it carries or the connections it holds — was a question about bandwidth, which is the one axis the directional design leads. An answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, so the answer no longer changes the outcome. It is a real question about deployment and it is worth answering; it is not this decision.
 
 > [!NOTE]
-> **The axes do not divide into security and performance as cleanly as they look.** Of the quantities in Table 11, only deliveries per node is straightforwardly a performance figure. Downtime absorbed is an availability property — how much of the honest population can be offline before delivery fails — and time to the last subscriber is a liveness bound on topics carrying urgent traffic. A reader who weights security above optimisation is therefore weighting up three of the four axes the symmetric design already leads, and weighting down the one it does not.
+> **The axes do not divide into security and performance as cleanly as they look.** Of the quantities in Table 10, only deliveries per node is straightforwardly a performance figure. Downtime absorbed is an availability property — how much of the honest population can be offline before delivery fails — and time to the last subscriber is a liveness bound on topics carrying urgent traffic. A reader who weights security above optimisation is therefore weighting up three of the four axes the symmetric design already leads, and weighting down the one it does not.
 
 **One seam rather than two, and the comparison charges only one.** The surface figures above count the directional design's relay seam alone; it carries a second armoured surface that was not added in, so the normalisation is generous to it throughout. Its publication-seeding links are a separate kind with their own gate, their own serving cap and their own sizing rule, and the seam inverts: a node's cap there governs what it will *accept* from publishers, so refusals starve the dialler's first hop rather than its own. Measured under a binding cap, that seam turns out to strangle exactly the links that would have rescued an otherwise-muted publisher, which is a coupling that has to be sized around.[^synthesis] The symmetric design has no such seam. Reciprocity collapses both failure directions into one channel with one gate, one cap and one budget rule — and every normative statement elsewhere in this proposal is written once rather than twice as a result.
 
 > [!WARNING]
-> **What this argument still rests on, stated plainly.** The gated laws behind Table 11b were derived inside the experiments programme and validated against measurement — they reproduce each design's published ungated law when the gate is made vacuous, and every feasible row above is anchored by a measured cell. They have not been independently derived, with stated assumptions and proofs, in the manner of the formal analysis that carries the ungated coverage results. A review of them is the outstanding step, and it is the one this selection most depends on.[^synthesis]
+> **What this argument still rests on, stated plainly.** The gated laws behind Table 10b were derived inside the experiments programme and validated against measurement — they reproduce each design's published ungated law when the gate is made vacuous, and every feasible row above is anchored by a measured cell. They have not been independently derived, with stated assumptions and proofs, in the manner of the formal analysis that carries the ungated coverage results. A review of them is the outstanding step, and it is the one this selection most depends on.[^synthesis]
 >
 > The selection is also robust in a narrower range than the argument may suggest. Every measurement here is at thousands of participants. Connection count — the axis on which the symmetric design's advantage is largest — is also the axis that stops separating the two as topics shrink, since multiplexing recovers more for the design holding more links. The regime this proposal is least able to speak to is a few hundred participants, and nothing above is measured there.
 
@@ -1113,7 +1059,7 @@ What the evidence establishes beyond the selection is that the field was two rat
 Both measured costs are per topic, and a node that subscribes to several pays for each. The measurements fix the per-topic figures; the rest is arithmetic over deployment assumptions. For one-kilobyte messages arriving once a second on each topic:
 
 <div align="center">
-<a name="table-12" id="table-12"></a>
+<a name="table-11" id="table-11"></a>
 
 | Topics a node subscribes to | M3 (13, 7) | | M4 (RF = 9) | |
 | :--: | ---: | ---: | ---: | ---: |
@@ -1123,7 +1069,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 | 10 | **832 kbit/s** | 380 | 1.1 Mbit/s | **180** |
 | 25 | **2.1 Mbit/s** | 950 | 2.7 Mbit/s | **450** |
 
-<em>Table 12: per-node cost against topics subscribed, at 1 kB messages and one publication per second per topic</em>
+<em>Table 11: per-node cost against topics subscribed, at 1 kB messages and one publication per second per topic</em>
 
 </div>
 
@@ -1138,7 +1084,7 @@ The same multiplication governs the [pick count](#the-dissemination-design), whi
 >
 > How much that saves is not a matter of opinion. A node subscribing to *T* topics, each drawing *d* links from a population of *P*, expects to hold (*P*−1)(1−(1−*d*/(*P*−1))<sup>*T*</sup>) distinct peers, and the saving is whatever separates that from *dT*. At the *N* = 20 000 the table assumes it is negligible: twenty-five topics take M3 from 950 links to 929 connections and M4 from 450 to 445, around 2 % and 1 %. Two topics rarely land on the same peer when there are twenty thousand to choose from, so **multiplexing does not rescue M3 at deployment scale and the argument above stands**.
 >
-> It bites where the population is small. On a topic drawing from three thousand participants, the same twenty-five subscriptions save M3 14 % and M4 7 %; at five hundred, 55 % and 33 %. Small topics are the regime where connection count stops separating the designs, and the [use cases](#use-cases-and-stakeholders) include some.
+> It bites where the population is small. On a topic drawing from three thousand participants, the same twenty-five subscriptions save M3 14 % and M4 7 %; at five hundred, 55 % and 33 %. Small topics are the regime where connection count stops separating the designs, and the [CPS](../cps/README.md) use cases include some.
 
 #### Choosing the admission parameters
 
@@ -1252,7 +1198,7 @@ Rather than punishing silence, the design bounds its duration and makes it obser
 That geometry is worth stating in numbers, because it is what sizes both the epoch and the retention window below. The same laws that give *p*<sub>bad</sub> give the risk borne by one named node, since the network-wide figure is just that risk over the honest population. At *N* = 20 000 and *μ* = 0.2:
 
 <div align="center">
-<a name="table-13" id="table-13"></a>
+<a name="table-12" id="table-12"></a>
 
 | | M3 (13, 7) | M4 (RF = 9) |
 | --- | ---: | ---: |
@@ -1260,7 +1206,7 @@ That geometry is worth stating in numbers, because it is what sizes both the epo
 | The same node cut off again in the next | 7.5 × 10⁻¹⁸ | 1.4 × 10⁻¹⁹ |
 | *Some* node cut off, network-wide | 4.4 × 10⁻⁵ | 6.1 × 10⁻⁶ |
 
-<em>Table 13: per-epoch isolation risk, per node and network-wide, read off the coverage laws</em>
+<em>Table 12: per-epoch isolation risk, per node and network-wide, read off the coverage laws</em>
 
 </div>
 
@@ -1290,7 +1236,7 @@ Three qualifications:
 
 **Retention is a cache, and the epoch sets its floor.** What a subscriber recovers comes from other nodes' caches rather than from storage. Each node keeps recently forwarded messages for a bounded window, the same cache that suppresses duplicates and detects equivocation, and answers recovery requests from it. Nothing in this proposal keeps a topic's history: there are no archival nodes, and the chain records no message content.
 
-Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. Its oldest missing message is then already a full epoch old, and it must still detect the gap before it can ask for anything. Detection by the adjacent epoch's peer set costs up to a further epoch, so **the window has to approach two epochs**. It does not have to exceed that by much, and [Table 13](#table-13) is why: runs of consecutive muting are not a regime the design has to cover, so the window is sized for one episode plus its detection rather than for a worst case that compounds. A detection mechanism with a cadence independent of the epoch would buy the second epoch back; this proposal specifies none, so the floor is stated at the cost rotation alone imposes.<!-- Provenance: input-output-hk/pubsub discussion #144, which sets out the rotation/detection/deterrence layering this subsection renders, and poses the detection-delay-against-anchor-cost question as open. -->
+Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. Its oldest missing message is then already a full epoch old, and it must still detect the gap before it can ask for anything. Detection by the adjacent epoch's peer set costs up to a further epoch, so **the window has to approach two epochs**. It does not have to exceed that by much, and [Table 12](#table-12) is why: runs of consecutive muting are not a regime the design has to cover, so the window is sized for one episode plus its detection rather than for a worst case that compounds. A detection mechanism with a cadence independent of the epoch would buy the second epoch back; this proposal specifies none, so the floor is stated at the cost rotation alone imposes.<!-- Provenance: input-output-hk/pubsub discussion #144, which sets out the rotation/detection/deterrence layering this subsection renders, and poses the detection-delay-against-anchor-cost question as open. -->
 
 > [!NOTE]
 > **Why revocation is retroactive, and why an expiry window is not the answer to back-dating.**
@@ -1325,7 +1271,7 @@ Three things follow.
 **A chosen epoch length implies a reliability requirement.** Reading the relation the other way turns it into something a deployment can check. For a candidate epoch, each design needs the population to depart no more often than:
 
 <div align="center">
-<a name="table-14" id="table-14"></a>
+<a name="table-13" id="table-13"></a>
 
 | Proposed configuration | 1 hour | 6 hours | 1 day | 5 days |
 | :--: | ---: | ---: | ---: | ---: |
@@ -1335,7 +1281,7 @@ Three things follow.
 | M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
 | M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
 
-<em>Table 14: mean time between one node's departures required to sustain a given epoch length</em>
+<em>Table 13: mean time between one node's departures required to sustain a given epoch length</em>
 
 <em>Every row is computed from that design's churn budget by the relation above, and none is a separate measurement; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Robustness](#robustness) gives.</em>
 
