@@ -64,8 +64,8 @@ N = 20_000
 MU = 0.20
 K = int(round(MU * N))
 H = N - K
-RF = 12
-S = 8
+RF = 13
+S = 7
 DELTA = 1e-4
 GRID = [0.001, 0.005, 0.01, 0.02, 0.05, 0.10]
 BW_CELLS = [0.01, 0.05, 0.10]
@@ -73,7 +73,7 @@ RETRIES = (0, 1, 2)
 R_EPOCH = (1e3, 1e6)
 
 # published mu = 0.2 operating point (comparison.md section 2)
-PUB_MSGS, PUB_HOPS_FULL, PUB_HOPS_MEAN = 153_570, 5.9, 4.3
+PUB_MSGS, PUB_HOPS_FULL, PUB_HOPS_MEAN = 166_400, 5.5, 4.2
 
 
 # ---------------------------------------------------------------------------

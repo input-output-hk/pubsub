@@ -24,7 +24,7 @@ with p = p_fail.  Two accounting corrections separate loss from churn:
 Correction (ii) transforms M2: its per-epoch budget is set by the
 requester-less-publisher out-term (any of H publishers), which per message
 is a single node's event -- the H-fold multiplicity vanishes and the budget
-is set instead by the in-term (H-1) mu_eff^RF with RF = 24, the deepest
+is set instead by the in-term (H-1) mu_eff^RF with RF = 25, the deepest
 in-exponent in the family.  Exact single-defect law (P = p_fail^(r+1)):
 
     q_in  = E[P^D],  D = honest picks among the node's RF pulls
@@ -35,7 +35,7 @@ in-exponent in the family.  Exact single-defect law (P = p_fail^(r+1)):
 
 (at p_fail = 0 these reduce to the published coverage-law terms; the
 branching-process refinements (1-rho, u) of full_coverage.md differ from
-the single-defect terms by < 0.1 % at RF = 24 and are used for the
+the single-defect terms by < 0.1 % at RF = 25 and are used for the
 per-epoch churn reference only).  Backs
 ../properties/transmission_unreliability.md.
 
@@ -73,7 +73,7 @@ N = 20_000
 MU = 0.20
 K = int(round(MU * N))
 H = N - K
-RF = 24
+RF = 25
 DELTA = 1e-4
 GRID = [0.001, 0.005, 0.01, 0.02, 0.05, 0.10]
 BW_CELLS = [0.01, 0.05, 0.10]
@@ -81,7 +81,7 @@ RETRIES = (0, 1, 2)
 R_EPOCH = (1e3, 1e6)
 
 # published mu = 0.2 operating point (comparison.md section 2)
-PUB_MSGS, PUB_HOPS_FULL, PUB_HOPS_MEAN = 307_153, 4.8, 3.6
+PUB_MSGS, PUB_HOPS_FULL, PUB_HOPS_MEAN = 319_992, 4.6, 3.6
 
 
 # ---------------------------------------------------------------------------

@@ -60,7 +60,7 @@ def main():
     print(f"  msgs pred = H*F*(1-mu);  hop branching = F*(1-mu)")
     print(f"  {'F':>3} {'msgs MC':>10} {'msgs pred':>10} {'/node':>6} | "
           f"{'hops(max)':>9} {'hops(mean)':>10} {'ln H/ln br':>10} {'cov':>6}")
-    for F in (12, 16, 20, 24, 28):
+    for F in (12, 16, 20, 24, 25, 28):
         p = M1Params(N=N, k=k, F=F)
         sends = maxd = meand = cov = 0.0
         for _ in range(T):

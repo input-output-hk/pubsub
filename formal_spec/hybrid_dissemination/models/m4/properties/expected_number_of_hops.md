@@ -51,5 +51,5 @@ threshold — [`full_coverage.md`](full_coverage.md)); single honest source.
 
 The mean-node depth tracks ln H / ln(branching) closely; the full-coverage
 depth sits ~1–1.5 hops above it (the straggler tail) and flattens near 5 once
-branching is large. At the δ = 10⁻⁴ operating point RF = 8: **5.1 hops to
-full coverage, 4.1 typical**.
+branching is large. At the operating point RF = 9: **5.0 hops to full
+coverage, 3.9 typical**; at the δ-cheapest RF = 8: 5.1 / 4.1.

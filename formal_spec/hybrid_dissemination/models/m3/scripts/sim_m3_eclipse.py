@@ -10,16 +10,16 @@ definition.  The coverage criterion is that every message of every honest
 publisher reaches every honest node, and initiation links deliver only their
 own owner's publications.  So:
 
-  deafen (coverage) : cut the RF chosen forwarders (mean 9.6).  The victim
+  deafen (coverage) : cut the RF chosen forwarders (mean 10.4).  The victim
                       can no longer receive arbitrary publishers -- coverage
                       is broken -- though it still hears its initiation
                       partners' own messages.
   deafen (silence)  : additionally cut the accepted initiation in-links
-                      (mean 5.6), total 15.2, after which the victim hears
+                      (mean 4.8), total 15.2, after which the victim hears
                       nothing at all.
   mute              : cut the honest requesters that pull from it (accepted,
-                      mean 9.6) AND its own honest initiation targets
-                      (chosen, mean 5.6) -- total 15.2.
+                      mean 10.4) AND its own honest initiation targets
+                      (chosen, mean 4.8) -- total 15.2.
 
 The reported guarantee-breaking cost uses the coverage reading, since that
 is the criterion delta is stated against; the silence reading is printed
@@ -122,8 +122,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--N", type=int, default=20000)
     ap.add_argument("--mu", type=float, default=0.2)
-    ap.add_argument("--RF", type=int, default=12)
-    ap.add_argument("--s", type=int, default=8)
+    ap.add_argument("--RF", type=int, default=13)
+    ap.add_argument("--s", type=int, default=7)
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
     ap.add_argument("--mc", action="store_true",

@@ -9,7 +9,7 @@ M4's links are UNDIRECTED, so deafening and muting are the same attack:
 cutting a node's honest links strands it in both directions at once, and
 the cost is its honest degree -- NOT twice that.  The degree mixes a chosen
 side (own RF picks, hypergeometric) and an accepted side (others' picks,
-Poisson), mean 2*RF(1-mu) = 12.8 at the operating point.
+Poisson), mean 2*RF(1-mu) = 14.4 at the operating point.
 
 Because the two directions are one event rather than two independent draws,
 M4's guarantee-breaking cost is its single degree minimum; taking a minimum
@@ -99,7 +99,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--N", type=int, default=20000)
     ap.add_argument("--mu", type=float, default=0.2)
-    ap.add_argument("--RF", type=int, default=8)
+    ap.add_argument("--RF", type=int, default=9)
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
     ap.add_argument("--mc", action="store_true",

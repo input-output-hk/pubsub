@@ -27,8 +27,10 @@ link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−E} with
 E = H[e^{−F(1−μ)} + μ^F] (strong connectivity; the seed-proof in-degree-0
-class dominates). The smallest fanout with P(bad) ≤ 10⁻⁴ is **F = 24**
-(≈ 307 200 transmissions/message, 19.2 / honest node, 5.0 hops).
+class dominates). The margin-selected operating point is **F = 25**
+(≈ 320 000 transmissions/message, 20.0 / honest node, 4.9 hops); the
+smallest fanout meeting P(bad) ≤ 10⁻⁴ alone is F = 24, the δ-cheapest
+point.
 
 **Verdict legend** — CLOSED FORM: exact explicit formula; HYBRID: closed-form
 law validated by simulation, exact finite-N values need simulation;

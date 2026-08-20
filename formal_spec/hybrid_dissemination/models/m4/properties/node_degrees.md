@@ -28,12 +28,12 @@ Adversarial *inbound* link-opening is bounded only by admission policy
 | RF | peers each node picks (bidirectional) |
 | μ = k/N, H = N−k | adversarial fraction; honest count |
 
-## 3. Results — N = 20 000, μ = 0.2, RF = 8 (25 graphs)
+## 3. Results — N = 20 000, μ = 0.2, RF = 9 (25 graphs)
 
 | quantity | mean | sd | max observed |
 |---|---|---|---|
-| degree (in = out, honest) | 12.80 | 2.78 | 29 |
+| degree (in = out, honest) | 14.40 | 2.94 | 34 |
 
-Matches the closed form to the shown precision. Mean total held ≈ 14.4
-(honest network) / 16 (compliant); the busiest node holds ~29 links (~2.3×
+Matches the closed form to the shown precision. Mean total held ≈ 16.2
+(honest network) / 18 (compliant); the busiest node holds ~34 links (~2.4×
 the mean) — the provisioning number, not the average.

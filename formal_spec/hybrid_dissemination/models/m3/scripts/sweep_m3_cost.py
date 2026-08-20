@@ -56,7 +56,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--N", type=int, default=20000)
     ap.add_argument("--mu", type=float, default=0.2)
-    ap.add_argument("--s", type=int, default=8)
+    ap.add_argument("--s", type=int, default=7)
     ap.add_argument("--trials", type=int, default=40)
     ap.add_argument("--seed", type=int, default=2024)
     args = ap.parse_args()

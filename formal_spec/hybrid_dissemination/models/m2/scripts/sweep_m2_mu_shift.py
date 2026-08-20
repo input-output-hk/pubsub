@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """M2 mu-shift robustness: coverage degradation at frozen parameters.
 
-The deployed operating point (RF = 24, chosen at N = 20000, mu = 0.2 for
-P(bad) <= 1e-4) is frozen while the effective adversarial fraction mu_eff
+The deployed operating point (RF = 25, chosen at N = 20000, mu = 0.2 for
+P(bad) <= 1e-4 with the disturbance margin) is frozen while the effective
+adversarial fraction mu_eff
 rises: N stays 20000, k = round(mu_eff * N), H = N - k.  Reports the law
 curve P(bad) = 1 - exp(-H*[(1-rho_f)+u]) vs mu_eff, the budget (largest
 mu_eff with P(bad) <= delta), the collapse point (P(bad) = 1/2), and
@@ -29,7 +30,7 @@ from m3_model import M3Graph, rho_giant, u_iterate  # noqa: E402
 from sweep_m2_cost import strongly_connected        # noqa: E402
 
 N = 20_000
-RF = 24
+RF = 25
 DELTA = 1e-4
 MU0 = 0.20
 

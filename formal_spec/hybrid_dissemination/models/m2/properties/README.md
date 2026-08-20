@@ -32,8 +32,10 @@ link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−H[(1−ρ_f)+u]},
 dominated by muted publishers (e^{−RF(1−μ)}, present even at μ = 0); the
-smallest fanout with P(bad) ≤ 10⁻⁴ is **RF = 24** (≈ 307 200
-transmissions/message, 19.2 / honest node, 4.8 hops).
+operating point is **RF = 25** — the smallest fanout clearing the 2 %
+disturbance margin ([comparison §1](../../comparison.md)) — at ≈ 320 000
+transmissions/message, 20.0 / honest node, 4.6 hops (the δ-cheapest
+fanout, smallest meeting δ = 10⁻⁴ alone, is RF = 24).
 
 **Verdict legend** — CLOSED FORM: exact explicit formula; HYBRID: closed-form
 law validated by simulation, exact finite-N values need simulation;

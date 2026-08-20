@@ -29,8 +29,10 @@ Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−E_iso} with
-E_iso = H·μ^RF·e^{−RF(1−μ)}; the smallest fanout with P(bad) ≤ 10⁻⁴ is
-**RF = 8** (≈ 188 800 transmissions/message, 11.8 / honest node, 5.1 hops).
+E_iso = H·μ^RF·e^{−RF(1−μ)}; the operating point — δ = 10⁻⁴ held with the
+disturbance margin ([`../../comparison.md`](../../comparison.md)) — is
+**RF = 9** (P(bad) ≈ 6.1×10⁻⁶, ≈ 214 400 transmissions/message,
+13.4 / honest node, 5.0 hops); the δ-cheapest fanout (δ alone) is RF = 8.
 
 **Verdict legend** — CLOSED FORM: exact explicit formula; HYBRID: closed-form
 law validated by simulation, exact finite-N values need simulation;

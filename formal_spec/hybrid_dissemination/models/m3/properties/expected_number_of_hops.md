@@ -33,18 +33,18 @@ latency lever, exactly as it is the coverage and bandwidth lever.
 **Validity**: good graph ([`full_coverage.md`](full_coverage.md)); depths
 measured over covering runs.
 
-## 3. Results — N = 20 000, μ = 0.2 (H = 16 000), s = 8
+## 3. Results — N = 20 000, μ = 0.2 (H = 16 000), s = 7
 
 `sweep_m3_cost.py`, 40 graphs per RF:
 
 | RF | full-coverage hops | mean-node hops | ln H / ln(RF(1−μ)) |
 |---|---|---|---|
-| 8 | 6.95 | 5.01 | 5.21 |
-| 12 | 5.92 | 4.31 | 4.28 |
-| 13 | 5.45 | 4.20 | 4.13 |
-| 16 | 5.00 | 3.88 | 3.80 |
+| 8 | 7.00 | 5.06 | 5.21 |
+| 12 | 6.00 | 4.32 | 4.28 |
+| 13 | 5.53 | 4.22 | 4.13 |
+| 16 | 5.00 | 3.89 | 3.80 |
 
-At the δ = 10⁻⁴ operating point (RF = 12, s = 8): **5.9 hops to full
-coverage, 4.3 typical** — at WAN per-hop latencies (~100–300 ms eager),
-~0.6–1.8 s to full coverage. Announce-then-fetch (lazy push) multiplies
-per-hop time (~1 extra RTT), not hop count.
+At the operating point (RF = 13, s = 7): **5.5 hops to full coverage,
+4.2 typical** — at WAN per-hop latencies (~100–300 ms eager), ~0.6–1.7 s
+to full coverage. Announce-then-fetch (lazy push) multiplies per-hop time
+(~1 extra RTT), not hop count.

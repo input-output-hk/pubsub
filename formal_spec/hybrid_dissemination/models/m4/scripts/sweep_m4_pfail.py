@@ -29,8 +29,8 @@ with p = p_fail.  Two accounting corrections separate loss from churn:
 What bidirectionality buys under loss: at the final hop every model gets
 ONE try per informed honest neighbour -- an uninformed node never fires, so
 the reverse direction of an undirected link is NOT a second chance for it.
-M4's redundancy is a DEGREE effect: all ~12.8 honest incident links (8 own
-picks x (1-mu) plus ~6.4 accepted) deliver into a node, vs M3's 9.6
+M4's redundancy is a DEGREE effect: all ~14.4 honest incident links (9 own
+picks x (1-mu) plus ~7.2 accepted) deliver into a node, vs M3's 9.6
 chosen-side pulls.  The interior pair-retry (B->A after a failed A->B, B
 informed elsewhere) affects only multi-defect bulk behaviour; the elevated
 MC cells below measure that residual rather than gate on it.  Exact
@@ -80,15 +80,15 @@ N = 20_000
 MU = 0.20
 K = int(round(MU * N))
 H = N - K
-RF = 8
+RF = 9
 DELTA = 1e-4
 GRID = [0.001, 0.005, 0.01, 0.02, 0.05, 0.10]
 BW_CELLS = [0.01, 0.05, 0.10]
 RETRIES = (0, 1, 2)
 R_EPOCH = (1e3, 1e6)
 
-# published mu = 0.2 operating point (comparison.md section 2)
-PUB_MSGS, PUB_HOPS_FULL, PUB_HOPS_MEAN = 188_795, 5.1, 4.1
+# published mu = 0.2 operating point (../properties/expected_number_of_*.md)
+PUB_MSGS, PUB_HOPS_FULL, PUB_HOPS_MEAN = 214_433, 5.0, 3.9
 
 
 # ---------------------------------------------------------------------------

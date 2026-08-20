@@ -92,7 +92,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--N", type=int, default=20000)
     ap.add_argument("--mu", type=float, default=0.2)
-    ap.add_argument("--RF", type=int, default=24)
+    ap.add_argument("--RF", type=int, default=25)
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--seed", type=int, default=20260806)
     ap.add_argument("--mc", action="store_true",

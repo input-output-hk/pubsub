@@ -34,9 +34,11 @@ link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−E} with two
 defect classes, E = H[μ^RF + μ^{s−1}e^{−RF(1−μ)}] — initiation links attack
 exactly the muted-publisher defect, at ~zero bandwidth. Smallest total budget
-RF + (s−1) with P(bad) ≤ 10⁻⁴ is **19**; the bandwidth-minimal split is
-**(RF = 12, s = 8)** (P(bad) ≈ 7.8×10⁻⁵, ≈ 153 600 transmissions/message,
-9.6 / honest node, 5.9 hops).
+RF + (s−1) with P(bad) ≤ 10⁻⁴ is **19**; the operating point is the
+margin-holding split **(RF = 13, s = 7)** (P(bad) ≈ 4.4×10⁻⁵, churn margin
+~2.2 %, ≈ 166 400 transmissions/message, 10.4 / honest node, 5.5 hops);
+the δ-cheapest split (12, 8) reads 7.8×10⁻⁵ at 9.6 / node but holds only
+~0.5 % churn margin.
 
 **Verdict legend** — CLOSED FORM: exact explicit formula; HYBRID: closed-form
 law validated by simulation, exact finite-N values need simulation;

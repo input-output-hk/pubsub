@@ -80,15 +80,19 @@ budget-19 Pareto points differ in how they spend it:
 | (RF, s) | P(bad) | relay copies / node |
 |---|---|---|
 | (11, 9) | 3.3×10⁻⁴ ✗ | 8.8 |
-| **(12, 8)** | **7.8×10⁻⁵** | **9.6** |
-| (13, 7) | 4.4×10⁻⁵ | 10.4 |
+| (12, 8) δ-cheapest | 7.8×10⁻⁵ | 9.6 |
+| **(13, 7)** | **4.4×10⁻⁵** | **10.4** |
 | (14, 6) | 7.2×10⁻⁵ | 11.2 |
 
-**Operating point (RF = 12, s = 8)**: the bandwidth-minimal choice — RF = 12
-is forced by the in-term alone (H·μ^11 = 3.3×10⁻⁴ > δ), and s−1 = 7
-initiation links then close the out-term; with the ×1.11 tail correction
-(§3) it reads ≈ 8.7×10⁻⁵, still under target. (13, 7) buys ~2× more margin
-for +0.8 copies/node.
+**Operating point (RF = 13, s = 7)**: the split holding the 2 % disturbance
+margin (churn p_max ≈ 2.2 %,
+[`mu_shift_robustness.md`](mu_shift_robustness.md)); with the ×1.11 tail
+correction (§3) it reads ≈ 4.9×10⁻⁵, ~2× under target. The
+**δ-cheapest point (12, 8)** is the bandwidth-minimal split meeting δ
+alone — RF = 12 is forced by the in-term alone (H·μ^11 = 3.3×10⁻⁴ > δ),
+and s−1 = 7 initiation links then close the out-term — but it holds only
+~0.5 % churn margin; (13, 7) buys ~4× the shift tolerance and ~2× the
+P(bad) headroom for +0.8 copies/node.
 
 ## 5. Per-message success (secondary metric)
 
@@ -109,8 +113,10 @@ publisher.
 
 Conditional on strict-bad, the failing set is almost always a single
 node. `sim_m3_severity.py` counts the actually failing nodes on bad
-graphs at elevated μ — deaf (some publisher cannot reach them even via
-seeding) vs mute (a publisher whose seed set cannot cover H):
+graphs at elevated μ, the δ-cheapest split (12, 8) frozen (bad graphs
+are collectable there; the defect classes are the same) — deaf (some
+publisher cannot reach them even via seeding) vs mute (a publisher whose
+seed set cannot cover H):
 
 | μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | deaf : mute |
 |---|---|---|---|---|---|---|
@@ -118,9 +124,11 @@ seeding) vs mute (a publisher whose seed set cannot cover H):
 | 0.45 | 159 | 61 % | 29 % | 10 % | 5 | 222 : 20 |
 
 (The larger multiplicities just track E ≈ 0.2 / 0.8 at these μ — Poisson
-conditioned on ≥ 1; the operating point's E ≈ 8×10⁻⁵ collapses it to
-one.) **A δ-event is one eclipsed node** (the μ^RF class, ~90 % of
-failures); per the ×1.11 small-component factor (§3), roughly one bad
+conditioned on ≥ 1; the operating point's E ≈ 4.4×10⁻⁵ collapses it to
+one.) **A δ-event is one stranded node**: at (13, 7) the defect budget
+splits 29 : 71 between the classes, so it is usually one muted publisher
+(the μ^{s−1}e^{−RF(1−μ)} class) and else one eclipsed node; per the
+×1.11 small-component factor (§3), roughly one bad
 graph in ten strands a 2-node islet instead. The seeding mechanism is
 directly visible: ~9–15 publishers per graph have no requester path to
 the giant SCC (mute under pure pull), and initiation links rescue

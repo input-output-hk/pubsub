@@ -39,7 +39,8 @@ that redundancy is the paid-for eclipse resistance.
 |---|---|---|---|
 | 16 | 204 798 | 204 800 | 12.8 |
 | 20 | 255 974 | 256 000 | 16.0 |
-| 24 | 307 153 | 307 200 | 19.2 |
+| 24 (δ-cheapest) | 307 153 | 307 200 | 19.2 |
+| 25 | 319 992 | 320 000 | 20.0 |
 
-At the δ = 10⁻⁴ operating point RF = 24: **T ≈ 307 200 (19.2 / honest
-node)**.
+At the operating point RF = 25: **T ≈ 320 000 (20.0 / honest node)** —
++4.2 % over the δ-cheapest RF = 24 reference.

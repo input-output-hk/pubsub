@@ -7,7 +7,7 @@ MC at elevated cells; degree-mixture and p_fail = 0 anchors. Script (in
 
 ## 1. Property
 
-What iid per-transmission loss does to the frozen operating point F = 24
+What iid per-transmission loss does to the frozen operating point F = 25
 (N = 20 000, μ = 0.2, δ = 10⁻⁴). Loss model: every honest→honest send is
 dropped independently with probability p_fail at send time; r per-link
 retries make the per-send failure p_fail^(r+1); sends to adversaries
@@ -38,7 +38,7 @@ with D the honest count among the publisher's own F pushes (exact
 hypergeometric). Reception in M1 rides entirely on *accepted* links
 (other nodes' pushes, honest by construction), which carry no μ floor
 per link: log-sensitivity d ln q_in/dp_fail = F(1−μ)(1−p)⁻¹·… ≈ 0.8 F ≈
-19 — modest per link next to the ≈ 4m slope of chosen-side reception in
+20 — modest per link next to the ≈ 4m slope of chosen-side reception in
 the pull models. M1's in-term dominates at the operating point, so
 correction (ii) buys almost nothing and (i) slightly *tightens* the
 budget: the loss identity is essentially the churn curve, H-corrected.
@@ -53,53 +53,52 @@ bounded by the elevated MC cells.
 
 | p_fail | μ_eff | E churn-identity (per-epoch acct.) | E[missed]/msg | ε_msg |
 |---|---|---|---|---|
-| 0 | 0.200 | 7.3×10⁻⁵ | 7.3×10⁻⁵ | 7.3×10⁻⁵ |
-| 0.001 | 0.2008 | 7.4×10⁻⁵ | 7.4×10⁻⁵ | 7.4×10⁻⁵ |
-| 0.005 | 0.204 | 7.9×10⁻⁵ | 8.0×10⁻⁵ | 8.0×10⁻⁵ |
-| 0.01 | 0.208 | 8.7×10⁻⁵ | 8.8×10⁻⁵ | 8.8×10⁻⁵ |
-| 0.02 | 0.216 | 1.0×10⁻⁴ | 1.1×10⁻⁴ | 1.07×10⁻⁴ |
-| 0.05 | 0.240 | 1.8×10⁻⁴ | 1.9×10⁻⁴ | 1.9×10⁻⁴ |
-| 0.10 | 0.280 | 4.5×10⁻⁴ | 5.0×10⁻⁴ | 5.0×10⁻⁴ |
+| 0 | 0.200 | 3.3×10⁻⁵ | 3.3×10⁻⁵ | 3.3×10⁻⁵ |
+| 0.001 | 0.2008 | 3.3×10⁻⁵ | 3.3×10⁻⁵ | 3.3×10⁻⁵ |
+| 0.005 | 0.204 | 3.6×10⁻⁵ | 3.6×10⁻⁵ | 3.6×10⁻⁵ |
+| 0.01 | 0.208 | 3.9×10⁻⁵ | 4.0×10⁻⁵ | 4.0×10⁻⁵ |
+| 0.02 | 0.216 | 4.8×10⁻⁵ | 4.9×10⁻⁵ | 4.9×10⁻⁵ |
+| 0.05 | 0.240 | 8.4×10⁻⁵ | 8.9×10⁻⁵ | 8.9×10⁻⁵ |
+| 0.10 | 0.280 | 2.2×10⁻⁴ | 2.4×10⁻⁴ | 2.4×10⁻⁴ |
 
-**Budgets**: churn-identity 1.76 % (the published ~1.8 %); exact
-per-message **1.67 %** at r = 0 — the family's only *downward*
+**Budgets**: churn-identity 5.91 % (the published ~5.9 %); exact
+per-message **5.60 %** at r = 0 — the family's only *downward*
 correction of any size, since M1's defect budget is almost purely
-in-term — then 12.9 % at r = 1 and 25.6 % at r = 2.
+in-term — then 23.7 % at r = 1 and 38.3 % at r = 2. The δ-cheapest
+F = 24 reads 1.67 % at r = 0 on the same law.
 
 MC (`--mc`, seed 20260813): **anchor** — exact equality with the plain
-flood on 40/40 graphs; published costs reproduced (307 131 vs 307 202
-msgs, −0.02 %; hops 5.00/3.61 vs 5.0/3.6). **Degree mixture** — pusher
+flood on 40/40 graphs; published costs reproduced (319 943 vs 319 974
+msgs, −0.01 %; hops 5.00/3.57 vs 4.92/3.56). **Degree mixture** — pusher
 binomial and push-target hypergeometric pmfs validated class by class
-(100 graphs, measurable classes |z| ≤ 1.8). **Elevated cells**:
+(100 graphs, measurable classes |z| ≤ 2.2). **Elevated cells**:
 
 | p_fail | ε law | ε MC | bad/trials | z |
 |---|---|---|---|---|
-| 0.379 | 0.100 | 0.085 | 34/400 | −1.1 |
-| 0.461 | 0.400 | 0.408 | 102/250 | +0.3 |
+| 0.404 | 0.101 | 0.100 | 40/400 | −0.0 |
+| 0.483 | 0.403 | 0.452 | 113/250 | +1.6 |
 
 **Retry sweep**: attempted sends match ×(1−p^{r+1})/(1−p) within
-±0.04 % everywhere; delivered/attempted = 1−p_fail; mean depth 3.60 →
-3.71 at p_fail = 0.1, r = 0, restored by retries. Budgets are law-read
+±0.04 % everywhere; delivered/attempted = 1−p_fail; mean depth 3.57 →
+3.66 at p_fail = 0.1, r = 0, restored by retries. Budgets are law-read
 at the tail under the μ-shift convention (deep-tail factor measured
 ≈ 1.0,
 [`tail-correction.md`](../../../../../pubsub-node/docs/experiments/tail-correction.md)).
 
 ## 4. Answer
 
-**M1 tolerates ≈ 1.7 % per-message loss at the published point** —
-third-best in the family (M2 ≈ 32 %, M5 5.1 %, then M1, M4 1.03 %, M3
-0.92 %) — and needs nothing at WAN-realistic 0.1–1 %. Its cushion is
-what its 2× bandwidth already bought: 19.2 honest pushers per node,
-each an independent final-hop try. From 2 % loss one retry restores
-ε_msg ≤ δ (+2 % bandwidth, +0.02 timeouts per delivered send); r = 1
-covers the whole analysed grid to 10 % loss (budget 12.9 %). The notch
-alternative F = 25 (churn budget ~5.9 %,
-[`re_provisioning.md`](re_provisioning.md), PR #151) costs +4.2 %
-bandwidth and +2 links — retries are cheaper on every axis except
-transport simplicity.
+**M1 tolerates ≈ 5.6 % per-message loss at the published point** and
+needs nothing at WAN-realistic 0.1–1 %, retry-free across the whole
+grid to 5 % loss. Its cushion is what its bandwidth already bought:
+20.0 honest pushers per node, each an independent final-hop try, plus
+the margin rule's headroom under δ — the δ-cheapest F = 24 reads
+1.67 %, so the +4.2 % bandwidth of F = 25 multiplies the r = 0 loss
+budget ×3.4. At 10 % loss one retry restores ε_msg ≤ δ (+10 %
+bandwidth, +0.09 timeouts per delivered send); r = 1 covers loss to
+23.7 %.
 
-**Per-epoch reading**: structural floor ε_msg(0) = 7.26×10⁻⁵ with
-headroom 2.7×10⁻⁵. With R = 10³ messages/epoch, r = 1 holds the full
-per-epoch guarantee to p_fail ≈ 0.44 % (r = 2: 2.7 %); at R = 10⁶,
-r = 1 covers 1.4×10⁻⁴ and r = 2 0.27 %. The floor is the μ-part of the
+**Per-epoch reading**: structural floor ε_msg(0) = 3.26×10⁻⁵ with
+headroom 6.7×10⁻⁵. With R = 10³ messages/epoch, r = 1 holds the full
+per-epoch guarantee to p_fail ≈ 1.0 % (r = 2: 4.7 %); at R = 10⁶,
+r = 1 covers 3.2×10⁻⁴ and r = 2 0.47 %. The floor is the μ-part of the
 law — provisioning territory, not retransmission's.

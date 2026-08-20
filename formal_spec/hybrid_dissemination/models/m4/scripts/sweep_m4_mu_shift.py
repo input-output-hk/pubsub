@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """M4 mu-shift robustness: coverage degradation at frozen parameters.
 
-The deployed operating point (RF = 8, chosen at N = 20000, mu = 0.2 for
-P(bad) <= 1e-4) is frozen while the effective adversarial fraction mu_eff
+The deployed operating point (RF = 9, selected at N = 20000, mu = 0.2 under
+the disturbance-margin rule; the delta-cheapest point is RF = 8) is frozen
+while the effective adversarial fraction mu_eff
 rises: N stays 20000, k = round(mu_eff * N), H = N - k.  Reports the law
 curve P(bad) vs mu_eff, the budget (largest mu_eff with P(bad) <= delta),
 the collapse point (P(bad) = 1/2), and Monte-Carlo spot checks at elevated
@@ -24,12 +25,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from m4_model import M4Params, sample_bad  # noqa: E402
 
 N = 20_000
-RF = 8
+RF = 9
 DELTA = 1e-4
 MU0 = 0.20
 
 LAW_GRID = [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65]
-MC_CELLS = [(0.40, 800), (0.45, 500), (0.50, 300)]   # (mu_eff, trials)
+MC_CELLS = [(0.45, 800), (0.50, 500), (0.55, 300)]   # (mu_eff, trials)
 
 
 def p_bad(mu: float) -> float:

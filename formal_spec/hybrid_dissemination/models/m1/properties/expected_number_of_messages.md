@@ -41,6 +41,8 @@ who already holds the message).
 | 16 | 204 765 | 204 800 | 12.8 |
 | 20 | 255 959 | 256 000 | 16.0 |
 | 24 | 307 202 | 307 200 | 19.2 |
-| 28 | 358 371 | 358 400 | 22.4 |
+| 25 | 319 974 | 320 000 | 20.0 |
+| 28 | 358 408 | 358 400 | 22.4 |
 
-At the δ = 10⁻⁴ operating point F = 24: **T ≈ 307 200 (19.2 / honest node)**.
+At the operating point F = 25: **T ≈ 320 000 (20.0 / honest node)**; the
+δ-cheapest F = 24 costs 307 200 (19.2).
