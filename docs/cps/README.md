@@ -24,7 +24,7 @@ Cardano's security and governance models presume that the people and services ar
 
 Nothing binds such a message to the on-chain identity of its sender, and delivery depends on a single service. The chain beneath is Byzantine-fault-tolerant; the channel used to coordinate around it is not, and the weaker layer sets the effective guarantee. Substituting a peer-to-peer protocol removes the operator but does not supply the missing guarantee, because the mature gossip protocols rest on a discovery layer that admits freely created identities.
 
-This problem statement sets out the gap, the scenarios that motivate closing it, and what any solution has to provide. It does not propose a design.
+This problem statement sets out the gap, the scenarios that motivate closing it, and the properties any solution has to have. It states those properties as outcomes, not as mechanisms, and does not specify a solution.
 
 ## Problem
 
@@ -91,9 +91,10 @@ A solution must provide the following. The first three are what the failure of e
 
 - **Authenticity and integrity.** A recipient must be able to verify that a message originated with the claimed publisher and reached them as written, without trusting the path it arrived over.
 - **Censorship resistance.** Availability restated against an adversary that chooses its target: suppressing a message must require luck rather than choice. Isolation cannot be prevented in every draw — a subscriber whose every peer happens to be adversarial receives nothing, however small the adversarial fraction. The requirement is therefore that such isolation be rare, that it end without intervention, and that it not be repeatable at will.
-- **Non-influenceable neighbour selection.** Which peers a node disseminates with must be set by the protocol, not negotiated between participants, and no participant may steer that choice: not by registering additional identities, not by timing its own registration, not by influencing any randomness the choice derives from. This is what a discovery layer with freely created identities fails to provide, and what makes the requirement above achievable at all.
+- **No participant may choose who it is adjacent to.** Whatever determines which peers a node exchanges messages with, no participant may steer it — not by acquiring additional identities, not by timing when it joins, and not by influencing whatever the determination reads. This is what a discovery layer with freely created identities fails to provide, and it is what makes the requirement above achievable at all.
 - **Bounded cost per node.** No node may have to hold connections, or carry traffic, in proportion to the size of the network. Both must stay bounded as the network grows, or only well-resourced operators will participate and the centralisation returns informally.
-- **Openness to arbitrary payloads.** The scenarios differ widely in content and cadence. A solution should carry topics without interpreting what those topics transport.
+- **Openness to arbitrary payloads.** The scenarios differ widely in content and cadence. A solution should carry named streams of messages without interpreting what they transport.
+- **Addressing left to the application.** One scenario asks for delivery targeted at a particular recipient rather than broadcast to all subscribers. A solution need not provide targeting itself, but must not prevent a publisher from addressing a payload that only its intended recipient acts on.
 
 ### Non-goals
 
