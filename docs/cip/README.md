@@ -408,6 +408,14 @@ Because the gate divides an attacker's identities across *B* buckets before any 
 
 > [!WARNING]
 > **The gate switching off is a loss of defence, not merely a parameter reaching its floor.** Its contribution against a flooding adversary is to divide that adversary's reach by *B*, so at *B* = 1 an attacker's every identity may dial every victim and the serving cap is the only remaining bound. On a topic that small a cap of *C* ≥ *N*<sub>T</sub> − 1 restores the position, since a node that accepts everyone cannot be crowded out of anything; a deployment that instead keeps a tight cap on a small topic has the worst of both.
+
+**What protects a topic is not the same mechanism at every size, and the rules above hand over from one to the other.** Three regimes are worth naming, because a reader asking whether this design serves a topic of thirty nodes and a reader asking about twenty thousand are asking about different mechanisms.
+
+On a **large topic** the pick count is a small fraction of the membership, so a node's peers are a sample and an adversary that concentrates identities on a chosen victim is the thing to defend against. The gate is that defence: it divides an attacker's reach by *B*, and at the sizes this proposal is evaluated at that divisor is in the hundreds.
+
+On a **small topic** the pick count approaches the membership, the overlay approaches a complete mesh, and a node's peers stop being a sample at all. Concentration becomes free — the gate is off — and simultaneously stops being sufficient, because silencing a subscriber now requires owning very nearly the whole topic rather than a share of it. What protects the topic there is the [deposit](#term-deposit) and the near-mesh, not the gate, and the handover is the reason nothing here needs a separate small-topic mode.
+
+Between them lies the range this proposal is least able to speak to: **a few hundred participants**, where the gate still functions but divides by tens rather than hundreds, a complete mesh is no longer cheap, and the coverage laws have begun to drift. Neither mechanism is doing much, and nothing here is measured there. That range, rather than the small end, is the open question the [CPS](../cps/README.md) poses about whether the smallest use cases need a mechanism of their own.
 >
 > The range this proposal is least able to speak to is neither extreme but the middle: a few hundred participants, where the gate still functions, a complete mesh is no longer cheap, and the coverage laws have begun to drift. Nothing here is measured in that range.
 
@@ -936,6 +944,9 @@ The downtime row is worth pausing on, because it moves the wrong way for the dir
 > **What this argument still rests on, stated plainly.** The gated laws behind Table 10b were derived inside the experiments programme and validated against measurement — they reproduce each design's published ungated law when the gate is made vacuous, and every feasible row above is anchored by a measured cell. They have not been independently derived, with stated assumptions and proofs, in the manner of the formal analysis that carries the ungated coverage results. A review of them is the outstanding step, and it is the one this selection most depends on.[^synthesis]
 >
 > The selection is also robust in a narrower range than the argument may suggest. Every measurement here is at thousands of participants. Connection count — the axis on which the symmetric design's advantage is largest — is also the axis that stops separating the two as topics shrink, since multiplexing recovers more for the design holding more links. The regime this proposal is least able to speak to is a few hundred participants, and nothing above is measured there.
+
+> [!NOTE]
+> **The verdict is scoped to the regime it was measured in, and the axis it turns on narrows outside it.** Every figure above is at *N* = 20 000, where the gate divides an attacker's reach by hundreds and held connections are what separate the two candidates. Both of those weaken together as topics shrink. The bucket count the rules give falls with the topic, so the attack-surface argument that makes the directional design infeasible loses its multiplier; and multiplexing recovers more for the design holding more links, which [What a node pays](#what-a-node-pays-and-how-it-scales) measures at 55 % for M3 against 33 % for M4 on a topic of five hundred. On a topic of a few hundred the comparison is therefore closer than the rows above suggest, and on a topic of tens neither design is doing what it was selected for, since the overlay is approaching a complete mesh. The selection stands where it was measured. It is not a claim about every topic size a deployment might carry.
 
 What the evidence establishes beyond the selection is that the field was two rather than five, and that the axes on which the two differ are measured rather than assumed.
 
