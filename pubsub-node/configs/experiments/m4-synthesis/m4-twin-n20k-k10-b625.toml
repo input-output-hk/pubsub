@@ -1,0 +1,42 @@
+# M4 equal-surface twin: N = 20 000, K = 10, B = 625, admissions budget
+# C = 23, mu = 0.2 (silent relays with picks) — the pair-draw
+# configuration at the SAME attack surface 32 victims/identity as the
+# gated-M3 cliff cell (pair surface = (N-1)/B; its twin is
+# m3-gated-n20k-k13-b1250.toml).
+#
+# Predictions (m4_synthesis_predictions.py, e18_isolation at --k=10,
+# B = 625): E_iso = 9.74e-6, P(bad) = 9.7e-6 — predict 400/400 good
+# (expected bad 0.004) where the M3 twin expects ~17.2 bad: the
+# equal-surface separation (~4 400x) measured at the one point where
+# both sides are testable. Geometry (`cell 625 23 --k=10 --s=0`):
+# routes own/mut/adm = 6.87/3.13/6.87, d = 16.87; adversarial share of
+# held edges ~ mu; refusals ~ 0 (fresh load ~6.9 against C = 23);
+# crossing refusals = 0; edges_admitted_* <= 23; degree <= K + C = 33.
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/m4-twin-n20k-k10-b625.toml --out results/m4-synthesis/m4-twin-n20k-k10-b625/ --per-node-detail
+
+model = "m4"
+master_seed = 1146
+
+[population]
+size = 20000
+adversarial = 4000
+topic = "t0"
+
+[strategies.honest]
+pick_count = 10
+bucket_count = 625
+symmetric = true
+accept_cap = 23
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 10
+bucket_count = 625
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

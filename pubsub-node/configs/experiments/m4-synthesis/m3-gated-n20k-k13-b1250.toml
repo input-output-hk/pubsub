@@ -1,0 +1,46 @@
+# Gated-M3 cliff cell: N = 20 000, K = 13 relay picks, s = 7 (publisher
+# pick_count 6), BOTH seams gated at B = 1 250, mu = 0.2 (silent relays
+# with picks) — attack surface 32 victims/identity (directional surface
+# = 2(N-1)/B), the powered point on the gated-M3 curve and the first
+# gated two-seam configuration ever run.
+#
+# The pool-limited deaf channel measured: relay pools of lambda = 16.0
+# against 13 picks (E[picks] = 12.71 — saturated). Predictions
+# (m4_synthesis_predictions.py `m3 1250 7 1250 --k=13`, forms
+# E10-validated 7-for-7): E_deaf = 4.399e-2, E_mute x seedfail =
+# 4.71e-5 -> P(bad) = 0.0431 — expect ~17.2 bad / 400 runs, and the
+# dissection prediction: >= 99.8 % of bad graphs are DEAF-class (a node
+# whose picks all landed adversarial / pool empty of honest), not
+# mute-class (mute is seed-rescued at s = 7 unless all six seeds fail
+# too). Geometry: m_d = 0.783, relay in-degree ~ E[picks] = 12.7;
+# publisher seam pool ~16 against 6 seed picks. Its M4 twin at the SAME
+# surface 32 is m4-twin-n20k-k10-b625.toml (predicted 9.7e-6, 400/400)
+# — the pair measures the equal-surface separation (~4 400x) that the
+# derived comparison table claims.
+#
+# Run manually (per-node detail for the miss-cause dissection):
+#
+#   experiments --config configs/experiments/m4-synthesis/m3-gated-n20k-k13-b1250.toml --out results/m4-synthesis/m3-gated-n20k-k13-b1250/ --per-node-detail
+
+model = "m3"
+master_seed = 1145
+
+[population]
+size = 20000
+adversarial = 4000
+topic = "t0"
+
+[strategies.honest]
+pick_count = 13
+bucket_count = 1250
+publisher = { pick_count = 6, bucket_count = 1250 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 13
+bucket_count = 1250
+publisher = { pick_count = 6, bucket_count = 1250 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

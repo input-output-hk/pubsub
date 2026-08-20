@@ -37,7 +37,11 @@ ROUTES = ['edges_own_only_honest', 'edges_own_only_adversarial',
 # are run-clustered — sd of the per-run means over sqrt(runs).
 TRACKED = ROUTES + ['downstream_honest', 'downstream_adversarial',
                     'dials_refused', 'refusals_issued_honest',
-                    'refusals_issued_crossing_honest']
+                    'refusals_issued_crossing_honest',
+                    # The N-041 publisher slot pair (absent from detail
+                    # generated before the completing commit -> read 0).
+                    'downstream_publisher_honest',
+                    'downstream_publisher_adversarial']
 run_means = {f: [] for f in TRACKED}
 route_sums = Counter()          # per-victim means, honest rows only
 sybil_edges = Counter(); sybil_admitted = Counter(); sybil_floor = Counter()
@@ -76,7 +80,7 @@ for path in detail_files:
             d_h += row['dials_refused']
             run_victims += 1
             for f in TRACKED:
-                run_sums[f] += row[f]
+                run_sums[f] += row.get(f, 0)
             for f in ROUTES:
                 route_sums[f] += row[f]
             adv = row['downstream_adversarial']

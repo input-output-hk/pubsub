@@ -1,0 +1,44 @@
+# Gated-M3 op-point consistency anchor: N = 20 000, K = 13 relay picks,
+# s = 7 (publisher pick_count 6), BOTH seams gated at B = 769 (the r = 2
+# headroom maximum — attack surface 52 victims/identity), mu = 0.2
+# (silent relays with picks), open acceptance — the comparison table's
+# best compliant gated-M3 row, measured at its own coordinates.
+#
+# Predictions (m4_synthesis_predictions.py `m3 769 7 769 --k=13`, forms
+# E10-validated and cliff-anchored by seed 1145): E_deaf = 2.740e-5,
+# E_mute x seedfail = 3.105e-5 -> P(bad) = 5.84e-5 — predict 400/400
+# good (expected bad 0.023; a law-consistency cell — the tail claim is
+# the ledger's, the cell measures geometry and identities at scale).
+# Geometry: relay pool lambda = 26.0, E[picks] = 13.00 (unsaturated,
+# m_d = 0.500), publisher pool 26.0 with E[seed picks] = 6.00 ->
+# standing degree ~ 38.0. No caps: rejected_over_capacity = 0,
+# refusals_issued_* = 0; publisher slot columns ~ 4.80/1.20 per node
+# (6 Active seed targets, class-split at mu — no refusals on this
+# cell, unlike the pubseam pair).
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/m3-oppoint-n20k-k13-b769.toml --out results/m4-synthesis/m3-oppoint-n20k-k13-b769/ --per-node-detail
+
+model = "m3"
+master_seed = 1149
+
+[population]
+size = 20000
+adversarial = 4000
+topic = "t0"
+
+[strategies.honest]
+pick_count = 13
+bucket_count = 769
+publisher = { pick_count = 6, bucket_count = 769 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 13
+bucket_count = 769
+publisher = { pick_count = 6, bucket_count = 769 }
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

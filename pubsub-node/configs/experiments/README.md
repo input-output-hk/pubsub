@@ -170,8 +170,12 @@ initiation route (ADR 0042): `edges_own_only_*` (the node alone dialed),
 the linked peer's class and summing to the slot totals; the issued
 refusals carry a `_crossing_*` subset (refusals of a peer the refuser had
 itself dialed). On directional configurations no symmetric dials exist,
-so every entry reads admitted and the crossing subsets are zero. Detail
-never changes the three main files.
+so every entry reads admitted and the crossing subsets are zero. The
+publisher seam carries its own slot pair,
+`downstream_publisher_honest`/`downstream_publisher_adversarial` (the
+node's `Active` seed targets by linked-peer class — N-041 completed), so
+the kind-agnostic refusal columns reconcile per seam. Detail never
+changes the three main files.
 
 There is no interruption resume: a stopped sweep leaves `runs.jsonl` as a
 valid prefix in canonical order with no completion claim — re-run it (same

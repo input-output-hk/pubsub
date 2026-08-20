@@ -1,0 +1,49 @@
+# Publisher-seam cap, mu = 0.4 confirmation cell: N = 4 000, relay
+# pick_count 12 (ungated), publisher seam B_p = 100, seed-intake budget
+# C_p = 10, S = 1 600 publisher-seam flooders — the out-of-sample test
+# of the CORRECTED seed-rescue model, at a shape where it is powered.
+#
+# The seed-1147 cell refuted the class-blind rescue form (2 bad
+# measured vs 0.01 registered, both mute-class): the seam's refusals
+# starve precisely the rescuing seeds — an adversarial seed target
+# accepts and sits silent, an honest one refuses at rho_p — so a seed
+# fails at f = mu + (1 - mu) * rho_p per pick and rescue-failure
+# compounds as f^(s-1). This cell freezes the corrected form where the
+# two models separate sharply: corrected ~84.8 bad/400 vs the refuted
+# class-blind form's ~18/400.
+#
+# Predictions (ledger primitives + the corrected rescue form): intake
+# loads honest 3.60 + flooder 16.0 against C_p = 10 -> admitted h/s =
+# 1.834/8.156, refused h/s = 1.765/7.844 (~23 063 rejected_over_capacity
+# per run), rho_p = 0.4905; f = 0.694, rescue-fail = 0.112. Channels:
+# mute = 1.775 x 0.112 = 0.1988, deaf = 3.94e-2 -> E = 0.238, P(bad) =
+# 0.212 — expect ~84.8 bad / 400, split ~83 % mute-class
+# (min-publisher-coverage bucket 0) / ~17 % deaf-class (bucket 19/20).
+# Columns: per honest node downstream_publisher h/a ~ 1.83/2.40 (honest
+# targets survive at 1 - rho_p, flooder targets accept everything); per
+# flooder ~12.2 honest + 16 fellow flooders.
+#
+# Run manually (per-node detail is the measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/pubseam-mu40-n4k-k12-bp100-cap10.toml --out results/m4-synthesis/pubseam-mu40-n4k-k12-bp100-cap10/ --per-node-detail
+
+model = "m3"
+master_seed = 1148
+
+[population]
+size = 4000
+adversarial = 1600
+topic = "t0"
+
+[strategies.honest]
+pick_count = 12
+publisher = { pick_count = 6, bucket_count = 100, accept_cap = 10 }
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 12
+publisher = { bucket_count = 100 } # no pick_count: every admissible seed target dialed
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

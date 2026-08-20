@@ -1,0 +1,42 @@
+# c-floor rehearsal, strong-composition point: N = 4 000, K = 9,
+# B = 100, admissions budget C = 16, S = 1 600 flooders (mu = 0.4).
+#
+# The curve's high-slope point (siblings: open baseline, cap20): C = 16
+# sits just below the total fresh load 16.6, so the budget binds hard
+# and the K = 9 composition term is large and cheaply measurable.
+# Predictions (m4_synthesis_predictions.py `cell 100 16 --n=4000 --k=9
+# --s=1600` + `capsweep`): race admitted h/s = 3.671/10.882, refused
+# h/s = 0.513/1.517 per victim (~4 870 rejected_over_capacity per run),
+# P(>=1 honest refusal) = 0.489, rho = 0.1225; d = 23.04, Sybil edges
+# 14.48 (floor 3.60 + admitted 10.88). Coverage: dE_iso = 0.1445 on the
+# uncapped E_iso = 1.023e-2 -> P(bad) = 0.1433 — expect ~57.3 bad / 400
+# runs, ~14x the baseline law. Invariants:
+# refusals_issued_crossing_* = 0; edges_admitted_* <= 16; total degree
+# <= K + C = 25.
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/cfloor-n4k-k9-b100-cap16.toml --out results/m4-synthesis/cfloor-n4k-k9-b100-cap16/ --per-node-detail
+
+model = "m4"
+master_seed = 1143
+
+[population]
+size = 4000
+adversarial = 1600
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+bucket_count = 100
+symmetric = true
+accept_cap = 16
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 100 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400
