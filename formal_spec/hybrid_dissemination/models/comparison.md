@@ -332,10 +332,9 @@ larger value is better for the network. The deafen and mute columns
 give the mean cost of each attack. Column A gives the cost to strand
 one chosen victim. Column B gives the minimum cost across all 16 000
 honest nodes, for an adversary that accepts any victim. Bold marks the
-extremes of each threat column, in both directions: the most resistant
-models (M1/M2, at 20.0 and 5.0) and the cheapest targets (M3 at 10.4
-on threat A, M5 at 3.7 on threat B). **M1 and M2 win this section on
-both threats:**
+best value in each threat column. The cheapest targets are M3 at 10.4
+on threat A and M5 at 3.7 on threat B. **M1 and M2 win this section on
+both threats (20.0 and 5.0):**
 
 | model | parameters | deafen | mute | **A: chosen victim** | **B: any victim** | B via |
 |---|---|---|---|---|---|---|
