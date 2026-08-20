@@ -10,7 +10,8 @@ Authors:
     - Jesus Diaz Vico <jesus.diaz.vico@gmail.com>
     - Dana Alibrandi <dalibrandi@gmail.com>
     - Mauro Jaskelioff <mauro.jaskelioff@iohk.io>
-Proposed Solutions: []
+Proposed Solutions:
+    - ../cip/README.md
 Discussions:
     - Original PR: https://github.com/cardano-foundation/CIPs/pull/?
 Created: 2026-08-20
