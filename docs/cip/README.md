@@ -36,10 +36,12 @@ License: CC-BY-4.0
 
 The Cardano ecosystem lacks a decentralised layer for [messages](#term-message) that must be trustworthy but do not belong on the chain itself. Emergency alerts to stake pool operators, notifications from pools to their delegators, dApp and wallet messaging, and governance communication all run on centralised infrastructure today. Nothing binds a message to the on-chain identity of its sender, and delivery depends on a single service, so coordination around a Byzantine-fault-tolerant chain does not inherit its guarantees. Existing peer-to-peer solutions such as GossipSub[^gossipsub] do not close the gap: their resistance to eclipse rests on a discovery layer that admits freely created identities.
 
-We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain serves as the protocol's trust root. [Nodes](#term-node) [register](#term-registry) on-chain, which makes identities verifiable and costly to mass-produce. Each [epoch](#term-epoch), verifiable on-chain randomness derives a fresh, degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target. The design is grounded in formal analysis and simulation at deployment scale, cross-validated between independent implementations.
+We propose a decentralised topic-based publish/subscribe protocol anchored on Cardano. The chain is the protocol's trust root and carries none of its traffic. [Nodes](#term-node) [register](#term-registry) on chain, which makes identities verifiable and costly to mass-produce, and per-epoch on-chain randomness draws a degree-bounded dissemination topology that any participant can recompute but none can influence. Topics carry arbitrary application content: the chain anchors trust, not the payload. Against an adversary controlling a bounded fraction of nodes, the per-epoch probability that any honest publisher fails to reach every honest subscriber is a tunable design target, grounded in formal analysis and simulation at deployment scale and cross-validated between independent implementations.
+
+Anchoring on the chain is a deliberate trade rather than a free choice. It is what supplies a membership list that cannot be cheaply inflated and randomness no participant can steer; it is also a dependency on the system this layer is most often needed to coordinate around. The Rationale states where that dependency binds and what remains substitutable.
 
 > [!NOTE]
-> **This document reports what the evidence establishes, and selects a design on it.** *Proposed* is meant literally in what remains: several parameters are deployment choices rather than results, the pick count follows a rule whose input is a property of the deployed population, and the closed forms the selection rests on have not been independently derived. [Path to Active](#acceptance-criteria) lists what would close each gap.
+> **What this document decides, and what it leaves to a deployment.** The dissemination design is selected on measured evidence, and the rules that size its parameters are stated normatively. What a deployment supplies is a small, named set of values: the adversarial fraction and failure target it sizes against, the honest downtime rate, the epoch length, and the randomness source. Each is read from a stated place, priced in the Rationale, and listed in [Path to Active](#acceptance-criteria) alongside the one outstanding piece of analysis — an independent derivation of the closed forms the selection rests on.
 
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
@@ -52,24 +54,6 @@ Two things Cardano already maintains are what make an answer possible. An on-cha
 
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
-
-<!-- Conventions used in the rest of this document.
-
-     FORWARD-REF(target): marks prose that points at a section not yet written.
-     Each names the target section and what must exist there, so the reference
-     can be completed without recovering the intent. Grep FORWARD-REF before
-     declaring a section finished.
-
-     OPEN(name): marks a subsection that is deliberately unresolved. Each names
-     what will be fixed there, what decides it, and where the decision is
-     tracked, so the surrounding prose reads normally and only the marked
-     subsection changes when the question closes. Grep OPEN before claiming the
-     proposal is complete.
-
-     Terminology links: the first use of a Terminology term within each
-     top-level section links to its entry (#term-...); later uses in the same
-     section do not. Link text stays the bare word, so the prose reads
-     unchanged. -->
 
 This section specifies the protocol, and what it aims at is an interoperable implementation written from this document alone. It follows the shape of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links.
 
@@ -260,7 +244,13 @@ The datum schemas for all three, in CDDL,[^cddl] are collected under [Registry s
 
 ### Epochs and the randomness beacon
 
-An [epoch](#term-epoch) is the unit the topology stands for: epoch *e* runs for *T*<sub>epoch</sub>, and for its whole duration every node holds the links derived for *e* and re-derives nothing. Rotation to *e*+1 bounds how long a subscriber can be cut off, so *T*<sub>epoch</sub> is a security parameter and not merely an operational one. Its value is open; the [Rationale](#how-long-an-epoch-may-be) bounds it from both directions and shows only the upper bound binds.
+A topology has to stand still to be useful, and it has to change to be safe.
+
+If it stands still forever, a subscriber whose peers all happen to be adversarial is cut off permanently, and nothing in the design ever rescues it. If it changes continuously, no reader can say what coverage the network had when a message was published, and every node pays to re-establish links it has just opened. The protocol therefore fixes the topology for a period, and then draws a new one.
+
+That period is an [epoch](#term-epoch). Epoch *e* runs for *T*<sub>epoch</sub>, and for its whole duration every node holds the links derived for *e* and re-derives nothing. Rotation to *e*+1 is what ends being cut off, so *T*<sub>epoch</sub> bounds how long a subscriber can be silenced and is a security parameter rather than an operational one. Its value is open; the [Rationale](#how-long-an-epoch-may-be) bounds it from both directions and shows that only the upper bound binds.
+
+Redrawing needs a fresh value that nobody can predict and nobody can steer — otherwise a participant could place itself beside a chosen victim, which is exactly what the [CPS](../cps/README.md) requires a solution to prevent.
 
 Each epoch has one randomness value *η*<sub>e</sub>, a byte string, supplied by a **beacon**. The choice of source is open, so the beacon is specified here as an interface rather than a mechanism. A conforming source MUST meet all four of:
 
@@ -272,11 +262,6 @@ Each epoch has one randomness value *η*<sub>e</sub>, a byte string, supplied by
 Requirements 3 and 4 are the pair that interact. Public recomputability means *η*<sub>e</sub> becomes knowable at some point; the cutoff ordering means membership is already closed when it does. Neither alone suffices, and the [Rationale](#what-the-protocol-guarantees-instead) states why the independence of successive draws depends on both.
 
 The beacon also floors *T*<sub>epoch</sub>, which cannot be shorter than the interval at which a fresh unbiasable value is available: a per-block source would permit epochs of seconds, a ledger-derived per-epoch nonce would force five days. The source therefore decides whether epoch length is constrained by the beacon or by the churn ceiling, and the choice is tracked as [issue #22](https://github.com/input-output-hk/pubsub/issues/22).
-
-> [!WARNING]
-> **A beacon derived from the chain inherits the chain's failure modes, and this layer is most needed exactly when the chain is having them.** Two cases matter, and neither is settled by this proposal. If the chain **forks**, nodes following different branches may read different *η*<sub>e</sub> and derive different topologies for the same epoch, splitting the overlay along the line the chain split on; deriving from a registration-cutoff snapshot deep enough to be stable bounds how often this happens but does not remove it, and no confirmation depth is fixed here. If the chain **halts**, no fresh *η* becomes available and rotation stops, so the topology of the last derivable epoch stands indefinitely. That is not a coverage failure — it is a topology that met the design target — but it suspends the bounded-exposure guarantee that rotation exists to provide, which is the one property a subscriber relies on when it is being cut off.
->
-> Two heuristics were considered against this, and neither is adopted. A node might retain part of the previous epoch's links across a rotation, so that a node drawing badly is not left without usable peers while fresh randomness is unavailable. A deployment might also hold links to an operator-configured set of peers independently of any derivation, which by construction cannot diverge under a fork. Both are partition insurance rather than protocol, and both cut against the property that makes the rest of this design analysable — that no node chooses its own neighbours — so both are recorded here as open rather than specified. Their interaction with the coverage analysis is unmeasured.
 
 ### Canonical encoding and domain separation
 
@@ -359,7 +344,7 @@ Everything above is stated for a link kind with a pick count. This subsection fi
 
 **A node holds one link kind per topic: a symmetric relay link.** There is no separate publication-seeding kind. A node's own publications and the messages it relays for others travel the same links; a link carries traffic in both directions and is established once for the pair rather than once per direction. Its gate domain tag is `pubsub/gate/relay/v1`, and the pair is sorted by identity bytes before the gate is evaluated, as [the verifiable gate](#the-verifiable-gate) requires of a symmetric kind. The design is the one the analysis calls M4 — steppable message by message in the [dissemination simulator](https://pubsub.cardano-scaling.org/experiments/models/#m4) — and the [Rationale](#why-the-symmetric-design) sets out why it rather than the directional alternative.
 
-Three consequences are worth stating where an implementer meets them. Because a link is symmetric, a node's realised degree on a topic is its pick count plus the admissions it granted, bounded by *k* + *C* exactly. Because there is no seeding kind, a publisher reaches the network through the same links a subscriber does, so there is one gate, one serving cap and one sizing rule per topic rather than two of each. And because a pair draws one gate value rather than two, a single registered identity is admissible to (*N*<sub>T</sub> − 1)/*B* peers rather than twice that — which is the quantity an attacker pays for, and the [Rationale](#why-the-symmetric-design) shows is what decides the comparison.
+Two consequences follow where an implementer meets them. A node's realised degree on a topic is its pick count plus the admissions it granted, bounded by *k* + *C* exactly. And because a publisher reaches the network over the same links a subscriber does, there is one gate, one serving cap and one sizing rule per topic rather than two of each.
 
 <div align="center">
 <a name="table-2" id="table-2"></a>
@@ -1055,7 +1040,11 @@ The evidence above prices a fixed set of choices; this subsection collects what 
 **And one lever is not in this protocol at all.** The adversarial fraction is the parameter every failure probability is most sensitive to, and it is set by what registration costs, which is a chain-side decision. Making identities dearer moves the whole family further than any amount of fanout.
 
 > [!WARNING]
-> **Carrying links across an epoch boundary is not a free improvement.** Holding the previous epoch's peers as a fallback, or reusing them to seed publications, would plainly improve continuity. It would also correlate consecutive draws, and the argument that muting is bounded in duration rests on those draws being independent: a subscriber unlucky in one epoch is unlucky again exactly to the extent that its peer set persists. The bounded handover overlap the Specification permits does not have this effect, because the outgoing links are released.<!-- FORWARD-REF(specification): link this to Link establishment once the sections are composed; it is where the overlap is permitted normatively. --> A longer-lived fallback is a different proposition and would need the rotation argument re-derived, not merely re-stated.
+> **A beacon derived from the chain inherits the chain's failure modes, and this layer is most needed exactly when the chain is having them.** If the chain **forks**, nodes following different branches may read different *η*<sub>e</sub> and derive different topologies for the same epoch, splitting the overlay along the line the chain split on. Deriving from a registration-cutoff snapshot deep enough to be stable bounds how often that happens but does not remove it, and no confirmation depth is fixed here. If the chain **halts**, no fresh *η* becomes available and rotation stops, so the topology of the last derivable epoch stands indefinitely. That is not a coverage failure — it is a topology that met the design target — but it suspends the bounded-exposure guarantee that rotation exists to provide, which is the one property a subscriber relies on when it is being cut off. The [CPS](../cps/README.md) poses this circularity as a question about the problem rather than about any design: a channel that warns operators about the chain, anchored on that chain, is unavailable in part of the case it exists for.
+>
+> **Three answers were considered against it, and none is adopted.** A node might retain part of the previous epoch's links across a rotation, so that a node drawing badly is not left without usable peers while fresh randomness is unavailable. A deployment might hold links to an operator-configured set of peers independently of any derivation, which by construction cannot diverge under a fork — the same shape as the hardened backbone [Path to Active](#acceptance-criteria) names for small topics. Or the trust root itself could be anchored elsewhere, which relocates the dependency rather than removing it.
+>
+> All three cut against the property that makes the rest of this design analysable, and the first two cut against it in a way that is measurable. **Carrying links across an epoch boundary is not a free improvement.** It correlates consecutive draws, and the argument that muting is bounded in duration rests on those draws being independent: a subscriber unlucky in one epoch is unlucky again exactly to the extent that its peer set persists. The bounded handover overlap the [Specification](#link-establishment) permits does not have this effect, because the outgoing links are released. A longer-lived fallback is a different proposition and would need the rotation argument re-derived rather than merely re-stated. Their interaction with the coverage analysis is unmeasured, and the choice is posed in the [Open Questions](#open-questions).
 
 #### Two classes of fault, with different guarantees
 
