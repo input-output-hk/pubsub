@@ -547,7 +547,12 @@ hardening step and is listed in §11.
   shape); real decorrelated networks sit at the independent-order
   forms. Every class-level column in this report is exact under either
   order. The fix is chartered as the next instrument pass with two
-  frozen falsifiable re-runs.
+  frozen falsifiable re-runs. *(Both passed at the ADR 0044
+  instrument, N-042 resolved: seed 1148 re-ran at 80/400 bad vs the
+  independent-order form's 84.8, z = −0.59, refusals 23 060/run vs the
+  registered 23 063; the E19 ordered flooder at 400/400 good with race
+  columns identical to the decimal — this report's §8 magnitudes are
+  the canonical order's upper bounds, as stated.)*
 - **Cells at CIP scale are law-consistency anchors**, not tail
   measurements: 400 runs resolve nothing below ~10⁻²·⁵ — the tail
   claims are the ledger's, anchored where the curves are powered (the
@@ -576,7 +581,8 @@ hardening step and is listed in §11.
   `notes/m4-synthesis-followups.md`): per-victim seeded arrival order
   + the failure-severity batch, one re-baseline generation, validated
   by the two frozen re-runs (seed 1148 → ~84.8/400; the E19 ordered
-  flooder → ≈ 400/400).
+  flooder → ≈ 400/400). **Done** — ADR 0044; both re-runs passed
+  (80/400 and 400/400), the generation recorded, N-042 resolved.
 - This branch's PR (E19 is merged; the E20 program entry is landed);
   the comparison page's `web/experiments/` port proposed for review.
 - Decisions this report presents but does not make: K = 10 gated at
