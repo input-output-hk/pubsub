@@ -159,12 +159,6 @@ def main() -> None:
               f"-- fractional RF* = {frac_RF(mu):.2f}")
         describe(mu, RF, "best")
         designs.append((mu, RF))
-        if 1.1 * law(RF)(mu) > DELTA:
-            # the ~1.1x small-component tail correction (full_coverage.md
-            # par.3) pushes this point over target: show the safe choice too
-            print(f"         (x1.1 tail-corrected P(bad) "
-                  f"{1.1 * law(RF)(mu):.2e} > delta -- corrected choice:)")
-            describe(mu, RF + 1, "corr")
 
     # -- 2. +1 notch at mu = 0.2 ---------------------------------------------
     RF0 = search(MU0)

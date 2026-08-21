@@ -41,9 +41,12 @@ RF-out connectivity, Fenner–Frieze) — no ln N, no seeding.
 | δ | tolerated P(bad) per epoch |
 
 **Validity**: isolated vertices dominate near/above the connectivity threshold,
-so the estimate is exact to leading order and a mild under-count in the deep
-tail (≥2-node components add a second-order term — measured ~1.1× at RF = 7) —
-mildly optimistic there; §4 re-checks the answer with the correction applied.
+so the estimate is exact to leading order; ≥2-node components add a
+second-order term, measured absent in the deep tail (factor 0.994 ± 0.021,
+[`tail-correction.md`](../../../../../pubsub-node/docs/experiments/tail-correction.md)).
+That measurement sits at P(bad) ≈ 5–8×10⁻³, two decades above the 10⁻⁴
+operating tail; constancy across the range is the same extrapolation the
+law already carries.
 
 ## 3. Validation — N = 20 000, μ = 0.2 (H = 16 000)
 
@@ -60,20 +63,23 @@ RF = 7 from a 200 000-graph run:
 | 8 | 6.76×10⁻⁵ | 6.76×10⁻⁵ | — (formula) | — | — |
 | 9 | 6.07×10⁻⁶ | 6.07×10⁻⁶ | — (formula) | — | — |
 
-The formula tracks MC across five orders of magnitude in P(bad); the deep-tail
-values sit ~1.1× above prediction (second-order small components) — mildly
-optimistic: it firms up the RF = 7 rejection, and §4 checks that RF = 8 and
-RF = 9 survive the correction.
+The formula tracks MC across five orders of magnitude in P(bad). The RF = 7
+row reads 1.12 ± 0.09 against the law (z = +1.4) — once read as a ~1.1×
+small-component under-count, but the dedicated measurement
+([`tail-correction.md`](../../../../../pubsub-node/docs/experiments/tail-correction.md),
+370 000 fresh draws across both designs) puts the factor at
+**0.994 ± 0.021**, rejecting ×1.11 at z = −5.7, and this cell does not
+reproduce (M4 RF = 6 pooled: 0.979 ± 0.029). The law is read as exact in
+the tail.
 
 ## 4. Answer — δ-cheapest RF and the operating point (N = 20 000, μ = 0.2)
 
 **δ-cheapest RF = 8** (cheapest fanout with P(bad) ≤ 10⁻⁴ alone):
-P(bad) ≈ 6.8×10⁻⁵ (and ≈ 7.6×10⁻⁵ with the ~1.1× tail correction — under
-target). RF = 7 gives 7.5×10⁻⁴ (measured 8.5×10⁻⁴), above target.
+P(bad) ≈ 6.8×10⁻⁵. RF = 7 gives 7.5×10⁻⁴ (measured 8.5×10⁻⁴), above target.
 
 **Operating point RF = 9** (the disturbance-margin selection,
-[`../../comparison.md`](../../comparison.md)): P(bad) ≈ 6.1×10⁻⁶
-(≈ 6.7×10⁻⁶ corrected) — δ holds up to μ_eff ≈ 0.259
+[`../../comparison.md`](../../comparison.md)): P(bad) ≈ 6.1×10⁻⁶ —
+δ holds up to μ_eff ≈ 0.259
 ([`mu_shift_robustness.md`](mu_shift_robustness.md)), where RF = 8 holds
 only to ≈ 0.209.
 
@@ -92,6 +98,8 @@ Every straggler component observed was a single isolated node — the
 d ≥ 2 rows are multiple simultaneous singletons (Poisson multiplicity at
 these E), not larger islets. At the operating point (E ≈ 6×10⁻⁶)
 multiplicity collapses to one: **a δ-event is one honest node cut off in
-both directions**; the deep-tail ~1.1× factor (§3) implies roughly one
-bad graph in ten is a small ≥ 2-node islet instead. No partition-scale
-fragment ever appeared.
+both directions**. No partition-scale fragment ever appeared, and the
+independent μ-sweep
+([`mu-sweep.md`](../../../../../pubsub-node/docs/experiments/mu-sweep.md))
+confirms the isolated-vertex law across μ = 0.2–0.4 with no
+small-component excess.

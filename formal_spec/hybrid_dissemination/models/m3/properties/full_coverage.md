@@ -51,7 +51,9 @@ the muted-publisher defect, at ~zero bandwidth
 
 **Validity**: isolated vertices dominate near/above the threshold; exact to
 leading order (small dead-end components add a second-order term, measured
-~1.1× in the deep tail — see §3).
+absent in the deep tail — 0.994 ± 0.021,
+[`tail-correction.md`](../../../../../pubsub-node/docs/experiments/tail-correction.md);
+see §3).
 
 ## 3. Validation — μ = 0.2
 
@@ -67,10 +69,15 @@ Predicted vs Monte-Carlo (`sim_m3_coverage.py`, exact every-publisher check):
 | 20 000 | 10 | 4 | 0.0445 | 0.0435 | 0.0362 | 29 / 800 | −1.1 |
 | 4 000 | 9 | 5 | 0.0054 | 0.0053 | 0.0059 | 178 / 30000 | +1.3 |
 
-The deep-tail row (30 000 graphs, `validate.py --tail m3`) sits ×1.11 above
-prediction — the second-order small-component under-count, same factor as
-measured for M4. The law is thus mildly optimistic in the tail; §4 checks
-the operating point against the corrected value.
+The deep-tail row (30 000 graphs, `validate.py --tail m3`) reads 1.11 ± 0.08
+against the law — once read as a small-component under-count, but the cell
+is underpowered for a ten-percent factor (fine for the law). The dedicated
+measurement pools it with 170 000 fresh draws at the same point
+([`tail-correction.md`](../../../../../pubsub-node/docs/experiments/tail-correction.md)
+§1) and reads the factor at 1.009 ± 0.029 — combined across both designs
+**0.994 ± 0.021**, rejecting ×1.11 at z = −5.7. The law is read as exact
+in the tail; the measurement sits at P(bad) ≈ 5×10⁻³, two decades above
+the 10⁻⁴ operating tail, the same extrapolation the law already carries.
 
 ## 4. Answer — (RF, s) for P(bad) = 10⁻⁴ (N = 20 000, μ = 0.2)
 
@@ -86,8 +93,7 @@ budget-19 Pareto points differ in how they spend it:
 
 **Operating point (RF = 13, s = 7)**: the split holding the 2 % disturbance
 margin (churn p_max ≈ 2.2 %,
-[`mu_shift_robustness.md`](mu_shift_robustness.md)); with the ×1.11 tail
-correction (§3) it reads ≈ 4.9×10⁻⁵, ~2× under target. The
+[`mu_shift_robustness.md`](mu_shift_robustness.md)), ~2× under target. The
 **δ-cheapest point (12, 8)** is the bandwidth-minimal split meeting δ
 alone — RF = 12 is forced by the in-term alone (H·μ^11 = 3.3×10⁻⁴ > δ),
 and s−1 = 7 initiation links then close the out-term — but it holds only
@@ -127,9 +133,11 @@ seed set cannot cover H):
 conditioned on ≥ 1; the operating point's E ≈ 4.4×10⁻⁵ collapses it to
 one.) **A δ-event is one stranded node**: at (13, 7) the defect budget
 splits 29 : 71 between the classes, so it is usually one muted publisher
-(the μ^{s−1}e^{−RF(1−μ)} class) and else one eclipsed node; per the
-×1.11 small-component factor (§3), roughly one bad
-graph in ten strands a 2-node islet instead. The seeding mechanism is
+(the μ^{s−1}e^{−RF(1−μ)} class) and else one eclipsed node; the
+independent μ-sweep
+([`mu-sweep.md`](../../../../../pubsub-node/docs/experiments/mu-sweep.md))
+confirms the isolated-vertex law across μ = 0.2–0.4 with no
+small-component excess. The seeding mechanism is
 directly visible: ~9–15 publishers per graph have no requester path to
 the giant SCC (mute under pure pull), and initiation links rescue
 > 99.5 % of them (5 832 → 15 and 4 247 → 20 actually mute at the two

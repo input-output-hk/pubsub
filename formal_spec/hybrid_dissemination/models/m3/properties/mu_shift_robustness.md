@@ -46,16 +46,16 @@ The δ-cheapest split (12, 8) concentrates 82 % of the budget in the
 
 MC tracks the law at all elevated cells (|z| ≤ 1.2); the tail — where the
 budget is read — was validated in [`full_coverage.md`](full_coverage.md)
-(×1.11 small-component under-count).
+§3 (second-order small-component term measured absent, 0.994 ± 0.021).
 
 ## 4. Answer — budget and collapse (N = 20 000, δ = 10⁻⁴)
 
 **Budget**: P(bad) ≤ 10⁻⁴ holds up to **μ_eff ≈ 0.217** (Δμ ≈ +0.017;
-churn reading p_max = Δμ/0.8 ≈ 2.2 %, and ≈ 1.9 % with the ×1.11 tail
-correction) — the margin the split is selected for, tied with M5 for the
-smallest among the family's selections. The δ-cheapest split (12, 8)
-reads μ_eff ≈ 0.204 (Δμ ≈ +0.004; p_max ≈ 0.5 %, ≈ 0.3 % with ×1.11) —
-the inadmissibility under the 2 % bar that forces the re-split.
+churn reading p_max = Δμ/0.8 ≈ 2.2 %) — the margin the split is selected
+for, tied with M5 for the smallest among the family's selections. The
+δ-cheapest split (12, 8) reads μ_eff ≈ 0.204 (Δμ ≈ +0.004;
+p_max ≈ 0.5 %) — the inadmissibility under the 2 % bar that forces the
+re-split.
 **Collapse**: P(bad) = ½ at **μ_eff ≈ 0.47**, the earliest in the
 family. The bandwidth winner is the μ-brittleness loser: its μ-power
 terms climb ~2× faster per unit μ than M1/M2's exponential terms.

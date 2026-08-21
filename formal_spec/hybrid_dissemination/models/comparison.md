@@ -235,20 +235,18 @@ observed, worst of 25 graphs):
 | | M1 | F = 27 | 264 594 | 18.9 | 54 / 42 | 8.6×10⁻⁵ |
 | | M2 | RF = 27 | 264 594 | 18.9 | 54 / 42 | 8.7×10⁻⁵ |
 | 0.350 | **M3** | (19, 8) | **160 550** | **12.4** | 52 / 41 | 6.4×10⁻⁵ |
-| | M4 | RF = 11 * | 172 896 | 13.3 | **22** / 30 | 9.8×10⁻⁵ |
+| | M4 | RF = 11 | 172 896 | 13.3 | **22** / 30 | 9.8×10⁻⁵ |
 | | M5 | (12, 11) | 194 345 | 15.0 | 46 / 32 | 8.5×10⁻⁵ |
 | | M1 | F = 29 | 245 043 | 18.9 | 58 / 44 | 8.4×10⁻⁵ |
 | | M2 | RF = 29 | 245 043 | 18.9 | 58 / 44 | 8.5×10⁻⁵ |
 
-\* RF = 11 sits on the law crossing. The carried ~1.1× tail correction
-pushes it just over δ, and a direct high-μ tail check (×1.04 ± 0.07)
-cannot decide it either way. Thus the safe choice is RF = 12
-(189 796 msgs, 14.6 copies / honest). A dedicated measurement
+M4's RF = 11 sits on the law crossing (RF* = 10.99), under δ with zero
+μ-shift margin. The second-order deep-tail term the laws once carried
+as ~1.1× is measured absent
 ([`tail-correction.md`](../../../pubsub-node/docs/experiments/tail-correction.md),
-370 k draws across both designs) later read the factor at
-0.994 ± 0.021 — no correction at the measured cells. Thus RF = 11
-stands on the measured basis. RF = 12 stays until the pass that
-retires the correction. M3's corrected values stay under δ everywhere.
+370 k draws across both designs: 0.994 ± 0.021), so RF = 11 stands. A
+deployment wanting slack at that grid point buys RF = 12
+(189 796 msgs, 14.6 copies / honest).
 
 Latency (not tabulated) moves in the opposite direction. M3's
 full-coverage depth decreases from 5.9 to 5.0 hops across the grid,
@@ -261,12 +259,12 @@ becomes narrower under re-provisioning.
 | model | 0.225 | 0.250 | 0.300 | 0.350 |
 |---|---|---|---|---|
 | M3 | −6 % / +5 % | −5 % / +11 % | ±0 % / +21 % | −4 % / +37 % |
-| M4 | −6 % / ±0 | −13 % / ±0 | −15 % / +11 % | −19 % / +22 % * |
+| M4 | −6 % / ±0 | −13 % / ±0 | −15 % / +11 % | −19 % / +22 % |
 | M5 | −1 % / +6 % | −2 % / +12 % | −5 % / +24 % | −11 % / +35 % |
 | M1 | −6 % / ±0 | −9 % / +4 % | −17 % / +8 % | −23 % / +16 % |
 | M2 | −6 % / ±0 | −9 % / +4 % | −17 % / +8 % | −23 % / +16 % |
 
-(\* −12 % / +33 % with the tail-corrected RF = 12.) Absolute bandwidth
+Absolute bandwidth
 *decreases* across the grid: H = (1−μ)N shrinks faster than the
 budgets grow, and the margined baselines start one notch up. Thus
 copies per honest node is the honest cost axis. **The price of
@@ -293,15 +291,14 @@ reading p_max = Δμ/0.8):
 
 M3's two flavors are not interchangeable. The same-budget re-split
 (13, 7) makes its μ-budget four times larger, for +8.3 % bandwidth and
-**zero extra state**. (With the ×1.11 tail correction: 0.215 and churn
-~1.9 %, against ~0.3 % for the corrected base.) One added budget under
+**zero extra state**. One added budget under
 M3's own bandwidth-minimal rule ((12, 9)) buys almost nothing. Thus M3
 headroom comes from links moved into RF, not from added links. M4's
 RF = 9 is the family's biggest notch, at the biggest bandwidth price.
 
 **Frontier verdict.** **The M3-over-M4 bandwidth order survives at
 every analyzed μ_design.** The lead is 22 % at 0.225 and narrows to
-7–15 % at 0.35. On the stair-free fractional trend, the ratio
+~7 % at 0.35. On the stair-free fractional trend, the ratio
 flattens, and parity sits at μ ≈ 0.64. M4 stays the state winner, with
 2.2–2.4× fewer mean links.
 
