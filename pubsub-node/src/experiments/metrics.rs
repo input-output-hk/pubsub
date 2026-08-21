@@ -127,6 +127,17 @@ pub struct RunRecord {
     pub sccs: u64,
     /// Post-churn largest component size.
     pub largest_scc: u64,
+    /// Post-churn deaf vertices — up-honest nodes the largest component
+    /// cannot reach (the formal severity tables' in-defect class; a vertex
+    /// disconnected in both directions counts in both classes). Zero on
+    /// every good graph; with `mute` it classifies the stranded set whose
+    /// size is `up_honest − largest_scc`.
+    pub deaf: u64,
+    /// Post-churn mute vertices — up-honest nodes that cannot reach the
+    /// largest component (the out-defect class; the muted publisher is the
+    /// canonical case). Raw-digraph classification under every model:
+    /// M3's seed rescue shows in `good`, never here.
+    pub mute: u64,
     /// Post-churn in-degree histogram (index = degree).
     pub in_degree_hist: Vec<u64>,
     /// Post-churn out-degree histogram (index = degree).
@@ -474,6 +485,8 @@ pub fn assemble_run_record(
         sinks: post_churn.shape.sinks,
         sccs: post_churn.verdict.sccs,
         largest_scc: post_churn.verdict.largest_scc,
+        deaf: post_churn.verdict.deaf,
+        mute: post_churn.verdict.mute,
         in_degree_hist: post_churn.shape.in_degree_hist.clone(),
         out_degree_hist: post_churn.shape.out_degree_hist.clone(),
         standing_degree_hist: super::graph::degree_histogram(&super::graph::standing_degrees(
@@ -648,7 +661,7 @@ mod tests {
         publisher: &PeerId,
         churned: bool,
     ) -> (super::RunRecord, Population) {
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(publisher, 0);
         let observation = RunObservation {
             publisher: publisher.clone(),
@@ -815,7 +828,7 @@ mod tests {
     #[should_panic(expected = "accounting identity")]
     fn identity_violation_panics() {
         let population = scripted::full_mesh(3).build();
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let mut publish = driver.publish_drain(&peer(0), 0);
         publish.drain.suppressed += 1; // cook the books
         let observation = RunObservation {
@@ -849,7 +862,7 @@ mod tests {
             .expect("node exists")
             .mark_down();
 
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(&peer(0), 0);
         let population = driver.into_population();
 
@@ -883,7 +896,7 @@ mod tests {
             .link(0, 2)
             .link(0, 3)
             .build();
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(&peer(0), 0);
         let mut dial = DrainOutcome::default();
         dial.symmetric_dials
@@ -979,7 +992,10 @@ mod tests {
             classes: [22u8; 32],
             sampler: [23u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         let dial = driver.establish(SetupMode::Prepopulated);
         let publisher = driver
             .population()
@@ -1026,7 +1042,7 @@ mod tests {
     #[test]
     fn dial_summary_lands_in_the_record() {
         let population = scripted::full_mesh(3).build();
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(&peer(0), 0);
         let observation = RunObservation {
             publisher: peer(0),

@@ -5,28 +5,32 @@
 //! Round r is the set of in-flight deliveries; applying them yields the
 //! sends forming round r+1; a round producing no new sends is quiescence —
 //! detected exactly, with no polling, sleeps, or timeouts. Before routing,
-//! every wave is stably sorted by a canonical content-derived key —
-//! (sender index, addressee index, message identity), where the identity is
-//! the content hash computed once at collection for dissemination and the
-//! signed bytes for connection control — so a whole run is a deterministic
-//! function of (configuration, seeds) regardless of the core's hash-based
-//! collection iteration order. All message kinds route identically —
-//! connection control and dissemination — and severance effects are
-//! consumed and tallied by the driver.
-// 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035.
+//! every wave is stably sorted by a canonical key — (addressee index,
+//! seeded arrival key, sender index, message identity), where the arrival
+//! key is a pure function of (run seed, addressee, sender) and the identity
+//! is the content hash computed once at collection for dissemination and
+//! the signed bytes for connection control — so a whole run is a
+//! deterministic function of (configuration, seeds) regardless of the
+//! core's hash-based collection iteration order, while each recipient
+//! processes its intra-wave arrivals in its own decorrelated order
+//! (ADR 0044). All message kinds route identically — connection control
+//! and dissemination — and severance effects are consumed and tallied by
+//! the driver.
+// 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035/0044.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use crate::connection_state::LinkKind;
 use crate::crypto::mock::MockCryptoScheme;
 use crate::crypto::{MessageHash, Signer, Timestamp};
 use crate::event::Event;
 use crate::message::{
-    ConnectionAction, HandshakeKind, Message, MessagePayload, PlainMessage, PublisherId,
-    SignedMessage,
+    push_len_prefixed, ConnectionAction, HandshakeKind, Message, MessagePayload, PlainMessage,
+    PublisherId, SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::state::{apply, Effect};
@@ -215,19 +219,30 @@ pub struct Driver {
     /// wave sort compares these integers instead of cloning `PeerId`s; rank
     /// order and `PeerId` order are the same order by construction.
     index: HashMap<PeerId, usize>,
+    /// The run seed the per-victim arrival keys derive from (ADR 0044): each
+    /// recipient processes its intra-wave arrivals in an order that is a
+    /// pure function of (this seed, recipient, sender), so admission races
+    /// at different victims are decorrelated like a real network's
+    /// independent delivery orders.
+    arrival_seed: [u8; 32],
 }
 
 impl Driver {
-    /// Take ownership of the population to drive.
+    /// Take ownership of the population to drive. `arrival_seed` is the run
+    /// seed; it feeds only the per-victim arrival keys of the wave sort.
     #[must_use]
-    pub fn new(population: Population) -> Self {
+    pub fn new(population: Population, arrival_seed: [u8; 32]) -> Self {
         let index = population
             .peer_ids()
             .into_iter()
             .enumerate()
             .map(|(rank, id)| (id, rank))
             .collect();
-        Self { population, index }
+        Self {
+            population,
+            index,
+            arrival_seed,
+        }
     }
 
     /// Read the driven population.
@@ -492,7 +507,7 @@ impl Driver {
     /// producing no new sends ends the drain exactly.
     fn drain(&mut self, mut wave: Wave, mut wave_index: u64, outcome: &mut DrainOutcome) {
         while !wave.is_empty() {
-            canonicalise(&mut wave, &self.index);
+            canonicalise(&mut wave, &self.index, &self.arrival_seed);
             let mut next = Wave::new();
             for Delivery {
                 from,
@@ -598,19 +613,48 @@ enum MessageIdentity {
     Control(Vec<u8>),
 }
 
-/// Stable-sort a wave by the canonical key (sender index, addressee index,
-/// message identity): the within-wave tie-break that makes routing order a
-/// function of wave *content*, independent of the core's hash-based
-/// collection iteration order. Index order equals `PeerId` order (the ranks
-/// are drawn from the same sorted sequence), so the integer compare is the
-/// `PeerId` compare without the clones. This sort is permanent and
+/// The hash domain of the per-victim arrival keys (ADR 0044). Instrument
+/// randomness, not protocol randomness: nothing a node computes reads it.
+const ARRIVAL_ORDER_DOMAIN: &[u8] = b"experiments/arrival-order/v1";
+
+/// The seeded arrival key of one (recipient, sender) pair:
+/// `SHA-256(lp(domain) ‖ run_seed ‖ lp(recipient) ‖ lp(sender))` — a pure
+/// function of the run seed and the pair, so a recipient's intra-wave order
+/// over its senders is fixed for the whole run, independent of every other
+/// recipient's order and of the worker count (ADR 0044).
+fn arrival_key(seed: &[u8; 32], recipient: &PeerId, sender: &PeerId) -> [u8; 32] {
+    let recipient = recipient.as_public_key().as_bytes();
+    let sender = sender.as_public_key().as_bytes();
+    let mut preimage = Vec::with_capacity(
+        ARRIVAL_ORDER_DOMAIN.len() + seed.len() + recipient.len() + sender.len() + 12,
+    );
+    push_len_prefixed(&mut preimage, ARRIVAL_ORDER_DOMAIN);
+    preimage.extend_from_slice(seed);
+    push_len_prefixed(&mut preimage, recipient);
+    push_len_prefixed(&mut preimage, sender);
+    Sha256::digest(&preimage).into()
+}
+
+/// Stable-sort a wave by the canonical key (addressee index, seeded arrival
+/// key, sender index, message identity): the within-wave order that makes
+/// routing a function of wave *content* and the run seed, independent of
+/// the core's hash-based collection iteration order. Deliveries group by
+/// recipient, and each recipient's arrivals follow its own seeded order
+/// over senders — the per-victim decorrelation of ADR 0044 (the retired
+/// global (sender, addressee) order coupled every victim's budget race to
+/// one rank order, amplifying per-node tails under saturated budgets —
+/// N-042). Ties after the sender index are same-pair deliveries, ordered
+/// by message identity as before. Index order equals `PeerId` order (the
+/// ranks are drawn from the same sorted sequence), so the integer compare
+/// is the `PeerId` compare without the clones. This sort is permanent and
 /// load-bearing for byte-determinism.
-fn canonicalise(wave: &mut Wave, index: &HashMap<PeerId, usize>) {
+fn canonicalise(wave: &mut Wave, index: &HashMap<PeerId, usize>, arrival_seed: &[u8; 32]) {
     wave.sort_by_cached_key(|delivery| {
         let rank = |id: &PeerId| *index.get(id).expect("delivery endpoints are members");
         (
-            rank(&delivery.from),
             rank(&delivery.to),
+            arrival_key(arrival_seed, &delivery.to, &delivery.from),
+            rank(&delivery.from),
             match &delivery.dissemination_hash {
                 Some(hash) => MessageIdentity::Dissemination(*hash.as_bytes()),
                 None => MessageIdentity::Control(control_key(&delivery.message)),
@@ -637,12 +681,15 @@ fn control_key(message: &Message) -> Vec<u8> {
 mod tests {
     use std::str::FromStr;
 
-    use super::{Driver, RunPlan, RunSeeds, SetupMode};
+    use super::{arrival_key, canonicalise, Delivery, Driver, RunPlan, RunSeeds, SetupMode, Wave};
     use crate::connection_state::LinkState;
+    use crate::crypto::MessageHash;
     use crate::experiments::population::{
         FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, StrategySpec,
     };
     use crate::experiments::scripted;
+    use crate::message::Message;
+    use crate::peer::PeerId;
     use crate::topic::TopicId;
 
     fn full_relay_spec() -> StrategySpec {
@@ -688,7 +735,7 @@ mod tests {
     // past the ends).
     #[test]
     fn line_first_receipt_equals_distance() {
-        let mut driver = Driver::new(scripted::line(4).build());
+        let mut driver = Driver::new(scripted::line(4).build(), [0; 32]);
         let publisher = scripted::peer(0);
         let outcome = driver.publish_drain(&publisher, 0);
         for (index, wave) in [(0usize, 0u64), (1, 1), (2, 2), (3, 3)] {
@@ -709,7 +756,7 @@ mod tests {
     // drain reaches quiescence exactly.
     #[test]
     fn full_mesh_floods_once_and_dedups_the_echo_wave() {
-        let mut driver = Driver::new(scripted::full_mesh(4).build());
+        let mut driver = Driver::new(scripted::full_mesh(4).build(), [0; 32]);
         let publisher = scripted::peer(0);
         let outcome = driver.publish_drain(&publisher, 0);
         assert_eq!(outcome.drain.waves, 2);
@@ -725,13 +772,98 @@ mod tests {
         assert_eq!(outcome.drain.suppressed, 6);
     }
 
+    // ADR 0044: the wave sort groups deliveries by recipient and orders
+    // each recipient's arrivals by its own seeded arrival key — a pure
+    // function of (run seed, recipient, sender), decorrelated between
+    // recipients.
+    #[test]
+    fn canonicalise_orders_each_recipient_by_its_seeded_arrival_key() {
+        let seed = [7u8; 32];
+        let driver = Driver::new(scripted::full_mesh(7).build(), seed);
+        let message = driver.published_message(&scripted::peer(0), 0);
+        let hash = MessageHash::of(&message.plain);
+        let mut wave: Wave = Vec::new();
+        for sender in 0..5 {
+            for recipient in [5usize, 6] {
+                wave.push(Delivery {
+                    from: scripted::peer(sender),
+                    to: scripted::peer(recipient),
+                    message: Message::Dissemination(message.clone()),
+                    dissemination_hash: Some(hash.clone()),
+                });
+            }
+        }
+        canonicalise(&mut wave, &driver.index, &seed);
+
+        // Recipient blocks are contiguous, in rank order.
+        let recipients: Vec<PeerId> = wave.iter().map(|delivery| delivery.to.clone()).collect();
+        let mut expected = vec![scripted::peer(5); 5];
+        expected.extend(vec![scripted::peer(6); 5]);
+        assert_eq!(recipients, expected);
+
+        // Within each block, senders follow that recipient's seeded key
+        // order exactly.
+        let mut orders: Vec<Vec<PeerId>> = Vec::new();
+        for block in wave.chunks(5) {
+            let recipient = &block[0].to;
+            let mut keyed: Vec<PeerId> = (0..5).map(scripted::peer).collect();
+            keyed.sort_by_key(|sender| arrival_key(&seed, recipient, sender));
+            let observed: Vec<PeerId> =
+                block.iter().map(|delivery| delivery.from.clone()).collect();
+            assert_eq!(observed, keyed);
+            orders.push(observed);
+        }
+        // This fixture's two recipients realise different sender orders — a
+        // fixed property of the seed, asserted so a regression to any
+        // recipient-independent (global) order fails loudly.
+        assert_ne!(orders[0], orders[1]);
+        // And a different run seed realises a different order for the same
+        // recipient (same fixture-pinned rationale).
+        let mut reseeded: Vec<PeerId> = (0..5).map(scripted::peer).collect();
+        reseeded.sort_by_key(|sender| arrival_key(&[8u8; 32], &scripted::peer(5), sender));
+        assert_ne!(orders[0], reseeded);
+    }
+
+    // ADR 0044: the arrival key is worker-independent state — rebuilding
+    // the same wave in any collection order canonicalises identically.
+    #[test]
+    fn canonicalise_is_collection_order_independent() {
+        let seed = [9u8; 32];
+        let driver = Driver::new(scripted::full_mesh(5).build(), seed);
+        let message = driver.published_message(&scripted::peer(0), 0);
+        let hash = MessageHash::of(&message.plain);
+        let build = |pairs: &[(usize, usize)]| -> Wave {
+            pairs
+                .iter()
+                .map(|&(from, to)| Delivery {
+                    from: scripted::peer(from),
+                    to: scripted::peer(to),
+                    message: Message::Dissemination(message.clone()),
+                    dissemination_hash: Some(hash.clone()),
+                })
+                .collect()
+        };
+        let pairs: Vec<(usize, usize)> = (0..4).flat_map(|s| [(s, 3), (s, 4)]).collect();
+        let mut forward = build(&pairs);
+        let reversed_pairs: Vec<(usize, usize)> = pairs.iter().rev().copied().collect();
+        let mut reversed = build(&reversed_pairs);
+        canonicalise(&mut forward, &driver.index, &seed);
+        canonicalise(&mut reversed, &driver.index, &seed);
+        let order = |wave: &Wave| -> Vec<(PeerId, PeerId)> {
+            wave.iter()
+                .map(|delivery| (delivery.from.clone(), delivery.to.clone()))
+                .collect()
+        };
+        assert_eq!(order(&forward), order(&reversed));
+    }
+
     // 016-FR-007/FR-027: a whole run is a deterministic function of
     // (configuration, seeds) — two identically-built populations produce
     // value-identical observations.
     #[test]
     fn execute_run_is_deterministic() {
         let run = || {
-            let mut driver = Driver::new(population(8, 2));
+            let mut driver = Driver::new(population(8, 2), [0; 32]);
             driver.execute_run(&plan(1, 2), &seeds())
         };
         assert_eq!(run(), run());
@@ -742,8 +874,8 @@ mod tests {
     // population and the same established topology.
     #[test]
     fn faithful_and_prepopulated_agree() {
-        let mut faithful = Driver::new(population(5, 0));
-        let mut fast = Driver::new(population(5, 0));
+        let mut faithful = Driver::new(population(5, 0), [0; 32]);
+        let mut fast = Driver::new(population(5, 0), [0; 32]);
         let faithful_outcome = faithful.establish(SetupMode::Faithful);
         let fast_outcome = fast.establish(SetupMode::Prepopulated);
         assert_eq!(faithful_outcome, fast_outcome);
@@ -771,7 +903,7 @@ mod tests {
     // 016-FR-009: v1 runs never advance the epoch nonce.
     #[test]
     fn epoch_nonce_stays_at_genesis_across_a_run() {
-        let mut driver = Driver::new(population(6, 1));
+        let mut driver = Driver::new(population(6, 1), [0; 32]);
         driver.execute_run(&plan(1, 1), &seeds());
         for (_, participant) in driver.population().participants() {
             assert_eq!(participant.epoch_nonce(), 0);
@@ -783,7 +915,7 @@ mod tests {
     // down nodes registered and present in peers' connection state.
     #[test]
     fn churn_draw_marks_only_honest_nodes_and_generates_no_events() {
-        let mut driver = Driver::new(population(8, 2));
+        let mut driver = Driver::new(population(8, 2), [0; 32]);
         driver.establish(SetupMode::Prepopulated);
         let received_before: Vec<usize> = driver
             .population()
@@ -828,7 +960,7 @@ mod tests {
     // them are tallied sent-to-down and their received set never grows.
     #[test]
     fn down_nodes_are_not_stepped_and_relay_nothing() {
-        let mut driver = Driver::new(population(4, 0));
+        let mut driver = Driver::new(population(4, 0), [0; 32]);
         driver.establish(SetupMode::Prepopulated);
         let down = driver.churn_draw([4u8; 32], 1);
         let down_node = down[0].clone();
@@ -854,7 +986,7 @@ mod tests {
     // distinct content hashes, no state reset between publishes.
     #[test]
     fn publish_repetition_uses_fresh_messages_without_reset() {
-        let mut driver = Driver::new(population(4, 0));
+        let mut driver = Driver::new(population(4, 0), [0; 32]);
         let observation = driver.execute_run(&plan(0, 3), &seeds());
         assert_eq!(observation.publishes.len(), 3);
         let hashes: Vec<_> = observation
@@ -905,7 +1037,10 @@ mod tests {
             classes: [2u8; 32],
             sampler: [3u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         driver.establish(SetupMode::Prepopulated);
         for (_, participant) in driver.population().participants() {
             let publisher_links = participant.publisher_downstream();
@@ -953,7 +1088,10 @@ mod tests {
             classes: [2u8; 32],
             sampler: [3u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         let outcome = driver.establish(SetupMode::Prepopulated);
         // Each node dials 3 peers; each acceptor's fed cap is 1:
         // 4 accepts land in total, 8 dials are refused with a routed Rejected.
@@ -1002,7 +1140,10 @@ mod tests {
             classes: [5u8; 32],
             sampler: [6u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         let outcome = driver.establish(SetupMode::Prepopulated);
         // Every node dials the other 5. The 4 honest acceptors each receive
         // 5 dials against a cap of 2 → 3 refusals each; the 2 adversarial
@@ -1083,7 +1224,10 @@ mod tests {
             classes: [8u8; 32],
             sampler: [9u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         let outcome = driver.establish(SetupMode::Prepopulated);
 
         // The initiation record is complete: every node dialed both others.
@@ -1125,7 +1269,10 @@ mod tests {
             classes: [14u8; 32],
             sampler: [15u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         driver.establish(SetupMode::Prepopulated);
 
         let topic = driver.population().topic().clone();
@@ -1185,7 +1332,10 @@ mod tests {
             classes: [11u8; 32],
             sampler: [12u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         let outcome = driver.establish(SetupMode::Prepopulated);
 
         // One refusal per honest node, all fresh — no crossing is ever
