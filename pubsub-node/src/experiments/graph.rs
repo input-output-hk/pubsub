@@ -502,7 +502,10 @@ pub struct GraphAnalysis {
 /// classifier is three-way disjoint (deaf, mute, and a separate cut class
 /// for both-disconnected vertices), so its columns exclude exactly what is
 /// counted here in both — the disjoint counts stay recoverable as
-/// overlap = deaf + mute − stranded. Computed on the condensation DAG in
+/// overlap = deaf + mute − stranded, exactly: on a condensation DAG no
+/// non-giant component can both reach and be reached by the giant (that
+/// would close a cycle across components), so deaf ∪ mute is precisely
+/// the stranded set and the subtraction is not an approximation. Computed on the condensation DAG in
 /// one forward and one backward walk from the giant (ties on size break to
 /// the first component in Kosaraju order — deterministic; at the measured
 /// operating shapes the giant dominates and ties do not arise).
