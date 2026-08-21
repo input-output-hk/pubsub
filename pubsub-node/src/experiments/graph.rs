@@ -458,9 +458,13 @@ pub struct GoodnessVerdict {
     /// giant's messages never arrive (the in-defect, "eclipsed" in the
     /// formal severity tables). A vertex disconnected in both directions
     /// counts in both classes, so `deaf + mute` can exceed the stranded
-    /// count `vertices − largest_scc`. Both counts are relative to the raw
-    /// digraph under every model — M3's seed rescue is deliberately not
-    /// reflected here (its goodness criterion is; see [`seeded_goodness`]).
+    /// count `vertices − largest_scc`; the formal classifier instead cuts
+    /// those vertices into a disjoint third class, so joining these
+    /// columns onto its tables double-counts unless the overlap
+    /// (`deaf + mute − stranded`) is subtracted first. Both counts are
+    /// relative to the raw digraph under every model — M3's seed rescue is
+    /// deliberately not reflected here (its goodness criterion is; see
+    /// [`seeded_goodness`]).
     pub deaf: u64,
     /// **Mute** vertices: cannot reach the largest component — their
     /// messages never arrive at the giant (the out-defect; a muted
@@ -493,11 +497,15 @@ pub struct GraphAnalysis {
 /// Classify the stranded vertices relative to the giant component: deaf =
 /// in components the largest component does not reach; mute = in components
 /// that do not reach it (both directions counted independently — an
-/// isolated vertex is both). This is the formal severity tables'
-/// classification, computed on the condensation DAG in one forward and one
-/// backward walk from the giant (ties on size break to the first component
-/// in Kosaraju order — deterministic; at the measured operating shapes the
-/// giant dominates and ties do not arise).
+/// isolated vertex is both). The classes are the formal severity tables'
+/// two stranding directions, with one convention difference: the formal
+/// classifier is three-way disjoint (deaf, mute, and a separate cut class
+/// for both-disconnected vertices), so its columns exclude exactly what is
+/// counted here in both — the disjoint counts stay recoverable as
+/// overlap = deaf + mute − stranded. Computed on the condensation DAG in
+/// one forward and one backward walk from the giant (ties on size break to
+/// the first component in Kosaraju order — deterministic; at the measured
+/// operating shapes the giant dominates and ties do not arise).
 fn classify_strandings(condensation: &Condensation) -> (u64, u64) {
     let sccs = condensation.component_sizes.len();
     if sccs <= 1 {
