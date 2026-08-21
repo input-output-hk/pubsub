@@ -56,7 +56,7 @@ fn population(size: usize, adversarial: usize) -> Population {
 // the topology reaches is recorded.
 #[test]
 fn full_run_executes_on_real_cores() {
-    let mut driver = Driver::new(population(12, 2));
+    let mut driver = Driver::new(population(12, 2), [0; 32]);
     let plan = RunPlan {
         setup: SetupMode::Prepopulated,
         churn_count: 2,
@@ -108,8 +108,8 @@ fn runs_replay_exactly_from_their_seeds() {
         churn: [6u8; 32],
         publisher: [7u8; 32],
     };
-    let first = Driver::new(population(10, 2)).execute_run(&plan, &seeds);
-    let second = Driver::new(population(10, 2)).execute_run(&plan, &seeds);
+    let first = Driver::new(population(10, 2), [0; 32]).execute_run(&plan, &seeds);
+    let second = Driver::new(population(10, 2), [0; 32]).execute_run(&plan, &seeds);
     assert_eq!(first, second);
 }
 
@@ -727,6 +727,8 @@ fn run_record_serialization_is_pinned() {
         sinks: 0,
         sccs: 1,
         largest_scc: 2,
+        deaf: 0,
+        mute: 0,
         in_degree_hist: vec![0, 2],
         out_degree_hist: vec![0, 2],
         standing_degree_hist: vec![0, 0, 2],
@@ -764,7 +766,7 @@ fn run_record_serialization_is_pinned() {
             r#"{"run":1,"experiment":0,"seed":"abcd","honest":3,"adversarial":1,"#,
             r#""down":1,"up_honest":2,"publisher":"n000000","dial_waves":2,"dial_sends":6,"#,
             r#""rejected_over_capacity":0,"good":true,"min_publisher_coverage":1.0,"#,
-            r#""sinks":0,"sccs":1,"largest_scc":2,"in_degree_hist":[0,2],"#,
+            r#""sinks":0,"sccs":1,"largest_scc":2,"deaf":0,"mute":0,"in_degree_hist":[0,2],"#,
             r#""out_degree_hist":[0,2],"standing_degree_hist":[0,0,2],"#,
             r#""good_pre_churn":true,"#,
             r#""min_publisher_coverage_pre_churn":1.0,"sinks_pre_churn":0,"#,
@@ -780,7 +782,7 @@ fn run_record_serialization_is_pinned() {
 // surface (the hand-computable star: hub at wave 1, far leaves at wave 2).
 #[test]
 fn scripted_star_has_hand_computable_depths() {
-    let mut driver = Driver::new(scripted::star(5).build());
+    let mut driver = Driver::new(scripted::star(5).build(), [0; 32]);
     let publisher = scripted::peer(1);
     let outcome = driver.publish_drain(&publisher, 0);
     assert_eq!(

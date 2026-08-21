@@ -372,6 +372,8 @@ mod tests {
             sinks: u64::from(!good),
             sccs: if good { 1 } else { 2 },
             largest_scc: 3,
+            deaf: u64::from(!good),
+            mute: u64::from(!good),
             in_degree_hist: vec![0, 3],
             out_degree_hist: vec![0, 3],
             standing_degree_hist: vec![0, 0, 3],

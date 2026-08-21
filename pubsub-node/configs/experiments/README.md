@@ -152,7 +152,13 @@ Three files per sweep:
   Each publish slice splits its sends by recipient class **and** by
   carrying link kind (`sends_by_kind`: relay/publisher, with degenerate
   columns at zero — under M3 the split reads relaying vs seeding, under
-  M5 pull-serving vs push-forwarding).
+  M5 pull-serving vs push-forwarding). The post-churn graph verdict
+  carries the stranded-node classification alongside `sccs`/
+  `largest_scc`: `deaf` (nodes the largest component cannot reach) and
+  `mute` (nodes that cannot reach it), the formal severity tables'
+  split — a node disconnected in both directions counts in both, and
+  the classification reads the raw digraph under every model (M3's
+  seed rescue shows in `good`, never here).
 - `aggregates.json` — one entry per experiment, a pure fold of its rows:
   distributions, percentiles, and probabilities as raw counts plus a
   Wilson 95 % interval (meaningful even at all-good samples).
@@ -224,4 +230,5 @@ included).
   output contract and statistics conventions), ADR 0037 (the optional
   `serde_json` dependency), ADR 0038 (shared candidate views), ADR 0041
   (the publisher-pair configuration, per-model extraction, and the
-  sends-by-kind split) under [`docs/decisions/`](../../docs/decisions/).
+  sends-by-kind split), ADR 0044 (the per-victim seeded arrival order)
+  under [`docs/decisions/`](../../docs/decisions/).
