@@ -132,6 +132,9 @@ fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
         .collect()
 }
 
+// The trait is async for I/O-backed registries; this in-memory
+// implementation completes synchronously under its mutex.
+#[allow(clippy::unused_async_trait_impl)]
 impl TopicRegistry for InMemoryTopicRegistry {
     async fn watch(&self) -> Result<(TopicSnapshot, TopicRegistryWatch), TopicRegistryError> {
         let (tx, rx) = unbounded_channel();
@@ -153,6 +156,8 @@ impl TopicRegistry for InMemoryTopicRegistry {
     }
 }
 
+// Synchronous under the mutex, like the registry impl above.
+#[allow(clippy::unused_async_trait_impl)]
 impl TopicRegistryControl for InMemoryTopicRegistry {
     async fn set_topic(
         &self,
