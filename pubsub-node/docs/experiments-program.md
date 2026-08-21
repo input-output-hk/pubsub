@@ -273,7 +273,9 @@ security trade-off, never derived from local state.
   registration), while at a binding budget the 2/B looseness converts into doubled honest
   starvation, not extra occupancy — the unordered pair's dominance is now measured, not argued.
   Instrument notes: two pre-registered race models corrected against measurement (documented),
-  and N-042 — the wavefront budget race is class-fair but rank-concentrated dialer-side.
+  and N-042 — the wavefront budget race is class-fair but rank-concentrated dialer-side
+  (resolved post-E20 by ADR 0044's per-victim seeded arrival order; the ordered flooder re-run
+  measured 400/400 good with class-level race columns identical to the decimal).
 - **E20 — The M4 synthesis: the gated recommendation and the gated model comparison** [done].
   Executed and documented in [`docs/experiments/m4-synthesis.md`](experiments/m4-synthesis.md):
   the (N, K)-parameterised prediction ledger (`m4_synthesis_predictions.py` — the E18/E19 forms
@@ -295,7 +297,9 @@ security trade-off, never derived from local state.
   capped publisher-seam cells (N-041 completed) found the
   **seed-rescue coupling** (a binding seed-intake cap starves exactly the rescuing seeds,
   f = μ + (1−μ)ρ_p — size C_p to clear the intake load) and fired N-042's trigger (rank
-  dissection recorded; the instrument fix chartered with frozen validation re-runs). Report §9
+  dissection recorded; the instrument fix landed post-E20 as ADR 0044 and both frozen
+  validation re-runs passed — seed 1148 at 80/400 vs the independent-order form's 84.8,
+  z = −0.59, race columns exact). Report §9
   catalogues the gated closed forms with epistemic grades, a symbol table, and the
   isolated-vertex reduction scoped (the enumerated pair-component term is ≤ 3.3e-4 of E_iso at
   every measured shape; the powered cells show zero pair excess); the PR's formal review

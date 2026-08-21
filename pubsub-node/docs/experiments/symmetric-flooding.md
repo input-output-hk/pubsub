@@ -297,6 +297,10 @@ rule under the unordered pair (load 23.0) and violates it under the
 ordered draw (load 28.7, and no crossing immunity), so an
 ordered-gated deployment must raise C (admitting more attacker
 pressure) to buy the same safety margin the unordered pair gets free.
+*(Attribution confirmed at the ADR 0044 instrument — the per-victim
+seeded arrival order, N-042 resolved: this cell re-run measured
+**400/400 good** with the class-level race columns identical to the
+decimal, 40 617.4 rejected/run.)*
 
 E18 §4's comparison, completed with measured rows: inside the operating
 window the unordered pair keeps its dominance (equal coverage, half the
@@ -325,7 +329,10 @@ is paid for twice at a binding budget.
   side (N-042, found by §7's dissection): class-level columns — all of
   this report's predictions — are exact under the canonical order;
   per-node tails under saturated budgets are amplified relative to a
-  real network's decorrelated arrival orders.
+  real network's decorrelated arrival orders. Resolved after this
+  report by ADR 0044 (the per-victim seeded arrival order): the §7
+  flooder cell re-run at the fixed instrument measured 400/400 good
+  with class-level columns unchanged, confirming the attribution.
 
 ## 9. Scope
 
