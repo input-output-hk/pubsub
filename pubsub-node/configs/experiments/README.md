@@ -155,10 +155,13 @@ Three files per sweep:
   M5 pull-serving vs push-forwarding). The post-churn graph verdict
   carries the stranded-node classification alongside `sccs`/
   `largest_scc`: `deaf` (nodes the largest component cannot reach) and
-  `mute` (nodes that cannot reach it), the formal severity tables'
-  split — a node disconnected in both directions counts in both, and
-  the classification reads the raw digraph under every model (M3's
-  seed rescue shows in `good`, never here).
+  `mute` (nodes that cannot reach it), the formal severity tables' two
+  stranding directions — but counted independently, so a node
+  disconnected in both directions appears in both, where the formal
+  classifier cuts it into a disjoint third class; subtract the overlap
+  (`deaf + mute − stranded`) before joining these columns onto those
+  tables. The classification reads the raw digraph under every model
+  (M3's seed rescue shows in `good`, never here).
 - `aggregates.json` — one entry per experiment, a pure fold of its rows:
   distributions, percentiles, and probabilities as raw counts plus a
   Wilson 95 % interval (meaningful even at all-good samples).

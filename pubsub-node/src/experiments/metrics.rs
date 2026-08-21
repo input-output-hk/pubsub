@@ -128,8 +128,10 @@ pub struct RunRecord {
     /// Post-churn largest component size.
     pub largest_scc: u64,
     /// Post-churn deaf vertices — up-honest nodes the largest component
-    /// cannot reach (the formal severity tables' in-defect class; a vertex
-    /// disconnected in both directions counts in both classes). Zero on
+    /// cannot reach (the in-defect direction; a vertex disconnected in
+    /// both directions counts in both classes, unlike the formal
+    /// classifier's disjoint third class — subtract the overlap
+    /// `deaf + mute − stranded` before joining onto its tables). Zero on
     /// every good graph; with `mute` it classifies the stranded set whose
     /// size is `up_honest − largest_scc`.
     pub deaf: u64,
