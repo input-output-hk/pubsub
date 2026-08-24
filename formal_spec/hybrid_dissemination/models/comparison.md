@@ -264,12 +264,11 @@ becomes narrower under re-provisioning.
 | M1 | −6 % / ±0 | −9 % / +4 % | −17 % / +8 % | −23 % / +16 % |
 | M2 | −6 % / ±0 | −9 % / +4 % | −17 % / +8 % | −23 % / +16 % |
 
-Absolute bandwidth
-*decreases* across the grid: H = (1−μ)N shrinks faster than the
-budgets grow, and the margined baselines start one notch up. Thus
-copies per honest node is the honest cost axis. **The price of
-robustness is almost fully state**: +16–37 % more standing links at
-0.35.
+Every Δmsgs cell above is negative: absolute bandwidth *decreases*
+across the grid, because H = (1−μ)N shrinks faster than the budgets
+grow and the margined baselines start one notch up. Thus copies per
+honest node is the honest cost axis. **The price of robustness is
+almost fully state**: +16–37 % more standing links at 0.35.
 
 **C — the price of one notch at μ = 0.2.** Integer parameters make
 robustness come in discrete steps, and this table prices the first
