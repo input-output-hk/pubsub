@@ -37,15 +37,18 @@ below are from honest peers.
 | RF | pull fanout; s−1 = standing initiation links per node |
 | μ = k/N, H = N−k | adversarial fraction; honest count |
 
-## 3. Results — N = 20 000, μ = 0.2, (RF, s) = (12, 8) (25 graphs)
+## 3. Results — N = 20 000, μ = 0.2, (RF, s) = (13, 7) (25 graphs)
 
 | quantity | mean | sd | max observed |
 |---|---|---|---|
-| in: forwarders (chosen, honest part) | 9.60 (of 12 held) | 1.38 | 12 |
-| in: initiation (accepted, honest) | 5.60 | 2.37 | 19 |
-| out: requesters (accepted, honest) | 9.60 | 3.10 | 27 |
-| out: initiation (chosen, honest part) | 5.60 (of 7 held) | 1.06 | 7 |
+| in: forwarders (chosen, honest part) | 10.40 (of 13 held) | 1.44 | 13 |
+| in: initiation (accepted, honest) | 4.80 | 2.19 | 18 |
+| out: requesters (accepted, honest) | 10.40 | 3.23 | 28 |
+| out: initiation (chosen, honest part) | 4.80 (of 6 held) | 0.98 | 6 |
 
 All match the closed forms to the shown precision. Mean total held ≈ 34
-(honest network) / 38 (compliant); the busiest node accepts ~36 links
-(requesters + incoming initiation) — the provisioning number.
+(honest network) / 38 (compliant); the busiest node accepts ~32 links
+per graph (requesters + incoming initiation; 38 worst over 25 graphs) —
+the provisioning number. The accepted-side sum is ≈ Poisson(15.2) for
+every split of the budget RF + (s−1) = 19, so the totals are a budget
+read, not a split read: the δ-cheapest (12, 8) holds the same 38.

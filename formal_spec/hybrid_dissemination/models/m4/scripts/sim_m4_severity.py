@@ -6,7 +6,7 @@ disconnected), measures d = H - |largest component| and the sizes of the
 straggler components (links are bidirectional, so stranded nodes are
 symmetric: cut off in both directions).  Sampled at elevated mu where bad
 graphs are collectable; at the operating point the defect intensity
-E ~ 1e-4 makes simultaneous defects vanishingly rare, so the per-defect
+E ~ 6e-6 makes simultaneous defects vanishingly rare, so the per-defect
 sizes measured here bound the op-point severity.
 
 Usage: python3 sim_m4_severity.py [--seed SEED]
@@ -26,8 +26,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from m4_model import M4Graph, M4Params  # noqa: E402
 
 N = 20_000
-RF = 8
-CELLS = [(0.45, 600), (0.50, 300)]   # (mu_eff, trials)
+RF = 9
+CELLS = [(0.50, 600), (0.55, 300)]   # (mu_eff, trials)
 
 
 def component_sizes(g):

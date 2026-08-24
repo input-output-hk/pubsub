@@ -29,13 +29,13 @@ Adversarial *inbound* link-opening is bounded only by admission policy
 | F | push fanout (chosen out-links per node) |
 | μ = k/N, H = N−k | adversarial fraction; honest count |
 
-## 3. Results — N = 20 000, μ = 0.2, F = 24 (25 graphs)
+## 3. Results — N = 20 000, μ = 0.2, F = 25 (25 graphs)
 
 | quantity | mean | sd | max observed |
 |---|---|---|---|
-| out (chosen, honest part) | 19.20 (of 24 held) | 1.96 | 24 |
-| in (accepted, honest) | 19.20 | 4.38 | 41 |
+| out (chosen, honest part) | 20.00 (of 25 held) | 2.00 | 25 |
+| in (accepted, honest) | 20.00 | 4.47 | 45 |
 
-All match the closed forms to the shown precision. Mean total held ≈ 43
-(honest network) / 48 (compliant); the busiest node accepts ~41 in-links
-(~2.1× the mean) — the provisioning number, not the average.
+All match the closed forms to the shown precision. Mean total held ≈ 45
+(honest network) / 50 (compliant); the busiest node accepts ~45 in-links
+(~2.2× the mean) — the provisioning number, not the average.

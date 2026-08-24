@@ -36,17 +36,18 @@ eclipse redundancy; announce-then-fetch confines the duplicated bytes to
 **Validity**: exact in expectation given full coverage
 ([`full_coverage.md`](full_coverage.md)).
 
-## 3. Results — N = 20 000, μ = 0.2 (H = 16 000), s = 8
+## 3. Results — N = 20 000, μ = 0.2 (H = 16 000), s = 7
 
 `sweep_m3_cost.py`, 40 graphs per RF:
 
 | RF | T (Monte-Carlo) | T (formula) | per honest node |
 |---|---|---|---|
-| 8 | 102 416 | 102 406 | 6.4 |
-| 12 | 153 570 | 153 606 | 9.6 |
-| 13 | 166 429 | 166 406 | 10.4 |
-| 16 | 204 748 | 204 806 | 12.8 |
+| 8 | 102 416 | 102 405 | 6.4 |
+| 12 | 153 569 | 153 605 | 9.6 |
+| 13 | 166 428 | 166 405 | 10.4 |
+| 16 | 204 749 | 204 805 | 12.8 |
 
-At the δ = 10⁻⁴ operating point (RF = 12, s = 8): **T ≈ 153 600 (9.6 /
-honest node)**; the budget-equal alternative (RF = 13, s = 7) costs 166 400
-(10.4 / node) for a ~2× lower P(bad).
+At the operating point (RF = 13, s = 7): **T ≈ 166 400 (10.4 / honest
+node)** — +8.3 % over the δ-cheapest point (12, 8) at 153 600
+(9.6 / node), buying ~2× the P(bad) headroom and ~4× the churn margin
+([`mu_shift_robustness.md`](mu_shift_robustness.md)).

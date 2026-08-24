@@ -31,13 +31,13 @@ honest peers.
 | RF | pull fanout (chosen in-links per node) |
 | μ = k/N, H = N−k | adversarial fraction; honest count |
 
-## 3. Results — N = 20 000, μ = 0.2, RF = 24 (25 graphs)
+## 3. Results — N = 20 000, μ = 0.2, RF = 25 (25 graphs)
 
 | quantity | mean | sd | max observed |
 |---|---|---|---|
-| in (chosen, honest part) | 19.20 (of 24 held) | 1.96 | 24 |
-| out (accepted, honest) | 19.20 | 4.38 | 41 |
+| in (chosen, honest part) | 20.00 (of 25 held) | 2.00 | 25 |
+| out (accepted, honest) | 20.00 | 4.47 | 45 |
 
-All match the closed forms to the shown precision. Mean total held ≈ 43
-(honest network) / 48 (compliant); the busiest forwarder serves ~41
-requesters (~2.1× the mean) — the provisioning number, not the average.
+All match the closed forms to the shown precision. Mean total held ≈ 45
+(honest network) / 50 (compliant); the busiest forwarder serves ~45
+requesters (~2.3× the mean) — the provisioning number, not the average.
