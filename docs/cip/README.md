@@ -93,38 +93,51 @@ Three properties of that arrangement carry most of the design.
 
 ### Parameters
 
-A handful of named quantities size the protocol. This section collects them: what each controls, whether every node must hold the same value, the value itself, and where it is argued.
+A handful of named quantities size the protocol, and they are of two kinds. Some are values a node reads or derives and then acts on. Others are assumptions the design was solved against, which no node ever reads. This section collects both.
 
-**Only two must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. Both ends of a link recompute it, so two nodes that disagree refuse each other. *B* is selected from a published table by the topic's registered population.
+**Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. Both ends of a link recompute it, so two nodes that disagree refuse each other. *B* is selected from a published table by the topic's registered population.
 
 The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begins and ends, and so which snapshot and which randomness a topology is drawn from. It is read from the [parameter output](#the-parameter-output). [Topology derivation](#topology-derivation) specifies how both are used.
 
 **Everything else a node computes is its own.** How many links it opens is checked by nobody. How many it accepts is a matter of its own capacity. A node that sizes either badly loses coverage or capacity, and disagrees with no one.
 
-**Four more are assumptions the deployment declares.** *μ*, *δ*, *p* and *A* are what this proposal's sizing rules were solved against. They are not held on chain. They ship in node configuration, the way Cardano's own epoch length and security parameter ship in a hashed genesis file rather than in ledger state. Publishing them serves audit rather than agreement: no link is ever refused over them.
-
-The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
-
 <div align="center">
 <a name="table-3" id="table-3"></a>
 
-| Symbol | Controls | Must agree? | Value | Argued |
-| :--: | --- | :--: | --- | --- |
-| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Yes** | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the churn budget | [→](#how-long-an-epoch-may-be) |
-| n/a | The registration cutoff | **Yes** | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [→](#lifecycle-and-the-registration-cutoff) |
-| *η*<sub>e</sub> | The epoch's randomness | **Yes** | **Open source**, fixed requirements | [→](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
-| *B* | How narrow the verifiable gate is | **Yes** | **Selected:** from [Table 1](#table-1), by the topic's registered population | [→](#choosing-the-admission-parameters) |
-| *r* | Candidates the gate leaves per link opened | No | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [→](#choosing-the-admission-parameters) |
-| *k* | Links a node opens per topic | No | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [→](#the-dissemination-design) |
-| *C* | Links a node accepts per topic per kind | No | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [→](#choosing-the-admission-parameters) |
-| *δ*, *μ*, *A*, *p* | The failure target, the adversarial fraction and identity count sized against, and the honest downtime rate | No | **Open.** Deployment assumptions, declared in node configuration: what [Table 1](#table-1) was built at and what the pick-count and cap rules are solved against | [→](#open-questions) |
-| retention | How long a node caches messages, for dedup, equivocation and recovery | No | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [→](#what-the-protocol-guarantees-instead) |
-| deposit | The cost of one registered identity, and so the Sybil surface | No | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [→](#open-questions) |
-| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | No | **Floor fixed:** ≥ 1 epoch. Value open | [→](#the-node-registry) |
+| Symbol | Controls | Value | Argued |
+| :--: | --- | --- | --- |
+| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the churn budget | [→](#how-long-an-epoch-may-be) |
+| n/a | The registration cutoff | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [→](#lifecycle-and-the-registration-cutoff) |
+| *η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [→](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
+| *B* | How narrowly a node's permitted peers are drawn from a topic | **Selected:** from [Table 1](#table-1), by the topic's registered population | [→](#choosing-the-admission-parameters) |
+| *r* | Peers left eligible per link a node opens | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [→](#choosing-the-admission-parameters) |
+| *k* | Links a node opens per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [→](#the-dissemination-design) |
+| *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [→](#choosing-the-admission-parameters) |
+| retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [→](#what-the-protocol-guarantees-instead) |
+| deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [→](#open-questions) |
+| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [→](#the-node-registry) |
 
 <em>Table 3: the parameters this Specification fixes and leaves open</em>
 
 </div>
+
+**The assumptions are declared, not fed to a node.** *μ*, *δ*, *p* and *A* describe the deployment a design is solved for: how much of it is hostile, and how much of it is absent. No node reads any of them. They are what [Table 1](#table-1) was built at and what the sizing rules were solved against, and a deployment states them so that its sizing can be checked. Changing one means rebuilding the table, not reconfiguring a node.
+
+<div align="center">
+<a name="table-3b" id="table-3b"></a>
+
+| Symbol | What it assumes | Value | Argued |
+| :--: | --- | --- | --- |
+| *μ* | The share of registered nodes that accept their links and forward nothing | **Open.** Declared by the deployment; what [Table 1](#table-1) was built at | [→](#open-questions) |
+| *A* | How many registered identities one adversary holds, as distinct from the share of the population they amount to | **Open.** Declared by the deployment; read by the admissions-budget rule | [→](#choosing-the-admission-parameters) |
+| *δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [→](#open-questions) |
+| *p* | The share of honest nodes absent across an epoch | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [→](#how-long-an-epoch-may-be) |
+
+<em>Table 3b: the assumptions the design is solved against</em>
+
+</div>
+
+The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
 
 ### Identity and keys
 
@@ -164,7 +177,7 @@ A node is configured with the script hash of the parameter output itself, in the
 
 **A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute a default, and MUST NOT carry forward a value read in an earlier epoch. A node acting on an epoch length other than the agreed one derives from a different snapshot under different randomness, so its dials are refused by peers that used the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
-**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. It is held on chain rather than in configuration because a change to it has to be *scheduled*. A configuration file cannot say which epoch a new value takes effect from, and nodes crossing a boundary at different times derive different topologies.
+**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. It is held on chain rather than in configuration because a change to it has to be *scheduled*. A configuration file cannot say which epoch a new value takes effect from, and nodes crossing a boundary at different times derive different topologies. Cardano draws the same line: its own epoch length cannot move without a hard fork and ships in a hashed genesis file, while what governance can move lives in ledger state.
 
 **It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment and ship in node configuration. [Parameters](#parameters) sets out why they need no on-chain home. Whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
 
