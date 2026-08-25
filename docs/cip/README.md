@@ -117,38 +117,38 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
 <details>
   <summary><h2>Index of figures</h2></summary>
 
-- [Figure 1: the protocol at a glance](#figure-1)
-- [Figure 2: joining as a node](#figure-2)
-- [Figure 3: deriving one node's links for one epoch](#figure-3)
-- [Figure 4: what a failing draw costs, against how often draws fail](#figure-4)
-- [Figure 5: measured against predicted epoch failure probability](#figure-5)
-- [Figure 6: three costs at the proposed configurations — bandwidth, state, and latency as marker size](#figure-6)
-- [Figure 7: measured configurations against the configuration proposed](#figure-7)
-- [Figure 8: four-way trade-off across the non-dominated designs](#figure-8)
-- [Figure 9: what the bucket count costs and what it buys](#figure-9)
-- [Figure 10: what each way of sizing the bucket count delivers, against topic size](#figure-10)
+- [Figure 1: The protocol at a glance](#figure-1)
+- [Figure 2: Joining as a node](#figure-2)
+- [Figure 3: Deriving one node's links for one epoch](#figure-3)
+- [Figure 4: What a failing draw costs, against how often draws fail](#figure-4)
+- [Figure 5: Measured against predicted epoch failure probability](#figure-5)
+- [Figure 6: Three costs at the proposed configurations — bandwidth, state, and latency as marker size](#figure-6)
+- [Figure 7: Measured configurations against the configuration proposed](#figure-7)
+- [Figure 8: Four-way trade-off across the non-dominated designs](#figure-8)
+- [Figure 9: What the bucket count costs and what it buys](#figure-9)
+- [Figure 10: What each way of sizing the bucket count delivers, against topic size](#figure-10)
 
 </details>
 
 <details>
   <summary><h2>Index of tables</h2></summary>
 
-- [Table 1: the bucket count, by topic population](#table-1)
-- [Table 2: the dissemination design at the reference shape](#table-2)
-- [Table 3: the protocol's parameters](#table-3)
-- [Table 4: the assumptions a deployment chooses](#table-4)
-- [Table 5: the constants this section is measured at](#table-5)
-- [Table 6: performance metrics](#table-6)
-- [Table 7: the dissemination designs evaluated](#table-7)
-- [Table 8: cost at each design's configuration](#table-8)
-- [Table 9: two splits of M3's budget of 19](#table-9)
-- [Table 10: the two candidates, ungated](#table-10)
-- [Table 10b: the same two designs, gated](#table-10b)
-- [Table 11: per-node cost against topics subscribed, at 1 kB and one message per second](#table-11)
-- [Table 12: per-epoch isolation risk, per node and network-wide](#table-12)
-- [Table 13: departure interval required per epoch length](#table-13)
-- [Table 14: the protocol's vocabulary](#table-14)
-- [Table 15: what each closed row gives up at its top](#table-15)
+- [Table 1: The bucket count, by topic population](#table-1)
+- [Table 2: The dissemination design at the reference shape](#table-2)
+- [Table 3: The protocol's parameters](#table-3)
+- [Table 4: The assumptions a deployment chooses](#table-4)
+- [Table 5: The constants this section is measured at](#table-5)
+- [Table 6: Performance metrics](#table-6)
+- [Table 7: The dissemination designs evaluated](#table-7)
+- [Table 8: Cost at each design's configuration](#table-8)
+- [Table 9: Two splits of M3's budget of 19](#table-9)
+- [Table 10: The two candidates, ungated](#table-10)
+- [Table 10b: The same two designs, gated](#table-10b)
+- [Table 11: Per-node cost against topics subscribed, at 1 kB and one message per second](#table-11)
+- [Table 12: Per-epoch isolation risk, per node and network-wide](#table-12)
+- [Table 13: Departure interval required per epoch length](#table-13)
+- [Table 14: The protocol's vocabulary](#table-14)
+- [Table 15: What each closed row gives up at its top](#table-15)
 
 </details>
 
@@ -177,7 +177,7 @@ The chain is the protocol's trust root and carries none of its traffic. Two regi
 
 ![The protocol at a glance](images/architecture.svg)
 
-<em>Figure 1: the protocol at a glance</em>
+<em>Figure 1: The protocol at a glance</em>
 
 </div>
 
@@ -225,7 +225,7 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 | deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
 | withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [The node registry](#the-node-registry) |
 
-<em>Table 3: the protocol's parameters</em>
+<em>Table 3: The protocol's parameters</em>
 
 </div>
 
@@ -243,7 +243,7 @@ A node reads them to size its own pick count and serving cap. No peer verifies t
 | *δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [Open Questions](#open-questions) |
 | *p* | The share of honest nodes absent across an epoch. The drop-out rate *λ* read against the epoch length, by *p* = 1 − e<sup>−λ·*T*</sup> | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
 
-<em>Table 4: the assumptions a deployment chooses</em>
+<em>Table 4: The assumptions a deployment chooses</em>
 
 </div>
 
@@ -282,7 +282,7 @@ The protocol holds three things on chain: a **parameter output** that identifies
 
 ![Joining as a node](images/joining.svg)
 
-<em>Figure 2: joining as a node</em>
+<em>Figure 2: Joining as a node</em>
 
 </div>
 
@@ -490,7 +490,7 @@ Everything in this subsection is a pure function of the epoch's snapshot, *η*<s
 
 ![Deriving one node's links for one epoch](images/derivation.svg)
 
-<em>Figure 3: deriving one node's links for one epoch</em>
+<em>Figure 3: Deriving one node's links for one epoch</em>
 
 </div>
 
@@ -553,7 +553,7 @@ $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 | 5 642 – 11 750 | 256 | 8 | 10 |
 | 11 751 and above | 512 | 9 | 10 |
 
-<em>Table 1: the bucket count, by topic population</em>
+<em>Table 1: The bucket count, by topic population</em>
 
 </div>
 
@@ -597,7 +597,7 @@ Two consequences follow where an implementer meets them. A node's realised degre
 | :--: | :--: | ---: | ---: |
 | relay | symmetric | 10 | 17.5 / 33 |
 
-<em>Table 2: the dissemination design at the reference shape</em>
+<em>Table 2: The dissemination design at the reference shape</em>
 
 </div>
 
@@ -793,7 +793,7 @@ Being all-or-nothing, the criterion says nothing about magnitude, and the magnit
 
 ![What a failing draw costs, against how often draws fail](images/severity.svg)
 
-<em>Figure 4: what a failing draw costs, against how often draws fail</em>
+<em>Figure 4: What a failing draw costs, against how often draws fail</em>
 
 </div>
 
@@ -821,7 +821,7 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | *δ* | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
 | *k* | varies by design | Peers a node picks per topic per link kind, written *RF* for relay links | The knob each design is tuned by; the comparison holds *δ* fixed and lets *k* differ |
 
-<em>Table 5: the constants this section is measured at</em>
+<em>Table 5: The constants this section is measured at</em>
 
 </div>
 
@@ -846,7 +846,7 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
 | | Adversary's identities, *A* | How many registered identities one adversary holds, as distinct from the share *μ* of the population they amount to. The gate leaves *A*/*B* of them eligible for any chosen victim |
 
-<em>Table 6: performance metrics</em>
+<em>Table 6: Performance metrics</em>
 
 </div>
 
@@ -881,7 +881,7 @@ The choices are: whether a node *pushes* messages to peers it selected, or *pull
 | M4 | Each node draws *RF* peers; links are bidirectional and flood | *RF* |
 | M5 | Directed: each node opens *k*<sub>in</sub> inbound and *k*<sub>out</sub> outbound links | *k*<sub>in</sub>, *k*<sub>out</sub> |
 
-<em>Table 7: the dissemination designs evaluated</em>
+<em>Table 7: The dissemination designs evaluated</em>
 
 </div>
 
@@ -912,7 +912,7 @@ In the figure below each point is one measured sample: its horizontal position i
 
 ![Measured against predicted epoch failure probability](images/coverage-validation.svg)
 
-<em>Figure 5: measured against predicted epoch failure probability</em>
+<em>Figure 5: Measured against predicted epoch failure probability</em>
 
 </div>
 
@@ -948,7 +948,7 @@ Every design below is shown at the configuration this proposal names for it, at 
 | | | | | | | | | | |
 | **M4 as specified** | *RF* = 10, gated | **5.1 × 10⁻⁶** | — | **13.0** | **17.5** | **33** | 5.0 | 4.0 | **7.57 %** |
 
-<em>Table 8: cost at each design's configuration</em>
+<em>Table 8: Cost at each design's configuration</em>
 
 </div>
 
@@ -959,7 +959,7 @@ The first five rows are ungated, at the configurations the coverage models were 
 
 ![Three costs at each design's proposed configuration](images/cost-vs-state.svg)
 
-<em>Figure 6: three costs at the proposed configurations — bandwidth, state, and latency as marker size</em>
+<em>Figure 6: Three costs at the proposed configurations — bandwidth, state, and latency as marker size</em>
 
 </div>
 
@@ -1001,7 +1001,7 @@ This does not overturn Table 8, but it does mean cost alone does not select a de
 | RF = 12, *s* = 8 | 7.9 × 10⁻⁵ | 9.6 | 38 | 0.54 % |
 | **RF = 13, *s* = 7** | **4.4 × 10⁻⁵** | 10.4 | 38 | **2.17 %** |
 
-<em>Table 9: two splits of M3's budget of 19</em>
+<em>Table 9: Two splits of M3's budget of 19</em>
 
 </div>
 
@@ -1029,7 +1029,7 @@ In the figure below every axis is oriented so that outward is better, and each d
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 8: four-way trade-off across the non-dominated designs</em>
+<em>Figure 8: Four-way trade-off across the non-dominated designs</em>
 
 </div>
 
@@ -1056,7 +1056,7 @@ For most of this programme two designs stood, and on the coverage models neither
 | Downtime absorbed | 2.17 % | **7.43 %** |
 | Corruptions to strand a chosen node, knowing its links <sup>a</sup> | 10.4 | **14.4** |
 
-<em>Table 10: the two candidates, ungated</em>
+<em>Table 10: The two candidates, ungated</em>
 
 <em><sup>a</sup> Two different formulas, not a measured difference: <em>k</em>(1−<em>μ</em>) where the links that can strand a node are directional, 2<em>k</em>(1−<em>μ</em>) where they are symmetric, since a symmetric pick yields two usable directions. Cost and latency for both designs are in [Table 8](#table-8); only the rows that change under the admission rules are repeated here, so that Table 10b has a before-half.</em>
 
@@ -1079,7 +1079,7 @@ The three designs already beaten on cost were not re-measured under the gate, an
 | At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
 | Seams carrying a gate and a cap | 2 | **1** |
 
-<em>Table 10b: the same two designs, gated</em>
+<em>Table 10b: The same two designs, gated</em>
 
 </div>
 
@@ -1130,7 +1130,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 | 10 | **832 kbit/s** | 380 | 1.1 Mbit/s | **180** |
 | 25 | **2.1 Mbit/s** | 950 | 2.7 Mbit/s | **450** |
 
-<em>Table 11: per-node cost against topics subscribed, at 1 kB and one message per second</em>
+<em>Table 11: Per-node cost against topics subscribed, at 1 kB and one message per second</em>
 
 </div>
 
@@ -1158,7 +1158,7 @@ The two pull in opposite directions on the same knob, and both sides are now mea
 
 ![The bucket count trade-off](images/gate-tradeoff.svg)
 
-<em>Figure 9: what the bucket count costs and what it buys</em>
+<em>Figure 9: What the bucket count costs and what it buys</em>
 
 </div>
 
@@ -1187,7 +1187,7 @@ separate — but the failure probability each way of sizing arrives at.
 
 ![What each bucket-count rule delivers](images/bucket-bounds.svg)
 
-<em>Figure 10: what each way of sizing the bucket count delivers, against topic size</em>
+<em>Figure 10: What each way of sizing the bucket count delivers, against topic size</em>
 
 </div>
 
@@ -1267,7 +1267,7 @@ That geometry is worth stating in numbers, because it is what sizes both the epo
 | The same node cut off again in the next | 7.5 × 10⁻¹⁸ | 1.4 × 10⁻¹⁹ |
 | *Some* node cut off, network-wide | 4.4 × 10⁻⁵ | 6.1 × 10⁻⁶ |
 
-<em>Table 12: per-epoch isolation risk, per node and network-wide</em>
+<em>Table 12: Per-epoch isolation risk, per node and network-wide</em>
 
 </div>
 
@@ -1342,7 +1342,7 @@ Three things follow.
 | M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
 | M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
 
-<em>Table 13: departure interval required per epoch length</em>
+<em>Table 13: Departure interval required per epoch length</em>
 
 <em>Every row is computed from that design's churn budget by the relation above, and none is a separate measurement; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Robustness](#robustness) gives.</em>
 
@@ -1380,7 +1380,7 @@ Figure 7 places the two side by side. Solid marks are configurations whose failu
 
 ![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
 
-<em>Figure 7: measured configurations against the configuration proposed</em>
+<em>Figure 7: Measured configurations against the configuration proposed</em>
 
 </div>
 
@@ -1652,7 +1652,7 @@ Several of these words carry an established Cardano meaning that is *not* the me
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | How many peers the gate leaves a node eligible to link to, per link it must open. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
 | <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic for one link kind that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
 
-<em>Table 14: the protocol's vocabulary</em>
+<em>Table 14: The protocol's vocabulary</em>
 
 </div>
 
@@ -1687,7 +1687,7 @@ population at which the ceiling reaches twice the row's *B*.
 
 <a name="table-15" id="table-15"></a>
 
-<em>Table 15: what each closed row gives up at its top</em>
+<em>Table 15: What each closed row gives up at its top</em>
 
 At the populations this proposal is sized for the loss is much smaller, because those sit low in
 their rows rather than at the top: **1.10×** at three thousand nodes, the delivery-critical
