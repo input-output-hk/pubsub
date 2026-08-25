@@ -364,7 +364,7 @@ Two consequences follow. A node entry may outlive a topic it lists, so a listed 
 
 One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
-Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each operator spending only its own output is the property [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) relies on. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
+Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each operator spends only its own output, so no registry operation waits on another party's transaction. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
 
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree.
 
@@ -429,7 +429,7 @@ The cutoff ordering is what makes neighbour selection non-influenceable: a node 
 > [!WARNING]
 > **A node derives an epoch from the snapshot, not from the chain as it currently stands.** The plain reading, that a node reads the registry and computes its peers, is wrong in the one case that matters: a registration that lands after the cutoff is visible at the tip and is *not* part of the epoch. Two nodes deriving from different chain positions would disagree about who is registered and refuse each other's dials. Deriving from the cutoff snapshot is what makes the derivation agree across the network.
 
-The datum schemas for all three, in CDDL,[^cddl] are collected under [Registry schemas](#registry-schemas). They are placed there because they fix an encoding rather than a mechanism: nothing in this section's rules depends on reading them, and no entry is contended for — a node entry is spent only by its own operator and a topic entry only by its owner, so there is no competition for a shared output and no ordering problem for a validator to resolve. What every implementation does need from the chain is the ability to **enumerate both registries, and read the parameter output, at a fixed chain position**, since the topology derives from that snapshot rather than from the tip.
+The datum schemas for all three, in CDDL,[^cddl] are under [Registry schemas](#registry-schemas). What every implementation needs from the chain is the ability to **enumerate both registries, and read the parameter output, at a fixed chain position**, since the topology derives from that snapshot rather than from the tip.
 
 ### Epochs and the randomness beacon
 
