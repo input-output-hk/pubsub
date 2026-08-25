@@ -56,7 +56,7 @@ Two things Cardano already maintains are what make an answer possible. An on-cha
 ## Specification
 <!-- The technical specification should describe the proposed improvement in sufficient technical detail. In particular, it should provide enough information that an implementation can be performed solely on the basis of the design in the CIP. This is necessary to facilitate multiple, interoperable implementations. This must include how the CIP should be versioned, if not covered under an optional Versioning main heading. If a proposal defines structure of on-chain data it must include a CDDL schema in its specification.-->
 
-This section specifies the protocol. It aims at an implementation written from this document alone, and it is ordered by the three bands of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links. Parameters and versioning come last, once the mechanisms that read them have been stated.
+This section specifies the protocol. It aims at an implementation written from this document alone, and it is ordered by the three bands of [Figure 1](#figure-1): what the chain supplies, how a node turns that into the links it will hold, and how messages travel over those links.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
