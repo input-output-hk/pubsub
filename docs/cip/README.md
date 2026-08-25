@@ -512,17 +512,19 @@ Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *
 
 #### The verifiable gate
 
-The gate narrows the candidates to those a node is permitted to link with in this epoch. For an ordered pair (*a*, *b*) on topic *T* under randomness *η*, with domain tag *d* and [bucket count](#term-b) *B*:
+The gate narrows the candidates to those a node is permitted to link with in this epoch. For a pair (*a*, *b*) on topic *T* under randomness *η*, with domain tag *d* and [bucket count](#term-b) *B*:
 
 $$\mathrm{gate}_d(a, b, T, \eta, B) \iff \mathrm{trunc}_{64}\big(\mathrm{SHA\text{-}256}(P)\big) \bmod B = 0$$
 
-where the preimage *P* and its reduction are fixed exactly as follows, since any divergence makes two implementations disagree about which links are legal:
+A pair passes when its digest lands in bucket zero, so one pair in *B* is admitted. Every value of *B* in [Table 1](#table-1) is a power of two, which makes that reduction a mask on the low bits rather than a division, and the pass rate exactly 1/*B*.
+
+The preimage *P* and its reduction are fixed exactly as follows, since any divergence makes two implementations disagree about which links are legal:
 
 $$P = \mathrm{LP}(d) \,\|\, \mathrm{LP}(\eta) \,\|\, \mathrm{LP}(T) \,\|\, \mathrm{LP}(a) \,\|\, \mathrm{LP}(b)$$
 
-`LP` is the length prefix defined under [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation); *T* is the raw 32-byte topic identifier and *a*, *b* are the raw identity public keys, never a display form. `trunc`<sub>64</sub> takes the first eight bytes of the digest as a big-endian unsigned integer. *B* = 1 makes the gate vacuous and every registered peer eligible, which is the correct degenerate behaviour on a topic too small to bucket.
+`LP` is the length prefix defined under [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation); *T* is the raw 32-byte topic identifier and *a*, *b* are the raw identity public keys, never a display form. For a **symmetric** link kind the two keys MUST be sorted by their raw bytes before they enter *P*; for a **directional** kind they enter in the order given. `trunc`<sub>64</sub> takes the first eight bytes of the digest as a big-endian unsigned integer. *B* = 1 makes the gate vacuous and every registered peer eligible, which is the correct degenerate behaviour on a topic too small to bucket.
 
-How the gate reads a pair depends on the link kind. For a **directional** link it is evaluated on the **ordered** pair, so (*a*, *b*) and (*b*, *a*) are two separate draws. For a **symmetric** link the two identities are sorted by their bytes first, so both ends evaluate the same pair and reach the same answer. That is what stops either end claiming a link the other cannot see.
+That ordering is what separates the two kinds. A directional link draws (*a*, *b*) and (*b*, *a*) as two independent chances. A symmetric link gives both ends the same preimage and so the same answer, which is what stops either end claiming a link the other cannot see.
 
 The sorted pair was chosen on measurement rather than assumed. The alternative is to draw each direction on its own and admit the pair if either draw passes. That rule is looser, and it costs four things.
 
@@ -578,7 +580,7 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 </div>
 
-**Every value is a power of two, and that is the point.** The gate reduces to a mask: a candidate is eligible when the low *mask bits* of the gate hash are all zero. No division, no modulo, no logarithm, and no rounding rule to agree on. That matters because this is the one value two implementations cannot be allowed to compute differently. At *B* = 1 the mask is empty and every registered peer is eligible.
+**Every value is a power of two, and that is the point.** The *mask bits* column is that reduction: a candidate is eligible when that many low bits of the gate hash are all zero. No division, no logarithm, and no rounding rule to agree on. That matters because this is the one value two implementations cannot be allowed to compute differently. At *B* = 1 the mask is empty and every registered peer is eligible.
 
 Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for. The [Appendix](#admission-parameter-bands) derives each row, prices what it gives up, and lists what remains to be measured.
 
