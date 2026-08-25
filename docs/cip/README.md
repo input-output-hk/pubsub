@@ -203,7 +203,7 @@ Three properties of that arrangement carry most of the design.
 
 A handful of named quantities size the protocol, and they are of two kinds. Some are parameters the protocol runs on. The rest are assumptions about the environment it is being sized for. A node reads both. Only the parameters are ever checked by a peer, and that difference decides where each is held.
 
-**Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. Both ends of a link recompute it, so two nodes that disagree refuse each other. *B* is selected from a published table by the topic's registered population.
+**Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. Both ends of a link recompute it, so two nodes that disagree refuse each other. *B* is not held on chain at all: a node looks it up in [Table 1](#table-1) of this document, by how many peers the topic has in the snapshot.
 
 The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begins and ends, and so which snapshot and which randomness a topology is drawn from. It is read from the [parameter output](#the-parameter-output). [Topology derivation](#topology-derivation) specifies how both are used.
 
@@ -552,9 +552,9 @@ Narrowing has a cost, and it is paid in the randomness of the draw. If the gate 
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-**Only one parameter has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) disagree about which links are legal, and refuse each other. Nothing checks a dialler's pick count, and the [serving cap](#term-cap) is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone. **The bucket count is therefore selected from a published table; the pick count and the serving cap follow rules.**
+**Only one parameter has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) disagree about which links are legal, and refuse each other. Nothing checks a dialler's pick count, and the [serving cap](#term-cap) is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone. **The bucket count is therefore selected from [Table 1](#table-1) below, which this document publishes rather than the chain; the pick count and the serving cap follow rules each node applies for itself.**
 
-*B* MUST be the value the table below gives for the topic's registered population, taken from the epoch's snapshot. Both ends of any link read the same snapshot, so both select the same row.
+*B* MUST be the value [Table 1](#table-1) gives for the topic's registered population, taken from the epoch's snapshot. The table is fixed by this document and the population is read from the chain, so the only thing that can move a row is the topic gaining or losing members. Both ends of any link read the same snapshot, so both select the same row.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
