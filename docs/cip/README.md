@@ -200,7 +200,7 @@ Three properties of that arrangement carry most of the design.
 
 ### Parameters
 
-A handful of named quantities size the protocol, and they are of two kinds. Some are values a node reads or derives and then acts on. Others are assumptions the design was solved against, which no node ever reads. This section collects both.
+A handful of named quantities size the protocol, and they are of two kinds. Some are parameters the protocol runs on. The rest are assumptions about the environment it is being sized for. A node reads both. Only the parameters are ever checked by a peer, and that difference decides where each is held.
 
 **Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. Both ends of a link recompute it, so two nodes that disagree refuse each other. *B* is selected from a published table by the topic's registered population.
 
@@ -228,7 +228,9 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 
 </div>
 
-**The assumptions are choices a deployment makes, not values fed to a node.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes. No node reads any of them. Changing one means rebuilding [Table 1](#table-1), not reconfiguring a node. Two are tied to the epoch length: a failure rate per epoch and a downtime rate across an epoch both mean something else if the epoch changes. A scheduled change to *T*<sub>epoch</sub> therefore requires *δ* and *p* to be restated against it.
+**The assumptions are choices a deployment makes, not facts any peer can check.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes.
+
+A node reads them to size its own pick count and serving cap. No peer verifies them, and no link is ever refused over one, which is why they need no on-chain home. Changing one re-sizes the deployment: it means rebuilding [Table 1](#table-1) and restating what every node is configured with. Two are tied to the epoch length, since a failure rate per epoch and a downtime rate across an epoch both mean something else if the epoch changes. A scheduled change to *T*<sub>epoch</sub> therefore requires *δ* and *p* to be restated against it.
 
 <div align="center">
 <a name="table-4" id="table-4"></a>
