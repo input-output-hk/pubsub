@@ -739,7 +739,13 @@ Delivery is ordered per (topic, publisher). The protocol defines no ordering acr
 
 **Recovery.** Having identified a gap, a node requests the missing range for that (topic, publisher) from one or more of its peers, and SHOULD request from several, since a single peer that dropped the messages is also able to decline to return them. Each returned message is verified as any other, and additionally checked to chain correctly from the last message the node holds. A range that no reachable peer can serve is reported to the application as unrecoverable; the node does not stall, and continues delivering newer messages.
 
-**Retention.** Recovery is served out of peers' caches. Each node keeps messages it has forwarded for a bounded window, counted in [epochs](#param-t-epoch) rather than in wall-clock time, and that one cache does three jobs: it suppresses duplicates, it makes equivocation detectable, and it answers recovery requests. Nothing else stores a topic's history. There are no archival nodes in this proposal, and the chain holds no message content.
+**Retention.** Recovery is served out of peers' caches. Each node keeps messages it has forwarded for a bounded window, counted in [epochs](#param-t-epoch) rather than in wall-clock time. That one cache does three jobs.
+
+1. **Duplicate suppression.** A message whose content hash the node already holds is dropped rather than forwarded again.
+2. **Equivocation detection.** Two messages sharing a triple but differing in content both propagate, so a node holding both can recognise the conflict.
+3. **Recovery.** It answers a peer's request for a range that peer is missing.
+
+Nothing else stores a topic's history. There are no archival nodes in this proposal, and the chain holds no message content.
 
 The window has a floor, and the floor follows from what rotation is for. Rotation is what ends muting, and a muted subscriber can act on what it missed only once it holds honest peers, which is the next epoch at the earliest. **The retention window MUST be at least one epoch**, since a shorter one would expire precisely the messages rotation exists to let a subscriber recover, and **SHOULD be at least two**, since detecting the gap costs up to a further epoch where detection is left to rotation alone. The [Rationale](#what-the-protocol-guarantees-instead) sets out both. Its value beyond the floor is a per-topic parameter carried in the topic registry, is open, and is posed in the [Open Questions](#open-questions).
 
