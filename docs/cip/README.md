@@ -625,14 +625,7 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 
 *k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are the assumptions the deployment declares, each set out in [Table 4](#table-4).
 
-> [!TIP]
-> At the reference shape of this proposal — *N*<sub>T</sub> = 20 000, *μ* = 0.2, *δ* = 10⁻⁴ — the rule gives *RF* = 10 for a deployment sizing against honest downtime up to 7.5 %, and *RF* = 9 where 2.6 % suffices. This proposal states *RF* = 10. Below about 2.6 % the two are equivalent on reliability and *RF* = 9 is cheaper; above it, *RF* = 9 misses the target on downtime alone.
-
-One link is a large step and a small bill, which is why the rule is worth stating rather than approximating. Each additional pick divides the failure probability by roughly seven under the gate, so *RF* = 10 reaches 5.1 × 10⁻⁶ where *RF* = 9 reaches 3.6 × 10⁻⁵.
-
-Against the ungated figures earlier drafts of this proposal carried, the tenth pick is free, for a reason particular to the gate: a node and its permitted peers draw from the same restricted pool, so pairs select each other far more often than they would at large, and each such crossing is one link rather than two. That deflation more than absorbs it — *RF* = 10 gated holds 17.5 links against ungated *RF* = 9's 18.0, and carries 13.0 deliveries per node against 13.4, for about one per cent more time to first receipt.
-
-Against the cheaper *gated* alternative it is not free, and the bill is worth seeing before the rule is applied. *RF* = 9 gated holds 16.0 links and carries 11.8 copies, so the tenth pick costs about a tenth of each. **That is a per-topic figure, and it multiplies**: across the twenty-five subscriptions [What a node pays](#what-a-node-pays-and-how-it-scales) uses, it is roughly 400 connections against 440, and 2.4 Mbit/s against 2.6. What it buys is the downtime the rule is about, 2.6 % against 7.5 %.[^synthesis]
+At the reference shape this proposal is sized for, the rule gives *RF* = 10, which is the value [Table 2](#table-2) carries; [the Rationale](#what-can-be-turned-and-what-it-costs) prices the tenth pick against the cheaper *RF* = 9.
 
 #### The serving cap
 
@@ -1249,6 +1242,8 @@ The starvation counts show why the coverage panel and the attack side agree. Wid
 The evidence above prices a fixed set of choices. This collects what a deployment may actually turn, because the parameters are not equally powerful.
 
 **Fanout is the strong knob, and it is the only one that compounds.** Failure probability falls roughly as the adversarial fraction raised to the pick count. Under the gate at the bucket count this proposal specifies, the ladder runs 2.7 × 10⁻⁴, 3.6 × 10⁻⁵, 5.1 × 10⁻⁶ and 7.5 × 10⁻⁷ across pick counts of eight to eleven — about a factor of seven per link, for roughly one and a half further links and 1.2 further deliveries per node.[^synthesis] Anyone who finds the delivery guarantee insufficient should reach for this first.
+
+**The tenth pick is what buys the downtime budget.** Gated at *RF* = 9 a node holds 16.0 links and carries 11.8 copies and absorbs 2.6 % honest downtime; at *RF* = 10 it holds 17.5 and carries 13.0 and absorbs 7.5 %. That is a per-topic figure and it multiplies: across the twenty-five subscriptions [What a node pays](#what-a-node-pays-and-how-it-scales) uses, roughly 400 connections against 440 and 2.4 Mbit/s against 2.6. Below about 2.6 % downtime the two are equivalent on reliability and *RF* = 9 is cheaper; above it, *RF* = 9 misses the target on downtime alone.[^synthesis]
 
 **The admission parameters are not free of coverage, and that is a property of the pick count.** Where the pick count is large enough that the all-picks-adversarial term is negligible, the bucket count and the serving cap move coverage hardly at all, which is the regime the directional measurements were taken in. At the pick counts this proposal uses, the gate's own failure term re-enters the budget and a binding serving cap composes into the coverage law rather than sitting beside it. Both must therefore be sized against coverage as well as against admission.[^synthesis]
 
