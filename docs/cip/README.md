@@ -522,7 +522,18 @@ $$P = \mathrm{LP}(d) \,\|\, \mathrm{LP}(\eta) \,\|\, \mathrm{LP}(T) \,\|\, \math
 
 `LP` is the length prefix defined under [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation); *T* is the raw 32-byte topic identifier and *a*, *b* are the raw identity public keys, never a display form. `trunc`<sub>64</sub> takes the first eight bytes of the digest as a big-endian unsigned integer. *B* = 1 makes the gate vacuous and every registered peer eligible, which is the correct degenerate behaviour on a topic too small to bucket.
 
-The gate is evaluated on the **ordered** pair for a directional link and on the pair sorted by identity bytes for a symmetric one, so that both ends of a symmetric link compute the identical draw and neither can claim an edge the other does not see. That choice is measured rather than assumed. The alternative — drawing each direction independently and admitting the pair if either draw holds — doubles a pair's admissibility to 2/*B*, so it needs twice the bucket count for the same density; at equal density it sits on the same coverage cliff, it destroys the property that a node's own selections are immune to the admissions budget, and under a budget that binds its looser admission rule converts into roughly twice the honest starvation. The sorted pair dominates across the operating window.[^symgate] Each link kind uses its own domain tag, of the form `pubsub/gate/<kind>/v1`, so a node's choices for one kind are an independent draw from its choices for another.
+How the gate reads a pair depends on the link kind. For a **directional** link it is evaluated on the **ordered** pair, so (*a*, *b*) and (*b*, *a*) are two separate draws. For a **symmetric** link the two identities are sorted by their bytes first, so both ends evaluate the same pair and reach the same answer. That is what stops either end claiming a link the other cannot see.
+
+The sorted pair was chosen on measurement rather than assumed. The alternative is to draw each direction on its own and admit the pair if either draw passes. That rule is looser, and it costs four things.
+
+- A pair passes twice as often, 2/*B* rather than 1/*B*. To leave the topology equally dense, *B* has to double.
+- At equal density the coverage is the same, so the looser rule buys nothing for what it costs.
+- It breaks a property the design leans on elsewhere: that a node's own picks can never be refused for want of [admissions budget](#the-serving-cap).
+- Where that budget binds, it roughly doubles **honest starvation** — honest dials turned away because the budget is already spent.
+
+The sorted pair is the better of the two everywhere in the operating window.[^symgate]
+
+Each link kind uses its own domain tag, of the form `pubsub/gate/<kind>/v1`. A node's choices for one kind are therefore an independent draw from its choices for another.
 
 The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
