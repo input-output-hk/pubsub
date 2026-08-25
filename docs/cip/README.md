@@ -162,7 +162,7 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 
 </div>
 
-**The assumptions are choices a deployment makes, not values fed to a node.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes. No node reads any of them. Changing one means rebuilding [Table 1](#table-1), not reconfiguring a node.
+**The assumptions are choices a deployment makes, not values fed to a node.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes. No node reads any of them. Changing one means rebuilding [Table 1](#table-1), not reconfiguring a node. Two are tied to the epoch length: a failure rate per epoch and a downtime rate across an epoch both mean something else if the epoch changes. A scheduled change to *T*<sub>epoch</sub> therefore requires *δ* and *p* to be restated against it.
 
 <div align="center">
 <a name="table-4" id="table-4"></a>
@@ -170,9 +170,9 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 | Symbol | What it assumes | Value | Argued in |
 | :--: | --- | --- | --- |
 | *μ* | The share of registered nodes that accept their links and forward nothing | **Open.** Declared by the deployment; what [Table 1](#table-1) was built at | [Open Questions](#open-questions) |
-| *A* | How many registered identities one adversary holds, as distinct from the share of the population they amount to | **Open.** Declared by the deployment; read by the admissions-budget rule | [Choosing the admission parameters](#choosing-the-admission-parameters) |
+| *A* | How many registered identities one adversary holds. Bounded by *μ* and the population, not implied by them: the same *μ* may be one adversary or many | **Open.** Declared by the deployment; read by the admissions-budget rule | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | *δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [Open Questions](#open-questions) |
-| *p* | The share of honest nodes absent across an epoch | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
+| *p* | The share of honest nodes absent across an epoch. The drop-out rate *λ* read against the epoch length, by *p* = 1 − e<sup>−λ·*T*</sup> | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
 
 <em>Table 4: the assumptions a deployment chooses</em>
 
@@ -220,7 +220,7 @@ A node is configured with the script hash of the parameter output itself, in the
 
 **It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. Holding it here rather than in configuration is what lets a change be *scheduled*: the rules below announce a new value against a future epoch, and a configuration file has no way to say which epoch a value takes effect from. Whether that is worth an on-chain output at all is posed below.
 
-**It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment and ship in node configuration. [Parameters](#parameters) sets out why they need no on-chain home. Whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
+**It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment. A node reads them from its configuration at startup; an implementation MUST NOT compile them in. [Parameters](#parameters) sets out why they need no on-chain home. Whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
 
 Three rules govern changes.
 
