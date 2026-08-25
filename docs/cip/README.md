@@ -494,7 +494,9 @@ Everything in this subsection is a pure function of the epoch's snapshot, *η*<s
 
 </div>
 
-The figure is drawn at the sizing rule fixed below. Row 1 holds 32 registered peers, *B* = 4 leaves the eight of row 2 eligible, and *k* = 4 of those are picked in row 3. The ratio of row 2 to row 3 is the [selection headroom](#term-r) *r* = 2, the smallest value this Specification permits.
+The three rows are the same peers, marked three times over. **Row 1** is everyone registered on the topic, taken from the [node registry](#the-node-registry) as it stood at that epoch's [registration cutoff](#term-snapshot), so every node reads the same list. **Row 2** is the smaller set this node may link with; the [bucket count](#term-b) *B* decides how much smaller, and a node looks it up in [Table 1](#table-1) by how many peers the topic has. **Row 3** is the *k* of those that the node picks, using randomness of its own.
+
+The figure is drawn at 32 registered peers and *B* = 4, so eight are eligible and *k* = 4 are picked. The ratio of row 2 to row 3 is the [selection headroom](#term-r) *r* = 2, the smallest value this Specification permits.
 
 The three rows differ in who can check them, and the split is the whole of the design's honesty about what it enforces. **Rows 1 and 2 are recomputable by anyone holding the chain**, so an acceptor, or any third party, can reject or expose a link outside the permitted set. **Row 3 is the node's own randomness and is not checkable by anyone**, because a private pick is what keeps the topology a random graph rather than a published one. Concretely, an acceptor presented with a dial verifies three things and nothing else:
 
