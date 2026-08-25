@@ -93,7 +93,7 @@ Three properties of that arrangement carry most of the design.
 
 ### Parameters
 
-Every parameter this Specification fixes or leaves open, with the value it takes and where each is argued. It sits here rather than after the mechanisms because the sections that follow read these symbols throughout.
+A handful of named quantities size the protocol. This section collects them: what each controls, whether every node must hold the same value, the value itself, and where it is argued.
 
 **Only two values must be identical across nodes.** The bucket count *B*, because an acceptor recomputes the [gate](#the-verifiable-gate) on every dial it receives and two nodes that disagree about it refuse each other; and the epoch length *T*<sub>epoch</sub>, because it fixes which snapshot and which randomness an epoch derives from. *B* is selected from a published table by the topic's registered population, and *T*<sub>epoch</sub> is read from the [parameter output](#the-parameter-output). Nothing else a node computes has to match anyone else's: nothing checks a dialler's pick count, and the serving cap is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
