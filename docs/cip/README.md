@@ -286,15 +286,17 @@ The protocol holds three things on chain: a **parameter output** that identifies
 
 </div>
 
-**Stage 1** is off chain. The operator generates the node identity key the topology is derived over, holds the operator credential that authorises registry transactions, and signs the [proof of possession](#identity-and-keys) binding the two.
+**Stage 1** is off chain: the operator generates the node identity key, holds the operator credential, and signs the [proof of possession](#identity-and-keys) binding the two.
 
-**Stage 2** applies only where the topic does not yet exist. Creating one takes an owner credential, a publisher set that MAY be empty, and a retention window of at least one epoch. It never takes a registered identity, which is why it can precede stage 3 or share its transaction.
+**Stage 2** applies only where the topic does not yet exist. It needs no registered identity, which is why it can precede stage 3 or share a transaction with it.
 
-**Stage 3** creates the node entry. It MUST list at least one registered topic, MUST lock the [deposit](#term-deposit), and MAY carry endpoints.
+**Stage 3** creates the node entry, carrying the topics the node takes part in and locking its [deposit](#term-deposit).
 
-**Stage 4** is a wait, and the one an operator cannot shorten. An entry takes part from the first epoch whose [snapshot](#term-snapshot) contains it, never from the moment it lands on chain.
+**Stage 4** is a wait, and the one an operator cannot shorten: an entry takes part from the first epoch whose [snapshot](#term-snapshot) contains it, never from the moment it lands on chain.
 
-**Stage 5** is that epoch. The node is counted among the [registered peers](#the-registered-peers-on-a-topic) on each topic it listed. [Topology derivation](#topology-derivation) narrows those to the peers it may link with, and the node opens its own picks and holds them until the epoch ends.
+**Stage 5** is that epoch. The node is counted among the [registered peers](#the-registered-peers-on-a-topic) on each topic it listed, and [Topology derivation](#topology-derivation) narrows those to the peers it may link with.
+
+The three subsections below specify what each output holds, and [Lifecycle](#lifecycle-and-the-registration-cutoff) states what stages 3 and 4 must satisfy.
 
 #### The parameter output
 
@@ -343,7 +345,7 @@ A topic entry moves through three operations of its own, and the third is *annou
 
 1. The topic identifier MUST be the blake2b-256 hash of the output that creates the entry, which makes identifiers unforgeable and collision-free without a naming authority.
 2. The retention window MUST be at least one epoch, for the reason [Dissemination, recovery and retention](#dissemination-recovery-and-retention) gives.
-3. The entry MAY carry an empty publisher set, which opens the topic to every registered node.
+3. The entry MAY carry an empty publisher set.
 
 **Step 2. Changing the authorised publishers.** Replaces the publisher set.
 
@@ -372,9 +374,9 @@ Two consequences follow. A node entry may outlive a topic it lists, so a listed 
 
 One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
-Keeping the subscription on the node entry is also what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each operator spending only its own output is the property [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) relies on. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
+Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each operator spending only its own output is the property [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) relies on. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
 
-The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree. An entry MUST list at least one topic, and every topic it lists MUST be registered in the topic registry. A topic entry created in the same transaction satisfies that, and a validator MUST accept it: the transaction's own outputs are visible to it, and the topic identifier is derived from an output the transaction spends, so it is known before the transaction is submitted. An operator bringing up a new topic and the first node on it can therefore do both atomically. Nothing in the other direction is needed, since creating a topic requires only an owner credential and never a registered identity.
+The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree.
 
 The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
 
@@ -396,7 +398,7 @@ A node entry moves through four operations, and every epoch is derived from a sn
 
 **Step 1. Registration.** Creates a node entry and locks the [deposit](#term-deposit).
 
-1. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry.
+1. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry. A topic entry created in the same transaction satisfies that, and a validator MUST accept it: the transaction's own outputs are visible to it, and the topic identifier is derived from an output the transaction spends, so it is known before submission. An operator can therefore bring up a new topic and the first node on it atomically, and never needs to do the reverse, since creating a topic takes no registered identity.
 2. The transaction MUST lock the deposit, which stays locked for as long as the entry stands.
 3. An identity MUST NOT hold more than one entry. The identity key is the entry's key, so a second entry for it is not a second identity but a malformed registry.
 4. The entry participates in dissemination from the first epoch whose snapshot contains it, never from the moment it lands on chain.
