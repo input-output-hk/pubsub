@@ -62,7 +62,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted a
 
 ### Architecture
 
-The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, a parameter output records what the deployment sizes itself against, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those four public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
+The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, a parameter output identifies the deployment and fixes its epoch length, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those four public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
@@ -91,23 +91,36 @@ Three properties of that arrangement carry most of the design.
 
 **What a node keeps private is its own draw, not its position.** The predicate narrows a node's eligible set; which of those peers it then picks is its own randomness and is not required to be checkable. That split is deliberate, and [Topology derivation](#topology-derivation) states precisely where it falls.
 
-#### The parameters
+### Parameters
 
-The rest of this section refers throughout to a handful of named quantities, and they are of two kinds. The difference decides where each is held, so it is worth settling before the first of them is read from the chain.
+Every parameter this Specification fixes or leaves open, with the value it takes and where each is argued. It sits here rather than after the mechanisms because the sections that follow read these symbols throughout.
 
-**Most are derived rather than configured.** The [bucket count](#term-b) *B*, the [pick count](#term-pick-count) *k* and the [serving cap](#term-cap) *C* are not values an operator sets. Each follows from a rule that [Topology derivation](#topology-derivation) states and that every node evaluates for itself against public data: *B* is selected from a published table by the topic's registered population, and *k* and *C* follow from the counts the rules give. Two nodes reading the same snapshot arrive at the same values without being told them.
+**Only two values must be identical across nodes.** The bucket count *B*, because an acceptor recomputes the [gate](#the-verifiable-gate) on every dial it receives and two nodes that disagree about it refuse each other; and the epoch length *T*<sub>epoch</sub>, because it fixes which snapshot and which randomness an epoch derives from. *B* is selected from a published table by the topic's registered population, and *T*<sub>epoch</sub> is read from the [parameter output](#the-parameter-output). Nothing else a node computes has to match anyone else's: nothing checks a dialler's pick count, and the serving cap is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
-**Five are assumptions a deployment supplies**, because nothing on chain implies them. They are what the derived rules are sized against, and they are the whole of what an operator must be handed:
+**The assumptions those rules were sized at — *μ*, *δ*, *p* and *A* — are declared by the deployment rather than held on chain.** They are documented and shipped in node configuration, in the way Cardano's own epoch length and security parameter ship in a hashed genesis file rather than in ledger state. Publishing them serves audit rather than agreement: a third party checking that a deployment is sized as it claims needs to know what it sized against, but no link is ever refused over them.
 
-- *T*<sub>epoch</sub>, the epoch length, which fixes where an epoch begins and ends;
-- *μ*, the fraction of registered nodes assumed to accept their links and forward nothing — the fraction the bucket-count table was built at, and which the pick-count rule reads;
-- *A*, how many registered identities one adversary is assumed to hold, which the [serving cap](#the-serving-cap) reads as part of the load it must clear;
-- *δ*, the per-epoch probability of a coverage failure the deployment is willing to accept;
-- *p*, the honest downtime rate sized against, which shifts the adversarial fraction the pick count is solved at.
+The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
 
-**These five must be public and identical for everyone, which is why they are held on chain.** A node's eligible set is a predicate over its own identity, the snapshot, the epoch's randomness — and these. Two nodes that disagree on any of them compute different gates, so the first dials a peer that the second does not consider itself permitted to accept, and the link is refused with nothing to indicate why. Derivation has no negotiation step in which such a disagreement could surface; not needing one is the point of it. They therefore cannot be local configuration, and are published in a **parameter output** that [On-chain state](#on-chain-state) specifies alongside the two registries.
+<div align="center">
+<a name="table-3" id="table-3"></a>
 
-The rules that consume them are stated in [Topology derivation](#topology-derivation) and priced in [Choosing the admission parameters](#choosing-the-admission-parameters); the same quantities appear as measurement axes in [Table 5](#table-5). [Table 3](#table-3) collects every parameter this proposal fixes or leaves open, with the value each takes and where it is argued.
+| Symbol | Controls | Must agree? | Value | Argued |
+| :--: | --- | :--: | --- | --- |
+| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Yes** | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the churn budget | [→](#how-long-an-epoch-may-be) |
+| n/a | The registration cutoff | **Yes** | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [→](#lifecycle-and-the-registration-cutoff) |
+| *η*<sub>e</sub> | The epoch's randomness | **Yes** | **Open source**, fixed requirements | [→](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
+| *B* | How narrow the verifiable gate is | **Yes** | **Selected:** from [Table 1](#table-1), by the topic's registered population | [→](#choosing-the-admission-parameters) |
+| *r* | Candidates the gate leaves per link opened | No | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [→](#choosing-the-admission-parameters) |
+| *k* | Links a node opens per topic | No | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [→](#the-dissemination-design) |
+| *C* | Links a node accepts per topic per kind | No | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [→](#choosing-the-admission-parameters) |
+| *δ*, *μ*, *A*, *p* | The failure target, the adversarial fraction and identity count sized against, and the honest downtime rate | No | **Open.** Deployment assumptions, declared in node configuration: what [Table 1](#table-1) was built at and what the pick-count and cap rules are solved against | [→](#open-questions) |
+| retention | How long a node caches messages, for dedup, equivocation and recovery | No | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [→](#what-the-protocol-guarantees-instead) |
+| deposit | The cost of one registered identity, and so the Sybil surface | No | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [→](#open-questions) |
+| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | No | **Floor fixed:** ≥ 1 epoch. Value open | [→](#the-node-registry) |
+
+<em>Table 3: the parameters this Specification fixes and leaves open</em>
+
+</div>
 
 ### Identity and keys
 
@@ -133,7 +146,7 @@ where *id* is the node identity key and *op* the operator credential. Without it
 
 ### On-chain state
 
-The protocol holds three things on chain: a **parameter output** that identifies the deployment and carries the assumptions its admission rules are derived from, a **node registry**, and a **topic registry**. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This section specifies what each holds and the state transitions it must admit, and leaves the validator implementation to the deployment.
+The protocol holds three things on chain: a **parameter output** that identifies the deployment and fixes its epoch length, a **node registry**, and a **topic registry**. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This section specifies what each holds and the state transitions it must admit, and leaves the validator implementation to the deployment.
 
 #### The parameter output
 
@@ -141,28 +154,30 @@ One output per deployment, created when the registries are deployed. It does two
 
 **It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so every other on-chain object a node reads is reached from here. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
 
-A node is configured with the script hash of the parameter output itself, in the same way it is configured with a genesis hash. That is the one value an operator supplies out of band.
+A node is configured with the script hash of the parameter output itself, in the same way it is configured with a genesis hash. That hash and the deployment's declared assumptions are what an operator supplies out of band; every other object the protocol reads is reached from the chain.
 
 **Exactly one parameter output MUST exist per deployment, and the validator MUST enforce that.** A one-shot minting policy is the RECOMMENDED mechanism: the policy permits a single mint, the validator requires the resulting token to be present in the output, and a node takes the output holding that token. Without an enforced singleton, anyone could pay to create a second output at the same script carrying a plausible datum, and nothing in this proposal would say which one a node should read.
 
-**A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute defaults, and MUST NOT carry forward values read in an earlier epoch. A node acting on parameters other than the agreed ones computes a different gate, so its dials are refused by peers that computed the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
+**A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute a default, and MUST NOT carry forward a value read in an earlier epoch. A node acting on an epoch length other than the agreed one derives from a different snapshot under different randomness, so its dials are refused by peers that used the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
-**It carries the five assumptions the deployment supplies.** *T*<sub>epoch</sub>, *μ*, *A*, *δ* and *p*, introduced under [The parameters](#the-parameters), MUST be read from this output. They are held once for the deployment rather than per topic because the bucket-count table was built at them and the pick-count and serving-cap rules read them, and none of the five is a property of any one topic. No node may substitute its own value for any of them: it would compute a different gate, and be refused by peers that computed the agreed one. Whether *μ*, *δ* and *p* would be better held per topic is posed in the [Open Questions](#open-questions).
+**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output, and no node may substitute its own value: it would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. It is held on chain rather than in configuration because changing it has to be *scheduled* — a configuration file offers no way to say which epoch a new value takes effect from, and nodes crossing a boundary at different times derive different topologies.
 
-Two rules govern changes.
+**It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment and shipped in node configuration; [Parameters](#parameters) sets out why they need no on-chain home, and whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
+
+Three rules govern changes.
 
 1. A change MUST be read from the **registration-cutoff snapshot**, as the registries are, and MUST NOT be read at the chain tip.
-2. A change MUST take effect at an **announced epoch**, recorded as a pending change against the epoch it applies from. Moving any of these values alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
-3. A pending change MUST be announced before the registration cutoff of the epoch it applies from, MAY be moved later or cancelled before that cutoff, and MUST NOT be brought forward — bringing one forward would apply values that some nodes had already derived an epoch without. Once the epoch has arrived the pending values are promoted to current; until they are, a node reading the snapshot MUST use the pending values from that epoch onward and the current ones before it.
+2. A change MUST take effect at an **announced epoch**, recorded as a pending change against the epoch it applies from. Moving it alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
+3. A pending change MUST be announced before the registration cutoff of the epoch it applies from, MAY be moved later or cancelled before that cutoff, and MUST NOT be brought forward — bringing one forward would apply values that some nodes had already derived an epoch without. Once the epoch has arrived the pending value is promoted to current; until it is, a node reading the snapshot MUST use the pending value from that epoch onward and the current one before it.
 
 > [!IMPORTANT]
-> **An output that can be changed is an authority, and this proposal does not settle who holds it.** Whoever may spend the parameter output can move a network-wide security parameter. The authority is bounded — the values are public, every node reads them, and their effect on the gate is recomputable and auditable by anyone — but it is real, and it is the one place in this design where a single party can change what every node computes. Four arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
+> **An output that can be changed is an authority, and this proposal does not settle who holds it.** Whoever may spend the parameter output can move the epoch length, and with it how long a subscriber can be cut off and how much churn a topology must absorb. The authority is bounded — the value is public, every node reads it, and its effect is recomputable and auditable by anyone — but it is real, and it is the one place in this design where a single party changes what every node computes. Four arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
 >
-> **No parameter output at all.** Fix *μ*, *δ* and *p* as constants of this proposal; changing one is a new revision of this document, taking effect at an announced epoch. No standing authority, at the cost of a document revision for a number a deployment might reasonably want to tune.
+> **No parameter output at all.** Ship the registry script hashes and the epoch length in node configuration, named by hash in the way a genesis file is, and make a change a coordinated restart. No standing authority, at the cost of losing the scheduling that a pending on-chain change provides.
 >
 > **An immutable output.** Created at deployment and never spent. A change means deploying a new instance that nodes migrate to. No standing authority either, at the cost of making any change an overlay-wide cutover.
 >
-> **Governance-controlled.** A Cardano governance action moves the values. No privileged party, at the cost of the heaviest process for the smallest change.
+> **Governance-controlled.** A Cardano governance action moves the value. No privileged party, at the cost of the heaviest process for the smallest change.
 >
 > **An authorised credential**, named in the output and held by whoever deployed it. Simplest, and standing central control.
 
@@ -418,7 +433,7 @@ Which bound binds is a property of the pick count rather than a constant of the 
 
 Past the pool floor the gate stops being a defence rather than merely narrowing further. The probability that a node's pool is empty altogether is about e<sup>−(1−*μ*)(*N*<sub>T</sub>−1)/*B*</sup>, and it does not depend on the pick count, so no amount of fanout compensates for a pool that was never populated. Narrow past it and the pool is no larger than the pick count itself: a node takes everything eligible, and there is nothing left for the gate to divide. The [serving cap](#the-serving-cap) inverts at the same boundary — past it no value of *C* both binds and stays harmless. The [Rationale](#choosing-the-admission-parameters) prices both edges.
 
-These three ceilings are the table's provenance, not a second way to obtain *B*. A node reads *B* from [Table 1](#table-1) and evaluates nothing: the ceilings were applied once, at each row's lowest population, and the [Appendix](#admission-parameter-bands) records that working. The failure target *δ* and the adversarial fraction *μ* the ceilings were evaluated at are properties of the deployment rather than of a topic, and are carried in the [parameter output](#the-parameter-output) so that a deployment changing either can rebuild the table rather than have nodes disagree about it.
+These three ceilings are the table's provenance, not a second way to obtain *B*. A node reads *B* from [Table 1](#table-1) and evaluates nothing: the ceilings were applied once, at each row's lowest population, and the [Appendix](#admission-parameter-bands) records that working. The failure target *δ* and the adversarial fraction *μ* the ceilings were evaluated at are properties of the deployment rather than of a topic. Because *B* is read from the table rather than computed, no node evaluates either to obtain it: a deployment that changes one rebuilds and republishes the table, which is what keeps implementations from disagreeing about *B* without putting *δ* or *μ* on chain.
 
 #### Selection
 
@@ -447,7 +462,7 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 
 **The pick count is derived rather than fixed here, and what it reads is honest downtime.** An offline honest node and a silent adversary are the same thing to the rest of the network, for the reason [the adversary](#the-adversary-this-proposal-defends-against) sets out, so a pick count sized against the adversarial fraction alone under-provisions by exactly the downtime a deployment expects.
 
-*k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are read from the [parameter output](#the-parameter-output).
+*k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are the assumptions the deployment declares; [Parameters](#parameters) sets out where they are held.
 
 > [!TIP]
 > At the reference shape of this proposal — *N*<sub>T</sub> = 20 000, *μ* = 0.2, *δ* = 10⁻⁴ — the rule gives *RF* = 10 for a deployment sizing against honest downtime up to 7.5 %, and *RF* = 9 where 2.6 % suffices. This proposal states *RF* = 10. Below about 2.6 % the two are equivalent on reliability and *RF* = 9 is cheaper; above it, *RF* = 9 misses the target on downtime alone.
@@ -569,31 +584,6 @@ The window has a floor, and the floor follows from what rotation is for. Rotatio
 
 Long-range replay is out of scope. A node offline for longer than the retention window, or one whose messages were withheld widely enough that no reachable cache still holds them, has no path back to what it missed within this proposal. Recovering content beyond the cache window would need dedicated replication nodes, which are future work; the [Rationale](#what-the-protocol-guarantees-instead) states the limitation and what it does and does not imply.
 
-
-### Parameters
-
-Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The two kinds are distinguished under [The parameters](#the-parameters): those a rule derives, and the five a deployment supplies. The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
-
-<div align="center">
-<a name="table-3" id="table-3"></a>
-
-| Symbol | Controls | Value | Argued |
-| :--: | --- | --- | --- |
-| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the churn budget | [→](#how-long-an-epoch-may-be) |
-| n/a | The registration cutoff | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [→](#lifecycle-and-the-registration-cutoff) |
-| *η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [→](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
-| *B* | How narrow the verifiable gate is | **Selected:** from [Table 1](#table-1), by the topic's registered population | [→](#choosing-the-admission-parameters) |
-| *r* | Candidates the gate leaves per link opened | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [→](#choosing-the-admission-parameters) |
-| *k* | Links a node opens per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [→](#the-dissemination-design) |
-| *δ*, *μ*, *A*, *p* | The failure target, the adversarial fraction and identity count sized against, and the honest downtime rate | **Open.** Carried in the [parameter output](#the-parameter-output), since the gate, cap and pick-count rules all read them | [→](#open-questions) |
-| *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [→](#choosing-the-admission-parameters) |
-| retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [→](#what-the-protocol-guarantees-instead) |
-| deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [→](#open-questions) |
-| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [→](#the-node-registry) |
-
-<em>Table 3: the parameters this Specification fixes and leaves open</em>
-
-</div>
 
 ### Versioning
 
@@ -1267,28 +1257,19 @@ different mechanism at all, and what an identity should cost. This proposal stat
 each is read from and what it buys; it does not choose any of them. What remains open about
 the design itself is the following.
 
-- **Who may change the [parameter output](#the-parameter-output)**, and therefore the
-  assumptions every node's admission parameters derive from. The four arrangements are set
-  out where the output is specified. The choice is between a standing authority over a
-  network-wide security parameter and a heavier path for every change.
-- **Whether the sizing assumptions belong to the deployment or to a topic.** *μ*, *δ* and
-  *p* are held once for the whole deployment. Nothing in the derivation strictly requires
-  that: agreement is only ever needed between the two ends of a link, a link is always on one
-  topic, both ends read that topic's entry from the same snapshot, and
-  [only the bucket count has to match at all](#selection-headroom-and-the-bucket-count) — so
-  per-topic values would still leave both ends of every link computing the same gate. The
-  argument for moving them is that a failure target is a service level, and an emergency
-  alert topic and a chat topic have no reason to share one. The arguments against are that
-  *μ* is a property of the registered population rather than of a topic, so a topic owner
-  asserting a comfortable value does not make it true; that it would hand every topic owner
-  a share of the authority the [parameter output](#the-parameter-output) concentrates in one
-  place; and that [Table 1](#table-1) is built at one (*μ*, *δ*, *p*) and stops being a single
-  lookup if each topic may choose its own. A middle arrangement — a small set of named
-  profiles, each with its own published table, a topic entry naming one — would keep both the
-  lookup and the agreement while letting the targets differ, and is not specified here.
-  *T*<sub>epoch</sub> and *A* are not in scope for the question: epochs, the snapshot and the
-  beacon are network-wide by construction, and an adversary's identity stock is a property of
-  the registry rather than of a topic.
+- **Who may change the [parameter output](#the-parameter-output)**, and therefore the epoch
+  length every node derives against. The four arrangements are set out where the output is
+  specified. The choice is between a standing authority over a network-wide parameter and a
+  heavier path for every change.
+- **Whether the sizing assumptions should differ per topic.** *μ*, *δ* and *p* are declared
+  once for a deployment, and [Table 1](#table-1) is built at them. A failure target is a
+  service level, and an emergency alert topic and a chat topic have no reason to share one;
+  nor would per-topic values break the derivation, since agreement is only ever needed
+  between the two ends of a link and a link is always on one topic. What they would break is
+  the table, which is a lookup precisely so that *B* cannot diverge between implementations
+  and stops being one if each topic may choose its own basis. A small set of named profiles,
+  each with its own published table and named by a topic entry, would keep the lookup while
+  letting the targets differ, and is not specified here.
 - **The randomness source.** It sets the epoch floor and, through it, decides whether the
   churn ceiling binds at all. Tracked as [issue #22](https://github.com/input-output-hk/pubsub/issues/22).
 - **The epoch length.** The Rationale bounds it from both directions and shows the upper
@@ -1609,23 +1590,16 @@ getting it wrong costs the node coverage rather than interoperability.
 
 ```cddl
 ; --- parameter output --------------------------------------------------------
-; One output per deployment. Identifies the deployment, and carries the three
-; assumptions the admission rules are derived from.
+; One output per deployment. Identifies the deployment and fixes its epoch
+; length. The assumptions the admission rules were sized at -- mu, delta, p
+; and A -- are declared in node configuration and are not held here.
 
 parameters =
   [ registries     : [ node_registry : script_hash, topic_registry : script_hash ]
-  , current        : assumptions
-  , pending        : null / [ assumptions, effective_from : epoch_no ]
+  , t_epoch        : uint          ; epoch length, in slots
+  , pending        : null / [ t_epoch : uint, effective_from : epoch_no ]
   , authority      : authority
   , format         : uint
-  ]
-
-assumptions =
-  [ t_epoch        : uint          ; epoch length, in slots
-  , mu             : ratio         ; adversarial fraction sized against
-  , adversary_ids  : uint          ; A: adversarial identity count sized against
-  , delta          : ratio         ; per-epoch failure target
-  , p_down         : ratio         ; honest downtime rate sized against
   ]
 
 authority =
@@ -1634,7 +1608,7 @@ authority =
 
 ; Redeemer for spending the parameter output.
 parameters_redeemer =
-    [ 0, assumptions, effective_from : epoch_no ]  ; announce a change
+    [ 0, t_epoch : uint, effective_from : epoch_no ]  ; announce a change
   / [ 1 ]                                          ; cancel a pending change
   / [ 2 ]                                          ; promote a pending change once its
                                                    ; epoch has arrived
