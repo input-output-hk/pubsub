@@ -785,7 +785,7 @@ Every figure below is stated per [epoch](#term-epoch), whose length is a paramet
 
 ### The adversary this proposal defends against
 
-The protocol is analysed against an adversary controlling a bounded fraction **μ** of registered [nodes](#term-node), each *silent* as [*μ*](#param-mu) defines it: it accepts its allotted [links](#term-link) and forwards nothing. This is deliberately the weakest adversary that still defeats delivery. A node that never emits a [message](#term-message) cannot be distinguished from an honest node that has nothing to forward, so it is also the cheapest attack to mount and the hardest to observe. An eclipse attack against a specific subscriber reduces to this behaviour among that subscriber's peers.
+The protocol is analysed against an adversary controlling a bounded fraction **μ** of registered [nodes](#term-node), each *silent* as [*μ*](#param-mu) defines it: it accepts its allotted [links](#term-link) and forwards nothing. It is deliberately the *least capable* adversary that still defeats delivery, rather than the least damaging one: it forges nothing, corrupts nothing and adapts to nothing, and withholding alone is enough. A node that never emits a [message](#term-message) cannot be distinguished from an honest node that has nothing to forward, so it is also the cheapest attack to mount and the hardest to observe. An eclipse attack against a specific subscriber reduces to this behaviour among that subscriber's peers.
 
 Not modelled, and out of scope for this proposal: an adversary that forwards selectively or forwards corrupted content, resource exhaustion and denial of service, and an adaptive adversary that re-registers between epochs in order to re-target a chosen victim.
 
