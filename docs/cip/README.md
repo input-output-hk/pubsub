@@ -203,7 +203,7 @@ Three properties of that arrangement carry most of the design.
 
 A handful of named quantities size the protocol, and they are of two kinds. Some are parameters the protocol runs on. The rest are assumptions about the environment it is being sized for. A node reads both. Only the parameters are ever checked by a peer, and that difference decides where each is held.
 
-**Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. Both ends of a link recompute it, so two nodes that disagree refuse each other. *B* is not held on chain at all: a node looks it up in [Table 1](#table-1) of this document, by how many peers the topic has in the snapshot.
+**Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. *B* is not held on chain at all: a node looks it up in [Table 1](#table-1) of this document, by how many peers the topic has in the snapshot.
 
 The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begins and ends, and so which snapshot and which randomness a topology is drawn from. It is read from the [parameter output](#the-parameter-output). [Topology derivation](#topology-derivation) specifies how both are used.
 
@@ -558,7 +558,7 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 **Only one of these has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
-*B* MUST therefore be the value [Table 1](#table-1) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself, stated under [the dissemination design](#the-dissemination-design) and [the serving cap](#the-serving-cap). The table is published by this document rather than the chain. Both ends of a link read the same snapshot, so both select the same row, and only the topic gaining or losing members can move it.
+*B* MUST therefore be the value [Table 1](#table-1) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself, stated under [the dissemination design](#the-dissemination-design) and [the serving cap](#the-serving-cap). The table is published by this document rather than the chain, and only the topic gaining or losing members can move a row.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
@@ -596,7 +596,7 @@ Which bound binds is a property of the pick count rather than a constant of the 
 
 Past the pool floor the gate stops being a defence rather than merely narrowing further. The probability that a node's pool is empty altogether is about e<sup>−(1−*μ*)(*N*<sub>T</sub>−1)/*B*</sup>, and it does not depend on the pick count, so no amount of fanout compensates for a pool that was never populated. Narrow past it and the pool is no larger than the pick count itself: a node takes everything eligible, and there is nothing left for the gate to divide. The [serving cap](#the-serving-cap) inverts at the same boundary — past it no value of *C* both binds and stays harmless. The [Rationale](#choosing-the-admission-parameters) prices both edges.
 
-These three ceilings are the table's provenance, not a second way to obtain *B*. A node reads *B* from [Table 1](#table-1) and evaluates nothing: the ceilings were applied once, at each row's lowest population, and the [Appendix](#admission-parameter-bands) records that working. The failure target *δ* and the adversarial fraction *μ* the ceilings were evaluated at are properties of the deployment rather than of a topic. Because *B* is read from the table rather than computed, no node evaluates either to obtain it: a deployment that changes one rebuilds and republishes the table, which is what keeps implementations from disagreeing about *B* without putting *δ* or *μ* on chain.
+These three ceilings are the table's provenance, not a second way to obtain *B*. A node reads *B* from [Table 1](#table-1) and evaluates nothing: the ceilings were applied once, at each row's lowest population, and the [Appendix](#admission-parameter-bands) records that working. The failure target *δ* and the adversarial fraction *μ* the ceilings were evaluated at are properties of the deployment rather than of a topic. Because *B* is read from the table rather than computed, no node evaluates either to obtain it: a deployment that changes one rebuilds and republishes the table, rather than putting *δ* or *μ* on chain.
 
 #### Selection
 
