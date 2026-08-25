@@ -32,47 +32,6 @@ License: CC-BY-4.0
 
 -->
 
-<details>
-<summary><strong>Index of figures</strong></summary>
-
-| | Caption | Section |
-| :-- | :-- | :-- |
-| [Figure 1](#figure-1) | The protocol at a glance | [Architecture](#architecture) |
-| [Figure 2](#figure-2) | Deriving one node's links for one epoch | [Topology derivation](#topology-derivation) |
-| [Figure 3](#figure-3) | What a failing draw costs, against how often draws fail | [What is measured, and by what](#what-is-measured-and-by-what) |
-| [Figure 4](#figure-4) | Measured against predicted epoch failure probability | [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation) |
-| [Figure 5](#figure-5) | Three costs at the proposed configurations — bandwidth, state, and latency as marker size | [Comparison at the proposed configurations](#comparison-at-the-proposed-configurations) |
-| [Figure 6](#figure-6) | Measured configurations against the configuration proposed | [Limits of this evidence](#limits-of-this-evidence) |
-| [Figure 7](#figure-7) | Four-way trade-off across the non-dominated designs | [Trade-offs and Limitations](#trade-offs-and-limitations) |
-| [Figure 8](#figure-8) | What the bucket count costs and what it buys | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| [Figure 9](#figure-9) | What each way of sizing the bucket count delivers, against topic size | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-
-</details>
-
-<details>
-<summary><strong>Index of tables</strong></summary>
-
-| | Caption | Section |
-| :-- | :-- | :-- |
-| [Table 1](#table-1) | The bucket count, by topic population | [Selection headroom and the bucket count](#selection-headroom-and-the-bucket-count) |
-| [Table 2](#table-2) | The dissemination design at the reference shape | [The dissemination design](#the-dissemination-design) |
-| [Table 3](#table-3) | The protocol's parameters | [Parameters](#parameters) |
-| [Table 4](#table-4) | The assumptions a deployment chooses | [Parameters](#parameters) |
-| [Table 5](#table-5) | The constants this section is measured at | [Performance metrics](#performance-metrics) |
-| [Table 6](#table-6) | Performance metrics | [Performance metrics](#performance-metrics) |
-| [Table 7](#table-7) | The dissemination designs evaluated | [Designs evaluated](#designs-evaluated) |
-| [Table 8](#table-8) | Cost at each design's configuration | [Comparison at the proposed configurations](#comparison-at-the-proposed-configurations) |
-| [Table 9](#table-9) | Two splits of M3's budget of 19 | [Robustness](#robustness) |
-| [Table 10](#table-10) | The two candidates, ungated | [Why the symmetric design](#why-the-symmetric-design) |
-| [Table 10b](#table-10b) | The same two designs, gated | [Why the symmetric design](#why-the-symmetric-design) |
-| [Table 11](#table-11) | Per-node cost against topics subscribed, at 1 kB and one message per second | [What a node pays, and how it scales](#what-a-node-pays-and-how-it-scales) |
-| [Table 12](#table-12) | Per-epoch isolation risk, per node and network-wide | [What the protocol guarantees instead](#what-the-protocol-guarantees-instead) |
-| [Table 13](#table-13) | Departure interval required per epoch length | [How long an epoch may be](#how-long-an-epoch-may-be) |
-| [Table 14](#table-14) | The protocol's vocabulary | [Terminology](#terminology) |
-| [Table 15](#table-15) | What each closed row gives up at its top | [Admission parameter bands](#admission-parameter-bands) |
-
-</details>
-
 ## Abstract
 <!-- A short (\~200 word) description of the proposed solution and the technical issue being addressed. -->
 
@@ -84,6 +43,113 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
 
 > [!NOTE]
 > **What this document decides, and what it leaves to a deployment.** The dissemination design is selected on measured evidence, and the rules that size its parameters are stated normatively. What a deployment supplies is a small, named set of values: the adversarial fraction and failure target it sizes against, the honest downtime rate, the epoch length, and the randomness source. Each is read from a stated place, priced in the Rationale, and listed in [Path to Active](#acceptance-criteria) alongside what remains open.
+
+<details>
+  <summary><h2>Table of contents</h2></summary>
+
+- [Abstract](#abstract)
+- [Motivation: Why is this CIP necessary?](#motivation-why-is-this-cip-necessary)
+- [Specification](#specification)
+  - [Architecture](#architecture)
+  - [Parameters](#parameters)
+  - [Identity and keys](#identity-and-keys)
+  - [On-chain state](#on-chain-state)
+    - [The parameter output](#the-parameter-output)
+    - [The node registry](#the-node-registry)
+    - [Address resolution](#address-resolution)
+    - [The topic registry](#the-topic-registry)
+    - [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff)
+  - [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon)
+  - [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation)
+  - [Topology derivation](#topology-derivation)
+    - [The registered peers on a topic](#the-registered-peers-on-a-topic)
+    - [The verifiable gate](#the-verifiable-gate)
+    - [Selection headroom and the bucket count](#selection-headroom-and-the-bucket-count)
+    - [Selection](#selection)
+    - [The dissemination design](#the-dissemination-design)
+    - [The serving cap](#the-serving-cap)
+    - [What the rules do on a small topic](#what-the-rules-do-on-a-small-topic)
+  - [Link establishment](#link-establishment)
+  - [Messages](#messages)
+  - [Dissemination, recovery and retention](#dissemination-recovery-and-retention)
+  - [Versioning](#versioning)
+- [Rationale: How does this CIP achieve its goals?](#rationale-how-does-this-cip-achieve-its-goals)
+  - [The adversary this proposal defends against](#the-adversary-this-proposal-defends-against)
+  - [Evidence](#evidence)
+    - [What is measured, and by what](#what-is-measured-and-by-what)
+    - [Performance metrics](#performance-metrics)
+    - [Designs evaluated](#designs-evaluated)
+    - [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation)
+    - [Comparison at the proposed configurations](#comparison-at-the-proposed-configurations)
+    - [Robustness](#robustness)
+  - [Trade-offs and Limitations](#trade-offs-and-limitations)
+    - [Why the symmetric design](#why-the-symmetric-design)
+    - [What a node pays, and how it scales](#what-a-node-pays-and-how-it-scales)
+    - [Choosing the admission parameters](#choosing-the-admission-parameters)
+    - [What can be turned, and what it costs](#what-can-be-turned-and-what-it-costs)
+    - [Two classes of fault, with different guarantees](#two-classes-of-fault-with-different-guarantees)
+    - [What the protocol guarantees instead](#what-the-protocol-guarantees-instead)
+    - [How long an epoch may be](#how-long-an-epoch-may-be)
+  - [Limits of this evidence](#limits-of-this-evidence)
+  - [Backward compatibility](#backward-compatibility)
+  - [Open Questions](#open-questions)
+- [Path to Active](#path-to-active)
+  - [Acceptance Criteria](#acceptance-criteria)
+  - [Implementation Plan](#implementation-plan)
+- [References](#references)
+  - [Prior art](#prior-art)
+  - [External specifications this proposal builds on](#external-specifications-this-proposal-builds-on)
+  - [Related CIPs](#related-cips)
+  - [This proposal's own prior work](#this-proposals-own-prior-work)
+  - [This proposal's evidence](#this-proposals-evidence)
+  - [Companion tools](#companion-tools)
+  - [Open items tracked outside this document](#open-items-tracked-outside-this-document)
+  - [Method notes](#method-notes)
+- [Appendices](#appendices)
+  - [Terminology](#terminology)
+  - [Admission parameter bands](#admission-parameter-bands)
+  - [Registry schemas](#registry-schemas)
+- [Acknowledgements](#acknowledgements)
+- [Copyright](#copyright)
+
+</details>
+
+<details>
+  <summary><h2>Index of figures</h2></summary>
+
+- [Figure 1: the protocol at a glance](#figure-1)
+- [Figure 2: deriving one node's links for one epoch](#figure-2)
+- [Figure 3: what a failing draw costs, against how often draws fail](#figure-3)
+- [Figure 4: measured against predicted epoch failure probability](#figure-4)
+- [Figure 5: three costs at the proposed configurations — bandwidth, state, and latency as marker size](#figure-5)
+- [Figure 6: measured configurations against the configuration proposed](#figure-6)
+- [Figure 7: four-way trade-off across the non-dominated designs](#figure-7)
+- [Figure 8: what the bucket count costs and what it buys](#figure-8)
+- [Figure 9: what each way of sizing the bucket count delivers, against topic size](#figure-9)
+
+</details>
+
+<details>
+  <summary><h2>Index of tables</h2></summary>
+
+- [Table 1: the bucket count, by topic population](#table-1)
+- [Table 2: the dissemination design at the reference shape](#table-2)
+- [Table 3: the protocol's parameters](#table-3)
+- [Table 4: the assumptions a deployment chooses](#table-4)
+- [Table 5: the constants this section is measured at](#table-5)
+- [Table 6: performance metrics](#table-6)
+- [Table 7: the dissemination designs evaluated](#table-7)
+- [Table 8: cost at each design's configuration](#table-8)
+- [Table 9: two splits of M3's budget of 19](#table-9)
+- [Table 10: the two candidates, ungated](#table-10)
+- [Table 10b: the same two designs, gated](#table-10b)
+- [Table 11: per-node cost against topics subscribed, at 1 kB and one message per second](#table-11)
+- [Table 12: per-epoch isolation risk, per node and network-wide](#table-12)
+- [Table 13: departure interval required per epoch length](#table-13)
+- [Table 14: the protocol's vocabulary](#table-14)
+- [Table 15: what each closed row gives up at its top](#table-15)
+
+</details>
 
 ## Motivation: Why is this CIP necessary?
 <!-- A clear explanation that introduces the reason for a proposal, its use cases and stakeholders. If the CIP changes an established design then it must outline design issues that motivate a rework. For complex proposals, authors must write a Cardano Problem Statement (CPS) as defined in CIP-9999 and link to it as the `Motivation`. -->
@@ -162,7 +228,7 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 
 </div>
 
-**The assumptions are choices a deployment makes, not values fed to a node.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes. No node reads any of them. Changing one means rebuilding [Table 1](#table-1), not reconfiguring a node. Two are tied to the epoch length: a failure rate per epoch and a downtime rate across an epoch both mean something else if the epoch changes. A scheduled change to *T*<sub>epoch</sub> therefore requires *δ* and *p* to be restated against it.
+**The assumptions are choices a deployment makes, not values fed to a node.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes. No node reads any of them. Changing one means rebuilding [Table 1](#table-1), not reconfiguring a node.
 
 <div align="center">
 <a name="table-4" id="table-4"></a>
@@ -170,9 +236,9 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 | Symbol | What it assumes | Value | Argued in |
 | :--: | --- | --- | --- |
 | *μ* | The share of registered nodes that accept their links and forward nothing | **Open.** Declared by the deployment; what [Table 1](#table-1) was built at | [Open Questions](#open-questions) |
-| *A* | How many registered identities one adversary holds. Bounded by *μ* and the population, not implied by them: the same *μ* may be one adversary or many | **Open.** Declared by the deployment; read by the admissions-budget rule | [Choosing the admission parameters](#choosing-the-admission-parameters) |
+| *A* | How many registered identities one adversary holds, as distinct from the share of the population they amount to | **Open.** Declared by the deployment; read by the admissions-budget rule | [Choosing the admission parameters](#choosing-the-admission-parameters) |
 | *δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [Open Questions](#open-questions) |
-| *p* | The share of honest nodes absent across an epoch. The drop-out rate *λ* read against the epoch length, by *p* = 1 − e<sup>−λ·*T*</sup> | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
+| *p* | The share of honest nodes absent across an epoch | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
 
 <em>Table 4: the assumptions a deployment chooses</em>
 
@@ -218,9 +284,9 @@ A node is configured with the script hash of the parameter output itself, in the
 
 **A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute a default, and MUST NOT carry forward a value read in an earlier epoch. A node acting on an epoch length other than the agreed one derives from a different snapshot under different randomness, so its dials are refused by peers that used the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
-**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. Holding it here rather than in configuration is what lets a change be *scheduled*: the rules below announce a new value against a future epoch, and a configuration file has no way to say which epoch a value takes effect from. Whether that is worth an on-chain output at all is posed below.
+**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. It is held on chain rather than in configuration because a change to it has to be *scheduled*. A configuration file cannot say which epoch a new value takes effect from, and nodes crossing a boundary at different times derive different topologies. Cardano draws the same line: its own epoch length cannot move without a hard fork and ships in a hashed genesis file, while what governance can move lives in ledger state.
 
-**It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment. A node reads them from its configuration at startup; an implementation MUST NOT compile them in. [Parameters](#parameters) sets out why they need no on-chain home. Whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
+**It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment and ship in node configuration. [Parameters](#parameters) sets out why they need no on-chain home. Whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
 
 Three rules govern changes.
 
