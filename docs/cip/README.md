@@ -299,7 +299,7 @@ A node is configured with the script hash of the parameter output itself: one va
 
 **Exactly one parameter output MUST exist per deployment, and the validator MUST enforce that.** A one-shot minting policy is the RECOMMENDED mechanism: the policy permits a single mint, the validator requires the resulting token to be present in the output, and a node takes the output holding that token. Without an enforced singleton, anyone could pay to create a second output at the same script carrying a plausible datum, and nothing in this proposal would say which one a node should read.
 
-**A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute a default, and MUST NOT carry forward a value read in an earlier epoch. A node acting on an epoch length other than the agreed one derives from a different snapshot under different randomness, so its dials are refused by peers that used the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
+**A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or cannot be parsed as this proposal's schema, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute a default, and MUST NOT carry forward a value read in an earlier epoch. A node acting on an epoch length other than the agreed one derives from a different snapshot under different randomness, so its dials are refused by peers that used the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
 **It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. Holding it here rather than in configuration is what lets a change be *scheduled*: the rules below announce a new value against a future epoch, and a configuration file has no way to say which epoch a value takes effect from. Whether that is worth an on-chain output at all is posed below.
 
@@ -756,7 +756,9 @@ Long-range replay is out of scope, and the [CPS](../cps/README.md) is why: its s
 
 Three things version independently, because they change for unrelated reasons and on unrelated timescales.
 
-**Registry entry formats** carry an explicit `format` field. A validator accepts the formats it knows and rejects the rest, so an entry written under a newer format is inert rather than misinterpreted by an older reader. Adding a field is a new format; a deployment migrates by allowing both for a transition and then refusing the old one.
+**On-chain schemas** version with the validators that enforce them. An entry's shape is fixed by the validator guarding it, and the [parameter output](#the-parameter-output) names both registries by script hash, so a reader always reaches an entry through the hash that determines how to read it. There is no version field in a datum, and none is needed. Changing a schema means new validators, and so a new parameter output: the `registries` pair is immutable, and no redeemer rewrites it.
+
+A deployment therefore migrates by standing up a second one. It publishes the new parameter output, announces the epoch at which nodes cut over, and winds the old registries down once entries have been reclaimed from them. The two never share a topology, for the reason [the parameter output](#the-parameter-output) gives, so a node runs in one or the other and not in both at once.
 
 **Signature preimages** carry their version in the domain tag, as `pubsub/message/v1` and `pubsub/link/v1`. Any change to what a preimage covers, or to how it is encoded, MUST increment that suffix. Because the tag is inside the signed bytes, a signature made under one version can never verify under another, so incompatible implementations fail closed instead of accepting each other's messages under the wrong interpretation. The gate's domain tags version by the same rule, and a change there changes which links are legal, so it MUST take effect at an epoch boundary and never within one.
 
@@ -1776,7 +1778,6 @@ parameters =
   , t_epoch        : uint          ; epoch length, in slots
   , pending        : null / [ t_epoch : uint, effective_from : epoch_no ]
   , authority      : authority
-  , format         : uint
   ]
 
 authority =
@@ -1800,7 +1801,6 @@ node_registration =
   , endpoints     : [* endpoint]   ; ordered, most preferred first; MAY be empty
   , deposit       : coin           ; locked while the entry stands
   , state         : node_state
-  , format        : uint           ; entry format version; see Versioning
   ]
 
 node_state =
@@ -1822,7 +1822,6 @@ topic_registration =
   , publishers    : [* publisher_key]  ; empty = open to every registered node
   , retention     : uint           ; epochs; at least 1 (see Retention below)
   , state         : topic_state
-  , format        : uint
   ]
 
 topic_state =
