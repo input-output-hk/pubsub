@@ -297,7 +297,7 @@ Three rules govern changes.
 3. A pending change MUST be announced before the registration cutoff of the epoch it applies from, MAY be moved later or cancelled before that cutoff, and MUST NOT be brought forward — bringing one forward would apply values that some nodes had already derived an epoch without. Once the epoch has arrived the pending value is promoted to current; until it is, a node reading the snapshot MUST use the pending value from that epoch onward and the current one before it.
 
 > [!IMPORTANT]
-> **An output that can be changed is an authority, and this proposal does not settle who holds it.** Whoever may spend the parameter output can move the epoch length, and with it how long a subscriber can be cut off and how much churn a topology must absorb. The authority is bounded — the value is public, every node reads it, and its effect is recomputable and auditable by anyone — but it is real, and it is the one place in this design where a single party changes what every node computes. Four arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
+> **An output that can be changed is an authority, and this proposal does not settle who holds it.** Whoever may spend the parameter output can move the epoch length, and with it how long a subscriber can be cut off and how much churn a topology must absorb. The authority is bounded — the value is public, every node reads it, and its effect is recomputable and auditable by anyone — but it is real, and it is the one place in this design where a single party changes what every node computes. Five arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
 >
 > **No parameter output at all.** Ship the registry script hashes and the epoch length in node configuration, named by hash in the way a genesis file is, and make a change a coordinated restart. No standing authority, at the cost of losing the scheduling that a pending on-chain change provides.
 >
@@ -306,6 +306,8 @@ Three rules govern changes.
 > **Governance-controlled.** A Cardano governance action moves the value. No privileged party, at the cost of the heaviest process for the smallest change.
 >
 > **An authorised credential**, named in the output and held by whoever deployed it. Simplest, and standing central control.
+>
+> **Per topic, set by its owner.** Each topic entry carries its own epoch length, so no party sets one for the whole network and a topic rotates on the schedule its use case wants. The derivation still agrees, since both ends of a link are on one topic and read the same entry, and a badly chosen length costs that topic's own subscribers rather than anyone else's. Three costs come with it. The beacon must supply a value at each topic's cutoff rather than one per network-wide epoch; a node on several topics derives from several snapshots; and an owner that can move a boundary needs the announcement discipline above, or it can time a cutoff against randomness it can already see. It also carries *δ* and *p* per topic, since both are read against the epoch length.
 
 #### The node registry
 
@@ -1384,7 +1386,7 @@ each is read from and what it buys; it does not choose any of them. What remains
 the design itself is the following.
 
 - **Who may change the [parameter output](#the-parameter-output)**, and therefore the epoch
-  length every node derives against. The four arrangements are set out where the output is
+  length every node derives against. The five arrangements are set out where the output is
   specified. The choice is between a standing authority over a network-wide parameter and a
   heavier path for every change.
 - **Whether the sizing assumptions should differ per topic.** *μ*, *δ* and *p* are declared
@@ -1395,7 +1397,9 @@ the design itself is the following.
   the table, which is a lookup precisely so that *B* cannot diverge between implementations
   and stops being one if each topic may choose its own basis. A small set of named profiles,
   each with its own published table and named by a topic entry, would keep the lookup while
-  letting the targets differ, and is not specified here.
+  letting the targets differ, and is not specified here. This question is coupled to the one
+  above: *p* is the drop-out rate read against the epoch length and a per-epoch *δ* means
+  something else at a different one, so a per-topic epoch length carries both with it.
 - **The randomness source.** It sets the epoch floor and, through it, decides whether the
   churn ceiling binds at all. Tracked as [issue #22](https://github.com/input-output-hk/pubsub/issues/22).
 - **The epoch length.** The Rationale bounds it from both directions and shows the upper
