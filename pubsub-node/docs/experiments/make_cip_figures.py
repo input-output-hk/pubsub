@@ -272,6 +272,69 @@ def fig_architecture() -> str:
                  "through any number of relays to subscribers, signed once end to end.")
 
 
+# ------------------------------------------------------------------ handshake
+def fig_handshake() -> str:
+    """The handshake as a sequence: one request, an ordered evaluation, one reply.
+
+    A structural diagram like fig_architecture, so its content is literal.
+    The seven checks are numbered to match the Specification's list, because
+    the order is normative: it decides what a refusal reveals to a prober.
+    What the figure carries that the list cannot is the shape of the exchange
+    -- that five of the seven exits are silent, and only the last two ever put
+    a message back on the wire.
+    """
+    W, H = 860, 470
+    b = []
+    ok = "#1e8f5e"
+    no = SERIES["M5"]
+    quiet = "#8a887e"
+    DX, AX = 120, 610
+
+    for x, lab in ((DX, "Dialler"), (AX, "Acceptor")):
+        b.append(rect(x - 80, 34, 160, 36, SURFACE, RULE, 1.4))
+        b.append(text(x, 57, lab, 12.5, INK, "middle", "600"))
+        b.append(line(x, 70, x, H - 22, GRID, 1.2, dash="4 5"))
+
+    b.append(arrow(DX + 2, 102, AX - 4, 102, INK, 1.6))
+    b.append(text((DX + AX) / 2, 94, "Request   topic T, link kind, epoch e, signed",
+                  10.5, INK_SOFT, "middle"))
+
+    rows = [("Kind", "dropped, no reply", quiet),
+            ("Signature", "dropped, no reply", quiet),
+            ("Epoch", "dropped, no reply", quiet),
+            ("Membership", "dropped, no reply", quiet),
+            ("Already held", "Accepted again, idempotent", ok),
+            ("Gate", "dropped, no reply", quiet),
+            ("Cap", "crossing always completes", ok)]
+    b.append(rect(410, 122, 400, 228, SURFACE, RULE, 1.4, rx=8))
+    b.append(text(430, 142, "Evaluated in this order", 11, INK, weight="600"))
+    for i, (name, exit_, col) in enumerate(rows):
+        y = 168 + i * 26
+        b.append(circle(434, y - 4, 8.5, INK, INK, 0))
+        b.append(text(434, y, str(i + 1), 9.5, SURFACE, "middle", "700"))
+        b.append(text(450, y, name, 11, INK_SOFT, weight="600"))
+        b.append(text(794, y, exit_, 9.5, col, "end"))
+
+    b.append(arrow(AX - 4, 386, DX + 2, 386, ok, 1.6))
+    b.append(text((DX + AX) / 2, 378, "Accepted   the link stands for this epoch",
+                  10.5, ok, "middle", "600"))
+    b.append(arrow(AX - 4, 424, DX + 2, 424, no, 1.6))
+    b.append(text((DX + AX) / 2, 416, "Rejected   the admissions budget is spent",
+                  10.5, no, "middle", "600"))
+    b.append(text(DX - 80, 452,
+                  "A dialler that is rejected does not retry that peer this epoch.",
+                  9.5, quiet))
+
+    return frame(W, H, b, "Establishing one link",
+                 "A sequence diagram in two lanes. The dialler sends one signed Request "
+                 "to the acceptor. The acceptor evaluates seven checks in a fixed order: "
+                 "kind, signature, epoch, membership, already held, gate, cap. Failing "
+                 "the first four or the gate is dropped without a reply. An already held "
+                 "link is accepted again. At the cap a crossing still completes. The "
+                 "acceptor replies Accepted, or Rejected once its admissions budget is "
+                 "spent.")
+
+
 # ------------------------------------------------------------------ figure 2
 def fig_derivation() -> str:
     """One node's links for one epoch: three rows of markers over the same peers.
@@ -281,8 +344,12 @@ def fig_derivation() -> str:
     which is markdown's job, not SVG's - they live in the prose around it now.
     The counts are a miniature at exactly the sizing rule the Specification
     fixes: 32 registered peers, B = 4, so 8 eligible, k = 4 picked, r = 2.
+
+    The rows are numbered so the Specification's subsections can name which one
+    they describe, and the two arrows carry B and r because those quantities are
+    what the transitions between the rows are.
     """
-    W, H = 860, 312
+    W, H = 860, 272
     b = []
     verifiable = SERIES["M2"]
     private = "#1e8f5e"
@@ -295,22 +362,18 @@ def fig_derivation() -> str:
     step = (x1 - x0) / (n - 1)
 
     rows = [
-        (76, "Registered peers", ("every peer registered on the topic at the cutoff",),
-         f"N_{{T}} \u2212 1 = {n}"),
-        (150, "Eligible peers", ("the gate holds for this node and this epoch",),
-         f"\u2248 (N_{{T}} \u2212 1)/B = {len(eligible)}"),
-        (224, "Picks", ("drawn from the eligible set,",
-                        "uniformly and without replacement"), f"k = {rf}"),
+        (76, "Registered peers", f"N_{{T}} \u2212 1 = {n}"),
+        (150, "Eligible peers", f"\u2248 (N_{{T}} \u2212 1)/B = {len(eligible)}"),
+        (224, "Picks", f"k = {rf}"),
     ]
     # the two transitions are where B and r live, so the arrows carry them
-    steps = [f"the verifiable gate, B = {buckets}",
-             f"selection headroom r = (N_{{T}} \u2212 1)/(B\u00b7k) = {n / (buckets * rf):g}"]
-    for k, (y, head, sub, count) in enumerate(rows):
+    steps = [f"gate, B = {buckets}", f"headroom r = {n / (buckets * rf):g}"]
+    for k, (y, head, count) in enumerate(rows):
         col = private if k == 2 else (verifiable if k == 1 else INK_SOFT)
-        b.append(text(38, y - 4, head, 12.5, INK, weight="600"))
-        for j, s in enumerate(sub):
-            b.append(text(38, y + 11 + j * 12, s, 9.5, "#8a887e"))
-        b.append(text(38, y + 25 + (len(sub) - 1) * 12, count, 10.5, col, weight="600"))
+        b.append(circle(48, y - 8, 11, INK))
+        b.append(text(48, y - 4, str(k + 1), 11.5, SURFACE, "middle", "700"))
+        b.append(text(66, y - 4, head, 12.5, INK, weight="600"))
+        b.append(text(66, y + 16, count, 10.5, col, weight="600"))
         for i in range(n):
             cx = x0 + i * step
             if k == 0:
@@ -330,17 +393,13 @@ def fig_derivation() -> str:
             b.append(arrow(xm, y + 20, xm, y + 50, RULE, 1.4))
             b.append(text(xm + 12, y + 40, steps[k], 10, "#8a887e"))
 
-    b.append(text(38, 290, "Rows one and two are recomputable by anyone holding the "
-                  "chain; row three is the node's own draw, and not required to be "
-                  "checkable.", 11, INK_SOFT, style="italic"))
-
     return frame(W, H, b, "Deriving one node's links for one epoch",
                  "Three rows of markers over the same peers. The first row is every peer "
                  "registered on the topic at the epoch's registration cutoff. The second "
                  "marks those for which the verifiable gate holds, roughly one in B of "
                  "them. The third marks the k the node actually picks from that eligible "
                  "set, drawn with its own randomness. The first two rows are publicly "
-                 "recomputable; the third is private.")
+                 "recomputable; the third is the node's own draw and is private.")
 
 
 # ------------------------------------------------------------------ figure 4
@@ -1099,6 +1158,7 @@ def main() -> int:
         "bucket-bounds.svg": fig_bucket_bounds(d["bucket_bounds"]),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
+        "handshake.svg": fig_handshake(),
         "severity.svg": fig_severity(d["severity"]),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"], d.get("alternatives", ())),
