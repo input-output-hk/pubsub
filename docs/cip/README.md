@@ -91,6 +91,24 @@ Three properties of that arrangement carry most of the design.
 
 **What a node keeps private is its own draw, not its position.** The predicate narrows a node's eligible set; which of those peers it then picks is its own randomness and is not required to be checkable. That split is deliberate, and [Topology derivation](#topology-derivation) states precisely where it falls.
 
+#### The parameters, and which of them must be agreed
+
+The rest of this section refers throughout to a handful of named quantities, and they are of two kinds. The difference decides where each is held, so it is worth settling before the first of them is read from the chain.
+
+**Most are derived rather than configured.** The [bucket count](#term-b) *B*, the [pick count](#term-pick-count) *k* and the [serving cap](#term-cap) *C* are not values an operator sets. Each follows from a rule that [Topology derivation](#topology-derivation) states and that every node evaluates for itself against public data: *B* is selected from a published table by the topic's registered population, and *k* and *C* follow from the counts the rules give. Two nodes reading the same snapshot arrive at the same values without being told them.
+
+**Five are assumptions a deployment supplies**, because nothing on chain implies them. They are what the derived rules are sized against, and they are the whole of what an operator must be handed:
+
+- *T*<sub>epoch</sub>, the epoch length, which fixes where an epoch begins and ends;
+- *μ*, the fraction of registered nodes assumed to accept their links and forward nothing — the fraction the bucket-count table was built at, and which the pick-count rule reads;
+- *A*, how many registered identities one adversary is assumed to hold, which the [serving cap](#the-serving-cap) reads as part of the load it must clear;
+- *δ*, the per-epoch probability of a coverage failure the deployment is willing to accept;
+- *p*, the honest downtime rate sized against, which shifts the adversarial fraction the pick count is solved at.
+
+**These five must be public and identical for everyone, which is why they are held on chain.** A node's eligible set is a predicate over its own identity, the snapshot, the epoch's randomness — and these. Two nodes that disagree on any of them compute different gates, so the first dials a peer that the second does not consider itself permitted to accept, and the link is refused with nothing to indicate why. Derivation has no negotiation step in which such a disagreement could surface; not needing one is the point of it. They therefore cannot be local configuration, and are published in a **parameter output** that [On-chain state](#on-chain-state) specifies alongside the two registries.
+
+The rules that consume them are stated in [Topology derivation](#topology-derivation) and priced in [Choosing the admission parameters](#choosing-the-admission-parameters); the same quantities appear as measurement axes in [Table 5](#table-5). [Table 3](#table-3) collects every parameter this proposal fixes or leaves open, with the value each takes and where it is argued.
+
 ### Identity and keys
 
 This section fixes the three key roles the protocol distinguishes, the constraints the rest of the Specification places on an identity, and the registration proof that binds one. It does not fix whether an identity is anchored to a credential that already carries a trust relationship; that question is posed in the [Open Questions](#open-questions), and the requirement any anchoring would have to meet is stated below.
@@ -129,14 +147,7 @@ A node is configured with the script hash of the parameter output itself, in the
 
 **A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute defaults, and MUST NOT carry forward values read in an earlier epoch. A node acting on parameters other than the agreed ones computes a different gate, so its dials are refused by peers that computed the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
-**It carries everything every node must agree on that is not a property of a topic.** The [bucket count](#term-b) is selected from a published table by topic population; the [serving cap](#term-cap) and the pick count follow rules. What the table was built at, and what those rules read, are properties of the deployment rather than of any topic, and MUST be read from this output:
-
-- *T*<sub>epoch</sub>, the epoch length, so that every node agrees where an epoch begins and ends;
-- *μ*, the adversarial fraction sized against, and *A*, the adversarial identity count — the first is what the bucket-count table was built at and is read by the pick-count rule, the second by the serving cap;
-- *δ*, the per-epoch failure target;
-- *p*, the honest downtime rate sized against.
-
-No node may substitute its own value for any of these. A node that did would compute a different gate, and would be refused by peers that computed the agreed one.
+**It carries the five assumptions the deployment supplies.** *T*<sub>epoch</sub>, *μ*, *A*, *δ* and *p*, introduced under [The parameters](#the-parameters-and-which-of-them-must-be-agreed), MUST be read from this output. They are held once for the deployment rather than per topic because the bucket-count table was built at them and the pick-count and serving-cap rules read them, and none of the five is a property of any one topic. No node may substitute its own value for any of them: it would compute a different gate, and be refused by peers that computed the agreed one. Whether *μ*, *δ* and *p* would be better held per topic is posed in the [Open Questions](#open-questions).
 
 Two rules govern changes.
 
@@ -159,9 +170,13 @@ Two rules govern changes.
 
 One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
+**Which registry holds what.** The two registries are divided by who may write an entry, not by what the entry is about. A node entry is written by its operator and holds what is that node's own to declare: its identity key, its deposit, its endpoints, and the topics it takes part in. A topic entry is written by the topic's owner and holds what is the topic's own to declare: that it exists, which keys may publish on it, and how long messages on it are retained. Subscribing is a node's decision, so it is recorded on the node entry; authorising a publisher is the owner's, so it is recorded on the topic entry. Neither registry is written by anyone else.
+
+That division is what keeps both registries free of contention, and it is the reason a topic entry carries no subscriber list. A subscriber list would make one output that every node on the topic must spend in order to join or leave it, so a topic with a large population would serialise its subscriptions behind a single UTxO, and a validator would have to resolve the resulting ordering. Recording the interest on the node entry instead means each operator only ever spends its own output, which is the property [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) relies on. The derivation reads the edge from that side too: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
+
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree. An entry MUST list at least one topic, and every topic it lists MUST be registered in the topic registry.
 
-The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable.
+The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
 
 The withdrawal delay is what keeps the deposit attached to a *standing* identity, and it does two things. A retiring entry is still in the snapshot the current epoch derives from, so other nodes hold links to it until that epoch ends; reclaiming immediately would leave the identity unbonded while it still occupies positions in the standing topology. **The delay MUST therefore be at least one epoch.** And because the deposit prices identities that stand rather than identities that once existed, the delay bounds how fast an operator can rotate them: without it, a single deposit funds a fresh identity every epoch, which is the re-registration the [Rationale](#the-adversary-this-proposal-defends-against) excludes from its adversary model. Its value beyond that floor is open.
 
@@ -557,7 +572,7 @@ Long-range replay is out of scope. A node offline for longer than the retention 
 
 ### Parameters
 
-Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The quantities used to *measure* a design rather than to configure one, including the failure target *δ* and the adversarial fraction *μ*, are defined in [Table 5](#table-5) and are not repeated here.
+Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The two kinds are distinguished under [The parameters](#the-parameters-and-which-of-them-must-be-agreed): those a rule derives, and the five a deployment supplies. The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
 
 <div align="center">
 <a name="table-3" id="table-3"></a>
@@ -1256,6 +1271,24 @@ the design itself is the following.
   assumptions every node's admission parameters derive from. The four arrangements are set
   out where the output is specified. The choice is between a standing authority over a
   network-wide security parameter and a heavier path for every change.
+- **Whether the sizing assumptions belong to the deployment or to a topic.** *μ*, *δ* and
+  *p* are held once for the whole deployment. Nothing in the derivation strictly requires
+  that: agreement is only ever needed between the two ends of a link, a link is always on one
+  topic, both ends read that topic's entry from the same snapshot, and
+  [only the bucket count has to match at all](#selection-headroom-and-the-bucket-count) — so
+  per-topic values would still leave both ends of every link computing the same gate. The
+  argument for moving them is that a failure target is a service level, and an emergency
+  alert topic and a chat topic have no reason to share one. The arguments against are that
+  *μ* is a property of the registered population rather than of a topic, so a topic owner
+  asserting a comfortable value does not make it true; that it would hand every topic owner
+  a share of the authority the [parameter output](#the-parameter-output) concentrates in one
+  place; and that [Table 1](#table-1) is built at one (*μ*, *δ*, *p*) and stops being a single
+  lookup if each topic may choose its own. A middle arrangement — a small set of named
+  profiles, each with its own published table, a topic entry naming one — would keep both the
+  lookup and the agreement while letting the targets differ, and is not specified here.
+  *T*<sub>epoch</sub> and *A* are not in scope for the question: epochs, the snapshot and the
+  beacon are network-wide by construction, and an adversary's identity stock is a property of
+  the registry rather than of a topic.
 - **The randomness source.** It sets the epoch floor and, through it, decides whether the
   churn ceiling binds at all. Tracked as [issue #22](https://github.com/input-output-hk/pubsub/issues/22).
 - **The epoch length.** The Rationale bounds it from both directions and shows the upper
