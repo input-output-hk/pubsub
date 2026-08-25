@@ -775,11 +775,13 @@ The [Rationale](#rationale-how-does-this-cip-achieve-its-goals) that follows is 
 It must also explain how the proposal affects the backward compatibility of existing solutions when applicable. If the proposal responds to a CPS, the 'Rationale' section should explain how it addresses the CPS, and answer any questions that the CPS poses for potential solutions.
 -->
 
-The [CPS](../cps/README.md) set out five goals, and the [Specification](#specification) defines a protocol claiming to meet them. The design itself is selected in [Why the symmetric design](#why-the-symmetric-design), which is where the choice between the candidates is argued and settled; everything before it establishes what was measured and how, and everything after it prices what the choice costs and states what it does not give. Two of them are structural and are met by construction rather than by measurement: **authenticity**, which follows from publisher signatures verifiable against the on-chain [registry](#term-registry), and **payload-agnostic topics**, which is a matter of the protocol declining to interpret what it carries. A third, **non-influenceable neighbour selection**, rests on the randomness source and the registration cutoff, and is treated under the guarantees below rather than measured.
+The [CPS](../cps/README.md) set out five goals. Three of them are not measured here.
 
-The remaining two are quantitative, and are what the evidence in this section is for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is; rarity is the failure probability measured throughout, brevity is bounded by the [epoch](#term-epoch), and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network; both are measured, and what a node actually pays is set out under the trade-offs.
+**Authenticity** follows from publisher signatures verifiable against the on-chain [registry](#term-registry), and **payload-agnostic topics** from the protocol declining to interpret what it carries. Both hold by construction. **Non-influenceable neighbour selection** rests on the randomness source and the registration cutoff, and is argued under the guarantees below rather than measured.
 
-Everything below is stated per [epoch](#term-epoch), whose length is a parameter of this proposal rather than a fixed quantity; the bounds on it are among the open questions this section reaches.
+The other two are quantitative, and are what the evidence in this section is for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is: rarity is the failure probability measured throughout, brevity is bounded by the [epoch](#term-epoch), and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network, and both are measured.
+
+Every figure below is stated per [epoch](#term-epoch), whose length is a parameter of this proposal rather than a fixed quantity.
 
 ### The adversary this proposal defends against
 
