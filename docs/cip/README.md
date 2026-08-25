@@ -552,9 +552,11 @@ Everything above argues for a large bucket count: the wider the division, the mo
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-**Only one parameter has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) disagree about which links are legal, and refuse each other. Nothing checks a dialler's pick count, and the [serving cap](#term-cap) is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone. **The bucket count is therefore selected from [Table 1](#table-1) below, which this document publishes rather than the chain; the pick count and the serving cap follow rules each node applies for itself.**
+Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers, *r* is how many of them it has for each pick it must make. At *r* = 1 there are exactly as many candidates as picks: the node takes all of them, and its own randomness chooses nothing. Raising *r* buys that choice back, and wherever the gate is on the rules below hold it at two or more.
 
-*B* MUST be the value [Table 1](#table-1) gives for the topic's registered population, taken from the epoch's snapshot. The table is fixed by this document and the population is read from the chain, so the only thing that can move a row is the topic gaining or losing members. Both ends of any link read the same snapshot, so both select the same row.
+**Only one of these has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
+
+*B* MUST therefore be the value [Table 1](#table-1) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself. The table is published by this document rather than the chain. Both ends of a link read the same snapshot, so both select the same row, and only the topic gaining or losing members can move it.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
