@@ -580,13 +580,6 @@ $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
 Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for. The [Appendix](#admission-parameter-bands) derives each row, prices what it gives up, and lists what remains to be measured.
 
-> [!NOTE]
-> **The last row specifies *B* = 512, but the measured configuration used *B* = 500.** Every gated figure this proposal quotes was measured at 500.
->
-> The difference is small, and its direction is known. A gate at 512 is 2.4 % narrower: 39.1 expected eligible peers rather than 40.0. That is the safe direction for an attacker's reach and the marginally unsafe one for coverage. One re-run at *N*<sub>T</sub> = 20 000 would close the gap, and it is the first item on the pending list in the [Appendix](#admission-parameter-bands).
->
-> The table carries 512 rather than 500 so that every *B* stays a power of two, which is what keeps the gate a mask.
-
 **Where the table comes from.** All three of the following are **ceilings** on *B*, and no row exceeds the smallest of them at its lowest population. The table takes the gate off where the smallest ceiling falls below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy [measured on: inherited from the headroom floor below, and no more general than it is].
 
 - ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ* [applies to: one design at a time — each design has its own coverage law, so this bound is not comparable between designs] [measured on: the symmetric design at 20 000 nodes].
@@ -1739,8 +1732,10 @@ measured, and the rows are listed here in the order it is worth measuring them.
    published anchor for the failure-target ceiling is at twenty thousand nodes, which does not
    certify a smaller population. This is the one unverified safety claim in the table.
 2. **The last row at twenty thousand.** Re-run the measured configuration at *B* = 512 rather than
-   500, to confirm the 2.4 % narrowing is immaterial. Until this lands, the figures quoted
-   elsewhere in this proposal are at 500 and the table specifies 512.
+   500, to confirm the 2.4 % narrowing is immaterial. It leaves 39.1 expected eligible peers
+   against 40.0, which is the safe direction for an attacker's reach and the marginally unsafe
+   one for coverage. Until this lands, the figures quoted elsewhere in this proposal are at 500
+   and the table specifies 512.
 3. **The delivery-critical row**, 2 704 – 5 641. Measure coverage at three thousand nodes at
    *B* = 128, and re-run the existing four-thousand-node cell at *B* = 128 against its own ceiling
    of 185.
