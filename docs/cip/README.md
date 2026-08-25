@@ -558,7 +558,7 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 **Only one of these has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
-*B* MUST therefore be the value [Table 1](#table-1) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself. The table is published by this document rather than the chain. Both ends of a link read the same snapshot, so both select the same row, and only the topic gaining or losing members can move it.
+*B* MUST therefore be the value [Table 1](#table-1) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself, stated under [the dissemination design](#the-dissemination-design) and [the serving cap](#the-serving-cap). The table is published by this document rather than the chain. Both ends of a link read the same snapshot, so both select the same row, and only the topic gaining or losing members can move it.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
@@ -580,7 +580,7 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 </div>
 
-**Every value is a power of two, and that is the point.** The *mask bits* column is that reduction: a candidate is eligible when that many low bits of the gate hash are all zero. No division, no logarithm, and no rounding rule to agree on. That matters because this is the one value two implementations cannot be allowed to compute differently. At *B* = 1 the mask is empty and every registered peer is eligible.
+**Every value is a power of two, and that is the point.** The *mask bits* column is that reduction: a candidate is eligible when that many low bits of the gate hash are all zero. No division, no logarithm, and no rounding rule to agree on. At *B* = 1 the mask is empty and every registered peer is eligible.
 
 Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for. The [Appendix](#admission-parameter-bands) derives each row, prices what it gives up, and lists what remains to be measured.
 
