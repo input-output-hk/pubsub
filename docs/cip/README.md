@@ -117,11 +117,11 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 | deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
 | withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [The node registry](#the-node-registry) |
 
-<em>Table 3: the parameters this Specification fixes and leaves open</em>
+<em>Table 3: the protocol's parameters</em>
 
 </div>
 
-**The assumptions are declared, not fed to a node.** *μ*, *δ*, *p* and *A* describe the deployment a design is solved for: how much of it is hostile, and how much of it is absent. No node reads any of them. They are what [Table 1](#table-1) was built at and what the sizing rules were solved against, and a deployment states them so that its sizing can be checked. Changing one means rebuilding the table, not reconfiguring a node.
+**The assumptions are choices a deployment makes, not values fed to a node.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes. No node reads any of them. Changing one means rebuilding [Table 1](#table-1), not reconfiguring a node.
 
 <div align="center">
 <a name="table-4" id="table-4"></a>
@@ -133,7 +133,7 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 | *δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [Open Questions](#open-questions) |
 | *p* | The share of honest nodes absent across an epoch | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
 
-<em>Table 4: the assumptions the design is solved against</em>
+<em>Table 4: the assumptions a deployment chooses</em>
 
 </div>
 
@@ -471,7 +471,7 @@ Two consequences follow where an implementer meets them. A node's realised degre
 | :--: | :--: | ---: | ---: |
 | relay | symmetric | 10 | 17.5 / 33 |
 
-<em>Table 2: the dissemination design, at the reference shape of this proposal</em>
+<em>Table 2: the dissemination design at the reference shape</em>
 
 </div>
 
@@ -695,7 +695,7 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | *δ* | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
 | *k* | varies by design | Peers a node picks per topic per link kind, written *RF* for relay links | The knob each design is tuned by; the comparison holds *δ* fixed and lets *k* differ |
 
-<em>Table 5: the constants every figure in this section is measured at</em>
+<em>Table 5: the constants this section is measured at</em>
 
 </div>
 
@@ -822,11 +822,11 @@ Every design below is shown at the configuration this proposal names for it, at 
 | | | | | | | | | | |
 | **M4 as specified** | *RF* = 10, gated | **5.1 × 10⁻⁶** | — | **13.0** | **17.5** | **33** | 5.0 | 4.0 | **7.57 %** |
 
-<em>Table 8: cost at each design's configuration. The first five rows are ungated, at the configurations the coverage models were evaluated at. The last row is the configuration this proposal specifies, measured under the gate and the admissions budget — it is not comparable column-by-column with the rows above it, and is given so that the proposal's own numbers appear beside the field it was chosen from.</em>
+<em>Table 8: cost at each design's configuration</em>
 
 </div>
 
-Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*, not over configurations. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting three of those columns at once shows the shape of the trade: the two axes are costs, so lower and further left is better, and marker size is hops to the last subscriber, so a smaller marker is faster.
+The first five rows are ungated, at the configurations the coverage models were evaluated at. The last row is the configuration this proposal specifies, measured under the gate and the admissions budget. It is not comparable column-by-column with the rows above it, and is given so that the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*, not over configurations. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting three of those columns at once shows the shape of the trade: the two axes are costs, so lower and further left is better, and marker size is hops to the last subscriber, so a smaller marker is faster.
 
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
@@ -930,7 +930,7 @@ For most of this programme two designs stood, and on the coverage models neither
 | Downtime absorbed | 2.17 % | **7.43 %** |
 | Corruptions to strand a chosen node, knowing its links <sup>a</sup> | 10.4 | **14.4** |
 
-<em>Table 10: the two candidates as the coverage models measure them, which is to say ungated</em>
+<em>Table 10: the two candidates, ungated</em>
 
 <em><sup>a</sup> Two different formulas, not a measured difference: <em>k</em>(1−<em>μ</em>) where the links that can strand a node are directional, 2<em>k</em>(1−<em>μ</em>) where they are symmetric, since a symmetric pick yields two usable directions. Cost and latency for both designs are in [Table 8](#table-8); only the rows that change under the admission rules are repeated here, so that Table 10b has a before-half.</em>
 
@@ -953,7 +953,7 @@ The three designs already beaten on cost were not re-measured under the gate, an
 | At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
 | Seams carrying a gate and a cap | 2 | **1** |
 
-<em>Table 10b: the same two designs under the admission rules this proposal specifies</em>
+<em>Table 10b: the same two designs, gated</em>
 
 </div>
 
@@ -1004,7 +1004,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 | 10 | **832 kbit/s** | 380 | 1.1 Mbit/s | **180** |
 | 25 | **2.1 Mbit/s** | 950 | 2.7 Mbit/s | **450** |
 
-<em>Table 11: per-node cost against topics subscribed, at 1 kB messages and one publication per second per topic</em>
+<em>Table 11: per-node cost against topics subscribed, at 1 kB and one message per second</em>
 
 </div>
 
@@ -1141,7 +1141,7 @@ That geometry is worth stating in numbers, because it is what sizes both the epo
 | The same node cut off again in the next | 7.5 × 10⁻¹⁸ | 1.4 × 10⁻¹⁹ |
 | *Some* node cut off, network-wide | 4.4 × 10⁻⁵ | 6.1 × 10⁻⁶ |
 
-<em>Table 12: per-epoch isolation risk, per node and network-wide, read off the coverage laws</em>
+<em>Table 12: per-epoch isolation risk, per node and network-wide</em>
 
 </div>
 
@@ -1216,7 +1216,7 @@ Three things follow.
 | M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
 | M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
 
-<em>Table 13: mean time between one node's departures required to sustain a given epoch length</em>
+<em>Table 13: departure interval required per epoch length</em>
 
 <em>Every row is computed from that design's churn budget by the relation above, and none is a separate measurement; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Robustness](#robustness) gives.</em>
 
@@ -1523,7 +1523,7 @@ Several of these words carry an established Cardano meaning that is *not* the me
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | How many peers the gate leaves a node eligible to link to, per link it must open. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
 | <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic for one link kind that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
 
-<em>Table 14: the protocol's vocabulary, and where it collides with an established term</em>
+<em>Table 14: the protocol's vocabulary</em>
 
 </div>
 
