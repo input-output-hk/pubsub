@@ -631,7 +631,10 @@ At the reference shape this proposal is sized for, the rule gives *RF* = 10, whi
 
 The gate bounds who may dial a node; the [serving cap](#term-cap) *C* bounds how many of them it will serve. It is an **admissions budget**: a node MUST refuse a peer-initiated request for a link it did not itself select, once *C* such admissions have been granted for that topic and link kind in the current epoch. A request that answers the node's own pending selection — a *crossing*, where both ends picked each other — is not an admission, and MUST be completed whatever the state of the budget.
 
-Counting admissions rather than total degree is what keeps a node's own picks safe. Were its own links to count against a cap, an attacker that dialled early would make the node turn away peers it had itself chosen, so arriving first would buy a veto over honest selection. Two rules follow. A node MUST count an admission as it grants it, and MUST NOT arrive at the figure by counting its links at the end of an epoch, because a symmetric handshake leaves no record of which side dialled. For the same reason the budget runs for one epoch and is NOT restored when a link is severed.
+Counting admissions rather than total degree is what keeps a node's own picks safe. Were its own links to count against a cap, an attacker that dialled early would make the node turn away peers it had itself chosen, so arriving first would buy a veto over honest selection. Two rules follow.
+
+- **A node MUST count an admission as it grants it.** It MUST NOT arrive at the figure by counting its links at the end of an epoch, because a symmetric handshake leaves no record of which side dialled.
+- **The budget runs for one epoch, and is NOT restored when a link is severed.** Restoring it would mean knowing which side dialled, which is the same thing the handshake erased.
 
 **The cap is sized against the traffic a node should expect to admit, not against the attacker.** Set it too tight and what it turns away is honest peers, of whom there are far more. The load to clear is one epoch's fresh admissions, honest and adversarial together:
 
