@@ -538,7 +538,13 @@ Each link kind uses its own domain tag, of the form `pubsub/gate/<kind>/v1`. A n
 The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 > [!TIP]
-> **The quantity the gate really changes is the price of *targeting*.** Ungated, one registered identity buys a hostile link beside whichever node the attacker names, so the price of one hostile edge on a chosen victim is one deposit. Gated, that identity is admissible to a *chosen* victim only with probability 1/*B* [applies to: symmetric link kinds — a directional design draws each direction independently and reaches 2/*B*], so the same edge costs about *B* deposits in expectation — five hundred at the bucket count this proposal specifies — and the [serving cap](#the-serving-cap) ends the auction at *C* admitted edges however large the budget. Broad flooding is diluted; aimed attacks are repriced. The second is the one the [CPS](../cps/README.md) is about.
+> **What the gate really changes is the price of *targeting*.**
+>
+> Without it, one registered identity buys a hostile link beside whichever node the attacker names. One hostile edge on a chosen victim costs one deposit.
+>
+> With it, that identity reaches a *chosen* victim only with probability 1/*B* [applies to: symmetric link kinds; a directional design draws each direction independently and reaches 2/*B*]. The same edge now costs about *B* deposits in expectation, which is five hundred at the bucket count this proposal specifies. The [serving cap](#the-serving-cap) then ends the auction at *C* admitted edges, however large the attacker's budget.
+>
+> Broad flooding is diluted. Aimed attacks are repriced. The second is what the [CPS](../cps/README.md) is about.
 
 #### Selection headroom and the bucket count
 
