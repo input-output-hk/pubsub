@@ -91,7 +91,7 @@ Three properties of that arrangement carry most of the design.
 
 **What a node keeps private is its own draw, not its position.** The predicate narrows a node's eligible set; which of those peers it then picks is its own randomness and is not required to be checkable. That split is deliberate, and [Topology derivation](#topology-derivation) states precisely where it falls.
 
-#### The parameters, and which of them must be agreed
+#### The parameters
 
 The rest of this section refers throughout to a handful of named quantities, and they are of two kinds. The difference decides where each is held, so it is worth settling before the first of them is read from the chain.
 
@@ -147,7 +147,7 @@ A node is configured with the script hash of the parameter output itself, in the
 
 **A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or carries a `format` this node does not implement, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute defaults, and MUST NOT carry forward values read in an earlier epoch. A node acting on parameters other than the agreed ones computes a different gate, so its dials are refused by peers that computed the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
-**It carries the five assumptions the deployment supplies.** *T*<sub>epoch</sub>, *μ*, *A*, *δ* and *p*, introduced under [The parameters](#the-parameters-and-which-of-them-must-be-agreed), MUST be read from this output. They are held once for the deployment rather than per topic because the bucket-count table was built at them and the pick-count and serving-cap rules read them, and none of the five is a property of any one topic. No node may substitute its own value for any of them: it would compute a different gate, and be refused by peers that computed the agreed one. Whether *μ*, *δ* and *p* would be better held per topic is posed in the [Open Questions](#open-questions).
+**It carries the five assumptions the deployment supplies.** *T*<sub>epoch</sub>, *μ*, *A*, *δ* and *p*, introduced under [The parameters](#the-parameters), MUST be read from this output. They are held once for the deployment rather than per topic because the bucket-count table was built at them and the pick-count and serving-cap rules read them, and none of the five is a property of any one topic. No node may substitute its own value for any of them: it would compute a different gate, and be refused by peers that computed the agreed one. Whether *μ*, *δ* and *p* would be better held per topic is posed in the [Open Questions](#open-questions).
 
 Two rules govern changes.
 
@@ -572,7 +572,7 @@ Long-range replay is out of scope. A node offline for longer than the retention 
 
 ### Parameters
 
-Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The two kinds are distinguished under [The parameters](#the-parameters-and-which-of-them-must-be-agreed): those a rule derives, and the five a deployment supplies. The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
+Every parameter this Specification fixes or leaves open, with the value it takes and where that value is argued. The two kinds are distinguished under [The parameters](#the-parameters): those a rule derives, and the five a deployment supplies. The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 5](#table-5) and are not repeated here.
 
 <div align="center">
 <a name="table-3" id="table-3"></a>
