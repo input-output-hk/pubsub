@@ -494,9 +494,9 @@ Everything in this subsection is a pure function of the epoch's snapshot, *η*<s
 
 </div>
 
-The figure is drawn at exactly the sizing rule fixed below: 32 registered peers, *B* = 4, so eight are eligible, and *k* = 4 are picked from those eight. The ratio of the second row to the third is the [selection headroom](#term-r) *r* = 2, the smallest value this Specification permits.
+The figure is drawn at the sizing rule fixed below. Row 1 holds 32 registered peers, *B* = 4 leaves the eight of row 2 eligible, and *k* = 4 of those are picked in row 3. The ratio of row 2 to row 3 is the [selection headroom](#term-r) *r* = 2, the smallest value this Specification permits.
 
-The two halves of that picture differ in who can check them, and the split is the whole of the design's honesty about what it enforces. **Rows one and two are recomputable by anyone holding the chain**, so an acceptor, or any third party, can reject or expose a link outside the permitted set. **Row three is the node's own randomness and is not checkable by anyone**, because a private pick is what keeps the topology a random graph rather than a published one. Concretely, an acceptor presented with a dial verifies three things and nothing else:
+The three rows differ in who can check them, and the split is the whole of the design's honesty about what it enforces. **Rows 1 and 2 are recomputable by anyone holding the chain**, so an acceptor, or any third party, can reject or expose a link outside the permitted set. **Row 3 is the node's own randomness and is not checkable by anyone**, because a private pick is what keeps the topology a random graph rather than a published one. Concretely, an acceptor presented with a dial verifies three things and nothing else:
 
 - the dialler is registered on this topic, in the snapshot this epoch derives from;
 - the gate holds for the pair, recomputed from public data alone — sorted by identity bytes for a symmetric kind, ordered for a directional one;
