@@ -275,7 +275,7 @@ where *id* is the node identity key and *op* the operator credential. Without it
 
 The protocol holds three things on chain: a **parameter output** that identifies the deployment and fixes its epoch length, a **topic registry**, and a **node registry**. They are specified in that order, because a node entry names the topics it takes part in and so depends on the topic registry, while nothing in a topic entry depends on the node registry. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This section specifies what each holds and the state transitions it must admit, and leaves the validator implementation to the deployment.
 
-**Which registry holds what.** The two registries divide by who may write an entry, not by what it is about. A node entry is written by its operator. It holds what is that node's own to declare: its identity key, its deposit, its endpoints, and the topics it takes part in. A topic entry is written by the topic's owner. It holds what is the topic's own to declare: that it exists, which keys may publish on it, and how long messages are retained. Subscribing is a node's decision, so it sits on the node entry. Authorising a publisher is the owner's, so it sits on the topic entry.
+**Which registry holds what.** The two registries divide by who may write an entry, not by what it is about. A node entry is written by its operator. It holds what is that node's own to declare: its identity key, its deposit, its endpoints, and the topics it takes part in. A topic entry is written by the topic's owner. It holds what is the topic's own to declare: that it exists, which keys may publish on it, and how long messages are retained. Subscribing is a node's decision, so it sits on the node entry. Authorising a publisher is the owner's, so it sits on the topic entry. [Figure 2](#figure-2) puts the two in the order an operator meets them.
 
 <div align="center">
 <a name="figure-2" id="figure-2"></a>
@@ -286,13 +286,23 @@ The protocol holds three things on chain: a **parameter output** that identifies
 
 </div>
 
+**Stage 1** is off chain. The operator generates the node identity key the topology is derived over, holds the operator credential that authorises registry transactions, and signs the [proof of possession](#identity-and-keys) binding the two.
+
+**Stage 2** applies only where the topic does not yet exist. Creating one takes an owner credential, a publisher set that MAY be empty, and a retention window of at least one epoch. It never takes a registered identity, which is why it can precede stage 3 or share its transaction.
+
+**Stage 3** creates the node entry. It MUST list at least one registered topic, MUST lock the [deposit](#term-deposit), and MAY carry endpoints.
+
+**Stage 4** is a wait, and the one an operator cannot shorten. An entry takes part from the first epoch whose [snapshot](#term-snapshot) contains it, never from the moment it lands on chain.
+
+**Stage 5** is that epoch. The node is counted among the [registered peers](#the-registered-peers-on-a-topic) on each topic it listed. [Topology derivation](#topology-derivation) narrows those to the peers it may link with, and the node opens its own picks and holds them until the epoch ends.
+
 #### The parameter output
 
 One output per deployment, created when the registries are deployed. It does two jobs.
 
 **It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so every other on-chain object a node reads is reached from here. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
 
-A node is configured with the script hash of the parameter output itself, in the same way it is configured with a genesis hash. That hash and the deployment's declared assumptions are what an operator supplies out of band; every other object the protocol reads is reached from the chain.
+A node is configured with the script hash of the parameter output itself: one value, supplied rather than discovered, that settles which deployment the process has joined. It is this layer's counterpart to the genesis hash a **Cardano** node is given, and not that same value. The script hash and the deployment's declared assumptions are what an operator supplies out of band; every other object the protocol reads is reached from the chain.
 
 **Exactly one parameter output MUST exist per deployment, and the validator MUST enforce that.** A one-shot minting policy is the RECOMMENDED mechanism: the policy permits a single mint, the validator requires the resulting token to be present in the output, and a node takes the output holding that token. Without an enforced singleton, anyone could pay to create a second output at the same script carrying a plausible datum, and nothing in this proposal would say which one a node should read.
 
