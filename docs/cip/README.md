@@ -648,9 +648,9 @@ The cap is the second line of defence and not the first. The gate has already di
 
 #### What the rules do on a small topic
 
-Everything specified so far is sized for a topic with thousands of members: the gate divides an attacker's reach by a bucket count in the hundreds, and the serving cap bounds what concentration can still achieve. On a topic of thirty, [Table 1](#table-1) gives *B* = 1, so the gate divides by nothing and does no work at all. The question is what protects such a topic instead.
+Everything specified so far is sized for a topic with thousands of members: the gate divides an attacker's reach by a [bucket count](#term-b) *B* in the hundreds, and the [serving cap](#term-cap) *C* bounds what concentration can still achieve. On a topic of thirty, [Table 1](#table-1) gives *B* = 1, so the gate divides by nothing and does no work at all. The question is what protects such a topic instead.
 
-The rules need no separate mode for it. The first row of the table switches the gate off, and a node that cannot find *k* eligible peers links to all of them. Exactly where that switch falls depends on *δ* and *μ* as well as the pick count, and is not measured. What changes below it is which mechanism does the protecting.
+The rules need no separate mode for it. The first row of the table switches the gate off, and a node that cannot find [*k*](#term-pick-count) eligible peers links to all of them. Exactly where that switch falls depends on [*δ*](#table-4) and [*μ*](#table-4) as well as on the pick count, and is not measured. What changes below it is which mechanism does the protecting.
 
 On a **large topic** a node's peers are a sample of the membership, so the danger is an adversary concentrating identities on a chosen victim. The gate is what answers it.
 
