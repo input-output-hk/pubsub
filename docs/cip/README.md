@@ -214,16 +214,16 @@ The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begi
 
 | Symbol | Controls | Value | Argued in |
 | :--: | --- | --- | --- |
-| *T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the churn budget | [How long an epoch may be](#how-long-an-epoch-may-be) |
-| n/a | The [registration cutoff](#term-snapshot): the chain position each epoch is derived from | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) |
-| *η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
-| *B* | How narrowly a node's permitted peers are drawn from a topic | **Selected:** from [Table 1](#table-1), by the topic's registered population | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| *r* | Peers left eligible per link a node opens | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| *k* | Links a node opens per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [The dissemination design](#the-dissemination-design) |
-| *C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [What the protocol guarantees instead](#what-the-protocol-guarantees-instead) |
-| deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
-| withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [The node registry](#the-node-registry) |
+| <a name="param-t-epoch" id="param-t-epoch"></a>*T*<sub>epoch</sub> | How long a topology stands, and so how long a subscriber can be cut off | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the churn budget | [How long an epoch may be](#how-long-an-epoch-may-be) |
+| <a name="param-cutoff" id="param-cutoff"></a>n/a | The [registration cutoff](#term-snapshot): the chain position each epoch is derived from | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined | [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) |
+| <a name="param-eta" id="param-eta"></a>*η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements | [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon), [issue #22](https://github.com/input-output-hk/pubsub/issues/22) |
+| <a name="param-b" id="param-b"></a>*B* | How narrowly a node's permitted peers are drawn from a topic | **Selected:** from [Table 1](#table-1), by the topic's registered population | [Choosing the admission parameters](#choosing-the-admission-parameters) |
+| <a name="param-r" id="param-r"></a>*r* | Peers left eligible per link a node opens | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts | [Choosing the admission parameters](#choosing-the-admission-parameters) |
+| <a name="param-k" id="param-k"></a>*k* | Links a node opens per topic | **Derived:** the smallest count meeting *δ* once honest downtime is folded in; *RF* = 10 at the reference shape | [The dissemination design](#the-dissemination-design) |
+| <a name="param-c" id="param-c"></a>*C* | Links a node accepts per topic per kind | **Fixed by rule:** ≥ *L* + *c*·√*L* on the fresh admission load *L* | [Choosing the admission parameters](#choosing-the-admission-parameters) |
+| <a name="param-retention" id="param-retention"></a>retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic | [What the protocol guarantees instead](#what-the-protocol-guarantees-instead) |
+| <a name="param-deposit" id="param-deposit"></a>deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery | [Two classes of fault](#two-classes-of-fault-with-different-guarantees), [Open Questions](#open-questions) |
+| <a name="param-withdrawal-delay" id="param-withdrawal-delay"></a>withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open | [The node registry](#the-node-registry) |
 
 <em>Table 3: The protocol's parameters</em>
 
@@ -238,10 +238,10 @@ A node reads them to size its own pick count and serving cap. No peer verifies t
 
 | Symbol | What it assumes | Value | Argued in |
 | :--: | --- | --- | --- |
-| *μ* | The share of registered nodes that accept their links and forward nothing | **Open.** Declared by the deployment; what [Table 1](#table-1) was built at | [Open Questions](#open-questions) |
-| *A* | How many registered identities one adversary holds. Bounded by *μ* and the population, not implied by them: the same *μ* may be one adversary or many | **Open.** Declared by the deployment; read by the admissions-budget rule | [Choosing the admission parameters](#choosing-the-admission-parameters) |
-| *δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [Open Questions](#open-questions) |
-| *p* | The share of honest nodes absent across an epoch. The drop-out rate *λ* read against the epoch length, by *p* = 1 − e<sup>−λ·*T*</sup> | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
+| <a name="param-mu" id="param-mu"></a>*μ* | The share of registered nodes that accept their links and forward nothing | **Open.** Declared by the deployment; what [Table 1](#table-1) was built at | [Open Questions](#open-questions) |
+| <a name="param-a" id="param-a"></a>*A* | How many registered identities one adversary holds. Bounded by *μ* and the population, not implied by them: the same *μ* may be one adversary or many | **Open.** Declared by the deployment; read by the admissions-budget rule | [Choosing the admission parameters](#choosing-the-admission-parameters) |
+| <a name="param-delta" id="param-delta"></a>*δ* | The per-epoch coverage failure a deployment is willing to accept | **Open.** Declared by the deployment; what the pick count is solved to meet | [Open Questions](#open-questions) |
+| <a name="param-p" id="param-p"></a>*p* | The share of honest nodes absent across an epoch. The drop-out rate *λ* read against the epoch length, by *p* = 1 − e<sup>−λ·*T*</sup> | **Open.** Declared by the deployment; shifts the fraction the pick count is solved at | [How long an epoch may be](#how-long-an-epoch-may-be) |
 
 <em>Table 4: The assumptions a deployment chooses</em>
 
@@ -465,17 +465,10 @@ A node identity is an Ed25519 public key,[^ed25519] and wherever it enters a pre
 ### Topology derivation
 
 > [!NOTE]
-> **Reading the tags.** Five dissemination designs were analysed and this proposal selects
-> one, so some of what follows is general and some is a property of the design chosen. Two
-> tags mark the difference where it is not otherwise obvious.
->
-> **[applies to: …]** restricts the algebra. The expression means something only for the
+> **Reading the tag.** Five dissemination designs were analysed and this proposal selects
+> one, so some of what follows is general and some is a property of the design chosen.
+> **[applies to: …]** marks the difference: the expression means something only for the
 > designs or link kinds named, and says nothing about the others.
->
-> **[measured on: …]** says where a number came from — the kind of design it was measured
-> on, and at what network size. It matters because several constants were measured on
-> designs this proposal does not adopt, and a number measured on one design is not
-> automatically the right number for another.
 >
 > **An untagged formula holds for any of the designs and carries no measured constant.**
 > That is the point of the tags: they are what lets the rest be read without checking. They
@@ -584,11 +577,11 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for.
 
-**Where the table comes from.** All three of the following are **ceilings** on *B*, and each row takes the smallest of them. The table takes the gate off where the smallest ceiling falls below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy [measured on: inherited from the headroom floor below, and no more general than it is].
+**Where the table comes from.** All three of the following are **ceilings** on *B*, and each row takes the smallest of them. The table takes the gate off where the smallest ceiling falls below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy.
 
-- ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ* [applies to: one design at a time — each design has its own coverage law, so this bound is not comparable between designs] [measured on: the symmetric design at 20 000 nodes].
+- ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ* [applies to: one design at a time — each design has its own coverage law, so this bound is not comparable between designs].
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
-- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2 [measured on: a directional design at 4 000 nodes, at a larger pick count than this proposal uses — unmeasured for a symmetric kind]. The ratio itself is general and is applied per link kind; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
+- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio itself is general and is applied per link kind; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
 
 Only the first requires evaluating the coverage law; the other two are arithmetic. All three can be walked interactively in the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/), a companion web page that plots the bounds against topic size with the network size, the attacker's identity count, *μ*, *p* and the pick count as controls. It shows which of the three is binding at any point, and marks where the curves stop being backed by measurement.
 
@@ -598,7 +591,7 @@ These three ceilings are the table's provenance, not a second way to obtain *B*:
 
 #### Selection
 
-From its eligible set on each topic and for each link kind, a node picks *k* of them uniformly at random without replacement — row 3 of [Figure 3](#figure-3) — and opens a link to each. If fewer than *k* are eligible, it links to all of them. The randomness used for this pick MUST be private to the node and unpredictable to others; it is not derived from [*η*<sub>e</sub>](#table-3), and two nodes with identical registry entries must not make identical picks.
+From its eligible set on each topic and for each link kind, a node picks *k* of them uniformly at random without replacement — row 3 of [Figure 3](#figure-3) — and opens a link to each. If fewer than *k* are eligible, it links to all of them. The randomness used for this pick MUST be private to the node and unpredictable to others; it is not derived from [*η*<sub>e</sub>](#param-eta), and two nodes with identical registry entries must not make identical picks.
 
 #### The dissemination design
 
@@ -642,7 +635,7 @@ $$L = (1 - m)\left[\,k(1-\mu) + A/B\,\right], \qquad m = \min\!\left(1,\ \frac{k
 
 *m* is the share of a node's own picks answered as crossings instead of arriving as admissions [applies to: symmetric link kinds — a crossing needs both ends to select each other, which a directional kind cannot produce, so *m* = 0 there], and *A* is the adversarial identity count the deployment sizes against. An adversary's dials spend budget whether the node wants them or not, so a cap clearing only the honest term *k*(1 − *m*)(1 − *μ*) falls short by roughly half.
 
-***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is about 3.5 [measured on: the symmetric design at 20 000 nodes, at the pick counts this proposal uses] and about 2 [measured on: a directional design at 4 000 nodes, at a large pick count]; it moves with the pick count. At the reference shape *A* = 3 500 gives *L* = 11.3 and the *C* = 23 this proposal specifies. Erring high is safe and erring low is not: a budget that binds enters the coverage law rather than sitting beside it, so this axis is a cliff rather than a trade-off.[^synthesis]
+***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is about 3.5 for the symmetric link kind this proposal specifies, and about 2 for a directional one; it moves with the pick count. At the reference shape *A* = 3 500 gives *L* = 11.3 and the *C* = 23 this proposal specifies. Erring high is safe and erring low is not: a budget that binds enters the coverage law rather than sitting beside it, so this axis is a cliff rather than a trade-off.[^synthesis]
 
 The cap is the second line of defence and not the first. The gate has already divided an attacker's identities across *B* buckets before any reach a victim; the cap bounds what concentration can achieve when it happens. It cannot reach the adversary a node meets through its *own* picks, which are selections rather than admissions — the [Rationale](#choosing-the-admission-parameters) prices that floor and the evidence behind the rule.
 
@@ -650,15 +643,13 @@ The cap is the second line of defence and not the first. The gate has already di
 
 Everything specified so far is sized for a topic with thousands of members: the gate divides an attacker's reach by a [bucket count](#term-b) *B* in the hundreds, and the [serving cap](#term-cap) *C* bounds what concentration can still achieve. On a topic of thirty, [Table 1](#table-1) gives *B* = 1, so the gate divides by nothing and does no work at all. The question is what protects such a topic instead.
 
-The rules need no separate mode for it. The first row of the table switches the gate off, and a node that cannot find [*k*](#term-pick-count) eligible peers links to all of them. Exactly where that switch falls depends on [*δ*](#table-4) and [*μ*](#table-4) as well as on the pick count, and is not measured. What changes below it is which mechanism does the protecting.
+The rules need no separate mode for it. The first row of the table switches the gate off, and a node that cannot find [*k*](#term-pick-count) eligible peers links to all of them. Exactly where that switch falls depends on [*δ*](#param-delta) and [*μ*](#param-mu) as well as on the pick count. What changes below it is which mechanism does the protecting.
 
 On a **large topic** a node's peers are a sample of the membership, so the danger is an adversary concentrating identities on a chosen victim. The gate is what answers it.
 
 On a **small topic** the picks are a large fraction of the membership, so concentration is free. It is also no longer enough. Cutting a subscriber off needs every peer it picked to be adversarial **and** no honest node to have picked it, and the second is improbable when each node picks a tenth or a quarter of the topic. With the gate off, what stands behind that conjunction is the [deposit](#term-deposit): every identity an attacker needs still has to be paid for.
 
-Two things a deployment should do at that size. Where the gate is off, set the serving cap to *C* ≥ *N*<sub>T</sub> − 1, since a node that accepts everyone cannot be crowded out of anything. A tight cap with no gate has the worst of both. And on the order of ten participants, raise the pick count until the topology is complete: a node linked to every other is cut off only if every member is adversarial, which is stronger than the gate gives at any size, and cheap at that membership. Completeness is not automatic: at a pick count sized for large topics, a topic of forty is well short of it, and where it stops being affordable is not established. The [Appendix](#admission-parameter-bands) gives the link density between the two.
-
-The range this proposal is least able to speak to is neither end but the middle: **a few hundred participants**, where the gate divides by tens rather than hundreds, a clique is no longer cheap, and the coverage laws have begun to drift. Neither mechanism is doing much, and nothing here is measured there. That range, rather than the small end, is the open question the [CPS](../cps/README.md) poses about whether the smallest use cases need a mechanism of their own.
+Two things a deployment should do at that size. Where the gate is off, set the serving cap to *C* ≥ *N*<sub>T</sub> − 1, since a node that accepts everyone cannot be crowded out of anything. A tight cap with no gate has the worst of both. And on the order of ten participants, raise the pick count until the topology is complete: a node linked to every other is cut off only if every member is adversarial, which is stronger than the gate gives at any size, and cheap at that membership. Completeness is not automatic: at a pick count sized for large topics, a topic of forty is well short of it. The [Appendix](#admission-parameter-bands) gives the link density between the two.
 
 ### Link establishment
 
