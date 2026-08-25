@@ -286,17 +286,7 @@ The protocol holds three things on chain: a **parameter output** that identifies
 
 </div>
 
-**Stage 1** is off chain: the operator generates the node identity key, holds the operator credential, and signs the [proof of possession](#identity-and-keys) binding the two.
-
-**Stage 2** applies only where the topic does not yet exist. It needs no registered identity, which is why it can precede stage 3 or share a transaction with it.
-
-**Stage 3** creates the node entry, carrying the topics the node takes part in and locking its [deposit](#term-deposit).
-
-**Stage 4** is a wait, and the one an operator cannot shorten: an entry takes part from the first epoch whose [snapshot](#term-snapshot) contains it, never from the moment it lands on chain.
-
-**Stage 5** is that epoch. The node is counted among the [registered peers](#the-registered-peers-on-a-topic) on each topic it listed, and [Topology derivation](#topology-derivation) narrows those to the peers it may link with.
-
-The three subsections below specify what each output holds, and [Lifecycle](#lifecycle-and-the-registration-cutoff) states what stages 3 and 4 must satisfy.
+Stage 1 is specified under [Identity and keys](#identity-and-keys) and stage 5 under [Topology derivation](#topology-derivation). The two entries of stages 2 and 3 are specified in the subsections below, and the registration and cutoff of stages 3 and 4 under [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff).
 
 #### The parameter output
 
@@ -397,7 +387,7 @@ One participant needs no address at all. An authorised [publisher](#identity-and
 
 #### Lifecycle and the registration cutoff
 
-A node entry moves through four operations, and every epoch is derived from a snapshot taken at a fifth point. Each step below states its constraints normatively, with the reasoning after them.
+A node entry moves through four operations, and every epoch is derived from a snapshot taken at a fifth point. Registration and the snapshot are stages 3 and 4 of [Figure 2](#figure-2); the other three operations come after joining and are what an entry does for the rest of its life. Each step below states its constraints normatively, with the reasoning after them.
 
 **Step 1. Registration.** Creates a node entry and locks the [deposit](#term-deposit).
 
