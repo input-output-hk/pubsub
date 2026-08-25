@@ -576,12 +576,16 @@ $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
 </div>
 
-**Every value is a power of two, and that is the point.** The gate reduces to a mask: a candidate is eligible when the low *mask bits* of the gate hash are all zero. No division, no modulo, no logarithm, and no rounding rule to agree on — which matters because this is the one value two implementations cannot be allowed to compute differently. At *B* = 1 the mask is empty and every registered peer is eligible.
+**Every value is a power of two, and that is the point.** The gate reduces to a mask: a candidate is eligible when the low *mask bits* of the gate hash are all zero. No division, no modulo, no logarithm, and no rounding rule to agree on. That matters because this is the one value two implementations cannot be allowed to compute differently. At *B* = 1 the mask is empty and every registered peer is eligible.
 
 Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for. The [Appendix](#admission-parameter-bands) derives each row, prices what it gives up, and lists what remains to be measured.
 
 > [!NOTE]
-> **The top row specifies *B* = 512, and the measured configuration is *B* = 500.** Every gated figure this proposal quotes was measured at 500. 512 is a 2.4 % narrower gate — 39.1 expected eligible peers against 40.0 — which is the conservative direction for an attacker's reach and the marginally unsafe direction for coverage. One re-run at *N*<sub>T</sub> = 20 000 closes the gap, and it is the first item on the pending list in the Appendix. The table carries 512 rather than 500 so that every row keeps the mask property.
+> **The last row specifies *B* = 512, but the measured configuration used *B* = 500.** Every gated figure this proposal quotes was measured at 500.
+>
+> The difference is small, and its direction is known. A gate at 512 is 2.4 % narrower: 39.1 expected eligible peers rather than 40.0. That is the safe direction for an attacker's reach and the marginally unsafe one for coverage. One re-run at *N*<sub>T</sub> = 20 000 would close the gap, and it is the first item on the pending list in the [Appendix](#admission-parameter-bands).
+>
+> The table carries 512 rather than 500 so that every *B* stays a power of two, which is what keeps the gate a mask.
 
 **Where the table comes from.** All three of the following are **ceilings** on *B*, and no row exceeds the smallest of them at its lowest population. The table takes the gate off where the smallest ceiling falls below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy [measured on: inherited from the headroom floor below, and no more general than it is].
 
@@ -1713,7 +1717,7 @@ their rows rather than at the top: **1.10×** at three thousand nodes, the deliv
 population; **1.45×** at four thousand; **1.65×** at twenty thousand.
 
 > [!WARNING]
-> **The top row is open, and its loss is not bounded.** Above 11 751 nodes the table holds
+> **The last row is open, and its loss is not bounded.** Above 11 751 nodes the table holds
 > *B* = 512 however large the topic becomes, while the ceiling keeps rising: the loss reaches
 > 2.00× at 24 438 nodes, 3.19× at forty thousand and 7.62× at a hundred thousand. The claim that
 > no row gives up more than a factor of two holds for the closed rows only. A deployment expecting
@@ -1731,10 +1735,10 @@ wants the completeness guarantee on a topic in that range has to raise the pick 
 **What remains to be measured.** Nothing in the table below twenty thousand nodes has been
 measured, and the rows are listed here in the order it is worth measuring them.
 
-1. **The top row's floor.** Confirm *B* = 512 meets the failure target at 11 751 nodes. The only
+1. **The last row's floor.** Confirm *B* = 512 meets the failure target at 11 751 nodes. The only
    published anchor for the failure-target ceiling is at twenty thousand nodes, which does not
    certify a smaller population. This is the one unverified safety claim in the table.
-2. **The top row at twenty thousand.** Re-run the measured configuration at *B* = 512 rather than
+2. **The last row at twenty thousand.** Re-run the measured configuration at *B* = 512 rather than
    500, to confirm the 2.4 % narrowing is immaterial. Until this lands, the figures quoted
    elsewhere in this proposal are at 500 and the table specifies 512.
 3. **The delivery-critical row**, 2 704 – 5 641. Measure coverage at three thousand nodes at
