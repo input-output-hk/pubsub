@@ -548,7 +548,7 @@ The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which
 
 #### Selection headroom and the bucket count
 
-Narrowing has a cost, and it is paid in the randomness of the draw. If the gate leaves a node barely as many eligible peers as it must open links to, the node has no choice left and the topology stops being a random graph. The [selection headroom](#term-r) is the ratio that measures this, for a link kind with pick count *k*:
+Everything above argues for a large bucket count: the wider the division, the more an attacker pays for a chosen victim. What stops *B* from growing without limit is the draw itself. If the gate leaves a node barely as many eligible peers as it must open links to, the node has no choice left and the topology stops being a random graph. The [selection headroom](#term-r) is the ratio that measures this, for a link kind with pick count *k*:
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
