@@ -877,15 +877,11 @@ Every figure and table in this section is one slice of a parameter space, and fo
 | Category | Metric | Measurement |
 | :--: | --- | --- |
 | Coverage | Epoch failure probability, *p*<sub>bad</sub> | Probability that a drawn epoch topology fails to carry some honest publisher's messages to every honest subscriber |
-| | Design target, *δ* | The value of *p*<sub>bad</sub> a configuration is sized to meet |
 | Cost | Transmissions per publication, *m* | Honest-to-honest message copies sent per published message, duplicates included |
 | | Deliveries per node, *c* | Copies of each published message received by an average honest node, duplicates included |
 | | Links per node, *d* and *d̂* | Links held for the whole epoch, mean and maximum, counting a node's own picks and the links others opened to it |
 | Latency | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
-| | Mean first receipt, *h*<sub>mean</sub> | Forwarding depth at which a typical honest subscriber first receives |
-| Resilience | Adversarial fraction, *μ* | Share of registered nodes that accept their links and forward nothing |
-| | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
-| | Adversary's identities, *A* | How many registered identities one adversary holds, as distinct from the share *μ* of the population they amount to. The gate leaves *A*/*B* of them eligible for any chosen victim |
+| Resilience | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
 
 <em>Table 6: Performance metrics</em>
 
@@ -903,7 +899,7 @@ $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
 Downtime relates to the drop-out rate and the epoch length by *p* = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
 
-A note on two of the cost metrics. Transmissions per publication and deliveries per node are the same quantity divided differently, *c* = *m* / *H* with *H* the honest count, so either may be quoted. Both include duplicates, since a duplicate is suppressed only after crossing the network. And for links the maximum matters as much as the mean, because connection slots are provisioned for the worst-affected node.
+A note on the cost metrics. Deliveries per node counts duplicates, since a duplicate is suppressed only after crossing the network; the whole-network figure is the same quantity undivided, *m* = *c*·*H* with *H* the honest count. And for links the maximum matters as much as the mean, because connection slots are provisioned for the worst-affected node.
 
 #### Designs evaluated
 
@@ -995,15 +991,15 @@ Every design below is shown at the configuration this proposal names for it, at 
 <div align="center">
 <a name="table-8" id="table-8"></a>
 
-| Design | Parameters | *p*<sub>bad</sub> | Transmissions per publication | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Hops (mean) | Downtime absorbed |
-| :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| M3 | RF = 13, *s* = 7 | 4.4 × 10⁻⁵ | **166,400** | **10.4** | 38.0 | 64 | 5.5 | 4.2 | 2.17 % |
-| M4 | RF = 9 | 6.1 × 10⁻⁶ | 214,345 | 13.4 | 18.0 | 37 | 5.0 | 3.9 | 7.43 % |
-| M5 | (9, 8) | 4.4 × 10⁻⁵ | 217,530 | 13.6 | 34.0 | 58 | 5.0 | 4.0 | 2.18 % |
-| M1 | *F* = 24 | 7.3 × 10⁻⁵ | 307,201 | 19.2 | 48.0 | 75 | 5.0 | 3.6 | 1.76 % |
-| M2 | RF = 24 | 7.3 × 10⁻⁵ | 307,162 | 19.2 | 48.0 | 75 | **4.8** | **3.6** | 1.70 % |
-| | | | | | | | | | |
-| **M4 as specified** | *RF* = 10, gated | **5.1 × 10⁻⁶** | — | **13.0** | **17.5** | **33** | 5.0 | 4.0 | **7.57 %** |
+| Design | Parameters | *p*<sub>bad</sub> | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Downtime absorbed |
+| :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| M3 | RF = 13, *s* = 7 | 4.4 × 10⁻⁵ | **10.4** | 38.0 | 64 | 5.5 | 2.17 % |
+| M4 | RF = 9 | 6.1 × 10⁻⁶ | 13.4 | 18.0 | 37 | 5.0 | 7.43 % |
+| M5 | (9, 8) | 4.4 × 10⁻⁵ | 13.6 | 34.0 | 58 | 5.0 | 2.18 % |
+| M1 | *F* = 24 | 7.3 × 10⁻⁵ | 19.2 | 48.0 | 75 | 5.0 | 1.76 % |
+| M2 | RF = 24 | 7.3 × 10⁻⁵ | 19.2 | 48.0 | 75 | **4.8** | 1.70 % |
+| | | | | | | | |
+| **M4 as specified** | *RF* = 10, gated | **5.1 × 10⁻⁶** | **13.0** | **17.5** | **33** | 5.0 | **7.57 %** |
 
 <em>Table 8: Cost at each design's configuration</em>
 
@@ -1034,7 +1030,7 @@ Cost alone does not settle it, which is the reason this subsection stops here: i
 
 The comparison above prices every design *under the assumption that all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
 
-A design's churn budget cannot be sampled directly. It is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it, the claim that downtime enters as a shift of the adversarial fraction, at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that Figure 6 has already validated.
+A design's churn budget cannot be sampled directly. It is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws for every churn level tested. What can be tested is the reduction underneath it, the claim that downtime enters as a shift of the adversarial fraction, at parameters where failures are frequent enough to count. If that holds, the budgets follow from laws that [Figure 6](#figure-6) has already validated.
 
 It holds, in two rounds. Across five designs and five downtime levels, from none to 12 % of honest nodes offline, twenty-three of twenty-five configurations placed the shifted-fraction prediction inside the measurement's interval, and at the largest shift there all five designs landed on their laws almost exactly.
 
@@ -1447,7 +1443,7 @@ Figure 8 places the two side by side. Solid marks are configurations whose failu
 
 </div>
 
-The gap is close to two orders of magnitude for four of the five designs, and more than three for M4 at RF = 9, whose proposed point sits an order of magnitude inside the target rather than just under it. The laws are expected to be accurate across it, because the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly; Figure 6 confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
+The gap is close to two orders of magnitude for four of the five designs, and more than three for M4 at RF = 9, whose proposed point sits an order of magnitude inside the target rather than just under it. The laws are expected to be accurate across it, because the dominant failure mode in that range is the simplest one, a single node with no usable links, which they model exactly; [Figure 6](#figure-6) confirms they track measurement wherever measurement is possible. But the operating points themselves are predictions, not observations, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
 
 ### Backward compatibility
 
