@@ -82,11 +82,13 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
     - [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation)
     - [Comparison at the proposed configurations](#comparison-at-the-proposed-configurations)
     - [Robustness](#robustness)
-  - [Trade-offs and Limitations](#trade-offs-and-limitations)
+  - [Selecting the design](#selecting-the-design)
     - [Why the symmetric design](#why-the-symmetric-design)
     - [What a node pays, and how it scales](#what-a-node-pays-and-how-it-scales)
+  - [Sizing the parameters](#sizing-the-parameters)
     - [Choosing the admission parameters](#choosing-the-admission-parameters)
     - [What can be turned, and what it costs](#what-can-be-turned-and-what-it-costs)
+  - [What a subscriber is guaranteed](#what-a-subscriber-is-guaranteed)
     - [Two classes of fault, with different guarantees](#two-classes-of-fault-with-different-guarantees)
     - [What the protocol guarantees instead](#what-the-protocol-guarantees-instead)
     - [How long an epoch may be](#how-long-an-epoch-may-be)
@@ -810,7 +812,7 @@ Messages could be disseminated in more than one way, so five candidate designs w
 
 **The evidence comes in two layers.** The first is what selects the design. It compares all five on coverage and cost with the admission rules switched off, and is carried by two independent instruments whose agreement is the argument. **Every comparison in this section is therefore ungated**, and the configurations it names are the ones the coverage models were evaluated at rather than the one this proposal specifies. One row of the cost table below is the exception, and says so where it stands. Leaving the rules off is the conservative choice for that comparison rather than a convenience: both structural taxes the admission rules impose fall on directional designs, so an ungated comparison is the best case for every design that lost.
 
-The second layer adds the verifiable gate and the serving cap, and gives the numbers a deployment would actually see. It is set out under [Trade-offs and Limitations](#trade-offs-and-limitations), where the selection is settled and the sizing rules the Specification states are established. The two layers are not in tension. They measure different configurations, so where a design's numbers differ between them, the gated ones are the ones that apply.
+The second layer adds the verifiable gate and the serving cap, and gives the numbers a deployment would actually see. It is set out under [Selecting the design](#selecting-the-design), where the choice is settled, and under [Sizing the parameters](#sizing-the-parameters), which establishes the rules the Specification states. The two layers are not in tension. They measure different configurations, so where a design's numbers differ between them, the gated ones are the ones that apply.
 
 #### What is measured, and by what
 
@@ -1013,7 +1015,7 @@ Three things follow, and the third is the one that matters for the choice.
 
 **Bandwidth and state disagree about the winner.** M3 is cheapest in traffic and M4 in held connections, and neither beats the other on both. M3's links exceed what its traffic would suggest because 12 of its 38 links carry only their owner's own publications, cheap to run but still connection slots to provision and still exposed to churn. The gap widens at the worst node rather than the average one: 64 connections against M4's 37.
 
-**M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention. See [Trade-offs and Limitations](#trade-offs-and-limitations). The remaining subsection is what stops that from being the whole answer.
+**M1, M2 and M5 are beaten on both cost axes at once**, so no weighting of bandwidth against state selects them. On cost alone the choice is between M3 and M4, and it turns on which resource binds in the deployment. That is not the whole comparison, though: once latency and tolerance of degradation are included, three of these five are back in contention. See [Trade-offs and Limitations](#selecting-the-design). The remaining subsection is what stops that from being the whole answer.
 
 Cost alone does not settle it, which is the reason this subsection stops here: it fixes only what each design costs, the one below fixes what each gives up under an unreliable population, and the two do not agree. What settles it is neither of those but the [admission rules](#why-the-symmetric-design), under which the directional candidate cannot reach the reliability target at equal attack cost.
 
@@ -1029,7 +1031,7 @@ Those cells were chosen for measurability rather than for realism, so the operat
 
 The resulting budgets span more than a factor of four, and are the last column of [Table 8](#table-8).
 
-At the *published* operating points this column read as almost the reverse of the cost order: the design cheapest in bandwidth, M3 at (12, 8), absorbed the least downtime of any of the five, at 0.54 %. That inverse relationship is what the two re-splits below break, and it was never a property of the mechanisms — M4 at RF = 9 is now both second-cheapest in traffic and the most tolerant by a factor of three. What it tracked was the rule used to choose parameters, which [Trade-offs and Limitations](#trade-offs-and-limitations) develops.
+At the *published* operating points this column read as almost the reverse of the cost order: the design cheapest in bandwidth, M3 at (12, 8), absorbed the least downtime of any of the five, at 0.54 %. That inverse relationship is what the two re-splits below break, and it was never a property of the mechanisms — M4 at RF = 9 is now both second-cheapest in traffic and the most tolerant by a factor of three. What it tracked was the rule used to choose parameters, which [Trade-offs and Limitations](#selecting-the-design) develops.
 
 The same figures can be read as security rather than resilience. Since downtime enters as a shift in the adversarial fraction, a budget for downtime is equally a margin above the fraction assumed: against the 0.2 assumed, M3 at (13, 7) still meets the target at *μ* = 0.217 and M4 at RF = 9 at *μ* = 0.259. Downtime tolerance and adversary tolerance are one quantity here, not two. The mechanism behind M3's narrower margin is structural rather than incidental: it reaches its bandwidth advantage through a small number of dedicated seeding links, and a mechanism that is cheap because it is small is also the one with least margin when part of it stops responding.
 
@@ -1044,7 +1046,7 @@ For 0.8 further deliveries per node, a factor of four in downtime tolerance and 
 
 The budgets above remain read off the laws rather than observed, for the reason the first paragraph gives. What the experiment establishes is that the laws apply under churn, not the budget values themselves. And throughout, the measurements sit slightly above their predictions. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and pooling it by design rather than by round locates it: across all three rounds and every parameterisation tested, M3 accounts for it and M4 shows none. That is the same asymmetry a separate experiment found without any churn at all, sweeping population instead — M3's law is mildly optimistic wherever its pick count is small, and the design was until now the only contender ever checked for such a deviation.[^finiten] The likeliest reading is therefore that this is not a property of the churn reduction but that same optimism seen along a second axis. It is suggestive rather than established, since neither experiment identifies a mechanism. Its direction is conservative either way: it would make M3's budget smaller rather than larger.[^churn]
 
-### Trade-offs and Limitations
+### Selecting the design
 
 A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.
 
@@ -1179,6 +1181,10 @@ The same multiplication governs the [pick count](#the-dissemination-design), whi
 >
 > It bites where the population is small. On a topic drawing from three thousand participants, the same twenty-five subscriptions save M3 14 % and M4 7 %; at five hundred, 55 % and 33 %. Small topics are the regime where connection count stops separating the designs, and the [CPS](../cps/README.md) use cases include some.
 
+### Sizing the parameters
+
+The design is settled. What remains is the three counts it runs on: the bucket count, the serving cap and the pick count. Each is fixed by a rule the Specification states, and this section is the evidence those rules rest on.
+
 #### Choosing the admission parameters
 
 Everything above concerns how many peers a node links to. Two further knobs govern *which* peers it may link to and *how many* it must serve: the [bucket count](#term-b) *B*, which sets how narrow the verifiable gate is, and the [serving cap](#term-cap) *C*, which bounds how many links one node will accept. The [Specification](#topology-derivation) defines both normatively, along with the [selection headroom](#term-r) *r* = (*N*<sub>T</sub>−1)/(*B*·*k*) that measures what the gate costs the draw. Neither knob appears in the coverage models, so neither had evidence until now, and the sizing rules the Specification states are the ones this subsection establishes. *r* is what Figure 8 is really drawn against, and the bucket counts on its axis are annotated with it.
@@ -1269,6 +1275,10 @@ The evidence above prices a fixed set of choices. This collects what a deploymen
 **The admission parameters are not free of coverage, and that is a property of the pick count.** Where the pick count is large enough that the all-picks-adversarial term is negligible, the bucket count and the serving cap move coverage hardly at all, which is the regime the directional measurements were taken in. At the pick counts this proposal uses, the gate's own failure term re-enters the budget and a binding serving cap composes into the coverage law rather than sitting beside it. Both must therefore be sized against coverage as well as against admission.[^synthesis]
 
 **And the strongest lever is not in this protocol at all.** The adversarial fraction is the parameter every failure probability is most sensitive to, and it is set by what registration costs — a chain-side decision. Making identities dearer moves the whole family further than any amount of fanout.
+
+### What a subscriber is guaranteed
+
+Sizing says what the protocol costs and how often it fails. It does not say what a subscriber is owed when it does fail, which is what this section sets out.
 
 #### Two classes of fault, with different guarantees
 
