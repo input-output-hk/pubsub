@@ -169,6 +169,8 @@ This section specifies the protocol. It aims at an implementation written from t
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
+A [reference node](#this-proposals-reference-implementation) decides many of the rules below. [Table 16](#table-16) pins each one to the code that decides it, at a fixed commit, and says where the node departs from the text.
+
 ### Architecture
 
 The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, a parameter output identifies the deployment and fixes its epoch length, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those four public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
@@ -1609,6 +1611,22 @@ Every measurement is identified by a tool commit, a sweep configuration and a ma
   <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/related_work/related_peersampling.md>
   and <https://github.com/input-output-hk/pubsub/blob/main/formal_spec/peer_sampling/secure_cyclon/REPORT.md>
 
+### This proposal's reference implementation
+
+A Rust node implements the rules this Specification states, and is the code the
+[Evidence](#what-is-measured-and-by-what) measures: the experiment driver builds populations of
+its state machine and disseminates real messages over them, so what the measurements run is this
+code rather than a model of it. It covers the second and third bands of [Figure 1](#figure-1) —
+what a node derives, and what then travels over the links it holds. The first band is stubbed:
+signing is a mock scheme and both registries are held in memory, so the node decides the
+protocol's rules and not the byte strings this document fixes. [Table 16](#table-16) gives the
+correspondence rule by rule, and what each row departs from.
+
+- The node, at the commit this document cites:
+  <https://github.com/input-output-hk/pubsub/tree/fe75f49338487377fcf54180988f498c87770df9/pubsub-node>
+- The decision records behind each seam:
+  <https://github.com/input-output-hk/pubsub/tree/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/docs/decisions>
+
 ### Companion tools
 
 These evaluate the rules this document states, at points other than the ones it fixes.
@@ -1863,6 +1881,49 @@ host_name = text .size (1..255)
 ipv4      = bytes .size 4
 ipv6      = bytes .size 16
 ```
+
+### Reference implementation
+
+Each rule below is decided by the block of the [reference node](#this-proposals-reference-implementation) its row links to. Three departures run through the whole table rather than any one row of it. Signing is a mock scheme, so every signature check is real in shape and not in cryptography. Both registries are in-memory projections folded from live deltas, so nothing is read at a fixed chain position and no epoch has a registration cutoff. And every parameter is supplied as configuration: the node derives neither the bucket count from [Table 1](#table-1), nor the serving cap from its sizing rule, nor the pick count from a failure target. The last column carries what is particular to one rule.
+
+<div align="center">
+<a name="table-16" id="table-16"></a>
+
+| Rule | Decided in | Departure |
+| --- | --- | --- |
+| [Identity and keys](#identity-and-keys) — the node identity key and the publisher key are distinct roles | [`src/message.rs:24-32`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/message.rs#L24-L32) | the operator credential has no representation |
+| [The topic registry](#the-topic-registry) — an empty publisher set admits any publisher, a listed set only those keys | [`src/topic_registry/topic_entry.rs:19-43`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/topic_registry/topic_entry.rs#L19-L43) | — |
+| [The node registry](#the-node-registry) — a node's topic interests are its registry entry, never a local list | [`src/state.rs:755-849`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state.rs#L755-L849) | — |
+| [Canonical encoding](#canonical-encoding-and-domain-separation) — LP(x) is a four-byte big-endian length followed by the bytes | [`src/message.rs:7-22`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/message.rs#L7-L22) | — |
+| [The registered peers on a topic](#the-registered-peers-on-a-topic) — the candidate set is the topic's full membership less the node itself | [`src/strategies/view.rs:75-87`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/view.rs#L75-L87) | — |
+| [The verifiable gate](#the-verifiable-gate) — a pair passes when the truncated digest reduces to bucket zero, and B = 1 admits every peer | [`src/strategies/edge.rs:143-174`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/edge.rs#L143-L174) | the digest is reduced little-endian |
+| [The verifiable gate](#the-verifiable-gate) — a symmetric kind sorts the two keys by raw bytes before the preimage | [`src/strategies/edge.rs:120-141`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/edge.rs#L120-L141) | — |
+| [The verifiable gate](#the-verifiable-gate) — each link kind draws under its own versioned domain tag | [`src/strategies/edge.rs:19-43`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/edge.rs#L19-L43) | the tag strings are the node's own |
+| [Selection](#selection) — k picks drawn uniformly without replacement from the eligible set, or all of it if smaller | [`src/strategies/connection/selection.rs:193-236`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/connection/selection.rs#L193-L236) | — |
+| [The dissemination design](#the-dissemination-design) — one accept establishes a link both ends record in both directions | [`src/state/handlers/symmetric.rs:119-135`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state/handlers/symmetric.rs#L119-L135) | the directional designs remain configurable |
+| [The serving cap](#the-serving-cap) — C bounds admissions per topic and per link kind | [`src/strategies/acceptance/unified.rs:177-191`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/acceptance/unified.rs#L177-L191) | — |
+| [The serving cap](#the-serving-cap) — admissions are counted at grant time, never by counting links afterwards | [`src/state/handlers/symmetric.rs:96-111`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state/handlers/symmetric.rs#L96-L111) | on the symmetric seam only |
+| [The serving cap](#the-serving-cap) — the budget resets on epoch rotation and at no other time | [`src/state.rs:577-589`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state.rs#L577-L589) | — |
+| [Link establishment](#link-establishment) — one Terminated for each link held, on shutdown | [`src/state.rs:608-651`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state.rs#L608-L651) | — |
+| [Link establishment](#link-establishment) — every handshake is signed over a canonical preimage binding emitter, action, topic, kind and epoch | [`src/message.rs:313-351`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/message.rs#L313-L351) | no domain tag and no epoch index |
+| [Link establishment](#link-establishment) — an acceptor evaluates a Request in the numbered order | [`src/strategies/acceptance/unified.rs:130-194`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/acceptance/unified.rs#L130-L194) | steps 1 and 2 sit in the handler, step 3 is absent |
+| [Link establishment](#link-establishment) — the signature verifies under the carried key, and a self-emitted request is dropped | [`src/state/handlers/mod.rs:27-75`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state/handlers/mod.rs#L27-L75) | — |
+| [Link establishment](#link-establishment) — a link already held is re-accepted idempotently, ahead of gate and cap | [`src/strategies/acceptance/mod.rs:117-153`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/acceptance/mod.rs#L117-L153) | — |
+| [Link establishment](#link-establishment) — a crossing completes regardless of the budget and spends none of it | [`src/state/handlers/symmetric.rs:59-117`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state/handlers/symmetric.rs#L59-L117) | — |
+| [Link establishment](#link-establishment) — membership and gate failures are dropped silently, a cap failure is answered Rejected | [`src/state/handlers/mod.rs:116-168`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state/handlers/mod.rs#L116-L168) | — |
+| [Link establishment](#link-establishment) — a rejected dialler does not retry that peer within the epoch | [`src/state/handlers/mod.rs:183-195`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state/handlers/mod.rs#L183-L195) | a second heartbeat would re-dial it |
+| [Messages](#messages) — the message signature is over the canonical preimage, in the order given | [`src/message.rs:194-240`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/message.rs#L194-L240) | no domain tag |
+| [Messages](#messages) — the message hash is over that same preimage, excluding the signature | [`src/crypto/mod.rs:140-152`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/crypto/mod.rs#L140-L152) | — |
+| [Messages](#messages) — a relay forwards the message unchanged and never re-signs it | [`src/state.rs:910-931`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state.rs#L910-L931) | — |
+| [Messages](#messages) — a recipient checks topic, authorisation, revocation and signature, in that order | [`src/state.rs:870-908`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state.rs#L870-L908) | revocation, step 3, is absent |
+| [Dissemination](#dissemination-recovery-and-retention) — a message is forwarded on the topic's links, excluding the one it arrived on | [`src/strategies/fanout/forward_to_relays.rs:11-56`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/strategies/fanout/forward_to_relays.rs#L11-L56) | — |
+| [Dissemination](#dissemination-recovery-and-retention) — duplicates are suppressed by content hash, so equivocating messages both propagate | [`src/state.rs:933-972`](https://github.com/input-output-hk/pubsub/blob/fe75f49338487377fcf54180988f498c87770df9/pubsub-node/src/state.rs#L933-L972) | the cache is unbounded, with no retention window |
+
+<em>Table 16: Where the reference node decides each rule</em>
+
+</div>
+
+**What has no counterpart.** [On-chain state](#on-chain-state) as transactions: the parameter output, the four registry-entry operations and the credentials that authorise them, the deposit, and topic creation. [The randomness beacon](#epochs-and-the-randomness-beacon) and the epoch it fixes, the node's epoch being an opaque value a driver supplies, with no epoch length and no scheduled rotation. [The registration cutoff](#lifecycle-and-the-registration-cutoff), membership being folded at the tip, so no derivation is pinned to a snapshot. [Address resolution](#address-resolution), the node holding no endpoint of any kind. Gap detection, recovery and [retention](#dissemination-recovery-and-retention): there is no range request, no per-publisher sequence mark and no bounded cache. The [proof of possession](#identity-and-keys), the Bech32 display form, and revocation. And the sizing rules themselves, nothing in the node evaluating a coverage law, [Table 1](#table-1), or the admissions-budget rule.
 
 ## Acknowledgements
 
