@@ -56,7 +56,7 @@ fn population(size: usize, adversarial: usize) -> Population {
 // the topology reaches is recorded.
 #[test]
 fn full_run_executes_on_real_cores() {
-    let mut driver = Driver::new(population(12, 2));
+    let mut driver = Driver::new(population(12, 2), [0; 32]);
     let plan = RunPlan {
         setup: SetupMode::Prepopulated,
         churn_count: 2,
@@ -108,8 +108,8 @@ fn runs_replay_exactly_from_their_seeds() {
         churn: [6u8; 32],
         publisher: [7u8; 32],
     };
-    let first = Driver::new(population(10, 2)).execute_run(&plan, &seeds);
-    let second = Driver::new(population(10, 2)).execute_run(&plan, &seeds);
+    let first = Driver::new(population(10, 2), [0; 32]).execute_run(&plan, &seeds);
+    let second = Driver::new(population(10, 2), [0; 32]).execute_run(&plan, &seeds);
     assert_eq!(first, second);
 }
 
@@ -391,6 +391,8 @@ fn detail_is_consistent_with_the_recorded_topology() {
     let mut out_hist = vec![0u64; record.out_degree_hist.len()];
     let mut receipts = 0u64;
     let mut misses = 0u64;
+    let mut slots_to_honest = 0u64;
+    let mut slots_to_adversarial = 0u64;
     for row in &detail {
         let up_honest = !row.down
             && row.class == pubsub_node::experiments::population::ParticipantClass::Honest;
@@ -405,6 +407,22 @@ fn detail_is_consistent_with_the_recorded_topology() {
         if let Some(degree) = row.out_degree {
             out_hist[usize::try_from(degree).expect("bounded degree")] += 1;
         }
+
+        // Connection accounting: this fixture is uncapped, so no dial was
+        // ever refused; serving slots split by the linked peer's class and
+        // bound the digraph out-degree from above (the digraph keeps only
+        // up-honest link ends, the honest slot count also keeps down ones).
+        assert_eq!(row.dials_refused, 0, "uncapped acceptors refuse nothing");
+        assert_eq!(row.refusals_issued_honest, 0);
+        assert_eq!(row.refusals_issued_adversarial, 0);
+        if let Some(out_degree) = row.out_degree {
+            assert!(
+                row.downstream_honest >= out_degree,
+                "slot counts include links the up-honest digraph drops",
+            );
+        }
+        slots_to_honest += row.downstream_honest;
+        slots_to_adversarial += row.downstream_adversarial;
 
         let is_publisher = row.node == record.publisher;
         if row.down {
@@ -445,6 +463,16 @@ fn detail_is_consistent_with_the_recorded_topology() {
     assert_eq!(out_hist, record.out_degree_hist);
     assert_eq!(receipts, record.publishes[0].received);
     assert_eq!(misses, record.publishes[0].missed);
+
+    // Slot conservation: ungated + uncapped, every dial is accepted, so the
+    // class-split slot sums equal each class's total dialed picks (the
+    // dialer's class decides which sum its accepted links land in).
+    assert_eq!(slots_to_honest, 21 * 4, "honest dials all accepted");
+    assert_eq!(
+        slots_to_adversarial,
+        3 * 4,
+        "adversarial dials all accepted"
+    );
 }
 
 // 016-FR-030 / contracts/output-artifacts.md guarantee 1: --per-node-detail
@@ -532,21 +560,30 @@ fn shipped_smoke_configuration_runs_the_pipeline_end_to_end() {
         parse_sweep_description(&shipped_config(name))
             .unwrap_or_else(|error| panic!("shipped {name} must validate: {error}"));
     }
-    // The model-family comparison cells (ADR 0041 program work) likewise:
-    // every config under comparisons/ parses and passes model coherence.
-    let comparisons =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("configs/experiments/comparisons");
-    let mut cells = 0;
-    for entry in std::fs::read_dir(&comparisons).expect("comparisons directory ships") {
-        let path = entry.expect("directory entry").path();
-        if path.extension().is_some_and(|ext| ext == "toml") {
-            let text = std::fs::read_to_string(&path).expect("config readable");
-            parse_sweep_description(&text)
-                .unwrap_or_else(|error| panic!("shipped {path:?} must validate: {error}"));
-            cells += 1;
+    // The committed cell sets likewise — the model-family comparison cells
+    // (ADR 0041 program work), the E10 selection-fidelity cells, and the
+    // E12 flooding cells: every config in each directory parses and passes
+    // model coherence.
+    for (directory, minimum) in [
+        ("comparisons", 24),
+        ("selection-fidelity", 10),
+        ("flooding", 49),
+    ] {
+        let cell_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("configs/experiments")
+            .join(directory);
+        let mut cells = 0;
+        for entry in std::fs::read_dir(&cell_dir).expect("cell directory ships") {
+            let path = entry.expect("directory entry").path();
+            if path.extension().is_some_and(|ext| ext == "toml") {
+                let text = std::fs::read_to_string(&path).expect("config readable");
+                parse_sweep_description(&text)
+                    .unwrap_or_else(|error| panic!("shipped {path:?} must validate: {error}"));
+                cells += 1;
+            }
         }
+        assert!(cells >= minimum, "the {directory} cell set ships complete");
     }
-    assert!(cells >= 24, "the comparison-cell set ships complete");
 
     let description =
         parse_sweep_description(&shipped_config("m2-smoke.toml")).expect("smoke config parses");
@@ -690,6 +727,8 @@ fn run_record_serialization_is_pinned() {
         sinks: 0,
         sccs: 1,
         largest_scc: 2,
+        deaf: 0,
+        mute: 0,
         in_degree_hist: vec![0, 2],
         out_degree_hist: vec![0, 2],
         standing_degree_hist: vec![0, 0, 2],
@@ -727,7 +766,7 @@ fn run_record_serialization_is_pinned() {
             r#"{"run":1,"experiment":0,"seed":"abcd","honest":3,"adversarial":1,"#,
             r#""down":1,"up_honest":2,"publisher":"n000000","dial_waves":2,"dial_sends":6,"#,
             r#""rejected_over_capacity":0,"good":true,"min_publisher_coverage":1.0,"#,
-            r#""sinks":0,"sccs":1,"largest_scc":2,"in_degree_hist":[0,2],"#,
+            r#""sinks":0,"sccs":1,"largest_scc":2,"deaf":0,"mute":0,"in_degree_hist":[0,2],"#,
             r#""out_degree_hist":[0,2],"standing_degree_hist":[0,0,2],"#,
             r#""good_pre_churn":true,"#,
             r#""min_publisher_coverage_pre_churn":1.0,"sinks_pre_churn":0,"#,
@@ -743,7 +782,7 @@ fn run_record_serialization_is_pinned() {
 // surface (the hand-computable star: hub at wave 1, far leaves at wave 2).
 #[test]
 fn scripted_star_has_hand_computable_depths() {
-    let mut driver = Driver::new(scripted::star(5).build());
+    let mut driver = Driver::new(scripted::star(5).build(), [0; 32]);
     let publisher = scripted::peer(1);
     let outcome = driver.publish_drain(&publisher, 0);
     assert_eq!(

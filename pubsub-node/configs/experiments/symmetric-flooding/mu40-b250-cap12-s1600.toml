@@ -1,0 +1,49 @@
+# Symmetric flooding capsweep quiet-end anchor: B = 250, budget C = 12,
+# S = 1600 (mu = 0.4 flooder — the section-6 corner shape at a generous
+# cap).
+#
+# The out-of-sample test of the capsweep curve's quiet end (report
+# section 6): the first-order composition form says ALL cap harm is
+# mediated through the refusal rate rho, so a C that never binds must
+# return P(bad) to the uncapped empty-pool law. The binding end is
+# anchored by the C = 3 pair (80 and 86 bad/400); this cell anchors the
+# other end. Elevation at rho ~ 0 would falsify the form (a cap-harm
+# channel not mediated by refusals).
+#
+# Predictions (symmetric_flooding_predictions.py `250 1600 12 budget` +
+# `capsweep 250 1600 12`), per honest victim: routes h(own/mut/adm) =
+# 0.86/7.79/0.86, s(floor/adm) = 5.77/0.63; race admitted h/s =
+# 0.854/0.632, refused h/s = 0.0016/0.0012, P(>=1 honest refusal) =
+# 0.0014; crossing refusals = 0, admitted <= 12, degree <= 28; d ~15.90,
+# Sybil edges ~6.40 (the cap blocks ~0.001 — quiet by construction).
+# Coverage: rho = 0.0019 -> composition increment dE_iso = 2.8e-4 on the
+# E18 base 0.1601 -> P(bad) = 0.1482, statistically the uncapped law —
+# predict ~341/400 good (~59.3 bad in expectation; the C = 3 corner
+# measured 80 and 86 at the same geometry).
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/symmetric-flooding/mu40-b250-cap12-s1600.toml --out results/symmetric-flooding/mu40-b250-cap12-s1600/ --per-node-detail
+
+model = "m4"
+master_seed = 1138
+
+[population]
+size = 4000
+adversarial = 1600
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+accept_cap = 12
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 250 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

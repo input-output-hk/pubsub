@@ -5,27 +5,32 @@
 //! Round r is the set of in-flight deliveries; applying them yields the
 //! sends forming round r+1; a round producing no new sends is quiescence —
 //! detected exactly, with no polling, sleeps, or timeouts. Before routing,
-//! every wave is stably sorted by a canonical content-derived key —
-//! (sender index, addressee index, message identity), where the identity is
-//! the content hash computed once at collection for dissemination and the
-//! signed bytes for connection control — so a whole run is a deterministic
-//! function of (configuration, seeds) regardless of the core's hash-based
-//! collection iteration order. All message kinds route identically —
-//! connection control and dissemination — and severance effects are
-//! consumed and tallied by the driver.
-// 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035.
+//! every wave is stably sorted by a canonical key — (addressee index,
+//! seeded arrival key, sender index, message identity), where the arrival
+//! key is a pure function of (run seed, addressee, sender) and the identity
+//! is the content hash computed once at collection for dissemination and
+//! the signed bytes for connection control — so a whole run is a
+//! deterministic function of (configuration, seeds) regardless of the
+//! core's hash-based collection iteration order, while each recipient
+//! processes its intra-wave arrivals in its own decorrelated order
+//! (ADR 0044). All message kinds route identically — connection control
+//! and dissemination — and severance effects are consumed and tallied by
+//! the driver.
+// 016-FR-003…FR-010, 016-FR-014, 016-FR-027; research R1/R2; ADR 0035/0044.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use crate::connection_state::LinkKind;
 use crate::crypto::mock::MockCryptoScheme;
 use crate::crypto::{MessageHash, Signer, Timestamp};
 use crate::event::Event;
 use crate::message::{
-    ConnectionAction, Message, MessagePayload, PlainMessage, PublisherId, SignedMessage,
+    push_len_prefixed, ConnectionAction, HandshakeKind, Message, MessagePayload, PlainMessage,
+    PublisherId, SignedMessage,
 };
 use crate::peer::PeerId;
 use crate::state::{apply, Effect};
@@ -98,6 +103,25 @@ impl KindTally {
     }
 }
 
+/// A node's issued over-capacity refusals, split by the refused
+/// dialer's class, with the crossing subset attributed alongside.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RefusalTally {
+    /// Refusals issued to honest dialers (each a lost honest link — v1
+    /// has no retry).
+    pub honest: u64,
+    /// Refusals issued to adversarial dialers.
+    pub adversarial: u64,
+    /// The subset of `honest` refusals that were **crossings** — the
+    /// refuser had itself emitted a symmetric dial toward the refused
+    /// dialer, so the refusal killed an edge the refuser's own selection
+    /// wanted (ADR 0042's veto channel; zero on directional
+    /// configurations, where no symmetric dials exist).
+    pub crossing_honest: u64,
+    /// The subset of `adversarial` refusals that were crossings.
+    pub crossing_adversarial: u64,
+}
+
 /// The driver's per-phase observation of one drain.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DrainOutcome {
@@ -117,6 +141,20 @@ pub struct DrainOutcome {
     pub severed: u64,
     /// Over-capacity `Rejected` control replies routed.
     pub rejected_over_capacity: u64,
+    /// Per-node refused dials: refused dialer → routed `Rejected` replies
+    /// it received. Populated by connection drains only; the counts sum to
+    /// `rejected_over_capacity`.
+    pub dials_refused: BTreeMap<PeerId, u64>,
+    /// Per-node issued refusals: refusing acceptor → counts split by the
+    /// refused dialer's class. Populated by connection drains only.
+    pub refusals_issued: BTreeMap<PeerId, RefusalTally>,
+    /// Symmetric-handshake dials observed at emission: dialer → the peers
+    /// it sent symmetric `Request`s to (down targets included — the dial
+    /// was emitted). The drain-time initiation record the direction-erased
+    /// end-state cannot provide (N-040): the per-node detail's route
+    /// attribution and the refusal crossing split read it. Empty on
+    /// directional configurations and for non-connection drains.
+    pub symmetric_dials: BTreeMap<PeerId, BTreeSet<PeerId>>,
 }
 
 /// One publish phase's observation: the published content hash and the
@@ -181,19 +219,30 @@ pub struct Driver {
     /// wave sort compares these integers instead of cloning `PeerId`s; rank
     /// order and `PeerId` order are the same order by construction.
     index: HashMap<PeerId, usize>,
+    /// The run seed the per-victim arrival keys derive from (ADR 0044): each
+    /// recipient processes its intra-wave arrivals in an order that is a
+    /// pure function of (this seed, recipient, sender), so admission races
+    /// at different victims are decorrelated like a real network's
+    /// independent delivery orders.
+    arrival_seed: [u8; 32],
 }
 
 impl Driver {
-    /// Take ownership of the population to drive.
+    /// Take ownership of the population to drive. `arrival_seed` is the run
+    /// seed; it feeds only the per-victim arrival keys of the wave sort.
     #[must_use]
-    pub fn new(population: Population) -> Self {
+    pub fn new(population: Population, arrival_seed: [u8; 32]) -> Self {
         let index = population
             .peer_ids()
             .into_iter()
             .enumerate()
             .map(|(rank, id)| (id, rank))
             .collect();
-        Self { population, index }
+        Self {
+            population,
+            index,
+            arrival_seed,
+        }
     }
 
     /// Read the driven population.
@@ -381,6 +430,19 @@ impl Driver {
         for effect in effects {
             match effect {
                 Effect::Send { to, message } => {
+                    // Drain-time initiation record: a symmetric Request is
+                    // the one moment "who dialed" exists — the constructed
+                    // link erases it (N-040). Recorded before the down
+                    // check: an emitted dial is a dial.
+                    if let Some((HandshakeKind::Symmetric, control)) = message.connection_parts() {
+                        if matches!(control.plain.action, ConnectionAction::Request { .. }) {
+                            outcome
+                                .symmetric_dials
+                                .entry(from.clone())
+                                .or_default()
+                                .insert(to.clone());
+                        }
+                    }
                     let recipient = self
                         .population
                         .participant(&to)
@@ -445,7 +507,7 @@ impl Driver {
     /// producing no new sends ends the drain exactly.
     fn drain(&mut self, mut wave: Wave, mut wave_index: u64, outcome: &mut DrainOutcome) {
         while !wave.is_empty() {
-            canonicalise(&mut wave, &self.index);
+            canonicalise(&mut wave, &self.index, &self.arrival_seed);
             let mut next = Wave::new();
             for Delivery {
                 from,
@@ -468,6 +530,37 @@ impl Driver {
                         .expect("non-dissemination messages are connection control");
                     if matches!(control.plain.action, ConnectionAction::Rejected { .. }) {
                         outcome.rejected_over_capacity += 1;
+                        // A `Rejected` is routed back to its dialer: `to` is
+                        // the refused dialer, `from` the refusing acceptor.
+                        *outcome.dials_refused.entry(to.clone()).or_default() += 1;
+                        // A crossing: the refuser had itself dialed the
+                        // refused dialer. Sound to read here — every
+                        // symmetric Request is emitted into the initial
+                        // wave, before any Rejected routes.
+                        let crossing = outcome
+                            .symmetric_dials
+                            .get(&from)
+                            .is_some_and(|targets| targets.contains(&to));
+                        let refused = outcome.refusals_issued.entry(from.clone()).or_default();
+                        match self
+                            .population
+                            .participant(&to)
+                            .expect("delivery to a population member")
+                            .class()
+                        {
+                            ParticipantClass::Honest => {
+                                refused.honest += 1;
+                                if crossing {
+                                    refused.crossing_honest += 1;
+                                }
+                            }
+                            ParticipantClass::Adversarial => {
+                                refused.adversarial += 1;
+                                if crossing {
+                                    refused.crossing_adversarial += 1;
+                                }
+                            }
+                        }
                     }
                 }
                 let seen_before = dissemination_hash.as_ref().is_some_and(|hash| {
@@ -520,19 +613,48 @@ enum MessageIdentity {
     Control(Vec<u8>),
 }
 
-/// Stable-sort a wave by the canonical key (sender index, addressee index,
-/// message identity): the within-wave tie-break that makes routing order a
-/// function of wave *content*, independent of the core's hash-based
-/// collection iteration order. Index order equals `PeerId` order (the ranks
-/// are drawn from the same sorted sequence), so the integer compare is the
-/// `PeerId` compare without the clones. This sort is permanent and
+/// The hash domain of the per-victim arrival keys (ADR 0044). Instrument
+/// randomness, not protocol randomness: nothing a node computes reads it.
+const ARRIVAL_ORDER_DOMAIN: &[u8] = b"experiments/arrival-order/v1";
+
+/// The seeded arrival key of one (recipient, sender) pair:
+/// `SHA-256(lp(domain) ‖ run_seed ‖ lp(recipient) ‖ lp(sender))` — a pure
+/// function of the run seed and the pair, so a recipient's intra-wave order
+/// over its senders is fixed for the whole run, independent of every other
+/// recipient's order and of the worker count (ADR 0044).
+fn arrival_key(seed: &[u8; 32], recipient: &PeerId, sender: &PeerId) -> [u8; 32] {
+    let recipient = recipient.as_public_key().as_bytes();
+    let sender = sender.as_public_key().as_bytes();
+    let mut preimage = Vec::with_capacity(
+        ARRIVAL_ORDER_DOMAIN.len() + seed.len() + recipient.len() + sender.len() + 12,
+    );
+    push_len_prefixed(&mut preimage, ARRIVAL_ORDER_DOMAIN);
+    preimage.extend_from_slice(seed);
+    push_len_prefixed(&mut preimage, recipient);
+    push_len_prefixed(&mut preimage, sender);
+    Sha256::digest(&preimage).into()
+}
+
+/// Stable-sort a wave by the canonical key (addressee index, seeded arrival
+/// key, sender index, message identity): the within-wave order that makes
+/// routing a function of wave *content* and the run seed, independent of
+/// the core's hash-based collection iteration order. Deliveries group by
+/// recipient, and each recipient's arrivals follow its own seeded order
+/// over senders — the per-victim decorrelation of ADR 0044 (the retired
+/// global (sender, addressee) order coupled every victim's budget race to
+/// one rank order, amplifying per-node tails under saturated budgets —
+/// N-042). Ties after the sender index are same-pair deliveries, ordered
+/// by message identity as before. Index order equals `PeerId` order (the
+/// ranks are drawn from the same sorted sequence), so the integer compare
+/// is the `PeerId` compare without the clones. This sort is permanent and
 /// load-bearing for byte-determinism.
-fn canonicalise(wave: &mut Wave, index: &HashMap<PeerId, usize>) {
+fn canonicalise(wave: &mut Wave, index: &HashMap<PeerId, usize>, arrival_seed: &[u8; 32]) {
     wave.sort_by_cached_key(|delivery| {
         let rank = |id: &PeerId| *index.get(id).expect("delivery endpoints are members");
         (
-            rank(&delivery.from),
             rank(&delivery.to),
+            arrival_key(arrival_seed, &delivery.to, &delivery.from),
+            rank(&delivery.from),
             match &delivery.dissemination_hash {
                 Some(hash) => MessageIdentity::Dissemination(*hash.as_bytes()),
                 None => MessageIdentity::Control(control_key(&delivery.message)),
@@ -559,12 +681,15 @@ fn control_key(message: &Message) -> Vec<u8> {
 mod tests {
     use std::str::FromStr;
 
-    use super::{Driver, RunPlan, RunSeeds, SetupMode};
+    use super::{arrival_key, canonicalise, Delivery, Driver, RunPlan, RunSeeds, SetupMode, Wave};
     use crate::connection_state::LinkState;
+    use crate::crypto::MessageHash;
     use crate::experiments::population::{
         FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, StrategySpec,
     };
     use crate::experiments::scripted;
+    use crate::message::Message;
+    use crate::peer::PeerId;
     use crate::topic::TopicId;
 
     fn full_relay_spec() -> StrategySpec {
@@ -610,7 +735,7 @@ mod tests {
     // past the ends).
     #[test]
     fn line_first_receipt_equals_distance() {
-        let mut driver = Driver::new(scripted::line(4).build());
+        let mut driver = Driver::new(scripted::line(4).build(), [0; 32]);
         let publisher = scripted::peer(0);
         let outcome = driver.publish_drain(&publisher, 0);
         for (index, wave) in [(0usize, 0u64), (1, 1), (2, 2), (3, 3)] {
@@ -631,7 +756,7 @@ mod tests {
     // drain reaches quiescence exactly.
     #[test]
     fn full_mesh_floods_once_and_dedups_the_echo_wave() {
-        let mut driver = Driver::new(scripted::full_mesh(4).build());
+        let mut driver = Driver::new(scripted::full_mesh(4).build(), [0; 32]);
         let publisher = scripted::peer(0);
         let outcome = driver.publish_drain(&publisher, 0);
         assert_eq!(outcome.drain.waves, 2);
@@ -647,13 +772,98 @@ mod tests {
         assert_eq!(outcome.drain.suppressed, 6);
     }
 
+    // ADR 0044: the wave sort groups deliveries by recipient and orders
+    // each recipient's arrivals by its own seeded arrival key — a pure
+    // function of (run seed, recipient, sender), decorrelated between
+    // recipients.
+    #[test]
+    fn canonicalise_orders_each_recipient_by_its_seeded_arrival_key() {
+        let seed = [7u8; 32];
+        let driver = Driver::new(scripted::full_mesh(7).build(), seed);
+        let message = driver.published_message(&scripted::peer(0), 0);
+        let hash = MessageHash::of(&message.plain);
+        let mut wave: Wave = Vec::new();
+        for sender in 0..5 {
+            for recipient in [5usize, 6] {
+                wave.push(Delivery {
+                    from: scripted::peer(sender),
+                    to: scripted::peer(recipient),
+                    message: Message::Dissemination(message.clone()),
+                    dissemination_hash: Some(hash.clone()),
+                });
+            }
+        }
+        canonicalise(&mut wave, &driver.index, &seed);
+
+        // Recipient blocks are contiguous, in rank order.
+        let recipients: Vec<PeerId> = wave.iter().map(|delivery| delivery.to.clone()).collect();
+        let mut expected = vec![scripted::peer(5); 5];
+        expected.extend(vec![scripted::peer(6); 5]);
+        assert_eq!(recipients, expected);
+
+        // Within each block, senders follow that recipient's seeded key
+        // order exactly.
+        let mut orders: Vec<Vec<PeerId>> = Vec::new();
+        for block in wave.chunks(5) {
+            let recipient = &block[0].to;
+            let mut keyed: Vec<PeerId> = (0..5).map(scripted::peer).collect();
+            keyed.sort_by_key(|sender| arrival_key(&seed, recipient, sender));
+            let observed: Vec<PeerId> =
+                block.iter().map(|delivery| delivery.from.clone()).collect();
+            assert_eq!(observed, keyed);
+            orders.push(observed);
+        }
+        // This fixture's two recipients realise different sender orders — a
+        // fixed property of the seed, asserted so a regression to any
+        // recipient-independent (global) order fails loudly.
+        assert_ne!(orders[0], orders[1]);
+        // And a different run seed realises a different order for the same
+        // recipient (same fixture-pinned rationale).
+        let mut reseeded: Vec<PeerId> = (0..5).map(scripted::peer).collect();
+        reseeded.sort_by_key(|sender| arrival_key(&[8u8; 32], &scripted::peer(5), sender));
+        assert_ne!(orders[0], reseeded);
+    }
+
+    // ADR 0044: the arrival key is worker-independent state — rebuilding
+    // the same wave in any collection order canonicalises identically.
+    #[test]
+    fn canonicalise_is_collection_order_independent() {
+        let seed = [9u8; 32];
+        let driver = Driver::new(scripted::full_mesh(5).build(), seed);
+        let message = driver.published_message(&scripted::peer(0), 0);
+        let hash = MessageHash::of(&message.plain);
+        let build = |pairs: &[(usize, usize)]| -> Wave {
+            pairs
+                .iter()
+                .map(|&(from, to)| Delivery {
+                    from: scripted::peer(from),
+                    to: scripted::peer(to),
+                    message: Message::Dissemination(message.clone()),
+                    dissemination_hash: Some(hash.clone()),
+                })
+                .collect()
+        };
+        let pairs: Vec<(usize, usize)> = (0..4).flat_map(|s| [(s, 3), (s, 4)]).collect();
+        let mut forward = build(&pairs);
+        let reversed_pairs: Vec<(usize, usize)> = pairs.iter().rev().copied().collect();
+        let mut reversed = build(&reversed_pairs);
+        canonicalise(&mut forward, &driver.index, &seed);
+        canonicalise(&mut reversed, &driver.index, &seed);
+        let order = |wave: &Wave| -> Vec<(PeerId, PeerId)> {
+            wave.iter()
+                .map(|delivery| (delivery.from.clone(), delivery.to.clone()))
+                .collect()
+        };
+        assert_eq!(order(&forward), order(&reversed));
+    }
+
     // 016-FR-007/FR-027: a whole run is a deterministic function of
     // (configuration, seeds) — two identically-built populations produce
     // value-identical observations.
     #[test]
     fn execute_run_is_deterministic() {
         let run = || {
-            let mut driver = Driver::new(population(8, 2));
+            let mut driver = Driver::new(population(8, 2), [0; 32]);
             driver.execute_run(&plan(1, 2), &seeds())
         };
         assert_eq!(run(), run());
@@ -664,8 +874,8 @@ mod tests {
     // population and the same established topology.
     #[test]
     fn faithful_and_prepopulated_agree() {
-        let mut faithful = Driver::new(population(5, 0));
-        let mut fast = Driver::new(population(5, 0));
+        let mut faithful = Driver::new(population(5, 0), [0; 32]);
+        let mut fast = Driver::new(population(5, 0), [0; 32]);
         let faithful_outcome = faithful.establish(SetupMode::Faithful);
         let fast_outcome = fast.establish(SetupMode::Prepopulated);
         assert_eq!(faithful_outcome, fast_outcome);
@@ -693,7 +903,7 @@ mod tests {
     // 016-FR-009: v1 runs never advance the epoch nonce.
     #[test]
     fn epoch_nonce_stays_at_genesis_across_a_run() {
-        let mut driver = Driver::new(population(6, 1));
+        let mut driver = Driver::new(population(6, 1), [0; 32]);
         driver.execute_run(&plan(1, 1), &seeds());
         for (_, participant) in driver.population().participants() {
             assert_eq!(participant.epoch_nonce(), 0);
@@ -705,7 +915,7 @@ mod tests {
     // down nodes registered and present in peers' connection state.
     #[test]
     fn churn_draw_marks_only_honest_nodes_and_generates_no_events() {
-        let mut driver = Driver::new(population(8, 2));
+        let mut driver = Driver::new(population(8, 2), [0; 32]);
         driver.establish(SetupMode::Prepopulated);
         let received_before: Vec<usize> = driver
             .population()
@@ -750,7 +960,7 @@ mod tests {
     // them are tallied sent-to-down and their received set never grows.
     #[test]
     fn down_nodes_are_not_stepped_and_relay_nothing() {
-        let mut driver = Driver::new(population(4, 0));
+        let mut driver = Driver::new(population(4, 0), [0; 32]);
         driver.establish(SetupMode::Prepopulated);
         let down = driver.churn_draw([4u8; 32], 1);
         let down_node = down[0].clone();
@@ -776,7 +986,7 @@ mod tests {
     // distinct content hashes, no state reset between publishes.
     #[test]
     fn publish_repetition_uses_fresh_messages_without_reset() {
-        let mut driver = Driver::new(population(4, 0));
+        let mut driver = Driver::new(population(4, 0), [0; 32]);
         let observation = driver.execute_run(&plan(0, 3), &seeds());
         assert_eq!(observation.publishes.len(), 3);
         let hashes: Vec<_> = observation
@@ -827,7 +1037,10 @@ mod tests {
             classes: [2u8; 32],
             sampler: [3u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         driver.establish(SetupMode::Prepopulated);
         for (_, participant) in driver.population().participants() {
             let publisher_links = participant.publisher_downstream();
@@ -875,11 +1088,23 @@ mod tests {
             classes: [2u8; 32],
             sampler: [3u8; 32],
         };
-        let mut driver = Driver::new(Population::build(&config, &seeds).expect("valid build"));
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
         let outcome = driver.establish(SetupMode::Prepopulated);
         // Each node dials 3 peers; each acceptor's fed cap is 1:
         // 4 accepts land in total, 8 dials are refused with a routed Rejected.
         assert_eq!(outcome.rejected_over_capacity, 8);
+        // Per-node attribution: the refused-dial counts sum to the total,
+        // and every acceptor refused exactly its two over-cap dials — all
+        // honest in this population.
+        assert_eq!(outcome.dials_refused.values().sum::<u64>(), 8);
+        assert_eq!(outcome.refusals_issued.len(), 4);
+        for tally in outcome.refusals_issued.values() {
+            assert_eq!(tally.honest, 2, "3 dials received, cap 1, 2 refused");
+            assert_eq!(tally.adversarial, 0, "no adversarial dialers exist");
+        }
         let mut accepted_upstreams = 0;
         for (_, participant) in driver.population().participants() {
             assert_eq!(participant.downstream().len(), 1, "the cap holds");
@@ -892,5 +1117,260 @@ mod tests {
             accepted_upstreams += upstream.len();
         }
         assert_eq!(accepted_upstreams, 4);
+    }
+
+    // The refused dialer's class attributes each refusal: with adversarial
+    // dialers competing for capped honest slots, the acceptor-side split
+    // separates honest starvation from the cap refusing the adversary, and
+    // the dialer-side counts agree with the acceptor-side split per class.
+    #[test]
+    fn refusals_split_by_the_refused_dialers_class() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 6,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                accept_cap: Some(2),
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [4u8; 32],
+            classes: [5u8; 32],
+            sampler: [6u8; 32],
+        };
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
+        let outcome = driver.establish(SetupMode::Prepopulated);
+        // Every node dials the other 5. The 4 honest acceptors each receive
+        // 5 dials against a cap of 2 → 3 refusals each; the 2 adversarial
+        // acceptors are uncapped and refuse nothing.
+        assert_eq!(outcome.rejected_over_capacity, 12);
+        assert_eq!(outcome.dials_refused.values().sum::<u64>(), 12);
+        let mut issued_to_honest = 0;
+        let mut issued_to_adversarial = 0;
+        for (acceptor, tally) in &outcome.refusals_issued {
+            assert_eq!(
+                driver
+                    .population()
+                    .participant(acceptor)
+                    .expect("acceptor in population")
+                    .class(),
+                ParticipantClass::Honest,
+                "only capped (honest) acceptors refuse",
+            );
+            assert_eq!(tally.honest + tally.adversarial, 3, "5 dials, cap 2");
+            issued_to_honest += tally.honest;
+            issued_to_adversarial += tally.adversarial;
+        }
+        assert_eq!(issued_to_honest + issued_to_adversarial, 12);
+        // Dialer-side counts agree with the acceptor-side class split.
+        let refused_of_class = |class: ParticipantClass| -> u64 {
+            outcome
+                .dials_refused
+                .iter()
+                .filter(|(id, _)| {
+                    driver
+                        .population()
+                        .participant(id)
+                        .expect("dialer in population")
+                        .class()
+                        == class
+                })
+                .map(|(_, count)| count)
+                .sum()
+        };
+        assert_eq!(refused_of_class(ParticipantClass::Honest), issued_to_honest);
+        assert_eq!(
+            refused_of_class(ParticipantClass::Adversarial),
+            issued_to_adversarial,
+        );
+        // Every dialer's accepted + refused dials account for all 5 targets.
+        for (id, participant) in driver.population().participants() {
+            let refused = outcome.dials_refused.get(id).copied().unwrap_or(0);
+            assert_eq!(
+                participant.upstream().len() as u64 + refused,
+                5,
+                "accepted + refused = dialed",
+            );
+        }
+    }
+
+    // ADR 0042 (N-040): the drain records symmetric dials at emission, and
+    // crossings are exempt from the admissions budget. Three symmetric
+    // ungated no-pick nodes at cap 1: everyone dials everyone, so every
+    // inbound request crosses the acceptor's own dial — nothing spends
+    // budget, nothing is refused, and the full triangle forms. (At the
+    // pre-ADR both-role scan this same fleet lost the rank-1–rank-2 edge
+    // to the crossing veto — the contrast the A cell measured.)
+    #[test]
+    fn symmetric_crossings_are_exempt_and_dials_recorded() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 3,
+            adversarial: 0,
+            honest_strategies: StrategySpec {
+                accept_cap: Some(1),
+                symmetric: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [7u8; 32],
+            classes: [8u8; 32],
+            sampler: [9u8; 32],
+        };
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
+        let outcome = driver.establish(SetupMode::Prepopulated);
+
+        // The initiation record is complete: every node dialed both others.
+        assert_eq!(outcome.symmetric_dials.len(), 3);
+        for (dialer, targets) in &outcome.symmetric_dials {
+            assert_eq!(targets.len(), 2);
+            assert!(!targets.contains(dialer));
+        }
+
+        // Every request was a crossing: no refusals, the triangle complete.
+        assert_eq!(outcome.rejected_over_capacity, 0);
+        assert!(outcome.refusals_issued.is_empty());
+        for (_, participant) in driver.population().participants() {
+            assert_eq!(participant.downstream().len(), 2);
+        }
+    }
+
+    // ADR 0043: under the ordered comparison predicate the realised
+    // symmetric edge set is the union of the two directions' draws — an
+    // edge exists iff either end's ordered draw admits the pair (each end
+    // dials its own survivors; the acceptor verifies the dialer's
+    // direction; the handshake constructs reciprocity as always).
+    #[test]
+    fn ordered_symmetric_edges_are_the_directional_union() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 12,
+            adversarial: 0,
+            honest_strategies: StrategySpec {
+                bucket_count: Some(2),
+                symmetric: true,
+                symmetric_ordered: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: full_relay_spec(),
+        };
+        let seeds = PopulationSeeds {
+            keys: [13u8; 32],
+            classes: [14u8; 32],
+            sampler: [15u8; 32],
+        };
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
+        driver.establish(SetupMode::Prepopulated);
+
+        let topic = driver.population().topic().clone();
+        let ids: Vec<_> = driver
+            .population()
+            .participants()
+            .map(|(id, _)| id.clone())
+            .collect();
+        let mut checked = 0;
+        for x in &ids {
+            for y in &ids {
+                if x >= y {
+                    continue;
+                }
+                let expected =
+                    crate::strategies::edge::is_valid_edge_sym_ordered(0, &topic, x, y, 2)
+                        || crate::strategies::edge::is_valid_edge_sym_ordered(0, &topic, y, x, 2);
+                let held = driver
+                    .population()
+                    .participant(x)
+                    .expect("member")
+                    .downstream()
+                    .iter()
+                    .any(|(peer, _)| peer == y);
+                assert_eq!(held, expected, "edge {x}–{y}");
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 66, "all pairs checked");
+    }
+
+    // ADR 0042: fresh arrivals spend the admissions budget. Honest nodes
+    // dial nobody (pick count 0) at budget 1; two adversarial flooders dial
+    // every peer. Each honest node receives two FRESH adversarial requests:
+    // the first admits, the second is refused — never as a crossing. The
+    // flooders' own mutual edge is a crossing and forms freely.
+    #[test]
+    fn fresh_arrivals_spend_the_admissions_budget() {
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 4,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                pick_count: Some(0),
+                accept_cap: Some(1),
+                symmetric: true,
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: StrategySpec {
+                symmetric: true,
+                fanout: FanoutSpec::SilentRelay,
+                ..StrategySpec::open(FanoutSpec::SilentRelay)
+            },
+        };
+        let seeds = PopulationSeeds {
+            keys: [10u8; 32],
+            classes: [11u8; 32],
+            sampler: [12u8; 32],
+        };
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
+        let outcome = driver.establish(SetupMode::Prepopulated);
+
+        // One refusal per honest node, all fresh — no crossing is ever
+        // refused under the budget.
+        assert_eq!(outcome.rejected_over_capacity, 2);
+        for (acceptor, tally) in &outcome.refusals_issued {
+            assert_eq!(
+                driver
+                    .population()
+                    .participant(acceptor)
+                    .expect("member")
+                    .class(),
+                ParticipantClass::Honest,
+            );
+            assert_eq!(tally.adversarial, 1);
+            assert_eq!(tally.honest, 0);
+            assert_eq!(tally.crossing_honest + tally.crossing_adversarial, 0);
+        }
+        for (_, participant) in driver.population().participants() {
+            match participant.class() {
+                // Budget 1, no own picks: exactly one admitted edge each.
+                ParticipantClass::Honest => assert_eq!(participant.downstream().len(), 1),
+                // The flooders hold their mutual edge plus whatever the
+                // honest budgets admitted (2 slots between them).
+                ParticipantClass::Adversarial => assert!(!participant.downstream().is_empty()),
+            }
+        }
+        let adversarial_total: usize = driver
+            .population()
+            .participants()
+            .filter(|(_, p)| p.class() == ParticipantClass::Adversarial)
+            .map(|(_, p)| p.downstream().len())
+            .sum();
+        // 2 (the mutual flooder edge, both ends) + 2 (one admitted slot per
+        // honest node).
+        assert_eq!(adversarial_total, 4);
     }
 }

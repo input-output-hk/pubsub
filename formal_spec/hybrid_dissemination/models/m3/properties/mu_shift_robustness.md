@@ -7,8 +7,9 @@ adversarial fraction; MC spot-checks at elevated μ. Script (in
 ## 1. Property
 
 How P(bad) grows when the effective adversarial fraction μ_eff rises above
-the design value with the deployed parameters frozen: (RF, s) = (12, 8),
-chosen at μ = 0.2 for δ = 10⁻⁴ ([`full_coverage.md`](full_coverage.md)).
+the design value with the deployed parameters frozen: (RF, s) = (13, 7),
+chosen at μ = 0.2 for δ = 10⁻⁴ held with the 2 % disturbance margin
+([`full_coverage.md`](full_coverage.md)).
 N = 20 000 stays fixed; k = μ_eff·N, H = N − k shrinks with the shift.
 Honest churn reads this curve at μ_eff = μ + p(1−μ)
 (p = per-epoch honest downtime).
@@ -21,9 +22,11 @@ $$P_{\text{bad}} \;\approx\; 1-e^{-E},\qquad
 E = H\bigl[\mu_{\text{eff}}^{RF} + \mu_{\text{eff}}^{s-1}\,e^{-RF(1-\mu_{\text{eff}})}\bigr],\qquad
 H = (1-\mu_{\text{eff}})\,N.$$
 
-Log-sensitivity at the operating point: d ln E/dμ ≈ RF/μ = 60 (the μ-power
-in-term dominates), the steepest in the family — the bandwidth-minimal
-split concentrates the defect budget in the most μ-sensitive term.
+Log-sensitivity at the operating point: d ln E/dμ ≈ 48 — the in-term
+carries RF/μ = 65 (the family's steepest per-term slope), the out-term
+(s−1)/μ + RF = 43, and the defect budget splits 29 : 71 between them.
+The δ-cheapest split (12, 8) concentrates 82 % of the budget in the
+μ-power in-term and reads d ln E/dμ ≈ 57.
 
 ## 3. Results — law curve and MC spot-checks
 
@@ -31,14 +34,14 @@ split concentrates the defect budget in the most μ-sensitive term.
 
 | μ_eff | P(bad) law | P(bad) MC | bad / trials | z |
 |---|---|---|---|---|
-| 0.20 | 7.8×10⁻⁵ | — | — | — |
-| 0.25 | 1.0×10⁻³ | — | — | — |
-| 0.30 | 8.0×10⁻³ | — | — | — |
-| 0.35 | 0.046 | 0.054 | 43 / 800 | +1.0 |
-| 0.40 | 0.194 | 0.203 | 81 / 400 | +0.5 |
-| 0.45 | 0.556 | 0.592 | 148 / 250 | +1.2 |
-| 0.50 | 0.928 | — | — | — |
-| 0.55 | 0.999 | — | — | — |
+| 0.20 | 4.4×10⁻⁵ | — | — | — |
+| 0.25 | 4.3×10⁻⁴ | — | — | — |
+| 0.30 | 3.3×10⁻³ | — | — | — |
+| 0.35 | 0.020 | 0.015 | 12 / 800 | −1.2 |
+| 0.40 | 0.095 | 0.080 | 32 / 400 | −1.1 |
+| 0.45 | 0.337 | 0.324 | 81 / 250 | −0.5 |
+| 0.50 | 0.766 | — | — | — |
+| 0.55 | 0.989 | — | — | — |
 | 0.60 | ≈ 1 | — | — | — |
 
 MC tracks the law at all elevated cells (|z| ≤ 1.2); the tail — where the
@@ -47,9 +50,12 @@ budget is read — was validated in [`full_coverage.md`](full_coverage.md)
 
 ## 4. Answer — budget and collapse (N = 20 000, δ = 10⁻⁴)
 
-**Budget**: P(bad) ≤ 10⁻⁴ holds only up to **μ_eff ≈ 0.204**
-(Δμ ≈ +0.004; churn reading p_max = Δμ/0.8 ≈ 0.5 %, and ≈ 0.3 % with the
-×1.11 tail correction) — the tightest in the family. **Collapse**:
-P(bad) = ½ at **μ_eff ≈ 0.44**, the earliest. The bandwidth winner is the
-μ-brittleness loser: the μ^{12} in-term climbs ~2.5× faster per unit μ
-than M1/M2's exponential terms.
+**Budget**: P(bad) ≤ 10⁻⁴ holds up to **μ_eff ≈ 0.217** (Δμ ≈ +0.017;
+churn reading p_max = Δμ/0.8 ≈ 2.2 %, and ≈ 1.9 % with the ×1.11 tail
+correction) — the margin the split is selected for, tied with M5 for the
+smallest among the family's selections. The δ-cheapest split (12, 8)
+reads μ_eff ≈ 0.204 (Δμ ≈ +0.004; p_max ≈ 0.5 %, ≈ 0.3 % with ×1.11) —
+the inadmissibility under the 2 % bar that forces the re-split.
+**Collapse**: P(bad) = ½ at **μ_eff ≈ 0.47**, the earliest in the
+family. The bandwidth winner is the μ-brittleness loser: its μ-power
+terms climb ~2× faster per unit μ than M1/M2's exponential terms.

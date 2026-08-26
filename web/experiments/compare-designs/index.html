@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare designs — what each one costs · Cardano PubSub</title>
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/compare-designs/">
+<meta name="description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="Compare designs — what each one costs">
+<meta property="og:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/compare-designs/">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Compare designs — what each one costs">
+<meta name="twitter:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../../assets/favicon.ico">
+<style>
+  /* Chrome tokens, navbar, section furniture and footer are web/shared.css verbatim,
+     inlined because this page has to work as a single file from file:// — no
+     stylesheet, no webfont, no script fetched. The system stack stands in for
+     Barlow / JetBrains Mono where they are not already installed. The m1..m5 series
+     colours stay as they were: CVD-validated as a set, and the one palette the IOG
+     brand hues cannot replace. */
+  :root {
+    color-scheme: light;
+    /* IOG brand palette — identical in every theme */
+    --iog-infared: #E52321; --iog-ember-orange: #FF532C; --iog-cobalt-pulse: #2C4FFA;
+
+    /* web/shared.css light theme, verbatim */
+    --bg: #FFFFFF; --bg-soft: #FAFAFA; --bg-alt: #F4F4F2; --bg-code: #F4F4F2;
+    --line: rgba(0,0,0,0.10); --line-strong: rgba(0,0,0,0.22);
+    --text: #0A0A0A; --text-mute: #4A4A4A; --text-faint: #888888;
+    --card-fill: #FFFFFF; --card-soft-fill: #FAFAFA; --card-stroke-faint: #E0E0E0;
+    --card-stroke: #0A0A0A; --card-stroke-soft: #888888;
+    --good: #00994A; --good-soft: #E2F5EB; --bad: #E52321; --bad-soft: #FCEAE9;
+    --warn: #A88200; --warn-soft: #FBF1CC; --info: #2C4FFA; --info-soft: #E7EBFE;
+    --accent: #E52321;
+    --nav-height: 65px;
+    /* The mark's own artwork colours, which the wordmark draws from. */
+    --mark-in: rgba(216, 44, 2, 0.7); --mark-out: #1D1D1B;
+    /* The m1..m5 series colours stay as they were — CVD-validated as a set, and the
+       one palette the brand hues cannot replace. */
+    --m1: #2a78d6; --m2: #eb6834; --m3: #1baf7a; --m4: #eda100; --m5: #e87ba4;
+    /* Barlow / JetBrains Mono are webfonts on the deployed site; no network here,
+       so the system stack behind them carries the local preview. */
+    --font-display: 'Barlow', 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
+    --font-body: var(--font-display);
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, ui-monospace, monospace;
+    --font: var(--font-body); --mono: var(--font-mono);
+
+    /* Aliases: the chart code speaks in ink/grid/axis names, the chrome in the
+       site's token names, and both resolve to the same theme values. */
+    --page: var(--bg); --page-soft: var(--bg-soft);
+    --surface: var(--card-fill); --surface-soft: var(--card-soft-fill);
+    --ink: var(--text); --ink-2: var(--text-mute); --ink-mute: var(--text-faint);
+    --grid: var(--card-stroke-faint); --axis: var(--line-strong); --ring: var(--line);
+    --crit: var(--bad); --crit-soft: var(--bad-soft);
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --mark-in: rgba(226, 52, 10, 0.82); --mark-out: #FFFFFF;
+    --bg: #0A0A0A; --bg-soft: #121212; --bg-alt: #181818; --bg-code: #1A1A1A;
+    --line: rgba(255,255,255,0.10); --line-strong: rgba(255,255,255,0.22);
+    --text: #F4F4F2; --text-mute: #B5B5B5; --text-faint: #7A7A7A;
+    --card-fill: #181818; --card-soft-fill: #121212; --card-stroke-faint: #2A2A2A;
+    --card-stroke: #F4F4F2; --card-stroke-soft: #7A7A7A;
+    --good: #06FF89; --good-soft: #0C2A1C; --bad: #FF5653; --bad-soft: #2A0C0B;
+    --warn: #F2FF58; --warn-soft: #2B2A0B; --info: #8FA3FF; --info-soft: #0E1638;
+    --m1: #3987e5; --m2: #d95926; --m3: #199e70; --m4: #c98500; --m5: #d55181;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  sub, sup { line-height: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body);
+         font-size: 16px; line-height: 1.6; min-height: 100vh;
+         display: flex; flex-direction: column; -webkit-font-smoothing: antialiased;
+         transition: background .2s ease, color .2s ease; }
+  main { flex: 1; }
+  /* Logo swap: POS artwork on light, NEG on dark — shared.css behaviour. */
+  .logo-light { display: block; }
+  .logo-dark { display: none; }
+  html[data-theme="dark"] .logo-light { display: none; }
+  html[data-theme="dark"] .logo-dark { display: block; }
+
+  /* ---- navbar (web/shared.css + web/experiments/index.html, verbatim behaviour) ---- */
+  .navbar { display: flex; align-items: center; justify-content: space-between; gap: 24px;
+            padding: 14px clamp(24px, 5vw, 80px); border-bottom: 1px solid var(--line);
+            background: var(--bg); font-family: var(--mono); font-size: 0.78rem;
+            letter-spacing: 0.06em; position: sticky; top: 0; z-index: 40; }
+  .navbar-brand { font-family: var(--mono); font-size: 0.78rem; text-transform: uppercase;
+                  letter-spacing: 0.14em; color: var(--text); text-decoration: none;
+                  font-weight: 700; white-space: nowrap; transition: color .12s ease; }
+  .navbar-brand:hover { color: var(--iog-infared); }
+  /* Brand lockup: the two halves of the Input Output mark flank the name, each word
+     taking the colour of the half beside it (shared.css). */
+  .navbar-brand { display: inline-flex; align-items: center; gap: 9px; }
+  .brand-half { height: 21px; width: auto; flex-shrink: 0; }
+  .brand-name { letter-spacing: 0.14em; color: var(--mark-out); }
+  .brand-scope { color: var(--mark-in); font-weight: 500; margin-right: 0.5em; }
+  .navbar-brand:hover .brand-scope { color: rgba(216, 44, 2, 1); }
+  .navbar-links { display: flex; gap: clamp(14px, 2.5vw, 28px); flex-wrap: wrap; justify-content: flex-end; }
+  .navbar-links a { color: var(--text-mute); text-decoration: none; text-transform: uppercase;
+                    letter-spacing: 0.12em; font-weight: 600; padding: 4px 0; position: relative;
+                    transition: color .12s ease; }
+  .navbar-links a:hover, .navbar-links a.active { color: var(--iog-infared); }
+  .navbar-links a.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2px;
+                                  height: 2px; background: var(--iog-infared); }
+  .navbar-icons { display: flex; align-items: center; gap: 10px; }
+  .nav-icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line-strong);
+                  background: var(--bg); color: var(--text); cursor: pointer; display: flex;
+                  align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0;
+                  padding: 0; transition: border-color .15s ease, color .15s ease; }
+  .nav-icon-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .nav-icon-btn svg { width: 15px; height: 15px; display: block; }
+  .nav-icon-btn .icon-sun { display: none; }
+  html[data-theme="dark"] .nav-icon-btn .icon-sun { display: block; }
+  html[data-theme="dark"] .nav-icon-btn .icon-moon { display: none; }
+  .nav-collapse { display: flex; align-items: center; gap: clamp(20px, 3vw, 36px); }
+  .nav-menu-btn { display: none; }
+  .nav-menu-btn .icon-close { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-burger { display: none; }
+  .navbar.menu-open .nav-menu-btn .icon-close { display: block; }
+  @media (max-width: 1040px) {
+    .nav-menu-btn { display: flex; }
+    .nav-collapse { display: none; position: absolute; top: 100%; left: 0; right: 0;
+                    flex-direction: column; align-items: stretch; gap: 0; background: var(--bg);
+                    border-bottom: 1px solid var(--line); padding: 4px clamp(24px, 5vw, 80px) 18px; z-index: 10; }
+    .navbar.menu-open .nav-collapse { display: flex; }
+    .navbar-links { flex-direction: column; gap: 0; justify-content: flex-start; }
+    .navbar-links a { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .navbar-icons { padding-top: 16px; }
+  }
+  @media (max-width: 560px) { .navbar-brand .brand-name { font-size: 0.72rem; } }
+
+  /* ---- section furniture (web/shared.css + the landing page's rhythm) ---- */
+  .container { max-width: clamp(820px, 76vw, 1280px); margin: 0 auto;
+               padding: 0 clamp(24px, 5vw, 80px); width: 100%; }
+  .section-kind { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+                  letter-spacing: 0.16em; color: var(--iog-infared); font-weight: 600; margin-bottom: 14px; }
+  section.page-head { padding: 56px 0 8px; }
+  .page-head h1 { font-family: var(--font-display); font-size: clamp(1.9rem, 4vw, 3rem);
+                  font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 18px; }
+  .page-head .lede { color: var(--text-mute); max-width: 74ch; }
+  section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+  main > section:nth-of-type(even) { background: var(--bg-soft); }
+  .section-head { margin-bottom: 32px; }
+  .section-head h2 { font-family: var(--font-display); font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+                     font-weight: 600; letter-spacing: -0.02em; }
+  .section-head p { color: var(--text-mute); max-width: 68ch; margin-top: 10px; font-size: 0.95rem; }
+
+  /* ---- footer (web/shared.css) ---- */
+  footer { border-top: 1px solid var(--line); padding: 30px 0 36px; margin-top: 40px; }
+  .footer-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 28px; padding-bottom: 30px; }
+  .footer-col { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+  .footer-col-title { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                      text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared);
+                      margin-bottom: 2px; }
+  .footer-col a { font-size: 0.9rem; color: var(--text-mute); text-decoration: none;
+                  transition: color .12s ease; }
+  .footer-col a:hover { color: var(--iog-infared); }
+  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px;
+                flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
+  .footer-brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-mono);
+                  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
+  .footer-credit { display: inline-flex; align-items: center; gap: 10px; }
+  .footer-wordmark { height: 13px; width: auto; }
+  footer p { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+             letter-spacing: 0.06em; }
+
+  button { font-family: var(--font-body); font-size: 0.82rem; color: var(--text); background: var(--bg);
+           border: 1px solid var(--line-strong); border-radius: 4px; padding: 6px 10px; cursor: pointer;
+           transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  button:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .ctl-btn { font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.06em;
+             text-transform: uppercase; padding: 9px 14px; border-radius: 4px; background: transparent; }
+
+  /* ---- environment rail — three values, no panel ---- */
+  .env-rail { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px;
+              padding: 12px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .env-item { display: flex; align-items: center; gap: 10px; flex: 1 1 230px; min-width: 0; }
+  /* The symbol is the handle; the name is for whoever does not have it yet. */
+  .env-name { font-size: 0.72rem; color: var(--text-faint);
+              white-space: nowrap; letter-spacing: 0.01em; }
+  @media (max-width: 620px) { .env-name { display: none; } }
+  /* Symbol and name are one term: the symbol carries it, the name explains it,
+     and hovering either opens the same definition. */
+  .env-item .env-key { display: inline-flex; align-items: baseline; gap: 7px; flex: none; }
+  .env-sym { font-family: var(--mono); font-size: 1.05rem; font-weight: 700;
+             color: var(--text); line-height: 1; }
+  .env-item input[type=range] { flex: 1 1 auto; min-width: 70px; }
+  .env-item .env-val { font-family: var(--mono); font-size: 0.76rem; color: var(--text-mute);
+                       font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
+                       min-width: 8ch; text-align: right; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .xselect { position: relative; flex: none; }
+  .xselect-btn {
+    font-family: var(--font-mono); font-size: 0.86rem; font-weight: 600; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 6px 30px 6px 10px; cursor: pointer; line-height: 1.2;
+    transition: border-color .12s ease;
+  }
+  .xselect-btn::after {
+    content: ''; position: absolute; right: 11px; top: 50%; width: 6px; height: 6px;
+    border-right: 1.6px solid var(--text-mute); border-bottom: 1.6px solid var(--text-mute);
+    transform: translateY(-70%) rotate(45deg); transition: transform .16s ease;
+  }
+  .xselect-btn:hover { border-color: var(--text-mute); }
+  .xselect[data-open="true"] .xselect-btn::after { transform: translateY(-30%) rotate(-135deg); }
+  .xselect-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; margin: 0;
+    padding: 5px; list-style: none; z-index: 40;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 8px 26px rgba(0,0,0,0.12);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .13s ease, transform .13s ease, visibility .13s;
+  }
+  .xselect[data-open="true"] .xselect-menu { opacity: 1; visibility: visible; transform: none; }
+  .xselect-menu li {
+    font-family: var(--font-mono); font-size: 0.86rem; color: var(--text-mute);
+    padding: 7px 12px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .xselect-menu li:hover, .xselect-menu li.is-active { background: var(--bg-alt); color: var(--text); }
+  .xselect-menu li[aria-selected="true"] { color: var(--iog-infared); font-weight: 600; }
+
+  .env-rail .env-reset { flex: none; margin-left: auto; }
+
+  /* ---- tab strips — the experiments page's .model-tab, reused ---- */
+  .tab-strip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tab-strip + .tab-strip { margin-top: 10px; }
+  .strip-label { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                 letter-spacing: 0.14em; color: var(--text-faint); font-weight: 600;
+                 margin-right: 4px; flex: none; }
+  .model-tab { font-family: var(--mono); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
+               padding: 9px 16px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line-strong);
+               background: transparent; color: var(--text-mute);
+               transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .model-tab[aria-pressed="true"] { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
+
+  /* Design tabs carry their own series colour instead of the infrared accent. */
+  .design-tab { display: inline-flex; align-items: center; gap: 8px; }
+  .design-tab .chip { width: 10px; height: 10px; border-radius: 2px; background: var(--mc); flex: none;
+                      opacity: .35; transition: opacity .15s ease; }
+  .design-tab:hover { border-color: var(--mc); color: var(--mc); }
+  .design-tab[aria-pressed="true"] { border-color: var(--mc); color: var(--mc); background: transparent; }
+  .design-tab[aria-pressed="true"] .chip { opacity: 1; }
+  .design-tab .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); }
+  .design-tab .dot.pass { background: var(--good); }
+  .design-tab .dot.fail { background: var(--bad); }
+
+  /* ---- stage — canvas + readout, the experiments page's two-column stage ---- */
+  .stage { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
+           gap: 24px; align-items: start; margin-top: 22px; }
+  .stage-canvas, .side-card { border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+                              background: var(--card-fill); padding: 20px 22px 16px; min-width: 0; }
+  .side-card h3 { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                  letter-spacing: 0.14em; color: var(--text-faint); font-weight: 600; margin-bottom: 12px; }
+  .read-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px;
+              align-items: center; padding: 9px 0; border-top: 1px solid var(--card-stroke-faint); }
+  .read-row:first-of-type { border-top: 0; padding-top: 0; }
+  .read-row .swatch { width: 16px; height: 16px; flex: none; }
+  .read-row .rname { font-weight: 600; font-size: 0.9rem; }
+  .read-row .rverdict { font-family: var(--mono); font-size: 0.74rem; justify-self: end;
+                        font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .read-row .rverdict.pass { color: var(--good); }
+  .read-row .rverdict.fail { color: var(--bad); }
+  .read-row .rparams { grid-column: 2 / -1; font-family: var(--mono); font-size: 0.72rem;
+                       color: var(--text-faint); }
+  .read-row.off { opacity: .4; }
+
+  /* ---- tuning drawer — expert surface, folded away by default ---- */
+  .drawer { margin-top: 18px; border-top: 1px solid var(--line); }
+  /* Reads like a .read-row: same 9px rhythm, same name weight, and the marker
+     trails at the end where the verdict sits rather than leading the line. */
+  details > summary { cursor: pointer; font-family: var(--font-body); font-size: 0.9rem;
+                      font-weight: 600; color: var(--text); list-style: none;
+                      padding: 9px 0; display: flex; align-items: center; gap: 10px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::after {
+    content: ''; margin-left: auto; width: 8px; height: 8px; flex: none;
+    border-right: 1.6px solid var(--text-faint); border-bottom: 1.6px solid var(--text-faint);
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform .16s ease, border-color .16s ease;
+  }
+  details[open] > summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+  details > summary:hover { color: var(--iog-infared); }
+  details > summary:hover::after { border-color: var(--iog-infared); }
+  details > summary:focus-visible { outline: 2px solid var(--iog-infared); outline-offset: 2px; }
+  .tune-name { font-weight: 600; font-size: 0.9rem; }
+  .tune-state { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+                white-space: nowrap; }
+  .drawer-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+                 gap: 4px 20px; padding-bottom: 14px; }
+  /* One column per design once there is room, rather than four with a lone M5 below. */
+  @media (min-width: 1000px) { .drawer-body { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  .tune-group { padding: 4px 0 10px; min-width: 0; transition: opacity .15s ease; }
+  .tune-group.is-hidden { opacity: .38; }
+  .tune-group.is-hidden input[type=range] { cursor: not-allowed; }
+  .tune-group .tg-head { display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+                         font-weight: 600; margin-bottom: 4px; }
+  .tune-group .tg-head .chip { width: 9px; height: 9px; border-radius: 2px; background: var(--mc); flex: none; }
+  .slider-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 2px 8px;
+                align-items: center; padding: 3px 0 7px; }
+  .slider-row label { grid-column: 1 / -1; color: var(--text); font-size: 0.92rem;
+                      font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .slider-row input[type=range] { grid-column: 1; }
+  .slider-row output { font-family: var(--mono); font-size: 0.92rem; text-align: right;
+                       font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+  /* Ranges are styled explicitly rather than through accent-color: Chrome derives the
+     unfilled track from the accent, which turned the per-model sliders near-black. */
+  input[type=range] { width: 100%; min-width: 0; height: 18px; background: transparent;
+                      -webkit-appearance: none; appearance: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--grid); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border: none; border-radius: 50%; margin-top: -5px;
+    background: var(--mc, var(--accent)); }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--grid); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: var(--mc, var(--accent)); }
+  input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  /* ---- radar ---- */
+  svg#radar { width: 100%; max-width: 780px; height: auto; display: block; margin: 0 auto; }
+  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+  .hover-hint { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
+                letter-spacing: 0.05em; text-align: center; }
+  /* The drawer holds two unrelated jobs: what the designs are, and what the
+     figure shows. Each gets a title and its own band. */
+  .tune-section + .tune-section { margin-top: 6px; border-top: 1px solid var(--card-stroke-faint); }
+  .tune-section-head { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                       letter-spacing: 0.14em; text-transform: uppercase;
+                       color: var(--text-faint); padding: 12px 0 8px; }
+
+  .axis-picker { display: flex; flex-wrap: wrap; gap: 8px 10px; padding: 0 0 14px; }
+  .axis-picker label { display: inline-flex; gap: 9px; align-items: center;
+                       font-family: var(--font-body); font-size: 0.86rem; font-weight: 500;
+                       color: var(--text-mute); cursor: pointer;
+                       border: 1px solid var(--card-stroke-faint); border-radius: 7px;
+                       padding: 7px 12px 7px 10px; transition: border-color .12s ease,
+                       color .12s ease, background .12s ease; }
+  .axis-picker label:hover { border-color: var(--line-strong); color: var(--text); }
+  .axis-picker label:has(input:checked) { color: var(--text); border-color: var(--line-strong);
+                                          background: var(--bg-alt); }
+  .axis-picker input[type=checkbox] { width: 17px; height: 17px; margin: 0; flex: none;
+                                      accent-color: var(--iog-infared); cursor: pointer; }
+
+  /* ---- table ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--card-stroke-faint); border-radius: 8px;
+                background: var(--card-fill); padding: 4px 0 8px;
+                scrollbar-width: none; -ms-overflow-style: none; }
+  /* The inset moves onto the end cells: as container padding it sat outside the
+     sticky column's left: 0, so rows scrolled visibly through the gap. */
+  .table-wrap::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  th:first-child, td:first-child { padding-left: 16px; }
+  th:last-child, td:last-child { padding-right: 16px; }
+  /* separate, not collapse: a sticky cell cannot carry a collapsed border, so the
+     rules are drawn as box-shadows on the frozen column instead. */
+  table { border-collapse: separate; border-spacing: 0; font-family: var(--font-mono);
+          font-size: 0.78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--card-stroke-faint); }
+  /* The model name stays put while the values scroll under it; a row read at the
+     right-hand end still has a name against it. */
+  th:first-child, td:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--card-fill);
+    box-shadow: 1px 0 0 var(--card-stroke-faint);
+  }
+  th { color: var(--text-faint); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600;
+       letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  th:first-child, td:first-child { text-align: left; }
+  /* Bold alone did not carry: the winner in each column also takes a wash of its
+     own series colour, which doubles as a reminder of which row it belongs to. */
+  td.best { font-weight: 700; color: var(--text);
+            background: color-mix(in srgb, var(--best-tint, var(--text)) 15%, transparent);
+            border-radius: 3px; }
+  tr.hidden-model td { opacity: .38; }
+  td .mchip { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px;
+              vertical-align: baseline; }
+  /* The one thing this page must not let a reader assume: that these curves were
+     measured everywhere they can be dragged to. */
+  .caveat { margin-top: 14px; max-width: 78ch; padding: 11px 14px;
+            border: 1px solid var(--card-stroke-faint); border-left: 3px solid var(--warn);
+            border-radius: 7px; background: var(--card-fill);
+            color: var(--text-mute); font-size: 0.88rem; line-height: 1.55; }
+  .caveat b { color: var(--text); font-weight: 600; }
+  .section-lede { color: var(--text-mute); font-size: 0.95rem; line-height: 1.6;
+                  max-width: 78ch; margin-top: 10px; }
+  .section-lede b { color: var(--text); font-weight: 600; }
+  .hint { color: var(--text-faint); font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.04em; margin-top: 12px; }
+
+  /* ---- tooltips ----
+     One floating box serves both the glossary terms and the radar vertices. Terms are
+     reachable by keyboard (tabindex) and toggle on tap, so touch gets the same access
+     to the definitions that hover gives a mouse. */
+  .term { border-bottom: 1px dashed var(--line-strong); cursor: help; }
+  .term:hover, .term[aria-expanded="true"] { border-bottom-color: var(--iog-infared); color: var(--iog-infared); }
+  th .term, .hint .term { border-bottom-style: dotted; }
+  #tip, #tooltip { position: fixed; pointer-events: none; background: var(--card-fill);
+                   border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
+                   color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; z-index: 60; }
+  #tooltip { font-family: var(--font-mono); font-size: 0.72rem; }
+  #tip { max-width: min(320px, calc(100vw - 24px)); font-size: 0.82rem; line-height: 1.5; }
+  /* No text-transform on the key: it would turn μ and δ into their capitals. */
+  #tip .tip-key { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+                  letter-spacing: 0.12em; color: var(--iog-infared);
+                  display: block; margin-bottom: 5px; }
+  #tip b { font-weight: 600; }
+
+  /* ---- narrow viewports ---- */
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  @media (max-width: 620px) {
+    body { font-size: 15px; }
+    section.page-head { padding: 36px 0 4px; }
+    section.block { padding: 36px 0; }
+    .section-head { margin-bottom: 22px; }
+    .stage-canvas, .side-card { padding: 16px 14px 12px; }
+    .env-item { flex: 1 1 100%; }
+    .env-rail .env-reset { margin-left: 0; }
+    .model-tab { padding: 8px 12px; font-size: 0.74rem; }
+    .table-wrap { padding: 4px 10px 8px; }
+    footer { margin-top: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
+  }
+
+/* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+</svg>
+
+<nav class="navbar" aria-label="Primary">
+  <a class="navbar-brand" href="../">
+    <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+    <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+    <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+  </a>
+  <button class="nav-icon-btn nav-menu-btn" type="button" aria-label="Menu" aria-expanded="false">
+    <svg class="icon-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+  </button>
+  <div class="nav-collapse">
+  <div class="navbar-links">
+    <a href="../../#scenarios">Scenarios</a>
+    <a href="../../#research">Research</a>
+    <span class="nav-item nav-item--experiments is-current">
+      <a href="../" class="active">Experiments</a>
+      <span class="nav-menu">
+        <a href="../">Overview</a>
+        <a href="../models/">Dissemination model simulator</a>
+        <a href="./" class="active">Compare designs</a>
+        <a href="../parameters/">Parameter surface</a>
+      </span>
+    </span>
+    <a href="../../#activity">Activity</a>
+    <a href="../../#materials">Materials</a>
+  </div>
+  <div class="navbar-icons">
+    <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" fill="currentColor"><use href="#icon-github"/></svg>
+    </a>
+    <button class="nav-icon-btn theme-toggle" id="btn-theme" type="button" aria-label="Toggle color theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+  </div>
+</nav>
+
+<main>
+  <section class="page-head">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../">&lsaquo;&nbsp;Experiments</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-here" aria-current="page">Compare designs</span>
+      </nav>
+      <h1>Compare designs</h1>
+      <p class="lede">
+        The five models all clear the same bar, so what separates them is what they
+        cost and what they withstand. This page sets them side by side: every figure is a
+        closed form from the M1–M5 analyses, evaluated live at the environment you set.
+      </p>
+    </div>
+  </section>
+
+  <section class="block" id="compare">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Comparison</div>
+        <h2>Five designs, eight properties, one environment</h2>
+      </header>
+
+      <div class="env-rail" role="group" aria-label="Environment">
+        <!-- The keys are spans, not labels: a label would forward a tap to its control
+             and close the tooltip the tap was meant to open. The controls carry their
+             own aria-label instead. -->
+        <div class="env-item">
+          <span class="env-key term" data-term="mu"><span class="env-sym">μ</span><span class="env-name">adversarial share</span></span>
+          <input type="range" id="g-mu" min="0" max="0.6" step="0.005" value="0.2"
+                 aria-label="Adversarial share mu, fraction of N">
+          <output class="env-val" id="o-mu" for="g-mu">0.200</output>
+        </div>
+        <div class="env-item">
+          <span class="env-key term" data-term="N"><span class="env-sym">N</span><span class="env-name">network size</span></span>
+          <input type="range" id="g-N" min="1000" max="50000" step="1000" value="20000"
+                 aria-label="Network size N, registered nodes">
+          <output class="env-val" id="o-N" for="g-N">20 000</output>
+        </div>
+        <div class="env-item" style="flex:0 1 auto">
+          <span class="env-key term" data-term="delta"><span class="env-sym">δ</span><span class="env-name">failure target</span></span>
+          <select id="g-delta" class="visually-hidden" aria-hidden="true" tabindex="-1"><option value="1e-3">10⁻³</option><option value="1e-4" selected>10⁻⁴</option><option value="1e-5">10⁻⁵</option></select>
+          <div class="xselect" id="delta-select">
+            <button type="button" class="xselect-btn" id="delta-btn"
+                    aria-haspopup="listbox" aria-expanded="false"
+                    aria-label="Failure target delta">10⁻⁴</button>
+            <ul class="xselect-menu" role="listbox" aria-label="Failure target delta"></ul>
+          </div>
+        </div>
+        <button class="ctl-btn env-reset" id="btn-reset" type="button">Reset</button>
+      </div>
+
+      <div class="tab-strip" role="group" aria-label="Designs shown" id="design-tabs">
+        <span class="strip-label">Designs</span>
+      </div>
+
+      <div class="stage">
+        <div class="stage-canvas">
+          <svg id="radar" viewBox="0 0 700 620" role="img" aria-label="Radar chart of model properties"></svg>
+          <div class="canvas-footer">
+            <div class="hover-hint">Outward is better on every axis · hover a vertex for its value</div>
+          </div>
+        </div>
+        <div class="side-card">
+          <h3>Verdict at this point</h3>
+          <div id="model-rows"></div>
+        </div>
+      </div>
+
+      <div class="drawer">
+        <details id="tune-details">
+          <summary><span class="tune-name">Tune parameters &amp; axes</span><span class="tune-state" id="tune-summary"></span></summary>
+          <div class="tune-section">
+            <div class="tune-section-head">Design parameters</div>
+            <div class="drawer-body" id="model-cards"></div>
+          </div>
+          <div class="tune-section tune-section--axes">
+            <div class="tune-section-head">Axes shown</div>
+            <div class="axis-picker" id="axis-picker" role="group" aria-label="Axes shown"></div>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="values-section">
+    <div class="container">
+      <header class="section-head">
+        <div class="section-kind">Raw values</div>
+        <h2>Every property, numerically</h2>
+        <p class="section-lede">
+          One row per design, one column per property, at the settings above. The first
+          column is what everything else is bought with: <b>P(bad)</b> is the chance an
+          epoch's wiring fails to get some publisher's message to everyone, and
+          <b>vs δ</b> is whether that beats the target. The middle columns are what it
+          costs — messages the network sends, copies each node receives, hops before the
+          last node has it, links each node holds. The last are how much room is left:
+          <b>Δμ</b> is how much more of the network could turn adversarial, <b>churn</b>
+          how much of it could simply go offline.
+        </p>
+      </header>
+      <div class="table-wrap"><table id="values"></table></div>
+      <p class="hint">Tinted = best in column among the designs shown, in that design's own colour · closed forms only, no Monte Carlo</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <nav class="footer-nav" aria-label="Footer">
+      <div class="footer-col">
+        <div class="footer-col-title">Research</div>
+        <a href="../../#scenarios">Scenarios</a>
+        <a href="../../#research">Programme</a>
+        <a href="./">Dissemination models</a>
+        <a href="../../slides/midyear-2026.html">Midyear presentation</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Progress</div>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">Logbook</a>
+        <a href="https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports" target="_blank" rel="noopener">Biweekly reports</a>
+        <a href="../../#activity">Activity &amp; latest entry</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Repository</div>
+        <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">Source code</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a>
+      </div>
+    </nav>
+    <div class="footer-row">
+      <span class="footer-brand">
+        <img class="brand-half logo-light" src="../../assets/io-mark-in-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-in-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
+        <img class="brand-half logo-light" src="../../assets/io-mark-out-pos.png" alt="" aria-hidden="true" onerror="this.remove()">
+        <img class="brand-half logo-dark" src="../../assets/io-mark-out-neg.png" alt="" aria-hidden="true" onerror="this.remove()">
+      </span>
+      <p class="footer-credit">
+        <img class="footer-wordmark logo-light" src="../../assets/io-wordmark-pos.png" alt="Input Output" onerror="this.remove()">
+        <img class="footer-wordmark logo-dark" src="../../assets/io-wordmark-neg.png" alt="Input Output" onerror="this.remove()">
+        <span>2026</span>
+      </p>
+    </div>
+  </div>
+</footer>
+<div id="tooltip"></div>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+/* ================= MATH-BEGIN =================
+   JS port of the closed forms in m1..m5 scripts/m*_model.py and the mu-shift /
+   reprovision sweeps. Kept DOM-free so it can be executed under node for
+   cross-validation (see runSelfTest at the bottom of this section). */
+const MM = (() => {
+  'use strict';
+
+  // P(all c own picks adversarial): exact hypergeometric tail C(k,c)/C(N-1,c) as a
+  // falling-factorial product (m1_model.py p_out_isolated). Plain doubles on purpose:
+  // M1's out-term lives at ~1e-17 and must not be lost to a log-space refactor.
+  function hyperDead(k, N, c) {
+    if (c > k) return 0;
+    let p = 1;
+    for (let i = 0; i < c; i++) p *= (k - i) / (N - 1 - i);
+    return p;
+  }
+  // (1 - a/(N-1))^(H-1): probability no honest node picked it.
+  function qNoHonestPick(a, N, H) {
+    return Math.exp((H - 1) * Math.log1p(-a / (N - 1)));
+  }
+  const pBadFromE = E => -Math.expm1(-E);
+
+  // Fixed points, ported verbatim from m3_model.py (rho_giant: exactly 500
+  // unconditional iterations so output is bit-comparable with Python).
+  function rhoGiant(m) {
+    if (m <= 1 + 1e-12) return 0;
+    let r = 0.5;
+    for (let i = 0; i < 500; i++) r = -Math.expm1(-m * r);
+    return r;
+  }
+  function uIterate(mu, RF, iters = 100000, tol = 1e-15) {
+    let u = 0;
+    for (let i = 0; i < iters; i++) {
+      const nxt = Math.pow(mu + (1 - mu) * u, RF);
+      if (Math.abs(nxt - u) < tol) return nxt;
+      u = nxt;
+    }
+    return u;
+  }
+
+  // Python round() is half-to-even; the mu-shift bisection can land on exact .5
+  // multiples of 1/N, so mirror it for bit-comparable crossings.
+  function pyround(x) {
+    const f = Math.floor(x), d = x - f;
+    if (d < 0.5) return f;
+    if (d > 0.5) return f + 1;
+    return (f % 2 === 0) ? f : f + 1;
+  }
+
+  /* ---- per-model laws ----
+     Each model: E(N,k,params) with H = N-k; degree/eclipse direction specs as
+     {c: chosen picks, a: accepted pick rate}; bandwidth; branching. */
+  const models = {
+    m1: {
+      label: 'M1', mech: 'push, fanout F',
+      defaults: { F: 24 },
+      sliders: [{ key: 'F', label: 'F (push fanout)', min: 1, max: 40 }],
+      E(N, k, p) {
+        const H = N - k;
+        return H * (qNoHonestPick(p.F, N, H) + hyperDead(k, N, p.F));
+      },
+      budget: p => p.F,
+      bandwidth(N, k, p) { const H = N - k; return H * p.F * (H - 1) / (N - 1); },
+      branching: (mu, p) => p.F * (1 - mu),
+      dirs: p => ({ in: { c: 0, a: p.F }, out: { c: p.F, a: 0 } }),
+    },
+    m2: {
+      label: 'M2', mech: 'pull, fanout RF',
+      defaults: { RF: 24 },
+      sliders: [{ key: 'RF', label: 'RF (pull fanout)', min: 1, max: 40 }],
+      // Trap: M2's law is the mean-field 1 - exp(-H[(1-rho_f) + u]) from the sweep
+      // scripts, NOT the isolated-vertex form the other four models share. The
+      // sweeps quantise only H; rho/u take the raw mu, hence the extra argument.
+      E(N, k, p, mu = k / N) {
+        const H = N - k;
+        const rho = rhoGiant(p.RF * (1 - mu));
+        const u = uIterate(mu, p.RF);
+        return H * ((1 - rho) + u);
+      },
+      budget: p => p.RF,
+      bandwidth(N, k, p) { const H = N - k; return H * p.RF * (H - 1) / (N - 1); },
+      branching: (mu, p) => p.RF * (1 - mu),
+      dirs: p => ({ in: { c: p.RF, a: 0 }, out: { c: 0, a: p.RF } }),
+    },
+    m3: {
+      label: 'M3', mech: 'pull RF + s−1 initiation',
+      defaults: { RF: 12, s: 8 },
+      sliders: [{ key: 'RF', label: 'RF (pull fanout)', min: 1, max: 30 },
+                { key: 's', label: 's (initial holders)', min: 1, max: 15 }],
+      E(N, k, p) {
+        const H = N - k;
+        const pin = hyperDead(k, N, p.RF);
+        const pout = qNoHonestPick(p.RF, N, H) * hyperDead(k, N, p.s - 1);
+        return H * (pin + pout);
+      },
+      budget: p => p.RF + p.s - 1,
+      bandwidth(N, k, p) { const H = N - k; return (H * p.RF + (p.s - 1)) * (H - 1) / (N - 1); },
+      branching: (mu, p) => p.RF * (1 - mu),
+      // degrees: in = chosen RF + accepted initiation; out = accepted requesters + chosen s-1.
+      dirs: p => ({ in: { c: p.RF, a: p.s - 1 }, out: { c: p.s - 1, a: p.RF } }),
+      // deafen-coverage reading (what delta is stated against): chosen forwarders only.
+      eclipseDirs: p => ({ in: { c: p.RF, a: 0 }, out: { c: p.s - 1, a: p.RF } }),
+    },
+    m4: {
+      label: 'M4', mech: 'bidirectional flood, RF',
+      defaults: { RF: 8 },
+      sliders: [{ key: 'RF', label: 'RF (peers picked)', min: 2, max: 20 }],
+      E(N, k, p) {
+        const H = N - k;
+        return H * hyperDead(k, N, p.RF) * qNoHonestPick(p.RF, N, H);
+      },
+      budget: p => p.RF,
+      bandwidth(N, k, p) { const H = N - k; return 2 * H * p.RF * (H - 1) / (N - 1) - (H - 1); },
+      branching: (mu, p) => 2 * p.RF * (1 - mu) - 1,
+      undirected: true, // deafen = mute: one side, doubly protected
+      dirs: p => ({ in: { c: p.RF, a: p.RF }, out: { c: p.RF, a: p.RF } }),
+    },
+    m5: {
+      label: 'M5', mech: 'directed k_in / k_out',
+      defaults: { kin: 9, kout: 8 },
+      sliders: [{ key: 'kin', label: 'k_in (inbound)', min: 0, max: 20 },
+                { key: 'kout', label: 'k_out (outbound)', min: 0, max: 20 }],
+      E(N, k, p) {
+        const H = N - k;
+        const pin = hyperDead(k, N, p.kin) * qNoHonestPick(p.kout, N, H);
+        const pout = hyperDead(k, N, p.kout) * qNoHonestPick(p.kin, N, H);
+        return H * (pin + pout);
+      },
+      budget: p => p.kin + p.kout,
+      bandwidth(N, k, p) { const H = N - k; return H * (p.kin + p.kout) * (H - 1) / (N - 1); },
+      branching: (mu, p) => (p.kin + p.kout) * (1 - mu),
+      jointMin: true, // threat B: joint order statistic over both directions
+      dirs: p => ({ in: { c: p.kin, a: p.kout }, out: { c: p.kout, a: p.kin } }),
+    },
+  };
+
+  const pBad = (id, N, k, p, mu) => pBadFromE(models[id].E(N, k, p, mu));
+
+  /* ---- degree distributions (property 4 / eclipse machinery) ----
+     D = Hypergeom(honest part of c chosen picks) (+) Binomial(H-1, a/(N-1)). */
+  function logChoose(n, r) { // r is a small integer; n may be large
+    let s = 0;
+    for (let i = 0; i < r; i++) s += Math.log((n - i) / (i + 1));
+    return s;
+  }
+  function hypPmf(c, k, N) { // honest among own c picks; population N-1, honest N-1-k
+    const hon = N - 1 - k;
+    const arr = new Float64Array(c + 1);
+    if (c === 0) { arr[0] = 1; return arr; }
+    const lcN = logChoose(N - 1, c);
+    const lo = Math.max(0, c - k), hi = Math.min(c, hon);
+    for (let x = lo; x <= hi; x++)
+      arr[x] = Math.exp(logChoose(hon, x) + logChoose(k, c - x) - lcN);
+    return arr;
+  }
+  function binPmf(n, prob, len) {
+    const arr = new Float64Array(len);
+    if (prob <= 0 || n <= 0) { arr[0] = 1; return arr; }
+    let v = Math.exp(n * Math.log1p(-prob));
+    const r = prob / (1 - prob);
+    arr[0] = v;
+    for (let x = 0; x < len - 1; x++) { v *= (n - x) / (x + 1) * r; arr[x + 1] = v; }
+    return arr;
+  }
+  function convolve(a, b) {
+    const out = new Float64Array(a.length + b.length - 1);
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] === 0) continue;
+      for (let j = 0; j < b.length; j++) out[i + j] += a[i] * b[j];
+    }
+    return out;
+  }
+  // pmf of one direction's honest degree
+  function dirPmf(spec, N, k) {
+    const H = N - k;
+    const pAcc = spec.a / (N - 1);
+    const accMean = (H - 1) * pAcc, accSd = Math.sqrt(Math.max(accMean * (1 - pAcc), 0));
+    const len = Math.max(32, Math.ceil(accMean + 12 * accSd) + 2);
+    const hyp = hypPmf(spec.c, k, N);
+    return spec.a === 0 ? hyp : (spec.c === 0 ? binPmf(H - 1, pAcc, len) : convolve(hyp, binPmf(H - 1, pAcc, len)));
+  }
+  function pmfStats(pmf) {
+    let mean = 0, m2 = 0;
+    for (let x = 0; x < pmf.length; x++) { mean += x * pmf[x]; m2 += x * x * pmf[x]; }
+    return { mean, sd: Math.sqrt(Math.max(m2 - mean * mean, 0)) };
+  }
+  function percentile(pmf, q) {
+    let c = 0;
+    for (let x = 0; x < pmf.length; x++) { c += pmf[x]; if (c >= q) return x; }
+    return pmf.length - 1;
+  }
+  // E[min over H nodes] = sum_{j>=1} P(D >= j)^H, with P(D>=j)^H = exp(H*log1p(-F(j-1)))
+  // computed from the lower CDF (accurate where it matters, F tiny).
+  function eMin(pmfs, H) {
+    const cdfs = pmfs.map(pmf => {
+      const cdf = new Float64Array(pmf.length);
+      let c = 0;
+      for (let x = 0; x < pmf.length; x++) { c += pmf[x]; cdf[x] = Math.min(c, 1); }
+      return cdf;
+    });
+    const maxJ = Math.max(...cdfs.map(c => c.length));
+    let sum = 0;
+    for (let j = 1; j <= maxJ; j++) {
+      let logTerm = 0;
+      for (const cdf of cdfs) {
+        const F = j - 1 < cdf.length ? cdf[j - 1] : 1;
+        if (F >= 1) { logTerm = -Infinity; break; }
+        logTerm += H * Math.log1p(-F);
+      }
+      const term = Math.exp(logTerm);
+      sum += term;
+      if (term < 1e-14 && j > 1) break;
+    }
+    return sum;
+  }
+
+  function eclipse(id, N, k, p) {
+    const H = N - k;
+    const m = models[id];
+    const specs = (m.eclipseDirs || m.dirs)(p);
+    const pin = dirPmf(specs.in, N, k), pout = dirPmf(specs.out, N, k);
+    const sin = pmfStats(pin), sout = pmfStats(pout);
+    const r = {
+      deafen: { ...sin, p1: percentile(pin, 0.01), p01: percentile(pin, 0.001), min: eMin([pin], H) },
+      mute: { ...sout, p1: percentile(pout, 0.01), p01: percentile(pout, 0.001), min: eMin([pout], H) },
+    };
+    r.A = Math.min(r.deafen.mean, r.mute.mean);
+    r.B = m.undirected ? r.deafen.min
+        : m.jointMin ? eMin([pin, pout], H)
+        : Math.min(r.deafen.min, r.mute.min);
+    return r;
+  }
+
+  function degrees(id, N, k, p) {
+    const specs = models[id].dirs(p);
+    return {
+      in: pmfStats(dirPmf(specs.in, N, k)),
+      out: pmfStats(dirPmf(specs.out, N, k)),
+      compliantTotal: 2 * models[id].budget(p),
+    };
+  }
+
+  /* ---- mu-shift: 40-halving bisection, k requantised per probe (sweep_m*_mu_shift.py) */
+  function crossing(id, N, p, target, lo, hi = 0.9) {
+    const f = mu => pBad(id, N, pyround(mu * N), p, mu);
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      if (f(mid) >= target) hi = mid; else lo = mid;
+    }
+    return hi;
+  }
+
+  /* ---- everything the UI needs for one model at one environment */
+  function compute(id, env, p) {
+    const { N, mu, delta } = env;
+    const k = Math.round(mu * N), H = N - k;
+    const m = models[id];
+    const E = m.E(N, k, p, mu), pbad = pBadFromE(E);
+    const T = m.bandwidth(N, k, p);
+    const br = m.branching(mu, p);
+    const hopsLaw = br > 1.05 ? Math.log(H) / Math.log(br) : null;
+    const budget = crossing(id, N, p, delta, mu);
+    const collapse = crossing(id, N, p, 0.5, mu);
+    const ecl = eclipse(id, N, k, p);
+    const deg = degrees(id, N, k, p);
+    return {
+      pbad, pass: pbad <= delta, msgs: T, copies: T / H,
+      hopsFull: hopsLaw === null ? null : hopsLaw + 1.5,
+      hopsMean: hopsLaw === null ? null : hopsLaw + 0.3,
+      links: deg.compliantTotal, degIn: deg.in, degOut: deg.out,
+      muBudget: budget, dmu: Math.max(0, budget - mu), collapse,
+      churn: Math.max(0, budget - mu) / (1 - mu),
+      eclipse: ecl,
+    };
+  }
+
+  /* ---- reprovision searches (self-test anchors; validate.py check_reprovision_anchor) */
+  function searchM1M2M4(id, N, mu, delta, max = 60) {
+    const k = Math.round(mu * N);
+    const key = models[id].sliders[0].key;
+    for (let v = 1; v <= max; v++) if (pBad(id, N, k, { [key]: v }) <= delta) return v;
+    return null;
+  }
+  function searchM3(N, mu, delta) { // smallest budget, bandwidth-minimal split
+    const k = Math.round(mu * N);
+    for (let B = 2; B <= 80; B++)
+      for (let RF = 1; RF <= B; RF++)
+        if (pBad('m3', N, k, { RF, s: B - RF + 1 }) <= delta) return { B, RF, s: B - RF + 1 };
+    return null;
+  }
+  function searchM5(N, mu, delta) { // smallest budget, most-balanced split
+    const k = Math.round(mu * N);
+    for (let B = 1; B <= 80; B++) {
+      const kin = Math.ceil(B / 2), kout = Math.floor(B / 2);
+      if (pBad('m5', N, k, { kin, kout }) <= delta) return { B, kin, kout };
+    }
+    return null;
+  }
+
+  /* ---- self-test: fixtures evaluated from the Python modules (2026-08-11) ---- */
+  function runSelfTest() {
+    const t = [];
+    const ck = (name, got, want, tol) =>
+      t.push({ name, pass: Math.abs(got - want) <= tol * Math.max(Math.abs(want), 1e-300), got, want });
+    const ckEq = (name, got, want) => t.push({ name, pass: got === want, got, want });
+    const N = 20000, k = 4000, H = 16000;
+
+    // 1 — numeric anchors (python3 m*_model.py values, rel tol 1e-9)
+    ck('M1 F=24 p_in', qNoHonestPick(24, N, H), 4.535685327720355e-9, 1e-9);
+    ck('M1 F=24 p_out', hyperDead(k, N, 24), 1.589321646984448e-17, 1e-9);
+    ck('M1 F=24 E', models.m1.E(N, k, { F: 24 }), 7.257096549781714e-5, 1e-9);
+    ck('M1 F=23 E', models.m1.E(N, k, { F: 23 }), 1.6166011291515037e-4, 1e-9);
+    ck('M2 RF=24 p_bad (mean-field)', pBad('m2', N, k, { RF: 24 }), 7.339222196200978e-5, 1e-9);
+    ck('M3 (12,8) E', models.m3.E(N, k, { RF: 12, s: 8 }), 7.849386189829963e-5, 1e-9);
+    ck('M4 RF=8 E', models.m4.E(N, k, { RF: 8 }), 6.762290453970555e-5, 1e-9);
+    ck('M5 (9,8) E', models.m5.E(N, k, { kin: 9, kout: 8 }), 4.387850787621889e-5, 1e-9);
+    ck('u_iterate(0.2,5)', uIterate(0.2, 5), 3.2206654353996095e-4, 1e-9);
+    ck('rho_giant(3)', rhoGiant(3), 0.9404797907073597, 1e-12);
+    ck('M4 mu=.25 RF=9 p_bad', pBad('m4', N, 5000, { RF: 9 }), 6.65712646994443e-5, 1e-9);
+
+    // 2 — boundary identities (validate.py, machine equality)
+    ckEq('M5(RF,0) in == M2 q_pull', hyperDead(k, N, 24) * qNoHonestPick(0, N, H), hyperDead(k, N, 24));
+    ckEq('M5(0,F) E == M1 E', models.m5.E(N, k, { kin: 0, kout: 24 }), models.m1.E(N, k, { F: 24 }));
+    ckEq('M5 swap symmetry', models.m5.E(N, k, { kin: 3, kout: 6 }), models.m5.E(N, k, { kin: 6, kout: 3 }));
+
+    // 3 — reprovision anchors at N=20000, mu=0.2, delta=1e-4
+    ckEq('M1 smallest F', searchM1M2M4('m1', N, 0.2, 1e-4), 24);
+    ckEq('M2 smallest RF', searchM1M2M4('m2', N, 0.2, 1e-4), 24);
+    const s3 = searchM3(N, 0.2, 1e-4);
+    ckEq('M3 budget/split', s3 && `${s3.B}:(${s3.RF},${s3.s})`, '19:(12,8)');
+    ckEq('M4 smallest RF', searchM1M2M4('m4', N, 0.2, 1e-4), 8);
+    const s5 = searchM5(N, 0.2, 1e-4);
+    ckEq('M5 budget/split', s5 && `${s5.B}:(${s5.kin},${s5.kout})`, '17:(9,8)');
+
+    // 4 — eclipse fixtures (adaptive_eclipse_cost.md docs; means tol .05, minima tol .1)
+    const e1 = eclipse('m1', N, k, { F: 24 }), e2 = eclipse('m2', N, k, { RF: 24 }),
+          e3 = eclipse('m3', N, k, { RF: 12, s: 8 }), e4 = eclipse('m4', N, k, { RF: 8 }),
+          e5 = eclipse('m5', N, k, { kin: 9, kout: 8 });
+    ck('M1 threat A', e1.A, 19.2, 0.005); ck('M1 threat B', e1.B, 4.6, 0.03);
+    ck('M2 threat A', e2.A, 19.2, 0.005); ck('M2 threat B', e2.B, 4.6, 0.03);
+    ck('M3 threat A (coverage)', e3.A, 9.6, 0.005); ck('M3 threat B', e3.B, 3.3, 0.03);
+    ck('M3 mute mean', e3.mute.mean, 15.2, 0.005);
+    ck('M4 threat A', e4.A, 12.8, 0.005); ck('M4 threat B', e4.B, 3.6, 0.03);
+    ck('M5 threat A', e5.A, 13.6, 0.005); ck('M5 threat B (joint)', e5.B, 3.7, 0.03);
+    ck('M5 deafen marginal', e5.deafen.min, 4.1, 0.03); ck('M5 mute marginal', e5.mute.min, 3.9, 0.03);
+
+    // 5 — mu-shift crossings (exact bisection values from the Python port, abs tol 1e-9)
+    const cx = [['m1', { F: 24 }, 0.21407500000013902, 0.6081250000001094],
+                ['m2', { RF: 24 }, 0.213604652097456, 0.6078870354946957],
+                ['m3', { RF: 12, s: 8 }, 0.20432500000015347, 0.44372500000054066],
+                ['m4', { RF: 8 }, 0.20852500000037252, 0.4986250000001747],
+                ['m5', { kin: 9, kout: 8 }, 0.2174250000005486, 0.4944250000005923]];
+    for (const [id, p, b, c] of cx) {
+      ck(`${id} budget crossing`, crossing(id, N, p, 1e-4, 0.2), b, 1e-9);
+      ck(`${id} collapse crossing`, crossing(id, N, p, 0.5, 0.2), c, 1e-9);
+    }
+    return t;
+  }
+
+  return { models, pBad, compute, eclipse, degrees, crossing, runSelfTest,
+           hyperDead, qNoHonestPick, rhoGiant, uIterate,
+           searchM1M2M4, searchM3, searchM5 };
+})();
+if (typeof globalThis !== 'undefined') globalThis.MM = MM;
+/* ================= MATH-END ================= */
+
+/* ================= UI ================= */
+if (typeof document !== 'undefined') (() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const MODEL_IDS = ['m1', 'm2', 'm3', 'm4', 'm5'];
+  const COLOR = id => getComputedStyle(document.documentElement).getPropertyValue(`--${id}`).trim();
+
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const fmtSci = v => v === 0 ? '0' : v.toExponential(2).replace('e-', 'e−');
+  const fmtInt = v => Math.round(v).toLocaleString('en-US').replace(/,/g, ' ');
+  const fmt1 = v => v === null ? '—' : v.toFixed(1);
+  const fmt3 = v => v.toFixed(3);
+
+  /* `unit`, `outer` and `tip` are presentation only: `unit` states the quantity's unit
+     on the axis label, `outer` prints the value the outer ring stands for — the best end
+     of the fixed reference range, since every axis is oriented outward = better — and
+     `tip` is the hover/tap definition, carrying the range the axis is scaled over. */
+  const AXES = [
+    { key: 'pbad', label: 'P(bad)', unit: 'probability', outer: '10⁻⁸', better: 'lower',
+      tip: 'Probability that an epoch’s sampled graph fails to reach every honest node. Has to stay under δ. Radar range 10⁻⁸ to 1, log scale.',
+      norm: v => v <= 0 ? 1 : clamp01(-Math.log10(Math.max(v, 1e-8)) / 8), fmt: fmtSci },
+    { key: 'copies', label: 'copies', unit: 'per honest node', outer: '0', better: 'lower',
+      tip: 'How many times the average honest node receives one published message. The per-message price of redundancy. Radar range 0 to 30.',
+      norm: v => 1 - clamp01(v / 30), fmt: fmt1 },
+    { key: 'hopsFull', label: 'hops (full) ≈', unit: 'hops', outer: '3', better: 'lower',
+      tip: 'Rounds of forwarding before the last honest node holds the message: ln H / ln branching plus a measured offset. Asymptotic, so ≈. Radar range 3 to 9.',
+      norm: v => v === null ? 0 : 1 - clamp01((v - 3) / 6), fmt: fmt1 },
+    { key: 'links', label: 'links', unit: 'per node', outer: '0', better: 'lower',
+      tip: 'Standing links a compliant node holds: drawn once per epoch, then carrying every message of every publisher for that epoch. Radar range 0 to 70.',
+      norm: v => 1 - clamp01(v / 70), fmt: fmt1 },
+    { key: 'dmu', label: 'Δμ headroom', unit: 'μ, absolute', outer: '0.10', better: 'higher',
+      tip: 'Margin for error. The share of the network that could turn adversarial — or simply go offline, which looks the same — on top of μ, before this configuration stops meeting δ. 0.05 means it still holds with another 5 % of nodes silent. Radar range 0 to 0.10.',
+      norm: v => clamp01(v / 0.10), fmt: fmt3 },
+    { key: 'collapse', label: 'collapse μ', unit: 'μ, absolute', outer: '0.70', better: 'higher',
+      tip: 'The μ at which half of all epochs draw a bad graph — the point the design stops working rather than merely missing its target. Radar range 0.20 to 0.70.',
+      norm: v => clamp01((v - 0.2) / 0.5), fmt: fmt3 },
+    { key: 'eclA', label: 'eclipse A', unit: 'links to buy', outer: '25', better: 'higher',
+      tip: 'Adaptive-eclipse cost of one <b>chosen</b> victim: the mean number of links an adversary must buy, taking the cheaper direction. Radar range 0 to 25.',
+      norm: v => clamp01(v / 25), fmt: fmt1 },
+    { key: 'eclB', label: 'eclipse B', unit: 'links to buy', outer: '12', better: 'higher',
+      tip: 'Adaptive-eclipse cost of the network’s <b>cheapest</b> victim, E[min] over all honest nodes. Radar range 0 to 12.',
+      norm: v => clamp01(v / 12), fmt: fmt1 },
+  ];
+
+  /* ---- glossary — the page's prose, moved onto hover/tap/focus ---- */
+  const GLOSSARY = {
+    how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
+    mu: ['μ', 'Adversarial share: the fraction of registered nodes that take part but never pass anything on. They accept their links, receive every message, and forward none. Nobody knows which they are. Raise it past a design’s Δμ and open <b>Tune parameters</b> to see what that design has to buy to clear δ again.'],
+    N: ['N', 'Network size: nodes in the on-chain registry. H = N − μN of them are honest, and the guarantee is stated over those.'],
+    delta: ['δ', 'Failure target: the per-epoch probability of a bad graph a design is allowed. P(bad) must sit below it. The CIP uses δ = 10⁻⁴, one bad epoch in ten thousand; the selector offers 10⁻³ and 10⁻⁵ to see what a looser or stricter target costs.'],
+    epoch: ['Epoch', 'The interval a drawn topology serves. Links are drawn once at sync and then carry every message of every publisher until the next epoch.'],
+    churn: ['Churn budget', 'How much of the network can simply go offline — crashes, restarts, operators leaving — before the design stops meeting its target. Downtime and hostility count the same here, because a node that is off looks exactly like one that refuses to forward, not only from adversaries.'],
+    muBudget: ['μ-budget', 'The most hostile network this configuration still works in: the largest share of silent nodes it can carry and still meet the target.'],
+    msgs: ['Messages per publication', 'Every transmission the whole network makes to get one published message to everyone — the total bandwidth bill for one message.'],
+    degree: ['Honest degree', 'How many links an honest node has, incoming and outgoing, on average and how much that varies. The variation matters: a node that happens to hold few links is the cheapest one to cut off.'],
+    // The mechanism wording is the site's own, from the landing page's model strip.
+    model_m1: ['M1 · push', 'Every node, on first receipt, pushes the message to F random peers.'],
+    model_m2: ['M2 · pull', 'Each node pulls from RF forwarders, redrawn every epoch.'],
+    model_m3: ['M3 · pull + publishing links', 'Per-epoch pull plus s−1 publishing links carrying only the node’s own publications.'],
+    model_m4: ['M4 · bidirectional', 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.'],
+    model_m5: ['M5 · directed', 'k_in inbound + k_out outbound links, both the node’s own picks.'],
+  };
+  const termFor = key => GLOSSARY[key];
+
+  /* ---- operating-point presets ----------------------------------------------
+     "As published" is read straight out of MM.models[*].defaults, so the two can
+     never drift apart. "Recommended" is the CIP's current advice: M3 moves one
+     unit of the same 19-link budget from initiation to pull (RF=13, s=7) and M4
+     spends one more peer (RF=9). M1, M2 and M5 are the same in both. */
+  const REF_ENV = { N: 20000, mu: 0.2, delta: 1e-4 };
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const PUBLISHED = Object.fromEntries(MODEL_IDS.map(id => [id, { ...MM.models[id].defaults }]));
+  const RECOMMENDED = { ...clone(PUBLISHED), m3: { RF: 13, s: 7 }, m4: { RF: 9 } };
+  // Quoted in the preset note; derived from the laws so the prose cannot go stale.
+  const churnAt = (id, p) => (100 * MM.compute(id, REF_ENV, p).churn).toFixed(2) + ' %';
+  const PRESETS = {
+    recommended: { label: 'Recommended', params: RECOMMENDED },
+    published: { label: 'As published', params: PUBLISHED },
+  };
+  const DEFAULT_PRESET = 'recommended';
+
+  const state = {
+    env: { ...REF_ENV },
+    preset: DEFAULT_PRESET,
+    params: clone(PRESETS[DEFAULT_PRESET].params),
+    visible: Object.fromEntries(MODEL_IDS.map(id => [id, true])),
+    // The four the CIP plots. The others rest on a different adversary model,
+    // so they are offered but not shown side by side by default.
+    axes: Object.fromEntries(AXES.map(a => [a.key, ['copies', 'links', 'hopsFull', 'dmu'].includes(a.key)])),
+  };
+
+  /* ---- theme ---- */
+  // The key is the site-wide one, so the theme carries over from the other web/ pages.
+  // Chrome refuses localStorage on file:// — guarded, as elsewhere in web/.
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const urlTheme = new URLSearchParams(location.search).get('theme');
+  const storedTheme = urlTheme || store.get('pubsub-theme');
+  if (storedTheme === 'dark' || storedTheme === 'light') document.documentElement.dataset.theme = storedTheme;
+  else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
+  $('#btn-theme').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    store.set('pubsub-theme', next);
+    recompute();
+  });
+
+  /* ---- navbar — the collapsing menu the other web/ pages use ---- */
+  const navbar = $('.navbar'), menuBtn = $('.nav-menu-btn');
+  menuBtn.addEventListener('click', () => {
+    const open = navbar.classList.toggle('menu-open');
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.querySelectorAll('.navbar-links a').forEach(a => a.addEventListener('click', () => {
+    navbar.classList.remove('menu-open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }));
+
+  /* ---- tooltips ----------------------------------------------------------------
+     One floating box, driven by delegation so dynamically built controls need no
+     wiring. Three ways in, deliberately: hover for a mouse, focus for the keyboard
+     (every term carries tabindex), and tap for touch, where there is no hover at all.
+     A tap on a plain term toggles it; on a control that already does something —
+     a preset tab, a design tab — the tooltip opens and the control still acts. */
+  const tip = $('#tip');
+  let tipEl = null;
+  function tipContent(node) {
+    const g = node.dataset.term ? termFor(node.dataset.term) : null;
+    if (g) return `<span class="tip-key">${g[0]}</span>${g[1]}`;
+    return node.dataset.tip || '';
+  }
+  function showTip(node) {
+    const html = tipContent(node);
+    if (!html) return;
+    tipEl = node;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.setAttribute('aria-hidden', 'false');
+    node.setAttribute('aria-describedby', 'tip');
+    if (node.classList.contains('term')) node.setAttribute('aria-expanded', 'true');
+    const r = node.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+    const above = r.bottom + t.height + 12 > innerHeight && r.top > t.height + 12;
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(above ? r.top - t.height - 8 : r.bottom + 8) + 'px';
+  }
+  function hideTip() {
+    if (tipEl) {
+      tipEl.removeAttribute('aria-describedby');
+      if (tipEl.classList.contains('term')) tipEl.setAttribute('aria-expanded', 'false');
+    }
+    tipEl = null;
+    tip.style.display = 'none';
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  const tipTarget = e => e.target.closest && e.target.closest('[data-term],[data-tip]');
+  document.addEventListener('pointerover', e => {
+    if (e.pointerType === 'touch') return;      // touch raises pointerover before click
+    const n = tipTarget(e);
+    if (n) showTip(n); else if (tipEl) hideTip();
+  });
+  document.addEventListener('focusin', e => { const n = tipTarget(e); if (n) showTip(n); else hideTip(); });
+  document.addEventListener('focusout', e => { if (tipTarget(e) === tipEl) hideTip(); });
+  document.addEventListener('click', e => {
+    const n = tipTarget(e);
+    if (!n) { hideTip(); return; }
+    if (n === tipEl && n.classList.contains('term')) hideTip(); else showTip(n);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
+  addEventListener('scroll', () => { if (tipEl) hideTip(); }, { passive: true });
+  // Terms are spans, so they need explicit keyboard reachability.
+  const markTerms = root => root.querySelectorAll('.term').forEach(el => {
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+    if (!el.hasAttribute('aria-expanded')) el.setAttribute('aria-expanded', 'false');
+  });
+  markTerms(document);
+
+  /* ---- build controls ----
+     Three surfaces, in the order a reader needs them: a tab per design, which says
+     what it is and switches it on the radar; a readout card, which says how it did
+     here; and a folded drawer of sliders and axes, which only a returning reader
+     opens. Units are attached here rather than in the model definitions, which stay
+     untouched. */
+  const UNITS = { 'm1:F': 'pushes/receipt', 'm2:RF': 'links/node', 'm3:RF': 'links/node',
+                  'm3:s': 'holders/msg', 'm4:RF': 'links/node',
+                  'm5:kin': 'links/node', 'm5:kout': 'links/node' };
+  // The radar vertex colour, repeated in the readout so the card doubles as the legend.
+  const SWATCH = '<circle cx="8" cy="8" r="5"/>';
+  const tabsHost = $('#design-tabs'), rowsHost = $('#model-rows'), cardsHost = $('#model-cards');
+  for (const id of MODEL_IDS) {
+    const m = MM.models[id];
+
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'model-tab design-tab';
+    tab.style.setProperty('--mc', `var(--${id})`);
+    tab.dataset.vis = id;
+    tab.dataset.term = `model_${id}`;
+    tab.setAttribute('aria-pressed', 'true');
+    tab.innerHTML = `<span class="chip"></span>${m.label}<span class="dot" data-dot="${id}"></span>`;
+    tabsHost.appendChild(tab);
+
+    const row = document.createElement('div');
+    row.className = 'read-row';
+    row.style.setProperty('--mc', `var(--${id})`);
+    row.dataset.row = id;
+    row.innerHTML = `
+      <svg class="swatch" viewBox="0 0 16 16" aria-hidden="true" fill="var(--${id})" stroke="none">${SWATCH}</svg>
+      <span class="rname"><span class="term" data-term="model_${id}">${m.label}</span></span>
+      <span class="rverdict" data-verdict="${id}"></span>
+      <span class="rparams" data-params="${id}"></span>`;
+    rowsHost.appendChild(row);
+
+    const group = document.createElement('div');
+    group.className = 'tune-group';
+    group.dataset.group = id;
+    group.style.setProperty('--mc', `var(--${id})`);
+    group.innerHTML = `
+      <div class="tg-head"><span class="chip"></span>${m.label}</div>
+      ${m.sliders.map(s => `
+        <div class="slider-row">
+          <label for="s-${id}-${s.key}">${s.label}
+            <span style="color:var(--text-faint)">${UNITS[`${id}:${s.key}`] || ''}</span></label>
+          <input type="range" id="s-${id}-${s.key}" min="${s.min}" max="${s.max}" step="1"
+                 value="${state.params[id][s.key]}" data-model="${id}" data-key="${s.key}">
+          <output data-out="${id}:${s.key}">${state.params[id][s.key]}</output></div>`).join('')}`;
+    cardsHost.appendChild(group);
+  }
+  markTerms(rowsHost);
+  tabsHost.addEventListener('click', e => {
+    const b = e.target.closest('button[data-vis]');
+    if (!b) return;
+    const id = b.dataset.vis;
+    state.visible[id] = !state.visible[id];
+    b.setAttribute('aria-pressed', state.visible[id] ? 'true' : 'false');
+    recompute();
+  });
+  cardsHost.addEventListener('input', e => {
+    const t = e.target;
+    if (!t.dataset.model) return;
+    const id = t.dataset.model, key = t.dataset.key;
+    state.params[id][key] = +t.value;
+    if (id === 'm5' && state.params.m5.kin + state.params.m5.kout < 1) {
+      const other = key === 'kin' ? 'kout' : 'kin';
+      state.params.m5[other] = 1;
+      cardsHost.querySelector(`input[data-model=m5][data-key=${other}]`).value = 1;
+    }
+    recompute();
+  });
+
+  $('#g-mu').addEventListener('input', e => { state.env.mu = +e.target.value; recompute(); });
+  $('#g-N').addEventListener('input', e => { state.env.N = +e.target.value; recompute(); });
+  $('#g-delta').addEventListener('input', e => { state.env.delta = +e.target.value; recompute(); });
+
+  function applyPreset(name) {
+    state.preset = name;
+    state.params = clone(PRESETS[name].params);
+    for (const id of MODEL_IDS)
+      for (const s of MM.models[id].sliders)
+        cardsHost.querySelector(`input[data-model=${id}][data-key=${s.key}]`).value = state.params[id][s.key];
+    recompute();
+  }
+  // Which preset (if any) the sliders currently sit on — a nudged slider reads "custom".
+  function matchPreset() {
+    for (const [name, pre] of Object.entries(PRESETS))
+      if (MODEL_IDS.every(id => MM.models[id].sliders.every(s => state.params[id][s.key] === pre.params[id][s.key])))
+        return name;
+    return null;
+  }
+  $('#btn-reset').addEventListener('click', () => {
+    state.env = { ...REF_ENV };
+    $('#g-mu').value = REF_ENV.mu; $('#g-N').value = REF_ENV.N; $('#g-delta').value = '1e-4';
+    applyPreset(DEFAULT_PRESET);
+  });
+  $('#btn-reset').dataset.tip = 'Back to the recommended parameters at N = 20 000, μ = 0.20, δ = 10⁻⁴.';
+
+  // The delta control: a listbox in front of the native select, which stays the
+  // value everything else reads and writes.
+  (function deltaSelect() {
+    const sel = $('#g-delta'), box = $('#delta-select');
+    const btn = $('#delta-btn'), menu = box.querySelector('.xselect-menu');
+    const opts = [...sel.options];
+    let active = sel.selectedIndex;
+
+    opts.forEach((o, i) => {
+      const li = document.createElement('li');
+      li.textContent = o.textContent;
+      li.setAttribute('role', 'option');
+      li.dataset.i = i;
+      menu.appendChild(li);
+    });
+    const items = [...menu.children];
+
+    const paint = () => {
+      btn.textContent = opts[sel.selectedIndex].textContent;
+      items.forEach((li, i) => {
+        li.setAttribute('aria-selected', i === sel.selectedIndex ? 'true' : 'false');
+        li.classList.toggle('is-active', i === active);
+      });
+    };
+    const open = on => {
+      box.dataset.open = on ? 'true' : 'false';
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (on) { active = sel.selectedIndex; paint(); }
+    };
+    const choose = i => {
+      sel.selectedIndex = i;
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      paint(); open(false); btn.focus();
+    };
+
+    btn.addEventListener('click', () => open(box.dataset.open !== 'true'));
+    items.forEach(li => li.addEventListener('click', () => choose(+li.dataset.i)));
+    box.addEventListener('keydown', e => {
+      const isOpen = box.dataset.open === 'true';
+      if (e.key === 'Escape') { open(false); btn.focus(); return; }
+      if (!isOpen && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown')) {
+        e.preventDefault(); open(true); return;
+      }
+      if (!isOpen) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : opts.length - 1)) % opts.length;
+        paint();
+      } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
+    });
+    document.addEventListener('click', e => { if (!box.contains(e.target)) open(false); });
+    // Reset writes straight to the select, so follow it.
+    sel.addEventListener('input', paint);
+    paint();
+  })();
+
+  const axHost = $('#axis-picker');
+  for (const a of AXES) {
+    const l = document.createElement('label');
+    l.dataset.tip = a.tip;
+    // Reflect the state rather than asserting all-on: the default shows the four
+    // the CIP plots, and a box that says otherwise is just wrong.
+    l.innerHTML = `<input type="checkbox"${state.axes[a.key] ? ' checked' : ''} `
+                + `data-axis="${a.key}"> ${a.label}`;
+    axHost.appendChild(l);
+  }
+  axHost.addEventListener('input', e => {
+    if (e.target.dataset.axis) { state.axes[e.target.dataset.axis] = e.target.checked; recompute(); }
+  });
+
+  /* ---- radar ---- */
+  const svg = $('#radar'), tooltip = $('#tooltip');
+  let lastResults = null, lastCompact = null;
+  const NS = 'http://www.w3.org/2000/svg';
+  const CX = 392, CY = 258, R = 205, BASE_VIEWBOX = '0 0 784 536';
+  function el(tag, attrs, parent) {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    (parent || svg).appendChild(n);
+    return n;
+  }
+  let markerSize = 4.5, strokeW = 2;   // grown in compact mode, see drawRadar
+  function marker(x, y, color, parent) {
+    return el('circle', { cx: x, cy: y, r: markerSize, fill: color }, parent);
+  }
+  // On a phone the whole SVG is scaled down with its box, which would shrink the axis
+  // labels out of legibility. Compact mode pulls the rings in and sets the type larger
+  // in user units, so the rendered label size stays roughly constant.
+  const isCompact = () => svg.clientWidth > 0 && svg.clientWidth < 470;
+  function drawRadar(results, axes) {
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', BASE_VIEWBOX);
+    lastCompact = isCompact();
+    const small = lastCompact;
+    const rad = small ? 168 : R;
+    const labelR = small ? 1.16 : 1.12;
+    const nameSize = small ? 21 : 12.5, unitSize = small ? 16 : 10.5;
+    markerSize = small ? 6.5 : 4.5;
+    strokeW = small ? 2.6 : 2;
+    // The conditions travel with the picture: a screenshot of this figure that
+    // does not say what mu and N were is a figure that cannot be checked.
+    const supers = { '-3': '10\u207B\u00B3', '-4': '10\u207B\u2074', '-5': '10\u207B\u2075' };
+    const dExp = String(Math.round(Math.log10(state.env.delta)));
+    const cond = el('text', {
+      x: 14, y: 20, 'text-anchor': 'start', fill: 'var(--ink-mute)',
+      'font-size': small ? 15 : 10.5, 'font-family': 'var(--mono)'
+    });
+    cond.textContent = `\u03BC ${state.env.mu.toFixed(3)} \u00B7 N ${fmtInt(state.env.N)}`
+                     + ` \u00B7 \u03B4 ${supers[dExp] || state.env.delta}`;
+
+    const n = axes.length;
+    if (n < 3) {
+      el('text', { x: CX, y: CY, 'text-anchor': 'middle', fill: 'var(--ink-mute)', 'font-size': 14 })
+        .textContent = 'select at least 3 axes';
+      return;
+    }
+    const angle = i => -Math.PI / 2 + i * 2 * Math.PI / n;
+    const pt = (i, r) => [CX + r * rad * Math.cos(angle(i)), CY + r * rad * Math.sin(angle(i))];
+    // rings + spokes (recessive); the outer ring is drawn stronger because it is the
+    // reference boundary the caption and the per-axis "best" notes refer to.
+    for (const fr of [0.25, 0.5, 0.75, 1]) {
+      const d = axes.map((_, i) => pt(i, fr)).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
+      el('path', { d, fill: 'none', stroke: fr === 1 ? 'var(--axis)' : 'var(--grid)',
+                   'stroke-width': fr === 1 ? 1.4 : 1 });
+    }
+    axes.forEach((a, i) => {
+      const [x, y] = pt(i, 1);
+      el('line', { x1: CX, y1: CY, x2: x, y2: y, stroke: 'var(--grid)', 'stroke-width': 1 });
+      const [lx0, ly] = pt(i, labelR);
+      // A label centred on a side vertex straddles its own axis. Push the side
+      // labels outward and hang them off the near edge instead; top and bottom
+      // stay centred, where centring is what reads.
+      const side = Math.abs(lx0 - CX) < 1 ? 0 : (lx0 > CX ? 1 : -1);
+      const anchor = side === 0 ? 'middle' : (side > 0 ? 'start' : 'end');
+      const lx = lx0 + side * 6;
+      // Two lines: the quantity, then its unit and the value the outer ring stands for.
+      // The label is a term in its own right — same hover / tap / focus tooltip as the
+      // table headers, so a definition is never more than one gesture away.
+      const t = el('text', { x: lx, y: ly - nameSize * 0.42, 'text-anchor': anchor,
+                             'dominant-baseline': 'middle', fill: 'var(--ink-2)', 'font-size': nameSize,
+                             'data-tip': a.tip, tabindex: '0', style: 'cursor:help' });
+      el('tspan', { x: lx, 'font-weight': 600 }, t).textContent = a.label;
+      el('tspan', { x: lx, dy: '1.55em', fill: 'var(--ink-mute)', 'font-size': unitSize,
+                    'font-family': 'var(--mono)' }, t).textContent = `${a.unit} · best ${a.outer}`;
+    });
+    // polygons: fills first, then strokes+markers so no fill sits on top of a line
+    const polys = [];
+    for (const id of MODEL_IDS) {
+      if (!state.visible[id]) continue;
+      const c = COLOR(id);
+      // A vertex pinned to the rim or the centre is off the fixed scale, not merely
+      // at its end. The ranges stay fixed so the shape means the same thing in every
+      // screenshot; the saturation is marked instead of hidden.
+      const norms = axes.map(a => a.norm(results[id][a.key]));
+      const pinned = norms.map(n => n >= 0.999 || n <= 0.001);
+      const pts = axes.map((a, i) => pt(i, norms[i]));
+      const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
+      el('path', { d, fill: c, 'fill-opacity': 0.07, stroke: 'none' });
+      polys.push({ id, c, pts, d, pinned });
+    }
+    for (const { id, c, pts, d, pinned } of polys) {
+      el('path', { d, fill: 'none', stroke: c, 'stroke-width': strokeW, 'stroke-linejoin': 'round' });
+      pts.forEach(([x, y], i) => {
+        const g = el('g', {});
+        marker(x, y, c, g);
+        if (pinned[i]) el('circle', { cx: x, cy: y, r: markerSize + 3, fill: 'none',
+                                      stroke: c, 'stroke-width': 1.2, 'stroke-opacity': 0.85,
+                                      'stroke-dasharray': '2 2' }, g);
+        const hit = el('circle', { cx: x, cy: y, r: markerSize * 2.4, fill: 'transparent' }, g);
+        const a = axes[i];
+        hit.addEventListener('mousemove', ev => {
+          tooltip.style.display = 'block';
+          tooltip.style.left = (ev.clientX + 14) + 'px';
+          tooltip.style.top = (ev.clientY + 6) + 'px';
+          const raw = results[id][a.key];
+          tooltip.textContent = `${MM.models[id].label} — ${a.label}: ${a.fmt(raw)} · ${a.unit}`
+            + (pinned[i] ? ` · past the axis range, plotted at the edge` : '');
+        });
+        hit.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+      });
+    }
+    // Compact mode spends much of the fixed viewBox on empty margin; refit it to what
+    // was actually drawn so the plot fills the phone screen.
+    if (small) {
+      const b = svg.getBBox(), pad = 10;
+      svg.setAttribute('viewBox',
+        `${Math.round(b.x - pad)} ${Math.round(b.y - pad)} ${Math.round(b.width + 2 * pad)} ${Math.round(b.height + 2 * pad)}`);
+    }
+  }
+
+  /* ---- table ----
+     Every header carries its definition, so the column names can stay as terse as
+     the numbers under them. */
+  function paramStr(id) {
+    return MM.models[id].sliders.map(s => `${s.key}=${state.params[id][s.key]}`).join(', ');
+  }
+  const axTip = key => AXES.find(a => a.key === key).tip;
+  const COLS = [
+    { h: 'P(bad)', tip: axTip('pbad'), get: r => r.pbad, fmt: fmtSci, best: 'min' },
+    { h: 'vs δ', term: 'delta', get: r => r.pass, fmt: v => v ? '✓' : '✗', cls: r => r.pass ? 'pass' : 'fail' },
+    { h: 'msgs/msg', term: 'msgs', get: r => r.msgs, fmt: fmtInt, best: 'min' },
+    { h: 'copies/honest', tip: axTip('copies'), get: r => r.copies, fmt: fmt1, best: 'min' },
+    { h: 'hops full ≈', tip: axTip('hopsFull'), get: r => r.hopsFull, fmt: fmt1, best: 'min' },
+    { h: 'hops mean ≈', tip: 'How many forwarding steps before a typical node has the message, rather than the last one. The figure plots the last one, since that is what the guarantee is about.', get: r => r.hopsMean, fmt: fmt1, best: 'min' },
+    { h: 'links/node', tip: axTip('links'), get: r => r.links, fmt: v => v.toFixed(0), best: 'min' },
+    { h: 'honest in±sd', term: 'degree', get: r => r.degIn, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
+    { h: 'honest out±sd', term: 'degree', get: r => r.degOut, fmt: v => `${v.mean.toFixed(1)}±${v.sd.toFixed(1)}` },
+    { h: 'μ-budget', term: 'muBudget', get: r => r.muBudget, fmt: fmt3, best: 'max' },
+    { h: 'Δμ', tip: axTip('dmu'), get: r => r.dmu, fmt: fmt3, best: 'max' },
+    { h: 'churn p_max', term: 'churn', get: r => r.churn, fmt: v => (100 * v).toFixed(1) + '%', best: 'max' },
+    { h: 'collapse μ', tip: axTip('collapse'), get: r => r.collapse, fmt: fmt3, best: 'max' },
+    { h: 'ecl. deafen', tip: 'How many links an attacker must control to cut one chosen node off from <b>hearing</b> anything. Higher is better: it is the price of silencing someone.', get: r => r.eclipse.deafen.mean, fmt: fmt1, best: 'max' },
+    { h: 'ecl. mute', tip: 'How many links an attacker must control to stop one chosen node from being <b>heard</b> by anyone. Higher is better.', get: r => r.eclipse.mute.mean, fmt: fmt1, best: 'max' },
+    { h: 'ecl. B (min)', tip: axTip('eclB'), get: r => r.eclipse.B, fmt: fmt1, best: 'max' },
+  ];
+  function drawTable(results) {
+    const vis = MODEL_IDS.filter(id => state.visible[id]);
+    const best = {};
+    COLS.forEach((c, ci) => {
+      if (!c.best) return;
+      const vals = vis.map(id => c.get(results[id])).filter(v => v !== null && !Number.isNaN(v) && typeof v === 'number');
+      if (vals.length) best[ci] = c.best === 'min' ? Math.min(...vals) : Math.max(...vals);
+    });
+    const head = COLS.map(c => `<th><span class="term"${c.term ? ` data-term="${c.term}"` : ` data-tip="${c.tip}"`}>${c.h}</span></th>`).join('');
+    $('#values').innerHTML =
+      `<tr><th>model</th>${head}</tr>` +
+      MODEL_IDS.map(id => {
+        const r = results[id];
+        return `<tr class="${state.visible[id] ? '' : 'hidden-model'}">
+          <td><span class="mchip" style="background:var(--${id})"></span><span class="term"
+              data-term="model_${id}">${MM.models[id].label}</span> (${paramStr(id)})</td>` +
+          COLS.map((c, ci) => {
+            const v = c.get(r);
+            const isBest = state.visible[id] && c.best && typeof v === 'number' && v !== null && best[ci] === v;
+            const decl = (c.cls ? `color:var(--${c.cls(r) === 'pass' ? 'good' : 'crit'});` : '')
+                       + (isBest ? `--best-tint:var(--${id});` : '');
+            const style = decl ? ` style="${decl}"` : '';
+            return `<td class="${isBest ? 'best' : ''}"${style}>${v === null ? '—' : c.fmt(v)}</td>`;
+          }).join('') + '</tr>';
+      }).join('');
+    markTerms($('#values'));
+  }
+
+  /* ---- recompute + wire-up ---- */
+  function recompute() {
+    $('#o-mu').textContent = `${state.env.mu.toFixed(3)} · ${(100 * state.env.mu).toFixed(1)} %`;
+    $('#o-N').textContent = fmtInt(state.env.N);
+
+    // Whether the sliders still sit on the proposed point; the drawer caption
+    // reports it, and nothing else does now the switch is gone.
+    const preset = matchPreset();
+
+    for (const id of MODEL_IDS) {
+      for (const s of MM.models[id].sliders)
+        cardsHost.querySelector(`output[data-out="${id}:${s.key}"]`).textContent = state.params[id][s.key];
+      rowsHost.querySelector(`[data-params="${id}"]`).textContent = paramStr(id);
+      rowsHost.querySelector(`[data-row="${id}"]`).classList.toggle('off', !state.visible[id]);
+      // A hidden design is off the figure and out of the best-in-column
+      // comparison, so its knobs would move nothing a reader can see.
+      const grp = cardsHost.querySelector(`[data-group="${id}"]`);
+      if (grp) {
+        grp.classList.toggle('is-hidden', !state.visible[id]);
+        for (const r of grp.querySelectorAll('input[type=range]'))
+          r.disabled = !state.visible[id];
+      }
+    }
+
+    const results = {};
+    for (const id of MODEL_IDS) {
+      const r = MM.compute(id, state.env, state.params[id]);
+      results[id] = { ...r, eclA: r.eclipse.A, eclB: r.eclipse.B };
+      // Same verdict in two places: a dot on the design tab, the figure in the readout.
+      tabsHost.querySelector(`[data-dot="${id}"]`).className = 'dot ' + (r.pass ? 'pass' : 'fail');
+      const verdict = rowsHost.querySelector(`[data-verdict="${id}"]`);
+      verdict.className = 'rverdict ' + (r.pass ? 'pass' : 'fail');
+      verdict.textContent = `${fmtSci(r.pbad)} ${r.pass ? '✓' : '✗'}`;
+      verdict.dataset.tip = `P(bad) = ${fmtSci(r.pbad)} against δ = ${fmtSci(state.env.delta)}` +
+        ` — ${r.pass ? 'clears the target' : 'misses the target'} at μ = ${state.env.mu.toFixed(3)}.` +
+        ` Churn budget ${(100 * r.churn).toFixed(1)} %.`;
+    }
+    const shown = AXES.filter(a => state.axes[a.key]);
+    // The name is fixed; only the state beside it changes, the way a readout row
+    // carries a name and its verdict.
+    $('#tune-summary').textContent =
+      `${preset ? PRESETS[preset].label.toLowerCase() : 'custom'} · ${shown.length}/${AXES.length} axes`;
+    markTerms(document);
+    lastResults = results;
+    drawRadar(results, shown);
+    drawTable(results);
+  }
+
+  // Re-draw only when the radar actually crosses the compact threshold; the closed
+  // forms are far too costly to re-evaluate on every resize event.
+  addEventListener('resize', () => {
+    if (lastResults && isCompact() !== lastCompact)
+      drawRadar(lastResults, AXES.filter(a => state.axes[a.key]));
+  });
+
+  /* ---- self-test ----
+     The fixtures still run on every load — they are what ties this page to the Python
+     modules — but they are a development affordance, not something a visitor should
+     read. The result lives in the console and on window.__selfTest, nowhere on screen. */
+  const tests = MM.runSelfTest();
+  const fails = tests.filter(t => !t.pass);
+  window.__selfTest = {
+    pass: fails.length === 0, passed: tests.length - fails.length, total: tests.length,
+    failures: fails, tests,
+  };
+  const summary = `[compare] self-test ${tests.length - fails.length}/${tests.length}`;
+  if (fails.length) {
+    console.error(summary + ' — FAILED', fails);
+  } else {
+    console.info(summary + ' pass');
+  }
+
+  recompute();
+})();
+</script>
+</body>
+</html>

@@ -12,7 +12,9 @@ use super::ConnectionStrategy;
 use crate::connection_state::LinkKind;
 use crate::message::push_len_prefixed;
 use crate::peer::PeerId;
-use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
+use crate::strategies::edge::{
+    is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, is_valid_edge_sym_ordered,
+};
 use crate::strategies::view::NodeView;
 use crate::topic::TopicId;
 
@@ -59,6 +61,7 @@ pub struct Selection {
     self_id: PeerId,
     kind: LinkKind,
     symmetric: bool,
+    symmetric_ordered: bool,
     bucket_count: Option<usize>,
     pick_count: Option<usize>,
     seed: [u8; 32],
@@ -77,6 +80,7 @@ impl Selection {
             self_id,
             kind: LinkKind::Relay,
             symmetric: false,
+            symmetric_ordered: false,
             bucket_count: None,
             pick_count: None,
             seed,
@@ -126,6 +130,17 @@ impl Selection {
         self
     }
 
+    /// Switch a symmetric instance's gate to the **ordered** comparison
+    /// predicate (ADR 0043): the directional draw under its own dedicated
+    /// domain — the measured comparison arm for the construction N-039
+    /// rejected. Legal only together with the symmetric switch; selected by
+    /// the experiments configuration, never an operator option.
+    #[must_use]
+    pub fn with_symmetric_ordered(mut self, ordered: bool) -> Self {
+        self.symmetric_ordered = ordered;
+        self
+    }
+
     /// The per-topic sampling seed feeding the pick draw's RNG:
     /// `SHA-256( lp(domain) ‖ lp(seed) ‖ lp(self-id key bytes) ‖ nonce_le8 ‖
     /// lp(topic) )` with `lp` the crate's one length-prefix primitive and the
@@ -157,7 +172,13 @@ impl Selection {
     /// seam's edge predicate under the instance's hash domain.
     fn gate_admits(&self, nonce: u64, topic: &TopicId, candidate: &PeerId, buckets: usize) -> bool {
         if self.symmetric {
-            is_valid_edge_sym(nonce, topic, &self.self_id, candidate, buckets)
+            if self.symmetric_ordered {
+                // ADR 0043: the dial side draws its own direction only —
+                // the far end's draw reaches this node as its inbound dial.
+                is_valid_edge_sym_ordered(nonce, topic, &self.self_id, candidate, buckets)
+            } else {
+                is_valid_edge_sym(nonce, topic, &self.self_id, candidate, buckets)
+            }
         } else {
             match self.kind {
                 LinkKind::Relay => is_valid_edge(nonce, topic, &self.self_id, candidate, buckets),
@@ -222,7 +243,9 @@ mod tests {
     use crate::connection_state::LinkKind;
     use crate::peer::PeerId;
     use crate::strategies::connection::ConnectionStrategy;
-    use crate::strategies::edge::{is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym};
+    use crate::strategies::edge::{
+        is_valid_edge, is_valid_edge_publisher, is_valid_edge_sym, is_valid_edge_sym_ordered,
+    };
     use crate::strategies::test_support::{
         candidates, no_links, peer, subscriptions, topic, view, view_with_nonce,
     };
@@ -457,6 +480,25 @@ mod tests {
         let expected = expected_of(&gated_picks, 60);
         assert_eq!(expected.len(), 4.min(survivors.len()));
         assert!(expected.is_subset(&survivors));
+    }
+
+    // ADR 0043: the ordered switch swaps a symmetric gate to the ordered
+    // comparison predicate — survivors are exactly the self→candidate
+    // ordered draws, not the pair draws.
+    #[test]
+    fn symmetric_ordered_gate_uses_the_ordered_predicate() {
+        let survivors = survivors_by(60, |p| {
+            is_valid_edge_sym_ordered(0, &topic("t1"), &peer("self"), p, 3)
+        });
+        let pair_survivors = survivors_by(60, |p| {
+            is_valid_edge_sym(0, &topic("t1"), &peer("self"), p, 3)
+        });
+        assert_ne!(survivors, pair_survivors, "the domains must diverge");
+        let ordered = Selection::new(peer("self"), [7u8; 32])
+            .with_symmetric(true)
+            .with_symmetric_ordered(true)
+            .with_bucket_count(Some(3));
+        assert_eq!(expected_of(&ordered, 60), survivors);
     }
 
     // ADR 0031: the epoch nonce is read from the view for the gate — some

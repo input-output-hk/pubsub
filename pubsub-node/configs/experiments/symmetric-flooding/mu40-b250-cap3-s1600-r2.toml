@@ -1,0 +1,41 @@
+# Symmetric flooding mu-composition replicate: B = 250, budget C = 3,
+# S = 1600 (mu = 0.4) — fresh seed, same coordinates as
+# mu40-b250-cap3-s1600.toml.
+#
+# The first composition cell measured 80/400 bad against the pure
+# E18 empty-pool prediction of 59.2 (z = +2.9) where the uncapped E18
+# cell at the same geometry measured 76/500 (0.152 vs law 0.148) — a
+# suggestive but unresolved starvation excess attributable to the cap.
+# This replicate doubles the sample to resolve it. Predictions identical
+# to the first cell's: E18 E_iso = 0.160 -> P(bad) = 0.148 (~59.2/400
+# expected bad) if the cap leaves the channel untouched; a repeated
+# ~0.20 bad rate confirms a real cap x empty-pool composition term.
+# Race columns as the first cell (admitted h/s = 0.576/0.426, refused
+# h/s = 0.280/0.207, crossing refusals = 0, degree <= 19).
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/symmetric-flooding/mu40-b250-cap3-s1600-r2.toml --out results/symmetric-flooding/mu40-b250-cap3-s1600-r2/ --per-node-detail
+
+model = "m4"
+master_seed = 1134
+
+[population]
+size = 4000
+adversarial = 1600
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+accept_cap = 3
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 250 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

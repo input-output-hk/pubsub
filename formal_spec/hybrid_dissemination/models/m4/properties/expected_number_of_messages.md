@@ -55,4 +55,5 @@ rare bad graph T scales with the source component's edges.
 | 12 | 291 201 | 291 201 | 18.2 |
 
 Agreement is exact to the fourth significant figure across the range. At the
-δ = 10⁻⁴ operating point RF = 8: **T ≈ 188 800 (11.8 / honest node)**.
+operating point RF = 9: **T ≈ 214 400 (13.4 / honest node)**; at the
+δ-cheapest RF = 8: T ≈ 188 800 (11.8 / honest node).

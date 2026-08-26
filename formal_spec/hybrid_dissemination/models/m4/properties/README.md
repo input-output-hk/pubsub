@@ -9,6 +9,8 @@ honest-BFS + closed forms; run it for a self-test), `sim_m4_coverage.py`
 `sim_m4_degrees.py` (degree distributions), `sweep_m4_mu_shift.py`
 (μ-shift degradation at frozen RF), `sim_m4_severity.py` (bad-graph
 severity), `sweep_m4_reprovision.py` (cheapest RF vs design μ),
+`sim_m4_eclipse.py` (adaptive eclipse cost), `sweep_m4_pfail.py`
+(per-message delivery under send loss + retry economics),
 `compare_bandwidth.py` and `compare_hops.py` (cross-model runs, used by the
 comparison report).
 
@@ -20,13 +22,17 @@ comparison report).
 | Node degrees (links held) | [`node_degrees.md`](node_degrees.md) | CLOSED FORM |
 | μ-shift robustness (frozen params) | [`mu_shift_robustness.md`](mu_shift_robustness.md) | HYBRID |
 | Re-provisioning (cheapest RF at design μ) | [`re_provisioning.md`](re_provisioning.md) | HYBRID |
+| Adaptive eclipse cost (corruptions) | [`adaptive_eclipse_cost.md`](adaptive_eclipse_cost.md) | HYBRID |
+| Transmission unreliability (per-message, p_fail) | [`transmission_unreliability.md`](transmission_unreliability.md) | HYBRID |
 
 Candidate properties not yet analysed (churn tolerance, join service,
 link repair, …): [`candidate_properties.md`](../../candidate_properties.md).
 
 **Headline results** (N = 20 000, μ = 0.2): P(bad) ≈ 1 − e^{−E_iso} with
-E_iso = H·μ^RF·e^{−RF(1−μ)}; the smallest fanout with P(bad) ≤ 10⁻⁴ is
-**RF = 8** (≈ 188 800 transmissions/message, 11.8 / honest node, 5.1 hops).
+E_iso = H·μ^RF·e^{−RF(1−μ)}; the operating point — δ = 10⁻⁴ held with the
+disturbance margin ([`../../comparison.md`](../../comparison.md)) — is
+**RF = 9** (P(bad) ≈ 6.1×10⁻⁶, ≈ 214 400 transmissions/message,
+13.4 / honest node, 5.0 hops); the δ-cheapest fanout (δ alone) is RF = 8.
 
 **Verdict legend** — CLOSED FORM: exact explicit formula; HYBRID: closed-form
 law validated by simulation, exact finite-N values need simulation;

@@ -1,0 +1,40 @@
+# Ordered-predicate tail cell (ADR 0043): B = 250 ordered — the equal-B
+# discriminator against E18's unordered B = 250 (57 and 61 bad/8 000).
+#
+# Below the saturation boundary (out-pool mean 16 = K) the ordered
+# construction's two independent coins let the picks repair the tail:
+# predicted (symmetric_flooding_predictions.py `250 800 open ordered`)
+# E_iso = 8.3e-8 — expect 0 bad/8 000 against the unordered pair's ~57
+# at the same gate width, at the price of doubled admissibility (total
+# pair density ~2/250; degree d ~29.1 vs the unordered 16 — B has left
+# the degree's control at this point too). The measured row for E18 §4's
+# "ordered ~ ungated at equal B" pricing.
+#
+# Run manually (no per-node detail needed — the tail reads run rows):
+#
+#   experiments --config configs/experiments/symmetric-flooding/ordered-tail-b250.toml --out results/symmetric-flooding/ordered-tail-b250/
+
+model = "m4"
+master_seed = 1136
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+symmetric_ordered = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 250
+symmetric = true
+symmetric_ordered = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

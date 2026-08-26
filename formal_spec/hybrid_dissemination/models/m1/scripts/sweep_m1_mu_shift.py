@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """M1 mu-shift robustness: coverage degradation at frozen parameters.
 
-The deployed operating point (F = 24, chosen at N = 20000, mu = 0.2 for
-P(bad) <= 1e-4) is frozen while the effective adversarial fraction mu_eff
+The deployed operating point (F = 25, margin-selected at N = 20000, mu = 0.2;
+delta = 1e-4) is frozen while the effective adversarial fraction mu_eff
 rises: N stays 20000, k = round(mu_eff * N), H = N - k.  Reports the law
 curve P(bad) vs mu_eff, the budget (largest mu_eff with P(bad) <= delta),
 the collapse point (P(bad) = 1/2), and Monte-Carlo spot checks at elevated
@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from m1_model import M1Params, sample_bad  # noqa: E402
 
 N = 20_000
-F = 24
+F = 25
 DELTA = 1e-4
 MU0 = 0.20
 

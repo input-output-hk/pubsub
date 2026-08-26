@@ -34,7 +34,8 @@ obtained by simulation.
 |---|---|---|---|
 | 16 | 5.05 | 4.04 | 3.80 |
 | 20 | 5.00 | 3.78 | 3.49 |
-| 24 | 4.75 | 3.60 | 3.28 |
+| 24 (δ-cheapest) | 4.75 | 3.60 | 3.28 |
+| 25 | 4.60 | 3.58 | 3.23 |
 
-At the δ = 10⁻⁴ operating point RF = 24: **4.8 hops to full coverage, 3.6
+At the operating point RF = 25: **4.6 hops to full coverage, 3.6
 typical**.

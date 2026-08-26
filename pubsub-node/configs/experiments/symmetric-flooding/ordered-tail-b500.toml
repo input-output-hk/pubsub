@@ -1,0 +1,42 @@
+# Ordered-predicate tail cell (ADR 0043): B' = 500 ordered — equal total
+# pair density to E18's unordered B = 250 (1 - (1 - 1/500)^2 ~ 1/250).
+#
+# The saturation-boundary identification. At B' = 500 the out-pool
+# (mean 8) is smaller than K = 16, so picks cover the whole pool and the
+# ordered tail's two independent exponents are BOTH pool-driven:
+# predicted (symmetric_flooding_predictions.py `500 800 open ordered`)
+# E_iso = 8.80e-3, P(bad) = 0.0088 — statistically EQUAL to the
+# unordered B = 250 law value (E18: predicted 0.0086, measured 57 and
+# 61 bad/8 000). Expect ~70 bad/8 000. Degree d ~15.97 (equal density,
+# equal degree). The "ordered ~ ungated, RF-repairable" row of E18 §4
+# holds only below the saturation boundary B' < (N-1)/K = 250 — this
+# cell measures that the advantage vanishes above it.
+#
+# Run manually (no per-node detail needed — the tail reads run rows):
+#
+#   experiments --config configs/experiments/symmetric-flooding/ordered-tail-b500.toml --out results/symmetric-flooding/ordered-tail-b500/
+
+model = "m4"
+master_seed = 1135
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 500
+symmetric = true
+symmetric_ordered = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 500
+symmetric = true
+symmetric_ordered = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

@@ -112,6 +112,9 @@ fn lock_poisoned() -> ! {
     panic!("subscription registry mutex poisoned")
 }
 
+// The trait is async for I/O-backed registries; this in-memory
+// implementation completes synchronously under its mutex.
+#[allow(clippy::unused_async_trait_impl)]
 impl SubscriptionRegistry for InMemorySubscriptionRegistry {
     async fn watch(
         &self,
@@ -154,6 +157,8 @@ impl SubscriptionRegistry for InMemorySubscriptionRegistry {
     }
 }
 
+// Synchronous under the mutex, like the registry impl above.
+#[allow(clippy::unused_async_trait_impl)]
 impl SubscriptionRegistryControl for InMemorySubscriptionRegistry {
     async fn set_topics(
         &self,

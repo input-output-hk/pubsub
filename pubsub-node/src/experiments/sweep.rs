@@ -36,7 +36,9 @@ use super::statistics::{fold_aggregates, ExperimentAggregates};
 pub const SEED_DERIVATION_RULE: &str = "run_seed = SHA-256('experiments/run-seed/v1' || \
      master_seed_be8 || run_index_be8); sub_seed(label) = SHA-256(label || run_seed || 0_be8) \
      for labels keys/classes/sampler/churn/publisher; participant sampler seed i = \
-     SHA-256('participant-sampler' || sub_seed('sampler') || i_be8)";
+     SHA-256('participant-sampler' || sub_seed('sampler') || i_be8); \
+     arrival_key(recipient, sender) = SHA-256(lp('experiments/arrival-order/v1') || run_seed || \
+     lp(recipient) || lp(sender)) orders each recipient's intra-wave arrivals";
 
 /// One resolved experiment: the complete result-affecting parameter set,
 /// referenced by index from every run record.
@@ -219,7 +221,7 @@ fn execute_run_inner(
     let population =
         Population::build(&population_config, &population_seeds).expect("validated population");
 
-    let mut driver = Driver::new(population);
+    let mut driver = Driver::new(population, seed);
     let dial = driver.establish(SetupMode::Prepopulated);
     let down = driver.churn_draw(churn_seed, params.churn_count);
     // The pre-churn pass ignores the down marks, so both passes run after

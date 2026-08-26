@@ -884,6 +884,51 @@
   .update-links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px; }
 
   /* Footer chrome lives in shared.css — the subpages use the same markup. */
+
+  /* The CIP is written but not yet submitted upstream, so it is named and
+     marked rather than linked. Swap each for an <a> when it has a home. */
+  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
+                            color: var(--text-mute); cursor: default; }
+  .nav-soon { font-size: inherit; }
+  .footer-soon { font-size: 0.9rem; }
+  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
+                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
+                border: 1px solid var(--line-strong); color: var(--text-mute); }
+  h3 .soon-badge { margin-left: 10px; vertical-align: middle; }
+  /* A tile with nowhere to go yet: same shape, no affordance. */
+  .material-tile--soon { cursor: default; }
+  .material-tile--soon:hover { border-color: var(--line); transform: none; }
+  .material-name .soon-badge { margin-left: 9px; vertical-align: middle; }
+
+  /* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
+  }
 </style>
 </head>
 <body>
@@ -908,9 +953,18 @@
   <div class="navbar-links">
     <a href="#scenarios">Scenarios</a>
     <a href="#research">Research</a>
-    <a href="#experiments">Experiments</a>
+    <span class="nav-item nav-item--experiments">
+      <a href="#experiments">Experiments</a>
+      <span class="nav-menu">
+        <a href="experiments/">Overview</a>
+        <a href="experiments/models/">Dissemination model simulator</a>
+        <a href="experiments/compare-designs/">Compare designs</a>
+        <a href="experiments/parameters/">Parameter surface</a>
+      </span>
+    </span>
     <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
+    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -1162,14 +1216,25 @@
             backed by a deterministic simulation framework for controlled experiments.
           </p>
         </div>
+        <div class="timeline-entry active">
+          <div class="timeline-marker">Aug 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">Being drafted</span></div>
+          <h3>Results published as a CIP<span class="soon-badge">soon</span></h3>
+          <p>
+            The findings are written up as a <strong>Cardano Improvement Proposal</strong>: a
+            specification of the protocol, and a rationale that sets out the adversary it is
+            analysed against, what was measured and how, and where the guarantees stop. It
+            carries the narrowing from five candidate designs to two, and is explicit about
+            what it does not settle. It is being drafted now, and goes upstream to the CIP
+            repository once the dissemination design is named.
+          </p>
+        </div>
         <div class="timeline-entry ahead">
           <div class="timeline-marker">Ahead</div>
           <div class="timeline-tag"><span class="status-ahead">Planned</span></div>
           <h3>Hardening &amp; ecosystem integration</h3>
           <p>
-            A design proposal consolidates the analytical and experimental findings into a
-            concrete architecture recommendation, published as a CIP if phase&nbsp;2 time
-            permits. The scope beyond that is still taking shape; candidates include a
+            The scope beyond the CIP is still taking shape; candidates include a
             fee-and-incentive model that rewards honest participation, real network transport
             in the prototype node, a public testnet, and, on the research side, decentralised
             peer sampling at scales where the on-chain list no longer suffices.
@@ -1184,39 +1249,31 @@
       <header class="section-head">
         <div class="section-kind">Experiments</div>
         <h2>Five candidate models, one bar</h2>
-        <p>
-          Not proposing a design, but empirically deriving one. All five face the same bar:
-          every honest publisher's message reaches every honest node despite silent
-          Byzantine peers, measured as the probability that the honest network stays
-          strongly connected. All five can clear it. What separates them is the price: how
-          many standing links every node has to hold, and how many copies of each published
-          message the network has to carry.
-        </p>
       </header>
       <div class="model-strip">
-        <a class="model-row" href="experiments/#m1">
+        <a class="model-row" href="experiments/models/#m1">
           <span class="model-id">M1</span>
           <span class="model-mech"><strong>Push</strong>: every node, on first receipt, pushes the message to F random peers.</span>
         <span class="model-arrow">›</span></a>
-        <a class="model-row" href="experiments/#m2">
+        <a class="model-row" href="experiments/models/#m2">
           <span class="model-id">M2</span>
           <span class="model-mech"><strong>Pull</strong>: each node pulls from RF forwarders, redrawn every epoch.</span>
         <span class="model-arrow">›</span></a>
-        <a class="model-row" href="experiments/#m3">
+        <a class="model-row" href="experiments/models/#m3">
           <span class="model-id">M3</span>
           <span class="model-mech"><strong>Pull + publishing links</strong>: per-epoch pull plus s−1 publishing links carrying only the node's own publications.</span>
         <span class="model-arrow">›</span></a>
-        <a class="model-row" href="experiments/#m4">
+        <a class="model-row" href="experiments/models/#m4">
           <span class="model-id">M4</span>
-          <span class="model-mech"><strong>Bidirectional</strong>: each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.</span>
+          <span class="model-mech"><strong>Bidirectional</strong>: each node picks RF peers; every pick becomes a symmetric link, and messages flood along all of them.</span>
         <span class="model-arrow">›</span></a>
-        <a class="model-row" href="experiments/#m5">
+        <a class="model-row" href="experiments/models/#m5">
           <span class="model-id">M5</span>
           <span class="model-mech"><strong>Directed</strong>: k<sub>in</sub> inbound + k<sub>out</sub> outbound links, both the node's own picks.</span>
         <span class="model-arrow">›</span></a>
       </div>
       <div class="model-cta">
-        <a class="btn btn-primary" href="experiments/">Explore the models</a>
+        <a class="btn btn-primary" href="experiments/">Explore the designs</a>
       </div>
     </div>
   </section>
@@ -1277,15 +1334,14 @@
           <span class="material-note">GitHub</span>
           <span class="material-arrow" aria-hidden="true">›</span>
         </a>
-        <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/logbook.md" target="_blank" rel="noopener">
+        <div class="material-tile material-tile--soon" aria-disabled="true">
           <div class="material-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M9 7h7"/><path d="M9 11h7"/></svg>
           </div>
-          <span class="material-name">Research logbook</span>
-          <p class="material-desc">The running day-by-day record of the research: decisions, experiments, and milestones as they happen.</p>
-          <span class="material-note">Ongoing</span>
-          <span class="material-arrow" aria-hidden="true">›</span>
-        </a>
+          <span class="material-name">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
+          <p class="material-desc">The protocol specified, and the evidence behind it: what was measured, what the guarantees cost, and where they stop.</p>
+          <span class="material-note">Being drafted</span>
+        </div>
       </div>
     </div>
   </section>
@@ -1300,6 +1356,7 @@
         <a href="#research">Programme</a>
         <a href="experiments/">Dissemination models</a>
         <a href="slides/midyear-2026.html">Midyear presentation</a>
+        <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
@@ -1941,5 +1998,50 @@
   })();
 </script>
 
+
+<script>
+  /* The nav tracks the section in view. Whichever section covers the middle of
+     the viewport owns the highlight, so a short section at the end of the page
+     still claims it. */
+  (function () {
+    var links = {}, order = [];
+    document.querySelectorAll('.navbar-links a[href^="#"]').forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      if (document.getElementById(id)) { links[id] = a; order.push(id); }
+    });
+    if (!order.length) return;
+
+    var expItem = document.querySelector('.nav-item--experiments');
+    function setActive(id) {
+      order.forEach(function (k) { links[k].classList.toggle('active', k === id); });
+      if (expItem) expItem.classList.toggle('is-current', id === 'experiments');
+    }
+
+    function pick() {
+      var mid = window.innerHeight / 2, best = null, bestDist = Infinity;
+      order.forEach(function (id) {
+        var r = document.getElementById(id).getBoundingClientRect();
+        if (r.top <= mid && r.bottom >= 0) {
+          var d = Math.abs(r.top - mid);
+          if (d < bestDist) { bestDist = d; best = id; }
+        }
+      });
+      if (window.scrollY + window.innerHeight >= document.body.scrollHeight - 4) {
+        best = order[order.length - 1];
+      }
+      setActive(best);
+    }
+
+    var ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { pick(); ticking = false; });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    pick();
+  })();
+</script>
 </body>
 </html>

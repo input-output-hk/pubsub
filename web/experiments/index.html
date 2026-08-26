@@ -3,9 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Experiments — Five dissemination models · Cardano PubSub</title>
-<meta name="description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
+<title>Experiments — how the dissemination design was derived · Cardano PubSub</title>
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/">
+<meta name="description" content="Five candidate dissemination models, measured against one bar and one adversary. Three are out, two remain — how the comparison was run and where it stands.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="How the design was derived — Cardano PubSub">
+<meta property="og:description" content="Five candidate dissemination models, measured against one bar and one adversary. Three are out, two remain — how the comparison was run and where it stands.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How the design was derived — Cardano PubSub">
+<meta name="twitter:description" content="Five candidate dissemination models, measured against one bar and one adversary. Three are out, two remain — how the comparison was run and where it stands.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <link rel="icon" href="../assets/favicon.ico">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
@@ -14,22 +30,6 @@
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
 
 <!-- Link previews: Slack, Discord, Telegram, LinkedIn, X and search engines. -->
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Cardano PubSub">
-<meta property="og:locale" content="en">
-<meta property="og:title" content="Five candidate dissemination models — Cardano PubSub">
-<meta property="og:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/">
-<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
-<meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Five candidate dissemination models — Cardano PubSub">
-<meta name="twitter:description" content="The five candidate dissemination models of the Cardano PubSub research, M1 to M5, with their construction and forwarding rules animated at toy scale.">
-<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
-<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -81,11 +81,6 @@
 
   /* ---------- Page head ---------- */
   section.page-head { padding: 56px 0 8px; }
-  .section-kind {
-    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.16em; color: var(--iog-infared);
-    margin-bottom: 14px;
-  }
   .page-head h1 {
     font-family: var(--font-display);
     font-size: clamp(1.9rem, 4vw, 3rem);
@@ -95,65 +90,17 @@
   .page-head .lede { color: var(--text-mute); max-width: 74ch; }
   .page-head .lede + .lede { margin-top: 12px; }
 
-  /* ---------- Model tabs ---------- */
-  .model-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 34px 0 22px; }
-  .model-tab {
-    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
-    letter-spacing: 0.06em;
-    padding: 9px 16px; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--text-mute);
-    transition: border-color .15s ease, color .15s ease, background .15s ease;
-  }
-  .model-tab:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
-  .model-tab.active { background: var(--iog-infared); border-color: var(--iog-infared); color: #FFFFFF; }
-
-  /* ---------- Stage ---------- */
-  .stage {
-    display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(250px, 0.9fr);
-    gap: 28px; align-items: stretch;
-  }
-  .stage-canvas {
-    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 22px 22px 16px;
-  }
-  .stage-canvas svg { width: 100%; height: auto; display: block; max-width: 660px; margin: 0 auto; }
-
-  .canvas-footer { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
-
-  /* The step card fills the column so the buttons keep a fixed position
-     regardless of how long the step description is. */
-  .stage-side { display: flex; flex-direction: column; gap: 14px; }
-  .step-card {
-    border: 1px solid var(--card-stroke-faint); border-radius: 8px;
-    background: var(--card-fill); padding: 20px 22px; flex: 1;
-  }
-  .step-desc { min-height: 8em; }
-  .step-count {
-    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint);
-    margin-bottom: 8px;
-  }
-  .step-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
-  .step-desc { font-size: 0.92rem; color: var(--text-mute); line-height: 1.6; }
-  .step-desc strong { color: var(--text); }
-
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .controls .ctl-btn { flex: 1 1 auto; }
-  .ctl-btn {
-    font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 9px 14px; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--text);
-    transition: border-color .15s ease, color .15s ease;
-  }
-  .ctl-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
-  .ctl-btn:disabled { opacity: 0.35; cursor: default; }
-  .ctl-btn:disabled:hover { border-color: var(--line-strong); color: var(--text); }
-
-  .legend { padding: 12px 0 0; }
-  .legend-items { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
-  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-mute); }
-  .legend-item svg { width: 26px; height: 14px; flex-shrink: 0; }
+  /* The method, available but not in the way. */
+  .explainer { margin-top: 22px; border-top: 1px solid var(--line); }
+  .explainer > summary { cursor: pointer; padding: 14px 0 0; font-weight: 600;
+                         font-size: 0.95rem; list-style: none; }
+  .explainer > summary::-webkit-details-marker { display: none; }
+  .explainer > summary::before { content: "+"; display: inline-block; width: 1.1em;
+                                 color: var(--text-mute); font-weight: 400; }
+  .explainer[open] > summary::before { content: "\2212"; }
+  .explainer > summary:hover { color: var(--iog-cobalt-pulse); }
+  .explainer-body p { font-size: 0.95rem; line-height: 1.62; color: var(--text-mute);
+                      margin: 12px 0 0; }
 
   /* ---------- Model notes — directly below the tab bar ---------- */
   .model-notes {
@@ -166,10 +113,6 @@
     to { opacity: 1; transform: none; }
   }
   @media (prefers-reduced-motion: reduce) { .model-notes.swap { animation: none; } }
-  .model-notes .card-kicker {
-    font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase;
-    letter-spacing: 0.14em; color: var(--iog-infared); font-weight: 600; margin-bottom: 10px;
-  }
   .model-notes h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
   .model-notes p { font-size: 0.93rem; color: var(--text-mute); line-height: 1.6; max-width: 90ch; }
   .model-notes p + p { margin-top: 8px; }
@@ -208,17 +151,152 @@
   .edge.focus-other { opacity: 0.55; stroke-width: 1.1; }
   .node:hover { stroke-width: 2.5; cursor: default; }
 
-  .hover-hint {
-    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint);
-    letter-spacing: 0.05em; text-align: center; margin-top: 12px;
-  }
-
   @media (max-width: 900px) {
-    .stage { grid-template-columns: 1fr; }
+
   }
 
   @media (prefers-reduced-motion: reduce) {
     .node, .edge, .pub-ring, .node-label { transition: none; }
+  }
+
+  /* The CIP is written but not yet submitted upstream, so it is named and
+     marked rather than linked. Swap each for an <a> when it has a home. */
+  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
+                            color: var(--text-mute); cursor: default; }
+  .nav-soon { font-size: inherit; }
+  .footer-soon { font-size: 0.9rem; }
+  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
+                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
+                border: 1px solid var(--line-strong); color: var(--text-mute); }
+
+  /* Two ways in, given equal weight: neither is the primary. */
+  .route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 16px; margin: 30px 0 6px; }
+  .route { position: relative; overflow: hidden; isolation: isolate;
+           display: flex; flex-direction: column; gap: 8px;
+           padding: 22px 46% 22px 22px; min-height: 188px; justify-content: flex-end;
+           border: 1px solid var(--line); border-radius: 10px; text-decoration: none;
+           color: inherit; background: var(--bg-soft);
+           transition: border-color .15s ease, transform .15s ease; }
+  .route > * { position: relative; z-index: 1; }
+  .route:hover { border-color: var(--iog-infared); transform: translateY(-2px); }
+  .route-kind { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.14em; color: var(--iog-infared); }
+  .route-name { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
+  .route-go { margin-top: 4px; font-size: 0.9rem; color: var(--text-mute); }
+  .route:hover .route-go { color: var(--iog-infared); }
+
+  /* The figure itself, oversized and bled off the right edge: it reads as the
+     thing the tile opens rather than as an illustration sitting inside it. */
+  .route-thumb { position: absolute; z-index: 0; top: 50%; right: -7%;
+                 width: 56%; max-width: none; height: auto; overflow: visible;
+                 transform: translateY(-50%); transform-origin: 60% 50%;
+                 pointer-events: none; }
+  /* The simulator's own classes, static: no animation, nothing hidden. */
+  .route-thumb .edge { opacity: 0.22; stroke: var(--text-faint); fill: none; stroke-width: 3; }
+  .route-thumb .edge.traversed { stroke: var(--info); opacity: 0.75; stroke-width: 5; }
+  /* Same meanings as the simulator: a link whose forwarder is adversarial is
+     dead, and a publishing link carries only its owner's own messages. */
+  .route-thumb .edge.dead { stroke: var(--bad); stroke-dasharray: 12 12; opacity: 0.4; }
+  .route-thumb .edge.seed { stroke: var(--iog-infared); stroke-dasharray: 15 12;
+                            opacity: 0.8; stroke-width: 4; }
+  .route-thumb .thumb-axis { font-family: var(--font-mono); font-size: 15px;
+                             font-weight: 600; letter-spacing: 0.08em;
+                             text-transform: uppercase; fill: var(--text-mute); }
+  .route-thumb .node { fill: var(--bg); stroke: var(--line-strong); stroke-width: 3; }
+  .route-thumb .node.informed { fill: var(--info); stroke: var(--info); }
+  .route-thumb .node.adv { fill: var(--bad); stroke: var(--bad); }
+  .route-thumb .pub-ring { fill: none; stroke: var(--iog-infared); stroke-width: 3.5; }
+  /* The radar arrives with its stroke widths baked in for a full-page figure;
+     at tile size they read as heavy. */
+  .route-thumb polygon { stroke-width: 1.1; }
+  .route-thumb line { stroke-width: 0.8; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1); }
+    .route:hover .route-thumb { transform: translateY(-50%) scale(1.14); }
+    /* The radar's outer labels sit closest to the clipped edge, so on hover it
+       draws back toward the centre far enough to read them. */
+    .route--radar .route-thumb { transition: transform .34s cubic-bezier(.22,.61,.36,1),
+                                             right .34s cubic-bezier(.22,.61,.36,1); }
+    .route--radar:hover .route-thumb { right: 2%; transform: translateY(-50%) scale(1.10); }
+
+    /* Parallax: the grid, then each model's shape, take the scale at slightly
+       different rates, so the layers separate for a moment on hover. */
+    .route-thumb polygon { transform-box: view-box; transform-origin: 430px 282px;
+                           transition: transform .52s cubic-bezier(.22,.61,.36,1); }
+    .route:hover .route-thumb polygon:nth-of-type(-n+4) { transform: scale(0.985); }
+    .route:hover .route-thumb polygon:nth-of-type(5) { transform: scale(1.03);
+                                                       transition-duration: .40s; }
+    .route:hover .route-thumb polygon:nth-of-type(6) { transform: scale(1.045);
+                                                       transition-duration: .46s; }
+    .route:hover .route-thumb polygon:nth-of-type(7) { transform: scale(1.06);
+                                                       transition-duration: .54s; }
+    .route:hover .route-thumb polygon:nth-of-type(8) { transform: scale(1.075);
+                                                       transition-duration: .62s; }
+    .route:hover .route-thumb polygon:nth-of-type(9) { transform: scale(1.09);
+                                                       transition-duration: .70s; }
+
+    /* Same idea on the graph, but the amounts stay small: edges terminate on
+       nodes, so layers that separate too far read as broken rather than deep.
+       The publisher's ring and the highlighted links carry most of the travel,
+       since nothing is anchored to them. */
+    .route--graph .route-thumb .edge,
+    .route--graph .route-thumb .node,
+    .route--graph .route-thumb .pub-ring {
+      transform-box: view-box; transform-origin: 260px 260px;
+      transition: transform .54s cubic-bezier(.22,.61,.36,1);
+    }
+    .route--graph:hover .route-thumb .edge { transform: scale(1.012);
+                                             transition-duration: .44s; }
+    .route--graph:hover .route-thumb .node { transform: scale(1.018);
+                                             transition-duration: .50s; }
+    .route--graph:hover .route-thumb .edge.dead { transform: scale(1.035);
+                                                  transition-duration: .60s; }
+    .route--graph:hover .route-thumb .edge.seed { transform: scale(1.05);
+                                                  transition-duration: .66s; }
+    .route--graph:hover .route-thumb .pub-ring { transform: scale(1.075);
+                                                 transition-duration: .74s; }
+  }
+
+  /* Breadcrumb: same weight as the old section kind, but it says where you are
+     and gets you back out. */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 14px; }
+  .breadcrumb a { color: var(--iog-infared); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .crumb-sep { color: var(--text-faint, var(--text-mute)); font-weight: 400; }
+  .breadcrumb .crumb-here { color: var(--text-mute); }
+
+  /* Experiments owns two subpages; the nav says so on hover rather than hiding
+     them one click deep. */
+  .nav-item { position: relative; display: inline-flex; align-items: center; }
+  .nav-menu {
+    position: absolute; top: calc(100% + 10px); left: -14px; min-width: 208px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; z-index: 30; box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  }
+  .nav-item:hover .nav-menu, .nav-item:focus-within .nav-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .nav-menu a {
+    display: block; padding: 9px 11px; border-radius: 5px;
+    font-size: 0.68rem; letter-spacing: 0.1em; color: var(--text-mute);
+  }
+  .nav-menu a:hover { background: var(--bg-alt); color: var(--iog-infared); }
+  .nav-menu a.active { color: var(--iog-infared); }
+  .nav-menu a.active::after { content: none; }
+  @media (max-width: 1040px) {
+    .nav-item { display: block; }
+    .nav-menu {
+      position: static; opacity: 1; visibility: visible; transform: none;
+      border: none; box-shadow: none; padding: 0 0 0 16px; min-width: 0;
+      background: transparent;
+    }
+    .nav-menu a { border-bottom: 1px solid var(--line); border-radius: 0; }
   }
 </style>
 </head>
@@ -229,7 +307,7 @@
 </svg>
 
 <nav class="navbar" aria-label="Primary">
-  <a class="navbar-brand" href="../">
+  <a class="navbar-brand" href="./">
     <img class="brand-half logo-light" src="../assets/io-mark-in-pos.png" alt="" aria-hidden="true">
     <img class="brand-half logo-dark" src="../assets/io-mark-in-neg.png" alt="" aria-hidden="true">
     <span class="brand-name"><span class="brand-scope">CARDANO</span>PUBSUB</span>
@@ -244,9 +322,18 @@
   <div class="navbar-links">
     <a href="../#scenarios">Scenarios</a>
     <a href="../#research">Research</a>
-    <a href="../#experiments" class="active">Experiments</a>
+    <span class="nav-item nav-item--experiments is-current">
+      <a href="./" class="active">Experiments</a>
+      <span class="nav-menu">
+        <a href="./" class="active">Overview</a>
+        <a href="models/">Dissemination model simulator</a>
+        <a href="compare-designs/">Compare designs</a>
+        <a href="parameters/">Parameter surface</a>
+      </span>
+    </span>
     <a href="../#activity">Activity</a>
     <a href="../#materials">Materials</a>
+    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -263,113 +350,192 @@
 <main>
   <section class="page-head">
     <div class="container">
-      <div class="section-kind">Experiments</div>
-      <h1>Five candidate dissemination models</h1>
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../#experiments">&lsaquo;&nbsp;Experiments</a>
+      </nav>
+      <h1>How the design was derived</h1>
       <p class="lede">
-        We are not proposing a dissemination design, we are deriving one. Five candidate
-        models, M1 to M5, each define a different rule set for how nodes connect to their
-        peers and forward messages. All are measured against one shared bar, the
-        <strong>good graph</strong>: every message of every honest publisher must reach all
-        other honest nodes. And all face the same adversary: a fraction μ of silent
-        Byzantine nodes that receive every message and never relay one.
+        Not proposing a design, deriving one. All five clear the same bar &mdash; every honest
+        publisher reaches every honest node despite silent Byzantine peers. How often an
+        epoch&rsquo;s wiring fails to manage that is <b>P(bad)</b>, and clearing the bar means
+        holding it under a stated <b>failure target</b>. What separates the five is price: the
+        <b>standing links</b> each node holds, and the <b>copies</b> the network carries per
+        message.
       </p>
-      <p class="lede">
-        The guarantee has to come from links that are drawn <strong>once per epoch</strong>
-        and then serve every message of every publisher for that whole epoch. The formal
-        analyses call this the <em>standing</em> structure, and it covers both link kinds:
-        relay links and publishing links. Only a structure that persists across messages can
-        promise <em>every</em> message; per-message randomness cannot. The prototype node
-        works exactly this way: it establishes its links during a sync phase, and only then
-        accepts messages for propagation.
-      </p>
-      <p class="lede">
-        <strong>Every model can clear the bar. The question is what it costs.</strong> Each
-        has a parameterisation that reaches the target at the reference network size and
-        adversarial fraction, and each sizing rule grows with the target, so a stricter bound
-        is always reachable by buying more links. What separates the models is the price, and
-        it is charged on two different axes. One is standing: the links every node has to
-        hold, maintain and repair, whether or not anything is published. The other is charged
-        per message: how many copies of it the network transmits before every honest node has
-        it. Both spread severalfold across the family for the same guarantee, and they pull
-        against each other, because giving publishing its own links cuts the copies carried
-        per message but adds to the links each node must hold.
-        So the design problem is to find the cheapest structure that still clears the bar,
-        while keeping the surface an adversary can attack as small as possible. The parameter
-        sweeps that put figures to each axis are still running.
-      </p>
-      <p class="lede">
-        <strong>A bad graph is rarely a broken network.</strong> Anything short of full
-        strong connectivity counts as bad, and in practice the failures are not large splits
-        but single stranded nodes. A node whose outgoing links all landed on adversaries is a
-        dead end, and dead ends dominate the tail. A bad graph does not mean a message went
-        undelivered, though: that depends on <em>which</em> node publishes. A stranded node
-        fails only as a publisher, and is invisible to everyone else's dissemination. In the
-        comparison run so far, every run delivered to every eligible node, including those
-        whose topology scored bad. So the experiments score the topology for all publishers at
-        once, and separately the worst case any single publisher would see.
-      </p>
-      <p class="lede">
-        The animation below plays each model's construction and forwarding rules at toy scale.
-      </p>
-    </div>
-  </section>
 
-  <section>
-    <div class="container">
-      <div class="model-tabs" role="tablist" id="tabs"></div>
-
-      <div class="model-notes">
-        <div class="card-kicker" id="note-kicker"></div>
-        <h3 id="note-title"></h3>
-        <p id="note-mech"></p>
-        <p id="note-watch"></p>
-        <div class="knobs" id="note-knobs"></div>
-      </div>
-
-      <div class="stage">
-        <div class="stage-canvas">
-          <svg id="graph" viewBox="0 0 520 520" role="img" aria-label="Animated network graph illustrating the selected dissemination model">
-            <defs>
-              <marker id="arr-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--info)"/>
-              </marker>
-              <marker id="arr-faint" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
-              </marker>
-              <marker id="arr-dead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/>
-              </marker>
-              <marker id="arr-seed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--iog-infared)"/>
-              </marker>
-            </defs>
-            <g id="g-edges"></g>
-            <g id="g-nodes"></g>
+      <div class="route-grid">
+        <a class="route route--graph" href="models/">
+          <svg class="route-thumb" viewBox="24 24 472 472" aria-hidden="true">
+            <path class="edge shown traversed" d="M 443.2 175.9 Q 333.4 150.1 269.3 61.0"/>
+            <path class="edge shown traversed" d="M 403.7 398.5 Q 316.2 236.7 264.6 63.3"/>
+            <path class="edge shown traversed" d="M 461.4 252.4 Q 369.9 186.6 344.8 79.7"/>
+            <path class="edge shown traversed" d="M 339.8 442.9 Q 320.8 260.0 339.5 80.1"/>
+            <path class="edge shown dead" d="M 449.0 330.1 Q 389.7 234.2 407.3 125.9"/>
+            <path class="edge shown traversed" d="M 263.7 459.5 Q 316.2 283.3 402.3 124.2"/>
+            <path class="edge shown traversed" d="M 407.8 397.1 Q 389.7 285.8 447.4 192.5"/>
+            <path class="edge shown dead" d="M 187.1 445.8 Q 303.0 303.0 443.4 189.0"/>
+            <path class="edge shown traversed" d="M 344.1 443.2 Q 369.9 333.4 459.0 269.3"/>
+            <path class="edge shown traversed" d="M 121.5 403.7 Q 283.3 316.2 456.7 264.6"/>
+            <path class="edge shown" d="M 267.6 461.4 Q 333.4 369.9 440.3 344.8"/>
+            <path class="edge shown" d="M 77.1 339.8 Q 260.0 320.8 439.9 339.5"/>
+            <path class="edge shown dead" d="M 189.9 449.0 Q 285.8 389.7 394.1 407.3"/>
+            <path class="edge shown traversed" d="M 60.5 263.7 Q 236.7 316.2 395.8 402.3"/>
+            <path class="edge shown traversed" d="M 122.9 407.8 Q 234.2 389.7 327.5 447.4"/>
+            <path class="edge shown dead" d="M 74.2 187.1 Q 217.0 303.0 331.0 443.4"/>
+            <path class="edge shown traversed" d="M 76.8 344.1 Q 186.6 369.9 250.7 459.0"/>
+            <path class="edge shown traversed" d="M 116.3 121.5 Q 203.8 283.3 255.4 456.7"/>
+            <path class="edge shown" d="M 58.6 267.6 Q 150.1 333.4 175.2 440.3"/>
+            <path class="edge shown" d="M 180.2 77.1 Q 199.2 260.0 180.5 439.9"/>
+            <path class="edge shown dead" d="M 71.0 189.9 Q 130.3 285.8 112.7 394.1"/>
+            <path class="edge shown traversed" d="M 256.3 60.5 Q 203.8 236.7 117.7 395.8"/>
+            <path class="edge shown traversed" d="M 112.2 122.9 Q 130.3 234.2 72.6 327.5"/>
+            <path class="edge shown traversed" d="M 332.9 74.2 Q 217.0 217.0 76.6 331.0"/>
+            <path class="edge shown traversed" d="M 175.9 76.8 Q 150.1 186.6 61.0 250.7"/>
+            <path class="edge shown traversed" d="M 398.5 116.3 Q 236.7 203.8 63.3 255.4"/>
+            <path class="edge shown" d="M 252.4 58.6 Q 186.6 150.1 79.7 175.2"/>
+            <path class="edge shown" d="M 442.9 180.2 Q 260.0 199.2 80.1 180.5"/>
+            <path class="edge shown traversed" d="M 330.1 71.0 Q 234.2 130.3 125.9 112.7"/>
+            <path class="edge shown traversed" d="M 459.5 256.3 Q 283.3 203.8 124.2 117.7"/>
+            <path class="edge shown traversed" d="M 397.1 112.2 Q 285.8 130.3 192.5 72.6"/>
+            <path class="edge shown dead" d="M 445.8 332.9 Q 303.0 217.0 189.0 76.6"/>
+            <path class="edge shown seed traversed" d="M 267.7 58.5 Q 316.2 124.3 394.1 112.5"/>
+            <path class="edge shown seed traversed" d="M 263.7 60.5 Q 316.2 236.7 402.3 395.8"/>
+            <path class="edge shown seed traversed" d="M 254.7 59.9 Q 186.6 210.9 75.1 329.5"/>
+            <circle class="node informed" cx="260.0" cy="48.0" r="11.0"/>
+            <circle class="node informed" cx="341.1" cy="64.1" r="11.0"/>
+            <circle class="node informed" cx="409.9" cy="110.1" r="11.0"/>
+            <circle class="node informed" cx="455.9" cy="178.9" r="11.0"/>
+            <circle class="node informed" cx="472.0" cy="260.0" r="11.0"/>
+            <circle class="node adv" cx="455.9" cy="341.1" r="11.0"/>
+            <circle class="node informed" cx="409.9" cy="409.9" r="11.0"/>
+            <circle class="node informed" cx="341.1" cy="455.9" r="11.0"/>
+            <circle class="node informed" cx="260.0" cy="472.0" r="11.0"/>
+            <circle class="node adv" cx="178.9" cy="455.9" r="11.0"/>
+            <circle class="node informed" cx="110.1" cy="409.9" r="11.0"/>
+            <circle class="node informed" cx="64.1" cy="341.1" r="11.0"/>
+            <circle class="node informed" cx="48.0" cy="260.0" r="11.0"/>
+            <circle class="node adv" cx="64.1" cy="178.9" r="11.0"/>
+            <circle class="node informed" cx="110.1" cy="110.1" r="11.0"/>
+            <circle class="node informed" cx="178.9" cy="64.1" r="11.0"/>
+            <circle class="pub-ring on" cx="260.0" cy="48.0" r="17.0"/>
           </svg>
-          <div class="canvas-footer">
-            <div class="legend">
-              <div class="legend-items" id="legend-items"></div>
-            </div>
-            <div class="hover-hint">Hover a node to isolate its links. Bold: chosen by the node · thin: chosen by its peers.</div>
-          </div>
-        </div>
-
-        <div class="stage-side">
-          <div class="step-card">
-            <div class="step-count" id="step-count"></div>
-            <div class="step-title" id="step-title"></div>
-            <div class="step-desc" id="step-desc"></div>
-          </div>
-          <div class="controls">
-            <button class="ctl-btn" id="btn-prev" aria-label="Previous step">‹ Prev</button>
-            <button class="ctl-btn" id="btn-play" aria-label="Play or pause">Pause</button>
-            <button class="ctl-btn" id="btn-next" aria-label="Next step">Next ›</button>
-            <button class="ctl-btn" id="btn-replay" aria-label="Replay from the start">Replay</button>
-            <button class="ctl-btn" id="btn-shuffle" aria-label="Draw a new random graph">Reshuffle</button>
-          </div>
-        </div>
+          <span class="route-kind">Step through</span>
+          <span class="route-name">Dissemination model simulator</span>
+          <span class="route-go">Open the simulator &rarr;</span>
+        </a>
+        <a class="route route--radar" href="compare-designs/">
+          <svg class="route-thumb" viewBox="196 86 468 392" aria-hidden="true">
+            <polygon points="430.0,241.5 470.5,282.0 430.0,322.5 389.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,201.0 511.0,282.0 430.0,363.0 349.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,160.5 551.5,282.0 430.0,403.5 308.5,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,120.0 592.0,282.0 430.0,444.0 268.0,282.0" fill="none" stroke="#e2e0d8" stroke-width="1"/>
+            <polygon points="430.0,158.1 515.8,282.0 430.0,436.9 382.5,282.0" fill="#8a887e" fill-opacity="0.07" stroke="#8a887e" stroke-width="1.4" stroke-linejoin="round"/>
+            <polygon points="430.0,194.2 490.8,282.0 430.0,436.9 391.6,282.0" fill="#bcb9ae" fill-opacity="0.07" stroke="#bcb9ae" stroke-width="1.4" stroke-linejoin="round"/>
+            <polygon points="430.0,120.0 506.7,282.0 430.0,422.5 382.7,282.0" fill="#008300" fill-opacity="0.13" stroke="#008300" stroke-width="2.4" stroke-linejoin="round"/>
+            <polygon points="430.0,156.3 592.0,282.0 430.0,436.9 268.0,282.0" fill="#eda100" fill-opacity="0.13" stroke="#eda100" stroke-width="2.4" stroke-linejoin="round"/>
+            <polygon points="430.0,194.2 490.8,282.0 430.0,444.0 392.9,282.0" fill="#4a3aa7" fill-opacity="0.13" stroke="#4a3aa7" stroke-width="2.4" stroke-linejoin="round"/>
+            <line x1="430.0" y1="282.0" x2="430.0" y2="120.0" stroke="#e2e0d8" stroke-width="1"/>
+            <line x1="430.0" y1="282.0" x2="592.0" y2="282.0" stroke="#e2e0d8" stroke-width="1"/>
+            <line x1="430.0" y1="282.0" x2="430.0" y2="444.0" stroke="#e2e0d8" stroke-width="1"/>
+            <line x1="430.0" y1="282.0" x2="268.0" y2="282.0" stroke="#c4c2b9" stroke-width="1" stroke-dasharray="4 4"/>
+            <text class="thumb-axis" x="430" y="99" text-anchor="middle">Bandwidth</text>
+            <text class="thumb-axis" x="618" y="287" text-anchor="middle">Connections</text>
+            <text class="thumb-axis" x="430" y="475" text-anchor="middle">Speed</text>
+            <text class="thumb-axis" x="242" y="287" text-anchor="middle">Churn</text>
+          </svg>
+          <span class="route-kind">Tune</span>
+          <span class="route-name">Compare designs</span>
+          <span class="route-go">Compare the designs &rarr;</span>
+        </a>
+        <a class="route route--radar" href="parameters/">
+          <svg class="route-thumb" viewBox="196 86 468 392" aria-hidden="true">
+            <line x1="268" y1="430" x2="592" y2="430" stroke="#c4c2b9" stroke-width="1"/>
+            <line x1="268" y1="130" x2="268" y2="430" stroke="#c4c2b9" stroke-width="1"/>
+            <rect x="268" y="130" width="86" height="300" fill="#8a887e" fill-opacity="0.10"/>
+            <line x1="268" y1="286" x2="592" y2="286" stroke="#e52321" stroke-width="1.8" stroke-dasharray="6 5"/>
+            <path d="M268 168 C 330 214, 392 262, 454 300 S 545 350, 592 366" fill="none" stroke="#eda100" stroke-width="3" stroke-linecap="round"/>
+            <path d="M268 402 C 340 388, 420 366, 500 344 S 560 326, 592 318" fill="none" stroke="#2a78d6" stroke-width="1.6" stroke-dasharray="5 4"/>
+            <path d="M268 358 C 350 344, 430 330, 510 320 S 566 314, 592 311" fill="none" stroke="#008300" stroke-width="1.6" stroke-dasharray="5 4"/>
+            <circle cx="454" cy="300" r="6" fill="#eda100" stroke="#fcfcfb" stroke-width="2.5"/>
+            <text class="thumb-axis" x="430" y="466" text-anchor="middle">Network size</text>
+            <text class="thumb-axis" x="600" y="280" text-anchor="end">target</text>
+          </svg>
+          <span class="route-kind">Derive</span>
+          <span class="route-name">Parameter surface</span>
+          <span class="route-go">Size it for your deployment &rarr;</span>
+        </a>
       </div>
 
+      <details class="explainer">
+        <summary>How the models were judged</summary>
+        <div class="explainer-body">
+          <p>
+            All five were measured against one shared bar, the <strong><span class="term" data-term="goodgraph">good graph</span></strong>:
+            every message of every honest publisher must reach all other honest nodes. And all
+            faced the same adversary, a fraction <span class="term" data-term="mu">&mu;</span> of <span class="term" data-term="byzantine">silent Byzantine nodes</span> that receive
+            every message and never relay one. Formally it is scored as the probability that the honest network stays <span class="term" data-term="connected">strongly connected</span>.
+          </p>
+          <p>
+            The guarantee has to come from links that are drawn <strong><span class="term" data-term="epoch">once per epoch</span></strong>
+            and then serve every message of every publisher for that whole epoch. The formal
+            analyses call this the <span class="term" data-term="standing"><em>standing</em> structure</span>, and it covers both link kinds:
+            <span class="term" data-term="relaylinks">relay links</span> and <span class="term" data-term="publinks">publishing links</span>. Only a structure that persists across messages
+            can promise <em>every</em> message; per-message randomness cannot. The prototype
+            node works exactly this way: it establishes its links during a <span class="term" data-term="sync">sync phase</span>, and only
+            then accepts messages for propagation.
+          </p>
+          <p>
+            <strong>Every model can clear the bar. The question is what it costs.</strong>
+            Each sizing rule grows with the target, so a stricter bound is always reachable by
+            buying more links. The price is charged on two axes that pull against each other:
+            the <span class="term" data-term="links">links every node holds</span> whether or not anything is published, and the <span class="term" data-term="copies">copies</span> of each message the network transmits. Giving publishing its own links cuts the copies
+            but adds to the links each node must hold.
+          </p>
+          <p>
+            <strong>A <span class="term" data-term="goodgraph">bad graph</span> is rarely a broken network.</strong> Anything short of full
+            strong connectivity counts as bad, and in practice the failures are not large
+            splits but single stranded nodes. A node can strand in two ways: its outgoing
+            links all landed on adversaries, so nobody hears it, or its incoming links did,
+            so it hears nobody. Which of the two dominates is a property of the design rather
+            than of luck &mdash; under M2 and M3 most failures are publishers that cannot be
+            heard, while under M4 a stranded node is one that cannot receive.
+          </p>
+          <p>
+            That distinction decides what a bad graph actually costs. A node stranded as a
+            publisher costs nothing unless it happens to be the one publishing, and is
+            invisible to everyone else's dissemination; a node stranded as a subscriber is
+            missing whoever publishes. It is why a bad graph does not imply a lost message,
+            and why the same failure rate is worth more under one design than another.
+          </p>
+        </div>
+      </details>
+
+      <details class="explainer">
+        <summary>Where the comparison stands</summary>
+        <div class="explainer-body">
+          <p>
+            Three of the five are out: <span class="term" data-term="models">M1, M2 and M5</span> are beaten on every axis at once, so no
+            trade-off brings them back. Of the two left, M4 leads on connections held, on time
+            to the last subscriber and on the <span class="term" data-term="churn">downtime it absorbs</span>; M3 leads on traffic, by
+            22&nbsp;%, and that is the only axis it leads.
+          </p>
+          <p>
+            The measurements lean to M4, and one thing stops us naming it outright: a question
+            about operators rather than about the protocol, namely whether anyone running this
+            layer is limited by the traffic they carry or by the connections they can hold
+            open.
+          </p>
+          <p>
+            The second reason we used to give has gone. The admission parameters that size the <span class="term" data-term="gate">gate</span> and the <span class="term" data-term="cap">serving cap</span> were measured against M2's wiring, and those results did
+            not carry to M4's <span class="term" data-term="handshake">symmetric handshake</span>. That seam has since been measured on its
+            own. The acceptance cap becomes an admissions budget that bounds only the links a
+            node did not choose; the adversary keeps a share of every node through that node's
+            own picks, which no cap can reach; and the <span class="term" data-term="pool">candidate pool</span> has a floor past which no
+            cap both binds and stays harmless. What is still open there is a <span class="term" data-term="closedform">closed-form model</span>,
+            not coverage.
+          </p>
+        </div>
+      </details>
     </div>
   </section>
 </main>
@@ -382,6 +548,7 @@
         <a href="../#scenarios">Scenarios</a>
         <a href="../#research">Programme</a>
         <a href="./">Dissemination models</a>
+        <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
         <a href="../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
@@ -915,5 +1082,87 @@
 })();
 </script>
 
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+<script>
+/* ---- glossary tooltips ----
+   Styles live in shared.css; this is the engine and the vocabulary. Written for a
+   reader who has not read the CIP: plain words first, symbol second. */
+(function () {
+  "use strict";
+  var GLOSSARY = {
+    goodgraph: ['A good graph', 'An epoch whose drawn wiring works: every message from every honest publisher reaches every other honest node. Anything short of that is a <b>bad graph</b>, and how often one is drawn is <b>P(bad)</b>.'],
+    pbad: ['P(bad)', 'The chance that one epoch draws a wiring in which at least one honest node is cut off — either it hears nothing, or what it publishes fails to reach everyone. It is the single number every design is judged on, and the failure target is the bar it has to stay under.'],
+    connected: ['Strongly connected', 'A property of the wiring: from every honest node there is a path, following links in the direction they carry traffic, to every other honest node. It is the precise form of the promise that everyone can reach everyone.'],
+    byzantine: ['Silent Byzantine nodes', 'Registered participants that accept their links and receive every message, and forward none of it. Nobody can tell which they are. An honest node that is simply offline behaves identically, which is why downtime is counted the same way.'],
+    mu: ['μ — adversarial share', 'The fraction of registered nodes that behave that way. The analysis fixes it before the wiring is drawn.'],
+    epoch: ['Epoch', 'The interval one drawn wiring serves. Links are established once, from fresh public randomness, and then carry every message of every publisher until the next redraw.'],
+    standing: ['The standing structure', 'The links that persist for a whole epoch, as opposed to anything chosen per message. The guarantee has to rest on these: per-message randomness cannot promise that <i>every</i> message arrives, because each one would roll its own dice.'],
+    relaylinks: ['Relay links', 'Links a node holds to forward other people’s messages onward. In some designs these are the only kind.'],
+    publinks: ['Publishing links', 'Extra links carrying only their owner’s own publications, rather than relaying anyone else’s. Giving publishing its own links cuts the copies the network carries but adds to the links each node must hold.'],
+    sync: ['Sync phase', 'The startup window in which a node establishes its links for the epoch. It accepts messages for propagation only once that is done, so the wiring is settled before traffic flows.'],
+    links: ['Standing links', 'Connections a node keeps open for a topic for the whole epoch, whether or not anything is published. One of the two prices a design is charged.'],
+    copies: ['Copies per message', 'How many times the network transmits one published message to get it to everyone. The other price. It pulls against standing links: designs that cut one tend to add to the other.'],
+    gate: ['The gate', 'A public lottery on each pair of nodes, computed from a hash. It decides which peers a node is <b>allowed</b> to link to this epoch — not which it picks, which stays private. Nobody can influence their own draw, so an attacker cannot choose whose neighbour it becomes.'],
+    cap: ['Serving cap / admissions budget', 'How many links a node will accept from peers that dialled it. Framed as an admissions budget it bounds only the links a node did <i>not</i> choose, so an attacker who arrives early can never make a node refuse a peer it selected itself.'],
+    handshake: ['Symmetric handshake', 'A link established once for the pair and carrying traffic both ways, rather than one drawn per direction. It changes what the gate and the cap do, which is why results measured on a one-way design did not carry over.'],
+    pool: ['Candidate pool', 'The set of peers the gate leaves a node eligible to link to. Its floor matters: past a point the pool is small enough to be sometimes empty, and no amount of extra links repairs a pool that was never populated.'],
+    closedform: ['Closed form', 'A formula you can evaluate directly, rather than a number obtained by running simulations. The coverage results have both; the admission parameters so far have measurements without a matching formula.'],
+    churn: ['Downtime absorbed', 'How much of the honest network can be offline before a design stops meeting its target. Downtime and hostility count the same here, because a node that is off looks exactly like one refusing to forward.'],
+    models: ['M1 – M5', 'The five candidate dissemination designs the programme measured: push, pull, pull with publishing links, bidirectional, and directed. They differ in how links are drawn and which direction they carry.'],
+  };
+  var tip = document.getElementById('tip');
+  if (!tip) return;
+  var tipEl = null;
+  function tipContent(node) {
+    var g = node.dataset.term ? GLOSSARY[node.dataset.term] : null;
+    if (g) return '<span class="tip-key">' + g[0] + '</span>' + g[1];
+    return node.dataset.tip || '';
+  }
+  function showTip(node) {
+    var html = tipContent(node);
+    if (!html) return;
+    tipEl = node;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.setAttribute('aria-hidden', 'false');
+    node.setAttribute('aria-describedby', 'tip');
+    if (node.classList.contains('term')) node.setAttribute('aria-expanded', 'true');
+    var r = node.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+    var above = r.bottom + t.height + 12 > innerHeight && r.top > t.height + 12;
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(above ? r.top - t.height - 8 : r.bottom + 8) + 'px';
+  }
+  function hideTip() {
+    if (tipEl) {
+      tipEl.removeAttribute('aria-describedby');
+      if (tipEl.classList.contains('term')) tipEl.setAttribute('aria-expanded', 'false');
+    }
+    tipEl = null;
+    tip.style.display = 'none';
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  var tipTarget = function (e) { return e.target.closest && e.target.closest('[data-term],[data-tip]'); };
+  document.addEventListener('pointerover', function (e) {
+    if (e.pointerType === 'touch') return;       // touch raises pointerover before click
+    var n = tipTarget(e);
+    if (n) showTip(n); else if (tipEl) hideTip();
+  });
+  document.addEventListener('focusin', function (e) { var n = tipTarget(e); if (n) showTip(n); else hideTip(); });
+  document.addEventListener('focusout', function (e) { if (tipTarget(e) === tipEl) hideTip(); });
+  document.addEventListener('click', function (e) {
+    var n = tipTarget(e);
+    if (!n) { hideTip(); return; }
+    if (n === tipEl && n.classList.contains('term')) hideTip(); else showTip(n);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+  addEventListener('scroll', function () { if (tipEl) hideTip(); }, { passive: true });
+  // Terms are spans, so they need explicit keyboard reachability.
+  document.querySelectorAll('.term').forEach(function (e) {
+    if (!e.hasAttribute('tabindex')) e.setAttribute('tabindex', '0');
+    if (!e.hasAttribute('aria-expanded')) e.setAttribute('aria-expanded', 'false');
+  });
+})();
+</script>
 </body>
 </html>

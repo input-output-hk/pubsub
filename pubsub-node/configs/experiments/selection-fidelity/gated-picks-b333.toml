@@ -1,0 +1,31 @@
+# E10 Family B - gate + pick count: K = 16, B = 333, survivor headroom
+# r = (N-1)/(B*K) ~= 0.75.
+#
+# Same design as gated-picks-b10.toml past the critical headroom: mean ~12
+# survivors < K, so most nodes take every survivor and the cell approaches
+# Family-A behavior at mean degree 12. Large P(bad) expected; 4 000 runs.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gated-picks-b333.toml --out results/e10/gated-picks-b333/
+
+model = "m2"
+master_seed = 916
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 333
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 333
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 4000

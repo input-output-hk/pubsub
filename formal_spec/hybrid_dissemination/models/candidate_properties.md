@@ -24,11 +24,6 @@ per-model analysis when picked up.
 
 ## Security / robustness
 
-- **Adaptive eclipse cost** — corruptions needed to strand a chosen
-  victim *after* the epoch's draws are known (bribery is adaptive):
-  ≈ the victim's honest in-degree — M3 9.6, M5 13.6, M1/M2 19.2,
-  M4 25.6. Partially reverses the frontier: the bandwidth winner is the
-  cheapest target. Epoch rotation bounds the damage window.
 - **Local defect detectability** — which δ-events the victim can
   self-diagnose: accepted-side-zero is visible at epoch start (an M4
   isolated node, an M2 requester-less publisher), chosen-side-dead is
@@ -41,10 +36,6 @@ per-model analysis when picked up.
 - **Attribution surface** — which deviations are provable (opening more
   links than the verifiable draw budget) vs unprovable (not relaying);
   a taxonomy of punishable vs merely tolerated misbehaviour.
-- **Transmission unreliability (p_fail)** — per-transmission loss breaks
-  the standing-structure argument; effective branching ×(1−p_fail),
-  per-message delivery probability, retransmission policy. M4's doubled
-  edge redundancy should win this axis.
 - **Adversarial flooding / emergency delivery under load** — the loud
   dual of the silent adversary: coverage implicitly assumes offered
   load ≤ capacity, and adversaries control offered load. Valid messages

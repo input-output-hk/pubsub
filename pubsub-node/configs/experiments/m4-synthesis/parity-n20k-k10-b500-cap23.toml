@@ -1,0 +1,51 @@
+# M4 synthesis coverage-parity anchor: N = 20 000, K = 10, B = 500,
+# admissions budget C = 23, mu = 0.2 (silent relays WITH picks — the
+# gated + capped analogue of the CIP's ungated K = 9 operating point,
+# comparisons/m4-n20k-rf9.toml, seed 851).
+#
+# The F4 parity claim measured at CIP scale: one extra pick buys back
+# the gate's coverage cost. Predicted isolation
+# (docs/experiments/m4_synthesis_predictions.py, e18_isolation at
+# --n=20000 --k=10 --s=4000, B = 500): E_iso = 5.05e-6, P(bad) =
+# 5.05e-6 vs the ungated K = 9 law 6.1e-6 — coverage parity; predict
+# 400/400 good (expected bad 0.002).
+#
+# Geometry (`cell 500 23 --k=10 --s=0` — the homogeneous picking
+# population; linked-peer classes split binomially at mu): routes per
+# victim own/mut/adm = 7.50/2.50/7.50, d = 17.50 (the ungated CIP point
+# measured 18.0 standing links — degree parity as well); adversarial
+# share of held edges ~ mu, so Sybil edges ~ 3.50/victim, all
+# geometry-priced (the cap-blind floor's parity-population analogue).
+# Race: fresh load ~ 7.5 against C = 23 -> refusals identically ~ 0
+# (tail < 1e-8/victim; register rejected_over_capacity ~ 0, at most a
+# handful across the cell). Invariants: refusals_issued_crossing_* = 0
+# (the budget never vetoes a crossing); edges_admitted_* <= 23; total
+# degree <= K + C = 33.
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/parity-n20k-k10-b500-cap23.toml --out results/m4-synthesis/parity-n20k-k10-b500-cap23/ --per-node-detail
+
+model = "m4"
+master_seed = 1139
+
+[population]
+size = 20000
+adversarial = 4000
+topic = "t0"
+
+[strategies.honest]
+pick_count = 10
+bucket_count = 500
+symmetric = true
+accept_cap = 23
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 10
+bucket_count = 500
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

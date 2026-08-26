@@ -127,6 +127,19 @@ pub struct RunRecord {
     pub sccs: u64,
     /// Post-churn largest component size.
     pub largest_scc: u64,
+    /// Post-churn deaf vertices — up-honest nodes the largest component
+    /// cannot reach (the in-defect direction; a vertex disconnected in
+    /// both directions counts in both classes, unlike the formal
+    /// classifier's disjoint third class — subtract the overlap
+    /// `deaf + mute − stranded` before joining onto its tables). Zero on
+    /// every good graph; with `mute` it classifies the stranded set whose
+    /// size is `up_honest − largest_scc`.
+    pub deaf: u64,
+    /// Post-churn mute vertices — up-honest nodes that cannot reach the
+    /// largest component (the out-defect class; the muted publisher is the
+    /// canonical case). Raw-digraph classification under every model:
+    /// M3's seed rescue shows in `good`, never here.
+    pub mute: u64,
     /// Post-churn in-degree histogram (index = degree).
     pub in_degree_hist: Vec<u64>,
     /// Post-churn out-degree histogram (index = degree).
@@ -155,7 +168,9 @@ pub struct RunRecord {
 /// Degrees are the node's post-churn propagation-digraph degrees, so
 /// summing rows reproduces the run record's degree histograms; adversarial
 /// and down nodes are not digraph vertices and carry no degrees (absent ≠
-/// zero, like every opt-in field here).
+/// zero, like every opt-in field here). The connection-accounting columns
+/// (serving slots by linked-peer class, refused-dial counts) are defined
+/// for every class and always present — their zeros are real zeros.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PerNodeDetail {
     /// Which publish phase the row describes.
@@ -172,6 +187,69 @@ pub struct PerNodeDetail {
     /// Post-churn digraph out-degree (up-honest vertices only).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub out_degree: Option<u64>,
+    /// Relay-kind downstream entries held to honest peers at measure time.
+    /// On directional configurations these are the node's granted serving
+    /// slots. Under the symmetric handshake reciprocity writes both ends of
+    /// every edge into `downstream`, so both roles are counted (≈ 2× the
+    /// pick count) — the route columns below split that total by
+    /// drain-observed initiation (N-040, ADR 0042). Relay seam only; the
+    /// publisher seam has its own pair below, so the kind-agnostic refusal
+    /// columns reconcile per seam (N-041, completed).
+    pub downstream_honest: u64,
+    /// Relay-kind downstream entries held to adversarial peers — on a
+    /// capped directional acceptor, capacity the adversary consumed. Same
+    /// symmetric-handshake and relay-only caveats as `downstream_honest`
+    /// (N-040/N-041).
+    pub downstream_adversarial: u64,
+    /// Of `downstream_honest`, entries the node alone dialed (a
+    /// drain-observed symmetric dial with no crossing dial back): edges
+    /// from the node's own picks only. The route columns partition the
+    /// both-role totals — own-only + mutual + admitted = downstream, per
+    /// class. Zero on directional configurations, where no symmetric dials
+    /// exist and every downstream entry is peer-initiated by placement
+    /// (N-040, ADR 0042).
+    pub edges_own_only_honest: u64,
+    /// Of `downstream_adversarial`, entries the node alone dialed — its
+    /// own picks that landed on adversarial peers, the admission-free
+    /// occupancy route no acceptance policy sees (ADR 0042).
+    pub edges_own_only_adversarial: u64,
+    /// Of `downstream_honest`, entries both ends dialed (crossings —
+    /// budget-exempt under ADR 0042's admissions semantics).
+    pub edges_mutual_honest: u64,
+    /// Of `downstream_adversarial`, entries both ends dialed.
+    pub edges_mutual_adversarial: u64,
+    /// Of `downstream_honest`, entries the peer alone dialed: admissions —
+    /// what an acceptance cap governs (ADR 0042). On directional
+    /// configurations this equals `downstream_honest`.
+    pub edges_admitted_honest: u64,
+    /// Of `downstream_adversarial`, entries the peer alone dialed. On a
+    /// capped acceptor, the adversary's admission-route occupancy.
+    pub edges_admitted_adversarial: u64,
+    /// **Publisher-kind** downstream entries held `Active` to honest peers
+    /// — the node's own accepted seeding links (the dialer is the sender
+    /// on this seam, so downstream = the node's seed targets). Completes
+    /// the N-041 accounting: publisher-seam refusals in the kind-agnostic
+    /// refusal columns now have slot columns to reconcile against.
+    pub downstream_publisher_honest: u64,
+    /// Publisher-kind downstream entries held `Active` to adversarial
+    /// peers (N-041).
+    pub downstream_publisher_adversarial: u64,
+    /// Routed over-capacity `Rejected` replies this node received for its
+    /// own dials in the connection drain (v1 has no retry: each refused
+    /// dial is a lost link).
+    pub dials_refused: u64,
+    /// Over-capacity refusals this node issued to honest dialers.
+    pub refusals_issued_honest: u64,
+    /// Over-capacity refusals this node issued to adversarial dialers.
+    pub refusals_issued_adversarial: u64,
+    /// Of `refusals_issued_honest`, refusals of a **crossing** — the node
+    /// had itself dialed the refused honest peer, so the refusal killed an
+    /// edge its own selection wanted (ADR 0042's veto channel; identically
+    /// zero under the admissions-budget semantics and on directional
+    /// configurations).
+    pub refusals_issued_crossing_honest: u64,
+    /// Of `refusals_issued_adversarial`, refusals of a crossing.
+    pub refusals_issued_crossing_adversarial: u64,
     /// The wave of the node's first receipt (0 = the publisher's record).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_receipt_wave: Option<u64>,
@@ -183,6 +261,39 @@ pub struct PerNodeDetail {
     /// missed the message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miss_cause: Option<MissCause>,
+}
+
+/// One node's relay-kind downstream entries partitioned by drain-observed
+/// initiation route; each pair counts (honest, adversarial) linked peers.
+#[derive(Clone, Copy, Default)]
+struct RouteSlots {
+    own_only: (u64, u64),
+    mutual: (u64, u64),
+    admitted: (u64, u64),
+    /// Publisher-kind `Active` downstream, (honest, adversarial) —
+    /// N-041's seam-completing pair, outside the relay route partition.
+    publisher: (u64, u64),
+}
+
+/// A node's `Active` publisher-kind downstream split by the linked peer's
+/// class — N-041's seam-completing pair. Active only: a pending dial is
+/// not yet a link, and only `Active` entries carry traffic.
+fn publisher_slots(participant: &Participant, population: &Population) -> (u64, u64) {
+    let mut split = (0u64, 0u64);
+    for (peer, _, state) in participant.publisher_downstream() {
+        if state != LinkState::Active {
+            continue;
+        }
+        match population
+            .participant(&peer)
+            .expect("linked peer is a population member")
+            .class()
+        {
+            super::population::ParticipantClass::Honest => split.0 += 1,
+            super::population::ParticipantClass::Adversarial => split.1 += 1,
+        }
+    }
+    split
 }
 
 /// Assemble the opt-in per-node dissection table for a run: one row per
@@ -205,6 +316,45 @@ pub fn assemble_per_node_detail(
         .enumerate()
         .map(|(index, id)| (id, (in_degrees[index], out_degrees[index])))
         .collect();
+    // Serving slots split by the linked peer's class and by drain-observed
+    // initiation route, one end-state pass — per-run data, repeated
+    // verbatim on every publish slice like degrees. Route attribution reads
+    // the dial drain's symmetric-dial record: an entry the node alone
+    // dialed is own-only, both ends mutual, and everything else admitted —
+    // so with no symmetric dials (directional configurations, scripted
+    // populations) every entry is admitted, matching directional placement
+    // semantics. The routes partition the class totals by construction.
+    let dials = &observation.dial.symmetric_dials;
+    let dialed = |dialer: &PeerId, target: &PeerId| -> bool {
+        dials
+            .get(dialer)
+            .is_some_and(|targets| targets.contains(target))
+    };
+    let slots_of: BTreeMap<&PeerId, RouteSlots> = population
+        .participants()
+        .map(|(id, participant)| {
+            let mut slots = RouteSlots::default();
+            for (peer, _) in participant.downstream() {
+                let class = population
+                    .participant(&peer)
+                    .expect("linked peer is a population member")
+                    .class();
+                let honest = class == super::population::ParticipantClass::Honest;
+                let route = match (dialed(id, &peer), dialed(&peer, id)) {
+                    (true, true) => &mut slots.mutual,
+                    (true, false) => &mut slots.own_only,
+                    (false, _) => &mut slots.admitted,
+                };
+                if honest {
+                    route.0 += 1;
+                } else {
+                    route.1 += 1;
+                }
+            }
+            slots.publisher = publisher_slots(participant, population);
+            (id, slots)
+        })
+        .collect();
     let mut rows = Vec::new();
     for (publish_index, publish) in observation.publishes.iter().enumerate() {
         for (id, participant) in population.participants() {
@@ -223,6 +373,8 @@ pub fn assemble_per_node_detail(
             let miss_cause =
                 (participant.is_up_honest() && id != &observation.publisher && !received)
                     .then(|| classify_miss(id, participant, population, &reachable));
+            let slots = slots_of.get(id).copied().unwrap_or_default();
+            let refusals = observation.dial.refusals_issued.get(id).copied();
             rows.push(PerNodeDetail {
                 publish: publish_index as u64,
                 node: id.clone(),
@@ -230,6 +382,22 @@ pub fn assemble_per_node_detail(
                 down: participant.is_down(),
                 in_degree: degrees.map(|&(in_degree, _)| in_degree as u64),
                 out_degree: degrees.map(|&(_, out_degree)| out_degree as u64),
+                downstream_honest: slots.own_only.0 + slots.mutual.0 + slots.admitted.0,
+                downstream_adversarial: slots.own_only.1 + slots.mutual.1 + slots.admitted.1,
+                edges_own_only_honest: slots.own_only.0,
+                edges_own_only_adversarial: slots.own_only.1,
+                edges_mutual_honest: slots.mutual.0,
+                edges_mutual_adversarial: slots.mutual.1,
+                edges_admitted_honest: slots.admitted.0,
+                edges_admitted_adversarial: slots.admitted.1,
+                downstream_publisher_honest: slots.publisher.0,
+                downstream_publisher_adversarial: slots.publisher.1,
+                dials_refused: observation.dial.dials_refused.get(id).copied().unwrap_or(0),
+                refusals_issued_honest: refusals.map_or(0, |tally| tally.honest),
+                refusals_issued_adversarial: refusals.map_or(0, |tally| tally.adversarial),
+                refusals_issued_crossing_honest: refusals.map_or(0, |tally| tally.crossing_honest),
+                refusals_issued_crossing_adversarial: refusals
+                    .map_or(0, |tally| tally.crossing_adversarial),
                 first_receipt_wave: publish.drain.first_receipt.get(id).copied(),
                 first_delivery_origin,
                 miss_cause,
@@ -319,6 +487,8 @@ pub fn assemble_run_record(
         sinks: post_churn.shape.sinks,
         sccs: post_churn.verdict.sccs,
         largest_scc: post_churn.verdict.largest_scc,
+        deaf: post_churn.verdict.deaf,
+        mute: post_churn.verdict.mute,
         in_degree_hist: post_churn.shape.in_degree_hist.clone(),
         out_degree_hist: post_churn.shape.out_degree_hist.clone(),
         standing_degree_hist: super::graph::degree_histogram(&super::graph::standing_degrees(
@@ -466,11 +636,16 @@ fn receipts_via_sends(outcome: &DrainOutcome) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{assemble_run_record, MissCauseCounts, RunIdentity};
-    use crate::experiments::driver::{DrainOutcome, Driver, RunObservation};
+    use crate::connection_state::LinkState;
+    use crate::experiments::driver::{DrainOutcome, Driver, RunObservation, SetupMode};
     use crate::experiments::graph::{ChurnPhase, DisseminationModel};
-    use crate::experiments::population::Population;
+    use crate::experiments::population::{
+        FanoutSpec, ParticipantClass, Population, PopulationConfig, PopulationSeeds, PublisherSpec,
+        StrategySpec,
+    };
     use crate::experiments::scripted::{self, peer};
     use crate::peer::PeerId;
+    use crate::topic::TopicId;
 
     fn identity() -> RunIdentity {
         RunIdentity {
@@ -488,7 +663,7 @@ mod tests {
         publisher: &PeerId,
         churned: bool,
     ) -> (super::RunRecord, Population) {
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(publisher, 0);
         let observation = RunObservation {
             publisher: publisher.clone(),
@@ -655,7 +830,7 @@ mod tests {
     #[should_panic(expected = "accounting identity")]
     fn identity_violation_panics() {
         let population = scripted::full_mesh(3).build();
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let mut publish = driver.publish_drain(&peer(0), 0);
         publish.drain.suppressed += 1; // cook the books
         let observation = RunObservation {
@@ -689,7 +864,7 @@ mod tests {
             .expect("node exists")
             .mark_down();
 
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(&peer(0), 0);
         let population = driver.into_population();
 
@@ -710,11 +885,166 @@ mod tests {
         assert!(!reachable.contains(&peer(6)), "behind the down relay");
     }
 
+    // ADR 0042 / N-040: the detail's route columns partition each node's
+    // relay downstream by drain-observed initiation — own-only (the node
+    // alone dialed), mutual (both dialed), admitted (everything else, the
+    // scripted/directional fallback) — and the refusal crossing subset
+    // lands beside the class totals.
+    #[test]
+    fn detail_route_columns_partition_downstream_by_observed_dials() {
+        let population = scripted::nodes(4)
+            .silent(2)
+            .link(0, 1)
+            .link(0, 2)
+            .link(0, 3)
+            .build();
+        let mut driver = Driver::new(population, [0; 32]);
+        let publish = driver.publish_drain(&peer(0), 0);
+        let mut dial = DrainOutcome::default();
+        dial.symmetric_dials
+            .entry(peer(0))
+            .or_default()
+            .extend([peer(1), peer(2)]);
+        dial.symmetric_dials
+            .entry(peer(1))
+            .or_default()
+            .insert(peer(0));
+        dial.refusals_issued.insert(
+            peer(0),
+            crate::experiments::driver::RefusalTally {
+                honest: 2,
+                adversarial: 1,
+                crossing_honest: 1,
+                crossing_adversarial: 0,
+            },
+        );
+        let observation = RunObservation {
+            publisher: peer(0),
+            down: Vec::new(),
+            dial,
+            publishes: vec![publish],
+        };
+        let population = driver.into_population();
+        let post = DisseminationModel::M2.analyze(&population, ChurnPhase::PostChurn);
+        let rows = super::assemble_per_node_detail(&population, &observation, &post);
+
+        let row = |node: &PeerId| rows.iter().find(|r| &r.node == node).expect("row exists");
+        let zero = row(&peer(0));
+        // Node 0 holds 1 (honest, both dialed → mutual), 2 (adversarial,
+        // own dial only), 3 (honest, no observed dial → admitted).
+        assert_eq!(zero.edges_mutual_honest, 1);
+        assert_eq!(zero.edges_own_only_adversarial, 1);
+        assert_eq!(zero.edges_admitted_honest, 1);
+        assert_eq!(zero.edges_own_only_honest, 0);
+        assert_eq!(zero.edges_mutual_adversarial, 0);
+        assert_eq!(zero.edges_admitted_adversarial, 0);
+        // The routes partition the class totals.
+        assert_eq!(zero.downstream_honest, 2);
+        assert_eq!(zero.downstream_adversarial, 1);
+        // The refusal crossing subsets ride beside the class split.
+        assert_eq!(zero.refusals_issued_honest, 2);
+        assert_eq!(zero.refusals_issued_crossing_honest, 1);
+        assert_eq!(zero.refusals_issued_adversarial, 1);
+        assert_eq!(zero.refusals_issued_crossing_adversarial, 0);
+        // With no observed dials, every held entry reads admitted — the
+        // directional/scripted fallback — and the partition identity holds
+        // on every row.
+        for node in [peer(1), peer(2), peer(3)] {
+            let r = row(&node);
+            assert_eq!(r.edges_own_only_honest + r.edges_own_only_adversarial, 0);
+            assert_eq!(r.edges_mutual_honest + r.edges_mutual_adversarial, 0);
+            assert_eq!(
+                r.edges_admitted_honest + r.edges_admitted_adversarial,
+                r.downstream_honest + r.downstream_adversarial,
+            );
+        }
+    }
+
+    // N-041 (completed): the detail's publisher pair counts each node's
+    // Active publisher-kind downstream entries split by the linked peer's
+    // class — the seam-completing slot columns the kind-agnostic refusal
+    // columns reconcile against. Verified against a recount of the
+    // participants' own publisher downstream.
+    #[test]
+    fn detail_publisher_columns_count_active_seed_targets_by_class() {
+        use std::str::FromStr;
+        let publisher_pair = Some(PublisherSpec {
+            pick_count: Some(3),
+            bucket_count: None,
+            accept_cap: None,
+            accept_unverified: false,
+        });
+        let config = PopulationConfig {
+            topic: TopicId::from_str("t0").expect("valid topic"),
+            size: 6,
+            adversarial: 2,
+            honest_strategies: StrategySpec {
+                pick_count: Some(2),
+                publisher: publisher_pair.clone(),
+                ..StrategySpec::open(FanoutSpec::ForwardToRelays)
+            },
+            adversarial_strategies: StrategySpec {
+                pick_count: Some(2),
+                publisher: publisher_pair,
+                ..StrategySpec::open(FanoutSpec::SilentRelay)
+            },
+        };
+        let seeds = PopulationSeeds {
+            keys: [21u8; 32],
+            classes: [22u8; 32],
+            sampler: [23u8; 32],
+        };
+        let mut driver = Driver::new(
+            Population::build(&config, &seeds).expect("valid build"),
+            [0; 32],
+        );
+        let dial = driver.establish(SetupMode::Prepopulated);
+        let publisher = driver
+            .population()
+            .participants()
+            .find(|(_, p)| p.class() == ParticipantClass::Honest)
+            .map(|(id, _)| id.clone())
+            .expect("an honest node");
+        let publish = driver.publish_drain(&publisher, 0);
+        let observation = RunObservation {
+            publisher,
+            down: Vec::new(),
+            dial,
+            publishes: vec![publish],
+        };
+        let population = driver.into_population();
+        let post = DisseminationModel::M3.analyze(&population, ChurnPhase::PostChurn);
+        let rows = super::assemble_per_node_detail(&population, &observation, &post);
+
+        let mut nonzero = 0;
+        for row in &rows {
+            let participant = population.participant(&row.node).expect("member");
+            let (mut honest, mut adversarial) = (0u64, 0u64);
+            for (peer, _, state) in participant.publisher_downstream() {
+                if state != LinkState::Active {
+                    continue;
+                }
+                match population.participant(&peer).expect("member").class() {
+                    ParticipantClass::Honest => honest += 1,
+                    ParticipantClass::Adversarial => adversarial += 1,
+                }
+            }
+            assert_eq!(row.downstream_publisher_honest, honest, "node {}", row.node);
+            assert_eq!(
+                row.downstream_publisher_adversarial, adversarial,
+                "node {}",
+                row.node
+            );
+            nonzero += u64::from(honest + adversarial > 0);
+        }
+        assert!(nonzero > 0, "the publisher seam established links");
+    }
+
     // A publish record embeds the dial outcome's numbers verbatim.
     #[test]
     fn dial_summary_lands_in_the_record() {
         let population = scripted::full_mesh(3).build();
-        let mut driver = Driver::new(population);
+        let mut driver = Driver::new(population, [0; 32]);
         let publish = driver.publish_drain(&peer(0), 0);
         let observation = RunObservation {
             publisher: peer(0),

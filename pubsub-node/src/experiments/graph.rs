@@ -454,6 +454,22 @@ pub struct GoodnessVerdict {
     pub sccs: u64,
     /// Size of the largest strongly connected component.
     pub largest_scc: u64,
+    /// **Deaf** vertices: not reachable *from* the largest component — the
+    /// giant's messages never arrive (the in-defect, "eclipsed" in the
+    /// formal severity tables). A vertex disconnected in both directions
+    /// counts in both classes, so `deaf + mute` can exceed the stranded
+    /// count `vertices − largest_scc`; the formal classifier instead cuts
+    /// those vertices into a disjoint third class, so joining these
+    /// columns onto its tables double-counts unless the overlap
+    /// (`deaf + mute − stranded`) is subtracted first. Both counts are
+    /// relative to the raw digraph under every model — M3's seed rescue is
+    /// deliberately not reflected here (its goodness criterion is; see
+    /// [`seeded_goodness`]).
+    pub deaf: u64,
+    /// **Mute** vertices: cannot reach the largest component — their
+    /// messages never arrive at the giant (the out-defect; a muted
+    /// publisher is the canonical case).
+    pub mute: u64,
 }
 
 /// Degree/sink statistics over the extracted digraph.
@@ -478,6 +494,67 @@ pub struct GraphAnalysis {
     pub shape: TopologyShape,
 }
 
+/// Classify the stranded vertices relative to the giant component: deaf =
+/// in components the largest component does not reach; mute = in components
+/// that do not reach it (both directions counted independently — an
+/// isolated vertex is both). The classes are the formal severity tables'
+/// two stranding directions, with one convention difference: the formal
+/// classifier is three-way disjoint (deaf, mute, and a separate cut class
+/// for both-disconnected vertices), so its columns exclude exactly what is
+/// counted here in both — the disjoint counts stay recoverable as
+/// overlap = deaf + mute − stranded, exactly: on a condensation DAG no
+/// non-giant component can both reach and be reached by the giant (that
+/// would close a cycle across components), so deaf ∪ mute is precisely
+/// the stranded set and the subtraction is not an approximation. Computed on the condensation DAG in
+/// one forward and one backward walk from the giant (ties on size break to
+/// the first component in Kosaraju order — deterministic; at the measured
+/// operating shapes the giant dominates and ties do not arise).
+fn classify_strandings(condensation: &Condensation) -> (u64, u64) {
+    let sccs = condensation.component_sizes.len();
+    if sccs <= 1 {
+        return (0, 0);
+    }
+    let mut giant = 0usize;
+    for (component, &size) in condensation.component_sizes.iter().enumerate() {
+        if size > condensation.component_sizes[giant] {
+            giant = component;
+        }
+    }
+    let mut forward = vec![Vec::new(); sccs];
+    let mut backward = vec![Vec::new(); sccs];
+    for &(from, to) in &condensation.edges {
+        forward[from].push(to);
+        backward[to].push(from);
+    }
+    let reach = |adjacency: &[Vec<usize>]| {
+        let mut visited = vec![false; sccs];
+        visited[giant] = true;
+        let mut stack = vec![giant];
+        while let Some(component) = stack.pop() {
+            for &next in &adjacency[component] {
+                if !visited[next] {
+                    visited[next] = true;
+                    stack.push(next);
+                }
+            }
+        }
+        visited
+    };
+    let hears_giant = reach(&forward);
+    let heard_by_giant = reach(&backward);
+    let mut deaf = 0u64;
+    let mut mute = 0u64;
+    for component in 0..sccs {
+        if !hears_giant[component] {
+            deaf += condensation.component_sizes[component] as u64;
+        }
+        if !heard_by_giant[component] {
+            mute += condensation.component_sizes[component] as u64;
+        }
+    }
+    (deaf, mute)
+}
+
 /// The goodness verdict from one condensation pass.
 ///
 /// Degenerate inputs (which configuration validation excludes from real
@@ -493,6 +570,7 @@ pub fn goodness(digraph: &PropagationDigraph) -> GoodnessVerdict {
         .copied()
         .max()
         .unwrap_or(0);
+    let (deaf, mute) = classify_strandings(&condensation);
     let up_honest = digraph.vertex_count();
     let smallest_sink = condensation
         .sinks
@@ -510,6 +588,8 @@ pub fn goodness(digraph: &PropagationDigraph) -> GoodnessVerdict {
         min_publisher_coverage,
         sccs: sccs as u64,
         largest_scc: largest_scc as u64,
+        deaf,
+        mute,
     }
 }
 
@@ -542,6 +622,7 @@ pub fn seeded_goodness(digraph: &PropagationDigraph, seeds: &[Vec<PeerId>]) -> G
         .copied()
         .max()
         .unwrap_or(0);
+    let (deaf, mute) = classify_strandings(&condensation);
     let up_honest = digraph.vertex_count();
     // One component (or an empty graph): seeds cannot change the verdict.
     if sccs <= 1 {
@@ -550,6 +631,8 @@ pub fn seeded_goodness(digraph: &PropagationDigraph, seeds: &[Vec<PeerId>]) -> G
             min_publisher_coverage: if up_honest == 0 { 0.0 } else { 1.0 },
             sccs: sccs as u64,
             largest_scc: largest_scc as u64,
+            deaf,
+            mute,
         };
     }
 
@@ -600,6 +683,8 @@ pub fn seeded_goodness(digraph: &PropagationDigraph, seeds: &[Vec<PeerId>]) -> G
         min_publisher_coverage,
         sccs: sccs as u64,
         largest_scc: largest_scc as u64,
+        deaf,
+        mute,
     }
 }
 
@@ -918,6 +1003,53 @@ mod tests {
         let verdict = goodness(&chain);
         assert_eq!(verdict.sccs, 2);
         assert!((verdict.min_publisher_coverage - 0.25).abs() < 1e-12);
+    }
+
+    // The stranded-node classification relative to the giant — the formal
+    // severity tables' deaf/mute split. On the worked example the giant A(3)
+    // reaches everything downstream, so nothing is deaf and B ∪ C (3 nodes)
+    // are mute; a singleton feeding *into* a cycle is heard but never hears
+    // (deaf, not mute); an isolated vertex counts in both classes; a good
+    // graph counts zero in each.
+    #[test]
+    fn deaf_and_mute_classify_relative_to_the_giant() {
+        let verdict = goodness(&worked_example());
+        assert_eq!(verdict.deaf, 0, "the giant reaches every component");
+        assert_eq!(verdict.mute, 3, "B and C never reach the giant");
+
+        // 3 → the {0, 1, 2} cycle: heard by the giant, hears nothing.
+        let feeder = PropagationDigraph::from_indexed_edges(4, &[(0, 1), (1, 2), (2, 0), (3, 0)]);
+        let verdict = goodness(&feeder);
+        assert_eq!(verdict.deaf, 1);
+        assert_eq!(verdict.mute, 0);
+
+        // 3 is disconnected in both directions: one node, both classes.
+        let isolated = PropagationDigraph::from_indexed_edges(4, &[(0, 1), (1, 2), (2, 0)]);
+        let verdict = goodness(&isolated);
+        assert_eq!(verdict.deaf, 1);
+        assert_eq!(verdict.mute, 1);
+
+        let good = PropagationDigraph::from_indexed_edges(2, &[(0, 1), (1, 0)]);
+        let verdict = goodness(&good);
+        assert_eq!((verdict.deaf, verdict.mute), (0, 0));
+    }
+
+    // The M3 verdict carries the same raw-digraph classification: seed
+    // rescue flips `good`, never the deaf/mute counts (the muted-publisher
+    // fixture from `m3_seeding_heals_the_muted_publisher`).
+    #[test]
+    fn seeded_goodness_keeps_the_raw_classification() {
+        let seeded = scripted::nodes(3)
+            .link(1, 2)
+            .link(2, 1)
+            .link(1, 0)
+            .link(2, 0)
+            .publisher_link(0, 1)
+            .build();
+        let m3 = DisseminationModel::M3.analyze(&seeded, ChurnPhase::PostChurn);
+        assert!(m3.verdict.good, "seed-rescued");
+        assert_eq!(m3.verdict.deaf, 0, "0 hears the cycle");
+        assert_eq!(m3.verdict.mute, 1, "0 still never relays back");
     }
 
     // 016-FR-019: degree histograms and the honest-sink count.

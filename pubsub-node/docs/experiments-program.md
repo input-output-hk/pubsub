@@ -213,20 +213,98 @@ security trade-off, never derived from local state.
 - **E9 — Bucketing, no cap** [ready]. Eclipse/coverage (the E3/E5 metrics) with bucketing on vs off,
   sweeping B; the bucketed-pull analysis predicts the eclipse fraction unchanged at the balanced B —
   confirm, then explore off-balanced.
-- **E10 — Selection-family fidelity** [ready]. Hash-gated selection realises a binomial degree
-  around the pick count where the models prescribe exactly-RF uniform picks. Sweep the
-  (bucket count, pick count) plane — both are axis parameters, with the boundary points legal in the
-  sweep config — and quantify the deviation from the models' laws; the grid design (which crossings,
-  at what scale) is this program's work. The fidelity question ADR 0032/0034 defer to this harness.
+- **E10 — Selection-family fidelity** [done]. Executed and documented in
+  [`docs/experiments/e10-selection-fidelity.md`](experiments/e10-selection-fidelity.md): eleven
+  cells over the calibrated M2 bulk point. Gated picks reproduce the coverage law exactly at
+  survivor headroom r = (N−1)/(B·K) ≥ 2 (pooled 279/32 000 vs the law's 0.0088), degrade 5× at
+  r = 1, and converge to gate-only behaviour below it; gate-only doubles P(bad) at equal mean
+  degree by resurrecting the eclipsed-receiver defect class, and the +1-link compensation
+  (B = (N−1)/(RF+1)) restores the law — measured, not just derived. The fidelity question
+  ADR 0032/0034 deferred to this harness is answered.
 - **E11 — Serving cap, honest** [ready]. With uniform dialing, serving load varies by chance; when
   the cap sits close to RF, upper-tail nodes refuse honest dials — and v1 has no retry, so a refused
   dial is lost. Measure effective in-degree and coverage against the uncapped baseline as a function
   of cap headroom. (A retry/back-fill variant re-runs this when that mechanism exists.)
-- **E12 — Flooding mitigation under the cap** [ready]. Adversarial Sybils exhaust a victim's slots;
-  measure concentration reduction toward ≈ K/B and honest starvation. No new machinery: the rational
-  level-1 flooder stays inside its valid edge set (an invalid dial is self-incriminating evidence),
-  and saturating that set is the (bucket count pinned, no pick count) plane point as the adversarial
-  bundle's dial coordinates, with silent-relay fan-out.
+- **E12 — Flooding mitigation under the cap** [done]. Executed and documented in
+  [`docs/experiments/e12-flooding-mitigation.md`](experiments/e12-flooding-mitigation.md): the
+  pilot plus a 48-cell B × cap × Sybil-count grid over the rational level-1 flooder (the
+  (bucket count pinned, no pick count) adversarial bundle with silent-relay fan-out). Attacker
+  concentration measured exactly at ≈ K/B wherever the cap leaves room (cap-truncated at the
+  narrow-gate corner); the cap-controlled comparison shows starved honest links — not slot
+  concentration — are the harm, with cap headroom absorbing attacks a tight cap converts into
+  topology damage. Jointly with E10: the B trade-off table — at fixed pick count, the largest B
+  with r ≥ 2 is both coverage-exact and flood-resilient. Measurement via the per-node
+  connection-accounting detail columns; bounding cases documented below, unchanged.
+- **E18 — Gated-symmetric selection (gated M4)** [done]. Executed and documented in
+  [`docs/experiments/gated-symmetric.md`](experiments/gated-symmetric.md): the hash gate composed
+  with the symmetric handshake — N-039's revisit trigger, no published law (the cells test
+  closed-form predictions recorded before running). The pair draw makes picks and pickers share one
+  survivor pool: B enters the realised degree everywhere (d = λm(2−m), measured to three digits
+  across B = 10–500 — no r ≥ 2 plateau exists in this family), and isolation gains the
+  **empty-pool channel** e^(−(1−μ)(N−1)/B) — K-independent, so RF cannot compensate — confirmed
+  57 + 61 bad/8 000 at B = 250 against a matched-degree ungated twin at 0/8 000 (the naive
+  law-at-realised-degree transfer rejected ~430×), and its (1−μ) exponent confirmed across
+  μ = 0.2/0.3/0.4 at equal event counts (the μ-axis cells). Design rule: size the pool, not the headroom —
+  (N−1)/B ≥ ln(H/δ)/(1−μ), with the gate coverage-free at r ≳ 3; the ordered-predicate
+  alternative is priced in the report (≈ 2/B admissibility at equal B; the frontier
+  λ_floor/(N−1) is predicate-independent). The benefit-side flooding grid (the E12 analogue under
+  the symmetric handshake) is E19.
+- **E19 — Symmetric flooding under the admissions budget (+ the ordered arm)** [done]. Executed and
+  documented in [`docs/experiments/symmetric-flooding.md`](experiments/symmetric-flooding.md): the
+  E12 question re-asked on the symmetric handshake, carrying the machinery its answer required —
+  ADR 0042 resolved N-032 (the cap on a symmetric seam is an **admissions budget**: fresh peer
+  arrivals spend it, crossings are exempt, own picks are never vetoed, degree ≤ K + C by
+  construction) and N-040's drain-time route attribution made it measurable
+  (own-only / mutual / admitted × peer class, refusals split fresh vs crossing). Results: the
+  retired both-role scan's crossing veto measured once at its pinned commit (0.074/victim; the
+  budget's is exactly zero over ~10⁷ refusals); the pilot-calibrated without-replacement race law
+  at **zero flags across the 19-cell B × cap × Sybil grid**; the occupancy decomposition — the
+  cap-blind own-pick floor K·μ (no acceptance policy sees it) vs the gate-divided admission route
+  (S/B)(1−m); the cap-sizing rule re-anchored on the fresh-arrival load K(1−m)(1−μ); flooding
+  structurally inert at pool saturation; and the replicated **cap × empty-pool composition term**
+  (pooled 166/800 vs the uncapped law's 0.148, z = +4.75; the ledger's `capsweep` computes the
+  full cap trade-off curve from the grid-validated race law, measured at both ends — the binding
+  C = 3 corner and the pre-registered C = 12 quiet-end anchor, 59/400 bad vs registered 59.3 —
+  so past the pool floor no cap both binds and stays harmless; inside the window the term is
+  doubly suppressed *given* the sizing rule).
+  The **ordered arm** (ADR 0043) turned E18 §4's derived pricing into measured rows: the
+  pick-repairable tail is real below the saturation boundary B < (N−1)/K (0/8 000 at equal B vs
+  the unordered 57) and vanishes above it (80/8 000 at equal density — the corrected
+  registration), while at a binding budget the 2/B looseness converts into doubled honest
+  starvation, not extra occupancy — the unordered pair's dominance is now measured, not argued.
+  Instrument notes: two pre-registered race models corrected against measurement (documented),
+  and N-042 — the wavefront budget race is class-fair but rank-concentrated dialer-side
+  (resolved post-E20 by ADR 0044's per-victim seeded arrival order; the ordered flooder re-run
+  measured 400/400 good with class-level race columns identical to the decimal).
+- **E20 — The M4 synthesis: the gated recommendation and the gated model comparison** [done].
+  Executed and documented in [`docs/experiments/m4-synthesis.md`](experiments/m4-synthesis.md):
+  the (N, K)-parameterised prediction ledger (`m4_synthesis_predictions.py` — the E18/E19 forms
+  lifted to parameters, the directional/M3 forms validated against E10 and the published ungated
+  op points, B = 1 recovering each ungated law exactly) plus eleven pre-registered cells at CIP
+  scale and at the CIP's pick count (seeds 1139–1149, every one verified against its frozen
+  registration — two coverage lines missed as recorded, the seed-rescue corrections documented).
+  Headlines: **gated M4 at K = 10, B = 500, C = 23 is equal-or-better than the ungated CIP op
+  point on every quoted axis except ~1 % of mean latency** (P(bad) 5.1e-6 vs 6.1e-6,
+  copies/honest 13.00 vs 13.40 — the shared pool absorbs the extra pick, hops 5.00/3.95 vs
+  5.00/3.90, churn budget 7.57 % vs 7.43 %) with flood
+  divisor 500 and degree ≤ K + C exact; the cap-headroom floor is K-dependent (c ≈ 3.5 at
+  K = 9–10, the three-point composition-curve rehearsal); the gated model comparison under the
+  equal-attack-surface normalization (directional 2/B vs the pair draw's 1/B) shows **the pair
+  draw runs twice the pool per unit of surface** — no M3 pick count meets the target at M4-equal
+  total surface (the equal-deafen-cost alternative normalization prices feasible but ~9× behind
+  at 19 picks vs 10 — both normalizations stated in report §7), measured by the equal-surface
+  cliff pair (gated M3 17/400 bad, all deaf-class, vs M4 400/400 at surface 32); the first
+  capped publisher-seam cells (N-041 completed) found the
+  **seed-rescue coupling** (a binding seed-intake cap starves exactly the rescuing seeds,
+  f = μ + (1−μ)ρ_p — size C_p to clear the intake load) and fired N-042's trigger (rank
+  dissection recorded; the instrument fix landed post-E20 as ADR 0044 and both frozen
+  validation re-runs passed — seed 1148 at 80/400 vs the independent-order form's 84.8,
+  z = −0.59, race columns exact). Report §9
+  catalogues the gated closed forms with epistemic grades, a symbol table, and the
+  isolated-vertex reduction scoped (the enumerated pair-component term is ≤ 3.3e-4 of E_iso at
+  every measured shape; the powered cells show zero pair excess); the PR's formal review
+  independently re-derived the forms and reproduced every quoted number — the remaining
+  hardening step is a derivation document in the formal folder's style.
 
 **Documented, not simulated:** no cap ⇒ no flooding surface (nothing to exhaust); cap without
 bucketing ⇒ the obvious attack (every Sybil dials the victim; concentration ≈ K, honest requests
@@ -290,14 +368,17 @@ coordinated receiving-side attack is serving-slot flooding (E12).
 | E7 | M4 — bidirectional links | 3 | M4 law (RF ≥ 2) | **done** (m4-comparison) |
 | E8 | M5 — k-in/k-out grid | 3 | M5 law + boundary reductions | **done** (m5-comparison, M1 boundary included) |
 | E9 | Bucketing, no cap | 4 | bucketed-pull (balanced B) | ready |
-| E10 | Selection-family fidelity (B, K) | 4 | model selection family | ready |
+| E10 | Selection-family fidelity (B, K) | 4 | model selection family | **done** (e10-selection-fidelity) |
 | E11 | Serving cap, honest | 4 | none (congestion) | ready |
-| E12 | Flooding mitigation under cap | 4 | bucketed-pull concentration | ready |
+| E12 | Flooding mitigation under cap | 4 | bucketed-pull concentration | **done** (e12-flooding-mitigation) |
 | E13 | Churn | 5 | none | ready |
 | E14 | Multi-round healing | 5 | none | needs rotation |
 | E15 | Adversarial relevance classification | 5 | silent-adversary bound | analysis ready |
 | E16 | Golden push tier | 6 | golden-tier formula | needs golden feature |
 | E17 | Slashing dynamics | 7 | deposit arithmetic | needs detection + rotation |
+| E18 | Gated-symmetric selection (gated M4) | 4 | none published (N-039 boundary) — own two-channel law | **done** (gated-symmetric) |
+| E19 | Symmetric flooding under the admissions budget (+ ordered arm) | 4 | own race law + E18 §4 pricing | **done** (symmetric-flooding) |
+| E20 | M4 synthesis: the gated recommendation + gated model comparison | 4 | the (N, K)-parameterised ledger (E10/E18/E19 forms; B = 1 = the ungated laws) | **done** (m4-synthesis) |
 
 Reading the table: the confirmation experiments validate closed forms at finite N and for the
 topology the protocol actually builds; E11 and E13–E15 are where the framework is the primary

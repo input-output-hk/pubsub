@@ -1,0 +1,51 @@
+# Symmetric flooding, scheme-A contrast cell: B = 50, both-role scan
+# cap 32, S = 800 Sybil flooders (mu = 0.2).
+#
+# THIS CELL IS PINNED TO ITS TOOL COMMIT (the accounting-columns commit,
+# pre-ADR-0042). Here `accept_cap` on a symmetric seam still means the
+# recorded 015 both-role link scan — the behaviour ADR 0042 retires. At
+# any later commit the same knob enforces the admissions budget and these
+# predictions are violated by construction (refused crossings become
+# identically zero); the cell is not re-runnable at HEAD. Its budget twin
+# is budget-b50-cap16-s800.toml (equal effective arrival budget:
+# C_A = C + K = 32).
+#
+# Predictions (docs/experiments/symmetric_flooding_predictions.py
+# `50 800 32 A`; the scan race uses the stated uniform-interleaving
+# model — first-order, the exact-arithmetic columns are the uncapped
+# routes). Per honest victim: uncapped routes own-only/mutual/admitted
+# honest = 10.24/2.56/10.24, Sybil mutual/admitted = 3.20/12.80
+# (mutual_s is the cap-blind own-pick floor K*f = 3.20). Scan race:
+# arrivals 28.8 + mirrors ~16 against cap 32 -> refused ~8.23 per victim
+# (~26 300 rejected_over_capacity per run), of which crossings ~1.65
+# (honest crossings ~0.73 — the veto channel, the measurand the budget
+# twin holds at zero); Sybil edges ~12.3. Coverage: E18 E_iso = 7.9e-13
+# and the post-race honest degree stays well above isolation — predict
+# 400/400 good.
+#
+# Run manually (per-node detail is the measurement):
+#
+#   experiments --config configs/experiments/symmetric-flooding/a-scan-b50-cap32-s800.toml --out results/symmetric-flooding/a-scan-b50-cap32-s800/ --per-node-detail
+
+model = "m4"
+master_seed = 1112
+
+[population]
+size = 4000
+adversarial = 800
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 50
+symmetric = true
+accept_cap = 32
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 50 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

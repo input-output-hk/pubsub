@@ -1,0 +1,36 @@
+# Churn at the proposed operating point — M4 RF = 9.
+# The op-point churn round (m4-n20k-op-churn.toml, seed 812) ran RF = 8,
+# the cheapest configuration clearing the target. RF = 9 is the point the
+# CIP proposes, and its 7.43 % churn budget is the number the epoch-length
+# argument rests on; until now that budget was read off the law rather than
+# measured at these parameters.
+# N = 20000, mu = 0.2.
+
+model = "m4"
+master_seed = 862
+
+[population]
+size = 20000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+symmetric = true
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 9
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 2000
+
+# Shifted one level up from the op-point round and run deeper: RF = 9 is an
+# order of magnitude below RF = 8 in P(bad), so churn = 0.20 would expect
+# about five failures in 1200 and carry almost no power. At these levels the
+# law predicts roughly 28, 87 and 244 failures in 2000.
+[[axes]]
+parameter = "churn"
+values = [0.25, 0.30, 0.35]

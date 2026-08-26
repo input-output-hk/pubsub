@@ -123,7 +123,7 @@ def main():
     print(f"  msgs pred = H*RF*(1-mu);  hop branching = RF*(1-mu)")
     print(f"  {'RF':>3} {'msgs MC':>10} {'msgs pred':>10} {'/node':>6} | "
           f"{'hops(max)':>9} {'hops(mean)':>10} {'ln H/ln br':>10} {'cov':>6}")
-    for RF in (16, 20, 24):
+    for RF in (16, 20, 24, 25):
         p = M2Params(N=N, k=k, RF=RF)
         sends = maxd = meand = cov = 0.0
         for _ in range(T):

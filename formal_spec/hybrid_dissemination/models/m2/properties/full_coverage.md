@@ -66,19 +66,25 @@ strong-connectivity check):
 | 14 | 0.0428 | 0.0475 | 95 / 2000 | +1.0 |
 | 16 | 0.0088 | 0.0081 | 65 / 8000 | −0.7 |
 
-## 4. Answer — RF for P(bad) = 10⁻⁴ (N = 20 000, μ = 0.2)
+## 4. Answer — the operating point for P(bad) = 10⁻⁴ (N = 20 000, μ = 0.2)
 
-**RF = 24**: P_bad ≈ 7.3×10⁻⁵ ≤ 10⁻⁴; RF = 23 gives 1.6×10⁻⁴, above target.
-At this point the eclipse term u is 8 orders of magnitude below the
-muted-publisher term — the fanout is spent protecting *publishing*, not
-reception (reception alone needs only RF ≥ ln(H/δ)/ln(1/μ) ≈ 12).
+**RF = 25**, the margin-selected operating point
+([comparison §1](../../comparison.md)): P_bad ≈ 3.3×10⁻⁵ ≤ 10⁻⁴, with the
+μ-shift budget p_max ≈ 5.8 % clearing the 2 % disturbance margin
+([`mu_shift_robustness.md`](mu_shift_robustness.md)). The **δ-cheapest**
+fanout — the smallest meeting δ alone — is **RF = 24** at
+P_bad ≈ 7.3×10⁻⁵ (RF = 23 gives 1.6×10⁻⁴, above target), holding only
+~1.7 % margin. At RF = 25 the eclipse term u is 9 orders of magnitude
+below the muted-publisher term — the fanout is spent protecting
+*publishing*, not reception (reception alone needs only
+RF ≥ ln(H/δ)/ln(1/μ) ≈ 12).
 
 ## 5. Failure severity — what a bad graph costs
 
 Conditional on bad, the stranded set is almost always a single node.
 `sim_m2_severity.py` measures d = H − |giant SCC| on bad graphs at
-elevated μ and classifies the stranded nodes — deaf (eclipsed) vs mute
-(no requester path):
+elevated μ (frozen at the δ-cheapest RF = 24 reference) and classifies
+the stranded nodes — deaf (eclipsed) vs mute (no requester path):
 
 | μ_eff | bad graphs | d = 1 | d = 2 | d ≥ 3 | max d | deaf : mute |
 |---|---|---|---|---|---|---|
@@ -86,7 +92,7 @@ elevated μ and classifies the stranded nodes — deaf (eclipsed) vs mute
 | 0.60 | 155 | 72 % | 25 % | 3 % | 4 | 14 : 191 |
 
 The exact mirror of M1 (a same-seed sample is M1's edge-reversal, so the
-deaf/mute split swaps). At the operating point (E ≈ 7×10⁻⁵) multiplicity
+deaf/mute split swaps). At the operating point (E ≈ 3×10⁻⁵) multiplicity
 collapses to one: **a δ-event is one muted publisher** — its messages do
 not propagate for the epoch, everyone else's flow untouched. No fragment
 beyond 4 nodes appeared in 270 bad graphs.

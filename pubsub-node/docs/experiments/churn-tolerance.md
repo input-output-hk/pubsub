@@ -114,10 +114,16 @@ offline — where their failure rates become countable.
 **All nine place the law inside the interval**, mean z = +0.30, Stouffer +0.89,
 sd 0.47. Two things follow.
 
-The configurations this analysis actually recommends are now tested under churn
-directly, rather than by inference from proxies. And the two rounds together
-carry the reduction from an adversarial fraction of 0.20 out to 0.44, more than
-doubling it, with the laws tracking throughout.
+The operating points are now tested under churn directly, rather than by
+inference from proxies. And the two rounds together carry the reduction from an
+adversarial fraction of 0.20 out to 0.44, more than doubling it, with the laws
+tracking throughout.
+
+These are the operating points as published when this round was run. The
+comparison has since moved M3 to (13, 7) and M4 to RF = 9, so of the three
+cells here only M5's is at a configuration still recommended;
+[churn-proposed-points.md](churn-proposed-points.md) covers the other two at
+their current parameters and extends the reduction to 0.48.
 
 It also bears on §3. The first round's excess does not reappear here: the
 operating-point cells sit at +0.30 against the proxy cells' +0.58, with a

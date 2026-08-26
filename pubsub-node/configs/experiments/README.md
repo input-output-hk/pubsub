@@ -56,10 +56,19 @@ publishes_per_run = 1   # optional; fresh message each, no state reset
 
 Strategy tables take the full coordinate set: `bucket_count` (the
 hash-gate width; absent = ungated, and `1` is legal here as the ungated
-point on an axis), `accept_cap` (absolute per-topic serving cap; absent =
-unbounded, `0` = serve none), `accept_unverified` (default `false`:
-acceptors verify the gate iff `bucket_count` is present), and `symmetric`
-(default `false`: the bidirectional relay handshake).
+point on an axis), `accept_cap` (absolute per-topic admissions bound;
+absent = unbounded, `0` = admit none; on a directional class the bound is
+the kind-scoped link scan — the admitted set — while on a `symmetric`
+class it is the per-epoch admissions budget of ADR 0042: fresh peer
+arrivals spend it, crossings are exempt, the node's own picks are never
+vetoed, and realised degree is bounded by pick_count + accept_cap by
+construction), `accept_unverified` (default `false`: acceptors verify the
+gate iff `bucket_count` is present), `symmetric` (default `false`: the
+bidirectional relay handshake), and `symmetric_ordered` (default
+`false`; requires `symmetric` — gates a symmetric class with the
+**ordered** comparison predicate, the directional draw under its own
+domain: ADR 0043's measurement arm for the construction N-039 rejected,
+never an operator option).
 
 A class additionally turns the **publisher pair** on — standing initiation
 links, the M3/M5 wiring — by declaring a `publisher` sub-table with the
@@ -143,16 +152,39 @@ Three files per sweep:
   Each publish slice splits its sends by recipient class **and** by
   carrying link kind (`sends_by_kind`: relay/publisher, with degenerate
   columns at zero — under M3 the split reads relaying vs seeding, under
-  M5 pull-serving vs push-forwarding).
+  M5 pull-serving vs push-forwarding). The post-churn graph verdict
+  carries the stranded-node classification alongside `sccs`/
+  `largest_scc`: `deaf` (nodes the largest component cannot reach) and
+  `mute` (nodes that cannot reach it), the formal severity tables' two
+  stranding directions — but counted independently, so a node
+  disconnected in both directions appears in both, where the formal
+  classifier cuts it into a disjoint third class; subtract the overlap
+  (`deaf + mute − stranded`) before joining these columns onto those
+  tables. The classification reads the raw digraph under every model
+  (M3's seed rescue shows in `good`, never here).
 - `aggregates.json` — one entry per experiment, a pure fold of its rows:
   distributions, percentiles, and probabilities as raw counts plus a
   Wilson 95 % interval (meaningful even at all-good samples).
 
 With `--per-node-detail`, each run additionally writes
 `run-NNNNNN-detail.jsonl` — one row per node with its first-receipt wave,
-first-delivery origin, propagation-graph degrees, and (for eligible
-receivers that missed) the classified miss cause. Detail never changes the
-three main files.
+first-delivery origin, propagation-graph degrees, connection accounting
+(serving slots split by the linked peer's class; the node's own dials
+refused over capacity; refusals it issued, split by the refused dialer's
+class), and (for eligible receivers that missed) the classified miss
+cause. The slot counts are further partitioned by drain-observed
+initiation route (ADR 0042): `edges_own_only_*` (the node alone dialed),
+`edges_mutual_*` (both ends dialed — crossings), and `edges_admitted_*`
+(the peer alone dialed — what an acceptance cap governs), each split by
+the linked peer's class and summing to the slot totals; the issued
+refusals carry a `_crossing_*` subset (refusals of a peer the refuser had
+itself dialed). On directional configurations no symmetric dials exist,
+so every entry reads admitted and the crossing subsets are zero. The
+publisher seam carries its own slot pair,
+`downstream_publisher_honest`/`downstream_publisher_adversarial` (the
+node's `Active` seed targets by linked-peer class — N-041 completed), so
+the kind-agnostic refusal columns reconcile per seam. Detail never
+changes the three main files.
 
 There is no interruption resume: a stopped sweep leaves `runs.jsonl` as a
 valid prefix in canonical order with no completion claim — re-run it (same
@@ -201,4 +233,5 @@ included).
   output contract and statistics conventions), ADR 0037 (the optional
   `serde_json` dependency), ADR 0038 (shared candidate views), ADR 0041
   (the publisher-pair configuration, per-model extraction, and the
-  sends-by-kind split) under [`docs/decisions/`](../../docs/decisions/).
+  sends-by-kind split), ADR 0044 (the per-victim seeded arrival order)
+  under [`docs/decisions/`](../../docs/decisions/).

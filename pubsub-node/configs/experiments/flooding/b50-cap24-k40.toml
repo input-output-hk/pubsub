@@ -1,0 +1,31 @@
+# E12 flooding grid cell: B = 50, accept cap 24, K = 40 Sybils.
+#
+# One cell of the 4 x 3 x 4 (B x cap x Sybil-count) grid around the pilot
+# (pilot-b125-cap24-k200.toml, which documents the scenario). Prediction:
+# attacker-held slots per victim ~ K/B = 0.80 mean. Runs sized 150
+# (means and modest tails). Measurement needs --per-node-detail.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/flooding/b50-cap24-k40.toml --out results/e12/b50-cap24-k40/ --per-node-detail
+
+model = "m2"
+master_seed = 1017
+
+[population]
+size = 4000
+adversarial = 40
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 50
+accept_cap = 24
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 50 # no pick_count: every valid edge is dialed
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 150

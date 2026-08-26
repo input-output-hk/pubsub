@@ -1,0 +1,36 @@
+# E10 Family B - gate + pick count: K = 16, B = 10, survivor headroom
+# r = (N-1)/(B*K) ~= 25.
+#
+# The calibrated M2 bulk cell (m2-bulk-regime.toml: N = 4 000, mu = 0.2,
+# RF = 16, coverage-law P(bad) = 0.0088, validated 71/8000) with the picks
+# drawn from the hash gate's survivor set (mean ~400 survivors) instead of
+# the full candidate set. Picking K uniformly from a uniformly-thinned set
+# is distributionally exact-K while survivors >= K, so at this headroom the
+# cell should reproduce the calibrated law - gating and sampling composing
+# losslessly is the result under test. 8 000 runs match the calibrated
+# cell's treatment. Program of record: docs/experiments-program.md E10.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/selection-fidelity/gated-picks-b10.toml --out results/e10/gated-picks-b10/
+
+model = "m2"
+master_seed = 911
+
+[population]
+size = 4000
+adversarial_fraction = 0.2
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 10
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 16
+bucket_count = 10
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 8000

@@ -1,0 +1,38 @@
+# Symmetric flooding grid cell: B = 125, budget C = 10, S = 40 (control).
+#
+# One cell of the B x cap x S core grid around the pilot
+# (pilot-b125-cap12-s800.toml documents the scenario). Predictions
+# (symmetric_flooding_predictions.py `125 40 10 budget`, the
+# pilot-calibrated race), per honest victim: routes h(own/mut/adm) =
+# 7.92/7.92/7.92, s(floor/adm) = 0.16/0.16; race admitted h/s =
+# 7.265/0.147, refused h/s = 0.653/0.013, P(>=1 honest refusal) = 0.234
+# (honest self-congestion at the tight cap); crossing refusals = 0,
+# admitted <= 10, degree <= 26; d ~22.76, Sybil edges ~0.31; E_iso
+# ~6e-11 -> predict 400/400 good.
+#
+# Run manually:
+#
+#   experiments --config configs/experiments/symmetric-flooding/b125-cap10-s40.toml --out results/symmetric-flooding/b125-cap10-s40/ --per-node-detail
+
+model = "m4"
+master_seed = 1123
+
+[population]
+size = 4000
+adversarial = 40
+topic = "t0"
+
+[strategies.honest]
+pick_count = 16
+bucket_count = 125
+symmetric = true
+accept_cap = 10
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+bucket_count = 125 # no pick_count: every admissible pair is dialed
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

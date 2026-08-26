@@ -92,6 +92,33 @@ pub(crate) fn view_with_nonce<'a>(
         upstream: no_links(),
         downstream: down,
         epoch_nonce,
+        admitted_counts: no_admissions(),
+    }
+}
+
+/// A shared empty admissions-count map — view fixtures spend no budget
+/// unless a test says otherwise via [`view_with_admitted`].
+pub(crate) fn no_admissions() -> &'static BTreeMap<(TopicId, LinkKind), usize> {
+    static EMPTY: OnceLock<BTreeMap<(TopicId, LinkKind), usize>> = OnceLock::new();
+    EMPTY.get_or_init(BTreeMap::new)
+}
+
+/// A [`NodeView`] over the borrowed fixtures with an explicit
+/// admissions-count map (the ADR 0042 budget's spent counts).
+pub(crate) fn view_with_admitted<'a>(
+    subs: &'a BTreeSet<TopicId>,
+    cands: &'a BTreeMap<TopicId, Arc<BTreeSet<PeerId>>>,
+    down: &'a BTreeMap<LinkKey, LinkState>,
+    admitted: &'a BTreeMap<(TopicId, LinkKind), usize>,
+) -> NodeView<'a> {
+    NodeView {
+        subscriptions: subs,
+        self_id: view_self(),
+        candidates: cands,
+        upstream: no_links(),
+        downstream: down,
+        epoch_nonce: 0,
+        admitted_counts: admitted,
     }
 }
 
@@ -110,5 +137,6 @@ pub(crate) fn view_with_upstream<'a>(
         upstream: up,
         downstream: down,
         epoch_nonce: 0,
+        admitted_counts: no_admissions(),
     }
 }

@@ -62,9 +62,11 @@ H-scaling (same F, ×5 N ⇒ E ×5).
 
 ## 4. Answer — F for P(bad) = 10⁻⁴ (N = 20 000, μ = 0.2)
 
-**F = 24**: P_bad ≈ 7.3×10⁻⁵ ≤ 10⁻⁴; F = 23 gives 1.6×10⁻⁴, above target.
-(The out-term is 8 orders of magnitude below the in-term here — M1's wall is
-entirely the seed-proof in-isolation.)
+**δ-cheapest F = 24**: P_bad ≈ 7.3×10⁻⁵ ≤ 10⁻⁴; F = 23 gives 1.6×10⁻⁴,
+above target. The margin-selected operating point **F = 25**
+([comparison](../../comparison.md)) runs at P_bad ≈ 3.3×10⁻⁵. (The out-term
+is 8 orders of magnitude below the in-term at both — M1's wall is entirely
+the seed-proof in-isolation.)
 
 ## 5. Failure severity — what a bad graph costs
 
@@ -79,7 +81,7 @@ nodes — deaf (unreachable from the giant) vs mute (cannot reach it):
 | 0.60 | 155 | 72 % | 25 % | 3 % | 4 | 191 : 14 |
 
 Multiplicity matches Poisson(E) conditioned on ≥ 1 defect; at the
-operating point E ≈ 7×10⁻⁵ collapses it to one: **a δ-event is one deaf
+operating point E ≈ 3×10⁻⁵ collapses it to one: **a δ-event is one deaf
 node** (the seed-proof in-isolation class — 95 % of stranded nodes even
 at these μ), with the other H − 1 nodes operating normally. No fragment
 beyond 4 nodes appeared in 270 bad graphs; a partition needs Θ(H)

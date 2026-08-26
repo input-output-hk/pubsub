@@ -1,0 +1,52 @@
+# M4 synthesis reduced-headroom anchor: N = 20 000, K = 9, B = 500,
+# admissions budget C = 23, mu = 0.2 (silent relays WITH picks) — the
+# gated + capped configuration at the CIP's own pick count, the other
+# side of the F4 decision (parity-n20k-k10-b500-cap23.toml measures the
+# K = 10 side).
+#
+# The recipe's floor statement measured: at K = 9 the gate can only add
+# to the ungated law's mu^K floor, so this row carries the reduced
+# headroom the K = 10 row buys back. Predicted isolation
+# (docs/experiments/m4_synthesis_predictions.py, e18_isolation at
+# --n=20000 --k=9 --s=4000, B = 500): E_iso = 3.611e-5, P(bad) =
+# 3.61e-5 — six times the ungated K = 9 law (6.1e-6) and seven times
+# the gated K = 10 row (5.05e-6); still predict 400/400 good at this
+# cell size (expected bad 0.014) — the tail claim is the law's, the
+# cell measures consistency, geometry, and the budget invariants.
+#
+# Geometry (`cell 500 23 --k=9 --s=0` — homogeneous picking population;
+# linked-peer classes split binomially at mu): routes per victim
+# own/mut/adm = 6.97/2.03/6.97, d = 15.97; adversarial share of held
+# edges ~ mu, so Sybil edges ~ 3.19/victim. Race: fresh load ~ 7.0
+# against C = 23 -> refusals ~ 0 (register rejected_over_capacity ~ 0,
+# at most a few dozen across the cell — the K = 10 twin measured 25
+# over 6.4 M victim rows). Invariants: refusals_issued_crossing_* = 0;
+# edges_admitted_* <= 23; total degree <= K + C = 32.
+#
+# Run manually (per-node detail is the route measurement):
+#
+#   experiments --config configs/experiments/m4-synthesis/parity-n20k-k9-b500-cap23.toml --out results/m4-synthesis/parity-n20k-k9-b500-cap23/ --per-node-detail
+
+model = "m4"
+master_seed = 1141
+
+[population]
+size = 20000
+adversarial = 4000
+topic = "t0"
+
+[strategies.honest]
+pick_count = 9
+bucket_count = 500
+symmetric = true
+accept_cap = 23
+fanout = "forward-to-relays"
+
+[strategies.adversarial]
+pick_count = 9
+bucket_count = 500
+symmetric = true
+fanout = "silent-relay"
+
+[execution]
+runs_per_experiment = 400

@@ -14,6 +14,7 @@ differences worth raising.
 | Re-validated | `06b88aa` (the instrument-performance follow-up: shared candidate views, ADR 0038, and the wave sort-key change): all three sections re-executed, `runs.jsonl` and `aggregates.json` **byte-identical** again, manifests differing in the tool commit only; the operating point additionally verified identical across `--workers 1` and `--workers 10`. The cost figures below are from this commit — before it, each in-flight N = 20 000 run held ~30 GB (worker count doubled as the memory knob) and the operating point ran ~13–23 min at `--workers 1` |
 | Re-baselined | `7e50e3a` (feature 017, the unified selection plane — commit B): the selection draw derivation changed **deliberately** (per-seam draw domains, self-identity and the epoch nonce in the preimage; ADR 0040), so this document's measured values changed exactly once — the sections below are this generation's, with statistical agreement re-evaluated against the unchanged formal references. The refactor itself was byte-neutral (verified at the feature's commit-A gate); the operating point was verified identical across `--workers 1` and `--workers 10` at the re-baseline, and all three sections re-executed **byte-identically** at `d7e7132` (the 017 sweep-axis and M4-config follow-ups). Sweep configs now speak the 017 coordinate vocabulary (`pick_count` in place of the retired kind/degree fields) |
 | Schema extended | `23d0223` (ADR 0041, the sends-by-kind split): run rows gain `publishes[].sends_by_kind` and aggregates gain `sends_relay_mean`/`sends_publisher_mean`. All three sections re-executed at this commit and verified **value-identical** — after stripping exactly the added fields, `runs.jsonl` and `aggregates.json` match the `7e50e3a` generation for all three sections (manifests differ in the tool commit only), so every figure below is unchanged. On these relay-only populations the new columns are degenerate by construction: `publisher` ≡ 0, `relay` = total sends, verified across all rows |
+| Arrival order + severity pair | `0764da3` (ADR 0044, the per-victim seeded arrival order, batched with the failure-severity row pair): run rows gain `deaf`/`mute`, and each recipient's intra-wave arrival order became its own seeded per-(recipient, sender) draw, recorded in the manifest's derivation rule. All three sections re-executed and compared against the previous stored generation (tool commit `9197868`): **every measurand of record is value-identical** — topology verdicts, coverage, receipts, depth distributions, degree histograms, dial columns, rows and aggregates alike (added fields stripped) — and the only moved values are the send/suppression attribution pair: split-horizon origin ties among same-wave duplicate deliveries resolve by the new order, so `sends` and `suppressed` shift together (Δsends ≡ Δsuppressed on every publish slice). Individual slices move by up to 9/10/15 sends (op/grid/bulk) against per-publish totals of 3.8×10⁵/2.6×10⁵/5.1×10⁴, and the shifts are near-symmetric: the signed mean is −0.675/+0.273/+0.072 sends per publish. Three quoted figures below moved at their quoted precision and carry this generation's values |
 | Operating point | `configs/experiments/m2-operating-point.toml`, master seed **42**, 40 runs; ~25 s at `--workers 10` (release build; ~1 GB peak per in-flight run) |
 | Bulk-regime point | `configs/experiments/m2-bulk-regime.toml`, master seed **4016**, 8000 runs, ~6 min at default workers (~190 MB per in-flight run) |
 | Grid-cell check | the operating-point configuration with `pick_count = 16` (both classes), `runs_per_experiment = 150`, `master_seed = 20016`; ~72 s at `--workers 10` |
@@ -47,7 +48,7 @@ runs; 40 runs certify only its order-of-magnitude absence).
 
 | quantity | published (comparison.md, M2 row) | measured (mean over 40 runs) | deviation |
 |---|---|---|---|
-| honest→honest sends per message | 307 153 | **307 162.1** | +0.003 % |
+| honest→honest sends per message | 307 153 | **307 161.4** | +0.003 % |
 | copies per honest node | 19.2 | **19.20** | — |
 | hops, full coverage | 4.8 | **4.78** (9 runs at 4, 31 at 5) | rounds to the published 4.8 |
 | hops, mean first receipt | 3.6 | **3.60** | exact at table precision |
@@ -62,15 +63,15 @@ the publisher's own record, 640 000 receipts total):
 Supporting numbers: sends to adversarial recipients 76 774.1 per message
 (expectation A·RF·H/(N−1) ≈ 76 804; the gap is within a 40-run mean's
 sampling noise); total sends p50/p90/p99 =
-383 982 / 384 228 / 384 280; duplication ratio (redundant arrivals over all
+383 976 / 384 227 / 384 279; duplication ratio (redundant arrivals over all
 arrivals) 0.948, the flooding-with-dedup cost the RF = 24 sizing implies.
 
 **Deviation notes.** The honest→honest sends figure differs from the
-published table by 9 messages in ~3×10⁵ (0.003 %). The pre-split-horizon
+published table by 8 messages in ~3×10⁵ (0.003 %). The pre-split-horizon
 expectation for exactly-RF uniform picks is H·RF·(H−1)/(N−1) ≈ 307 196;
 split-horizon suppression (a node never echoes to its first deliverer, so
 mutual-pick pairs drop one send) accounts for part of the measured mean's
-~34-message shortfall against it, and the residual gap is well under 1σ of
+~35-message shortfall against it, and the residual gap is well under 1σ of
 a 40-run mean — finite-sample noise, not a protocol difference. The depth
 means agree to the published table's precision.
 
@@ -133,7 +134,7 @@ law at this resolution.
 The §2 structure repeats at full N: every one of the 9 bad graphs has
 exactly one condensation sink with min-publisher-coverage 0.0 (a single
 muted publisher), and the sampled-publisher drain achieved full coverage
-in all 150 runs. Cost sanity holds too: honest→honest sends mean 204 759
+in all 150 runs. Cost sanity holds too: honest→honest sends mean 204 760
 vs the pre-split-horizon expectation H·RF·(H−1)/(N−1) ≈ 204 797.
 
 ## 4. Uncertainty methodology — to raise with the formal-methods team
