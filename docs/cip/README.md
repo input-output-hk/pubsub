@@ -209,9 +209,12 @@ Three properties of that arrangement carry most of the design.
 
 A handful of named quantities size the protocol, and they are of two kinds. Some are parameters the protocol runs on. The rest are assumptions about the environment it is being sized for. A node reads both. Only the parameters are ever checked by a peer, and that difference decides where each is held.
 
-**Only two of the values must be identical across nodes.** The first is the bucket count *B*. It decides how narrowly the peers a node may link with are drawn from a topic's population. *B* is not held on chain at all: a node looks it up in [Table 1](#table-1) of this document, by how many peers the topic has in the snapshot.
+**Only two of the values must be identical across nodes.**
 
-The second is the epoch length *T*<sub>epoch</sub>. It fixes where an epoch begins and ends, and so which snapshot and which randomness a topology is drawn from. It is read from the [parameter output](#the-parameter-output). [Topology derivation](#topology-derivation) specifies how both are used.
+- **The bucket count *B*.** It decides how narrowly the peers a node may link with are drawn from a topic's population. *B* is not held on chain at all: a node looks it up in [Table 1](#table-1) of this document, by how many peers the topic has in the snapshot.
+- **The epoch length *T*<sub>epoch</sub>.** It fixes where an epoch begins and ends, and so which snapshot and which randomness a topology is drawn from. It is read from the [parameter output](#the-parameter-output).
+
+[Topology derivation](#topology-derivation) specifies how both are used.
 
 **Everything else a node computes is its own.** How many links it opens is checked by nobody. How many it accepts is a matter of its own capacity. A node that sizes either badly loses coverage or capacity, and disagrees with no one.
 
@@ -281,7 +284,12 @@ where *id* is the node identity key and *op* the operator credential. Without it
 
 The protocol holds three things on chain: a **parameter output** that identifies the deployment and fixes its epoch length, a **topic registry**, and a **node registry**. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This section specifies what each holds and the state transitions it must admit, and leaves the validator implementation to the deployment.
 
-**Which registry holds what.** The two registries divide by who may write an entry, not by what it is about. A node entry is written by its operator. It holds what is that node's own to declare: its identity key, its deposit, its endpoints, and the topics it takes part in. A topic entry is written by the topic's owner. It holds what is the topic's own to declare: that it exists, which keys may publish on it, and how long messages are retained. Subscribing is a node's decision, so it sits on the node entry. Authorising a publisher is the owner's, so it sits on the topic entry. [Figure 2](#figure-2) puts the two in the order an operator meets them.
+**Which registry holds what.** The two registries divide by who may write an entry, not by what it is about.
+
+- **A node entry is written by its operator.** It holds what is that node's own to declare: its identity key, its deposit, its endpoints, and the topics it takes part in.
+- **A topic entry is written by the topic's owner.** It holds what is the topic's own to declare: that it exists, which keys may publish on it, and how long messages are retained.
+
+Subscribing is a node's decision, so it sits on the node entry. Authorising a publisher is the owner's, so it sits on the topic entry. [Figure 2](#figure-2) puts the two in the order an operator meets them.
 
 <div align="center">
 <a name="figure-2" id="figure-2"></a>
@@ -364,7 +372,10 @@ The two directions are deliberately asymmetric. Both moves are in the safe direc
 
 The announcement exists because the alternative does not work. Removing an entry outright ends the topic at the chain tip, while every node derives its topology from the epoch's snapshot, so the two rules read different chain positions: nodes tearing down links the moment they see a removal would disagree with nodes still deriving that topic from the snapshot, and a message in flight would be relayed by some and dropped by others. Announcing an end and applying it at an epoch boundary puts topic lifetime on the same clock as everything else the topology depends on, in the same way that a stake pool's retirement names a future epoch rather than taking effect on submission.
 
-Two consequences follow. A node entry may outlive a topic it lists, so a listed topic that has ended is simply excluded from that node's derivation, and a node left with no live topic takes part in no topology until it updates its entry, which the announcement gives it an epoch's notice to do. And retention is unaffected: messages already forwarded stay in caches for the retention window, so a subscriber can still recover from a topic that has just ended.
+Two consequences follow.
+
+- **A node entry may outlive a topic it lists.** A listed topic that has ended is simply excluded from that node's derivation, and a node left with no live topic takes part in no topology until it updates its entry, which the announcement gives it an epoch's notice to do.
+- **Retention is unaffected.** Messages already forwarded stay in caches for the retention window, so a subscriber can still recover from a topic that has just ended.
 
 #### The node registry
 
@@ -376,7 +387,12 @@ The topic-interest set is authoritative. A node's effective subscriptions are th
 
 The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
 
-The withdrawal delay is what keeps the deposit attached to a *standing* identity, and it does two things. A retiring entry is still in the snapshot the current epoch derives from, so other nodes hold links to it until that epoch ends; reclaiming immediately would leave the identity unbonded while it still occupies positions in the standing topology. **The delay MUST therefore be at least one epoch.** And because the deposit prices identities that stand rather than identities that once existed, the delay bounds how fast an operator can rotate them: without it, a single deposit funds a fresh identity every epoch, which is the re-registration the [Rationale](#the-adversary-this-proposal-defends-against) excludes from its adversary model. Its value beyond that floor is open.
+The withdrawal delay is what keeps the deposit attached to a *standing* identity, and it does two things.
+
+- **The delay MUST be at least one epoch.** A retiring entry is still in the snapshot the current epoch derives from, so other nodes hold links to it until that epoch ends; reclaiming immediately would leave the identity unbonded while it still occupies positions in the standing topology.
+- **It bounds how fast an operator can rotate identities.** The deposit prices identities that stand rather than identities that once existed; without the delay, a single deposit funds a fresh identity every epoch, which is the re-registration the [Rationale](#the-adversary-this-proposal-defends-against) excludes from its adversary model.
+
+Its value beyond that floor is open.
 
 #### Address resolution
 
@@ -493,7 +509,11 @@ Everything in this subsection is a pure function of the epoch's snapshot, *η*<s
 
 </div>
 
-The three rows are the same peers, marked three times over. **Row 1** is everyone registered on the topic, taken from the [node registry](#the-node-registry) as it stood at that epoch's [registration cutoff](#term-snapshot), so every node reads the same list. **Row 2** is the smaller set this node may link with; the [bucket count](#term-b) *B* decides how much smaller, and a node looks it up in [Table 1](#table-1) by how many peers the topic has. **Row 3** is the *k* of those that the node picks, using randomness of its own.
+The three rows are the same peers, marked three times over.
+
+- **Row 1** is everyone registered on the topic, taken from the [node registry](#the-node-registry) as it stood at that epoch's [registration cutoff](#term-snapshot), so every node reads the same list.
+- **Row 2** is the smaller set this node may link with; the [bucket count](#term-b) *B* decides how much smaller, and a node looks it up in [Table 1](#table-1) by how many peers the topic has.
+- **Row 3** is the *k* of those that the node picks, using randomness of its own.
 
 The figure is drawn at 32 registered peers and *B* = 4, so eight are eligible and *k* = 4 are picked. The ratio of row 2 to row 3 is the [selection headroom](#term-r) *r* = 2, the smallest value this Specification permits.
 
@@ -605,7 +625,10 @@ Everything above is stated for a link kind with a pick count.
 
 **A node holds one link kind per topic: a symmetric relay link.** There is no separate publication-seeding kind. A node's own publications and the messages it relays for others travel the same links; a link carries traffic in both directions and is established once for the pair rather than once per direction. Its gate domain tag is `pubsub/gate/relay/v1`, and the pair is sorted by identity bytes before the gate is evaluated, as [the verifiable gate](#the-verifiable-gate) requires of a symmetric kind. The design is the one the analysis calls M4 — steppable message by message in the [dissemination simulator](https://pubsub.cardano-scaling.org/experiments/models/#m4) — and the [Rationale](#why-the-symmetric-design) sets out why it rather than the directional alternative.
 
-Two consequences follow. A node's realised degree on a topic is its pick count plus the admissions it granted, bounded by *k* + *C* exactly. And because a publisher reaches the network over the same links a subscriber does, there is one gate, one serving cap and one sizing rule per topic rather than two of each.
+Two consequences follow.
+
+- **A node's realised degree on a topic is its pick count plus the admissions it granted**, bounded by *k* + *C* exactly.
+- **There is one gate, one serving cap and one sizing rule per topic, rather than two of each.** A publisher reaches the network over the same links a subscriber does.
 
 <div align="center">
 <a name="table-2" id="table-2"></a>
@@ -655,7 +678,12 @@ On a **large topic** a node's peers are a sample of the membership, so the dange
 
 On a **small topic** the picks are a large fraction of the membership, so concentration is free. It is also no longer enough. Cutting a subscriber off needs every peer it picked to be adversarial **and** no honest node to have picked it, and the second is improbable when each node picks a tenth or a quarter of the topic. With the gate off, what stands behind that conjunction is the [deposit](#term-deposit): every identity an attacker needs still has to be paid for.
 
-Two things a deployment should do at that size. Where the gate is off, set the serving cap to *C* ≥ *N*<sub>T</sub> − 1, since a node that accepts everyone cannot be crowded out of anything. A tight cap with no gate has the worst of both. And on the order of ten participants, raise the pick count until the topology is complete: a node linked to every other is cut off only if every member is adversarial, which is stronger than the gate gives at any size, and cheap at that membership. Completeness is not automatic: at a pick count sized for large topics, a topic of forty is well short of it. The [Appendix](#admission-parameter-bands) gives the link density between the two.
+Two things a deployment should do at that size.
+
+- **Where the gate is off, set the serving cap to *C* ≥ *N*<sub>T</sub> − 1.** A node that accepts everyone cannot be crowded out of anything, and a tight cap with no gate has the worst of both.
+- **On the order of ten participants, raise the pick count until the topology is complete.** A node linked to every other is cut off only if every member is adversarial, which is stronger than the gate gives at any size, and cheap at that membership.
+
+Completeness is not automatic: at a pick count sized for large topics, a topic of forty is well short of it. The [Appendix](#admission-parameter-bands) gives the link density between the two.
 
 ### Link establishment
 
@@ -782,7 +810,12 @@ It must also explain how the proposal affects the backward compatibility of exis
 
 The [CPS](../cps/README.md) set out six goals. All six are met. Four follow from how the protocol is built, and the remaining two are quantitative, which is what the evidence in this section establishes.
 
-**Authenticity and integrity** follow from publisher signatures verifiable against the on-chain [registry](#term-registry): the signed preimage covers the payload and relays never re-sign, so a [message](#messages) that arrived altered does not verify. **Payload-agnostic topics** follow from the protocol declining to interpret what it carries, and **addressing left to the application** from the same property, since a payload the protocol treats as opaque may carry whatever a publisher addresses to its intended recipient. **Non-influenceable neighbour selection** rests on the randomness source and the registration cutoff, and is argued under the guarantees below. A property that follows from how messages are signed, or from what the protocol declines to read, does not depend on a sample and cannot be eroded by one.
+- **Authenticity and integrity** follow from publisher signatures verifiable against the on-chain [registry](#term-registry): the signed preimage covers the payload and relays never re-sign, so a [message](#messages) that arrived altered does not verify.
+- **Payload-agnostic topics** follow from the protocol declining to interpret what it carries.
+- **Addressing left to the application** follows from the same property, since a payload the protocol treats as opaque may carry whatever a publisher addresses to its intended recipient.
+- **Non-influenceable neighbour selection** rests on the randomness source and the registration cutoff, and is argued under the guarantees below.
+
+A property that follows from how messages are signed, or from what the protocol declines to read, does not depend on a sample and cannot be eroded by one.
 
 The remaining two are what the measurements are for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is: rarity is the failure probability measured throughout, brevity is bounded by the [epoch](#term-epoch), and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network, and both are measured.
 
@@ -831,7 +864,10 @@ Being all-or-nothing, the criterion says nothing about magnitude. Two measuremen
 
 The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>. **Everything below is a way of estimating it, a cost paid to lower it, or a condition under which it rises.**
 
-Two independent instruments estimate it, built separately. **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
+Two independent instruments estimate it, built separately.
+
+- **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible.
+- **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
 
 Neither alone would convince. A closed form can approximate the wrong model; an implementation can faithfully run a subtly wrong protocol. They fail in unrelated ways, so **their agreement is the evidence offered here**, not either result alone. Every measurement is reproducible byte-for-byte from a tool commit, a configuration and a master seed.[^reproduction]
 
@@ -1076,7 +1112,11 @@ The re-split is not free on the axis M3 leads, and the figure is drawn the conse
 > [!IMPORTANT]
 > The general form governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
 
-**On the choice of axes.** These four are the quantities that are both measured, independent of one another, and derived under the *same* adversary. That last condition is what keeps the figure readable as a single comparison, and it is why the cost of an adaptive eclipse is not a fifth spoke: it is priced against an adversary that corrupts chosen nodes once an epoch is under way, which the coverage analysis explicitly excludes. Plotting it beside four quantities measured under the silent adversary would imply the five are commensurable when they rest on different assumptions about what the attacker can do. It is carried in [Table 9](#table-9) instead, where both readings of it can be stated. Three further quantities were considered and left out. The *worst-case* number of connections a node must accept, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 8; it is left off the figure only because four axes already carry the argument. And the headroom a configuration has below the failure target was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design. Mean receipt depth is omitted as well, since it moves with the hop count already plotted and would double-count latency.
+**On the choice of axes.** These four are the quantities that are both measured, independent of one another, and derived under the *same* adversary. That last condition is what keeps the figure readable as a single comparison, and it is why the cost of an adaptive eclipse is not a fifth spoke: it is priced against an adversary that corrupts chosen nodes once an epoch is under way, which the coverage analysis explicitly excludes. Plotting it beside four quantities measured under the silent adversary would imply the five are commensurable when they rest on different assumptions about what the attacker can do. It is carried in [Table 9](#table-9) instead, where both readings of it can be stated. Three further quantities were considered and left out.
+
+- **The *worst-case* number of connections a node must accept**, as distinct from the mean, is arguably the figure an operator provisions against. It is now measured, and appears in Table 8; it is left off the figure only because four axes already carry the argument.
+- **The headroom a configuration has below the failure target** was rejected as an axis because it reflects where integer parameter steps happened to fall rather than any property of the design.
+- **Mean receipt depth** is omitted as well, since it moves with the hop count already plotted and would double-count latency.
 
 #### Why the symmetric design
 
@@ -1315,7 +1355,10 @@ That geometry sizes both the epoch and the retention window below. The same laws
 
 </div>
 
-Two things follow, and the second is the one that matters downstream. **Isolation is a network-scale event, not a node-scale one.** A given node's own exposure is about four orders of magnitude below the network-wide figure — the honest population it is one of, so an operator asking "will this happen to me" and a protocol designer asking "will this happen to anyone" are asking questions with very different answers. And **muting does not persist.** Because the draws are independent, the probability that a node already cut off is cut off again is not raised by its predicament: it is the same one-in-a-billion draw a second time. Runs of consecutive muting are not a regime this design has to be provisioned against.
+Two things follow, and the second is the one that matters downstream.
+
+1. **Isolation is a network-scale event, not a node-scale one.** A given node's own exposure is about four orders of magnitude below the network-wide figure — the honest population it is one of, so an operator asking "will this happen to me" and a protocol designer asking "will this happen to anyone" are asking questions with very different answers.
+2. **Muting does not persist.** Because the draws are independent, the probability that a node already cut off is cut off again is not raised by its predicament: it is the same one-in-a-billion draw a second time. Runs of consecutive muting are not a regime this design has to be provisioned against.
 
 > [!NOTE]
 > The two designs also fail differently, which the single figure hides. Under M4 a cut-off node is one that cannot receive. Under M3 that accounts for under a third of the risk; the rest is a node that cannot be *heard*, its seeding links having all landed on adversaries while no honest node happened to pick it. The remedy is the same, but what a node should watch for is not.
@@ -1892,7 +1935,13 @@ ipv6      = bytes .size 16
 
 Each rule below is decided by the block of the [reference node](#this-proposals-reference-implementation) its row links to. The table carries rules of mechanism and only those, because a rule about behaviour is settled by reading the code that decides it where a rule fixing a byte string is not, so the encoding rules are left out of it. Every link is pinned to one commit, and the line numbers are that commit's; another revision of the tree will differ.
 
-Three departures run through the whole table rather than any one row of it. Signing is a mock scheme, so every signature check is real in shape and not in cryptography. Both registries are in-memory projections folded from live deltas, so nothing is read at a fixed chain position and no epoch has a registration cutoff. And every parameter is supplied as configuration: the node derives neither the bucket count from [Table 1](#table-1), nor the serving cap from its sizing rule, nor the pick count from a failure target. The last column carries what is particular to one rule.
+Three departures run through the whole table rather than any one row of it.
+
+- **Signing is a mock scheme.** Every signature check is real in shape and not in cryptography.
+- **Both registries are in-memory projections folded from live deltas.** Nothing is read at a fixed chain position and no epoch has a registration cutoff.
+- **Every parameter is supplied as configuration.** The node derives neither the bucket count from [Table 1](#table-1), nor the serving cap from its sizing rule, nor the pick count from a failure target.
+
+The last column carries what is particular to one rule.
 
 The byte encodings are the node's own throughout. Neither signature preimage carries the domain tag [Canonical encoding](#canonical-encoding-and-domain-separation) fixes, the gate hashes under tags of the node's own naming and reduces its digest little-endian, and a handshake carries no epoch index, which is why the acceptor's third check has nothing below to decide it.
 
