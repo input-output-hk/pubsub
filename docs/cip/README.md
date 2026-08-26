@@ -142,7 +142,7 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
 - [Table 4: The assumptions a deployment chooses](#table-4)
 - [Table 5: The constants this section is measured at](#table-5)
 - [Table 6: Performance metrics](#table-6)
-- [Table 7: The dissemination designs evaluated](#table-7)
+- [Table 7: How each design differs, and the failure it leaves open](#table-7)
 - [Table 8: Cost at each design's configuration](#table-8)
 - [Table 9: Two splits of M3's budget of 19](#table-9)
 - [Table 10: The two candidates, ungated](#table-10)
@@ -903,6 +903,23 @@ A note on the cost metrics. Deliveries per node counts duplicates, since a dupli
 
 #### Designs evaluated
 
+Five designs were analysed, each differing from another by one structural choice.
+
+<div align="center">
+<a name="table-7" id="table-7"></a>
+
+| Design | Differs from | Failure it leaves open |
+| :--: | --- | --- |
+| M1 | The push primitive: a node forwards to *F* targets it drew | A node nobody drew cannot receive |
+| M2 | M1 with the direction inverted: a node draws *RF* forwarders | A publisher nobody drew cannot be heard |
+| M3 | M2 plus *s* − 1 seeding links carrying only their owner's publications | Either, each resting on one condition |
+| M5 | M1 and M2 run at once, as *k*<sub>in</sub> and *k*<sub>out</sub> tuned separately | Either, each resting on one condition |
+| M4 | M5 with the two link sets merged into one bidirectional link | Both at once, which is why it is the design specified |
+
+<em>Table 7: How each design differs, and the failure it leaves open</em>
+
+</div>
+
 Every design in this family starts from the same constraint. A node may not choose its peers, so it draws them at random from the topic's registered population and carries messages over the links that draw opens. How many peers a node draws is the only knob, and in every design below it is what trades cost against *p*<sub>bad</sub>. That count is the [pick count](#term-pick-count), written *RF* for its relay-link case. Where a design has a second link kind for a node's own publications, the peers picked that way are counted separately: *s* − 1 of them under M3, whose *s* counts the intended initial holders rather than the links opened, and *F* under M1. Every design's full cost is in [Table 8](#table-8); the figures quoted here are the ones that carry the argument.
 
 **M1 is the smallest thing that works.** A node draws *F* targets and forwards to them everything it holds, its own publications included. One link kind, one direction, and a node controls whom it sends to but not who sends to it. It meets *δ* = 10⁻⁴ at *F* = 24, the largest pick count in the field, for 48 links held per node. It also fixes which failure a node can suffer: a node's own picks all landing adversarial has probability *μ*<sup>*F*</sup>, which at these parameters is nothing at all, so what remains is a node that no honest peer happened to draw, and such a node cannot **receive**.
@@ -922,21 +939,6 @@ The fork is a genuine trade and not a mistake on one side. M3 and M5 land at the
 **M4 asks what M5's second knob was for.** The best split found for M5 is 9 and 8, one link away from symmetric, which suggests the two sets are not doing different work. Merge them: draw *RF* peers, open one link to each, and flood every message that verifies on all of a node's links for the topic except the one it arrived on. A link is then established once for the pair rather than once per direction, a node's own publications travel the same links it relays over, and there is neither a second kind nor a second count.
 
 The merge is not a saving in bookkeeping. One pick now buys both directions, so the same coverage needs roughly half as many: *RF* = 9 against M5's 17, and 18 links against 34. It also changes the failure condition from a disjunction into a conjunction. Under a directional design a node is cut off if its own picks all landed adversarial, and separately if no honest peer picked it. Under a symmetric one both must happen at once, because a link an honest picker opens carries traffic both ways and repairs both directions. That conjunction multiplies the *μ*<sup>*k*</sup> core by roughly e<sup>−*k*(1−*μ*)</sup>, about three decades at the parameters specified here, and it is why nine symmetric picks reach 6.1 × 10⁻⁶ where seventeen directed ones reach 4.4 × 10⁻⁵. It is also why M4 absorbs **7.43 % honest downtime against M5's 2.18 % and M2's 1.70 %**: with the directions fused, every honest node still up can rescue a neighbour; with them separated, it cannot.
-
-<div align="center">
-<a name="table-7" id="table-7"></a>
-
-| Design | Mechanism | Tuning parameters |
-| :--: | --- | --- |
-| M1 | Push: each node forwards to *F* randomly drawn targets | *F* |
-| M2 | Pull: each node draws *RF* forwarders and receives from them | *RF* |
-| M3 | M2, plus *s*−1 standing initiation links carrying only their owner's own publications | *RF*, *s* |
-| M4 | Each node draws *RF* peers; links are bidirectional and flood | *RF* |
-| M5 | Directed: each node opens *k*<sub>in</sub> inbound and *k*<sub>out</sub> outbound links | *k*<sub>in</sub>, *k*<sub>out</sub> |
-
-<em>Table 7: The dissemination designs evaluated</em>
-
-</div>
 
 The boundaries of that lattice are checkable, which is a free test of both instruments. M1 and M2 are the two halves of M5 taken separately: switching off M5's inbound links leaves pure push, and switching off its outbound links leaves pure pull. M3 has the same boundary by construction, being M2 at *s* = 1. That gives a free consistency check on both the analysis and the implementation. M5 configured at those boundaries must reproduce M1's and M2's results exactly, and any discrepancy is a defect in one of the three rather than a property of the protocol.
 
@@ -989,6 +991,15 @@ Every design below is shown at the configuration this proposal names for it, at 
 > **The rows are therefore not equally safe, and the first column says by how much.** M4 at RF = 9 sits an order of magnitude inside the target where M2 sits just under it. This is a comparison of the configurations on offer, not a like-for-like reading at a common failure rate: a design that is both cheaper and safer than another has genuinely won, but a cost difference between two rows at different *p*<sub>bad</sub> is not by itself a verdict.
 
 <div align="center">
+<a name="figure-7" id="figure-7"></a>
+
+![Three costs at each design's proposed configuration](images/cost-vs-state.svg)
+
+<em>Figure 7: Three costs at the proposed configurations — bandwidth, state, and latency as marker size</em>
+
+</div>
+
+<div align="center">
 <a name="table-8" id="table-8"></a>
 
 | Design | Parameters | *p*<sub>bad</sub> | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Downtime absorbed |
@@ -1006,15 +1017,6 @@ Every design below is shown at the configuration this proposal names for it, at 
 </div>
 
 The first five rows are ungated, at the configurations the coverage models were evaluated at. The last row is the configuration this proposal specifies, measured under the gate and the admissions budget. It is not comparable column-by-column with the rows above it, and is given so that the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the largest number of connections any single honest node had to hold, which is the figure a deployment sizes connection limits against. The maximum is taken over honest nodes and over the sampled graphs *at that row's configuration*, not over configurations. It is therefore a measured worst case over that sample rather than a bound.[^degrees] Plotting three of those columns at once shows the shape of the trade: the two axes are costs, so lower and further left is better, and marker size is hops to the last subscriber, so a smaller marker is faster.
-
-<div align="center">
-<a name="figure-7" id="figure-7"></a>
-
-![Three costs at each design's proposed configuration](images/cost-vs-state.svg)
-
-<em>Figure 7: Three costs at the proposed configurations — bandwidth, state, and latency as marker size</em>
-
-</div>
 
 Three things follow, and the third is the one that matters for the choice.
 
@@ -1069,14 +1071,6 @@ The budgets above remain read off the laws rather than observed, for the reason 
 
 A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.
 
-Widening the comparison from two axes to four changes which designs are in contention, and so did letting M3 and M4 take their best parameters rather than the ones the published tables carried.
-
-That second step is worth stating plainly, because it is why Table 8 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further deliveries per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 8 makes visible.
-
-Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 deliveries per node against 13.6, 18 links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
-
-In the figure below every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted grey shapes rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is drawn dashed, and is the only dashed line in the figure, because it is read off the coverage laws rather than sampled directly. The enclosed area of these shapes has no meaning, the axes being different quantities in different units, so only position along each individual axis should be compared.
-
 <div align="center">
 <a name="figure-9" id="figure-9"></a>
 
@@ -1086,7 +1080,15 @@ In the figure below every axis is oriented so that outward is better, and each d
 
 </div>
 
-The shapes carry the argument. **M4 is the most even, and it is the only design to reach the outer ring twice**: eighteen links against M3's thirty-eight and M2's forty-eight, and 7.43 % downtime absorbed against 2.17 % and 1.70 %. Both margins are wide. **M2 is fastest** to its last subscriber, by 0.2 hops over the next design, which the latency discussion above puts in proportion, and is innermost on everything else. **M3 at (13, 7) leads bandwidth**, and that is the only axis it leads; on churn tolerance it sits under a third of the way out.
+Widening the comparison from two axes to four changes which designs are in contention, and so did letting M3 and M4 take their best parameters rather than the ones the published tables carried.
+
+That second step is worth stating plainly, because it is why Table 8 no longer holds the designs at a common failure rate. The published operating points were all chosen by one rule — the cheapest configuration meeting the failure target — and that rule selects, by construction, the configuration sitting closest to the cliff, since anything cheaper fails. Searching each design's parameter space against the validated laws and then measuring the results shows how much that costs. M3's re-split has already been described. The equivalent step for M4, from RF = 8 to RF = 9, buys **seven times the churn budget** (1.07 % to 7.43 %) for 1.6 further deliveries per node and two further connections. Only M3 and M4 were re-searched, being the two still in contention; M1, M2 and M5 remain at their cheapest-meeting-target points, which is the asymmetry the *p*<sub>bad</sub> column in Table 8 makes visible.
+
+Allowing that step changes the field. **M4 at RF = 9 beats M5 at (9, 8) on every axis**: 13.4 deliveries per node against 13.6, 18 links against 34, equal hops to the last subscriber, and 7.43 % downtime absorbed against 2.18 %. M5 was already best at nothing that survived rounding; it is now dominated outright, and M1 with it. Three designs remain.
+
+In [Figure 9](#figure-9) every axis is oriented so that outward is better, and each design is scored against the best of the three shown, so the outer ring on an axis is the best value any of them achieves and a design half-way out is half as good on that axis. Each design is labelled at the axis it leads. M1 and M5 are drawn as muted grey shapes rather than dropped: each lies wholly inside a contending design, which is what domination looks like when it is plotted rather than asserted. The churn axis is drawn dashed, and is the only dashed line in the figure, because it is read off the coverage laws rather than sampled directly. The enclosed area of these shapes has no meaning, the axes being different quantities in different units, so only position along each individual axis should be compared.
+
+The shapes in [Figure 9](#figure-9) carry the argument. **M4 is the most even, and it is the only design to reach the outer ring twice**: eighteen links against M3's thirty-eight and M2's forty-eight, and 7.43 % downtime absorbed against 2.17 % and 1.70 %. Both margins are wide. **M2 is fastest** to its last subscriber, by 0.2 hops over the next design, which the latency discussion above puts in proportion, and is innermost on everything else. **M3 at (13, 7) leads bandwidth**, and that is the only axis it leads; on churn tolerance it sits under a third of the way out.
 
 The churn axis is where the re-split does its visible work, even though it does not change who leads. At M3's published split of (12, 8) that vertex is 0.54 % against M4's 7.43 %, less than a tenth of the way out, so the shape is a spike on bandwidth and very little else. Moving one link from seeding to relaying, at the same budget and the same links, quadruples it. That is the same design under a different split, not a different design, which is what makes the selection rule rather than the mechanism the thing to fix.
 
