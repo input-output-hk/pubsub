@@ -203,7 +203,7 @@ Three properties of that arrangement carry most of the design.
 
 **The topology is checkable, not merely asserted.** Because the predicate is a function of public data, any participant can recompute which links a given node was permitted to hold in a given epoch and check the ones it actually holds. A node that dials outside its permitted set produces signed evidence of having done so.
 
-**What a node keeps private is its own draw, not its position.** The predicate narrows a node's eligible set; which of those peers it then picks is its own randomness and is not required to be checkable. [Topology derivation](#topology-derivation) states precisely where that split precisely where it falls.
+**What a node keeps private is its own draw, not its position.** The predicate narrows a node's eligible set; which of those peers it then picks is not required to be checkable. [Topology derivation](#topology-derivation) states where that split falls.
 
 ### Parameters
 
