@@ -801,11 +801,13 @@ That cost depends on what the adversary knows. The gate is public, so which link
 
 ### Evidence
 
-This section sets out what was measured, how, and what the results do and do not establish.
+Everything below is measured against the adversary just described. This section sets out what was measured, how, and what the results do and do not establish.
 
-**The evidence comes in two layers, and they are not equally strong.** This section covers the first: how the five designs compare on coverage and cost with the admission rules switched off. That layer is the one carried by two independent instruments, and their agreement is the argument. **Every figure and table in this section is therefore ungated**, and the configurations it names for each design are the ones the coverage models were evaluated at rather than the one this proposal specifies.
+Messages could be disseminated in more than one way, so five candidate designs were analysed before one was chosen. The Specification fixes the symmetric relay link, which the analysis calls M4; [Designs evaluated](#designs-evaluated) sets out all five and the structural choice each one varies.
 
-The second layer adds the verifiable gate and the serving cap on top, and it is set out under [Trade-offs and Limitations](#trade-offs-and-limitations) — in [Why the symmetric design](#why-the-symmetric-design), which is where the selection is actually made, and in [Choosing the admission parameters](#choosing-the-admission-parameters), which establishes the sizing rules the Specification states. That layer is measured, and its closed forms have been independently re-derived and reproduced in review; what it does not yet have is a derivation document in the style of the formal analysis behind the first layer. Where the two layers disagree about a design's numbers, the gated ones are the ones a deployment would see.
+**The evidence comes in two layers, and they are not equally strong.** The first compares those five designs on coverage and cost with the admission rules switched off. It is carried by two independent instruments, and their agreement is the argument. **Every figure and table in this section is therefore ungated**, and the configurations it names for each design are the ones the coverage models were evaluated at rather than the one this proposal specifies.
+
+The second layer adds the verifiable gate and the serving cap on top, and is set out under [Trade-offs and Limitations](#trade-offs-and-limitations), where the selection is made and the sizing rules are established. That layer is measured, and its closed forms have been independently re-derived and reproduced in review; what it does not yet have is a derivation document in the style of the formal analysis behind the first layer. Where the two layers disagree about a design's numbers, the gated ones are the ones a deployment would see.
 
 #### What is measured, and by what
 
