@@ -805,9 +805,9 @@ Everything below is measured against the adversary just described. This section 
 
 Messages could be disseminated in more than one way, so five candidate designs were analysed before one was chosen. The Specification fixes the symmetric relay link, which the analysis calls M4; [Designs evaluated](#designs-evaluated) sets out all five and the structural choice each one varies.
 
-**The evidence comes in two layers, and they are not equally strong.** The first compares those five designs on coverage and cost with the admission rules switched off. It is carried by two independent instruments, and their agreement is the argument. **Every figure and table in this section is therefore ungated**, and the configurations it names for each design are the ones the coverage models were evaluated at rather than the one this proposal specifies.
+**The evidence comes in two layers.** The first is what selects the design. It compares all five on coverage and cost with the admission rules switched off, and is carried by two independent instruments whose agreement is the argument. **Every figure and table in this section is therefore ungated**, and the configurations it names are the ones the coverage models were evaluated at rather than the one this proposal specifies. Leaving the rules off is the conservative choice for that comparison rather than a convenience: both structural taxes the admission rules impose fall on directional designs, so an ungated comparison is the best case for every design that lost.
 
-The second layer adds the verifiable gate and the serving cap on top, and is set out under [Trade-offs and Limitations](#trade-offs-and-limitations), where the selection is made and the sizing rules are established. That layer is measured, and its closed forms have been independently re-derived and reproduced in review; what it does not yet have is a derivation document in the style of the formal analysis behind the first layer. Where the two layers disagree about a design's numbers, the gated ones are the ones a deployment would see.
+The second layer adds the verifiable gate and the serving cap, and gives the numbers a deployment would actually see. It is set out under [Trade-offs and Limitations](#trade-offs-and-limitations), where the selection is settled and the sizing rules the Specification states are established. The two layers are not in tension. They measure different configurations, so where a design's numbers differ between them, the gated ones are the ones that apply.
 
 #### What is measured, and by what
 
@@ -1398,6 +1398,8 @@ Short epochs are undemanding: an hourly epoch asks only that a node stay up for 
 
 > [!IMPORTANT]
 > The following are stated so that a reader can judge what the numbers above do and do not establish, in descending order of how much they bear on the conclusions.
+
+**The gated layer has been reproduced, but not formally derived.** The closed forms behind the admission rules have been independently re-derived and reproduced in review. What they do not yet have is a derivation document in the style of the formal analysis standing behind the ungated coverage laws.
 
 **The configurations that were measured are not the configurations that are proposed.** Sampling can only resolve a failure probability down to roughly one over the number of trials: observing a one-in-ten-thousand event often enough to estimate its rate takes far more than ten thousand draws. The configurations that meet the design target are, by construction, ones that almost never fail, so measuring them directly is impractical. What was measured instead is a range of deliberately weaker configurations, where failures are common enough to count.
 
