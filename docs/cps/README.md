@@ -71,7 +71,7 @@ Four scenarios drove this statement, drawn from a [broader survey of candidate u
 | Governance bodies and dReps → community: proposals, voting alerts, voting-intent disclosure | Tens to hundreds | Wallet backends, mediated | Delivery inside a voting deadline |
 | dApps → users: position and protocol alerts | Tens | Wallet backends, mediated | Delivery targeted by address |
 
-<em>Table 1: the four motivating scenarios</em>
+<em>Table 1: The four motivating scenarios</em>
 
 </div>
 
@@ -89,7 +89,7 @@ Stake pool operators are the largest set of direct participants and the recipien
 
 ## Goals
 
-A solution must provide the following. The first three are what the failure of existing channels demands; the last two are what makes a solution deployable.
+A solution must provide the following. The first three are what the failure of existing channels demands; the last three are what makes a solution deployable.
 
 - **Authenticity and integrity.** A recipient must be able to verify that a message originated with the claimed publisher and reached them as written, without trusting the path it arrived over.
 - **Censorship resistance.** Availability restated against an adversary that chooses its target: suppressing a message must require luck rather than choice. Isolation cannot be prevented in every draw — a subscriber whose every peer happens to be adversarial receives nothing, however small the adversarial fraction. The requirement is therefore that such isolation be rare, that it end without intervention, and that it not be repeatable at will.

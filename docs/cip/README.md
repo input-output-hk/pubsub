@@ -126,9 +126,9 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
 - [Figure 3: Deriving one node's links for one epoch](#figure-3)
 - [Figure 4: Establishing one link](#figure-4)
 - [Figure 5: Measured against predicted epoch failure probability](#figure-5)
-- [Figure 6: Three costs at the proposed configurations — bandwidth, state, and latency as marker size](#figure-6)
+- [Figure 6: Bandwidth, state and latency at the proposed configurations](#figure-6)
 - [Figure 7: Four-way trade-off across the non-dominated designs](#figure-7)
-- [Figure 8: What the bucket count costs and what it buys](#figure-8)
+- [Figure 8: The bucket count trade-off](#figure-8)
 - [Figure 9: What each way of sizing the bucket count delivers, against topic size](#figure-9)
 - [Figure 10: Measured configurations against the configuration proposed](#figure-10)
 
@@ -780,9 +780,9 @@ The [Rationale](#rationale-how-does-this-cip-achieve-its-goals) that follows is 
 It must also explain how the proposal affects the backward compatibility of existing solutions when applicable. If the proposal responds to a CPS, the 'Rationale' section should explain how it addresses the CPS, and answer any questions that the CPS poses for potential solutions.
 -->
 
-The [CPS](../cps/README.md) set out five goals. Three of them are not measured here.
+The [CPS](../cps/README.md) set out six goals. Four of them are not measured here.
 
-**Authenticity** follows from publisher signatures verifiable against the on-chain [registry](#term-registry), and **payload-agnostic topics** from the protocol declining to interpret what it carries. Both hold by construction. **Non-influenceable neighbour selection** rests on the randomness source and the registration cutoff, and is argued under the guarantees below rather than measured.
+**Authenticity and integrity** follow from publisher signatures verifiable against the on-chain [registry](#term-registry): the signed preimage covers the payload and relays never re-sign, so a [message](#messages) that arrived altered does not verify. **Payload-agnostic topics** follow from the protocol declining to interpret what it carries, and **addressing left to the application** from the same property, since a payload the protocol treats as opaque may carry whatever a publisher addresses to its intended recipient. All three hold by construction. **Non-influenceable neighbour selection** rests on the randomness source and the registration cutoff, and is argued under the guarantees below rather than measured.
 
 The other two are quantitative, and are what the evidence in this section is for. **Censorship resistance** was stated as a requirement on how rare, how brief and how unsteerable suppression is: rarity is the failure probability measured throughout, brevity is bounded by the [epoch](#term-epoch), and unsteerability is the same randomness argument. **Bounded cost per node** was stated as connections and traffic that must not scale with the network, and both are measured.
 
@@ -986,7 +986,7 @@ Every design below is shown at the configuration this proposal names for it, at 
 
 ![Three costs at each design's proposed configuration](images/cost-vs-state.svg)
 
-<em>Figure 6: Three costs at the proposed configurations — bandwidth, state, and latency as marker size</em>
+<em>Figure 6: Bandwidth, state and latency at the proposed configurations</em>
 
 </div>
 
@@ -1196,7 +1196,7 @@ The two pull in opposite directions on the same knob, and both sides are now mea
 
 ![The bucket count trade-off](images/gate-tradeoff.svg)
 
-<em>Figure 8: What the bucket count costs and what it buys</em>
+<em>Figure 8: The bucket count trade-off</em>
 
 </div>
 
