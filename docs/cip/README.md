@@ -816,7 +816,7 @@ The second layer adds the verifiable gate and the serving cap, and gives the num
 
 #### What is measured, and by what
 
-Each epoch the protocol derives a dissemination topology over the registered nodes: every node is assigned a bounded set of peers, and that assignment stands for the whole epoch. Nodes following the protocol are *honest*; the rest are the silent adversary set out above. On any topic some nodes publish and others subscribe.
+Each epoch the protocol derives a dissemination topology for every topic separately, over the nodes registered on that topic: each of them is assigned a bounded set of peers there, and that assignment stands for the whole epoch. A node subscribed to several topics draws independently on each, which is why [what a node pays](#what-a-node-pays-and-how-it-scales) multiplies its cost by the number of subscriptions. Nodes following the protocol are *honest*; the rest are the silent adversary set out above. On any topic some nodes publish and others subscribe.
 
 The guarantee is a property of the drawn topology, not of an individual message. For a given assignment either every honest publisher reaches every honest subscriber, or some publisher does not, in which case that publisher is cut off for the whole epoch every time it publishes. The first case is **good**, the second **bad**. This is deliberately all-or-nothing rather than an average, because an average hides the failure mode that matters: 99.99 % delivery might be a uniform trickle of losses, which is tolerable, or one publisher silenced completely, which is not.
 
