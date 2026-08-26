@@ -102,6 +102,7 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
   - [Related CIPs](#related-cips)
   - [This proposal's own prior work](#this-proposals-own-prior-work)
   - [This proposal's evidence](#this-proposals-evidence)
+  - [This proposal's reference implementation](#this-proposals-reference-implementation)
   - [Companion tools](#companion-tools)
   - [Open items tracked outside this document](#open-items-tracked-outside-this-document)
   - [Method notes](#method-notes)
@@ -109,6 +110,7 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
   - [Terminology](#terminology)
   - [Admission parameter bands](#admission-parameter-bands)
   - [Registry schemas](#registry-schemas)
+  - [Reference implementation](#reference-implementation)
 - [Acknowledgements](#acknowledgements)
 - [Copyright](#copyright)
 
@@ -150,6 +152,7 @@ Anchoring on the chain is a deliberate trade rather than a free choice. It is wh
 - [Table 13: Departure interval required per epoch length](#table-13)
 - [Table 14: The protocol's vocabulary](#table-14)
 - [Table 15: What each closed row gives up at its top](#table-15)
+- [Table 16: Where the reference node decides each rule](#table-16)
 
 </details>
 
@@ -1520,7 +1523,7 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 - [x] Those parameters gain evidence covering both candidate designs. The directional measurements run M2's wiring and carry to M3 and M5; a further pass covers M4's symmetric handshake, which needs its own sizing rules rather than the directional ones.[^symgate]
 - [ ] The randomness beacon is specified. It sets the epoch floor and, through it, decides whether the churn ceiling binds at all.
 - [ ] The relationship to CIP-0137 is stated. Both proposals carry topic-based publish/subscribe on Cardano in the Network category. Whether they are alternatives, whether one can carry the other's traffic, and whether a deployment would run both, is not settled here and should be settled with that proposal's authors.
-- [ ] Node behaviour is specified at the seams the analysis does not reach: refused-dial retry within an epoch, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients.
+- [ ] Node behaviour is specified at the seams the analysis does not reach: retry of an *unanswered* dial within an epoch, and whether a refusal is remembered across retries — [Link establishment](#link-establishment) settles only the explicit refusal, and says nothing about a request that drew no reply or a reply that was lost; the handover across an epoch boundary; and tolerance of clock skew between publishers and recipients.
 
 **Choices this proposal poses rather than answers**
 
@@ -1545,7 +1548,7 @@ The criterion CIP-0001 suggests for core categories — implementation present w
 
 The criteria above fall into three groups, and what blocks a specification is now short.
 
-**Blocking.** The randomness beacon has to be chosen, because it sets the epoch floor and through it decides whether the churn ceiling binds at all. Node behaviour has to be stated at the seams the analysis does not reach — refused-dial retry within an epoch, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients. And the relationship to CIP-0137 has to be settled with that proposal's authors rather than asserted here.
+**Blocking.** The randomness beacon has to be chosen, because it sets the epoch floor and through it decides whether the churn ceiling binds at all. Node behaviour has to be stated at the seams the analysis does not reach — retry of an unanswered dial within an epoch and whether a refusal is remembered across retries, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients. The retry seam has a shape the rest of the design already supplies: which peers a node should hold is drawn once per epoch from that epoch's randomness, while acting to hold them may repeat within the epoch without redrawing anything, so a node can repair a link without disturbing the topology it and its peers agreed on. Fusing the two — letting a retry advance the randomness — reshuffles the whole permitted set and is what the separation avoids. What that leaves open is how much a node remembers about a peer between one attempt and the next, and the trade runs opposite ways at the seam's two ends. Remembering an explicit refusal is what [Link establishment](#link-establishment) already chooses, and it is paid for in a realised degree short of *k*. Remembering a silent drop would concede more, since silence is not evidence of capacity and may be nothing but a lost reply; forgetting it invites a node to spend the epoch re-dialling a peer that will never answer. And the relationship to CIP-0137 has to be settled with that proposal's authors rather than asserted here.
 
 **Measurement, not analysis.** The band table's rows below twenty thousand nodes carry extrapolated values. The [Appendix](#admission-parameter-bands) lists what each needs and in what order, and the first item is a single re-run. This is simulator work on an existing instrument, not new analysis.
 
@@ -1902,7 +1905,7 @@ ipv6      = bytes .size 16
 
 ### Reference implementation
 
-Each rule below is decided by the block of the [reference node](#this-proposals-reference-implementation) its row links to. Three departures run through the whole table rather than any one row of it. Signing is a mock scheme, so every signature check is real in shape and not in cryptography. Both registries are in-memory projections folded from live deltas, so nothing is read at a fixed chain position and no epoch has a registration cutoff. And every parameter is supplied as configuration: the node derives neither the bucket count from [Table 1](#table-1), nor the serving cap from its sizing rule, nor the pick count from a failure target. The last column carries what is particular to one rule.
+Each rule below is decided by the block of the [reference node](#this-proposals-reference-implementation) its row links to. Every link is pinned to one commit, and the line numbers are that commit's; another revision of the tree will differ. Three departures run through the whole table rather than any one row of it. Signing is a mock scheme, so every signature check is real in shape and not in cryptography. Both registries are in-memory projections folded from live deltas, so nothing is read at a fixed chain position and no epoch has a registration cutoff. And every parameter is supplied as configuration: the node derives neither the bucket count from [Table 1](#table-1), nor the serving cap from its sizing rule, nor the pick count from a failure target. The last column carries what is particular to one rule.
 
 <div align="center">
 <a name="table-16" id="table-16"></a>
