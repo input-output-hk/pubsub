@@ -689,97 +689,6 @@ def fig_validation(cells, churn=()) -> str:
                  conditions="N = 4 000 and 20 000 · μ = 0.2")
 
 
-# ------------------------------------------------------------------ figure 5
-def fig_cost_state(ops, alternatives=()) -> str:
-    """Bandwidth against state at each design's proposed configuration.
-
-    Reads the preferred split for M3 and M4 rather than the published one, so
-    that this figure, the extrapolation figure and the trade-off radar all name
-    the same configuration when they name a design.
-    """
-    ops = list({**{o["model"]: o for o in ops},
-                **{a["model"]: a for a in alternatives if a.get("preferred")}}.values())
-    W, H = 860, 446
-    ml, mr, mt, mb = 96, 40, 30, 80
-    pw, ph = W - ml - mr, H - mt - mb
-    x0, x1, y0, y1 = 10, 52, 8, 21
-
-    def X(v):
-        return ml + (v - x0) / (x1 - x0) * pw
-
-    def Y(v):
-        return mt + ph - (v - y0) / (y1 - y0) * ph
-
-    b = []
-    for v in range(10, 51, 10):
-        b.append(line(X(v), mt, X(v), mt + ph))
-        b.append(text(X(v), mt + ph + 19, v, anchor="middle"))
-    for v in range(8, 21, 4):
-        b.append(line(ml, Y(v), ml + pw, Y(v)))
-        b.append(text(ml - 11, Y(v) + 4, v, anchor="end"))
-
-    front = sorted([o for o in ops if o["model"] in ("M3", "M4")],
-                   key=lambda o: o["standing_links"])
-    b.append(line(X(front[0]["standing_links"]), Y(front[0]["copies_per_node"]),
-                  X(front[1]["standing_links"]), Y(front[1]["copies_per_node"]),
-                  "#6f6d64", 1.6, cap="round", opacity=0.7))
-    mx = (X(front[0]["standing_links"]) + X(front[1]["standing_links"])) / 2
-    my = (Y(front[0]["copies_per_node"]) + Y(front[1]["copies_per_node"])) / 2
-    b.append(text(mx, my - 11, "nothing beats both", 11, "#52514e", "middle", "600"))
-
-    seen: dict[tuple[float, float], list] = {}
-    for o in ops:
-        seen.setdefault((o["standing_links"], o["copies_per_node"]), []).append(o)
-
-    for (sl, cp), group in seen.items():
-        # Designs sharing a coordinate are drawn concentrically, each at its own
-        # radius, slowest first. An arbitrary halo offset would read as an encoded
-        # hop count that belongs to neither of them.
-        stack = sorted(group, key=lambda g: -g["hops_full"])
-        for g in stack:
-            b.append(circle(X(sl), Y(cp), 4 + (g["hops_full"] - 4.5) * 5.5,
-                            SERIES[g["model"]], SURFACE, 1.6))
-        r = 4 + (stack[0]["hops_full"] - 4.5) * 5.5
-        label = "  /  ".join(f"{g['model']} · {g['params']}" for g in group)
-        b.append(text(X(sl), Y(cp) - r - 10, label, 12, INK, "middle", "600"))
-
-    b.append(text(ml + 6, mt + ph - 8, "↙ cheaper on both axes = better",
-                  11, INK_SOFT, style="italic"))
-    # marker size carries a third axis, so it needs its own key
-    b.append(text(ml + 14, mt + 20, "marker size = hops to full coverage h_{full}",
-                  10.5, "#8a887e"))
-    lo_h = min(o["hops_full"] for o in ops)
-    hi_h = max(o["hops_full"] for o in ops)
-    for dx, hops in ((22, round(lo_h, 1)), (86, round(hi_h, 1))):
-        r = 4 + (hops - 4.5) * 5.5
-        b.append(circle(ml + 14 + dx, mt + 44, r, "#b9b6ab", SURFACE, 1.6))
-        b.append(text(ml + 14 + dx + r + 6, mt + 48, f"{hops}", 10.5, "#8a887e"))
-
-    b.append(text(ml + pw / 2, H - 36,
-                  "State cost: standing links per node d",
-                  12.5, INK, "middle", "600"))
-    b.append(text(ml + pw / 2, H - 20, "right = more connection slots and churn surface",
-                  11, INK_SOFT, "middle"))
-    b.append(f'<text x="0" y="0" transform="translate(26,{mt + ph / 2:.1f}) rotate(-90)" '
-             f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
-             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'{runs("Bandwidth cost: copies per honest node c")}</text>')
-    b.append(f'<text x="0" y="0" transform="translate(41,{mt + ph / 2:.1f}) rotate(-90)" '
-             f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
-             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'up = more traffic</text>')
-
-    return frame(W, H, b, "Three costs at each design's proposed configuration",
-                 "Each design shown at the configuration this proposal names for it. "
-                 "Three quantities are plotted at once: the horizontal axis is "
-                 "standing connections per node, the vertical axis is message copies per "
-                 "honest node, and marker size is hops to full coverage. Both axes are "
-                 "costs, so lower and further left is better, and a smaller marker reaches "
-                 "the last subscriber sooner. M3 and M4 are jointly non-dominated on the "
-                 "two axes.",
-                 conditions="N = 20 000 · μ = 0.2 · δ = 10⁻⁴")
-
-
 # ------------------------------------------------------------------ figure 6
 def fig_tradeoffs(ops, alternatives=()) -> str:
     """Single overlaid radar: the four designs that are each best at something.
@@ -1287,8 +1196,6 @@ def main() -> int:
         "derivation.svg": fig_derivation(),
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
-        "cost-vs-state.svg": fig_cost_state(d["operating_points"],
-                                            d.get("alternatives", ())),
         "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
         "bucket-bounds.svg": fig_bucket_bounds(d["bucket_bounds"]),
         "tradeoff-radar.svg": fig_tradeoffs(
