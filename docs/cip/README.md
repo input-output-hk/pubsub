@@ -863,17 +863,14 @@ The Specification fixes M4, the symmetric relay link. **Every comparison in this
 
 Each epoch the protocol derives a dissemination topology for every topic separately: each node registered on a topic is assigned a bounded set of peers there, and the assignment stands for the whole epoch. A node subscribed to several topics draws independently on each, which is why [what a node pays](#what-a-node-pays-and-how-it-scales) multiplies its cost by the number of subscriptions. Nodes following the protocol are *honest*; the rest are the silent adversary set out above. On any topic some nodes publish and others subscribe.
 
-The guarantee is a property of the drawn topology, not of an individual message. For a given assignment either every honest publisher reaches every honest subscriber, or some publisher does not, in which case that publisher is cut off for the whole epoch every time it publishes. The first case is **good**, the second **bad**. This is deliberately all-or-nothing because an average would hide the failure mode that matters: 99.99 % delivery might be a uniform trickle of losses, which is tolerable, or one publisher silenced completely, which is not. The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>.
+The guarantee is a property of the drawn topology, not of an individual message: a draw is **good** when every honest publisher reaches every honest subscriber, and **bad** when some publisher is cut off for the whole epoch. The criterion is all-or-nothing because an average hides the failure that matters: 99.99 % delivery may be a tolerable trickle of losses or one publisher silenced completely. The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>.
 
-Being all-or-nothing, the criterion says nothing about magnitude. Two measurements bound it.
+Two observations bound what a bad draw costs.
 
-**A bad draw is a bad *topology*, not necessarily a failed delivery.** A draw counts as bad when one publisher *could* be silenced, whether or not that node published. Of the 7 104 bad draws recorded in the sweeps below, **30 % delivered to every subscriber anyway**. The proportion is a property of the design rather than of luck: nil under M4, where a node cut off cannot receive either and is missed whoever publishes, and total under M2, whose failures are almost entirely publishers who cannot be heard. *p*<sub>bad</sub> is therefore an upper bound on observed failure, by a margin each design fixes.
+- **A bad draw is a bad *topology*, not necessarily a failed delivery.** A draw counts as bad when one publisher *could* be silenced, whether or not that node published, so *p*<sub>bad</sub> is an upper bound on observed failure. The margin is a property of the design: nil under M4, where a cut-off node is missed whoever publishes, and total under M2, whose failures are almost entirely publishers who cannot be heard.
+- **When delivery does fall short, it falls short by one subscriber**, or by every subscriber at once where the publisher itself was cut off; nothing measured lies between. The second mode is the second term of the coverage laws, what M3's seeding links and M5's outbound links exist to make rare, and the one that scales with nothing: one node's isolation costs the whole topic that epoch.
 
-**And when delivery does fall short, it falls short by one subscriber.** A failing draw is bimodal: it misses one subscriber, or every subscriber because the publisher itself was cut off. Nothing measured lies between three and the whole honest population. At the assumed adversarial fraction all but about one per cent of failing draws missed exactly one honest subscriber out of thousands, and the measured worst case short of the publisher's own isolation is three.
-
-The second mode occurred twice in the sweep. It is the second term of the coverage laws rather than a new phenomenon, what M3's seeding links and M5's outbound links exist to make rare, and the mode that scales with nothing: one node's isolation costs the whole topic that epoch.
-
-The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>. **Everything below is a way of estimating it, a cost paid to lower it, or a condition under which it rises.**
+**Everything below is a way of estimating *p*<sub>bad</sub>, a cost paid to lower it, or a condition under which it rises.**
 
 Two independent instruments estimate it, built separately.
 
