@@ -850,13 +850,13 @@ Five candidate designs were analysed before one was chosen, named M1 to M5:
 <div align="center">
 <a name="table-5" id="table-5"></a>
 
-| Design | Differs from | Failure left open |
-| :--: | --- | --- |
-| M1 | The push primitive: a node forwards to *F* targets it drew | A node nobody drew cannot receive |
-| M2 | M1 with the direction inverted: a node draws *RF* forwarders | A publisher nobody drew cannot be heard |
-| M3 | M2 plus *s* − 1 seeding links carrying only their owner's publications | Either, each resting on one condition |
-| M5 | M1 and M2 run at once, as *k*<sub>in</sub> and *k*<sub>out</sub> tuned separately | Either, each resting on one condition |
-| M4 | M5 with the two link sets merged into one bidirectional link | Both at once, which is why it is the design specified |
+| Design | Differs from |
+| :--: | --- |
+| M1 | The push primitive: a node forwards to *F* targets it drew |
+| M2 | M1 with the direction inverted: a node draws *RF* forwarders |
+| M3 | M2 plus *s* − 1 seeding links carrying only their owner's publications |
+| M5 | M1 and M2 run at once, as *k*<sub>in</sub> and *k*<sub>out</sub> tuned separately |
+| M4 | M5 with the two link sets merged into one bidirectional link |
 
 <em>Table 5: Structural comparison of the dissemination designs</em>
 
