@@ -838,11 +838,11 @@ That cost depends on what the adversary knows. The gate is public, so which link
 
 ### Evidence
 
-Everything below is measured against the adversary just described. This section sets out what was measured, how, and what the results do and do not establish.
+Everything below is measured against the adversary just described.
 
 Messages could be disseminated in more than one way, so five candidate designs were analysed before one was chosen. The Specification fixes the symmetric relay link, which the analysis calls M4; [Designs evaluated](#designs-evaluated) sets out all five and the structural choice each one varies.
 
-**The evidence comes in two layers.** The first is what selects the design. It compares all five on coverage and cost with the admission rules switched off, and is carried by two independent instruments whose agreement is the argument. **Every comparison in this section is therefore ungated**, and the configurations it names are the ones the coverage models were evaluated at rather than the one this proposal specifies. Ungated is not a separate law: the gated coverage law reduces to the ungated one when the [gate](#the-verifiable-gate) is vacuous, so the two are the same family read at different bucket counts. The rules are left off here for two reasons. Coverage is unaffected wherever the gate leaves a node at least twice as many eligible peers as it must pick from, which is the [selection headroom](#term-r) the sizing rules hold at, so the gate costs the comparison almost nothing. And both structural taxes the admission rules impose fall on directional designs, so an ungated comparison is the best case for every design that lost.
+**The evidence comes in two layers.** The first is what selects the design. It compares all five on coverage and cost with the admission rules switched off, and is carried by two independent instruments whose agreement is the argument. **Every comparison in this section is therefore ungated**, and the configurations it names are the ones the coverage models were evaluated at rather than the one this proposal specifies. Ungated is not a separate law: the gated coverage law reduces to the ungated one when the [gate](#the-verifiable-gate) is vacuous, so the two are the same family read at different bucket counts. The rules are left off here for two reasons. Coverage is unaffected wherever the gate leaves a node at least twice as many eligible peers as it must pick from, which is the [selection headroom](#term-r) the sizing rules hold at, so the gate costs the comparison almost nothing. And the two structural taxes the admission rules impose, set out under [Why the symmetric design](#why-the-symmetric-design), both fall on directional designs, so leaving the rules off favours every design that lost rather than the one that won.
 
 The second layer adds the verifiable gate and the serving cap, and gives the numbers a deployment would actually see. It is set out under [Selecting the design](#selecting-the-design), where the choice is settled, and under [Sizing the parameters](#sizing-the-parameters), which establishes the rules the Specification states. The two layers measure different configurations, so where a design's numbers differ between them, the gated ones are the ones that apply.
 
@@ -1200,7 +1200,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 
 Both quantities scale linearly, so the ratio between the designs never changes. What changes is which one becomes the binding constraint. Bandwidth stays modest throughout: even twenty-five busy topics is a couple of megabits, which any always-on operator already has. Connection count does not stay modest. At ten topics M3 asks a node to hold 380 connections against M4's 180, and at twenty-five it is 950 against 450.
 
-**This is the strongest argument yet for M4**, and it did not appear in the single-topic comparison, where 38 against 18 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
+**This cost did not appear in the single-topic comparison**, where 38 against 18 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
 
 The same multiplication governs the [pick count](#the-dissemination-design), which is why that rule is stated per topic rather than per node. One additional relay link is about a tenth of a topic's cost — invisible on a single subscription, and around forty connections and a quarter of a megabit at twenty-five. A deployment sizing its pick count against its downtime rate is therefore sizing it against its subscription profile at the same time, and the two are best read together.
 
@@ -1426,7 +1426,7 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 ### Limits of this evidence
 
-The following are stated so that a reader can judge what the numbers above do and do not establish, in descending order of how much they bear on the conclusions.
+These limits are in descending order of how much they bear on the conclusions.
 
 **The gated layer has been reproduced, but not formally derived.** The closed forms behind the admission rules have been independently re-derived and reproduced in review. What they do not yet have is a derivation document in the style of the formal analysis standing behind the ungated coverage laws.
 
