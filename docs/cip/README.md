@@ -881,11 +881,7 @@ A closed form can approximate the wrong model; an implementation can faithfully 
 
 #### Performance metrics
 
-A design is characterised by three things: how often a draw fails, what it costs to run at that failure rate, and how much degradation it absorbs before the failure rate changes.
-
-
-
-Every figure and table in this section is one slice of a parameter space, and four constants fix which slice. Each figure repeats the ones it depends on so that it can be read on its own.
+A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Four constants fix what everything here is measured at.
 
 <div align="center">
 <a name="table-6" id="table-6"></a>
