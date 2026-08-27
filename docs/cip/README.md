@@ -1071,7 +1071,7 @@ The comparison above prices every design *assuming all honest nodes are up*. Sin
 
 A design's churn budget cannot be sampled directly: it is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws per churn level tested. What can be tested is the reduction underneath it, at parameters where failures are frequent enough to count; if it holds, the budgets follow from laws [Figure 10](#figure-10) has already validated.
 
-It holds. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline, and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's interval, carrying the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn]
+It holds. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline, and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval; two misses is what forty comparisons at that confidence are expected to produce. The sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn]
 
 The resulting budgets span more than a factor of four, and are the last column of [Table 8](#table-8).
 
@@ -1084,7 +1084,7 @@ This does not overturn Table 8, but it does mean cost alone does not select a de
 > [!NOTE]
 > **(13, 7) is the split every table and figure in this proposal carries**, and (12, 8) appears only in the table above, whose subject is the comparison between them. A reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes.
 
-The budgets above remain read off the laws rather than observed: the experiment establishes that the laws apply under churn, not the budget values. And throughout, the measurements sit slightly above their predictions. That excess does not grow with downtime, so it does not behave like a mistaken reduction, and pooling it by design rather than by round locates it: across all three rounds and every parameterisation tested, M3 accounts for it and M4 shows none. That is the same asymmetry a separate experiment found without any churn, sweeping population instead: M3's law is mildly optimistic wherever its pick count is small, and M3 is the only contender checked for such a deviation.[^finiten] The likeliest reading is that same optimism along a second axis, not a property of the churn reduction: suggestive rather than established, since neither experiment identifies a mechanism, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
+The budgets above remain read off the laws rather than observed: the experiment establishes that the reduction holds, not the budget values. One residual: the measurements sit slightly above their predictions, and the excess pools onto M3 alone, matching a separate finding that M3's law is mildly optimistic wherever its pick count is small.[^finiten] Suggestive rather than established, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
 
 ### Selecting the design
 
