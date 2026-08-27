@@ -273,6 +273,50 @@ def fig_architecture() -> str:
 
 
 # ------------------------------------------------------------------ models
+def _model_layer_row(b, y, picked, fill, quietfill=None):
+    """A row of the topic's peers with the linked subset filled, fig-3 idiom."""
+    x0, x1, n = 300, 812, 16
+    step = (x1 - x0) / (n - 1)
+    for i in range(n):
+        x = x0 + i * step
+        if picked and i in picked:
+            b.append(circle(x, y, 5.2, fill, SURFACE, 1.5))
+        elif quietfill and i in quietfill:
+            b.append(circle(x, y, 5.2, "#8a887e", SURFACE, 1.5))
+        else:
+            b.append(circle(x, y, 4.6, SURFACE, GRID, 1.5))
+
+def _model_scaffold(b, up_title, up_sub, dn_title, dn_sub):
+    quiet = "#8a887e"
+    b.append(text(38, 62, up_title, 12.5, INK, weight="600"))
+    b.append(text(38, 80, up_sub, 10.5, quiet))
+    b.append(line(38, 116, 822, 116, GRID, 1.2, dash="5 6"))
+    b.append(text(38, 170, "Current node", 12.5, INK, weight="600"))
+    b.append(circle(556, 165, 11, SURFACE, INK, 2.2))
+    b.append(line(38, 214, 822, 214, GRID, 1.2, dash="5 6"))
+    b.append(text(38, 262, dn_title, 12.5, INK, weight="600"))
+    b.append(text(38, 280, dn_sub, 10.5, quiet))
+
+def _model_link(b, i, up, col, dashed=False, both=False):
+    """One link between the current node and peer i of a layer row."""
+    x0, step = 300, (812 - 300) / 15
+    x = x0 + i * step
+    cx, cy = 556, 165
+    if up:
+        p1 = (x + (cx - x) * 0.06, 82); p2 = (cx + (x - cx) * 0.08, cy - 18)
+    else:
+        p1 = (cx + (x - cx) * 0.08, cy + 18); p2 = (x - (x - cx) * 0.06, 262)
+    if dashed:
+        b.append(line(p1[0], p1[1], p2[0], p2[1], col, 1.5, dash="4 5"))
+        dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+        ln = math.hypot(dx, dy)
+        b.append(arrow(p2[0] - dx / ln * 8, p2[1] - dy / ln * 8, p2[0], p2[1], col, 1.5))
+    else:
+        b.append(arrow(p1[0], p1[1], p2[0], p2[1], col, 1.6))
+        if both:
+            b.append(arrow(p2[0], p2[1], p1[0], p1[1], col, 1.6))
+
+
 def fig_model_m1() -> str:
     """One node's links under M1, seen from the node itself.
 
@@ -328,6 +372,100 @@ def fig_model_m1() -> str:
                  "linking down to the current node. The bottom row holds the same peers "
                  "with four filled: the F targets the current node drew, linked from it. "
                  "Unfilled circles are eligible peers not drawn on either side.")
+
+
+def fig_model_m2() -> str:
+    """One node's links under M2: the M1 figure with the colour flipped."""
+    W, H = 860, 330
+    b = []
+    col = SERIES["M2"]
+    _model_scaffold(b, "Upstream", "this node initiates: the RF forwarders it drew",
+                    "Downstream", "they initiate: nodes whose draw included this one")
+    _model_layer_row(b, 72, [2, 6, 10, 14], col)
+    for i in [2, 6, 10, 14]:
+        _model_link(b, i, True, col)
+    _model_layer_row(b, 272, None, None, quietfill=[4, 9, 12])
+    for i in [4, 9, 12]:
+        _model_link(b, i, False, "#8a887e")
+    return frame(W, H, b, "One node's links under M2",
+                 "The same three layers as the M1 figure with the colours exchanged. The "
+                 "top row's filled peers are the RF forwarders the current node drew, "
+                 "links it initiated. The bottom row's filled peers drew this node as a "
+                 "forwarder; they initiated those links. Messages still flow downward.")
+
+
+def fig_model_m3() -> str:
+    """One node's links under M3: M2's relay links plus dashed seeding links."""
+    W, H = 860, 330
+    b = []
+    col = SERIES["M3"]
+    _model_scaffold(b, "Upstream", "this node initiates: the RF relay forwarders it drew",
+                    "Downstream",
+                    "dashed: its seeding links · grey: their relay draws")
+    _model_layer_row(b, 72, [2, 6, 10, 14], col)
+    for i in [2, 6, 10, 14]:
+        _model_link(b, i, True, col)
+    _model_layer_row(b, 272, [1, 8], col, quietfill=[5, 12])
+    for i in [1, 8]:
+        _model_link(b, i, False, col, dashed=True)
+    for i in [5, 12]:
+        _model_link(b, i, False, "#8a887e")
+    return frame(W, H, b, "One node's links under M3",
+                 "M2's layers with one addition. The top row holds the RF relay "
+                 "forwarders the current node drew. The bottom row holds, dashed and in "
+                 "the design's colour, the s minus 1 seeding links the node initiates to "
+                 "hand out its own publications, beside the grey relay draws made by "
+                 "others. Messages flow downward on every link.")
+
+
+def fig_model_m5() -> str:
+    """One node's links under M5: both layers are the node's own draws."""
+    W, H = 860, 330
+    b = []
+    col = SERIES["M5"]
+    _model_scaffold(b, "Upstream",
+                    "its k_in senders drawn · grey: their outbound draws",
+                    "Downstream",
+                    "its k_out receivers drawn · grey: their inbound draws")
+    _model_layer_row(b, 72, [2, 7, 12, 14], col, quietfill=[4, 9])
+    for i in [2, 7, 12, 14]:
+        _model_link(b, i, True, col)
+    for i in [4, 9]:
+        _model_link(b, i, True, "#8a887e")
+    _model_layer_row(b, 272, [3, 8, 13], col, quietfill=[6, 11])
+    for i in [3, 8, 13]:
+        _model_link(b, i, False, col)
+    for i in [6, 11]:
+        _model_link(b, i, False, "#8a887e")
+    return frame(W, H, b, "One node's links under M5",
+                 "Both outer layers now hold links in the design's colour: the current "
+                 "node draws its k_in senders above and its k_out receivers below, "
+                 "tuning the two counts separately. Grey links are the same two draws "
+                 "made by other nodes that happened to land on this one. Messages flow "
+                 "downward on every link.")
+
+
+def fig_model_m4() -> str:
+    """One node's links under M4: direction gone, only who opened a link remains."""
+    W, H = 860, 330
+    b = []
+    col = SERIES["M4"]
+    _model_scaffold(b, "Its picks",
+                    "this node initiated these; messages flow both ways",
+                    "Their picks",
+                    "opened by others toward it; messages flow both ways")
+    _model_layer_row(b, 72, [2, 6, 10, 14], col)
+    for i in [2, 6, 10, 14]:
+        _model_link(b, i, True, col, both=True)
+    _model_layer_row(b, 272, None, None, quietfill=[4, 9, 13])
+    for i in [4, 9, 13]:
+        _model_link(b, i, False, "#8a887e", both=True)
+    return frame(W, H, b, "One node's links under M4",
+                 "The upstream and downstream layers are gone; what remains is who "
+                 "opened each link. The top row holds the RF peers the current node "
+                 "drew, the bottom row the peers whose draws landed on it, and every "
+                 "arrow points both ways because a link carries messages in both "
+                 "directions whichever end opened it.")
 
 
 # ------------------------------------------------------------------ handshake
@@ -1156,6 +1294,10 @@ def main() -> int:
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
         "model-m1.svg": fig_model_m1(),
+        "model-m2.svg": fig_model_m2(),
+        "model-m3.svg": fig_model_m3(),
+        "model-m5.svg": fig_model_m5(),
+        "model-m4.svg": fig_model_m4(),
         "handshake.svg": fig_handshake(),
         "measured-vs-proposed.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"], d.get("alternatives", ())),
