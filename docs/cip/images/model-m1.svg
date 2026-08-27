@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 396" width="860" height="396" role="img" aria-labelledby="t d">
+<title id="t">One node's links under M1</title>
+<desc id="d">Three layers. The top layer holds peers whose own draws included this node; they initiate those links and the node has no say in them. The middle is the node itself. The bottom layer holds the F targets the node drew; it initiates these. Messages flow downward along the arrows, so a node nobody drew has an empty top layer and cannot receive.</desc>
+<rect width="860" height="396" rx="8" fill="#fcfcfb"/>
+<rect x="38.0" y="34.0" width="784.0" height="112.0" rx="8" fill="#fcfcfb" stroke="#e2e0d8" stroke-width="1.2"/>
+<text x="58.0" y="60.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Upstream</text>
+<text x="58.0" y="78.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">they initiate: nodes whose own draw happened to include this one</text>
+<rect x="38.0" y="250.0" width="784.0" height="112.0" rx="8" fill="#fcfcfb" stroke="#e2e0d8" stroke-width="1.2"/>
+<text x="58.0" y="276.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Downstream</text>
+<text x="58.0" y="294.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">this node initiates: the F targets it drew</text>
+<circle cx="330.0" cy="92.0" r="7.5" fill="#fcfcfb" stroke="#8a887e" stroke-width="1.6"/>
+<line x1="342.0" y1="106.0" x2="414.8" y2="171.3" stroke="#8a887e" stroke-width="1.4" stroke-linecap="round"/>
+<polygon points="420.0,176.0 412.5,173.9 417.1,168.7" fill="#8a887e"/>
+<circle cx="430.0" cy="92.0" r="7.5" fill="#fcfcfb" stroke="#8a887e" stroke-width="1.6"/>
+<line x1="430.0" y1="106.0" x2="430.0" y2="169.0" stroke="#8a887e" stroke-width="1.4" stroke-linecap="round"/>
+<polygon points="430.0,176.0 426.5,169.0 433.5,169.0" fill="#8a887e"/>
+<circle cx="530.0" cy="92.0" r="7.5" fill="#fcfcfb" stroke="#8a887e" stroke-width="1.6"/>
+<line x1="518.0" y1="106.0" x2="445.2" y2="171.3" stroke="#8a887e" stroke-width="1.4" stroke-linecap="round"/>
+<polygon points="440.0,176.0 442.9,168.7 447.5,173.9" fill="#8a887e"/>
+<text x="596.0" y="96.0" font-size="10" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">not chosen by this node: one that</text>
+<text x="596.0" y="110.0" font-size="10" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">nobody drew cannot receive</text>
+<circle cx="430.0" cy="198.0" r="12.0" fill="#fcfcfb" stroke="#1a1a19" stroke-width="2.2"/>
+<text x="454.0" y="202.0" font-size="11.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">this node</text>
+<circle cx="280.0" cy="306.0" r="7.5" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>
+<line x1="415.0" y1="218.0" x2="301.0" y2="288.3" stroke="#2a78d6" stroke-width="1.6" stroke-linecap="round"/>
+<polygon points="295.0,292.0 299.1,285.3 302.8,291.3" fill="#2a78d6"/>
+<circle cx="380.0" cy="306.0" r="7.5" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>
+<line x1="425.0" y1="218.0" x2="388.3" y2="285.8" stroke="#2a78d6" stroke-width="1.6" stroke-linecap="round"/>
+<polygon points="385.0,292.0 385.2,284.2 391.4,287.5" fill="#2a78d6"/>
+<circle cx="480.0" cy="306.0" r="7.5" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>
+<line x1="435.0" y1="218.0" x2="471.7" y2="285.8" stroke="#2a78d6" stroke-width="1.6" stroke-linecap="round"/>
+<polygon points="475.0,292.0 468.6,287.5 474.8,284.2" fill="#2a78d6"/>
+<circle cx="580.0" cy="306.0" r="7.5" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.8"/>
+<line x1="445.0" y1="218.0" x2="559.0" y2="288.3" stroke="#2a78d6" stroke-width="1.6" stroke-linecap="round"/>
+<polygon points="565.0,292.0 557.2,291.3 560.9,285.3" fill="#2a78d6"/>
+<text x="650.0" y="310.0" font-size="10" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">F = 4 drawn at random</text>
+<text x="58.0" y="386.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">messages flow with the arrows: this node forwards everything it holds to its targets, and receives only what its upstream layer sends.</text>
+</svg>
