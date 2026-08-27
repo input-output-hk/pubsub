@@ -276,54 +276,58 @@ def fig_architecture() -> str:
 def fig_model_m1() -> str:
     """One node's links under M1, seen from the node itself.
 
-    Three layers, read top to bottom: the peers that drew this node, the node
-    itself, and the F targets it drew. Each layer's subtitle names who
-    initiated the links in it, which is the property the design paragraphs
-    turn on: a node controls its downstream layer and has no say in its
-    upstream one. The upstream side is drawn quiet for that reason, and the
-    failure the design leaves open is stated where it lives, on the layer the
-    node cannot fill.
+    Three layers separated by dashed dividers, read top to bottom: the peers
+    whose draws included this node, the node itself, and the peers it drew.
+    Each outer layer is a row of the topic's peers in the idiom of the
+    derivation figure, with the linked subset filled, so the rows read as a
+    chosen few among the eligible many. Text is the layer titles and
+    subtitles alone; the prose beside the figure carries everything else.
     """
-    W, H = 860, 396
+    W, H = 860, 330
     b = []
     quiet = "#8a887e"
     col = SERIES["M1"]
-    cx, cy = 430, 198
+    x0, x1 = 300, 812
+    n = 16
+    step = (x1 - x0) / (n - 1)
+    cx, cy = (x0 + x1) / 2, 165
 
-    def layer(y, h, title, sub):
-        b.append(rect(38, y, W - 76, h, SURFACE, GRID, 1.2, rx=8))
-        b.append(text(58, y + 26, title, 12.5, INK, weight="600"))
-        b.append(text(58, y + 44, sub, 10.5, quiet))
+    def row(y, picked, fill):
+        for i in range(n):
+            x = x0 + i * step
+            if i in picked:
+                b.append(circle(x, y, 5.2, fill, SURFACE, 1.5))
+            else:
+                b.append(circle(x, y, 4.6, SURFACE, GRID, 1.5))
 
-    layer(34, 112, "Upstream", "they initiate: nodes whose own draw happened to include this one")
-    layer(250, 112, "Downstream", "this node initiates: the F targets it drew")
+    UP = [3, 8, 13]
+    DN = [1, 5, 10, 14]
 
-    up = [330, 430, 530]
-    for x in up:
-        b.append(circle(x, 92, 7.5, SURFACE, quiet, 1.6))
-        b.append(arrow(x + (cx - x) * 0.12, 106, cx + (x - cx) * 0.10, cy - 22, quiet, 1.4))
-    b.append(text(596, 96, "not chosen by this node: one that", 10, quiet))
-    b.append(text(596, 110, "nobody drew cannot receive", 10, quiet))
+    b.append(text(38, 62, "Upstream", 12.5, INK, weight="600"))
+    b.append(text(38, 80, "they initiate: nodes whose draw included this one", 10.5, quiet))
+    row(72, UP, quiet)
+    for i in UP:
+        x = x0 + i * step
+        b.append(arrow(x + (cx - x) * 0.06, 82, cx + (x - cx) * 0.08, cy - 18, quiet, 1.4))
 
-    b.append(circle(cx, cy, 12, SURFACE, INK, 2.2))
-    b.append(text(cx + 24, cy + 4, "this node", 11.5, INK, weight="600"))
+    b.append(line(38, 116, W - 38, 116, GRID, 1.2, dash="5 6"))
+    b.append(text(38, 170, "Current node", 12.5, INK, weight="600"))
+    b.append(circle(cx, cy, 11, SURFACE, INK, 2.2))
+    b.append(line(38, 214, W - 38, 214, GRID, 1.2, dash="5 6"))
 
-    dn = [280, 380, 480, 580]
-    for x in dn:
-        b.append(circle(x, 306, 7.5, SURFACE, col, 1.8))
-        b.append(arrow(cx + (x - cx) * 0.10, cy + 20, x - (x - cx) * 0.10, 292, col, 1.6))
-    b.append(text(650, 310, "F = 4 drawn at random", 10, quiet))
-
-    b.append(text(58, 386, "messages flow with the arrows: this node forwards everything it "
-                  "holds to its targets, and receives only what its upstream layer sends.",
-                  10.5, INK_SOFT))
+    b.append(text(38, 262, "Downstream", 12.5, INK, weight="600"))
+    b.append(text(38, 280, "this node initiates: the F targets it drew", 10.5, quiet))
+    row(272, DN, col)
+    for i in DN:
+        x = x0 + i * step
+        b.append(arrow(cx + (x - cx) * 0.08, cy + 18, x - (x - cx) * 0.06, 262, col, 1.6))
 
     return frame(W, H, b, "One node's links under M1",
-                 "Three layers. The top layer holds peers whose own draws included this "
-                 "node; they initiate those links and the node has no say in them. The "
-                 "middle is the node itself. The bottom layer holds the F targets the "
-                 "node drew; it initiates these. Messages flow downward along the arrows, "
-                 "so a node nobody drew has an empty top layer and cannot receive.")
+                 "Three layers separated by dashed lines. The top row holds the topic's "
+                 "peers with three filled: nodes whose own draws included this one, "
+                 "linking down to the current node. The bottom row holds the same peers "
+                 "with four filled: the F targets the current node drew, linked from it. "
+                 "Unfilled circles are eligible peers not drawn on either side.")
 
 
 # ------------------------------------------------------------------ handshake

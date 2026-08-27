@@ -934,8 +934,6 @@ Deliveries per node counts duplicates, since a duplicate is suppressed only afte
 
 Every design starts from the same constraint: a node may not choose its peers, so it draws them at random from the topic's registered population and carries messages over the links that draw opens. The only knob is how many peers a node draws: the [pick count](#term-pick-count), written *RF* for relay links and *F* under M1. In every design below it is what trades cost against *p*<sub>bad</sub>. Where a design adds a second link kind for a node's own publications, those picks are counted separately: M3 opens *s* − 1 of them, its *s* counting the intended initial holders rather than the links opened. This subsection sets out each mechanism and the failure it leaves open; [Comparison at the proposed configurations](#comparison-at-the-proposed-configurations) prices the designs, and only the pick budget is quoted here, because its fall is the derivation.
 
-**M1 is the smallest thing that works.** One link kind, one direction: a node draws *F* targets and forwards everything it holds to them, its own publications included. It controls whom it sends to, not who sends to it. It meets [*δ*](#param-delta) = 10⁻⁴ at *F* = 24, the largest pick count in the field. The direction also fixes which failure a node can suffer. The chance that all *F* of its own picks land adversarial is [*μ*](#param-mu)<sup>*F*</sup>, nothing at all at these parameters. The failure that remains is a node no honest peer happened to draw, and such a node cannot **receive**.
-
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
 
@@ -944,6 +942,8 @@ Every design starts from the same constraint: a node may not choose its peers, s
 <em>Figure 5: One node's links under M1</em>
 
 </div>
+
+**M1 is the smallest thing that works.** One link kind, one direction: a node draws *F* targets from the topic's peers, the downstream layer of [Figure 5](#figure-5), and forwards everything it holds to them, its own publications included. Its upstream layer it does not control: those links are other nodes' draws that happened to include it. It meets [*δ*](#param-delta) = 10⁻⁴ at *F* = 24, the largest pick count in the field. The direction also fixes which failure a node can suffer. The chance that all *F* of its own picks land adversarial is [*μ*](#param-mu)<sup>*F*</sup>, nothing at all at these parameters. The failure that remains is a node whose upstream layer is empty, one no honest peer happened to draw, and such a node cannot **receive**.
 
 **M2 inverts the direction, and that is all it does.** A node draws *RF* forwarders and receives from them: it controls what it hears, not who hears it. The surviving failure is the mirror image, a publisher nobody drew, which cannot be **heard**. The direction also sets how severe a bad draw is; the spread recorded above, nil under M4 to total under M2, measures exactly that.
 
