@@ -598,7 +598,7 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 </div>
 
-**Every value is a power of two, and that is the point.** The *mask bits* column is that reduction: a candidate is eligible when that many low bits of the gate hash are all zero. No division, no logarithm, and no rounding rule to agree on. At *B* = 1 the mask is empty and every registered peer is eligible.
+**Every value is a power of two, and that is the point.** The *mask bits* column is that reduction: a candidate is eligible when that many low bits of the gate hash are all zero. No division, no logarithm, and no rounding rule to agree on.
 
 Each row's *B* is the largest value the three ceilings below permit at the row's **lowest** population, so every row is safe across its whole range. A topic near the top of a row therefore runs a narrower divisor than it could: at most a factor of two below the ceiling, and less than that at the populations this proposal is sized for.
 
@@ -669,7 +669,7 @@ The cap is the second line of defence and not the first. The gate has already di
 
 #### What the rules do on a small topic
 
-Everything specified so far is sized for a topic with thousands of members: the gate divides an attacker's reach by a [bucket count](#term-b) *B* in the hundreds, and the [serving cap](#term-cap) *C* bounds what concentration can still achieve. On a topic of thirty, [Table 1](#table-1) gives *B* = 1, so the gate divides by nothing and does no work at all. The question is what protects such a topic instead.
+Everything specified so far is sized for a topic with thousands of members, where the [bucket count](#term-b) *B* runs into the hundreds. On a topic of thirty, [Table 1](#table-1) gives *B* = 1, so the gate divides by nothing and does no work at all. The question is what protects such a topic instead.
 
 The rules need no separate mode for it. The first row of the table switches the gate off, and a node that cannot find [*k*](#term-pick-count) eligible peers links to all of them. Exactly where that switch falls depends on [*δ*](#param-delta) and [*μ*](#param-mu) as well as on the pick count. What changes below it is which mechanism does the protecting.
 
