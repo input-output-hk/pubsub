@@ -1032,12 +1032,8 @@ In the figure below each point is one measured sample, its horizontal position t
 
 </div>
 
-The points lie on the diagonal across the whole range. Per configuration, the law falls inside the measurement's 95 % interval in 22 of the 23. The exception is one 1 500-draw configuration, whose independent 6 000-draw resample brings it inside.
-
-Per-configuration agreement is the weaker claim: with 23 comparisons a few near-misses are expected, and a consistent small bias would hide behind them. The stronger check is aggregate: across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, not distinguishable from zero. The spread of those deviations is 0.84 against the 1.0 pure sampling noise would produce, so the agreement is if anything closer than chance alone would give.
-
 > [!IMPORTANT]
-> The same comparison against the analysis team's own independent simulators gives a mean standardised deviation of +0.05 over 22 paired configurations. **The two implementations are statistically indistinguishable from each other and from the laws**.
+> Across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, and against the analysis team's own independent simulators +0.05. **The two implementations are statistically indistinguishable from each other and from the laws**.
 
 One answer both studies had been carrying turns out to be wrong: the laws count a single cut-off node exactly but a small cut-off *group* only approximately, and both had taken them as roughly 11 % optimistic where failures are rare. No published sample could check it: separating a ten-percent effect at these rates needs on the order of 10⁵ draws, and the cells were 3 × 10⁴. Two cells were therefore re-run at power, one per contending design, on independent master seeds so the new draws pool with the existing samples. M3 gives 1 240 failures in 230 000 draws, a factor of **1.009 ± 0.029**; M4 gives 1 146 in 140 000, a factor of **0.979 ± 0.029**. **Neither design shows the correction, and together they reject 1.11 at more than five standard errors.**[^tail] The laws are accurate in that range rather than optimistic, and the operating points carry more margin than the corrected figures suggested.
 
