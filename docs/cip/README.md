@@ -148,8 +148,7 @@ Anchoring on the chain is a deliberate trade. It is what supplies a membership l
 - [Table 5: Structural comparison of the dissemination designs](#table-5)
 - [Table 6: The constants this section is measured at](#table-6)
 - [Table 7: Performance metrics](#table-7)
-- [Table 8: The two candidates, ungated](#table-8)
-- [Table 8b: The same two designs, gated](#table-8b)
+- [Table 8: The two candidates under the admission rules](#table-8)
 - [Table 9: Per-node cost against topics subscribed, at 1 kB and one message per second](#table-9)
 - [Table 10: Per-epoch isolation risk, per node and network-wide](#table-10)
 - [Table 11: Departure interval required per epoch length](#table-11)
@@ -1069,39 +1068,21 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 
 </div>
 
-Widening the comparison from two axes to four changes which designs are in contention, and so does letting M3 and M4 take their best parameters rather than the published ones. The published operating points were all chosen as the cheapest configuration meeting the failure target; re-searching the two contenders against the validated laws shows what that rule costs. M3's re-split is set out under [Table 15](#table-15), and the equivalent step for M4, RF = 8 to RF = 9, buys seven times the churn budget for 1.6 further deliveries per node and two further connections. M1, M2 and M5 remain at their cheapest-meeting-target points.
+Each contender is drawn at its best parameters rather than its published ones. The published operating points were all chosen as the cheapest configuration meeting the failure target, and re-searching the two contenders against the validated laws shows what that rule costs: M3's re-split is set out under [Table 15](#table-15), and the equivalent step for M4, RF = 8 to RF = 9, buys seven times the churn budget for 1.6 further deliveries per node and two further connections. M1, M2 and M5 remain at their cheapest-meeting-target points.
 
 At those parameters M4 beats M5 on every axis, and M1 falls with it; both are drawn muted rather than dropped, each lying wholly inside a contending design. Three remain. The figure carries its own reading key. Containment is a valid reading: outward is better on every axis, so a shape lying wholly inside another is dominated on all four. The size of a shape is not, since the axes are different quantities each normalised to its own best, and the area between two of them depends on which axes happen to be adjacent.
 
-**M4 is the most even and the only design to reach the outer ring twice. M2 leads speed alone and is innermost elsewhere; M3 leads bandwidth alone.** The re-split is what moves M3's churn vertex: one link from seeding to relaying quadruples it at the same budget and the same links, and cuts M3's bandwidth lead over M4 to 22 % from the 28 % the published split would show. M3 is plotted at its best overall split rather than its best bandwidth split; a reader weighing traffic against connections should know a further 6 % of bandwidth is available, at the cost of three quarters of its churn tolerance and a longer path to the last subscriber.
+**M4 is the most even and the only design to reach the outer ring twice. M2 leads speed alone and is innermost elsewhere; M3 leads bandwidth alone.** M3 is plotted at its best overall split rather than its best bandwidth split: the re-split quadruples its churn tolerance at the same budget and the same links, and a reader weighing traffic against connections should know a further 6 % of bandwidth is available at the cost of three quarters of that tolerance and a longer path to the last subscriber.
 
 > [!IMPORTANT]
 > The general form governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
 
 #### Why the symmetric design
 
-Two designs survive the comparison above, and on the coverage models neither dominates the other. M3 at (13, 7) is cheaper in traffic; M4 at RF = 9 holds less than half the connections, reaches its last subscriber sooner, and absorbs more than three times the downtime:
+Two designs survive the comparison above, and on the coverage models neither dominates the other: M3 at (13, 7) is cheaper in traffic, while M4 at RF = 9 holds less than half the connections, reaches its last subscriber sooner, and absorbs more than three times the downtime ([Table 15](#table-15)). That comparison decides nothing, because no deployment runs either design ungated: the [gate](#the-verifiable-gate) is derived per topic from the topic's own size, and on any topic large enough for bounded fanout to be worth having, it is on. What decides is the comparison under the gate and the admissions budget, at the scale and the pick counts this proposal specifies.[^synthesis] The three designs already beaten on cost were not re-measured under it, and do not need to be: both structural taxes below fall on directional designs, and M1, M2 and M5 are all directional, so the ungated comparison is their best case.
 
 <div align="center">
 <a name="table-8" id="table-8"></a>
-
-| | M3 (13, 7) | M4 (RF = 9) |
-| :--: | ---: | ---: |
-| Downtime absorbed | 2.17 % | **7.43 %** |
-| Corruptions to strand a chosen node, knowing its links <sup>a</sup> | 10.4 | **14.4** |
-
-<em>Table 8: The two candidates, ungated</em>
-
-<em><sup>a</sup> Two different formulas, not a measured difference: <em>k</em>(1−<em>μ</em>) where the links that can strand a node are directional, 2<em>k</em>(1−<em>μ</em>) where they are symmetric, since a symmetric pick yields two usable directions. Cost and latency for both designs are in [Table 15](#table-15); only the rows that change under the admission rules are repeated here, so that Table 8b has a before-half.</em>
-
-</div>
-
-The three designs already beaten on cost were not re-measured under the gate, and do not need to be: both structural taxes below fall on directional designs, and M1, M2 and M5 are all directional, so the ungated comparison is their best case.
-
-**That table decides nothing, because no deployment gets to run either design the way it was measured.** The [gate](#the-verifiable-gate) is not an option a deployment exercises: it is derived per topic from the topic's own size, and on any topic large enough for bounded fanout to be worth having, it is on. Both candidates were therefore measured under the gate and the admissions budget, at the scale and the pick counts this proposal specifies.[^synthesis]
-
-<div align="center">
-<a name="table-8b" id="table-8b"></a>
 
 | | M3 gated, best compliant | M4 gated, as specified |
 | :--: | ---: | ---: |
@@ -1113,11 +1094,11 @@ The three designs already beaten on cost were not re-measured under the gate, an
 | At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
 | Seams carrying a gate and a cap | 2 | **1** |
 
-<em>Table 8b: The same two designs, gated</em>
+<em>Table 8: The two candidates under the admission rules</em>
 
 </div>
 
-**Under the admission rules the question stops being a trade-off and becomes a frontier.** The directional design can meet the target, and was measured doing so at its own coordinates; but once the attacker's price is fixed, each design has a best reliability it can buy at that price, and the directional design's floor sits above the symmetric one's at every price point. The price is the attack surface per registered identity, how many victims one deposit buys a place beside: the only quantity denominated in the attacker's own budget before any design-specific mechanics apply, and the upstream resource of every attack, since without an admissible pair there is no attack of any kind on that seam. Normalise on anything else, equal bucket counts say, and one design's attacker gets its reach at a discount, so what is being compared is the subsidy rather than the topology. Two structural taxes put the directional floor where it is.
+**Under the admission rules the trade-off becomes a frontier.** Once the attacker's price is fixed, each design has a best reliability it can buy at that price, and the directional design's floor sits above the symmetric one's at every price point. The price is the attack surface per registered identity, how many victims one deposit buys a place beside: the only quantity denominated in the attacker's own budget before any design-specific mechanics apply, and the upstream resource of every attack. Normalise on anything else, equal bucket counts say, and one design's attacker gets its reach at a discount. Two structural taxes put the directional floor where it is.
 
 **Tax one: one lottery coin per relationship, or two.** A symmetric pair draws a single gate value covering both directions, so one identity is admissible to (*N*<sub>T</sub> − 1)/*B* peers. A directional design draws each direction independently and pays twice over, reaching 2(*N*<sub>T</sub> − 1)/*B*. The exchange rate is two, which means **raw bucket counts are not comparable across the designs**: the directional candidate at *B* = 769 runs a numerically wider gate than the symmetric one at 500 and still hands the attacker more reach, 52 against 40.
 
@@ -1127,13 +1108,13 @@ The three designs already beaten on cost were not re-measured under the gate, an
 
 **Availability is where the two taxes compound rather than merely add.** Ungated, the directional design absorbed 2.17 % downtime against the symmetric design's 7.43 %, a factor of three; under the admission rules the gap widens to a factor of five. The reason is the same missing conjunction: with no honest picker able to repair both directions at once, every node lost to downtime is a node that cannot rescue anyone.
 
-**Weighting the axes does not decide this, and no longer needs to.** A weighting chooses among candidates that all clear the bar; it has nothing to say about one that does not. Bandwidth, the one axis the directional design leads, remains a real question about deployment, worth answering; it is not this decision. Nor do the axes divide into security and performance as cleanly as they look: of the quantities in Table 8, only deliveries per node is straightforwardly a performance figure, downtime absorbed is an availability property, and time to the last subscriber is a liveness bound on topics carrying urgent traffic, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
+**Weighting the axes does not decide this, and no longer needs to.** A weighting chooses among candidates that all clear the bar; it has nothing to say about one that does not. Whether bandwidth or connections bind in a deployment remains a real question, but an answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost. Nor do the axes divide into security and performance as cleanly as they look: of the four in [Figure 11](#figure-11), only bandwidth is straightforwardly a performance figure, downtime absorbed is an availability property and time to the last subscriber a liveness bound, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
 
-**One seam rather than two, and the comparison charges only one.** The surface figures above count the directional design's relay seam alone; its second armoured surface was not added in, so the normalisation is generous to it throughout. Its publication-seeding links are a separate kind with their own gate, serving cap and sizing rule, and the seam inverts: a node's cap there governs what it will *accept* from publishers, so refusals starve the dialler's first hop rather than its own, and measured under a binding cap that seam strangles exactly the links that would have rescued an otherwise-muted publisher.[^synthesis] The symmetric design has no such seam: reciprocity collapses both failure directions into one channel with one gate, one cap and one budget rule, and every normative statement elsewhere in this proposal is written once rather than twice.
+**One seam rather than two.** The surface figures above count the directional design's relay seam alone; its publication-seeding links are a second kind with their own gate, serving cap and sizing rule, whose cap governs what a node will accept from publishers and, measured under a binding cap, strangles exactly the links that would have rescued an otherwise-muted publisher.[^synthesis] The symmetric design has one channel with one gate, one cap and one budget rule, and every normative statement elsewhere in this proposal is written once rather than twice.
 
-The gated laws behind Table 8b were derived inside the experiments programme and validated against measurement: they reproduce each design's published ungated law when the gate is made vacuous, every feasible row above is anchored by a measured cell, and they have been independently re-derived and reproduced number for number in review; what remains is a derivation document in the style of the formal analysis.[^synthesis]
+The gated laws behind Table 8 were derived inside the experiments programme and validated against measurement: they reproduce each design's published ungated law when the gate is made vacuous, every feasible row above is anchored by a measured cell, and they have been independently re-derived and reproduced number for number in review; what remains is a derivation document in the style of the formal analysis.[^synthesis]
 
-**The verdict is scoped to the regime it was measured in.** Every figure above is at *N* = 20 000, where the gate divides an attacker's reach by hundreds and held connections are what separate the two candidates. As topics shrink the bucket count the rules give falls, so the attack-surface argument loses its multiplier, and multiplexing recovers more for the design holding more links, which [What a node pays](#what-a-node-pays-and-how-it-scales) measures at 55 % for M3 against 33 % for M4 on a topic of five hundred. On a topic of a few hundred the comparison is therefore closer than the rows above suggest, and on a topic of tens neither design is doing what it was selected for, the overlay approaching a clique. The selection stands where it was measured, not as a claim about every topic size a deployment might carry.
+**The verdict is scoped to the regime it was measured in.** Every figure above is at *N* = 20 000, where the gate divides an attacker's reach by hundreds and held connections are what separate the two candidates. As topics shrink the bucket count the rules give falls, so the attack-surface argument loses its multiplier, and multiplexing recovers more for the design holding more links, which [What a node pays](#what-a-node-pays-and-how-it-scales) measures at 55 % for M3 against 33 % for M4 on a topic of five hundred. On a topic of a few hundred the comparison is therefore closer than the rows above suggest, and on a topic of tens neither design is doing what it was selected for. The selection stands where it was measured, not as a claim about every topic size a deployment might carry.
 
 #### What a node pays, and how it scales
 
