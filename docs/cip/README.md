@@ -221,6 +221,8 @@ A handful of named quantities size the protocol, and they are of two kinds. Some
 - **The bucket count *B*.** It decides how narrowly the peers a node may link with are drawn from a topic's population. *B* is not held on chain at all: a node looks it up in [Table 1](#table-1) of this document, by how many peers the topic has in the snapshot.
 - **The epoch length *T*<sub>epoch</sub>.** It fixes where an epoch begins and ends, and so which snapshot and which randomness a topology is drawn from. It is read from the [parameter output](#the-parameter-output).
 
+The snapshot both refer to is the protocol's own: the two registries and the parameter output as they stand at the epoch's [registration cutoff](#lifecycle-and-the-registration-cutoff), a chain position fixed before the epoch's randomness is known. It is not the ledger's stake distribution snapshot, and is not taken at an epoch boundary.
+
 [Topology derivation](#topology-derivation) specifies how both are used.
 
 **Everything else a node computes is its own.** How many links it opens is checked by nobody. How many it accepts is a matter of its own capacity. A node that sizes either badly loses coverage or capacity, and disagrees with no one.
