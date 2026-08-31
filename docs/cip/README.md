@@ -935,7 +935,7 @@ A design is characterised by four things: how often a draw fails, what it costs 
 
 **Two of these four are choices this proposal makes rather than results it derives.** [*μ*](#param-mu) and [*δ*](#param-delta) are assumptions about the deployment; every failure probability in this document is conditional on them, and both are posed as open questions below. A reader who disagrees with either should read the figures as shape rather than values.
 
-Every design's coverage law is [available interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/), with *μ*, *N* and *δ* as controls, so the comparison below can be re-derived at any point in that space. The admission parameters have [their own tool](https://pubsub.cardano-scaling.org/experiments/parameters/), which applies the rules of this section rather than evaluating a fixed configuration: it derives the bucket count, the admissions budget and the pick count from a topic size, a target and a downtime rate. The laws are what the tool evaluates, and [Figure 10](#figure-10) is the evidence that they predict what the reference implementation actually does.
+Every design's coverage law can be [evaluated interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/) with *μ*, *N* and *δ* as controls, and the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies the Specification's sizing rules to a topic size, a target and a downtime rate.
 
 <div align="center">
 <a name="table-7" id="table-7"></a>
@@ -953,17 +953,11 @@ Every design's coverage law is [available interactively](https://pubsub.cardano-
 
 </div>
 
-**_Epoch failure probability._** A property of the draw rather than of a message, estimated by sampling topologies and counting failures against the all-or-nothing criterion defined above.
-
-$$p_\text{bad} = P(\text{some honest publisher cannot reach every honest subscriber over the epoch's links})$$
-
-**_Churn budget._** Reading a design's own law at the shifted fraction defined above, the budget is the largest downtime a configuration absorbs while still meeting the target:
+**_Churn budget._** Reading a design's own [coverage law](#the-coverage-law) at the shifted fraction, the budget is the largest downtime a configuration absorbs while still meeting the target:
 
 $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
 Downtime relates to the drop-out rate and the epoch length by [*p*](#param-p) = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
-
-Deliveries per node counts duplicates, since a duplicate is suppressed only after crossing the network; the whole-network figure is the same quantity undivided, *m* = *c*·*H* with *H* the honest count. For links the maximum matters as much as the mean, because connection slots are provisioned for the worst-affected node.
 
 #### Designs evaluated
 
