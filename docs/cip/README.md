@@ -281,7 +281,7 @@ A publisher key MAY coincide with a node identity key, and a single publisher ke
 
 **What the rest of the Specification leans on.** Identity is the raw Ed25519 public key rather than a hash of it, because peers verify signatures against it directly on every handshake and because the [gate preimage](#the-verifiable-gate) consumes it raw. Anything that gates participation MUST be **snapshottable** — evaluable at a fixed chain position, identically by every node — since the topology derives from the [registration-cutoff snapshot](#term-snapshot) rather than from the chain tip. Any future anchoring to an existing credential MUST preserve both properties, or it reopens the derivation rather than extending it.
 
-**Proof of possession.** A registration transaction MUST carry a signature by the node identity key over
+**Proof of possession.** A registration transaction MUST carry a signature by the node identity key, in the notation [Canonical encoding](#canonical-encoding-and-domain-separation) fixes, over
 
 $$\mathrm{LP}(\texttt{pubsub/register/v1}) \,\|\, \mathrm{LP}(id) \,\|\, \mathrm{LP}(op)$$
 
@@ -489,6 +489,7 @@ The beacon also floors *T*<sub>epoch</sub>, which cannot be shorter than the int
 Every signature in the protocol is over a canonical byte string, never over a serialised structure, so that two implementations cannot disagree by encoding the same content differently. Three rules apply throughout:
 
 - Variable-length fields are **length-prefixed**, written `LP(x)`: a four-byte big-endian length followed by the bytes.
+- Fields are joined by plain byte **concatenation**, written ‖, with no separator between fields.
 - Integers are **big-endian and fixed width**.
 - Every preimage begins with a length-prefixed **domain tag** naming what is being signed, so a signature valid in one role cannot be replayed into another.
 
