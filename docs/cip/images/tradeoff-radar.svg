@@ -17,8 +17,6 @@
 <text x="73.0" y="48.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M5 · (9,8)</text>
 <rect x="38" y="54.0" width="28" height="11" rx="2" fill="#bcb9ae" fill-opacity="0.07" stroke="#bcb9ae" stroke-width="1.4"/>
 <text x="73.0" y="66.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">M1 · F=24</text>
-<text x="38.0" y="96.0" font-size="10.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">epoch failure probability these costs are read at:</text>
-<text x="38.0" y="112.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">M3 4.4 × 10⁻⁵ · M4 6.1 × 10⁻⁶ · M2 7.3 × 10⁻⁵</text>
 <polygon points="430.0,120.0 506.7,282.0 430.0,422.5 382.7,282.0" fill="#008300" fill-opacity="0.13" stroke="#008300" stroke-width="2.4" stroke-linejoin="round"/>
 <circle cx="430.0" cy="120.0" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>
 <circle cx="506.7" cy="282.0" r="4.2" fill="#008300" stroke="#fcfcfb" stroke-width="1.6"/>

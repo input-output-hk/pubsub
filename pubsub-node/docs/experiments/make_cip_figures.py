@@ -780,18 +780,6 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  f'fill="{col}" fill-opacity="0.07" stroke="{col}" stroke-width="1.4"/>')
         b.append(text(73, y, f"{m} · {by[m]['params']}", 10.5, "#8a887e"))
 
-    # p_bad is not a spoke: churn tolerance is the same coverage law read as
-    # margin, so plotting both would double-count. But the three designs differ
-    # by more than an order of magnitude in it, and a normalised radar hides
-    # that, so the rate each shape is drawn at is stated outright.
-    def _sci(v):
-        mant, exp = f"{v:.1e}".split("e")
-        return f"{mant} × 10{str(int(exp)).translate(SUPERS)}"
-    pb = " · ".join(f"{m} {_sci(by[m]['p_bad'])}" for m in SHOWN)
-    b.append(text(38, 96, "epoch failure probability these costs are read at:",
-                  10.5, "#8a887e"))
-    b.append(text(38, 112, pb, 10.5, INK_SOFT, weight="600"))
-
     for m in SHOWN:
         col = SERIES[m]
         pts = " ".join(
