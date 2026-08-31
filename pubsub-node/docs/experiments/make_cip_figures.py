@@ -1122,7 +1122,6 @@ def fig_bucket_bounds(g) -> str:
 
     b.append(path("pbad_headroom_k9", SERIES["M1"], 1.6, "5 4"))
     b.append(path("pbad_headroom_k10", SERIES["M1"], 2.2))
-    b.append(path("pbad_rule_k9", SERIES["M5"], 1.6, "5 4"))
     b.append(path("pbad_rule_k10", SERIES["M5"], 2.2))
 
     n0 = g["reference_n"]
@@ -1143,13 +1142,12 @@ def fig_bucket_bounds(g) -> str:
         ly += 26
 
     key(SERIES["M5"], "the rule", "smallest of the three bounds")
+    b.append(text(lx, ly - 12, "sits on the target", 9.5, INK_SOFT))
     key(SERIES["M1"], "headroom alone", "the retired one-line rule")
+    b.append(text(lx, ly - 12, "solid k = 10, dashed k = 9", 9.5, INK_SOFT))
     b.append(f'<line x1="{lx}" y1="{ly}" x2="{lx + 20}" y2="{ly}" '
              f'stroke="#b23b3b" stroke-width="1.6" stroke-dasharray="5 4"/>')
     b.append(text(lx + 26, ly + 4, "target \u03b4", 10.5, INK))
-    ly += 24
-    b.append(text(lx, ly + 4, "solid: k = 10 (specified)", 9.5, INK_SOFT))
-    b.append(text(lx, ly + 17, "dashed: k = 9", 9.5, INK_SOFT))
 
     # decade() would round this to 10^-2; the proposal quotes the value itself
     def sci(v):
