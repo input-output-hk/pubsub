@@ -1287,7 +1287,7 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 </div>
 
-The gap is close to two orders of magnitude for four of the five designs, and more than three for M4 at RF = 9, whose proposed point sits an order of magnitude inside the target. The laws are expected to hold across it, since the dominant failure in that range is a single node with no usable links, which they model exactly, and [Figure 10](#figure-10) confirms they track measurement wherever measurement is possible; but the operating points are predictions, and no amount of agreement at 10⁻² is a direct measurement at 10⁻⁴.
+The laws are trusted across that span because the dominant failure there is a single node with no usable links, which they model exactly and [Figure 10](#figure-10) shows they track wherever counting is possible; still, the operating points are predictions, and agreement at 10⁻² is not a measurement at 10⁻⁴.
 
 **Rotation is argued, not measured.** The instrument never advances the epoch: a run holds the topology derived at its genesis randomness from the first message to the last. Every figure describing a *sequence* of epochs is therefore arithmetic rather than observation: [Table 10](#table-10)'s second row is its first row squared, and the independence that licenses the squaring is a property the [beacon requirements](#epochs-and-the-randomness-beacon) are chosen to secure and that no measurement here exercises.
 
