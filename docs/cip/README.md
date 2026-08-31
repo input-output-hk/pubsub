@@ -133,8 +133,7 @@ Anchoring on the chain is a deliberate trade. It is what supplies a membership l
 - [Figure 10: Measured against predicted epoch failure probability](#figure-10)
 - [Figure 11: Four-way trade-off across the non-dominated designs](#figure-11)
 - [Figure 12: The bucket count trade-off](#figure-12)
-- [Figure 13: What each way of sizing the bucket count delivers, against topic size](#figure-13)
-- [Figure 14: Measured configurations against the configuration proposed](#figure-14)
+- [Figure 13: Measured configurations against the configuration proposed](#figure-13)
 
 </details>
 
@@ -1162,18 +1161,7 @@ The bucket count is one dial with two consequences, and Figure 12 shows them one
 
 **Verifiability is free where the gate leaves headroom.** Coverage is unaffected while the gate leaves each node at least twice as many eligible peers as it needs to pick from; at parity the failure rate is five times the law, and below parity the draw collapses.[^floor] In the other direction the gate divides an attacker's pressure: an attacker holding [*A*](#param-a) identities lands *A*/*B* slots on the average victim, which measurement matches across a grid of bucket counts, serving caps and attacker sizes, the exceptions being the defence working, where the cap truncates the attacker's share below *A*/*B*.[^gate]
 
-**The largest bucket count that still leaves headroom is the most dilutive, and it is coverage-exact only where the pick count is large enough to hide the all-picks-adversarial term.** Anything wider hands the attacker proportionally more concentration for no gain; anything narrower pays a coverage penalty, and at a small pick count that penalty arrives well before the headroom floor does, so headroom alone is not a sufficient rule.[^synthesis] That boundary is what the [Specification's rule](#the-verifiable-gate) exists to respect. Figure 13 plots the failure probability each way of sizing arrives at, rather than the three bounds themselves, which are near-parallel lines on log axes that a reader cannot separate.
-
-<div align="center">
-<a name="figure-13" id="figure-13"></a>
-
-![What each bucket-count rule delivers](images/bucket-bounds.svg)
-
-<em>Figure 13: What each way of sizing the bucket count delivers, against topic size</em>
-
-</div>
-
-Taking the smallest of the three bounds holds the failure probability at the target across the whole range; reading only the headroom floor leaves it behind above a few thousand participants, by ninety-two times at twenty thousand with nine picks, and the gap widens with the topic, because the headroom floor grows in proportion to the topic while the coverage budget does not.[^synthesis][^gateonly]
+**The largest bucket count that still leaves headroom is the most dilutive, and it is coverage-exact only where the pick count is large enough to hide the all-picks-adversarial term.** Anything wider hands the attacker proportionally more concentration for no gain; anything narrower pays a coverage penalty, and at a small pick count that penalty arrives well before the headroom floor does, so headroom alone is not a sufficient rule.[^synthesis] That boundary is what the [Specification's rule](#the-verifiable-gate) exists to respect: taking the smallest of the three bounds holds the failure probability at the target across the whole range, where the headroom floor alone leaves it behind above a few thousand participants, by ninety-two times at twenty thousand with nine picks, a gap that widens with the topic because the headroom floor grows in proportion to the topic while the coverage budget does not.[^synthesis][^gateonly]
 
 **The serving cap's failure mode is not the one it looks like.** Raising the cap hands an attacker *more* slots on each victim, yet it is what preserves coverage: the harm is honest links starved of capacity rather than slots lost to the adversary, the share of honest nodes losing at least one dial to a full acceptor falling from 30.6 % at a cap of 20 to 0.36 % at 32 under a fifth-of-the-network attacker, so a cap sized only to deny the attacker denies the honest population first.[^gate] These anchors are directional and superseded under a symmetric kind, where the budget is sized against fresh honest arrival instead; the Specification states the rule for each.
 
@@ -1285,14 +1273,14 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 **The gated layer has been reproduced, but not formally derived.** The closed forms behind the admission rules were derived after the measurements, on one instrument, then validated against them and independently re-derived and reproduced number for number in review. What they still lack is a derivation document in the style of the formal analysis behind the ungated coverage laws, so their agreement argument is assembled in the opposite order from the coverage results, which had their laws first.
 
-**The configurations that were measured are not the configurations that are proposed.** Sampling resolves a failure probability only down to roughly one over the number of trials, and the configurations that meet the target almost never fail, so what was measured is a range of deliberately weaker configurations where failures are common enough to count. Figure 14 places the two side by side: solid marks are configurations whose failure rate was counted, hollow marks the configuration each design proposes, whose rate is a law prediction at a level no feasible sample can resolve, and the dashed span between them is carried by the laws alone.
+**The configurations that were measured are not the configurations that are proposed.** Sampling resolves a failure probability only down to roughly one over the number of trials, and the configurations that meet the target almost never fail, so what was measured is a range of deliberately weaker configurations where failures are common enough to count. Figure 13 places the two side by side: solid marks are configurations whose failure rate was counted, hollow marks the configuration each design proposes, whose rate is a law prediction at a level no feasible sample can resolve, and the dashed span between them is carried by the laws alone.
 
 <div align="center">
-<a name="figure-14" id="figure-14"></a>
+<a name="figure-13" id="figure-13"></a>
 
 ![Measured configurations against proposed ones](images/measured-vs-proposed.svg)
 
-<em>Figure 14: Measured configurations against the configuration proposed</em>
+<em>Figure 13: Measured configurations against the configuration proposed</em>
 
 </div>
 

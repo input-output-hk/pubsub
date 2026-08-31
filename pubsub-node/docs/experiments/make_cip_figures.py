@@ -1051,126 +1051,6 @@ def fig_gate_tradeoff(g) -> str:
 # ------------------------------------------------------------------ figure 9
 
 
-def fig_bucket_bounds(g) -> str:
-    """What each sizing rule for the bucket count actually delivers.
-
-    The Specification bounds the bucket count three ways and takes the smallest.
-    Drawing the three bounds themselves is unilluminating — they are all very
-    nearly proportional to the topic size, so on log axes they are parallel
-    lines a reader cannot separate. What the proposal actually claims is about
-    consequences, so that is what this plots: the failure probability each rule
-    arrives at. The headroom floor alone was the rule earlier drafts carried,
-    and above a few thousand participants it stops meeting the target at all.
-    """
-    W, H = 860, 456
-    ml, mr = 92, 190
-    top, ph = 46, 300
-    pw = W - ml - mr
-    lg = math.log10
-    curves = g["curves"]
-    marks = g["marks"]
-    delta = g["delta"]
-    x0, x1 = 1000.0, 50000.0
-    y0, y1 = 1e-5, 1e-1
-
-    def X(v):
-        return ml + (lg(v) - lg(x0)) / (lg(x1) - lg(x0)) * pw
-
-    def Y(v):
-        v = min(max(v, y0), y1)
-        return top + ph - (lg(v) - lg(y0)) / (lg(y1) - lg(y0)) * ph
-
-    b = []
-    # the region that misses the target, named once rather than per curve
-    b.append(f'<rect x="{ml}" y="{top}" width="{pw}" height="{Y(delta) - top:.1f}" '
-             f'fill="#b23b3b" fill-opacity="0.05"/>')
-
-    for e in range(-5, 0):
-        v = 10.0 ** e
-        b.append(line(ml, Y(v), ml + pw, Y(v), GRID))
-        b.append(text(ml - 10, Y(v) + 4, decade(v), 10.5, INK_SOFT, "end"))
-    for v in (1000, 2000, 5000, 10000, 20000, 50000):
-        b.append(line(X(v), top, X(v), top + ph, GRID))
-        b.append(text(X(v), top + ph + 18, f"{v:,}".replace(",", "\u2009"), 10.5,
-                      INK_SOFT, "middle"))
-
-    # after the gridlines, for the same reason
-    b.append(text(ml + 10, top + 16, "misses the target", 10.5, "#b23b3b"))
-    b.append(line(ml, top + ph, ml + pw, top + ph, RULE, 1.2))
-    b.append(text(ml + pw / 2, top + ph + 40, "participants on the topic, N_{T}",
-                  12.5, INK, "middle", "600"))
-    b.append(text(ml + pw / 2, top + ph + 56,
-                  "log scale, each gridline \u00d710", 11, INK_SOFT, "middle"))
-    b.append(f'<text x="0" y="0" transform="translate(24,{top + ph / 2:.1f}) rotate(-90)" '
-             f'text-anchor="middle" font-size="12.5" font-weight="600" fill="{INK}" '
-             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" '
-             f'xml:space="preserve">{runs("p_{bad} per epoch")}</text>')
-    b.append(f'<text x="0" y="0" transform="translate(39,{top + ph / 2:.1f}) rotate(-90)" '
-             f'text-anchor="middle" font-size="11" fill="{INK_SOFT}" '
-             f'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">'
-             f'lower is better</text>')
-
-    # the target itself
-    b.append(line(ml, Y(delta), ml + pw, Y(delta), "#b23b3b", 1.6, dash="5 4"))
-
-    def path(key, colour, width, dash=None):
-        pts = " ".join(f"{'M' if i == 0 else 'L'}{X(c['n']):.1f} {Y(c[key]):.1f}"
-                       for i, c in enumerate(curves))
-        da = f' stroke-dasharray="{dash}"' if dash else ""
-        return (f'<path d="{pts}" fill="none" stroke="{colour}" '
-                f'stroke-width="{width}"{da} stroke-linejoin="round"/>')
-
-    b.append(path("pbad_headroom_k9", SERIES["M1"], 1.6, "5 4"))
-    b.append(path("pbad_headroom_k10", SERIES["M1"], 2.2))
-    b.append(path("pbad_rule_k10", SERIES["M5"], 2.2))
-
-    n0 = g["reference_n"]
-    m9 = marks["k9"]
-    b.append(line(X(n0), top, X(n0), top + ph, RULE, 1.0, dash="3 3"))
-    b.append(circle(X(n0), Y(m9["headroom_pbad"]), 4.5, SERIES["M1"], SURFACE, 2.0))
-    b.append(circle(X(n0), Y(m9["chosen_pbad"]), 4.5, SERIES["M5"], SURFACE, 2.0))
-
-    lx = ml + pw + 18
-    ly = top + 10
-    def key(colour, label, sub):
-        nonlocal ly
-        b.append(f'<line x1="{lx}" y1="{ly}" x2="{lx + 20}" y2="{ly}" '
-                 f'stroke="{colour}" stroke-width="2.2"/>')
-        b.append(text(lx + 26, ly + 4, label, 10.5, INK))
-        ly += 15
-        b.append(text(lx, ly + 4, sub, 9.5, INK_SOFT))
-        ly += 26
-
-    key(SERIES["M5"], "the rule", "smallest of the three bounds")
-    b.append(text(lx, ly - 12, "sits on the target", 9.5, INK_SOFT))
-    key(SERIES["M1"], "headroom alone", "the retired one-line rule")
-    b.append(text(lx, ly - 12, "solid k = 10, dashed k = 9", 9.5, INK_SOFT))
-    b.append(f'<line x1="{lx}" y1="{ly}" x2="{lx + 20}" y2="{ly}" '
-             f'stroke="#b23b3b" stroke-width="1.6" stroke-dasharray="5 4"/>')
-    b.append(text(lx + 26, ly + 4, "target \u03b4", 10.5, INK))
-
-    # decade() would round this to 10^-2; the proposal quotes the value itself
-    def sci(v):
-        e = int(math.floor(math.log10(v)))
-        return f"{v / 10 ** e:.1f}\u2009\u00d7\u200910{str(e).translate(SUPERS)}"
-
-    b.append(text(X(n0) - 12, Y(m9["headroom_pbad"]) - 11,
-                  f"{sci(m9['headroom_pbad'])} at k = 9", 10.5, SERIES["M1"], "end"))
-    b.append(text(X(n0) - 12, Y(m9["headroom_pbad"]) + 3,
-                  "ninety-two times the target", 9.5, INK_SOFT, "end"))
-
-    return frame(
-        W, H, b,
-        "What each bucket-count rule delivers, against topic size",
-        "The failure probability reached by two ways of sizing the bucket "
-        "count. Taking the smallest of the three bounds the Specification "
-        "states holds the failure probability at the target across the whole "
-        "range. Reading only the selection-headroom floor, as earlier drafts "
-        "did, misses the target above a few thousand participants, and at "
-        "twenty thousand participants with nine picks it misses it by roughly "
-        "two orders of magnitude.",
-        conditions=f"\u03bc = {g['mu']}, \u03b4 = {decade(g['delta'])}, gated M4 laws",
-    )
 
 
 def main() -> int:
@@ -1188,7 +1068,6 @@ def main() -> int:
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
         "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
-        "bucket-bounds.svg": fig_bucket_bounds(d["bucket_bounds"]),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
         "model-m1.svg": fig_model_m1(),
