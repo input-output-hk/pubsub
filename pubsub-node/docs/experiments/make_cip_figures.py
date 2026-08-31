@@ -869,7 +869,7 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
     against.
     """
     W, H = 860, 460
-    ml, mr, mt, mb = 104, 34, 88, 108
+    ml, mr, mt, mb = 118, 34, 88, 108
     pw, ph = W - ml - mr, H - mt - mb
     lo, hi = 1e-5, 1.4
     lg = math.log10
