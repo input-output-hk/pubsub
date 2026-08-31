@@ -1274,9 +1274,9 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 ### Limits of this evidence
 
-**The gated layer has been reproduced, but not formally derived.** The closed forms behind the admission rules were derived after the measurements, on one instrument, then validated against them and independently re-derived and reproduced number for number in review. What they still lack is a derivation document in the style of the formal analysis behind the ungated coverage laws, so their agreement argument is assembled in the opposite order from the coverage results, which had their laws first.
+**The gated layer has been reproduced, but not formally derived.** The closed forms behind the admission rules were derived after the measurements, on one instrument, then validated against them and independently re-derived and reproduced number for number in review; what they still lack is a derivation document in the style of the formal analysis behind the ungated coverage laws.
 
-**The configurations that were measured are not the configurations that are proposed.** Sampling resolves a failure probability only down to roughly one over the number of trials, and the configurations that meet the target almost never fail, so what was measured is a range of deliberately weaker configurations where failures are common enough to count. Figure 13 places the two side by side: solid marks are configurations whose failure rate was counted, hollow marks the configuration each design proposes, whose rate is a law prediction at a level no feasible sample can resolve, and the dashed span between them is carried by the laws alone.
+**The configurations that were measured are not the configurations that are proposed.** Sampling resolves a failure probability only down to roughly one over the number of trials, and the configurations that meet the target almost never fail, so what was measured is deliberately weaker configurations where failures are common enough to count. Figure 13 places the two side by side: solid marks are counted rates, hollow marks each design's proposed configuration at a rate no feasible sample can resolve, and the dashed span between them is carried by the laws alone.
 
 <div align="center">
 <a name="figure-13" id="figure-13"></a>
