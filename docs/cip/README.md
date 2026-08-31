@@ -289,7 +289,7 @@ where *id* is the node identity key and *op* the operator credential. Without it
 
 ### On-chain state
 
-The protocol holds three things on chain: a **parameter output** that identifies the deployment and fixes its epoch length, a **topic registry**, and a **node registry**. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. This section specifies what each holds and the state transitions it must admit, and leaves the validator implementation to the deployment.
+The protocol holds three things on chain: a **parameter output** that identifies the deployment and fixes its epoch length, a **topic registry**, and a **node registry**. Each is a script output whose datum carries its content; creating, updating and retiring an entry are ordinary transactions spending and recreating that output. Both registries are the protocol's own: an entry in either neither requires nor implies stake pool or dRep registration. This section specifies what each holds and the state transitions it must admit, and leaves the validator implementation to the deployment.
 
 **Which registry holds what.** The two registries divide by who may write an entry, not by what it is about.
 
