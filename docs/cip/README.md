@@ -1244,7 +1244,7 @@ Three things follow.
 
 **The window is extremely lopsided.** The formation floor is seconds. The ceiling depends on the population, hours for one whose nodes depart twice a day, days for one departing every two weeks ([Table 11](#table-11)), and it is the only bound ever close enough to bind, the beacon aside, and the one that depends on the design.
 
-**The design choice sets how often the protocol must rotate.** M4 at RF = 9 sustains roughly three and a half times the epoch length of M3 at (13, 7) or M5. Each rotation re-derives the topology and re-establishes every connection, a cost that follows directly from the parameter choice: within a design as well as between them, since M3 at the superseded (12, 8) sustains only a quarter of what (13, 7) does.
+**The design choice sets how often the protocol must rotate.** Each rotation re-derives the topology and re-establishes every connection, and how long a design can go between rotations is its churn budget restated: at the same departure rate M4 sustains epochs roughly three and a half times longer than M3 or M5 ([Table 11](#table-11)).
 
 **A chosen epoch length implies a reliability requirement.** For a candidate epoch, each design needs the population to depart no more often than:
 
@@ -1266,7 +1266,7 @@ Three things follow.
 
 </div>
 
-Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and two days, which every design clears easily. The spread across the column is the churn budgets restated. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be. The design pressure runs the other way, since bounded muting is bounded by the epoch length.
+Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and two days, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be: the design pressure runs the other way, since bounded muting is bounded by the epoch length.
 
 The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available: a property of the [beacon](#term-beacon), whose design is open. A per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce, M3 at (13, 7) would need a population departing less often than once every seven months, against two months for M4 at RF = 9.
 
