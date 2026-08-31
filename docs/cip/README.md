@@ -921,7 +921,7 @@ A design is characterised by four things: how often a draw fails, what it costs 
 <a name="table-6" id="table-6"></a>
 
 | Constant | Value | What it is | Where it comes from |
-| :--: | :--: | --- | --- |
+| --- | :--: | --- | --- |
 | *N* | 20,000, and 4,000 | The registered population on a topic | 4,000 is the order of today's stake-pool population; 20,000 is headroom above it |
 | [*μ*](#param-mu) | 0.2 | Fraction of registered nodes assumed adversarial | An assumption about who registers and what registration costs them, not a measurement. Swept from 0.20 to 0.40 to check the laws hold across it[^musweep] |
 | [*δ*](#param-delta) | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
