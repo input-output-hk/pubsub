@@ -81,7 +81,6 @@ Anchoring on the chain is a deliberate trade. It is what supplies a membership l
     - [Performance metrics](#performance-metrics)
     - [Designs evaluated](#designs-evaluated)
     - [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation)
-    - [Robustness](#robustness)
   - [Selecting the design](#selecting-the-design)
     - [Why the symmetric design](#why-the-symmetric-design)
     - [What a node pays, and how it scales](#what-a-node-pays-and-how-it-scales)
@@ -1022,7 +1021,7 @@ The fork is a genuine trade: M3 and M5 land at the same failure probability and 
 
 </div>
 
-**M4 merges M5's two link sets into one.** M5's best split, 9 and 8, is one link from symmetric, which suggests its two sets do the same work. Under M4 a node draws *RF* peers and opens one link to each, established once for the pair rather than once per direction; in [Figure 9](#figure-9) the layers differ only by who opened the link, and every arrow points both ways. Every message that verifies is flooded on all the node's links for the topic except the one it arrived on, its own publications included, so there is neither a second link kind nor a second count. The failure left open needs both directional failures at once: every peer the node drew adversarial *and* no honest node having drawn it, since a link an honest picker opens carries traffic both ways. One pick buys both directions, so the budget is *RF* = 9 against M5's 17. [Why the symmetric design](#why-the-symmetric-design) prices the conjunction and [Robustness](#robustness) the downtime it absorbs.
+**M4 merges M5's two link sets into one.** M5's best split, 9 and 8, is one link from symmetric, which suggests its two sets do the same work. Under M4 a node draws *RF* peers and opens one link to each, established once for the pair rather than once per direction; in [Figure 9](#figure-9) the layers differ only by who opened the link, and every arrow points both ways. Every message that verifies is flooded on all the node's links for the topic except the one it arrived on, its own publications included, so there is neither a second link kind nor a second count. The failure left open needs both directional failures at once: every peer the node drew adversarial *and* no honest node having drawn it, since a link an honest picker opens carries traffic both ways. One pick buys both directions, so the budget is *RF* = 9 against M5's 17. [Why the symmetric design](#why-the-symmetric-design) prices the conjunction and the downtime it buys.
 
 <!-- Figures are generated, not hand-drawn: pubsub-node/docs/experiments/cells.json is
      the single source, and make_cip_figures.py regenerates images/*.svg from it.
@@ -1044,7 +1043,7 @@ The laws were checked against the measurement framework at 23 configurations, sp
 
 The designs also nest, which gives a check that costs nothing. M1 and M2 are the two halves of M5: switching off M5's inbound links leaves pure push, switching off its outbound links pure pull. M3 at *s* = 1 is M2 by construction.[^boundaries] M5 configured at those boundaries must therefore reproduce M1's and M2's results exactly, and any discrepancy is a defect in the analysis or the implementation, not a property of the protocol.
 
-In the figure below each point is one measured sample, its horizontal position the failure rate the law predicts, its vertical the rate observed. A count from finitely many draws scatters around the true rate, so the **bar** through each point spans the rates that would plausibly produce it, at 95 % confidence for that sample's own size;[^wilson] a law inside the bar is consistent with the measurement. The **shaded band** repeats that interval at the size most samples share, as context for the eye. Both axes are logarithmic; the configurations range from failing in roughly one epoch in three hundred to almost every epoch. Filled marks are the configurations above, hollow ones a further 35 measured under honest downtime, described under [Robustness](#robustness).
+In the figure below each point is one measured sample, its horizontal position the failure rate the law predicts, its vertical the rate observed. A count from finitely many draws scatters around the true rate, so the **bar** through each point spans the rates that would plausibly produce it, at 95 % confidence for that sample's own size;[^wilson] a law inside the bar is consistent with the measurement. The **shaded band** repeats that interval at the size most samples share, as context for the eye. Both axes are logarithmic; the configurations range from failing in roughly one epoch in three hundred to almost every epoch. Filled marks are the configurations above, hollow ones a further 35 measured under honest downtime, described below.
 
 <div align="center">
 <a name="figure-10" id="figure-10"></a>
@@ -1055,13 +1054,7 @@ In the figure below each point is one measured sample, its horizontal position t
 
 </div>
 
-#### Robustness
-
-[Table 15](#table-15) prices every design *assuming all honest nodes are up*. Honest downtime enters as a shift in the adversarial fraction, so each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
-
-A budget cannot be sampled directly: it is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws per churn level tested. What can be tested is the reduction underneath it, at parameters where failures are frequent enough to count. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline, and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval; two misses is what forty comparisons at that confidence are expected to produce, and the sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn] The budgets then follow from laws [Figure 10](#figure-10) has already validated, and are the last column of [Table 15](#table-15): they span more than a factor of four.
-
-The same figures read as security rather than resilience, since a budget for downtime is equally a margin above the adversarial fraction assumed. Against the 0.2 assumed, M3 at (13, 7) still meets the target at [*μ*](#param-mu) = 0.217 and M4 at RF = 9 at *μ* = 0.259. M3's narrower margin is structural rather than incidental: its bandwidth advantage comes through a small number of dedicated seeding links, and a mechanism that is cheap because it is small has the least margin when part of it stops responding. This does not overturn the cost ranking, but it does mean cost alone does not select a design.
+The hollow marks are the same check run under honest downtime. A design's churn budget cannot be sampled directly, since resolving a rate near 10⁻⁴ takes 10⁵ to 10⁶ draws per churn level; what can be tested is the reduction beneath it, downtime entering as a shift in the adversarial fraction, at parameters where failures are frequent enough to count. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval, two misses being what forty comparisons at that confidence are expected to produce; the sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn] The budgets in [Table 15](#table-15) follow from the laws so validated.
 
 ### Selecting the design
 
@@ -1306,7 +1299,7 @@ Three things follow.
 
 <em>Table 11: Departure interval required per epoch length</em>
 
-<em>Every row is computed from that design's churn budget by the relation above, none separately measured; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Robustness](#robustness) gives.</em>
+<em>Every row is computed from that design's churn budget by the relation above, none separately measured; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation) gives.</em>
 
 
 </div>
@@ -1747,6 +1740,8 @@ Every design is shown at the configuration this proposal names for it, at *N* = 
 The first five rows are ungated, at the configurations the coverage models were evaluated at, and they are not equally safe: the *p*<sub>bad</sub> column spans an order of magnitude, so a cost difference between rows at different failure rates is not by itself a verdict. The last row is the configuration this proposal specifies, measured under the gate and the admissions budget: not comparable column-by-column, but given so the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the most connections any single honest node held, the figure a deployment sizes connection limits against: a measured worst case over the sampled graphs *at that row's configuration*, not a bound.[^degrees] Hops are quoted at the mean, where the field spans 4.8 to 5.5; the full depth distributions separate the designs by two orders of magnitude at the tail, for a fraction of a percent of subscribers.[^depth]
 
 **M3's split.** The budget of 19 divides between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. With *s* − 1 seeding links the budget is *RF* + (*s* − 1), so 12 + 7 and 13 + 6 both come to 19, and the split (RF = 13, *s* = 7) holds that same budget and the same 38 links. For 0.8 further deliveries per node it buys a factor of four in downtime tolerance and a halved failure probability, and it is the split every table and figure in this proposal carries; a reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes. The budgets in the last column are read off the laws rather than observed: the churn experiment establishes that the shifted-fraction reduction holds, not the budget values. The measurements sit slightly above their predictions, and the excess pools onto M3 alone, matching a separate finding that M3's law is mildly optimistic wherever its pick count is small;[^finiten] suggestive rather than established, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
+
+**Budgets as margins.** A budget for downtime is equally a margin above the adversarial fraction assumed: against the 0.2 assumed, M3 at (13, 7) still meets the target at *μ* = 0.217 and M4 at RF = 9 at *μ* = 0.259. M3's narrower margin is structural rather than incidental: its bandwidth advantage comes through a small number of dedicated seeding links, and a mechanism that is cheap because it is small has the least margin when part of it stops responding.
 
 ### Registry schemas
 
