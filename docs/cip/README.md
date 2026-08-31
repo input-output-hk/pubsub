@@ -1085,7 +1085,7 @@ Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it
 <a name="table-8" id="table-8"></a>
 
 | | M3 gated, best compliant | M4 gated, as specified |
-| :--: | ---: | ---: |
+| --- | ---: | ---: |
 | Parameters | *RF* = 13, *s* = 7, *B* = 769 | *RF* = 10, *B* = 500, *C* = 23 |
 | Failure probability | 5.8 × 10⁻⁵ | **5.1 × 10⁻⁶** |
 | Honest downtime absorbed | 1.58 % | **7.57 %** |
