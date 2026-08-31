@@ -1316,7 +1316,7 @@ The protocol distinguishes faults that are attributable from faults that are not
 **Attributable faults** are evidenced by a message that was actually sent, and any recipient can verify them without cooperation from anyone else:
 
 - content that is malformed under, or contradicts, the publisher's signature, checkable against the publisher's registered key;
-- a message sent by a peer outside the connections permitted to it for the current epoch, checkable against the obligation graph, which any participant can derive from the on-chain registry together with the epoch's public randomness.
+- a message sent by a peer outside the connections permitted to it for the current epoch, checkable against the permitted set, which any participant can derive for any node from the on-chain registry together with the epoch's public randomness.
 
 **Non-attributable faults** consist of the absence of messages. Attributing these is provably impossible without both a network that is more often synchronous than asynchronous and an honest majority among the parties able to attest.[^accountable-liveness] This proposal assumes neither: the dissemination analysis makes no timing assumption, and attestation is inherently local, since only the relay and the subscriber can speak to whether a given message was forwarded between them, two attesters with no majority to appeal to. A subscriber's entire peer set can be adversarial even when the network-wide fraction μ is small; that case is part of the residual per-epoch failure probability the [Evidence](#evidence) subsection quantifies.
 
