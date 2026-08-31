@@ -1338,41 +1338,39 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 
 **Before a design can be built from this**
 
-- [x] A dissemination design is selected. The gated comparison makes the directional candidate infeasible at equal attack surface rather than merely more expensive, so the choice no longer turns on an operator's binding constraint.[^synthesis] Its pick count follows a rule whose input — the honest downtime rate — remains a deployment choice.
-- [x] The gated closed forms are independently derived. The verifiable gate and the serving cap have closed forms, validated against measurement, recovering the ungated laws where the gate is made vacuous, and independently re-derived and reproduced number for number in review.[^synthesis] A derivation document in the formal analysis's style is the remaining write-up.
-- [x] Those parameters gain evidence covering both candidate designs. The directional measurements run M2's wiring and carry to M3 and M5; a further pass covers M4's symmetric handshake, which needs its own sizing rules rather than the directional ones.[^symgate]
-- [ ] The randomness beacon is specified. It sets the epoch floor and, through it, decides whether the churn ceiling binds at all.
+- [x] A dissemination design is selected: the gated comparison makes the directional candidate infeasible at equal attack surface rather than merely more expensive.[^synthesis]
+- [x] The gated closed forms are validated against measurement and independently reproduced in review; a derivation document in the formal analysis's style is the remaining write-up ([Limits of this evidence](#limits-of-this-evidence)).[^synthesis]
+- [x] The admission parameters carry evidence for the symmetric handshake as well as the directional wiring, each with its own sizing rules.[^symgate]
+- [ ] The randomness beacon is specified.
 - [ ] The relationship to CIP-0137 is stated. Both proposals carry topic-based publish/subscribe on Cardano in the Network category. Whether they are alternatives, whether one can carry the other's traffic, and whether a deployment would run both, is not settled here and should be settled with that proposal's authors.
-- [ ] Node behaviour is specified at the seams the analysis does not reach: retry of an *unanswered* dial within an epoch, and whether a refusal is remembered across retries, since [Link establishment](#link-establishment) settles only the explicit refusal and says nothing about a request that drew no reply or a reply that was lost; the handover across an epoch boundary; and tolerance of clock skew between publishers and recipients.
+- [ ] Node behaviour is specified at the seams the analysis does not reach: retry of an *unanswered* dial and what is remembered across retries ([Link establishment](#link-establishment) settles only the explicit refusal), the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients.
 
 **Choices this proposal poses rather than answers**
 
-- [ ] The adversarial fraction to size against, and separately the coordinated Sybil budget the gate is provisioned for. The gate divides an attacker's reach by the bucket count, and the bucket count cannot exceed what the topic's own size allows, so on a small topic the protection is correspondingly small.
+- [ ] The adversarial fraction to size against, and separately the coordinated Sybil budget the gate is provisioned for.
 - [ ] The epoch length, the retention window, and the per-epoch failure target. None is derivable from the analysis; each is a deployment choice the analysis prices.
-- [ ] The network size below which these designs need something other than a parameterisation of themselves. Every measurement here is at thousands of participants; several use cases put tens of nodes on a topic, and whether that regime is served by this design, by a degenerate case of it, or by an additional mechanism is unestablished. The leading candidate for an additional mechanism is a hardened backbone: a small set of peers, identifiable on chain, holding links that are not derived per epoch and so do not thin out as a topic shrinks. It is the same shape as the links [the beacon section](#epochs-and-the-randomness-beacon) records as insurance against a fork, and it would apply to the scenarios whose direct participants number in the tens rather than to the population this analysis measures. Nothing here prices it, and it trades against the property that no node chooses its own neighbours.
+- [ ] The network size below which these designs need something other than a parameterisation of themselves. Whether topics of tens are served by this design, a degenerate case of it, or an additional mechanism is unestablished; the leading candidate is a hardened backbone, a small set of on-chain-identifiable peers holding standing links that do not thin as a topic shrinks, the shape [the beacon section](#epochs-and-the-randomness-beacon) records as fork insurance, unpriced here and trading against the property that no node chooses its own neighbours.
 
 **Left to the layers this proposal does not define**
 
 - [ ] Message persistence beyond the recovery window, and with it the omission problem: distinguishing a message withheld from one never published.
-- [ ] Fees and incentives, including whether a registration deposit decays in the absence of evidence of participation or remains a static Sybil-resistance cost.
+- [ ] Fees and incentives, the deposit-decay question among them ([Open Questions](#open-questions)).
 - [ ] An off-chain mechanism for [address resolution](#address-resolution), for deployments that will not publish endpoints on chain, and with it the entry-point question that the on-chain endpoint answers for free.
 
 <!-- For core categories (Ledger, Plutus, Network, Consensus) the following SHOULD be included: -->
 
-- [ ] Two interoperating implementations, and adoption by operators representing a substantial share of the stake-pool population.
-
-The criterion CIP-0001 suggests for core categories — implementation present within block producing nodes used by 80 % or more of stake — does not apply as written. A pub/sub node runs alongside a Cardano node and does not validate blocks, so the protocol is adopted by operators rather than shipped inside the block-producing node. The criterion above is the equivalent for a layer of that shape.
+- [ ] Two interoperating implementations, and adoption by operators representing a substantial share of the stake-pool population: the equivalent, for a layer that runs alongside the node rather than inside it, of the implemented-within-block-producers criterion CIP-0001 suggests for core categories.
 
 ### Implementation Plan
 <!-- A plan to meet those criteria or `N/A` if an implementation plan is not applicable. -->
 
 The criteria above fall into three groups, and what blocks a specification is now short.
 
-**Blocking.** The randomness beacon has to be chosen, because it sets the epoch floor and through it decides whether the churn ceiling binds at all. Node behaviour has to be stated at the seams the analysis does not reach — retry of an unanswered dial within an epoch and whether a refusal is remembered across retries, the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients. The retry seam has a shape the rest of the design already supplies: which peers a node should hold is drawn once per epoch from that epoch's randomness, while acting to hold them may repeat within the epoch without redrawing anything, so a node can repair a link without disturbing the topology it and its peers agreed on. Fusing the two, so that a retry advances the randomness, reshuffles the whole permitted set and is what the separation avoids. What that leaves open is how much a node remembers about a peer between one attempt and the next, and the trade runs opposite ways at the seam's two ends. Remembering an explicit refusal is what [Link establishment](#link-establishment) already chooses, and it is paid for in a realised degree short of *k*. Remembering a silent drop would concede more, since silence is not evidence of capacity and may be nothing but a lost reply; forgetting it invites a node to spend the epoch re-dialling a peer that will never answer. And the relationship to CIP-0137 has to be settled with that proposal's authors rather than asserted here.
+**Blocking.** The randomness beacon, node behaviour at the seams the criteria above name, and the CIP-0137 relationship, settled with that proposal's authors rather than asserted here. The retry seam has a shape the design already supplies: which peers a node should hold is drawn once per epoch, while acting to hold them may repeat within it, so a node can repair a link without disturbing the draw. What stays open is memory between attempts: remembering an explicit refusal is what [Link establishment](#link-establishment) already chooses, paid for in a realised degree short of *k*; a silent drop is not evidence of capacity and may be nothing but a lost reply, yet forgetting it invites a node to spend the epoch re-dialling a peer that will never answer.
 
 **Measurement, not analysis.** The band table's rows below twenty thousand nodes carry extrapolated values. The [Appendix](#admission-parameter-bands) lists what each needs and in what order, and the first item is a single re-run. This is simulator work on an existing instrument, not new analysis.
 
-**Deployment choices.** The adversarial fraction and identity count, the failure target, the honest downtime rate, the epoch length and the retention window are all values a deployment supplies. They are best settled with the stake pools, wallet backends and dApp infrastructure expected to run the layer, and this proposal prices each rather than choosing it.
+**Deployment choices.** The values the [Open Questions](#open-questions) pose are best settled with the stake pools, wallet backends and dApp infrastructure expected to run the layer; this proposal prices each rather than choosing it.
 
 **Deferred layers.** Message persistence beyond the recovery window, fees and incentives, and an off-chain address-resolution mechanism are separate proposals. This one is written so that it does not presume their answers.
 
