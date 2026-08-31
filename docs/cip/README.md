@@ -854,7 +854,7 @@ Five candidate designs were analysed before one was chosen, named M1 to M5:
 <div align="center">
 <a name="table-5" id="table-5"></a>
 
-| Design | Differs from |
+| Design | Built from |
 | :--: | --- |
 | M1 | The push primitive: a node forwards to *F* targets it drew |
 | M2 | M1 with the direction inverted: a node draws *RF* forwarders |
