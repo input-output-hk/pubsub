@@ -247,7 +247,7 @@ The snapshot both refer to is the protocol's own: the two registries and the par
 
 </div>
 
-**The assumptions are choices a deployment makes, not facts any peer can check.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [Evidence](#evidence) gives the laws across that space rather than only at the point this proposal fixes.
+**The assumptions are choices a deployment makes, not facts any peer can check.** *μ*, *δ*, *p* and *A* describe the environment the protocol is being sized for, and the failure rate it is being sized to. They are the axes the design was explored along, and every coverage figure in this document is conditional on them. An implementor picks the point that matches the deployment they are building for; the [coverage law](#the-coverage-law) is stated for the whole space rather than only at the point this proposal fixes, and the [Evidence](#evidence) checks it across it.
 
 A node reads them to size its own pick count and serving cap. No peer verifies them, and no link is ever refused over one, which is why they need no on-chain home. Changing one re-sizes the deployment: it means rebuilding [Table 1](#table-1) and restating what every node is configured with. Two are tied to the epoch length, since a failure rate per epoch and a downtime rate across an epoch both mean something else if the epoch changes. A scheduled change to *T*<sub>epoch</sub> therefore requires *δ* and *p* to be restated against it.
 
@@ -575,6 +575,33 @@ With it, that identity reaches a *chosen* victim only with probability 1/*B* [ap
 
 Broad flooding is diluted. Aimed attacks are repriced. The second is what the [CPS](../cps/README.md) is about.
 
+#### The coverage law
+
+A draw is **bad** when some honest node holds no honest link for the epoch, since such a node can neither hear nor be heard. The two sizing rules below evaluate the probability of a bad draw for a candidate configuration, and for the symmetric relay link it has a closed form, the *coverage law*. It takes the gate's bucket count *B* as an argument, which is what the rules mean by *gated*; at *B* = 1 it is the ungated law.
+
+Take a topic with *N*<sub>T</sub> registered nodes, *S* of them adversarial and *H* = *N*<sub>T</sub> − *S* honest, gated at *B* with pick count *k*; *S* = round(*μ*·*N*<sub>T</sub>), taken at the adversarial fraction the rule reads the law at. The gate admits each other node into a given node's eligible set independently with probability 1/*B*, so an honest node sees *h* ~ Bin(*H* − 1, 1/*B*) honest and *a* ~ Bin(*S*, 1/*B*) adversarial eligible peers. It is **isolated** in one of two ways:
+
+- no honest peer is eligible at all, *h* = 0, which no pick count repairs; or
+- every one of its *k* picks lands on an adversarial peer, *and* none of its *h* honest eligible peers picked it.
+
+An honest peer whose eligible set contains the node picks it with probability
+
+$$m = \mathbb{E}\!\left[\frac{\min(k, P)}{P}\right], \qquad P = 1 + \mathrm{Bin}(N_\text{T} - 2,\ 1/B),$$
+
+so the probability that one honest node is isolated is
+
+$$I = \sum_{h \ge 0} \Pr[h]\,(1 - m)^{h}\,Q(h), \qquad Q(0) = 1, \qquad Q(h) = \sum_{a \ge k} \Pr[a]\,\frac{\binom{a}{k}}{\binom{a + h}{k}} \quad (h \ge 1),$$
+
+and the law is
+
+$$p_\text{bad} = 1 - e^{-H \cdot I}.$$
+
+At *B* = 1 every peer is eligible, so *h* = *H* − 1, *a* = *S* and *m* = *k*/(*N*<sub>T</sub> − 1), and *I* collapses to
+
+$$I = \binom{S}{k}\Big/\binom{N_\text{T}-1}{k}\,\left(1 - \frac{k}{N_\text{T}-1}\right)^{H-1} \approx \mu^{k}\,e^{-k(1-\mu)},$$
+
+the ungated form the Rationale quotes. The law counts isolated nodes only; a stranded component of two or more nodes is a second-order term, measured at about a tenth of the first in the deep tail ([`full_coverage.md`](https://github.com/input-output-hk/pubsub/blob/main/formal_spec/hybrid_dissemination/models/m4/properties/full_coverage.md)), so the law is mildly optimistic there. The [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) evaluates it, in the arithmetic of [`gated_symmetric_predictions.py`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/gated_symmetric_predictions.py), and [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation) checks it against the reference implementation.
+
 #### Selection headroom and the bucket count
 
 Everything above argues for a large bucket count: the wider the division, the more an attacker pays for a chosen victim. What stops *B* from growing without limit is the draw itself. If the gate leaves a node barely as many eligible peers as it must open links to, the node has no choice left and the topology stops being a random graph. The [selection headroom](#term-r) is the ratio that measures this — row 2 against row 3 of [Figure 3](#figure-3) — for a link kind with pick count *k*:
@@ -613,11 +640,11 @@ Each row's *B* is the largest value the three ceilings below permit at the row's
 
 **Where the table comes from.** All three of the following are **ceilings** on *B*, and each row takes the smallest of them. The table takes the gate off where the smallest ceiling falls below 2, since a topic too small to bucket would pay coverage for resistance it cannot buy.
 
-- ***B*<sub>target</sub>**, the largest *B* whose gated coverage law meets the failure target *δ* [applies to: one design at a time — each design has its own coverage law, so this bound is not comparable between designs].
+- ***B*<sub>target</sub>**, the largest *B* at which the [gated coverage law](#the-coverage-law) meets the failure target *δ* [applies to: one design at a time — each design has its own coverage law, so this bound is not comparable between designs].
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
 - ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio itself is general and is applied per link kind; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
 
-Only the first requires evaluating the coverage law; the other two are arithmetic. All three can be walked interactively in the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/), a companion web page that plots the bounds against topic size with the network size, the attacker's identity count, *μ*, *p* and the pick count as controls. It shows which of the three is binding at any point, and marks where the curves stop being backed by measurement.
+Only the first requires evaluating the [coverage law](#the-coverage-law); the other two are arithmetic. All three can be walked interactively in the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/), a companion web page that plots the bounds against topic size with the network size, the attacker's identity count, *μ*, *p* and the pick count as controls. It shows which of the three is binding at any point, and marks where the curves stop being backed by measurement.
 
 Past the pool floor the gate stops being a defence rather than merely narrowing further. The probability that a node's pool is empty altogether is about e<sup>−(1−*μ*)(*N*<sub>T</sub>−1)/*B*</sup>, and it does not depend on the pick count, so no amount of fanout compensates for a pool that was never populated. Narrow past it and the pool is no larger than the pick count itself: a node takes everything eligible, and there is nothing left for the gate to divide. The [serving cap](#the-serving-cap) inverts at the same boundary — past it no value of *C* both binds and stays harmless. The [Rationale](#choosing-the-admission-parameters) prices both edges.
 
@@ -653,7 +680,7 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 
 **The pick count is derived rather than fixed here, and what it reads is honest downtime.** An offline honest node and a silent adversary are the same thing to the rest of the network, for the reason [the adversary](#the-adversary-this-proposal-defends-against) sets out, so a pick count sized against the adversarial fraction alone under-provisions by exactly the downtime a deployment expects.
 
-*k* MUST be the smallest pick count for which the gated coverage law meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are the assumptions the deployment declares, each set out in [Table 4](#table-4).
+*k* MUST be the smallest pick count for which the [gated coverage law](#the-coverage-law) meets the failure target *δ* at the shifted adversarial fraction *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where *p* is the per-epoch honest downtime rate the deployment sizes against, and *B* and *C* are those the rules above give. *μ*, *δ* and *p* are the assumptions the deployment declares, each set out in [Table 4](#table-4).
 
 At the reference shape this proposal is sized for, the rule gives *RF* = 10, which is the value [Table 2](#table-2) carries; [the Rationale](#what-can-be-turned-and-what-it-costs) prices the tenth pick against the cheaper *RF* = 9.
 
@@ -672,7 +699,7 @@ $$L = (1 - m)\left[\,k(1-\mu) + A/B\,\right], \qquad m = \min\!\left(1,\ \frac{k
 
 *m* is the share of a node's own picks answered as crossings instead of arriving as admissions [applies to: symmetric link kinds — a crossing needs both ends to select each other, which a directional kind cannot produce, so *m* = 0 there], and *A* is the adversarial identity count the deployment sizes against. An adversary's dials spend budget whether the node wants them or not, so a cap clearing only the honest term *k*(1 − *m*)(1 − *μ*) falls short by roughly half.
 
-***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is about 3.5 for the symmetric link kind this proposal specifies, and about 2 for a directional one; it moves with the pick count. At the reference shape *A* = 3 500 gives *L* = 11.3 and the *C* = 23 this proposal specifies. Erring high is safe and erring low is not: a budget that binds enters the coverage law rather than sitting beside it, so this axis is a cliff rather than a trade-off.[^synthesis]
+***C* MUST be at least *L* + *c*·√*L***, where the headroom constant *c* is about 3.5 for the symmetric link kind this proposal specifies, and about 2 for a directional one; it moves with the pick count. At the reference shape *A* = 3 500 gives *L* = 11.3 and the *C* = 23 this proposal specifies. Erring high is safe and erring low is not: a budget that binds enters the [coverage law](#the-coverage-law) rather than sitting beside it, so this axis is a cliff rather than a trade-off.[^synthesis]
 
 The cap is the second line of defence and not the first. The gate has already divided an attacker's identities across *B* buckets before any reach a victim; the cap bounds what concentration can achieve when it happens. It cannot reach the adversary a node meets through its *own* picks, which are selections rather than admissions — the [Rationale](#choosing-the-admission-parameters) prices that floor and the evidence behind the rule.
 
@@ -883,7 +910,7 @@ Two observations bound what a bad draw costs.
 
 Two independent instruments estimate it, built separately.
 
-- **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible.
+- **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. The symmetric relay link's is stated under [The coverage law](#the-coverage-law).
 - **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
 
 A closed form can approximate the wrong model; an implementation can faithfully run a subtly wrong protocol. They fail in unrelated ways, so **their agreement is the evidence offered here**, not either result alone. Every measurement is reproducible byte-for-byte from a tool commit, a configuration and a master seed.[^reproduction]
@@ -1019,7 +1046,7 @@ The fork is a genuine trade: M3 and M5 land at the same failure probability and 
 
 #### Agreement between analysis and simulation
 
-The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 150 and 30 000 topologies and counts the bad ones, comparing each count with what that design's law predicts.
+The laws were checked against the measurement framework at 23 configurations, spanning all five designs, two and a half orders of magnitude in *p*<sub>bad</sub>, and two network sizes: *N* = 4,000, the order of today's stake-pool population, and *N* = 20,000 as headroom above it. Each configuration draws between 150 and 30 000 topologies and counts the bad ones, comparing each count with what that design's [coverage law](#what-is-measured-and-by-what) predicts.
 
 The designs also nest, which gives a check that costs nothing. M1 and M2 are the two halves of M5: switching off M5's inbound links leaves pure push, switching off its outbound links pure pull. M3 at *s* = 1 is M2 by construction.[^boundaries] M5 configured at those boundaries must therefore reproduce M1's and M2's results exactly, and any discrepancy is a defect in the analysis or the implementation, not a property of the protocol.
 
