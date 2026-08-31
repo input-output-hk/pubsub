@@ -992,9 +992,7 @@ def fig_gate_tradeoff(g) -> str:
     # after the gridlines, so they are not painted over
     b.append(line(X(rec["B"]), top, X(rec["B"]), bot + ph2, "#1e8f5e", 1.4, dash="5 4"))
     b.append(text(X(rec["B"]) + 7, top + 16, "r = 2", 10.5, "#1e8f5e", weight="600"))
-    b.append(text(ml + 8, top + 16, "shaded: selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
-    b.append(text(ml + 8, top + 30, "the gate still leaves each node at least twice the "
-                  "eligible peers it must pick from", 9.5, "#8a887e"))
+    b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
 
     lawy = Y1(g["law"])
     b.append(line(ml, lawy, ml + pw, lawy, "#52514e", 1.4, dash="5 4"))
