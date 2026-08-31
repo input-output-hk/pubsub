@@ -1061,9 +1061,6 @@ In the figure below each point is one measured sample, its horizontal position t
 
 </div>
 
-> [!IMPORTANT]
-> Across the 22 non-degenerate configurations the mean standardised deviation from the laws is +0.21, and against the analysis team's own independent simulators +0.05. **The two implementations are statistically indistinguishable from each other and from the laws**.
-
 #### Comparison at the proposed configurations
 
 Every design below is shown at the configuration this proposal names for it, at *N* = 20 000 and [*μ*](#param-mu) = 0.2, and every later table and figure carries the same configurations. For M1, M2 and M5 that is the cheapest one meeting [*δ*](#param-delta) = 10⁻⁴. For M3 and M4 it is the preferred split, which [Robustness](#robustness) derives below: each has a configuration at the same or nearly the same cost that absorbs several times the downtime, and carrying the superseded ones would mean comparing at parameters the rest of this proposal argues against.
