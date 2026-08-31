@@ -1063,24 +1063,11 @@ In the figure below each point is one measured sample, its horizontal position t
 
 #### Robustness
 
-[Table 15](#table-15) prices every design *assuming all honest nodes are up*. Since honest downtime enters as a shift in the adversarial fraction, each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
+[Table 15](#table-15) prices every design *assuming all honest nodes are up*. Honest downtime enters as a shift in the adversarial fraction, so each design also has a churn budget, the downtime it absorbs before leaving the target, and those budgets are not equal.
 
-A design's churn budget cannot be sampled directly: it is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws per churn level tested. What can be tested is the reduction underneath it, at parameters where failures are frequent enough to count; if it holds, the budgets follow from laws [Figure 10](#figure-10) has already validated.
+A budget cannot be sampled directly: it is defined where *p*<sub>bad</sub> meets the 10⁻⁴ target, and resolving a rate that low takes on the order of 10⁵ to 10⁶ draws per churn level tested. What can be tested is the reduction underneath it, at parameters where failures are frequent enough to count. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline, and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval; two misses is what forty comparisons at that confidence are expected to produce, and the sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn] The budgets then follow from laws [Figure 10](#figure-10) has already validated, and are the last column of [Table 15](#table-15): they span more than a factor of four.
 
-It holds. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline, and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval; two misses is what forty comparisons at that confidence are expected to produce. The sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn]
-
-The resulting budgets span more than a factor of four, and are the last column of [Table 15](#table-15).
-
-The same figures can be read as security rather than resilience: a budget for downtime is equally a margin above the adversarial fraction assumed. Against the 0.2 assumed, M3 at (13, 7) still meets the target at [*μ*](#param-mu) = 0.217 and M4 at RF = 9 at *μ* = 0.259. M3's narrower margin is structural rather than incidental: its bandwidth advantage comes through a small number of dedicated seeding links, and a mechanism that is cheap because it is small has the least margin when part of it stops responding.
-
-This does not overturn Table 15, but it does mean cost alone does not select a design.
-
-**Where M3's proposed split comes from.** The budget of 19 divides between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. With *s* − 1 seeding links the budget is *RF* + (*s* − 1), so 12 + 7 and 13 + 6 both come to 19, and the split (RF = 13, *s* = 7) holds that same budget and the same 38 links. For 0.8 further deliveries per node it buys a factor of four in downtime tolerance and a halved failure probability.
-
-> [!NOTE]
-> **(13, 7) is the split every table and figure in this proposal carries**, and (12, 8) appears only in the table above, whose subject is the comparison between them. A reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes.
-
-The budgets above remain read off the laws rather than observed: the experiment establishes that the reduction holds, not the budget values. One residual: the measurements sit slightly above their predictions, and the excess pools onto M3 alone, matching a separate finding that M3's law is mildly optimistic wherever its pick count is small.[^finiten] Suggestive rather than established, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
+The same figures read as security rather than resilience, since a budget for downtime is equally a margin above the adversarial fraction assumed. Against the 0.2 assumed, M3 at (13, 7) still meets the target at [*μ*](#param-mu) = 0.217 and M4 at RF = 9 at *μ* = 0.259. M3's narrower margin is structural rather than incidental: its bandwidth advantage comes through a small number of dedicated seeding links, and a mechanism that is cheap because it is small has the least margin when part of it stops responding. This does not overturn the cost ranking, but it does mean cost alone does not select a design.
 
 ### Selecting the design
 
@@ -1095,7 +1082,7 @@ A dissemination layer trades bandwidth, connection state, latency and tolerance 
 
 </div>
 
-Widening the comparison from two axes to four changes which designs are in contention, and so does letting M3 and M4 take their best parameters rather than the published ones. The published operating points were all chosen as the cheapest configuration meeting the failure target; re-searching the two contenders against the validated laws shows what that rule costs. M3's re-split is derived under [Robustness](#robustness), and the equivalent step for M4, RF = 8 to RF = 9, buys seven times the churn budget for 1.6 further deliveries per node and two further connections. M1, M2 and M5 remain at their cheapest-meeting-target points.
+Widening the comparison from two axes to four changes which designs are in contention, and so does letting M3 and M4 take their best parameters rather than the published ones. The published operating points were all chosen as the cheapest configuration meeting the failure target; re-searching the two contenders against the validated laws shows what that rule costs. M3's re-split is set out under [Table 15](#table-15), and the equivalent step for M4, RF = 8 to RF = 9, buys seven times the churn budget for 1.6 further deliveries per node and two further connections. M1, M2 and M5 remain at their cheapest-meeting-target points.
 
 At those parameters M4 beats M5 on every axis, and M1 falls with it; both are drawn muted rather than dropped, each lying wholly inside a contending design. Three remain. The figure carries its own reading key; what it cannot say is that enclosed area has no meaning, the axes being different quantities in different units, so only position along each axis should be compared.
 
@@ -1824,7 +1811,7 @@ getting it wrong costs the node coverage rather than interoperability.
 
 ### Cost at each design's configuration
 
-Every design is shown at the configuration this proposal names for it, at *N* = 20 000 and [*μ*](#param-mu) = 0.2, and every table and figure in the Rationale carries the same configurations. For M1, M2 and M5 that is the cheapest one meeting [*δ*](#param-delta) = 10⁻⁴. For M3 and M4 it is the preferred split, which [Robustness](#robustness) derives: each has a configuration at the same or nearly the same cost that absorbs several times the downtime, and carrying the superseded ones would mean comparing at parameters the rest of this proposal argues against.
+Every design is shown at the configuration this proposal names for it, at *N* = 20 000 and [*μ*](#param-mu) = 0.2, and every table and figure in the Rationale carries the same configurations. For M1, M2 and M5 that is the cheapest one meeting [*δ*](#param-delta) = 10⁻⁴. For M3 and M4 it is the preferred split rather than the published one: each has a configuration at the same or nearly the same cost that absorbs several times the downtime, and carrying the superseded ones would mean comparing at parameters the rest of this proposal argues against.
 
 <div align="center">
 <a name="table-15" id="table-15"></a>
@@ -1844,6 +1831,8 @@ Every design is shown at the configuration this proposal names for it, at *N* = 
 </div>
 
 The first five rows are ungated, at the configurations the coverage models were evaluated at, and they are not equally safe: the *p*<sub>bad</sub> column spans an order of magnitude, so a cost difference between rows at different failure rates is not by itself a verdict. The last row is the configuration this proposal specifies, measured under the gate and the admissions budget: not comparable column-by-column, but given so the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. All are measured; see the reproduction note. The busiest-node column is the most connections any single honest node held, the figure a deployment sizes connection limits against: a measured worst case over the sampled graphs *at that row's configuration*, not a bound.[^degrees] Hops are quoted at the mean, where the field spans 4.8 to 5.5; the full depth distributions separate the designs by two orders of magnitude at the tail, for a fraction of a percent of subscribers.[^depth]
+
+**M3's split.** The budget of 19 divides between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. With *s* − 1 seeding links the budget is *RF* + (*s* − 1), so 12 + 7 and 13 + 6 both come to 19, and the split (RF = 13, *s* = 7) holds that same budget and the same 38 links. For 0.8 further deliveries per node it buys a factor of four in downtime tolerance and a halved failure probability, and it is the split every table and figure in this proposal carries; a reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes. The budgets in the last column are read off the laws rather than observed: the churn experiment establishes that the shifted-fraction reduction holds, not the budget values. The measurements sit slightly above their predictions, and the excess pools onto M3 alone, matching a separate finding that M3's law is mildly optimistic wherever its pick count is small;[^finiten] suggestive rather than established, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
 
 ### Registry schemas
 
