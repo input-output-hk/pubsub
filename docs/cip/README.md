@@ -1131,7 +1131,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 
 Both quantities scale linearly, so the ratio between the designs never changes; what changes is which one becomes the binding constraint. Bandwidth stays modest throughout: even twenty-five busy topics is a couple of megabits, which any always-on operator already has. Connection count does not: at twenty-five topics M3 asks a node to hold 950 connections against M4's 450.
 
-**This cost did not appear in the single-topic comparison**, where 38 against 18 looks like a difference of degree. Under a realistic subscription profile it becomes a difference of kind: one design stays inside the file-descriptor and socket budgets an operator will accept, and the other does not.
+**This cost did not appear in the single-topic comparison**, where 38 against 18 is a modest gap. It compounds with the subscription profile: a file descriptor itself is cheap and its limit a configuration line, but every standing connection carries buffers, keepalives and supervision, so whatever connection budget an operator does provision, M3 reaches it at roughly half the subscriptions M4 does.
 
 The same multiplication governs the [pick count](#the-dissemination-design), which is why that rule is stated per topic rather than per node. One additional relay link is about a tenth of a topic's cost: invisible on a single subscription, around forty connections and a quarter of a megabit at twenty-five. A deployment sizing its pick count against its downtime rate is therefore sizing it against its subscription profile at the same time.
 
