@@ -1316,59 +1316,19 @@ There is nothing to be compatible with. This proposal defines a new layer that n
 
 ### Open Questions
 
-The values a deployment must choose are set out in the [CPS](../cps/README.md), which poses
-them as questions about the problem rather than about this design: the adversarial fraction
-and identity count to size against, the failure target, the honest downtime rate, the
-population the topics that matter actually draw from, whether the smallest use cases need a
-different mechanism at all, and what an identity should cost. This proposal states where
-each is read from and what it buys; it does not choose any of them. What remains open about
-the design itself is the following.
+The values a deployment must choose are set out in the [CPS](../cps/README.md), which poses them as questions about the problem rather than about this design: the adversarial fraction and identity count to size against, the failure target, the honest downtime rate, the population the topics that matter actually draw from, whether the smallest use cases need a different mechanism at all, and what an identity should cost. This proposal states where each is read from and what it buys; it does not choose any of them. What remains open about the design itself:
 
-- **Who may change the [parameter output](#the-parameter-output)**, and therefore the epoch
-  length every node derives against. The five arrangements are set out where the output is
-  specified. The choice is between a standing authority over a network-wide parameter and a
-  heavier path for every change.
-- **Whether the sizing assumptions should differ per topic.** [*μ*](#param-mu), [*δ*](#param-delta) and [*p*](#param-p) are declared
-  once for a deployment, and [Table 1](#table-1) is built at them. A failure target is a
-  service level, and an emergency alert topic and a chat topic have no reason to share one;
-  nor would per-topic values break the derivation, since agreement is only ever needed
-  between the two ends of a link and a link is always on one topic. What they would break is
-  the table, which is a lookup precisely so that *B* cannot diverge between implementations
-  and stops being one if each topic may choose its own basis. A small set of named profiles,
-  each with its own published table and named by a topic entry, would keep the lookup while
-  letting the targets differ, and is not specified here. This question is coupled to the one
-  above: *p* is the drop-out rate read against the epoch length and a per-epoch *δ* means
-  something else at a different one, so a per-topic epoch length carries both with it.
-- **The randomness source.** It sets the epoch floor and, through it, decides whether the
-  churn ceiling binds at all. Tracked as [issue #22](https://github.com/input-output-hk/pubsub/issues/22).
-- **The epoch length.** The Rationale bounds it from both directions and shows the upper
-  bound is the binding one, but that bound depends on how often a node drops out, which was
-  not measured. It cannot be settled independently of the failure target.
-- **The retention window**, which the epoch bounds from below but does not fix. It is held
-  as memory by every node on every topic it subscribes to, so its cost scales with the
-  subscription profile in the same way links do, and it has not been measured.
-- **The band values themselves.** Every row of [Table 1](#table-1) below twenty thousand nodes carries a value extrapolated from a rule fitted at four and twenty thousand rather than a measured one. The [Appendix](#admission-parameter-bands) lists what each row needs, in the order it is worth measuring. Until that lands, the table's shape is settled and its numbers are provisional.
-- **Whether a subscriber should be given a way to detect that it is being silenced**, beyond
-  the adjacent epoch's peer set. The [Rationale](#what-the-protocol-guarantees-instead)
-  records on-chain position commitments as the candidate and does not specify them: nothing
-  is measured about what they cost, and nothing downstream is specified to act on one.
-  Answering this decides whether the retention floor can come back down to one epoch.
-- **How the topology should behave when the chain the beacon reads from forks or halts.** A
-  fork can give two nodes different randomness for the same epoch and so different
-  topologies; a halt stops rotation altogether and with it the bound on how long a
-  subscriber can be cut off. Whether either warrants a mechanism — links retained across a
-  rotation, an operator-configured set of peers held independently of derivation, or a
-  confirmation depth fixed normatively — is open, and any such mechanism has to be priced
-  against the coverage analysis rather than assumed free.
-- **Whether a deposit should decay in the absence of positively supplied evidence of
-  participation**, following the approach Ethereum's inactivity leak takes to liveness
-  faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used
-  only for recovery. Deterrence requires a record a third party can check after the fact,
-  which an in-network mechanism does not produce.
-- **Whether adding a partial-synchrony assumption is acceptable**, given that the analysis
-  presented here deliberately avoids one, and what it would buy.
-- **How many node identities a single trust anchor may derive**, which bounds the residual
-  Sybil surface the deposit alone must price.
+- **Who may change the [parameter output](#the-parameter-output)**, and therefore the epoch length every node derives against: a standing authority over a network-wide parameter, or a heavier path for every change. The five arrangements are set out where the output is specified.
+- **Whether the sizing assumptions should differ per topic.** [*μ*](#param-mu), [*δ*](#param-delta) and [*p*](#param-p) are declared once for a deployment, and [Table 1](#table-1) is built at them; an emergency alert topic and a chat topic have no reason to share a failure target. Per-topic values would not break the derivation, since agreement is only ever needed between the two ends of a link, but they would break the table, which is a lookup precisely so that *B* cannot diverge between implementations. A small set of named profiles, each with its own published table and named by a topic entry, would keep the lookup, and is not specified here.
+- **The randomness source.** It sets the epoch floor and, through it, decides whether the churn ceiling binds at all. Tracked as [issue #22](https://github.com/input-output-hk/pubsub/issues/22).
+- **The epoch length.** The Rationale bounds it from both directions and shows the upper bound binds, but that bound depends on how often a node drops out, which was not measured, and it cannot be settled independently of the failure target.
+- **The retention window**, which the epoch bounds from below but does not fix. It is held as memory by every node on every topic it subscribes to, and it has not been measured.
+- **The band values themselves.** Every row of [Table 1](#table-1) below twenty thousand nodes carries a value extrapolated from a rule fitted at four and twenty thousand; the [Appendix](#admission-parameter-bands) lists what each row needs, in the order it is worth measuring. The table's shape is settled and its numbers are provisional.
+- **Whether a subscriber should be given a way to detect that it is being silenced**, beyond the adjacent epoch's peer set. On-chain position commitments are the candidate, unpriced and with nothing downstream specified to act on them; answering this decides whether the retention floor can come back down to one epoch.
+- **How the topology should behave when the chain the beacon reads from forks or halts.** A fork can give two nodes different randomness for the same epoch, and a halt stops rotation and with it the bound on how long a subscriber can be cut off. Whether either warrants a mechanism, links retained across a rotation, an operator-configured peer set held independently of derivation, or a normative confirmation depth, is open, and any such mechanism has to be priced against the coverage analysis.
+- **Whether a deposit should decay in the absence of positively supplied evidence of participation**, as Ethereum's inactivity leak treats liveness faults,[^accountable-liveness] or remain a static Sybil-resistance cost with detection used only for recovery. Deterrence requires a record a third party can check after the fact, which an in-network mechanism does not produce.
+- **Whether adding a partial-synchrony assumption is acceptable**, given that the analysis here deliberately avoids one, and what it would buy.
+- **How many node identities a single trust anchor may derive**, which bounds the residual Sybil surface the deposit alone must price.
 
 ## Path to Active
 
