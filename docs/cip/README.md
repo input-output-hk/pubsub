@@ -134,6 +134,7 @@ Anchoring on the chain is a deliberate trade. It is what supplies a membership l
 - [Figure 11: Four-way trade-off across the non-dominated designs](#figure-11)
 - [Figure 12: The bucket count trade-off](#figure-12)
 - [Figure 13: Measured configurations against the configuration proposed](#figure-13)
+- [Figure 14: The proposed configurations as the adversarial fraction varies](#figure-14)
 
 </details>
 
@@ -1297,7 +1298,16 @@ The laws are trusted across that span because the dominant failure there is a si
 
 **Correlated failure is out of scope.** Downtime is modelled as independent across nodes and epochs; region outages and upgrade waves violate both, in the direction that weakens the guarantee, and are not quantified here.
 
-**The adversarial fraction is chosen, not derived.** The designs are sized at a single [*μ*](#param-mu), an assumption about who registers and what registration costs them. The laws have since been measured from 0.20 to 0.40 natively and to 0.48 through churn, so *reading* a design off its law at another fraction is evidence-backed;[^musweep] *picking* the fraction is not, and the designs do not degrade at equal rates as it varies.
+**The adversarial fraction is chosen, not derived.** The designs are sized at a single [*μ*](#param-mu), an assumption about who registers and what registration costs them. The laws have since been measured from 0.20 to 0.40 natively and to 0.48 through churn, so *reading* a design off its law at another fraction is evidence-backed;[^musweep] *picking* the fraction is not, and the designs do not degrade at equal rates as it varies ([Figure 14](#figure-14)).
+
+<div align="center">
+<a name="figure-14" id="figure-14"></a>
+
+![The proposed configurations as the adversarial fraction varies](images/mu-sensitivity.svg)
+
+<em>Figure 14: The proposed configurations as the adversarial fraction varies</em>
+
+</div>
 
 ### Backward compatibility
 

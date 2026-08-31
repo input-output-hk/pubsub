@@ -940,6 +940,144 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
                  conditions="N = 20 000 · μ = 0.2 · δ = 10⁻⁴")
 
 
+
+def fig_mu_sensitivity() -> str:
+    """The proposed configurations under a varying adversarial fraction.
+
+    Substantiates the Limits item on mu: the designs do not degrade at equal
+    rates as the assumed fraction varies. Each curve is that design's coverage
+    law (the compare-designs port, validated below against the published
+    operating-point values) with the configuration held fixed while mu moves.
+    """
+    def hyper_dead(k, n, c):
+        if c > k:
+            return 0.0
+        p = 1.0
+        for i in range(c):
+            p *= (k - i) / (n - 1 - i)
+        return p
+
+    def q_no_pick(a, n, h):
+        return math.exp((h - 1) * math.log1p(-a / (n - 1)))
+
+    def rho_giant(m):
+        if m <= 1 + 1e-12:
+            return 0.0
+        r = 0.5
+        for _ in range(500):
+            r = -math.expm1(-m * r)
+        return r
+
+    def u_iterate(mu, rf, iters=100000, tol=1e-15):
+        u = 0.0
+        for _ in range(iters):
+            nxt = (mu + (1 - mu) * u) ** rf
+            if abs(nxt - u) < tol:
+                return nxt
+            u = nxt
+        return u
+
+    N = 20000
+
+    def law(m, mu):
+        k = round(mu * N)
+        H = N - k
+        if m == "M1":
+            E = H * (q_no_pick(24, N, H) + hyper_dead(k, N, 24))
+        elif m == "M2":
+            E = H * ((1 - rho_giant(24 * (1 - mu))) + u_iterate(mu, 24))
+        elif m == "M3":
+            E = H * (hyper_dead(k, N, 13) + q_no_pick(13, N, H) * hyper_dead(k, N, 6))
+        elif m == "M4":
+            E = H * hyper_dead(k, N, 9) * q_no_pick(9, N, H)
+        else:
+            E = H * (hyper_dead(k, N, 9) * q_no_pick(8, N, H)
+                     + hyper_dead(k, N, 8) * q_no_pick(9, N, H))
+        return -math.expm1(-E)
+
+    published = {"M1": 7.3e-5, "M2": 7.3e-5, "M3": 4.4e-5, "M4": 6.1e-6, "M5": 4.4e-5}
+    for m, v in published.items():
+        got = law(m, 0.2)
+        assert abs(got / v - 1) < 0.05, (m, got, v)
+
+    def crossing(m, delta=1e-4):
+        lo, hi = 0.2, 0.45
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if law(m, mid) <= delta:
+                lo = mid
+            else:
+                hi = mid
+        return (lo + hi) / 2
+
+    cross = {m: crossing(m) for m in published}
+    assert 0.215 < cross["M3"] < 0.219 and 0.257 < cross["M4"] < 0.262, cross
+
+    W, H2 = 860, 470
+    ml, mr, mt, mb = 96, 148, 64, 96
+    pw, ph = W - ml - mr, H2 - mt - mb
+    x0, x1 = 0.15, 0.35
+    y0, y1 = 1e-7, 1.0
+    lg = math.log10
+
+    def X(v):
+        return ml + (v - x0) / (x1 - x0) * pw
+
+    def Y(v):
+        v = min(max(v, y0), y1)
+        return mt + ph - (lg(v) - lg(y0)) / (lg(y1) - lg(y0)) * ph
+
+    b = []
+    for e in range(-7, 1):
+        v = 10.0 ** e
+        b.append(line(ml, Y(v), ml + pw, Y(v), GRID, 1))
+        b.append(text(ml - 10, Y(v) + 4, decade(v), 10.5, INK_SOFT, "end"))
+    for v in (0.15, 0.20, 0.25, 0.30, 0.35):
+        b.append(line(X(v), mt, X(v), mt + ph, GRID, 1))
+        b.append(text(X(v), mt + ph + 18, f"{v:.2f}", 10.5, INK_SOFT, "middle"))
+
+    dy = Y(1e-4)
+    b.append(line(ml, dy, ml + pw, dy, "#b23b3b", 1.6, dash="5 4"))
+    b.append(text(ml + 8, dy - 7, "target \u03b4", 10.5, "#b23b3b"))
+    xs = X(0.2)
+    b.append(line(xs, mt, xs, mt + ph, RULE, 1.0, dash="3 3"))
+    b.append(text(xs, mt - 8, "\u03bc = 0.2, the fraction sized against", 9.5, INK_SOFT, "middle"))
+
+    names = {"M1": "M1 \u00b7 F=24", "M2": "M2 \u00b7 RF=24", "M3": "M3 \u00b7 RF=13, s=7",
+             "M4": "M4 \u00b7 RF=9", "M5": "M5 \u00b7 (9,8)"}
+    steps = [x0 + i * 0.0025 for i in range(int((x1 - x0) / 0.0025) + 1)]
+    ends = []
+    for m in ("M1", "M2", "M5", "M3", "M4"):
+        col = SERIES[m]
+        pts = [(X(mu), Y(law(m, mu))) for mu in steps]
+        d = " ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(pts))
+        b.append(f'<path d="{d}" fill="none" stroke="{col}" stroke-width="2.2" stroke-linejoin="round"/>')
+        b.append(circle(X(cross[m]), dy, 4.4, col, SURFACE, 1.6))
+        ends.append([m, pts[-1][1]])
+
+    ends.sort(key=lambda e: e[1])
+    for i in range(1, len(ends)):
+        ends[i][1] = max(ends[i][1], ends[i - 1][1] + 14)
+    for m, y in ends:
+        b.append(text(ml + pw + 8, y + 4, names[m], 10.5, SERIES[m], weight="600"))
+
+    b.append(text(X(cross["M3"]), dy + 17, f"{cross['M3']:.3f}", 9.5, SERIES["M3"], "middle"))
+    b.append(text(X(cross["M4"]), dy + 17, f"{cross['M4']:.3f}", 9.5, SERIES["M4"], "middle"))
+
+    b.append(text(ml + pw / 2, H2 - 44, "assumed adversarial fraction \u03bc",
+                  12.5, INK, "middle", "600"))
+    b.append(text(ml + pw / 2, H2 - 29, "each design's coverage law, configuration held fixed at "
+                  "its proposed point", 11, INK_SOFT, "middle"))
+
+    return frame(W, H2, b, "The proposed configurations as the adversarial fraction varies",
+                 "Each design's failure probability read off its coverage law as the "
+                 "adversarial fraction moves, the configuration held fixed. The designs "
+                 "do not degrade at equal rates: M4 at RF = 9 stays inside the target "
+                 "to \u03bc = 0.259, M3 at (13, 7) to 0.217, and the dots mark where "
+                 "each design crosses it.",
+                 conditions="N = 20,000 \u00b7 \u03b4 = 10\u207b\u2074")
+
+
 # ------------------------------------------------------------------ figure 8
 def fig_gate_tradeoff(g) -> str:
     """The bucket count's two opposing costs, on one shared axis.
@@ -1068,6 +1206,7 @@ def main() -> int:
         "coverage-validation.svg": fig_validation(
             d["coverage_cells"], d.get("churn_cells", ())),
         "gate-tradeoff.svg": fig_gate_tradeoff(d["gate_tradeoff"]),
+        "mu-sensitivity.svg": fig_mu_sensitivity(),
         "tradeoff-radar.svg": fig_tradeoffs(
             d["operating_points"], d.get("alternatives", ())),
         "model-m1.svg": fig_model_m1(),
