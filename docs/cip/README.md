@@ -1770,6 +1770,7 @@ Several of these words carry an established Cardano meaning that is *not* the me
 | <a name="term-b" id="term-b"></a>**bucket count**, *B* | How narrow the verifiable gate is. Roughly one candidate in *B* survives it for a given node and epoch. | |
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | How many peers the gate leaves a node eligible to link to, per link it must open. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
 | <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic for one link kind that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
+| <a name="term-coverage-law" id="term-coverage-law"></a>**coverage law** | The closed-form probability that an epoch's draw leaves some honest node without an honest link, as a function of the topic population, the adversarial fraction and the design's parameters; **gated** when it reads the bucket count *B*. The symmetric relay link's is stated under [The coverage law](#the-coverage-law). | The coverage *figures* under [Evidence](#evidence), which are measurements the law is checked against. |
 
 <em>Table 13: The protocol's vocabulary</em>
 
