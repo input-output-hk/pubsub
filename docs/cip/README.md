@@ -183,7 +183,7 @@ A [reference node](#this-proposals-reference-implementation) decides many of the
 
 The chain is the protocol's trust root and carries none of its traffic. Two registries record who may participate and who may publish, a parameter output identifies the deployment and fixes its epoch length, and a randomness beacon supplies one unpredictable value per [epoch](#term-epoch). From those four public inputs, plus its own registered identity, every [node](#term-node) computes, for each topic it subscribes to, the set of peers it is permitted to link with — and so can anyone else, for any node. From that set it then draws privately the [links](#term-link) it will hold for the epoch. Messages then travel over those links.
 
-An epoch here is the protocol's own dissemination period, the interval for which one drawn topology stands; its length is a parameter of this proposal. It is not the five-day Cardano ledger epoch, and the two need not coincide.
+An epoch here is the protocol's own dissemination period, the interval for which one drawn topology stands; its length is a parameter of this proposal. It is not the five-day Cardano ledger epoch, and the two need not coincide. A node is likewise the protocol's own: a process registered in its node registry, which runs beside a Cardano node and reads from it but is not one.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
