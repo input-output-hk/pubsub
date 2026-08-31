@@ -4,6 +4,12 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-08-31 — CIP draft nearing completion
+
+The CIP and its companion CPS are being completed on [PR #164](https://github.com/input-output-hk/pubsub/pull/164). A draft will be made available shortly for internal team review, and then for public review.
+
+---
+
 ## 2026-08-20 — Brainstorm: M4 selected as the dissemination design, oversaturation for small topics, bucket count as a published parameter
 
 **M4 is the dissemination design.** The group selected M4 over M3 and M5, on the strength of its symmetric link structure and the structural advantages that follow from it. That confirms the direction the CIP draft already takes rather than changing it.
