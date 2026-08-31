@@ -1242,7 +1242,7 @@ Rotation bounds how long a subscriber can be silenced, so the epoch length sets 
 
 Three things follow.
 
-**The window is extremely lopsided.** Seconds at the bottom against hours at the top: only the upper bound is close enough to bind, and it is the one that depends on the design.
+**The window is extremely lopsided.** The formation floor is seconds. The ceiling depends on the population, hours for one whose nodes depart twice a day, days for one departing every two weeks ([Table 11](#table-11)), and it is the only bound ever close enough to bind, the beacon aside, and the one that depends on the design.
 
 **The design choice sets how often the protocol must rotate.** M4 at RF = 9 sustains roughly three and a half times the epoch length of M3 at (13, 7) or M5. Each rotation re-derives the topology and re-establishes every connection, a cost that follows directly from the parameter choice: within a design as well as between them, since M3 at the superseded (12, 8) sustains only a quarter of what (13, 7) does.
 
