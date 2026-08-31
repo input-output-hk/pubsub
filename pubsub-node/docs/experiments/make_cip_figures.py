@@ -976,7 +976,6 @@ def fig_gate_tradeoff(g) -> str:
     for c in cells:
         b.append(line(X(c["B"]), top, X(c["B"]), bot + ph2, GRID, 1))
         b.append(text(X(c["B"]), bot + ph2 + 19, c["B"], 10.5, INK_SOFT, "middle"))
-        b.append(text(X(c["B"]), bot + ph2 + 32, f"r={c['r']:g}", 9.5, "#8a887e", "middle"))
     for v in (1e-2, 1e-1, 1.0):
         b.append(line(ml, Y1(v), ml + pw, Y1(v), GRID, 1))
         b.append(text(ml - 10, Y1(v) + 4, decade(v), 10.5, INK_SOFT, "end"))

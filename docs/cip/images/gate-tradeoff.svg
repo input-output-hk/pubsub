@@ -5,25 +5,18 @@
 <rect x="96.0" y="76.0" width="457.5" height="394.0" fill="#1e8f5e" opacity="0.045"/>
 <line x1="133.1" y1="76.0" x2="133.1" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="133.1" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">10</text>
-<text x="133.1" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=25</text>
 <line x1="401.0" y1="76.0" x2="401.0" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="401.0" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">50</text>
-<text x="401.0" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=5</text>
 <line x1="553.5" y1="76.0" x2="553.5" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="553.5" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">125</text>
-<text x="553.5" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=2</text>
 <line x1="601.7" y1="76.0" x2="601.7" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="601.7" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">167</text>
-<text x="601.7" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=1.5</text>
 <line x1="668.8" y1="76.0" x2="668.8" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="668.8" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">250</text>
-<text x="668.8" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=1</text>
 <line x1="716.6" y1="76.0" x2="716.6" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="716.6" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">333</text>
-<text x="716.6" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=0.75</text>
 <line x1="784.2" y1="76.0" x2="784.2" y2="470.0" stroke="#e2e0d8" stroke-width="1"/>
 <text x="784.2" y="489.0" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">500</text>
-<text x="784.2" y="502.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">r=0.5</text>
 <line x1="96.0" y1="236.3" x2="820.0" y2="236.3" stroke="#e2e0d8" stroke-width="1"/>
 <text x="86.0" y="240.3" font-size="10.5" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">10⁻²</text>
 <line x1="96.0" y1="161.6" x2="820.0" y2="161.6" stroke="#e2e0d8" stroke-width="1"/>
