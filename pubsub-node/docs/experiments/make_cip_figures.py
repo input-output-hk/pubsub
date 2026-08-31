@@ -984,6 +984,12 @@ def fig_gate_tradeoff(g) -> str:
         b.append(line(ml, Y2(v), ml + pw, Y2(v), GRID, 1))
         b.append(text(ml - 10, Y2(v) + 4, v, 10.5, INK_SOFT, "end"))
 
+    def ylabel(cy, s):
+        el = text(30, cy, s, 10.5, "#8a887e", "middle")
+        b.append(el.replace("<text ", f'<text transform="rotate(-90 30 {cy:.1f})" ', 1))
+    ylabel(top + ph1 / 2, "epoch failure probability")
+    ylabel(bot + ph2 / 2, "attacker slots per victim")
+
     # after the gridlines, so they are not painted over
     b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
     b.append(text(ml + 8, top + 30, "the gate still leaves each node at least twice the "
