@@ -4,6 +4,28 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-09-01 — Working session: the reader review's design questions — identity scope, chain dependencies, incentives stated plainly
+
+**The review, triaged.** Mauro Jaskelioff's end-to-end review of the CIP split into two tiers: internal-consistency findings, all six of which landed on the CIP branch the same day, and design questions that needed the group. The session worked through the five largest.
+
+**The registry is a choice, and the CIP will say so.** The flagship alert scenario's audience holds a stake-backed credential already, so the review asked why a deposit registry rather than the SPO root of trust. Three answers held up: the protocol serves use cases with no existing credential, and a bespoke identity system per use case is not a design (Ezequiel); an inherited stake root has economics sized for consensus, not for this layer's guarantees (Denis); and the deposit is a v1 foundation that can later evolve toward decay or slashing, which borrowed credentials cannot (Will). Jesus's node-identifier proposal already binds a root-of-trust key into the identity where one exists. Agreed: keep the registry, reframe it in the CIP as one instantiation with stated trade-offs, and reword the CIP-0137 criterion from interoperability to alternatives-or-complements.
+
+**The SPO numbers were conservative.** The maximum number of pools ever registered on chain is about 2,700 (Blockfrost), not the 3,000 to 4,000 the CIP cites, and stake concentrates hard: the pools holding 99 % of stake number about 900. Jesus shares the current figures; the CIP's population framing updates to match.
+
+**Chain dependencies get boundaries.** For the emergency scenario the chain is the thing most likely to be degraded, so: the randomness beacon will be stated as not necessarily Cardano-origin, any public agreed source qualifies; operator-configured trusted links, the SPO private-relay pattern, enter the CIP as the fork-and-halt mitigation; and Fireflies gets a feasibility look as a registry-independent peer-sampling layer, its Sybil-resistance properties unverified. Emergency and normal operation get explicitly separated framing.
+
+**Incentives stated as assumptions, not solved.** The deposit is a registration deposit: reclaimable, no slashing, no decay; the CIP will say so plainly and state what follows. Rational silence, the free-riding equilibrium, folds into the adversarial fraction rather than pretending to be detectable; burst attacks resist classification even with a perfect record of who relayed what (Denis). Decaying deposits, continuous stake redistribution and threshold-signature participation proofs were walked through and parked as beyond this proposal.
+
+**The eligible-set hit-list is confirmed as real.** With endpoints published and the gate public, an adversary who can link a publisher to its node identity can compute the roughly forty eligible peers and target them to silence the topic. The CIP will state the attack, describe the private-relay endpoint pattern alongside the on-chain option, and clarify the hash-versus-VRF choice behind the private pick, plus why the fully public deterministic topology and the stake-based identity designs were not pursued.
+
+**GossipSub's scoring functions: acknowledged, not adopted.** The formal record is shaky: headline claims, honest behaviour never punished and liveness under 80 % adversarial, have been falsified or shown parameter-dependent, and global cross-topic scoring admits the mute-one-topic attack. Heuristics add attack surface against a design whose strongly-connected-graph criterion is checkable (Ezequiel). Agreed: the CIP acknowledges scoring as state of the art worth evaluating, nothing deeper; Ezequiel evaluates it against the project's named problems rather than in the abstract.
+
+**Decisions.** *Aligned:* the registry is framed as a design choice with acknowledged trade-offs; the SPO statistics update to verified figures; incentive assumptions and their limitations are documented explicitly; endpoint privacy and the derivation of identities and relay connections are clarified; scoring functions are referenced as a future evaluation rather than analysed or adopted now.
+
+**Next.** Will: reframe the registry and scope sections, update the SPO numbers once shared, add the trusted-peers section, refine the incentive text, work through the remaining review list, read up on Fireflies. Jesus: share the stake-distribution and registration figures. Ezequiel: evaluate the scoring function against the project's identified problems and add the CIP's acknowledgement of it.
+
+---
+
 ## 2026-08-31 — CIP draft nearing completion
 
 The CIP and its companion CPS are being completed on [PR #164](https://github.com/input-output-hk/pubsub/pull/164). A draft will be made available shortly for internal team review, and then for public review.
