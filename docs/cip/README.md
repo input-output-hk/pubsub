@@ -453,6 +453,7 @@ Retirement is the orderly path. A node that simply stops responding leaves its e
 1. The cutoff MUST fall strictly before the point at which the epoch's randomness *η*<sub>e</sub> is determined.
 2. A node MUST derive the epoch from the snapshot, and MUST NOT derive it from the chain as it currently stands.
 3. The snapshot fixes exactly the inputs the topology is a function of: the registered identities, their topic interests, and the parameters the admission rules read. The endpoint is read at the tip and is not fixed by it.
+4. The snapshot MUST be read only once the cutoff lies deep enough that a rollback will not change it; a deployment SHOULD require the same confirmation depth it uses for any other consequential registry read. Nearer the tip, two nodes reading the same position across a rollback can disagree about the snapshot itself, and everything above rests on the snapshot being identical everywhere.
 
 The cutoff ordering is what makes neighbour selection non-influenceable: a node registering, retiring or changing its topics cannot see the randomness it will be positioned by, so it cannot choose an identity or a moment that places it near a chosen victim. The converse obligation falls on the beacon, and is stated in [Epochs and the randomness beacon](#epochs-and-the-randomness-beacon).
 
