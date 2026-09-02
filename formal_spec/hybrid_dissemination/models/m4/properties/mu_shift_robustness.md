@@ -43,13 +43,13 @@ single defect term mixes a μ-power and an exponential factor).
 
 MC tracks the law at the elevated cells (|z| ≤ 2.2, mixed signs — bulk
 scatter of the isolated-vertex approximation); the tail — where the budget
-is read — was validated in [`full_coverage.md`](full_coverage.md)
-(~1.1× small-component under-count).
+is read — was validated in [`full_coverage.md`](full_coverage.md) §3
+(second-order small-component term measured absent, 0.994 ± 0.021).
 
 ## 4. Answer — budget and collapse (N = 20 000, δ = 10⁻⁴)
 
 **Budget**: P(bad) ≤ 10⁻⁴ holds up to **μ_eff ≈ 0.259** (Δμ ≈ +0.059;
-churn reading p_max = Δμ/0.8 ≈ 7.4 %, and ≈ 7.2 % with the ~1.1× tail
-correction) — ~6.6× the δ-cheapest RF = 8 headroom (Δμ ≈ +0.009,
+churn reading p_max = Δμ/0.8 ≈ 7.4 %) — ~6.6× the δ-cheapest RF = 8
+headroom (Δμ ≈ +0.009,
 p_max ≈ 1.1 %); this headroom is what the margin selection buys.
 **Collapse**: P(bad) = ½ at **μ_eff ≈ 0.55**.
