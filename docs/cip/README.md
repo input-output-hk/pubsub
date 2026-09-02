@@ -1345,7 +1345,7 @@ This proposal is deliberately not implementation-ready. It establishes what the 
 - [x] The admission parameters carry evidence for the symmetric handshake as well as the directional wiring, each with its own sizing rules.[^symgate]
 - [ ] The randomness beacon is specified.
 - [ ] The relationship to CIP-0137 is stated. Both proposals carry topic-based publish/subscribe on Cardano in the Network category. Whether they are alternatives, whether one can carry the other's traffic, and whether a deployment would run both, is not settled here and should be settled with that proposal's authors.
-- [ ] Node behaviour is specified at the seams the analysis does not reach: retry of an *unanswered* dial and what is remembered across retries ([Link establishment](#link-establishment) settles only the explicit refusal), the handover across an epoch boundary, and tolerance of clock skew between publishers and recipients.
+- [ ] Node behaviour is specified at the seams the analysis does not reach: retry of an *unanswered* dial and what is remembered across retries ([Link establishment](#link-establishment) settles only the explicit refusal), the handover across an epoch boundary, tolerance of clock skew between publishers and recipients, and rate limits at the two unpriced serving points, publication on open topics and recovery serving.
 
 **Choices this proposal poses rather than answers**
 
