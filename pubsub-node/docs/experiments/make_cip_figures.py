@@ -220,26 +220,24 @@ def fig_architecture() -> str:
         b.append(rect(x, y, w, h, SURFACE, stroke, 1.4, dash=dash))
         b.append(text(x + w / 2, y + h / 2 + 4, head, 11.5, head_fill, "middle", "600"))
 
-    # four services, each an interface; the beacon is the one that need not be on
-    # the chain, so it is drawn dashed with its placement stated beneath
+    # four services, each an interface; the band makes no claim about where any of
+    # them lives, and the beacon, the one that need not be on the chain, is dashed
+    cols = (60, 254, 448, 642)  # the four columns both upper bands share
     band(38, 96, 1, "The services the protocol reads")
     bw = 170
-    xs = (60, 254, 448, 642)
-    box(xs[0], 80, bw, 38, "Node registry", verifiable)
-    box(xs[1], 80, bw, 38, "Topic registry", verifiable)
-    box(xs[2], 80, bw, 38, "Parameter output", verifiable)
-    box(xs[3], 80, bw, 38, "Randomness beacon", verifiable, dash="5 4")
-    b.append(text(xs[3] + bw / 2, 129, "on the chain, or outside it", 9.5, "#8a887e", "middle"))
-
-    for x, lab in ((xs[0] + bw / 2, "membership at the cutoff"), (xs[1] + bw / 2, "publisher keys"),
-                   (xs[2] + bw / 2, "epoch length"), (xs[3] + bw / 2, "randomness  η")):
-        b.append(arrow(x, 134, x, 170, RULE, 1.6))
-        b.append(text(x + 10, 156, lab, 10, "#8a887e"))
+    services = [("Node registry", "membership at the cutoff", None),
+                ("Topic registry", "publisher keys", None),
+                ("Parameter output", "epoch length", None),
+                ("Randomness beacon", "randomness  η", "5 4")]
+    for x, (head, lab, dash) in zip(cols, services):
+        box(x, 80, bw, 38, head, verifiable, dash=dash)
+        b.append(arrow(x + bw / 2, 134, x + bw / 2, 170, RULE, 1.6))
+        b.append(text(x + bw / 2 + 10, 156, lab, 10, "#8a887e"))
 
     band(178, 118, 2, "In every node, from those inputs alone")
-    stages = [(60, "Registered peers", verifiable), (254, "Verifiable gate", verifiable),
-              (448, "Pick", private), (642, "Link set", INK_SOFT)]
-    for x, head, col in stages:
+    stages = [("Registered peers", verifiable), ("Verifiable gate", verifiable),
+              ("Pick", private), ("Link set", INK_SOFT)]
+    for x, (head, col) in zip(cols, stages):
         box(x, 220, 158, 38, head, col, col if col != INK_SOFT else INK)
     for x0 in (218, 412, 606):
         b.append(arrow(x0 + 2, 239, x0 + 34, 239, RULE, 1.6))
@@ -269,10 +267,9 @@ def fig_architecture() -> str:
 
     return frame(W, H, b, "The protocol at a glance",
                  "Three numbered bands read downward. Band 1 holds the four services the protocol "
-                 "reads: a node registry, a topic registry and a parameter output on the Cardano "
-                 "chain, and a per-epoch randomness beacon that may be on the chain or outside it, "
-                 "contributing membership, publisher keys, the epoch length and the epoch "
-                 "randomness respectively. Every "
+                 "reads: a node registry, a topic registry, a parameter output and a per-epoch "
+                 "randomness beacon, contributing membership, publisher keys, the epoch length "
+                 "and the epoch randomness respectively. Every "
                  "node turns those public inputs into its registered peers on a topic, "
                  "applies the verifiable gate, picks from the survivors with its own "
                  "private randomness, and holds the resulting links for the epoch; the "

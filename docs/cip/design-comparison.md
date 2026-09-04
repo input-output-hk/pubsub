@@ -25,6 +25,71 @@ Five candidate designs were analysed before one was chosen, named M1 to M5:
 
 The Specification fixes M4, the symmetric relay link. **Every comparison in this section is run with the admission rules switched off**, so the configurations it names are the ones the coverage models were evaluated at rather than the one this proposal specifies; the deployed configuration's numbers follow under [Sizing the parameters](README.md#sizing-the-parameters). Leaving the rules off changes little and favours the designs that lost: the [gate](README.md#the-verifiable-gate) is sized to leave coverage unaffected, and the costs it does impose fall on the directional designs.
 
+## What is measured, and by what
+
+Each epoch the protocol derives a dissemination topology for every topic separately: each node registered on a topic is assigned a bounded set of peers there, and the assignment stands for the whole epoch. A node subscribed to several topics draws independently on each, which is why [what a node pays](#per-node-cost-against-subscriptions) multiplies its cost by the number of subscriptions. Nodes following the protocol are *honest*; the rest are the silent adversary set out above. On any topic some nodes publish and others subscribe.
+
+The guarantee is a property of the drawn topology, not of an individual message: a draw is **good** when every honest publisher reaches every honest subscriber, and **bad** when some publisher is cut off for the whole epoch. The criterion is all-or-nothing because an average hides the failure that matters: 99.99 % delivery may be a tolerable trickle of losses or one publisher silenced completely. The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>.
+
+Two observations bound what a bad draw costs.
+
+- **A bad draw is a bad *topology*, not necessarily a failed delivery.** A draw counts as bad when one publisher *could* be silenced, whether or not that node published, so *p*<sub>bad</sub> is an upper bound on observed failure. The margin is a property of the design: nil under M4, where a cut-off node is missed whoever publishes, and total under M2, whose failures are almost entirely publishers who cannot be heard.
+- **When delivery does fall short, it falls short by one subscriber**, or by every subscriber at once where the publisher itself was cut off; nothing measured lies between. The second mode is the second term of the coverage laws, what M3's seeding links and M5's outbound links exist to make rare, and the one that scales with nothing: one node's isolation costs the whole topic that epoch.
+
+**Everything below is a way of estimating *p*<sub>bad</sub>, a cost paid to lower it, or a condition under which it rises.**
+
+Two independent instruments estimate it, built separately.
+
+- **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. The symmetric relay link's is stated under [The coverage law](README.md#the-coverage-law).
+- **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
+
+A closed form can approximate the wrong model; an implementation can faithfully run a subtly wrong protocol. They fail in unrelated ways, so **their agreement is the evidence offered here**, not either result alone. Every measurement is reproducible byte-for-byte from a tool commit, a configuration and a master seed.[^reproduction]
+
+## Performance metrics
+
+A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Four constants fix what everything here is measured at.
+
+<div align="center">
+<a name="table-2" id="table-2"></a>
+
+| Constant | Value | What it is | Where it comes from |
+| --- | :--: | --- | --- |
+| *N* | 20,000, and 4,000 | The registered population on a topic | 4,000 bounds the stake-pool population from above, which has never exceeded 2,696 registered pools;[^sponumbers] 20,000 is headroom above it |
+| [*μ*](README.md#param-mu) | 0.2 | Fraction of registered nodes assumed adversarial | An assumption about who registers and what registration costs them, not a measurement. Swept from 0.20 to 0.40 to check the laws hold across it[^musweep] |
+| [*δ*](README.md#param-delta) | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
+| [*p*](README.md#param-p) | 0 | Honest downtime during this section's comparisons | Every design is priced with all honest nodes up; downtime enters as a shift in *μ*, and what each design absorbs is its churn budget, the last column of [Table 4](#table-4) |
+| [*k*](README.md#param-k) | varies by design | Peers a node picks per topic per link kind | The knob each design is tuned by; the comparison holds *δ* fixed and lets *k* differ |
+
+<em>Table 2: The constants this section is measured at</em>
+
+</div>
+
+**Two of these four are choices this proposal makes rather than results it derives.** [*μ*](README.md#param-mu) and [*δ*](README.md#param-delta) are assumptions about the deployment; every failure probability in this document is conditional on them, and both are posed as open questions in the [CIP](README.md#open-questions). A reader who disagrees with either should read the figures as shape rather than values.
+
+Every design's coverage law can be [evaluated interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/) with *μ*, *N* and *δ* as controls, and the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies the Specification's sizing rules to a topic size, a target and a downtime rate.
+
+<div align="center">
+<a name="table-3" id="table-3"></a>
+
+| Category | Metric | Measurement |
+| :--: | --- | --- |
+| Coverage | Epoch failure probability, *p*<sub>bad</sub> | Probability that a drawn epoch topology fails to carry some honest publisher's messages to every honest subscriber |
+| Cost | Transmissions per publication, *m* | Honest-to-honest message copies sent per published message, duplicates included |
+| | Deliveries per node, *c* | Copies of each published message received by an average honest node, duplicates included |
+| | Links per node, *d* and *d̂* | Links held for the whole epoch, mean and maximum, counting a node's own picks and the links others opened to it |
+| Latency | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
+| Resilience | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
+
+<em>Table 3: Performance metrics</em>
+
+</div>
+
+**_Churn budget._** Reading a design's own [coverage law](README.md#the-coverage-law) at the shifted fraction, the budget is the largest downtime a configuration absorbs while still meeting the target:
+
+$$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
+
+Downtime relates to the drop-out rate and the epoch length by [*p*](README.md#param-p) = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
+
 ## The five designs
 
 Every design starts from the same constraint: a node may not choose its peers, so it draws them at random from the topic's registered population and carries messages over the links that draw opens. The only knob is how many peers a node draws: the [pick count](README.md#term-pick-count), written *RF* for relay links and *F* under M1. In every design below it is what trades cost against *p*<sub>bad</sub>. Where a design adds a second link kind for a node's own publications, those picks are counted separately: M3 opens *s* − 1 of them, its *s* counting the intended initial holders rather than the links opened. This subsection sets out each mechanism and the failure it leaves open; [Table 4](#table-4) prices the designs, and only the pick budget is quoted here, because its fall is the derivation.
@@ -102,71 +167,6 @@ The fork is a genuine trade: M3 and M5 land at the same failure probability and 
      All twenty-eight values pass, across every configuration the figures use:
      the five published operating points and the two preferred splits, whose
      write-ups landed with input-output-hk/pubsub#169. -->
-
-## What is measured, and by what
-
-Each epoch the protocol derives a dissemination topology for every topic separately: each node registered on a topic is assigned a bounded set of peers there, and the assignment stands for the whole epoch. A node subscribed to several topics draws independently on each, which is why [what a node pays](#per-node-cost-against-subscriptions) multiplies its cost by the number of subscriptions. Nodes following the protocol are *honest*; the rest are the silent adversary set out above. On any topic some nodes publish and others subscribe.
-
-The guarantee is a property of the drawn topology, not of an individual message: a draw is **good** when every honest publisher reaches every honest subscriber, and **bad** when some publisher is cut off for the whole epoch. The criterion is all-or-nothing because an average hides the failure that matters: 99.99 % delivery may be a tolerable trickle of losses or one publisher silenced completely. The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>.
-
-Two observations bound what a bad draw costs.
-
-- **A bad draw is a bad *topology*, not necessarily a failed delivery.** A draw counts as bad when one publisher *could* be silenced, whether or not that node published, so *p*<sub>bad</sub> is an upper bound on observed failure. The margin is a property of the design: nil under M4, where a cut-off node is missed whoever publishes, and total under M2, whose failures are almost entirely publishers who cannot be heard.
-- **When delivery does fall short, it falls short by one subscriber**, or by every subscriber at once where the publisher itself was cut off; nothing measured lies between. The second mode is the second term of the coverage laws, what M3's seeding links and M5's outbound links exist to make rare, and the one that scales with nothing: one node's isolation costs the whole topic that epoch.
-
-**Everything below is a way of estimating *p*<sub>bad</sub>, a cost paid to lower it, or a condition under which it rises.**
-
-Two independent instruments estimate it, built separately.
-
-- **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. The symmetric relay link's is stated under [The coverage law](README.md#the-coverage-law).
-- **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
-
-A closed form can approximate the wrong model; an implementation can faithfully run a subtly wrong protocol. They fail in unrelated ways, so **their agreement is the evidence offered here**, not either result alone. Every measurement is reproducible byte-for-byte from a tool commit, a configuration and a master seed.[^reproduction]
-
-## Performance metrics
-
-A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Four constants fix what everything here is measured at.
-
-<div align="center">
-<a name="table-2" id="table-2"></a>
-
-| Constant | Value | What it is | Where it comes from |
-| --- | :--: | --- | --- |
-| *N* | 20,000, and 4,000 | The registered population on a topic | 4,000 bounds the stake-pool population from above, which has never exceeded 2,696 registered pools;[^sponumbers] 20,000 is headroom above it |
-| [*μ*](README.md#param-mu) | 0.2 | Fraction of registered nodes assumed adversarial | An assumption about who registers and what registration costs them, not a measurement. Swept from 0.20 to 0.40 to check the laws hold across it[^musweep] |
-| [*δ*](README.md#param-delta) | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
-| [*p*](README.md#param-p) | 0 | Honest downtime during this section's comparisons | Every design is priced with all honest nodes up; downtime enters as a shift in *μ*, and what each design absorbs is its churn budget, the last column of [Table 4](#table-4) |
-| [*k*](README.md#param-k) | varies by design | Peers a node picks per topic per link kind | The knob each design is tuned by; the comparison holds *δ* fixed and lets *k* differ |
-
-<em>Table 2: The constants this section is measured at</em>
-
-</div>
-
-**Two of these four are choices this proposal makes rather than results it derives.** [*μ*](README.md#param-mu) and [*δ*](README.md#param-delta) are assumptions about the deployment; every failure probability in this document is conditional on them, and both are posed as open questions below. A reader who disagrees with either should read the figures as shape rather than values.
-
-Every design's coverage law can be [evaluated interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/) with *μ*, *N* and *δ* as controls, and the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies the Specification's sizing rules to a topic size, a target and a downtime rate.
-
-<div align="center">
-<a name="table-3" id="table-3"></a>
-
-| Category | Metric | Measurement |
-| :--: | --- | --- |
-| Coverage | Epoch failure probability, *p*<sub>bad</sub> | Probability that a drawn epoch topology fails to carry some honest publisher's messages to every honest subscriber |
-| Cost | Transmissions per publication, *m* | Honest-to-honest message copies sent per published message, duplicates included |
-| | Deliveries per node, *c* | Copies of each published message received by an average honest node, duplicates included |
-| | Links per node, *d* and *d̂* | Links held for the whole epoch, mean and maximum, counting a node's own picks and the links others opened to it |
-| Latency | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
-| Resilience | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
-
-<em>Table 3: Performance metrics</em>
-
-</div>
-
-**_Churn budget._** Reading a design's own [coverage law](README.md#the-coverage-law) at the shifted fraction, the budget is the largest downtime a configuration absorbs while still meeting the target:
-
-$$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
-
-Downtime relates to the drop-out rate and the epoch length by [*p*](README.md#param-p) = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
 
 ## Agreement between analysis and simulation
 
@@ -320,6 +320,8 @@ The same laws that give *p*<sub>bad</sub> give the risk borne by one named node,
 </div>
 
 Isolation is a network-scale event, not a node-scale one: a given node's own exposure is about four orders of magnitude below the network-wide figure, so an operator asking "will this happen to me" and a protocol designer asking "will this happen to anyone" are asking questions with very different answers. And muting does not persist: because the draws are independent, the probability that a node already cut off is cut off again is the same one-in-a-billion draw a second time, so runs of consecutive muting are not a regime this design has to be provisioned against. Muting is therefore bounded in duration by the epoch length, with no evidence, accusation, or attribution required.
+
+Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains: with *λ* the rate at which a node drops out, *T* = −ln(1 − *p*<sub>max</sub>) / *λ*.
 
 **A chosen epoch length implies a reliability requirement.** For a candidate epoch, each design needs the population to depart no more often than:
 
