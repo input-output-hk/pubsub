@@ -9,7 +9,7 @@ Everything here is measured against the [adversary the CIP defends against](READ
 Five candidate designs were analysed before one was chosen, named M1 to M5:
 
 <div align="center">
-<a name="table-5" id="table-5"></a>
+<a name="table-1" id="table-1"></a>
 
 | Design | Built from |
 | :--: | --- |
@@ -19,7 +19,7 @@ Five candidate designs were analysed before one was chosen, named M1 to M5:
 | M5 | M1 and M2 run at once, as *k*<sub>in</sub> and *k*<sub>out</sub> tuned separately |
 | M4 | M5 with the two link sets merged into one bidirectional link |
 
-<em>Table 5: Structural comparison of the dissemination designs</em>
+<em>Table 1: Structural comparison of the dissemination designs</em>
 
 </div>
 
@@ -27,68 +27,68 @@ The Specification fixes M4, the symmetric relay link. **Every comparison in this
 
 ## The five designs
 
-Every design starts from the same constraint: a node may not choose its peers, so it draws them at random from the topic's registered population and carries messages over the links that draw opens. The only knob is how many peers a node draws: the [pick count](README.md#term-pick-count), written *RF* for relay links and *F* under M1. In every design below it is what trades cost against *p*<sub>bad</sub>. Where a design adds a second link kind for a node's own publications, those picks are counted separately: M3 opens *s* − 1 of them, its *s* counting the intended initial holders rather than the links opened. This subsection sets out each mechanism and the failure it leaves open; [Table 14](#table-14) prices the designs, and only the pick budget is quoted here, because its fall is the derivation.
+Every design starts from the same constraint: a node may not choose its peers, so it draws them at random from the topic's registered population and carries messages over the links that draw opens. The only knob is how many peers a node draws: the [pick count](README.md#term-pick-count), written *RF* for relay links and *F* under M1. In every design below it is what trades cost against *p*<sub>bad</sub>. Where a design adds a second link kind for a node's own publications, those picks are counted separately: M3 opens *s* − 1 of them, its *s* counting the intended initial holders rather than the links opened. This subsection sets out each mechanism and the failure it leaves open; [Table 4](#table-4) prices the designs, and only the pick budget is quoted here, because its fall is the derivation.
 
 <div align="center">
-<a name="figure-5" id="figure-5"></a>
+<a name="figure-1" id="figure-1"></a>
 
 ![One node's links under M1](images/model-m1.svg)
 
-<em>Figure 5: One node's links under M1</em>
+<em>Figure 1: One node's links under M1</em>
 
 </div>
 
-**M1 is the smallest thing that works.** One link kind, one direction: a node draws *F* targets from the topic's peers, the downstream layer of [Figure 5](#figure-5), and forwards everything it holds to them, its own publications included. Its upstream layer it does not control: those links are other nodes' draws that happened to include it. It meets [*δ*](README.md#param-delta) = 10⁻⁴ at *F* = 24, the largest pick count in the field. The direction also fixes which failure a node can suffer. The chance that all *F* of its own picks land adversarial is [*μ*](README.md#param-mu)<sup>*F*</sup>, nothing at all at these parameters. The failure that remains is a node whose upstream layer is empty, one no honest peer happened to draw, and such a node cannot **receive**.
+**M1 is the smallest thing that works.** One link kind, one direction: a node draws *F* targets from the topic's peers, the downstream layer of [Figure 1](#figure-1), and forwards everything it holds to them, its own publications included. Its upstream layer it does not control: those links are other nodes' draws that happened to include it. It meets [*δ*](README.md#param-delta) = 10⁻⁴ at *F* = 24, the largest pick count in the field. The direction also fixes which failure a node can suffer. The chance that all *F* of its own picks land adversarial is [*μ*](README.md#param-mu)<sup>*F*</sup>, nothing at all at these parameters. The failure that remains is a node whose upstream layer is empty, one no honest peer happened to draw, and such a node cannot **receive**.
 
 <div align="center">
-<a name="figure-6" id="figure-6"></a>
+<a name="figure-2" id="figure-2"></a>
 
 ![One node's links under M2](images/model-m2.svg)
 
-<em>Figure 6: One node's links under M2</em>
+<em>Figure 2: One node's links under M2</em>
 
 </div>
 
-**M2 inverts the direction, and that is all it does.** A node draws *RF* forwarders and receives from them, the upstream layer of [Figure 6](#figure-6): it controls what it hears, not who hears it. The surviving failure is the mirror image, a publisher nobody drew: its downstream layer is empty, and it cannot be **heard**. The direction also sets how severe a bad draw is; the spread recorded above, nil under M4 to total under M2, measures exactly that.
+**M2 inverts the direction, and that is all it does.** A node draws *RF* forwarders and receives from them, the upstream layer of [Figure 2](#figure-2): it controls what it hears, not who hears it. The surviving failure is the mirror image, a publisher nobody drew: its downstream layer is empty, and it cannot be **heard**. The direction also sets how severe a bad draw is; the spread recorded above, nil under M4 to total under M2, measures exactly that.
 
 On cost, inversion buys nothing. M2 meets the same target at the same pick count, *RF* = 24, matches M1 on every cost axis to three figures. **Choosing between the primitives is a choice of which failure to suffer, not a cost decision, so the way out of twenty-four picks has to be structural.**
 
 **Two structures cover both failure directions, and they differ only in what the second link kind carries.** A pull node is silent because nothing pushes on its behalf; giving it push links back closes that.
 
 <div align="center">
-<a name="figure-7" id="figure-7"></a>
+<a name="figure-3" id="figure-3"></a>
 
 ![One node's links under M3](images/model-m3.svg)
 
-<em>Figure 7: One node's links under M3</em>
+<em>Figure 3: One node's links under M3</em>
 
 </div>
 
-**M3 carries only its owner's own publications.** A node keeps M2's *RF* relay links and adds *s* − 1 standing initiation links, the dashed links of [Figure 7](#figure-7). Over these it hands each of its own messages to its intended initial holders, rather than waiting to be picked. The specialisation is what makes it cheap: a seeding link carries one node's traffic instead of the whole topic's, so the relay fanout can be smaller at the same coverage. At (*RF* = 13, *s* = 7) the budget is 19 picks against M2's 24, and the specialisation makes M3 the cheapest design in the field on bandwidth. What it does not buy is state: 12 of its links carry only their owner's publications, cheap to run but still connection slots to provision and still exposed to churn.
+**M3 carries only its owner's own publications.** A node keeps M2's *RF* relay links and adds *s* − 1 standing initiation links, the dashed links of [Figure 3](#figure-3). Over these it hands each of its own messages to its intended initial holders, rather than waiting to be picked. The specialisation is what makes it cheap: a seeding link carries one node's traffic instead of the whole topic's, so the relay fanout can be smaller at the same coverage. At (*RF* = 13, *s* = 7) the budget is 19 picks against M2's 24, and the specialisation makes M3 the cheapest design in the field on bandwidth. What it does not buy is state: 12 of its links carry only their owner's publications, cheap to run but still connection slots to provision and still exposed to churn.
 
 <div align="center">
-<a name="figure-8" id="figure-8"></a>
+<a name="figure-4" id="figure-4"></a>
 
 ![One node's links under M5](images/model-m5.svg)
 
-<em>Figure 8: One node's links under M5</em>
+<em>Figure 4: One node's links under M5</em>
 
 </div>
 
-**M5 carries everything.** A node opens *k*<sub>in</sub> inbound and *k*<sub>out</sub> outbound links, both general-purpose and both its own draws, as [Figure 8](#figure-8) shows, and tunes the two counts independently. At (9, 8) that is 17 picks against M2's 24, and every cost figure improves together: **covering both failure directions is cheaper on every axis than covering either alone.**
+**M5 carries everything.** A node opens *k*<sub>in</sub> inbound and *k*<sub>out</sub> outbound links, both general-purpose and both its own draws, as [Figure 4](#figure-4) shows, and tunes the two counts independently. At (9, 8) that is 17 picks against M2's 24, and every cost figure improves together: **covering both failure directions is cheaper on every axis than covering either alone.**
 
 The fork is a genuine trade: M3 and M5 land at the same failure probability and the same churn budget, so specialising the second kind buys bandwidth where generalising it buys connections, and neither dominates. Both are still directional: the floor is *μ*<sup>*k*</sup>, with nothing to rescue a node whose picks all failed.
 
 <div align="center">
-<a name="figure-9" id="figure-9"></a>
+<a name="figure-5" id="figure-5"></a>
 
 ![One node's links under M4](images/model-m4.svg)
 
-<em>Figure 9: One node's links under M4</em>
+<em>Figure 5: One node's links under M4</em>
 
 </div>
 
-**M4 merges M5's two link sets into one.** M5's best split, 9 and 8, is one link from symmetric, which suggests its two sets do the same work. Under M4 a node draws *RF* peers and opens one link to each, established once for the pair rather than once per direction; in [Figure 9](#figure-9) the layers differ only by who opened the link, and every arrow points both ways. Every message that verifies is flooded on all the node's links for the topic except the one it arrived on, its own publications included, so there is neither a second link kind nor a second count. The failure left open needs both directional failures at once: every peer the node drew adversarial *and* no honest node having drawn it, since a link an honest picker opens carries traffic both ways. One pick buys both directions, so the budget is *RF* = 9 against M5's 17. [Why the symmetric design](#the-two-candidates-under-the-admission-rules) prices the conjunction and the downtime it buys.
+**M4 merges M5's two link sets into one.** M5's best split, 9 and 8, is one link from symmetric, which suggests its two sets do the same work. Under M4 a node draws *RF* peers and opens one link to each, established once for the pair rather than once per direction; in [Figure 5](#figure-5) the layers differ only by who opened the link, and every arrow points both ways. Every message that verifies is flooded on all the node's links for the topic except the one it arrived on, its own publications included, so there is neither a second link kind nor a second count. The failure left open needs both directional failures at once: every peer the node drew adversarial *and* no honest node having drawn it, since a link an honest picker opens carries traffic both ways. One pick buys both directions, so the budget is *RF* = 9 against M5's 17. [Why the symmetric design](#the-two-candidates-under-the-admission-rules) prices the conjunction and the downtime it buys.
 
 <!-- Figures are generated, not hand-drawn: pubsub-node/docs/experiments/cells.json is
      the single source, and make_cip_figures.py regenerates images/*.svg from it.
@@ -128,17 +128,17 @@ A closed form can approximate the wrong model; an implementation can faithfully 
 A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Four constants fix what everything here is measured at.
 
 <div align="center">
-<a name="table-6" id="table-6"></a>
+<a name="table-2" id="table-2"></a>
 
 | Constant | Value | What it is | Where it comes from |
 | --- | :--: | --- | --- |
 | *N* | 20,000, and 4,000 | The registered population on a topic | 4,000 bounds the stake-pool population from above, which has never exceeded 2,696 registered pools;[^sponumbers] 20,000 is headroom above it |
 | [*μ*](README.md#param-mu) | 0.2 | Fraction of registered nodes assumed adversarial | An assumption about who registers and what registration costs them, not a measurement. Swept from 0.20 to 0.40 to check the laws hold across it[^musweep] |
 | [*δ*](README.md#param-delta) | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
-| [*p*](README.md#param-p) | 0 | Honest downtime during this section's comparisons | Every design is priced with all honest nodes up; downtime enters as a shift in *μ*, and what each design absorbs is its churn budget, the last column of [Table 14](#table-14) |
+| [*p*](README.md#param-p) | 0 | Honest downtime during this section's comparisons | Every design is priced with all honest nodes up; downtime enters as a shift in *μ*, and what each design absorbs is its churn budget, the last column of [Table 4](#table-4) |
 | [*k*](README.md#param-k) | varies by design | Peers a node picks per topic per link kind | The knob each design is tuned by; the comparison holds *δ* fixed and lets *k* differ |
 
-<em>Table 6: The constants this section is measured at</em>
+<em>Table 2: The constants this section is measured at</em>
 
 </div>
 
@@ -147,7 +147,7 @@ A design is characterised by four things: how often a draw fails, what it costs 
 Every design's coverage law can be [evaluated interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/) with *μ*, *N* and *δ* as controls, and the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies the Specification's sizing rules to a topic size, a target and a downtime rate.
 
 <div align="center">
-<a name="table-7" id="table-7"></a>
+<a name="table-3" id="table-3"></a>
 
 | Category | Metric | Measurement |
 | :--: | --- | --- |
@@ -158,7 +158,7 @@ Every design's coverage law can be [evaluated interactively](https://pubsub.card
 | Latency | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
 | Resilience | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
 
-<em>Table 7: Performance metrics</em>
+<em>Table 3: Performance metrics</em>
 
 </div>
 
@@ -177,22 +177,22 @@ The designs also nest, which gives a check that costs nothing. M1 and M2 are the
 In the figure below each point is one measured sample, its horizontal position the failure rate the law predicts, its vertical the rate observed. A count from finitely many draws scatters around the true rate, so the **bar** through each point spans the rates that would plausibly produce it, at 95 % confidence for that sample's own size;[^wilson] a law inside the bar is consistent with the measurement. The **shaded band** repeats that interval at the size most samples share, as context for the eye. Both axes are logarithmic; the configurations range from failing in roughly one epoch in three hundred to almost every epoch. Filled marks are the configurations above, hollow ones a further 35 measured under honest downtime, described below.
 
 <div align="center">
-<a name="figure-10" id="figure-10"></a>
+<a name="figure-6" id="figure-6"></a>
 
 ![Measured against predicted epoch failure probability](images/coverage-validation.svg)
 
-<em>Figure 10: Measured against predicted epoch failure probability</em>
+<em>Figure 6: Measured against predicted epoch failure probability</em>
 
 </div>
 
-The hollow marks are the same check run under honest downtime. A design's churn budget cannot be sampled directly, since resolving a rate near 10⁻⁴ takes 10⁵ to 10⁶ draws per churn level; what can be tested is the reduction beneath it, downtime entering as a shift in the adversarial fraction, at parameters where failures are frequent enough to count. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval, two misses being what forty comparisons at that confidence are expected to produce; the sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn] The budgets in [Table 14](#table-14) follow from the laws so validated.
+The hollow marks are the same check run under honest downtime. A design's churn budget cannot be sampled directly, since resolving a rate near 10⁻⁴ takes 10⁵ to 10⁶ draws per churn level; what can be tested is the reduction beneath it, downtime entering as a shift in the adversarial fraction, at parameters where failures are frequent enough to count. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval, two misses being what forty comparisons at that confidence are expected to produce; the sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn] The budgets in [Table 4](#table-4) follow from the laws so validated.
 
 ## Cost at each design's configuration
 
 Every design is shown at the configuration this proposal names for it, at *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2, and every table and figure in the Rationale carries the same configurations. For M1, M2 and M5 that is the cheapest one meeting [*δ*](README.md#param-delta) = 10⁻⁴. For M3 and M4 it is the preferred split rather than the published one: each has a configuration at the same or nearly the same cost that absorbs several times the downtime, and carrying the superseded ones would mean comparing at parameters the rest of this proposal argues against.
 
 <div align="center">
-<a name="table-14" id="table-14"></a>
+<a name="table-4" id="table-4"></a>
 
 | Design | Parameters | *p*<sub>bad</sub> | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Downtime absorbed |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -204,7 +204,7 @@ Every design is shown at the configuration this proposal names for it, at *N* = 
 | | | | | | | | |
 | **M4 as specified** | *RF* = 10, gated | **5.1 × 10⁻⁶** | **13.0** | **17.5** | **33** | 5.0 | **7.57 %** |
 
-<em>Table 14: Cost at each design's configuration</em>
+<em>Table 4: Cost at each design's configuration</em>
 
 </div>
 
@@ -219,15 +219,15 @@ The first five rows are ungated, at the configurations the coverage models were 
 A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.[^axes]
 
 <div align="center">
-<a name="figure-11" id="figure-11"></a>
+<a name="figure-7" id="figure-7"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 11: Four-way trade-off across the non-dominated designs</em>
+<em>Figure 7: Four-way trade-off across the non-dominated designs</em>
 
 </div>
 
-Each contender is drawn at its best parameters rather than its published ones. The published operating points were all chosen as the cheapest configuration meeting the failure target, and re-searching the two contenders against the validated laws shows what that rule costs: M3's re-split is set out under [Table 14](#table-14), and the equivalent step for M4, RF = 8 to RF = 9, buys seven times the churn budget for 1.6 further deliveries per node and two further connections. M1, M2 and M5 remain at their cheapest-meeting-target points.
+Each contender is drawn at its best parameters rather than its published ones. The published operating points were all chosen as the cheapest configuration meeting the failure target, and re-searching the two contenders against the validated laws shows what that rule costs: M3's re-split is set out under [Table 4](#table-4), and the equivalent step for M4, RF = 8 to RF = 9, buys seven times the churn budget for 1.6 further deliveries per node and two further connections. M1, M2 and M5 remain at their cheapest-meeting-target points.
 
 At those parameters M4 beats M5 on every axis, and M1 falls with it; both are drawn muted rather than dropped, each lying wholly inside a contending design. Three remain. The figure carries its own reading key; the size of a shape is not a score.
 
@@ -238,10 +238,10 @@ At those parameters M4 beats M5 on every axis, and M1 falls with it; both are dr
 
 ## The two candidates under the admission rules
 
-Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it leads by a fifth of a hop ([Table 14](#table-14)); two remain, and on the coverage models neither dominates the other. That comparison is ungated, and no deployment runs either design ungated: the [gate](README.md#the-verifiable-gate) is derived per topic from the topic's own size, and on any topic large enough for bounded fanout to be worth having, it is on. The comparison that decides is under the gate and the admissions budget, at the scale and the pick counts this proposal specifies.[^synthesis] The three designs already beaten on cost were not re-measured under it, and do not need to be: both structural taxes below fall on directional designs, and M1, M2 and M5 are all directional, so the ungated comparison is their best case.
+Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it leads by a fifth of a hop ([Table 4](#table-4)); two remain, and on the coverage models neither dominates the other. That comparison is ungated, and no deployment runs either design ungated: the [gate](README.md#the-verifiable-gate) is derived per topic from the topic's own size, and on any topic large enough for bounded fanout to be worth having, it is on. The comparison that decides is under the gate and the admissions budget, at the scale and the pick counts this proposal specifies.[^synthesis] The three designs already beaten on cost were not re-measured under it, and do not need to be: both structural taxes below fall on directional designs, and M1, M2 and M5 are all directional, so the ungated comparison is their best case.
 
 <div align="center">
-<a name="table-8" id="table-8"></a>
+<a name="table-5" id="table-5"></a>
 
 | | M3 gated, best compliant | M4 gated, as specified |
 | --- | ---: | ---: |
@@ -253,7 +253,7 @@ Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it
 | At M4's attack surface | **no pick count meets the target** | 5.1 × 10⁻⁶ |
 | Seams carrying a gate and a cap | 2 | **1** |
 
-<em>Table 8: The two candidates under the admission rules</em>
+<em>Table 5: The two candidates under the admission rules</em>
 
 </div>
 
@@ -263,18 +263,18 @@ Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it
 
 **Tax two: a conjunction on the failure, or a single condition.** Under a symmetric kind a node is cut off only if every pick it made landed adversarial **and** no honest peer in its own candidate pool picked it: one honest picker repairs both directions at once, because the link it opens carries traffic both ways. That conjunction multiplies the [*μ*](README.md#param-mu)<sup>*k*</sup> core by roughly e<sup>−*k*(1−*μ*)</sup>, about 3 × 10⁻⁴ at the parameters specified here, three orders of magnitude. A directional design has no such conjunction on the hearing side: seeding links carry only their own sender's publications, so nothing rescues a node whose relay picks all failed. Its floor is *μ*<sup>*k*</sup> alone.
 
-**Together the taxes leave the directional design nowhere to go.** Each alone could be paid: a wider gate restores the pool, a larger pick count restores the coverage. But the two repairs pull on the same dial in opposite directions, because the gate cannot be narrow enough to match the attacker's price and at the same time wide enough to feed the pick count the missing conjunction demands. Run at its own best coordinates the directional design meets the target but hands the attacker more reach, 52 against 40; forced to the symmetric design's attack surface, its best failure probability is 1.8 × 10⁻³ whatever its pick count, eighteen times the target ([Table 8](#table-8)). Where both designs produce countable failures, at attack surface 32, the head-to-head measured exactly this squeeze: the directional design failed 17 runs in 400, every one through the starved pool the argument predicts, against zero failures in 400 for the symmetric twin.[^synthesis]
+**Together the taxes leave the directional design nowhere to go.** Each alone could be paid: a wider gate restores the pool, a larger pick count restores the coverage. But the two repairs pull on the same dial in opposite directions, because the gate cannot be narrow enough to match the attacker's price and at the same time wide enough to feed the pick count the missing conjunction demands. Run at its own best coordinates the directional design meets the target but hands the attacker more reach, 52 against 40; forced to the symmetric design's attack surface, its best failure probability is 1.8 × 10⁻³ whatever its pick count, eighteen times the target ([Table 5](#table-5)). Where both designs produce countable failures, at attack surface 32, the head-to-head measured exactly this squeeze: the directional design failed 17 runs in 400, every one through the starved pool the argument predicts, against zero failures in 400 for the symmetric twin.[^synthesis]
 
 **Availability is where the two taxes compound rather than merely add.** Ungated, the directional design absorbed 2.17 % downtime against the symmetric design's 7.43 %, a factor of three; under the admission rules the gap widens to a factor of five: with no honest picker able to repair both directions, every node lost to downtime is one that cannot rescue anyone.
 
-**Cost does not decide.** The trade the radar shows is real, M3 cheaper in traffic and M4 in connections, and whether bandwidth or connections bind in a deployment remains a real question; but an answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, and a weighting chooses among candidates that all clear the bar. Nor do the radar's axes divide into security and performance as cleanly as they look: of the four in [Figure 11](#figure-11), only bandwidth is straightforwardly a performance figure, downtime absorbed is an availability property and time to the last subscriber a liveness bound, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
+**Cost does not decide.** The trade the radar shows is real, M3 cheaper in traffic and M4 in connections, and whether bandwidth or connections bind in a deployment remains a real question; but an answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, and a weighting chooses among candidates that all clear the bar. Nor do the radar's axes divide into security and performance as cleanly as they look: of the four in [Figure 7](#figure-7), only bandwidth is straightforwardly a performance figure, downtime absorbed is an availability property and time to the last subscriber a liveness bound, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
 
 ## Per-node cost against subscriptions
 
 Both measured costs are per topic, and a node that subscribes to several pays for each; scaling the measured figures is arithmetic over deployment assumptions. For one-kilobyte messages arriving once a second on each topic:
 
 <div align="center">
-<a name="table-9" id="table-9"></a>
+<a name="table-6" id="table-6"></a>
 
 | Topics a node subscribes to | M3 (13, 7) | | M4 (RF = 9) | |
 | :--: | ---: | ---: | ---: | ---: |
@@ -284,7 +284,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 | 10 | **832 kbit/s** | 380 | 1.1 Mbit/s | **180** |
 | 25 | **2.1 Mbit/s** | 950 | 2.7 Mbit/s | **450** |
 
-<em>Table 9: Per-node cost against topics subscribed, at 1 kB and one message per second</em>
+<em>Table 6: Per-node cost against topics subscribed, at 1 kB and one message per second</em>
 
 </div>
 
@@ -307,7 +307,7 @@ The same laws that give *p*<sub>bad</sub> give the risk borne by one named node,
 **Bounded duration.** The dissemination topology is re-derived every epoch from fresh public randomness, so a subscriber draws an independent peer set each epoch. Being surrounded entirely by adversarial peers in one epoch is already improbable; remaining so requires the draw to repeat, and the probability falls geometrically in the number of epochs. The same laws that give *p*<sub>bad</sub> give the risk borne by one named node. At *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2:
 
 <div align="center">
-<a name="table-10" id="table-10"></a>
+<a name="table-7" id="table-7"></a>
 
 | | M3 (13, 7) | M4 (RF = 9) |
 | --- | ---: | ---: |
@@ -315,7 +315,7 @@ The same laws that give *p*<sub>bad</sub> give the risk borne by one named node,
 | The same node cut off again in the next | 7.5 × 10⁻¹⁸ | 1.4 × 10⁻¹⁹ |
 | *Some* node cut off, network-wide | 4.4 × 10⁻⁵ | 6.1 × 10⁻⁶ |
 
-<em>Table 10: Per-epoch isolation risk, per node and network-wide</em>
+<em>Table 7: Per-epoch isolation risk, per node and network-wide</em>
 
 </div>
 
@@ -324,7 +324,7 @@ Isolation is a network-scale event, not a node-scale one: a given node's own exp
 **A chosen epoch length implies a reliability requirement.** For a candidate epoch, each design needs the population to depart no more often than:
 
 <div align="center">
-<a name="table-11" id="table-11"></a>
+<a name="table-8" id="table-8"></a>
 
 | Proposed configuration | 1 hour | 6 hours | 1 day | 5 days |
 | :--: | ---: | ---: | ---: | ---: |
@@ -334,7 +334,7 @@ Isolation is a network-scale event, not a node-scale one: a given node's own exp
 | M1 *F* = 24 | 2 days | 14 days | 56 days | 9 months |
 | M2 RF = 24 | 2 days | 15 days | 58 days | 10 months |
 
-<em>Table 11: Departure interval required per epoch length</em>
+<em>Table 8: Departure interval required per epoch length</em>
 
 <em>Every row is computed from that design's churn budget by the relation above, none separately measured; the budgets themselves are read off the coverage laws rather than sampled, for the reason [Agreement between analysis and simulation](#agreement-between-analysis-and-simulation) gives.</em>
 
@@ -347,14 +347,14 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 ## Sensitivity to the adversarial fraction
 
-**The adversarial fraction is chosen, not derived.** The designs are sized at a single [*μ*](README.md#param-mu), an assumption about who registers and what registration costs them. The laws have since been measured from 0.20 to 0.40 natively and to 0.48 through churn, so *reading* a design off its law at another fraction is evidence-backed;[^musweep] *picking* the fraction is not, and the designs do not degrade at equal rates as it varies ([Figure 14](#figure-14)): moving right assumes a more hostile registry, moving up is a worse chance that an epoch's draw cuts some honest node off, and each curve is one design held at its proposed configuration, out of the target once it crosses the dashed line. The horizontal distance from *μ* = 0.2 to a design's crossing is its margin for that assumption being wrong.
+**The adversarial fraction is chosen, not derived.** The designs are sized at a single [*μ*](README.md#param-mu), an assumption about who registers and what registration costs them. The laws have since been measured from 0.20 to 0.40 natively and to 0.48 through churn, so *reading* a design off its law at another fraction is evidence-backed;[^musweep] *picking* the fraction is not, and the designs do not degrade at equal rates as it varies ([Figure 8](#figure-8)): moving right assumes a more hostile registry, moving up is a worse chance that an epoch's draw cuts some honest node off, and each curve is one design held at its proposed configuration, out of the target once it crosses the dashed line. The horizontal distance from *μ* = 0.2 to a design's crossing is its margin for that assumption being wrong.
 
 <div align="center">
-<a name="figure-14" id="figure-14"></a>
+<a name="figure-8" id="figure-8"></a>
 
 ![The proposed configurations as the adversarial fraction varies](images/mu-sensitivity.svg)
 
-<em>Figure 14: The proposed configurations as the adversarial fraction varies</em>
+<em>Figure 8: The proposed configurations as the adversarial fraction varies</em>
 
 </div>
 
@@ -401,7 +401,7 @@ The admission parameters were first measured on a directional design, model M2, 
 
 [^finiten]: Where the laws lose accuracy. Sixteen cells at μ = 0.2, 60,000 draws each, isolating what the corpus-wide 2 % optimism actually is. M3 measures 1.059, 1.064 and 1.056 against its law at N = 1,000, 2,000 and 4,000 with the pick count held at RF = 6, so the deviation does not follow the population; sorted by pick count it falls to about 2 % at RF = 12–13. M2 measures 0.961, 0.986 and 0.991 across the same populations at RF = 11, so its deviation does follow the population. Three intermediate readings were overturned, two by control cells and one by a confound in the sweep's own design, and the document keeps them. Method and full results: [`docs/experiments/finite-n.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/finite-n.md).
 
-[^axes]: On the choice of axes. The four are measured under the same adversary and are independent of one another. The epoch failure probability is not a fifth spoke because the churn axis already carries it: the churn budget is the distance between a design's *p*<sub>bad</sub> and the target *δ*, expressed as downtime, so the two rank the designs identically. The rate each shape is drawn at is in [Table 14](#table-14) rather than on the figure, since a normalised radar would show designs more than an order of magnitude apart in it as comparable. The cost of an adaptive eclipse is priced against a different adversary and is carried in [Table 8](#table-8) instead. Left off: the worst-case connections a node must accept, arguably the figure an operator provisions against, which [Table 14](#table-14) carries; the headroom a configuration has below the failure target, which reflects where integer parameter steps fell rather than any property of the design; and mean receipt depth, which moves with the hop count already plotted. Other quantities and combinations are plotted in the [design comparison](https://pubsub.cardano-scaling.org/experiments/compare-designs/), which carries nine and lets a reader choose which to show.
+[^axes]: On the choice of axes. The four are measured under the same adversary and are independent of one another. The epoch failure probability is not a fifth spoke because the churn axis already carries it: the churn budget is the distance between a design's *p*<sub>bad</sub> and the target *δ*, expressed as downtime, so the two rank the designs identically. The rate each shape is drawn at is in [Table 4](#table-4) rather than on the figure, since a normalised radar would show designs more than an order of magnitude apart in it as comparable. The cost of an adaptive eclipse is priced against a different adversary and is carried in [Table 5](#table-5) instead. Left off: the worst-case connections a node must accept, arguably the figure an operator provisions against, which [Table 4](#table-4) carries; the headroom a configuration has below the failure target, which reflects where integer parameter steps fell rather than any property of the design; and mean receipt depth, which moves with the hop count already plotted. Other quantities and combinations are plotted in the [design comparison](https://pubsub.cardano-scaling.org/experiments/compare-designs/), which carries nine and lets a reader choose which to show.
 
 [^synthesis]: The gated parameter set at the operating shape these designs propose, experiment E20. Eleven pre-registered cells, the first of the programme at *N* = 20,000, composing the measured results of E10, E12, E18 and E19 through an (*N*, *k*)-parameterised prediction ledger whose forms recover each design's published ungated law at *B* = 1. It is the first pass to measure the gate and the admissions budget at the pick counts these designs use rather than at the larger pick count the directional work was calibrated at, and the bucket-count and serving-cap rules above are its. Its gated closed forms are validated against measurement and were independently re-derived and reproduced number for number in the branch's formal review; a derivation document in the formal specification's style is the named hardening step. Method, cells and full results: [`docs/experiments/m4-synthesis.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/m4-synthesis.md).
 
