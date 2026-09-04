@@ -192,8 +192,9 @@ def fig_architecture() -> str:
     figure in the CIP under one gate and the palette cannot drift.
 
     Three bands, read downward, because that is the order the protocol runs in:
-    the chain supplies inputs, every node turns them into the same link set
-    independently, and messages then travel over those links.
+    the services supply inputs, every node turns them into the same link set
+    independently, and messages then travel over those links. Three of the
+    services are on the chain; the beacon need not be, so it is drawn dashed.
 
     Deliberately an overview: the boxes carry names only. What each registry
     holds, what the gate computes and what a link costs are all stated
@@ -215,17 +216,23 @@ def fig_architecture() -> str:
         b.append(text(66, y + 23, str(n), 11.5, SURFACE, "middle", "700"))
         b.append(text(84, y + 24, title, 12.5, INK, weight="600"))
 
-    def box(x, y, w, h, head, stroke=RULE, head_fill=INK):
-        b.append(rect(x, y, w, h, SURFACE, stroke, 1.4))
+    def box(x, y, w, h, head, stroke=RULE, head_fill=INK, dash=None):
+        b.append(rect(x, y, w, h, SURFACE, stroke, 1.4, dash=dash))
         b.append(text(x + w / 2, y + h / 2 + 4, head, 11.5, head_fill, "middle", "600"))
 
-    band(38, 96, 1, "On the Cardano chain")
-    box(60, 80, 236, 38, "Node registry", verifiable)
-    box(312, 80, 236, 38, "Topic registry", verifiable)
-    box(564, 80, 236, 38, "Randomness beacon", verifiable)
+    # four services, each an interface; the beacon is the one that need not be on
+    # the chain, so it is drawn dashed with its placement stated beneath
+    band(38, 96, 1, "The services the protocol reads")
+    bw = 170
+    xs = (60, 254, 448, 642)
+    box(xs[0], 80, bw, 38, "Node registry", verifiable)
+    box(xs[1], 80, bw, 38, "Topic registry", verifiable)
+    box(xs[2], 80, bw, 38, "Parameter output", verifiable)
+    box(xs[3], 80, bw, 38, "Randomness beacon", verifiable, dash="5 4")
+    b.append(text(xs[3] + bw / 2, 129, "on the chain, or outside it", 9.5, "#8a887e", "middle"))
 
-    for x, lab in ((178, "membership at the cutoff"), (430, "publisher keys"),
-                   (682, "epoch randomness  η")):
+    for x, lab in ((xs[0] + bw / 2, "membership at the cutoff"), (xs[1] + bw / 2, "publisher keys"),
+                   (xs[2] + bw / 2, "epoch length"), (xs[3] + bw / 2, "randomness  η")):
         b.append(arrow(x, 134, x, 170, RULE, 1.6))
         b.append(text(x + 10, 156, lab, 10, "#8a887e"))
 
@@ -261,9 +268,11 @@ def fig_architecture() -> str:
     b.append(text(430, 442, "any number of relays", 10.5, INK_SOFT, "middle"))
 
     return frame(W, H, b, "The protocol at a glance",
-                 "Three numbered bands read downward. Band 1, the Cardano chain, holds a node registry, a "
-                 "topic registry and a per-epoch randomness beacon, contributing "
-                 "membership, publisher keys and the epoch randomness respectively. Every "
+                 "Three numbered bands read downward. Band 1 holds the four services the protocol "
+                 "reads: a node registry, a topic registry and a parameter output on the Cardano "
+                 "chain, and a per-epoch randomness beacon that may be on the chain or outside it, "
+                 "contributing membership, publisher keys, the epoch length and the epoch "
+                 "randomness respectively. Every "
                  "node turns those public inputs into its registered peers on a topic, "
                  "applies the verifiable gate, picks from the survivors with its own "
                  "private randomness, and holds the resulting links for the epoch; the "
