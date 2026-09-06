@@ -75,6 +75,8 @@ The beacon, deployment parameters and several interoperability rules remain open
   - [Limits of this evidence](#limits-of-this-evidence)
   - [Backward compatibility](#backward-compatibility)
   - [Open Questions](#open-questions)
+    - [Responses to CPS questions](#responses-to-cps-questions)
+    - [Remaining design choices](#remaining-design-choices)
 - [Path to Active](#path-to-active)
   - [Acceptance Criteria](#acceptance-criteria)
   - [Implementation Plan](#implementation-plan)
@@ -715,16 +717,16 @@ Within these rules, the changes this proposal anticipates are additive. Adding a
 
 ## Rationale: How does this CIP achieve its goals?
 
-The proposal addresses the CPS goals as follows:
+The proposal responds to the six [CPS goals](../cps/README.md#goals), with the following scope and remaining work:
 
-- **Authenticity and integrity:** publisher signatures cover the message content and are checked against topic authority.
-- **Censorship resistance:** verifiable eligibility, private selection and rotation reduce isolation risk under the adversary and downtime assumptions below.
-- **Resistance to targeted peer selection:** the public gate limits eligible pairs after membership is fixed. It does not compel an adversary to select uniformly.
-- **Practical cost:** link counts are bounded per topic for chosen *k* and *C*. Traffic also depends on publication rate, payload size and subscriptions; registry enumeration grows with membership.
-- **Arbitrary payloads:** the protocol forwards application content without interpreting it.
-- **Application addressing:** publishers can include recipient information in the payload.
+1. **Authenticity and integrity — mechanism specified.** [Messages](#messages) are signed by the publisher and checked against [topic authority](#the-topic-registry). This establishes control of an authorised key, not the identity of a named organisation. Applications still need a trusted association between that organisation, its topic and its keys; this draft does not specify a common mechanism for establishing that association.
+2. **Censorship resistance — conditional evidence.** The [coverage estimates](#how-the-evidence-was-obtained) concern reachability between participating honest nodes. They do not establish delivery to a wallet user beyond a receiving backend, or delivery within an emergency deadline. [Recovery and rotation](#what-the-protocol-guarantees-instead) provide further opportunities, subject to cache availability and independent draws.
+3. **Resistance to targeted peer selection — conditional evidence.** The [gate](#the-verifiable-gate) limits eligible pairs after membership is fixed. It does not compel uniform selection. The [adversary model](#the-adversary-this-proposal-defends-against) excludes adaptive corruption and repeated re-registration; the deposit's adequacy against those behaviours remains unestablished.
+4. **Practical per-node cost — partly evaluated.** The [cost measurements](#what-the-symmetric-relay-link-gives) cover links and dissemination traffic at stated workloads. Registry enumeration grows with membership; verification, recovery and cache costs still need budgets and measurements. A bounded link count alone does not bound total resource use.
+5. **Openness to application payloads — mechanism specified.** The [message envelope](#messages) carries opaque bytes. Payload-size and publication-rate limits remain to be defined; payload independence does not imply unlimited capacity.
+6. **Application-level addressing — supported by the payload.** An application may include a recipient identifier, but dissemination still forwards the message throughout the topic. Selective processing, onward delivery and any confidentiality are application responsibilities.
 
-These are design properties and conditional estimates, not a claim that every deployment requirement is already met. The following sections explain the selected link structure, its evidence and the remaining limits.
+The proposal follows the CPS non-goals: it provides no confidentiality, archival persistence or shared delivery log. Temporary recovery caches support delivery rather than long-term storage. The CPS remains open because the conditional evidence and outstanding work do not yet establish all its required outcomes.
 
 ### The adversary this proposal defends against
 
@@ -1008,17 +1010,23 @@ This proposal adds an optional off-chain layer and new script outputs without ch
 
 ### Open Questions
 
-The CPS asks about adversarial participation, delivery targets, operator availability, topic sizes, participation costs and dependency failures. The sections above provide conditional estimates and identify missing measurements. The following design choices remain open:
+#### Responses to CPS questions
 
-- **Parameter authority:** who may change the deployment's epoch length, under which of the arrangements in [Authority over the parameter output](#authority-over-the-parameter-output)?
-- **Per-topic profiles:** should topics use different failure and downtime assumptions? A profile would need an agreed bucket table. Different targets do not necessarily require different epoch lengths, although different epoch lengths would also require compatible beacon and snapshot schedules.
-- **Beacon and epoch schedule:** which source satisfies the beacon requirements, and what epoch length fits its cadence and measured operator availability?
-- **Retention and omission detection:** how much cache should each topic require, and should there be a publisher-position exchange or external commitment to detect missing final messages?
-- **Band validation:** do the provisional bucket-table values meet their targets at each boundary and on small topics? [What remains to be measured](#what-remains-to-be-measured) lists the cases.
-- **Halt and fork behaviour:** what should nodes do when their shared inputs stop advancing or disagree? Any retained links, independent peers or fallback provider would need its own stated trust and coverage assumptions.
-- **Participation incentives:** should the deposit remain a static membership cost, or could verifiable evidence support incentives for continued participation?
-- **Timing assumptions:** what would a partial-synchrony assumption enable, and is it acceptable for the intended scenarios?
-- **Identity anchoring:** how should existing credentials relate to node identities, and how many identities may one anchor support?
+These answers follow the order of the [CPS Open Questions](../cps/README.md#open-questions). Each states what this draft establishes and what still needs evidence or a deployment decision.
+
+1. **Adversarial participation.** The comparisons assume an adversarial fraction and explore sensitivity to it; they do not derive it from registration cost. A deployment needs to justify both its fraction and coordinated identity budget, including concentration and identity reuse. See [Limits of this evidence](#limits-of-this-evidence).
+2. **Delivery targets.** The reference target is 10⁻⁴ bad topologies per epoch, not a measured application deadline. [Subscriber guarantees](#what-a-subscriber-is-guaranteed) distinguish individual and network-wide risk. Required deadlines, retention and detection policy remain to be agreed for each scenario.
+3. **Availability.** Independent downtime is modelled as a shift in the adversarial fraction. Operator departure rates, outage duration and correlated failures have not been established. [Epoch sizing](#how-long-an-epoch-may-be) is therefore conditional, and no epoch length is selected.
+4. **Topic populations.** The main comparisons use 4,000 and 20,000 nodes; the CPS's wallet-mediated scenarios may involve tens. Actual memberships and overlap between topics need validation with the intended participants before those comparisons can size a deployment.
+5. **Small topics.** [Small-topic rules](#small-topics) reduce or disable the gate, but evidence does not yet establish their coverage at tens of participants. The [measurement programme](#what-remains-to-be-measured) is needed to decide whether the same mechanism suffices.
+6. **Participation costs and incentives.** The [node registry](#the-node-registry) specifies a refundable deposit and withdrawal delay, but not their final values. Non-delivery is not attributable under this protocol. Any participation reward or deposit decay would require an additional verifiable-evidence mechanism; identity anchoring and identities per anchor also remain open.
+7. **Dependency failures.** [Service interfaces](#services) allow alternative providers to be assessed, but define no automatic failover. An external beacon alone does not replace membership, revocation or parameter reads. Nodes cannot participate without the required parameter output; behaviour through a halt or fork, including what can continue from existing state, still needs specification and analysis.
+
+#### Remaining design choices
+
+- **Parameter authority:** choose who may change the epoch length from the arrangements in [Authority over the parameter output](#authority-over-the-parameter-output).
+- **Per-topic profiles:** decide whether topics need different failure and downtime assumptions, with an agreed bucket table for each profile. Different targets need not require different epoch lengths; different schedules would also require compatible beacon and snapshot timing.
+- **Timing assumptions:** decide whether partial synchrony is acceptable and what guarantees it would enable beyond the current reachability analysis.
 
 ## Path to Active
 
@@ -1029,6 +1037,8 @@ This draft is not yet implementation-ready. Activation requires observable deliv
 - [ ] Complete the interoperability specification: beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings, message ordering, and recovery exchanges.
 - [ ] Resolve the on-chain rules and schemas, including topic identifiers, registration uniqueness, publisher authorisation and deployment parameter authority.
 - [ ] Publish a deployment profile stating adversarial participation, identity cost, failure target, expected downtime, epoch length, retention and resource limits. Reconcile its bucket table, pick count and cap with the coverage estimate.
+- [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs.
+- [ ] Specify behaviour during a chain halt, fork or unavailable service, including which operations may continue from existing state and which guarantees are suspended.
 - [ ] Document the gated derivation and validate the proposed *B* = 512 configuration, band boundaries and small-topic behaviour. Exercise rotation, recovery and realistic transport behaviour in addition to fixed-topology simulations.
 - [ ] State the relationship to CIP-0137, including whether the proposals are alternatives or can interoperate, with input from its authors.
 - [ ] Release two interoperating implementations and publish conformance results covering the completed specification.
