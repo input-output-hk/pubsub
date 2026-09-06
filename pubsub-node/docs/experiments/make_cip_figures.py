@@ -172,7 +172,7 @@ def frame(w: int, h: int, body: list[str], title: str, desc: str,
     fh = h
     if conditions:
         fh = h + STAMP_BAND
-        stamp = text(w - 14, fh - 11, conditions, 9.5, "#8a887e", "end") + "\n"
+        stamp = text(w - 14, fh - 11, conditions, 9.5, "#6f6d66", "end") + "\n"
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {fh}" width="{w}" '
         f'height="{fh}" role="img" aria-labelledby="t d">\n'
@@ -232,9 +232,13 @@ def fig_architecture() -> str:
     for x, (head, lab, dash) in zip(cols, services):
         box(x, 80, bw, 38, head, verifiable, dash=dash)
         b.append(arrow(x + bw / 2, 134, x + bw / 2, 170, RULE, 1.6))
-        b.append(text(x + bw / 2 + 10, 156, lab, 10, "#8a887e"))
+        b.append(text(x + bw / 2 + 10, 156, lab, 10, "#6f6d66"))
 
-    band(178, 118, 2, "In every node, from those inputs alone")
+    # the boundary between the shared state above and each node's own operation below
+    b.append(text(42, 152, "on the chain \u25b2", 9.5, "#6f6d66", weight="600"))
+    b.append(text(42, 166, "in every node \u25bc", 9.5, "#6f6d66", weight="600"))
+
+    band(178, 118, 2, "In every node: public eligibility, then a private pick")
     stages = [("Registered peers", verifiable), ("Verifiable gate", verifiable),
               ("Pick", private), ("Link set", INK_SOFT)]
     for x, (head, col) in zip(cols, stages):
@@ -243,16 +247,17 @@ def fig_architecture() -> str:
         b.append(arrow(x0 + 2, 239, x0 + 34, 239, RULE, 1.6))
     b.append(text(60, 282, "Recomputable by anyone holding the chain", 10, verifiable,
                   weight="600"))
-    b.append(text(304, 282, "→", 10, "#8a887e"))
+    b.append(text(304, 282, "→", 10, "#6f6d66"))
     b.append(text(324, 282, "the node's own draw, and not required to be checkable",
                   10, private))
 
     b.append(arrow(430, 296, 430, 332, RULE, 1.6))
-    b.append(text(440, 318, "one signed handshake per link", 10, "#8a887e"))
+    b.append(text(420, 318, "address resolution \u2192", 10, "#6f6d66", "end"))
+    b.append(text(440, 318, "one signed handshake per link", 10, "#6f6d66"))
 
     band(340, 116, 3, "Over those links, until the epoch ends")
-    b.append(text(430, 390, "signed once by the publisher, verified by every recipient",
-                  10, "#8a887e", "middle"))
+    b.append(text(430, 390, "one message's path: signed once by the publisher, verified by every recipient",
+                  10, "#6f6d66", "middle"))
     for x, lab in ((130, "publisher"), (320, "relay"), (540, "relay"), (770, "subscriber")):
         b.append(circle(x, 416, 13, SURFACE, INK_SOFT, 1.8))
         b.append(text(x, 442, lab, 10.5, INK_SOFT, "middle"))
@@ -275,7 +280,10 @@ def fig_architecture() -> str:
                  "private randomness, and holds the resulting links for the epoch; the "
                  "steps up to the gate are recomputable by anyone holding the chain and "
                  "the pick is not. Messages then travel over those links from publisher "
-                 "through any number of relays to subscribers, signed once end to end.")
+                 "through any number of relays to subscribers, signed once end to end. The beacon "
+                 "is drawn dashed because it may be provided off the chain; address resolution, "
+                 "which feeds the dial rather than the derivation, is read once a peer has been "
+                 "drawn.")
 
 
 # ------------------------------------------------------------------ models
@@ -288,12 +296,12 @@ def _model_layer_row(b, y, picked, fill, quietfill=None):
         if picked and i in picked:
             b.append(circle(x, y, 5.2, fill, SURFACE, 1.5))
         elif quietfill and i in quietfill:
-            b.append(circle(x, y, 5.2, "#8a887e", SURFACE, 1.5))
+            b.append(circle(x, y, 5.2, "#6f6d66", SURFACE, 1.5))
         else:
             b.append(circle(x, y, 4.6, SURFACE, GRID, 1.5))
 
 def _model_scaffold(b, up_title, up_sub, dn_title, dn_sub):
-    quiet = "#8a887e"
+    quiet = "#6f6d66"
     b.append(text(38, 62, up_title, 12.5, INK, weight="600"))
     b.append(text(38, 80, up_sub, 10.5, quiet))
     b.append(line(38, 116, 822, 116, GRID, 1.2, dash="5 6"))
@@ -335,7 +343,7 @@ def fig_model_m1() -> str:
     """
     W, H = 860, 330
     b = []
-    quiet = "#8a887e"
+    quiet = "#6f6d66"
     col = SERIES["M1"]
     x0, x1 = 300, 812
     n = 16
@@ -392,7 +400,7 @@ def fig_model_m2() -> str:
         _model_link(b, i, True, col)
     _model_layer_row(b, 272, None, None, quietfill=[4, 9, 12])
     for i in [4, 9, 12]:
-        _model_link(b, i, False, "#8a887e")
+        _model_link(b, i, False, "#6f6d66")
     return frame(W, H, b, "One node's links under M2",
                  "The same three layers as the M1 figure with the colours exchanged. The "
                  "top row's filled peers are the RF forwarders the current node drew, "
@@ -415,7 +423,7 @@ def fig_model_m3() -> str:
     for i in [1, 8]:
         _model_link(b, i, False, col, dashed=True)
     for i in [5, 12]:
-        _model_link(b, i, False, "#8a887e")
+        _model_link(b, i, False, "#6f6d66")
     return frame(W, H, b, "One node's links under M3",
                  "M2's layers with one addition. The top row holds the RF relay "
                  "forwarders the current node drew. The bottom row holds, dashed and in "
@@ -437,12 +445,12 @@ def fig_model_m5() -> str:
     for i in [2, 7, 12, 14]:
         _model_link(b, i, True, col)
     for i in [4, 9]:
-        _model_link(b, i, True, "#8a887e")
+        _model_link(b, i, True, "#6f6d66")
     _model_layer_row(b, 272, [3, 8, 13], col, quietfill=[6, 11])
     for i in [3, 8, 13]:
         _model_link(b, i, False, col)
     for i in [6, 11]:
-        _model_link(b, i, False, "#8a887e")
+        _model_link(b, i, False, "#6f6d66")
     return frame(W, H, b, "One node's links under M5",
                  "Both outer layers now hold links in the design's colour: the current "
                  "node draws its k_in senders above and its k_out receivers below, "
@@ -465,7 +473,7 @@ def fig_model_m4() -> str:
         _model_link(b, i, True, col, both=True)
     _model_layer_row(b, 272, None, None, quietfill=[4, 9, 13])
     for i in [4, 9, 13]:
-        _model_link(b, i, False, "#8a887e", both=True)
+        _model_link(b, i, False, "#6f6d66", both=True)
     return frame(W, H, b, "One node's links under M4",
                  "The upstream and downstream layers are gone; what remains is who "
                  "opened each link. The top row holds the RF peers the current node "
@@ -489,7 +497,7 @@ def fig_handshake() -> str:
     b = []
     ok = "#1e8f5e"
     no = SERIES["M5"]
-    quiet = "#8a887e"
+    quiet = "#6f6d66"
     DX, AX = 120, 610
 
     for x, lab in ((DX, "Dialler"), (AX, "Acceptor")):
@@ -544,8 +552,9 @@ def fig_derivation() -> str:
     Structural, like Figure 1, and deliberately only the selection. The headroom
     arithmetic and the acceptor's checks were boxed text inside the drawing,
     which is markdown's job, not SVG's - they live in the prose around it now.
-    The counts are a miniature at exactly the sizing rule the Specification
-    fixes: 32 registered peers, B = 4, so 8 eligible, k = 4 picked, r = 2.
+    The counts are a schematic miniature, not a deployment configuration: 32
+    other peers, B = 4, so 8 eligible in this illustration, k = 4 picked, r = 2.
+    The eligible count is the illustrated outcome; hashing gives it in expectation.
 
     The rows are numbered so the Specification's subsections can name which one
     they describe, and the two arrows carry B and r because those quantities are
@@ -564,12 +573,13 @@ def fig_derivation() -> str:
     step = (x1 - x0) / (n - 1)
 
     rows = [
-        (76, "Registered peers", f"N_{{T}} \u2212 1 = {n}"),
-        (150, "Eligible peers", f"\u2248 (N_{{T}} \u2212 1)/B = {len(eligible)}"),
-        (224, "Picks", f"k = {rf}"),
+        (76, "Registered peers", f"N_{{T}} \u2212 1 = {n} other peers \u00b7 public"),
+        (150, "Eligible peers", f"{len(eligible)} illustrated; \u2248 (N_{{T}} \u2212 1)/B in expectation \u00b7 public"),
+        (224, "Picks", f"k = {rf} of the {len(eligible)}, headroom r = {n / (buckets * rf):g} \u00b7 private"),
     ]
-    # the two transitions are where B and r live, so the arrows carry them
-    steps = [f"gate, B = {buckets}", f"headroom r = {n / (buckets * rf):g}"]
+    # the first transition is the public gate, the second the node's own draw; r is
+    # the pool-to-pick ratio, so it sits on the row rather than on the operation
+    steps = [f"gate, B = {buckets} (public)", "private random selection"]
     for k, (y, head, count) in enumerate(rows):
         col = private if k == 2 else (verifiable if k == 1 else INK_SOFT)
         b.append(circle(48, y - 8, 11, INK))
@@ -593,7 +603,7 @@ def fig_derivation() -> str:
         if k < 2:
             xm = x0 + (x1 - x0) / 2
             b.append(arrow(xm, y + 20, xm, y + 50, RULE, 1.4))
-            b.append(text(xm + 12, y + 40, steps[k], 10, "#8a887e"))
+            b.append(text(xm + 12, y + 40, steps[k], 10, "#6f6d66"))
 
     return frame(W, H, b, "Deriving one node's links for one epoch",
                  "Three rows of markers over the same peers. The first row is every peer "
@@ -601,7 +611,8 @@ def fig_derivation() -> str:
                  "marks those for which the verifiable gate holds, roughly one in B of "
                  "them. The third marks the k the node actually picks from that eligible "
                  "set, drawn with its own randomness. The first two rows are publicly "
-                 "recomputable; the third is the node's own draw and is private.")
+                 "recomputable; the third is the node's own draw and is private.",
+                 conditions="schematic \u00b7 not a deployment configuration \u00b7 the bucket-count table gives B = 1 at this size")
 
 
 # ------------------------------------------------------------------ figure 4
@@ -677,9 +688,9 @@ def fig_validation(cells, churn=()) -> str:
     lx = ml + 14
     b.append(text(lx, mt + 20, "one point = one tested configuration:", 11.5, INK_SOFT))
     b.append(text(lx, mt + 38, "grey line = law matched measurement exactly · "
-                  "band = scatter expected of a 4 000-draw sample", 11, "#8a887e"))
+                  "band = scatter expected of a 4 000-draw sample", 11, "#6f6d66"))
     b.append(text(lx, mt + 54, "hollow = measured under honest downtime",
-                  11, "#8a887e"))
+                  11, "#6f6d66"))
     for i, (m, col) in enumerate(SERIES.items()):
         cx = lx + 218 + i * 52
         b.append(circle(cx, mt + 16, 4.4, col, SURFACE, 1.6))
@@ -736,7 +747,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
     # categorical hues; M1 lies inside M5 on three axes and on top of it on the
     # fourth, so the nesting itself distinguishes them.
     SHOWN = ["M3", "M4", "M2"]
-    MUTED = [("M5", "#8a887e"), ("M1", "#bcb9ae")]
+    MUTED = [("M5", "#6f6d66"), ("M1", "#bcb9ae")]
 
     AXES = [
         ("Bandwidth economy", "copies per honest node c", lambda o: o["copies_per_node"], True),
@@ -779,12 +790,12 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  f'stroke-width="1.4" stroke-linejoin="round"/>')
 
     b.append(text(38, 30, "dominated on all four axes, drawn for reference:",
-                  10.5, "#8a887e"))
+                  10.5, "#6f6d66"))
     for k, (m, col) in enumerate(MUTED):
         y = 48 + k * 18
         b.append(f'<rect x="38" y="{y - 12:.1f}" width="28" height="11" rx="2" '
                  f'fill="{col}" fill-opacity="0.07" stroke="{col}" stroke-width="1.4"/>')
-        b.append(text(73, y, f"{m} · {by[m]['params']}", 10.5, "#8a887e"))
+        b.append(text(73, y, f"{m} · {by[m]['params']}", 10.5, "#6f6d66"))
 
     for m in SHOWN:
         col = SERIES[m]
@@ -807,13 +818,13 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
             if owner:
                 b.append(text(vx, vy - 22, CAP[owner], 12.5, SERIES[owner], "middle", "650"))
             b.append(text(vx, vy - 58, name, 12.5, INK, "middle", "600"))
-            b.append(text(vx, vy - 43, unit, 10.5, "#8a887e", "middle"))
+            b.append(text(vx, vy - 43, unit, 10.5, "#6f6d66", "middle"))
         elif i == 2:
             if owner:
                 b.append(text(vx, vy + 26, CAP[owner], 12.5, SERIES[owner], "middle", "650"))
             b.append(text(vx, vy + 48, name, 12.5, INK, "middle", "600"))
-            b.append(text(vx, vy + 63, unit, 10.5, "#8a887e", "middle"))
-            b.append(text(vx, vy + 77, vals, 10.5, "#8a887e", "middle"))
+            b.append(text(vx, vy + 63, unit, 10.5, "#6f6d66", "middle"))
+            b.append(text(vx, vy + 77, vals, 10.5, "#6f6d66", "middle"))
             continue
         else:
             anchor = "start" if i == 1 else "end"
@@ -821,14 +832,14 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
             if owner:
                 b.append(text(vx + dx, vy - 22, CAP[owner], 12.5, SERIES[owner], anchor, "650"))
             b.append(text(vx + dx, vy - 4, name, 12.5, INK, anchor, "600"))
-            b.append(text(vx + dx, vy + 11, unit, 10.5, "#8a887e", anchor))
-            b.append(text(vx + dx, vy + 25, vals, 10.5, "#8a887e", anchor))
+            b.append(text(vx + dx, vy + 11, unit, 10.5, "#6f6d66", anchor))
+            b.append(text(vx + dx, vy + 25, vals, 10.5, "#6f6d66", anchor))
             # the one dashed thing in the figure, named where it is drawn
             if i == 3:
                 b.append(text(vx + dx, vy + 41, "dashed axis: read off the law, "
-                              "not sampled", 10, "#8a887e", anchor))
+                              "not sampled", 10, "#6f6d66", anchor))
             continue
-        b.append(text(vx, vy - 72, vals, 10.5, "#8a887e", "middle"))
+        b.append(text(vx, vy - 72, vals, 10.5, "#6f6d66", "middle"))
 
     # the four quantities are named at their own axes, so the orientation note
     # does not enumerate them again - it ran off the canvas when it did
@@ -860,7 +871,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
 
 
 # ------------------------------------------------------------------ figure 7
-def fig_extrapolation(cells, ops, alternatives=()) -> str:
+def fig_extrapolation(cells, ops, alternatives=(), only=None, gated=None) -> str:
     """Where the measured configurations sit relative to the proposed ones.
 
     Substantiates the first entry in "Limits of this evidence": sampling can
@@ -875,10 +886,16 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
     against.
     """
     W, H = 860, 460
-    ml, mr, mt, mb = 118, 34, 88, 108
+    ml, mr, mt, mb = (262 if gated else 118), 34, 88, 108
     pw, ph = W - ml - mr, H - mt - mb
-    lo, hi = 1e-5, 1.4
+    lo, hi = (2e-6 if gated else 1e-5), 1.4
     lg = math.log10
+
+    def sci(v):
+        e = math.floor(lg(v))
+        m = v / 10 ** e
+        sup = str(e).translate(str.maketrans("-0123456789", "\u207b\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079"))
+        return f"{m:.3g} \u00d7 10{sup}"
 
     def X(v):
         return ml + (lg(max(v, lo)) - lg(lo)) / (lg(hi) - lg(lo)) * pw
@@ -886,34 +903,40 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
     by = {o["model"]: o for o in ops}
     by.update({a["model"]: a for a in alternatives if a.get("preferred")})
     order = [o["model"] for o in sorted(by.values(), key=lambda o: o["copies_per_node"])]
+    if only:
+        order = [m for m in order if m in only]
     rows = {m: [c["bad"] / c["runs"] for c in cells if c["model"] == m] for m in order}
-    step = ph / len(order)
+    nrows = len(order) + (1 if gated else 0)
+    step = ph / nrows
 
     b = []
     # A per-epoch probability is readable as a frequency without assuming any
     # epoch duration, which is still an open question: 1e-4 is one bad epoch in
     # ten thousand, whatever an epoch turns out to be.
-    for e in range(-5, 1):
+    for e in range(math.ceil(lg(lo)), 1):
         v = 10.0 ** e
         b.append(line(X(v), mt - 8, X(v), mt + ph, GRID, 1))
         b.append(text(X(v), mt + ph + 20, decade(v), anchor="middle"))
         rate = "every epoch" if e == 0 else f"1 in {10 ** -e:,}"
-        b.append(text(X(v), mt + ph + 34, rate, 9.5, "#8a887e", "middle"))
+        b.append(text(X(v), mt + ph + 34, rate, 9.5, "#6f6d66", "middle"))
 
     xt = X(1e-4)
     b.append(line(xt, mt - 22, xt, mt + ph, "#52514e", 1.4))
     b.append(text(xt, mt - 42, "design target", 11, INK, "middle", "600"))
     b.append(text(xt, mt - 29, "δ = 10⁻⁴, one bad epoch in ten thousand", 9.5,
-                  "#8a887e", "middle"))
+                  "#6f6d66", "middle"))
     b.append(text(xt, mt - 17, "the rate a configuration is sized to meet", 9.5,
-                  "#8a887e", "middle"))
+                  "#6f6d66", "middle"))
 
     for k, m in enumerate(order):
         y = mt + step * (k + 0.5)
         col = SERIES[m]
         ps = rows[m]
         opv = by[m]["p_bad"]
-        b.append(text(ml - 14, y + 4, f"{m} · {by[m]['params']}", 11.5, INK, "end", "600"))
+        label = f"{m} · {by[m]['params']}" + (" · ungated" if gated else "")
+        if gated:
+            label = label.replace("RF=", "k = ")
+        b.append(text(ml - 14, y + 4, label, 11.5, INK, "end", "600"))
         b.append(line(X(opv), y, X(min(ps)), y, "#b9b6ab", 1.3, dash="4 4"))
         b.append(line(X(min(ps)), y, X(max(ps)), y, col, 3.4, cap="round", opacity=0.32))
         for v in ps:
@@ -924,7 +947,18 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
         # in a document whose central quantity is measured per epoch.
         gap = min(ps) / opv
         b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.0f}\u00d7 rarer",
-                      9.5, "#8a887e", "middle"))
+                      9.5, "#6f6d66", "middle"))
+    if gated:
+        # the specified configuration: a prediction, with the one measurement that can be
+        # made at this rate, a count of zero failures, stated beside it
+        y = mt + step * (nrows - 0.5)
+        col = SERIES[gated["model"]]
+        b.append(text(ml - 14, y + 4, gated["label"], 11.5, INK, "end", "600"))
+        b.append(circle(X(gated["p_bad"]), y, 5.4, SURFACE, col, 2.2))
+        b.append(text(X(gated["p_bad"]) + 12, y + 4,
+                      f"predicted {sci(gated['p_bad'])} · measured {gated['measured_bad']} bad in "
+                      f"{gated['measured_runs']} draws · {sci(gated['flooded_p_bad'])} under wholesale flooding",
+                      9.5, "#6f6d66"))
 
     b.append(text(ml + pw / 2, H - 44, "p_{bad}: chance an epoch's wiring fails",
                   12.5, INK, "middle", "600"))
@@ -935,9 +969,24 @@ def fig_extrapolation(cells, ops, alternatives=()) -> str:
     b.append(circle(ml + 6, ly - 4, 4.2, INK_SOFT, SURFACE, 1.5))
     b.append(text(ml + 16, ly, "a configuration that was measured", 11, INK_SOFT))
     b.append(circle(ml + 232, ly - 4, 5.4, SURFACE, INK_SOFT, 2.2))
-    b.append(text(ml + 243, ly, "the configuration this proposal uses: predicted by "
-                  "the law, too rare to sample", 11, INK_SOFT))
+    b.append(text(ml + 243, ly, ("a proposed configuration: predicted by the law, too rare to sample"
+                                 if gated else
+                                 "the configuration this proposal uses: predicted by "
+                                 "the law, too rare to sample"), 11, INK_SOFT))
 
+    if gated:
+        return frame(W, H, b, "Measured configurations against the specified configuration",
+                     "One design, the symmetric relay link. The upper row is the ungated "
+                     "comparison point at nine picks: solid marks are failure rates counted in "
+                     "simulation at weaker configurations, the hollow mark the law's prediction "
+                     "at the comparison point, and the dashed span between them is carried by the "
+                     "law alone. The lower row is the specified gated configuration, k = 10, "
+                     "B = 500, C = 23: a prediction of the composed gated law, beside the one "
+                     "measurement possible at that rate, zero failures in four hundred draws, and "
+                     "the prediction under wholesale flooding by every adversarial identity. The "
+                     "bucket-count table gives B = 512 at this population; that point has not been "
+                     "re-run and is not shown.",
+                     conditions="N = 20,000 · μ = 0.2 · δ = 10⁻⁴ · specified: k = 10, B = 500, C = 23 · B = 512 not yet measured")
     return frame(W, H, b, "Measured configurations against proposed ones",
                  "For each design, the failure rates of the configurations that were "
                  "measured, and the far lower rate of the configuration actually "
@@ -1128,7 +1177,7 @@ def fig_gate_tradeoff(g) -> str:
         b.append(text(ml - 10, Y2(v) + 4, v, 10.5, INK_SOFT, "end"))
 
     def ylabel(cy, s):
-        el = text(30, cy, s, 10.5, "#8a887e", "middle")
+        el = text(30, cy, s, 10.5, "#6f6d66", "middle")
         b.append(el.replace("<text ", f'<text transform="rotate(-90 30 {cy:.1f})" ', 1))
     ylabel(top + ph1 / 2, "epoch failure probability")
     ylabel(bot + ph2 / 2, "attacker slots per victim")
@@ -1136,7 +1185,7 @@ def fig_gate_tradeoff(g) -> str:
     # after the gridlines, so they are not painted over
     b.append(line(X(rec["B"]), top, X(rec["B"]), bot + ph2, "#1e8f5e", 1.4, dash="5 4"))
     b.append(text(X(rec["B"]) + 7, top + 16, "r = 2", 10.5, "#1e8f5e", weight="600"))
-    b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2", 11, "#1e8f5e", weight="600"))
+    b.append(text(ml + 8, top + 16, "selection headroom r \u2265 2 at pick count 16", 11, "#1e8f5e", weight="600"))
 
     lawy = Y1(g["law"])
     b.append(line(ml, lawy, ml + pw, lawy, "#52514e", 1.4, dash="5 4"))
@@ -1162,25 +1211,24 @@ def fig_gate_tradeoff(g) -> str:
     b.append(circle(X(rec["B"]), Y1(rec["bad"] / rec["runs"]), 8.5, "none", "#1e8f5e", 2.0))
     b.append(circle(X(rec["B"]), Y2(g["sybils_for_concentration"] / rec["B"]), 8.5, "none", "#1e8f5e", 2.0))
     b.append(text(X(rec["B"]) + 14, Y2(g["sybils_for_concentration"] / rec["B"]) + 4,
-                  f"B = {rec['B']}, recommended", 12, "#1e8f5e", weight="650"))
+                  f"B = {rec['B']}: E10/E12 operating point (M2, pick count 16)", 11.5, "#1e8f5e", weight="650"))
 
     b.append(text(ml, top - 34, "What the gate costs in coverage", 12.5, INK, weight="600"))
     b.append(text(ml, top - 19, "p_{bad} measured, with Wilson 95 % intervals \u00b7 log scale "
-                  "\u00b7 lower is better", 10.5, "#8a887e"))
+                  "\u00b7 lower is better", 10.5, "#6f6d66"))
     b.append(text(ml, bot - 20, "What the gate buys against a flooder", 12.5, INK, weight="600"))
     b.append(text(ml, bot - 5, "slots one victim gives an attacker holding 5 % of the network "
-                  "\u00b7 lower is better", 10.5, "#8a887e"))
+                  "\u00b7 lower is better", 10.5, "#6f6d66"))
     b.append(text(ml + pw - 4, bot + 12, "filled = measured \u00b7 hollow = predicted A/B",
-                  9.5, "#8a887e", "end"))
+                  9.5, "#6f6d66", "end"))
     b.append(text(ml + pw / 2, H - 42, "Bucket count B: how many groups the gate splits the population into", 12.5, INK, "middle", "600"))
     b.append(text(ml + pw / 2, H - 27,
                   "right = a narrower gate: fewer eligible peers per node, and the attacker's "
                   "pressure divided further", 11, INK_SOFT, "middle"))
-    b.append(text(38, H - 8, "Both panels share the horizontal axis. The largest B leaving "
-                  "headroom for the pick count is coverage-exact and dilutes the attacker "
-                  "most.", 11, INK_SOFT, style="italic"))
+    b.append(text(38, H - 8, "Historical: the directional M2 design at pick count 16. It does not size "
+                  "the selected design, whose coverage ceiling binds first.", 10.5, INK_SOFT, style="italic"))
 
-    return frame(W, H, b, "The bucket count trade-off",
+    return frame(W, H, b, "The bucket count trade-off, measured on M2 (historical)",
                  "Two stacked panels sharing a bucket-count axis, where selection headroom r "
                  "is the number of peers the gate leaves a node eligible to link to, "
                  "divided by the number it must pick. Coverage stays on the "
@@ -1188,8 +1236,11 @@ def fig_gate_tradeoff(g) -> str:
                  "headroom 1 and collapses below it. Attacker concentration falls as the "
                  "reciprocal of the bucket count throughout, measured at four of the seven "
                  "bucket counts and predicted at the rest. The largest bucket count "
-                 "retaining headroom is best on both.",
-                 conditions="N = 4 000 · μ = 0.2 · pick count 16")
+                 "retaining headroom is best on both. Historical: measured on the directional "
+                 "M2 design at pick count 16 in experiments E10 and E12; the selected symmetric "
+                 "design at pick count 10 is sized by the bucket-count rule, whose coverage "
+                 "ceiling binds before headroom does.",
+                 conditions="historical · M2 · E10 and E12 · N = 4 000 · μ = 0.2 · pick count 16")
 
 
 # ------------------------------------------------------------------ figure 9
@@ -1222,6 +1273,10 @@ def main() -> int:
         "model-m4.svg": fig_model_m4(),
         "handshake.svg": fig_handshake(),
         "measured-vs-proposed.svg": fig_extrapolation(
+            d["coverage_cells"], d["operating_points"], d.get("alternatives", ()),
+            only=("M4",), gated=d.get("gated_point")),
+        # the five-design version, for the companion
+        "measured-vs-proposed-all.svg": fig_extrapolation(
             d["coverage_cells"], d["operating_points"], d.get("alternatives", ())),
     }
 
