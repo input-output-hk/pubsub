@@ -16,19 +16,19 @@
 <circle cx="434.0" cy="164.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="168.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">1</text>
 <text x="450.0" y="168.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Kind</text>
-<text x="794.0" y="168.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
+<text x="794.0" y="168.0" font-size="9.5" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
 <circle cx="434.0" cy="190.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="194.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">2</text>
 <text x="450.0" y="194.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Signature</text>
-<text x="794.0" y="194.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
+<text x="794.0" y="194.0" font-size="9.5" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
 <circle cx="434.0" cy="216.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="220.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">3</text>
 <text x="450.0" y="220.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Epoch</text>
-<text x="794.0" y="220.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
+<text x="794.0" y="220.0" font-size="9.5" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
 <circle cx="434.0" cy="242.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="246.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">4</text>
 <text x="450.0" y="246.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Membership</text>
-<text x="794.0" y="246.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
+<text x="794.0" y="246.0" font-size="9.5" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
 <circle cx="434.0" cy="268.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="272.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">5</text>
 <text x="450.0" y="272.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Already held</text>
@@ -36,7 +36,7 @@
 <circle cx="434.0" cy="294.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="298.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">6</text>
 <text x="450.0" y="298.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Gate</text>
-<text x="794.0" y="298.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
+<text x="794.0" y="298.0" font-size="9.5" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">dropped, no reply</text>
 <circle cx="434.0" cy="320.0" r="8.5" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="434.0" y="324.0" font-size="9.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">7</text>
 <text x="450.0" y="324.0" font-size="11" fill="#52514e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Cap</text>
@@ -47,5 +47,5 @@
 <line x1="606.0" y1="424.0" x2="129.0" y2="424.0" stroke="#e87ba4" stroke-width="1.6" stroke-linecap="round"/>
 <polygon points="122.0,424.0 129.0,420.5 129.0,427.5" fill="#e87ba4"/>
 <text x="365.0" y="416.0" font-size="10.5" fill="#e87ba4" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Rejected   the admissions budget is spent</text>
-<text x="40.0" y="452.0" font-size="9.5" fill="#8a887e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">A dialler that is rejected does not retry that peer this epoch.</text>
+<text x="40.0" y="452.0" font-size="9.5" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">A dialler that is rejected does not retry that peer this epoch.</text>
 </svg>

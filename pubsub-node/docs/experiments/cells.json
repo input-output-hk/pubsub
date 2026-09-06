@@ -421,7 +421,8 @@
       "params": "RF=24",
       "config": "m2-operating-point.toml",
       "master_seed": 42,
-      "msgs_per_publication": 307162.1,
+      "msgs_per_publication": 307161.4,
+      "msgs_per_publication_note": "Follows the 0764da3 generation (m2-comparison.md, the arrival-order and severity re-baseline), which moved the honest-to-honest send count from 307162.1 to 307161.4; raw artifacts are not committed, the tool commit and master seed reproduce it.",
       "copies_per_node": 19.2,
       "standing_links": 48,
       "hops_full": 4.78,
@@ -478,6 +479,20 @@
       "eclipse_gate_only": 18
     }
   ],
+  "gated_point": {
+    "model": "M4",
+    "params": "k=10, B=500, C=23",
+    "label": "M4 · k = 10, B = 500, C = 23 · gated",
+    "p_bad": 5.1e-06,
+    "measured_bad": 0,
+    "measured_runs": 400,
+    "flooded_p_bad": 1.25e-05,
+    "config": "m4-synthesis/parity-n20k-k10-b500-cap23.toml",
+    "master_seed": 1139,
+    "flood_config": "m4-synthesis/flood-n20k-k10-b500-cap23.toml",
+    "flood_master_seed": 1140,
+    "note": "E20 (m4-synthesis.md): the specified configuration. p_bad is the composed gated law's prediction; the measurement at seed 1139 is 400/400 good. Under the wholesale flooder, every adversarial identity dialling (4,000 at N = 20,000, mu = 0.2), the composed law gives 1.25e-5, measured 400/400 good at seed 1140. Not read by the figure checker; the CIP-only extrapolation figure reads it."
+  },
   "convergence": {
     "dial_waves": 2,
     "note": "Topology convergence took exactly 2 dial waves in every run of every operating point (200 runs each; M2 40). A wave is one request/response round, so the floor on epoch length is a small number of round-trips."
