@@ -1,6 +1,6 @@
 # Dissemination designs compared
 
-A companion to the [Cardano PubSub CIP](README.md). It is not normative. The CIP specifies one dissemination design, the symmetric relay link, and its Rationale states why; this document sets out the five designs that were analysed before that choice, how each was parameterised, simulated and costed, and the measurements the CIP's numbers rest on. Every figure is generated from [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json) by the same script that generates the CIP's, so the two documents cannot drift apart on a number.
+A companion to the [Cardano PubSub CIP](README.md). It is not normative. The CIP specifies one dissemination design, the symmetric relay link, and its Rationale states why; this document sets out the five designs that were analysed before that choice, how each was parameterised, simulated and costed, and the measurements the CIP's numbers rest on. Every figure is generated from [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json) by the same script that generates the CIP's, which keeps the generated figures consistent with that data file. Prose and tables require separate cross-checks against the experiment write-ups.
 
 Everything here is measured against the [adversary the CIP defends against](README.md#the-adversary-this-proposal-defends-against), at the constants its Rationale fixes.
 
@@ -47,14 +47,14 @@ A closed form can approximate the wrong model; an implementation can faithfully 
 
 ## Performance metrics
 
-A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Four constants fix what everything here is measured at.
+A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Table 2 records the evaluation settings.
 
 <div align="center">
 <a name="table-2" id="table-2"></a>
 
 | Constant | Value | What it is | Where it comes from |
 | --- | :--: | --- | --- |
-| *N* | 20,000, and 4,000 | The registered population on a topic | 4,000 bounds the stake-pool population from above, which has never exceeded 2,696 registered pools;[^sponumbers] 20,000 is headroom above it |
+| *N* | 20,000, and 4,000 | The registered population on a topic | 4,000 and 20,000 are the main experimental populations; pool-count observations are reported separately[^sponumbers] |
 | [*μ*](README.md#param-mu) | 0.2 | Fraction of registered nodes assumed adversarial | An assumption about who registers and what registration costs them, not a measurement. Swept from 0.20 to 0.40 to check the laws hold across it[^musweep] |
 | [*δ*](README.md#param-delta) | 10⁻⁴ per epoch | The failure probability a configuration is sized to meet | A choice, and one that cannot be read independently of epoch length |
 | [*p*](README.md#param-p) | 0 | Honest downtime during this section's comparisons | Every design is priced with all honest nodes up; downtime enters as a shift in *μ*, and what each design absorbs is its churn budget, the last column of [Table 4](#table-4) |
@@ -64,7 +64,7 @@ A design is characterised by four things: how often a draw fails, what it costs 
 
 </div>
 
-**Two of these four are choices this proposal makes rather than results it derives.** [*μ*](README.md#param-mu) and [*δ*](README.md#param-delta) are assumptions about the deployment; every failure probability in this document is conditional on them, and both are posed as open questions in the [CIP](README.md#open-questions). A reader who disagrees with either should read the figures as shape rather than values.
+**The adversarial fraction and failure target are assumptions rather than results.** [*μ*](README.md#param-mu) and [*δ*](README.md#param-delta) are assumptions about the deployment; every failure probability in this document is conditional on them, and both are posed as open questions in the [CIP](README.md#open-questions). A reader who disagrees with either should read the figures as shape rather than values.
 
 Every design's coverage law can be [evaluated interactively](https://pubsub.cardano-scaling.org/experiments/compare-designs/) with *μ*, *N* and *δ* as controls, and the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) applies the Specification's sizing rules to a topic size, a target and a downtime rate.
 
@@ -155,18 +155,8 @@ The fork is a genuine trade: M3 and M5 land at the same failure probability and 
 
 **M4 merges M5's two link sets into one.** M5's best split, 9 and 8, is one link from symmetric, which suggests its two sets do the same work. Under M4 a node draws *RF* peers and opens one link to each, established once for the pair rather than once per direction; in [Figure 5](#figure-5) the layers differ only by who opened the link, and every arrow points both ways. Every message that verifies is flooded on all the node's links for the topic except the one it arrived on, its own publications included, so there is neither a second link kind nor a second count. The failure left open needs both directional failures at once: every peer the node drew adversarial *and* no honest node having drawn it, since a link an honest picker opens carries traffic both ways. One pick buys both directions, so the budget is *RF* = 9 against M5's 17. [Why the symmetric design](#the-two-candidates-under-the-admission-rules) prices the conjunction and the downtime it buys.
 
-<!-- Figures are generated, not hand-drawn: pubsub-node/docs/experiments/cells.json is
-     the single source, and make_cip_figures.py regenerates images/*.svg from it.
-     `make_cip_figures.py --check` fails if a committed SVG is stale, so the figures
-     cannot drift from the data.
-
-     cells.json is transcribed by hand from the comparison documents rather than
-     emitted by the experiments tool. check_cells_against_docs.py closes that loop
-     for every configuration that has a write-up: it looks each measured quantity
-     up in its design's comparison document and fails on anything it cannot find.
-     All twenty-eight values pass, across every configuration the figures use:
-     the five published operating points and the two preferred splits, whose
-     write-ups landed with input-output-hk/pubsub#169. -->
+<!-- make_cip_figures.py --check checks generated SVG freshness.
+     check_cells_against_docs.py separately checks transcribed data against write-ups. -->
 
 ## Agreement between analysis and simulation
 
@@ -202,13 +192,13 @@ Every design is shown at the configuration this proposal names for it, at *N* = 
 | M1 | *F* = 24 | 7.3 × 10⁻⁵ | 19.2 | 48.0 | 75 | 5.0 | 1.76 % |
 | M2 | RF = 24 | 7.3 × 10⁻⁵ | 19.2 | 48.0 | 75 | **4.8** | 1.70 % |
 | | | | | | | | |
-| **M4 as specified** | *RF* = 10, gated | **5.1 × 10⁻⁶** | **13.0** | **17.5** | **33** | 5.0 | **7.57 %** |
+| **M4 gated reference** | *RF* = 10, *B* = 500, *C* = 23 | **5.1 × 10⁻⁶** | **13.0** | **17.5** | **33** | 5.0 | **7.57 %** |
 
 <em>Table 4: Cost at each design's configuration</em>
 
 </div>
 
-The first five rows are ungated, at the configurations the coverage models were evaluated at, and they are not equally safe: the *p*<sub>bad</sub> column spans an order of magnitude, so a cost difference between rows at different failure rates is not by itself a verdict. The last row is the configuration this proposal specifies, measured under the gate and the admissions budget: not comparable column-by-column, but given so the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. The cost and latency columns are measured (see the reproduction note); the *p*<sub>bad</sub> column is read off each design's coverage law, for the reason [Limits of this evidence](README.md#limits-of-this-evidence) gives. The busiest-node column is the most connections any single honest node held, the figure a deployment sizes connection limits against: a measured worst case over the sampled graphs *at that row's configuration*, not a bound, and a sample extreme grows with the number of graphs drawn and with the population.[^degrees] Hops are quoted at the mean, where the field spans 4.8 to 5.5; the full depth distributions separate the designs by two orders of magnitude at the tail, for a fraction of a percent of subscribers.[^depth]
+The first five rows are ungated, at the configurations the coverage models were evaluated at, and they are not equally safe: the *p*<sub>bad</sub> column spans an order of magnitude, so a cost difference between rows at different failure rates is not by itself a verdict. The last row is the gated reference experiment at *B* = 500; the CIP now specifies *B* = 512 and identifies its rerun as outstanding. It is not comparable column-by-column, but given so the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. The cost and latency columns are measured (see the reproduction note); the *p*<sub>bad</sub> column is read off each design's coverage law, for the reason [Limits of this evidence](README.md#limits-of-this-evidence) gives. The busiest-node column is the most connections any single honest node held, the figure a deployment sizes connection limits against: a measured worst case over the sampled graphs *at that row's configuration*, not a bound, and a sample extreme grows with the number of graphs drawn and with the population.[^degrees] Hops are quoted at the mean, where the field spans 4.8 to 5.5; the full depth distributions separate the designs by two orders of magnitude at the tail, for a fraction of a percent of subscribers.[^depth]
 
 **M3's split.** The budget of 19 divides between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. With *s* − 1 seeding links the budget is *RF* + (*s* − 1), so 12 + 7 and 13 + 6 both come to 19, and the split (RF = 13, *s* = 7) holds that same budget and the same 38 links. For 0.8 further deliveries per node it buys a factor of four in downtime tolerance and a halved failure probability, and it is the split every table and figure in this proposal carries; a reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes. The budgets in the last column are read off the laws rather than observed: the churn experiment establishes that the shifted-fraction reduction holds, not the budget values. The measurements sit slightly above their predictions, and the excess pools onto M3 alone, matching a separate finding that M3's law is mildly optimistic wherever its pick count is small;[^finiten] suggestive rather than established, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
 
@@ -243,7 +233,7 @@ Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it
 <div align="center">
 <a name="table-5" id="table-5"></a>
 
-| | M3 gated, best compliant | M4 gated, as specified |
+| | M3 gated, best compliant | M4 gated reference (*B* = 500) |
 | --- | ---: | ---: |
 | Parameters | *RF* = 13, *s* = 7, *B* = 769 | *RF* = 10, *B* = 500, *C* = 23 |
 | Failure probability | 5.8 × 10⁻⁵ | **5.1 × 10⁻⁶** |
@@ -304,7 +294,7 @@ It bites where the population is small: on a topic drawing from three thousand p
 
 The same laws that give *p*<sub>bad</sub> give the risk borne by one named node, and the churn budget of each design bounds the epoch it sustains. Both are tabulated for every design here; the CIP carries the symmetric link's rows only.
 
-**Bounded duration.** The dissemination topology is re-derived every epoch from fresh public randomness, so a subscriber draws an independent peer set each epoch. Being surrounded entirely by adversarial peers in one epoch is already improbable; remaining so requires the draw to repeat, and the probability falls geometrically in the number of epochs. The same laws that give *p*<sub>bad</sub> give the risk borne by one named node. At *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2:
+**Repeated isolation.** The dissemination topology is re-derived every epoch from fresh public randomness, so a subscriber draws an independent peer set each epoch. Being surrounded entirely by adversarial peers in one epoch is already improbable; remaining so requires the draw to repeat, and the probability falls geometrically in the number of epochs. The same laws that give *p*<sub>bad</sub> give the risk borne by one named node. At *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2:
 
 <div align="center">
 <a name="table-7" id="table-7"></a>
@@ -312,14 +302,16 @@ The same laws that give *p*<sub>bad</sub> give the risk borne by one named node,
 | | M3 (13, 7) | M4 (RF = 9) |
 | --- | ---: | ---: |
 | One named node cut off in a given epoch | 2.7 × 10⁻⁹ | 3.8 × 10⁻¹⁰ |
-| The same node cut off again in the next | 7.5 × 10⁻¹⁸ | 1.4 × 10⁻¹⁹ |
+| The same named node cut off in both of two specified consecutive epochs | 7.5 × 10⁻¹⁸ | 1.4 × 10⁻¹⁹ |
 | *Some* node cut off, network-wide | 4.4 × 10⁻⁵ | 6.1 × 10⁻⁶ |
 
 <em>Table 7: Per-epoch isolation risk, per node and network-wide</em>
 
 </div>
 
-Isolation is a network-scale event, not a node-scale one: a given node's own exposure is about four orders of magnitude below the network-wide figure, so an operator asking "will this happen to me" and a protocol designer asking "will this happen to anyone" are asking questions with very different answers. And muting does not persist: because the draws are independent, the probability that a node already cut off is cut off again is the same one-in-a-billion draw a second time, so runs of consecutive muting are not a regime this design has to be provisioned against. Muting is therefore bounded in duration by the epoch length, with no evidence, accusation, or attribution required.
+The first row gives a named node's probability *q*. The second is the joint probability *q*² of isolation in two specified consecutive epochs, assuming independent outcomes. Conditional on already being isolated, the next epoch's probability remains *q*. The third row concerns any honest node in the network. These are predictions for the ungated comparison points, not the proposed gated configuration.
+
+Rotation gives another opportunity to reconnect; it does not impose a maximum isolation duration. Correlated outages and beacon failures can invalidate the independence assumption. See the CIP's discussion of recovery and retention.
 
 Links are not repaired within an epoch, so the longer one runs the more of the population has dropped out by the time the topology is judged. Setting the accumulated downtime equal to a design's churn budget gives the longest epoch it sustains: with *λ* the rate at which a node drops out, *T* = −ln(1 − *p*<sub>max</sub>) / *λ*.
 
@@ -343,7 +335,7 @@ Links are not repaired within an epoch, so the longer one runs the more of the p
 
 </div>
 
-Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and two days, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be: the design pressure runs the other way, since bounded muting is bounded by the epoch length.
+Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and two days, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be: the design pressure runs the other way, because shorter epochs provide more frequent opportunities to reconnect.
 
 The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available: a property of the [beacon](README.md#term-beacon), whose design is open. A per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce, M3 at (13, 7) would need a population departing less often than once every seven months, against two months for M4 at RF = 9.
 
@@ -370,7 +362,7 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 The CIP's gate sorts a pair by identity bytes and draws once. The alternative is to draw each direction on its own and admit the pair if either draw passes.
 
-- A pair passes twice as often, 2/*B* rather than 1/*B*. To leave the topology equally dense, *B* has to double.
+- A pair passes with probability 2/*B* − 1/*B*² rather than 1/*B*, assuming independent directional draws. For large *B*, matching the density therefore requires approximately doubling *B*.
 - At equal density the coverage is the same, so the looser rule buys nothing for what it costs.
 - It breaks a property the design leans on elsewhere: that a node's own picks can never be refused for want of [admissions budget](README.md#the-serving-cap).
 - Where that budget binds, it roughly doubles **honest starvation** — honest dials turned away because the budget is already spent.
