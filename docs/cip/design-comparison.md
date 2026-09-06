@@ -2,7 +2,7 @@
 
 A companion to the [Cardano PubSub CIP](README.md). It is not normative. The CIP specifies one dissemination design, the symmetric relay link, and its Rationale states why; this document sets out the five designs that were analysed before that choice, how each was parameterised, simulated and costed, and the measurements the CIP's numbers rest on. Every figure is generated from [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json) by the same script that generates the CIP's, which keeps the generated figures consistent with that data file. Prose and tables require separate cross-checks against the experiment write-ups.
 
-Everything here is measured against the [adversary the CIP defends against](README.md#the-adversary-this-proposal-defends-against), at the constants its Rationale fixes.
+The measurements and predictions below use the [adversary the CIP defends against](README.md#the-adversary-this-proposal-defends-against), at the stated reference configurations. The gated M4 reference remains *B* = 500, *k* = 10, *C* = 23. The CIP separately proposes evaluating *B* = 512, *k* = 10, *C* = 24; that candidate and the limitations of its coverage estimate are described under [The serving cap](README.md#the-serving-cap).
 
 ## The family
 
