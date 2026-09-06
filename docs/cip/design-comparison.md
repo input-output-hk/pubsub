@@ -38,12 +38,14 @@ Two observations bound what a bad draw costs.
 
 **Everything below is a way of estimating *p*<sub>bad</sub>, a cost paid to lower it, or a condition under which it rises.**
 
-Two independent instruments estimate it, built separately.
+The ungated coverage work uses two independently built instruments.
 
 - **Analysis** derives, for each design, a closed-form *coverage law* predicting *p*<sub>bad</sub> from the network size, the adversarial fraction and the design's own parameters, with its own simulator to check the law wherever sampling is feasible. The symmetric relay link's is stated under [The coverage law](README.md#the-coverage-law).
 - **Measurement** builds populations of the reference implementation's own node logic, the same code the node runs, driven by a deterministic scheduler in place of a network, then disseminates real messages and counts what happens.
 
 A closed form can approximate the wrong model; an implementation can faithfully run a subtly wrong protocol. They fail in unrelated ways, so **their agreement is the evidence offered here**, not either result alone. Every measurement is reproducible byte-for-byte from a tool commit, a configuration and a master seed.[^reproduction]
+
+The gated admission experiments use the reference-node instrument. Their closed forms were independently re-derived and reproduced in review; this is a separate analytical check, not a second implementation of the gated protocol.[^synthesis]
 
 ## Performance metrics
 

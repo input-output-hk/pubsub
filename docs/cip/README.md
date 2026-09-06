@@ -699,7 +699,7 @@ The assumptions *μ*, *δ*, *p* and *A* are declared by the deployment and read 
 
 </div>
 
-The quantities used only to *measure* a design — the epoch failure probability, the cost and latency metrics, and the churn budget — are defined in [Table 3 of the companion](design-comparison.md#table-3) and are not repeated here.
+The Rationale introduces the performance metrics alongside the results; [Table 3 of the companion](design-comparison.md#table-3) collects their definitions.
 
 ### Versioning
 
@@ -756,6 +756,8 @@ The main trade-off is traffic: M3's separate publication links use less bandwidt
 
 **Reference results.** At *N* = 20,000 and *μ* = 0.2, the experiment used *k* = 10, *B* = 500 and *C* = 23. Table 6 combines measured costs with predicted failure probability and downtime tolerance. The proposed bucket table instead gives *B* = 512; that configuration still needs a rerun.
 
+Here *p*<sub>bad</sub> is the probability that a drawn topology leaves some honest publisher unable to reach every honest subscriber. Deliveries count copies per publication received by an average honest node, including duplicates. Links count logical peer relationships held in either direction. Full-coverage hops measure forwarding depth to the last honest subscriber, not elapsed time. Downtime absorbed is the largest independent honest downtime fraction for which the predicted failure probability still meets *δ*.
+
 <div align="center">
 <a name="table-6" id="table-6"></a>
 
@@ -767,7 +769,7 @@ The main trade-off is traffic: M3's separate publication links use less bandwidt
 
 </div>
 
-The cost and latency columns are measured; *p*<sub>bad</sub> and the downtime absorbed are read off the [coverage law](#the-coverage-law), for the reason [Limits of this evidence](#limits-of-this-evidence) gives. The busiest-node column is the most connections any single honest node held over the sampled graphs, the figure a deployment sizes connection limits against, and a sample extreme rather than a bound.[^degrees] The synthesis ran at *B* = 500 where [Table 2](#table-2)'s rule gives 512 at that population; [What remains to be measured](#what-remains-to-be-measured) lists the re-run.
+The maximum observed is the largest link count held by any honest node over the sampled graphs, not a protocol bound.[^degrees] [Limits of this evidence](#limits-of-this-evidence) explains why failure probabilities and downtime tolerance are predicted rather than directly measured.
 
 Both measured costs are per topic, and a node that subscribes to several pays for each. For one-kilobyte messages arriving once a second on each topic, at *k* = 9, the pick count the ungated comparison was run at:
 
@@ -793,7 +795,7 @@ The experiments assess one topic and one fixed epoch topology at a time.
 
 The guarantee is a property of the drawn topology, not of an individual message: a draw is **good** when every honest publisher reaches every honest subscriber, and **bad** when some publisher is cut off for the whole epoch. The criterion is all-or-nothing because an average hides the failure that matters: 99.99 % delivery may be a tolerable trickle of losses or one publisher silenced completely. The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>.
 
-Two independently built instruments are compared: a mathematical model with its own simulator, and a deterministic scheduler that runs the reference prototype's node logic. Agreement supports the model where failures can be sampled. It does not exercise a real transport, on-chain registries or production cryptography. A tool commit, configuration and master seed identify each measurement.[^reproduction]
+The ungated coverage work compares two independently built instruments: a mathematical model with its own simulator, and a deterministic scheduler that runs the reference prototype's node logic. The gated admission experiments use the latter instrument; their closed forms were independently re-derived and reproduced in review, without a second implementation of the gated protocol.[^synthesis] Agreement supports the models where failures can be sampled. These experiments do not exercise a real transport, on-chain registries or production cryptography. A tool commit, configuration and master seed identify each measurement.[^reproduction]
 
 **Evaluation settings.** Table 8 states the populations, assumptions and pick counts used in the comparisons.
 
@@ -823,8 +825,6 @@ Every design's coverage law can be [evaluated interactively](https://pubsub.card
 $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
 Downtime relates to the drop-out rate and the epoch length by [*p*](#param-p) = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
-
-The remaining metrics, the transmissions and deliveries per publication, the links per node and the hops to full coverage, are defined in the [companion](design-comparison.md#performance-metrics) and quoted here where they are used.
 
 **Agreement and extrapolation.** The initial comparison checks 23 configurations at *N* = 4,000 and 20,000, with 150–30,000 draws per configuration. Figure 5 compares predicted and observed failure rates. Bars show 95 % Wilson intervals; the shaded band illustrates the interval at a common sample size. Hollow marks show additional downtime configurations.[^wilson]
 
