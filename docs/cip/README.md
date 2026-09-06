@@ -156,7 +156,7 @@ The protocol has two parts: shared services that establish membership and author
 For each topic, a node follows four steps:
 
 1. Read membership, publisher authority and deployment parameters at the epoch's registration cutoff.
-2. Apply the epoch's public randomness to determine its eligible peers, then privately select which peers to contact.
+2. Evaluate the gate using the epoch's public randomness and its own registered identity, then use private randomness to select which eligible peers to contact.
 3. Establish signed, bidirectional relay links, subject to the eligibility rule and the recipient's admission budget.
 4. Publish and relay signed messages, detect sequence gaps and request missing messages from peers' caches.
 
@@ -171,7 +171,7 @@ At the next epoch, nodes select links again using fresh randomness. This creates
 
 </div>
 
-Figure 1 separates the shared inputs from link formation and message delivery. The first four services in Table 1 supply those inputs; address resolution is used after a node has selected a peer to contact. Their detailed requirements and proposed providers appear under [Services](#services).
+Figure 1 shows four shared inputs: the node registry, topic registry, parameter output and randomness beacon. Each node also uses its own registered identity to evaluate the gate and private randomness to select peers; these are not shown as separate inputs. Address resolution is used after a node has selected a peer to contact. Table 1 lists the services, and [Services](#services) specifies their requirements and proposed providers.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
@@ -473,7 +473,12 @@ This section fixes the three key roles the protocol distinguishes, the constrain
 
 A publisher key MAY coincide with a node identity key, and a single publisher key MAY be authorised on several topics, but the roles do not imply one another: authorisation to publish does not admit a key to the node registry, and registration does not authorise publication.
 
-**What the rest of the Specification leans on.** Identity is the raw Ed25519 public key rather than a hash of it, because peers verify signatures against it directly on every handshake and because the [gate preimage](#the-verifiable-gate) consumes it raw. Anything that gates participation MUST be **snapshottable** — evaluable at a fixed chain position, identically by every node — since the topology derives from the [registration-cutoff snapshot](#term-snapshot) rather than from the chain tip. Any future anchoring to an existing credential MUST preserve both properties, or it reopens the derivation rather than extending it.
+**Requirements for identity anchoring.** The protocol relies on two properties:
+
+1. **Identity is the raw Ed25519 public key.** Peers use that key to verify handshake signatures, and the [gate preimage](#the-verifiable-gate) consumes its raw bytes. A hash of the key is not a substitute.
+2. **Participation eligibility is snapshottable.** Anything that gates participation MUST be evaluable at a fixed chain position, identically by every node. Topology derivation uses the [registration-cutoff snapshot](#term-snapshot), rather than the chain tip.
+
+Any future anchoring to an existing credential MUST preserve the raw Ed25519-key identity and snapshot-based eligibility requirements.
 
 **Proof of possession.** A registration transaction MUST carry a signature by the node identity key, in the notation [Canonical encoding](#canonical-encoding-and-domain-separation) fixes, over
 
