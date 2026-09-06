@@ -223,7 +223,7 @@ def fig_architecture() -> str:
     # four services, each an interface; the band makes no claim about where any of
     # them lives, and the beacon, the one that need not be on the chain, is dashed
     cols = (60, 254, 448, 642)  # the four columns both upper bands share
-    band(38, 96, 1, "The services the protocol reads")
+    band(38, 96, 1, "Shared inputs: registries and parameters on chain; beacon source open")
     bw = 170
     services = [("Node registry", "membership at the cutoff", None),
                 ("Topic registry", "publisher keys", None),
@@ -235,7 +235,7 @@ def fig_architecture() -> str:
         b.append(text(x + bw / 2 + 10, 156, lab, 10, "#6f6d66"))
 
     # the boundary between the shared state above and each node's own operation below
-    b.append(text(42, 152, "on the chain \u25b2", 9.5, "#6f6d66", weight="600"))
+    b.append(text(42, 152, "shared inputs \u25b2", 9.5, "#6f6d66", weight="600"))
     b.append(text(42, 166, "in every node \u25bc", 9.5, "#6f6d66", weight="600"))
 
     band(178, 118, 2, "In every node: public eligibility, then a private pick")
@@ -245,7 +245,7 @@ def fig_architecture() -> str:
         box(x, 220, 158, 38, head, col, col if col != INK_SOFT else INK)
     for x0 in (218, 412, 606):
         b.append(arrow(x0 + 2, 239, x0 + 34, 239, RULE, 1.6))
-    b.append(text(60, 282, "Recomputable by anyone holding the chain", 10, verifiable,
+    b.append(text(60, 282, "Public inputs determine eligible pairs", 10, verifiable,
                   weight="600"))
     b.append(text(304, 282, "→", 10, "#6f6d66"))
     b.append(text(324, 282, "the node's own draw, and not required to be checkable",
@@ -278,7 +278,7 @@ def fig_architecture() -> str:
                  "node turns those public inputs into its registered peers on a topic, "
                  "applies the verifiable gate, picks from the survivors with its own "
                  "private randomness, and holds the resulting links for the epoch; the "
-                 "steps up to the gate are recomputable by anyone holding the chain and "
+                 "steps up to the gate are recomputable from the shared public inputs and "
                  "the pick is not. Messages then travel over those links from publisher "
                  "through any number of relays to subscribers, signed once end to end. The beacon "
                  "is drawn dashed because it may be provided off the chain; address resolution, "
@@ -888,7 +888,7 @@ def fig_extrapolation(cells, ops, alternatives=(), only=None, gated=None) -> str
     W, H = 860, 460
     ml, mr, mt, mb = (262 if gated else 118), 34, 88, 108
     pw, ph = W - ml - mr, H - mt - mb
-    lo, hi = (2e-6 if gated else 1e-5), 1.4
+    lo, hi = 2e-6, 1.4
     lg = math.log10
 
     def sci(v):
@@ -949,16 +949,20 @@ def fig_extrapolation(cells, ops, alternatives=(), only=None, gated=None) -> str
         b.append(text((X(opv) + X(min(ps))) / 2, y - 11, f"{gap:.0f}\u00d7 rarer",
                       9.5, "#6f6d66", "middle"))
     if gated:
-        # the specified configuration: a prediction, with the one measurement that can be
-        # made at this rate, a count of zero failures, stated beside it
+        # The reference configuration: a model prediction beside the finite sample.
+        # Zero observed failures does not establish the predicted tail probability.
         y = mt + step * (nrows - 0.5)
         col = SERIES[gated["model"]]
         b.append(text(ml - 14, y + 4, gated["label"], 11.5, INK, "end", "600"))
         b.append(circle(X(gated["p_bad"]), y, 5.4, SURFACE, col, 2.2))
-        b.append(text(X(gated["p_bad"]) + 12, y + 4,
-                      f"predicted {sci(gated['p_bad'])} · measured {gated['measured_bad']} bad in "
-                      f"{gated['measured_runs']} draws · {sci(gated['flooded_p_bad'])} under wholesale flooding",
-                      9.5, "#6f6d66"))
+        b.append(text(xt + 16, y + 4,
+                      f"baseline prediction: {sci(gated['p_bad'])}", 11, "#6f6d66"))
+        b.append(text(xt + 16, y + 23,
+                      f"wholesale-flood prediction: {sci(gated['flooded_p_bad'])}",
+                      11, "#6f6d66"))
+        b.append(text(xt + 16, y + 42,
+                      f"each experiment: 0 bad in {gated['measured_runs']} draws; neither rate resolved",
+                      10.5, "#6f6d66"))
 
     b.append(text(ml + pw / 2, H - 44, "p_{bad}: chance an epoch's wiring fails",
                   12.5, INK, "middle", "600"))
@@ -969,28 +973,26 @@ def fig_extrapolation(cells, ops, alternatives=(), only=None, gated=None) -> str
     b.append(circle(ml + 6, ly - 4, 4.2, INK_SOFT, SURFACE, 1.5))
     b.append(text(ml + 16, ly, "a configuration that was measured", 11, INK_SOFT))
     b.append(circle(ml + 232, ly - 4, 5.4, SURFACE, INK_SOFT, 2.2))
-    b.append(text(ml + 243, ly, ("a proposed configuration: predicted by the law, too rare to sample"
-                                 if gated else
-                                 "the configuration this proposal uses: predicted by "
-                                 "the law, too rare to sample"), 11, INK_SOFT))
+    b.append(text(ml + 243, ly, ("model prediction at a reference point" if gated else
+                                 "ungated comparison point: model prediction"), 11, INK_SOFT))
 
     if gated:
-        return frame(W, H, b, "Measured configurations against the specified configuration",
+        return frame(W, H, b, "M4 measurements and reference predictions",
                      "One design, the symmetric relay link. The upper row is the ungated "
                      "comparison point at nine picks: solid marks are failure rates counted in "
                      "simulation at weaker configurations, the hollow mark the law's prediction "
                      "at the comparison point, and the dashed span between them is carried by the "
-                     "law alone. The lower row is the specified gated configuration, k = 10, "
+                     "law alone. The lower row is the gated reference configuration, k = 10, "
                      "B = 500, C = 23: a prediction of the composed gated law, beside the one "
-                     "measurement possible at that rate, zero failures in four hundred draws, and "
+                     "reported sample, zero failures in four hundred draws, and "
                      "the prediction under wholesale flooding by every adversarial identity. The "
                      "bucket-count table gives B = 512 at this population; that point has not been "
                      "re-run and is not shown.",
-                     conditions="N = 20,000 · μ = 0.2 · δ = 10⁻⁴ · specified: k = 10, B = 500, C = 23 · B = 512 not yet measured")
-    return frame(W, H, b, "Measured configurations against proposed ones",
+                     conditions="N = 20,000 · μ = 0.2 · δ = 10⁻⁴ · reference: k = 10, B = 500, C = 23 · B = 512 not yet measured")
+    return frame(W, H, b, "Sampled failures and ungated comparison predictions",
                  "For each design, the failure rates of the configurations that were "
                  "measured, and the far lower rate of the configuration actually "
-                 "proposed. The two are separated by about two orders of magnitude, "
+                 "used for comparison. The two are separated by about two orders of magnitude, "
                  "spanned by the coverage laws rather than by measurement.",
                  conditions="N = 20 000 · μ = 0.2 · δ = 10⁻⁴")
 

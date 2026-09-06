@@ -113,7 +113,7 @@ The beacon, deployment parameters and several interoperability rules remain open
 - [Figure 4: Joining as a node](#figure-4)
 - [Figure 5: Measured against predicted epoch failure probability, across the five designs the companion describes](#figure-5)
 - [Figure 6: Historical directional gate experiment (M2, 4,000 nodes, 16 picks)](#figure-6)
-- [Figure 7: Sampled failures and predicted ungated comparison points](#figure-7)
+- [Figure 7: M4 measurements and reference predictions](#figure-7)
 
 </details>
 
@@ -173,7 +173,7 @@ At the next epoch, nodes select links again using fresh randomness. This creates
 
 </div>
 
-Figure 1 shows four shared inputs: the node registry, topic registry, parameter output and randomness beacon. Each node also uses its own registered identity to evaluate the gate and private randomness to select peers; these are not shown as separate inputs. Address resolution is used after a node has selected a peer to contact. Table 1 lists the services, and [Services](#services) specifies their requirements and proposed providers.
+Figure 1 shows four shared inputs: the node registry, topic registry, parameter output and randomness beacon. The dashed beacon box marks a source that may be off-chain; the other three inputs are on-chain state. Each node also uses its own registered identity to evaluate the gate and private randomness to select peers; these are not shown as separate inputs. Address resolution is used after a node has selected a peer to contact. Table 1 lists the services, and [Services](#services) specifies their requirements and proposed providers.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
@@ -979,16 +979,16 @@ A beacon based on the Cardano ledger epoch nonce would provide fresh values only
 
 **The gated layer has been reproduced, but not formally derived.** The closed forms behind the admission rules were derived after the measurements, on one instrument, then validated against them and independently re-derived and reproduced number for number in review; what they still lack is a derivation document in the style of the formal analysis behind the ungated coverage laws.
 
-**Tail probabilities are extrapolated.** The operating points rarely fail, so the coverage tests use weaker configurations with countable failures. Figure 7 shows the sampled failure rates and predicted **ungated comparison points**, including M4 at *k* = 9. Despite its internal legend, it does not plot the proposed *k* = 10, *B* = 512 configuration. The dashed spans are supported by the models rather than direct measurements at the endpoints.
+**Tail probabilities are extrapolated.** Figure 7 separates M4's ungated *k* = 9 comparison from the gated reference at *k* = 10, *B* = 500 and *C* = 23. The upper row connects countable failures at weaker configurations to the comparison-point prediction. The lower row gives the reference predictions: 5.1 × 10⁻⁶ at baseline and 1.25 × 10⁻⁵ under wholesale flooding by all 4,000 adversarial identities. Each corresponding experiment observed zero bad draws in 400 trials; that sample cannot resolve either predicted rate.[^synthesis] The proposed *B* = 512 configuration has not been rerun and is not plotted. The five-design chart is retained in the [companion](design-comparison.md#figure-7).
 
 The gated reference experiment measures costs at *B* = 500. Its failure probability remains a prediction, and the proposed *B* = 512 still needs validation.
 
 <div align="center">
 <a name="figure-7" id="figure-7"></a>
 
-![Measured failure rates and predicted ungated operating points for five designs](images/measured-vs-proposed.svg)
+![M4 sampled failure rates, an ungated comparison prediction, and gated reference predictions](images/measured-vs-proposed.svg)
 
-<em>Figure 7: Sampled failures and predicted ungated comparison points</em>
+<em>Figure 7: M4 measurements and reference predictions</em>
 
 </div>
 
@@ -1034,8 +1034,8 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 
 This draft is not yet implementation-ready. Activation requires observable deliverables in the following areas:
 
-- [ ] Complete the interoperability specification: beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings, message ordering, and recovery exchanges.
-- [ ] Resolve the on-chain rules and schemas, including topic identifiers, registration uniqueness, publisher authorisation and deployment parameter authority.
+- [ ] Complete the interoperability specification: beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings (including handshake recipient and deployment binding), message ordering, and recovery exchanges.
+- [ ] Resolve the on-chain rules and schemas, including topic identifiers, registration uniqueness, publisher authorisation, credential encodings and deployment parameter authority.
 - [ ] Publish a deployment profile stating adversarial participation, identity cost, failure target, expected downtime, epoch length, retention and resource limits. Reconcile its bucket table, pick count and cap with the coverage estimate.
 - [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs.
 - [ ] Specify behaviour during a chain halt, fork or unavailable service, including which operations may continue from existing state and which guarantees are suspended.
@@ -1356,6 +1356,9 @@ validated, and the rows are listed here in the order it is worth measuring them.
    these are the rows where the gate leaves the least headroom. Measure at each floor.
 5. **The first row.** Confirm completeness at eleven nodes and below, and measure realised degree
    and isolation at twelve, twenty, thirty and forty against finite-population predictions.
+6. **The selected design's gate trade-off.** Measure an M4 bucket-count ladder at *k* = 10,
+   with the cap and adversarial budget stated for every cell. Figure 6 is historical M2
+   evidence, and E18's symmetric ladder used *k* = 16; neither directly supplies this chart.
 
 **What the table does not carry.** The serving cap is not in it. The cap is the acceptor's own
 capacity commitment, so two nodes that size it differently do not disagree about which links are

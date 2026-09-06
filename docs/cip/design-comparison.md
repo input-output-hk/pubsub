@@ -179,6 +179,17 @@ In the figure below each point is one measured sample, its horizontal position t
 
 The hollow marks are the same check run under honest downtime. A design's churn budget cannot be sampled directly, since resolving a rate near 10⁻⁴ takes 10⁵ to 10⁶ draws per churn level; what can be tested is the reduction beneath it, downtime entering as a shift in the adversarial fraction, at parameters where failures are frequent enough to count. **In 38 of 40 configurations**, spanning the five designs, downtime to 35 % offline and the two configurations this proposal names, the shifted-fraction prediction lands inside the measurement's 95 % interval, two misses being what forty comparisons at that confidence are expected to produce; the sweep carries the reduction from an adversarial fraction of 0.20 out to 0.48.[^churn] The budgets in [Table 4](#table-4) follow from the laws so validated.
 
+The comparison points lie below the sampled failure rates. Filled marks in Figure 7 are observed rates at weaker configurations; hollow marks are model predictions for the ungated comparison points. The dashed spans show the extrapolation. The CIP separately presents the gated M4 reference experiment and its limitations.
+
+<div align="center">
+<a name="figure-7" id="figure-7"></a>
+
+![Sampled failure rates and predicted ungated comparison points for five designs](images/measured-vs-proposed-all.svg)
+
+<em>Figure 7: Sampled failures and predicted ungated comparison points</em>
+
+</div>
+
 ## Cost at each design's configuration
 
 Every design is shown at the configuration this proposal names for it, at *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2, and every table and figure in the Rationale carries the same configurations. For M1, M2 and M5 that is the cheapest one meeting [*δ*](README.md#param-delta) = 10⁻⁴. For M3 and M4 it is the preferred split rather than the published one: each has a configuration at the same or nearly the same cost that absorbs several times the downtime, and carrying the superseded ones would mean comparing at parameters the rest of this proposal argues against.
@@ -211,11 +222,11 @@ The first five rows are ungated, at the configurations the coverage models were 
 A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.[^axes]
 
 <div align="center">
-<a name="figure-7" id="figure-7"></a>
+<a name="figure-8" id="figure-8"></a>
 
 ![Four-way trade-off between the surviving candidates](images/tradeoff-radar.svg)
 
-<em>Figure 7: Four-way trade-off across the non-dominated designs</em>
+<em>Figure 8: Four-way trade-off across the non-dominated designs</em>
 
 </div>
 
@@ -259,7 +270,7 @@ Of the three the radar leaves, M2 is behind M4 on every axis but speed, where it
 
 **Availability is where the two taxes compound rather than merely add.** Ungated, the directional design absorbed 2.17 % downtime against the symmetric design's 7.43 %, a factor of three; under the admission rules the gap widens to a factor of five: with no honest picker able to repair both directions, every node lost to downtime is one that cannot rescue anyone.
 
-**Cost does not decide.** The trade the radar shows is real, M3 cheaper in traffic and M4 in connections, and whether bandwidth or connections bind in a deployment remains a real question; but an answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, and a weighting chooses among candidates that all clear the bar. Nor do the radar's axes divide into security and performance as cleanly as they look: of the four in [Figure 7](#figure-7), only bandwidth is straightforwardly a performance figure, downtime absorbed is an availability property and time to the last subscriber a liveness bound, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
+**Cost does not decide.** The trade the radar shows is real, M3 cheaper in traffic and M4 in connections, and whether bandwidth or connections bind in a deployment remains a real question; but an answer favouring bandwidth would have bought a design that cannot reach the reliability target at equal attack cost, and a weighting chooses among candidates that all clear the bar. Nor do the radar's axes divide into security and performance as cleanly as they look: of the four in [Figure 8](#figure-8), only bandwidth is straightforwardly a performance figure, downtime absorbed is an availability property and time to the last subscriber a liveness bound, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
 
 ## Per-node cost against subscriptions
 
@@ -343,14 +354,14 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 ## Sensitivity to the adversarial fraction
 
-**The adversarial fraction is chosen, not derived.** The designs are sized at a single [*μ*](README.md#param-mu), an assumption about who registers and what registration costs them. The laws have since been measured from 0.20 to 0.40 natively and to 0.48 through churn, so *reading* a design off its law at another fraction is evidence-backed;[^musweep] *picking* the fraction is not, and the designs do not degrade at equal rates as it varies ([Figure 8](#figure-8)): moving right assumes a more hostile registry, moving up is a worse chance that an epoch's draw cuts some honest node off, and each curve is one design held at its proposed configuration, out of the target once it crosses the dashed line. The horizontal distance from *μ* = 0.2 to a design's crossing is its margin for that assumption being wrong.
+**The adversarial fraction is chosen, not derived.** The designs are sized at a single [*μ*](README.md#param-mu), an assumption about who registers and what registration costs them. The laws have since been measured from 0.20 to 0.40 natively and to 0.48 through churn, so *reading* a design off its law at another fraction is evidence-backed;[^musweep] *picking* the fraction is not, and the designs do not degrade at equal rates as it varies ([Figure 9](#figure-9)): moving right assumes a more hostile registry, moving up is a worse chance that an epoch's draw cuts some honest node off, and each curve is one design held at its proposed configuration, out of the target once it crosses the dashed line. The horizontal distance from *μ* = 0.2 to a design's crossing is its margin for that assumption being wrong.
 
 <div align="center">
-<a name="figure-8" id="figure-8"></a>
+<a name="figure-9" id="figure-9"></a>
 
 ![The proposed configurations as the adversarial fraction varies](images/mu-sensitivity.svg)
 
-<em>Figure 8: The proposed configurations as the adversarial fraction varies</em>
+<em>Figure 9: The proposed configurations as the adversarial fraction varies</em>
 
 </div>
 
