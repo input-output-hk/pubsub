@@ -491,7 +491,7 @@
     "master_seed": 1139,
     "flood_config": "m4-synthesis/flood-n20k-k10-b500-cap23.toml",
     "flood_master_seed": 1140,
-    "note": "E20 (m4-synthesis.md): the specified configuration. p_bad is the composed gated law's prediction; the measurement at seed 1139 is 400/400 good. Under the wholesale flooder, every adversarial identity dialling (4,000 at N = 20,000, mu = 0.2), the composed law gives 1.25e-5, measured 400/400 good at seed 1140. Not read by the figure checker; the CIP-only extrapolation figure reads it."
+    "note": "E20 (m4-synthesis.md): the B=500 reference configuration; the CIP bucket table specifies B=512. p_bad is the composed gated law's prediction; the measurement at seed 1139 is 400/400 good. Under the wholesale flooder, every adversarial identity dialling (4,000 at N = 20,000, mu = 0.2), the composed law gives 1.25e-5, measured 400/400 good at seed 1140. Not read by the figure checker; the CIP-only extrapolation figure reads it."
   },
   "convergence": {
     "dial_waves": 2,
