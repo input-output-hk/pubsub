@@ -154,16 +154,18 @@ A [reference prototype](#this-proposals-reference-implementation) supplies the n
 
 ### Overview
 
-The protocol has two parts: shared services that establish membership and authority, and an off-chain network that carries messages. PubSub [nodes](#term-node) run as separate processes alongside Cardano nodes and exchange messages on [topics](#term-topic), named message streams.
+A publisher uses PubSub to send a message to a [topic](#term-topic), a named message stream such as a stake pool's announcements. Subscribers choose the topics whose messages they want to receive. PubSub [nodes](#term-node) are the processes that exchange these messages; they run separately from Cardano nodes. Every subscribing node also forwards messages to other nodes it is connected to on that topic, so the publisher does not have to send a separate copy to every subscriber.
 
-For each topic, a node repeats four steps in each [dissemination epoch](#term-epoch):
+The protocol has two parts. Shared services record which nodes participate in each topic, who is allowed to publish there, and the settings the network uses. Nodes read these records from Cardano and use them to build an off-chain network that carries the messages. A shared source of randomness helps determine which nodes may connect; this source may be outside Cardano. Message content stays off chain.
 
-1. Read membership, publisher authority and deployment parameters at a fixed chain position.
-2. Apply the **gate**, the public rule for pair eligibility, using the epoch's randomness and its own registered identity. Then use private randomness to select which eligible peers to contact.
-3. Establish signed, bidirectional [links](#term-link) to the selected peers, subject to the eligibility rule and the recipient's admission budget.
-4. Publish signed messages, relay those received from peers, detect sequence gaps and request missing messages from peers' caches.
+For each topic, a node periodically chooses other nodes, its **peers**, to exchange messages with. It keeps that selection for a [dissemination epoch](#term-epoch), then chooses again. The process has four steps:
 
-At the next epoch, nodes select links again using fresh randomness. This creates another opportunity for an isolated subscriber to reach honest peers.
+1. **Read the shared records.** Find the nodes registered for the topic, the keys permitted to publish on it, and the shared settings. Every node reads these records as they stood at the same agreed position in the Cardano chain, so they start from the same information.
+2. **Choose which peers to contact.** For each other registered node on the topic, apply the **gate**: a public rule that decides whether these two nodes are allowed to open a link on this topic during this epoch. The rule uses both nodes' registered identity keys, the topic and the epoch's shared random value. From the peers that pass, choose a limited number using the node's own private randomness.
+3. **Ask the selected peers to connect.** Send each peer a signed request to open a [link](#term-link), a channel for exchanging messages on this topic. The peer checks the request and the gate rule. It also limits the additional links it accepts beyond its own selections, so a permitted connection can still be refused for lack of capacity. An accepted link carries messages in both directions.
+4. **Publish, forward and recover messages.** Publishers sign their messages. A receiving node checks that a message is valid and its publisher is allowed to publish on the topic before delivering it to the subscribed application or forwarding it to connected peers. Each publisher numbers its messages on a topic. A gap in those numbers reveals a missing message, which the node tries to recover from copies its peers have temporarily stored.
+
+At the next epoch, nodes choose peers again using fresh randomness. A subscriber whose current peers are all offline or withholding messages gets another opportunity to connect to peers that will forward them. Repeated isolation remains possible; choosing again does not guarantee delivery.
 
 <div align="center">
 <a name="figure-1" id="figure-1"></a>
@@ -174,26 +176,26 @@ At the next epoch, nodes select links again using fresh randomness. This creates
 
 </div>
 
-Figure 1 shows four shared inputs: the node registry, topic registry, parameter output and randomness beacon. The dashed beacon box marks a source that may be off-chain; the other three inputs are on-chain state. Each node also uses its own registered identity to evaluate the gate and private randomness to select peers; these are not shown as separate inputs. Address resolution is used after a node has selected a peer to contact. Table 1 lists the services, and [Services](#services) specifies their requirements and proposed providers.
+Figure 1 shows the three shared records used in step 1: the node registry, topic registry and parameter output. The randomness beacon supplies the common random value used in step 2. Its dashed box marks a source that may be off-chain; the three records are stored on Cardano. Each node also uses its identity key and private randomness, which are not shown as separate inputs. After selecting a peer, the node uses address resolution to find the network address to contact in step 3. Table 1 lists these services; [Services](#services) specifies their requirements and proposed providers in detail.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
 
 | Service | Supplies | What the protocol needs of it | Specified provider |
 | --- | --- | --- | --- |
-| [Node registry](#the-node-registry) | Who participates, on which topics, under which identity key, against what deposit | Enumerable by every node at one fixed position; an entry costly to create, standing until retired | One Cardano script output per node |
-| [Topic registry](#the-topic-registry) | Which topics exist, who may publish on each, and how long its messages are retained | Enumerable at the same fixed position; writable only by the topic's owner | One script output per topic |
-| [Parameter output](#the-parameter-output) | Which deployment this is, and its epoch length | One per deployment, readable at the fixed position; a change announced an epoch ahead | A singleton script output |
-| [Randomness beacon](#the-randomness-beacon) | One value *η*<sub>e</sub> per epoch | Unbiasable, grinding-resistant, recomputable by every node, and fixed only after the epoch's membership has closed | Open: chain-derived or external |
-| [Address resolution](#address-resolution) | An address for a registered identity | Authenticated to the identity key, resolvable by every peer, refreshable within an epoch, failing closed | The endpoint in the node's own entry |
+| [Node registry](#the-node-registry) | Registered nodes, their topics, identity keys and deposits | Every node can read the complete list at the agreed chain position; creating an entry has a cost, and it remains until retired | One Cardano script output per node |
+| [Topic registry](#the-topic-registry) | Existing topics, permitted publishers and how long messages are kept | Every node can read the complete list at the same position; only the topic's owner may change its entry | One script output per topic |
+| [Parameter output](#the-parameter-output) | Which deployment this is and how long its epochs last | One shared record per deployment, read at the same position; changes announced an epoch ahead | A single script output |
+| [Randomness beacon](#the-randomness-beacon) | One shared random value for each epoch | Every node can obtain the same value from public data; an attacker cannot steer it towards preferred connections, including by trying many alternatives; it becomes known only after membership is fixed | Source still open: derived from Cardano or supplied externally |
+| [Address resolution](#address-resolution) | The network address at which a registered node can be contacted | Every peer can look it up and verify it against the node's identity key; it can change during an epoch; a failed lookup leaves the node unreachable | The network address in the node's own registry entry |
 
 <em>Table 1: The services the protocol reads</em>
 
 </div>
 
-The proposed providers store the two registries and deployment parameters on Cardano. The beacon may be external. Specifying these services through interfaces allows alternative providers to be assessed against the same requirements; it does not by itself provide failover when Cardano is unavailable. Halt and fork behaviour remains an [open question](#open-questions).
+Table 1 separates what each service must provide from how this proposal provides it. Other providers can be assessed against those requirements. The proposed registries and parameter record still depend on Cardano; choosing an external randomness source does not remove that dependency. Behaviour during a chain halt, fork or unavailable service remains an [open question](#open-questions).
 
-Membership comes from a shared registry rather than peer recommendations. Any node can recompute whether a pair is eligible to connect. Actual peer selections use private randomness: the gate constrains an adversary's choices, but does not prove that it selected uniformly or participated at all.
+Because nodes start from a shared registry, they do not depend on peers to recommend whom to contact. Anyone can check whether a link between two registered nodes is allowed for that topic and epoch. This limits an attacker's choice of connections, but it cannot prove that a node chose its peers randomly or forwarded messages.
 
 ### Epochs
 
