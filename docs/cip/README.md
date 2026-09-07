@@ -154,20 +154,14 @@ A [reference prototype](#this-proposals-reference-implementation) supplies the n
 
 ### Overview
 
-The protocol has two parts: shared services that establish membership and authority, and an off-chain network that carries messages. A **topic** is a named stream of messages.
+The protocol has two parts: shared services that establish membership and authority, and an off-chain network that carries messages. PubSub [nodes](#term-node) run as separate processes alongside Cardano nodes and exchange messages on [topics](#term-topic), named message streams.
 
-A [**node**](#term-node) is a registered PubSub process, separate from the Cardano node it reads. PubSub has its own registry; stake pool or dRep registration does not enrol a node here. Every subscriber acts as a [**relay**](#term-relay) by forwarding messages on its topics; this is a role, not an SPO relay node.
+For each topic, a node repeats four steps in each [dissemination epoch](#term-epoch):
 
-A [**dissemination epoch**](#term-epoch) is the period for which nodes keep one selection of peers. Its duration is a deployment parameter, separate from Cardano's five-day ledger epoch. In this CIP, “epoch” means a dissemination epoch unless explicitly qualified.
-
-The [**snapshot**](#term-snapshot) records the registries and deployment parameters at a fixed chain position, the **registration cutoff**, before the epoch's randomness is known. This is a PubSub snapshot, separate from the ledger's stake-distribution snapshots.
-
-For each topic, a node follows four steps:
-
-1. Read membership, publisher authority and deployment parameters at the epoch's registration cutoff.
+1. Read membership, publisher authority and deployment parameters at a fixed chain position.
 2. Apply the **gate**, the public rule for pair eligibility, using the epoch's randomness and its own registered identity. Then use private randomness to select which eligible peers to contact.
-3. Establish signed, bidirectional [**links**](#term-link): logical channels to peers on this topic. Several links may share one transport connection. Each link must pass the eligibility rule and the recipient's admission budget.
-4. Publish and relay signed messages, detect sequence gaps and request missing messages from peers' caches.
+3. Establish signed, bidirectional [links](#term-link) to the selected peers, subject to the eligibility rule and the recipient's admission budget.
+4. Publish signed messages, relay those received from peers, detect sequence gaps and request missing messages from peers' caches.
 
 At the next epoch, nodes select links again using fresh randomness. This creates another opportunity for an isolated subscriber to reach honest peers.
 
@@ -203,9 +197,9 @@ Membership comes from a shared registry rather than peer recommendations. Any no
 
 ### Epochs
 
-Dissemination epoch *e* lasts for *T*<sub>epoch</sub>, read from the [parameter output](#the-parameter-output). Nodes keep their selected topology for that period and draw fresh links for the next. Repeated isolation remains possible; the Rationale states its [probability and assumptions](#what-the-protocol-guarantees-instead).
+A **dissemination epoch**, indexed *e*, is the period for which nodes keep their selected topology. Its duration, *T*<sub>epoch</sub>, is read from the [parameter output](#the-parameter-output) and is independent of Cardano's five-day ledger epoch. In this CIP, “epoch” means a dissemination epoch unless explicitly qualified. Nodes draw fresh links for the next epoch. Repeated isolation remains possible; the Rationale states its [probability and assumptions](#what-the-protocol-guarantees-instead).
 
-The registration cutoff must precede determination of the epoch's randomness, *η*<sub>e</sub>, so membership changes cannot be chosen after seeing where an identity would land. [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) specifies the snapshot rules; the [beacon](#the-randomness-beacon) supplies the randomness.
+To derive that topology, nodes read a [snapshot](#term-snapshot) of both registries and the parameter output at a fixed chain position, the **registration cutoff**. This records PubSub state, separately from the ledger's stake-distribution snapshots. The cutoff must precede determination of the epoch's randomness, *η*<sub>e</sub>, so membership changes cannot be chosen after seeing where an identity would land. [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff) specifies the snapshot rules; the [beacon](#the-randomness-beacon) supplies the randomness.
 
 Epoch length must allow topology formation and a fresh beacon value, while remaining within the downtime budget. These constraints are discussed under [How long an epoch may be](#how-long-an-epoch-may-be).
 
@@ -311,7 +305,7 @@ From its eligible set on each topic and for each link kind, a node picks *k* of 
 
 #### The relay link and the pick count
 
-**Each topic uses one symmetric relay link kind.** A link is established once per pair and carries both local publications and relayed messages in both directions. Every subscriber relays; no separate relay tier or publication-seeding link is required. The gate tag and sorted-key rule are defined under [The verifiable gate](#the-verifiable-gate).
+**Each topic uses one symmetric relay link kind.** A link is established once per pair and carries both local publications and relayed messages in both directions. Every subscriber acts as a [relay](#term-relay) by forwarding messages for its topics; this is a role, not an SPO relay node. No separate relay tier or publication-seeding link is required. The gate tag and sorted-key rule are defined under [The verifiable gate](#the-verifiable-gate).
 
 With at most *k* selections and *C* peer-initiated admissions, a node holds at most *k* + *C* links per topic. This design is called M4 in the analysis and [companion comparison](design-comparison.md).
 
