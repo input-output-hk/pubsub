@@ -222,9 +222,9 @@ The three rows are the same peers, marked three times over.
 
 - **Row 1** is everyone registered on the topic, taken from the [node registry](#the-node-registry) as it stood at that epoch's [registration cutoff](#term-snapshot), so every node reads the same list.
 - **Row 2** is the smaller set this node may link with; the [bucket count](#term-b) *B* decides how much smaller, and a node looks it up in [Table 2](#table-2) by how many peers the topic has.
-- **Row 3** is the *k* of those that the node picks, using randomness of its own.
+- **Row 3** is the *k* peers the node picks from row 2, using randomness of its own.
 
-The figure uses a schematic example: 32 peers, eight shown as eligible and four selected. These illustrate the three sets, not a deployment configuration; Table 2 switches the gate off at this population. Selection headroom is an expected pool-to-pick ratio, not a guarantee about each realised pool.
+The figure uses a schematic example: 32 peers, eight shown as eligible and four selected. These illustrate the three sets, not a deployment configuration; Table 2 switches the gate off at this population. [Selection headroom](#term-r) measures how much choice the node has: the expected number of eligible peers in row 2 for each peer it plans to pick in row 3. It does not guarantee the size of any individual node's eligible set.
 
 Rows 1 and 2 are publicly recomputable. Row 3 is private and cannot be checked for uniform selection or participation. The full acceptance procedure, including signature, epoch, membership, gate and capacity checks, is specified under [Link establishment](#link-establishment).
 
