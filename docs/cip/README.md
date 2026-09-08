@@ -37,7 +37,6 @@ The beacon, deployment parameters and several interoperability rules remain open
 - [Specification](#specification)
   - [Overview](#overview)
   - [Epochs](#epochs)
-  - [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation)
   - [Topology derivation](#topology-derivation)
     - [The registered peers on a topic](#the-registered-peers-on-a-topic)
     - [The verifiable gate](#the-verifiable-gate)
@@ -59,6 +58,7 @@ The beacon, deployment parameters and several interoperability rules remain open
     - [Address resolution](#address-resolution)
     - [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff)
   - [Parameters](#parameters)
+  - [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation)
   - [Versioning](#versioning)
 - [Rationale: How does this CIP achieve its goals?](#rationale-how-does-this-cip-achieve-its-goals)
   - [The adversary this proposal defends against](#the-adversary-this-proposal-defends-against)
@@ -205,17 +205,6 @@ To derive that topology, nodes read a [snapshot](#term-snapshot) of both registr
 
 Epoch length must allow topology formation and a fresh beacon value, while remaining within the downtime budget. These constraints are discussed under [How long an epoch may be](#how-long-an-epoch-may-be).
 
-### Canonical encoding and domain separation
-
-Every signature in the protocol is over a canonical byte string, never over a serialised structure, so that two implementations cannot disagree by encoding the same content differently. Four rules apply throughout:
-
-- Variable-length fields are **length-prefixed**, written `LP(x)`: a four-byte big-endian length followed by the bytes.
-- Fields are joined by plain byte **concatenation**, written ‖, with no separator between fields.
-- Integers are **big-endian and fixed width**.
-- Every preimage begins with a length-prefixed **domain tag** naming what is being signed, so a signature valid in one role cannot be replayed into another.
-
-A node identity is an Ed25519 public key,[^ed25519] and wherever it enters a preimage it is consumed raw, never in a display form.
-
 ### Topology derivation
 
 Eligibility is a pure function of the epoch's snapshot, *η*<sub>e</sub> and the node's identity. Nodes with the same inputs agree on eligible pairs without exchanging messages. Selecting actual peers from that set additionally uses private randomness.
@@ -245,17 +234,17 @@ Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *
 
 #### The verifiable gate
 
-The gate is the step from row 1 to row 2 of [Figure 2](#figure-2): it narrows the candidates to those a node is permitted to link with in this epoch. For a pair (*a*, *b*) on topic *T* under randomness *η*, with domain tag *d* and [bucket count](#term-b) *B*:
+The gate is the step from row 1 to row 2 of [Figure 2](#figure-2): it narrows the candidates to those a node is permitted to link with in this epoch. For a pair (*a*, *b*) on topic *T* under randomness *η*, with an operation label *d* (the **domain tag**) and [bucket count](#term-b) *B*:
 
 $$\mathrm{gate}_d(a, b, T, \eta, B) \iff \mathrm{trunc}_{64}\big(\mathrm{SHA\text{-}256}(P)\big) \bmod B = 0$$
 
 A pair passes when its digest lands in bucket zero, so one pair in *B* is admitted. Every value of *B* in [Table 2](#table-2) is a power of two, which makes that reduction a mask on the low bits rather than a division, and the pass rate exactly 1/*B*.
 
-The preimage *P* and its reduction are fixed exactly as follows, since any divergence makes two implementations disagree about which links are legal:
+To compute the gate, both nodes build the same byte string *P*, the input to the hash, also called its **preimage**. [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation) defines the shared rules for constructing hash and signature inputs. For this gate:
 
 $$P = \mathrm{LP}(d) \,\|\, \mathrm{LP}(\eta) \,\|\, \mathrm{LP}(T) \,\|\, \mathrm{LP}(a) \,\|\, \mathrm{LP}(b)$$
 
-`LP` is the length prefix defined under [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation); *T* is the raw 32-byte topic identifier and *a*, *b* are the raw identity public keys, never a display form. The two keys MUST be sorted by their raw bytes before they enter *P*, so that both ends compute the same preimage and the same answer, and neither can claim a link the other cannot see. `trunc`<sub>64</sub> takes the first eight bytes of the digest as a big-endian unsigned integer. *B* = 1 makes the gate vacuous and every registered peer eligible, which is the correct degenerate behaviour on a topic too small to bucket.
+Here `LP` adds a length prefix and ‖ joins byte strings; *T* is the raw 32-byte topic identifier and *a*, *b* are the raw identity public keys, never a display form. The two keys MUST be sorted by their raw bytes before they enter *P*, so that both ends compute the same preimage and the same answer, and neither can claim a link the other cannot see. `trunc`<sub>64</sub> takes the first eight bytes of the digest as a big-endian unsigned integer. *B* = 1 makes the gate vacuous and every registered peer eligible, which is the correct degenerate behaviour on a topic too small to bucket.
 
 The sorted-pair gate gives one eligibility draw per relationship. The [companion](design-comparison.md#the-either-direction-rule) compares it with admitting a pair when either directional draw passes.
 
@@ -727,6 +716,19 @@ The assumptions *μ*, *δ*, *p* and *A* are declared by the deployment and read 
 </div>
 
 The Rationale introduces the performance metrics alongside the results; [Table 3 of the companion](design-comparison.md#table-3) collects their definitions.
+
+### Canonical encoding and domain separation
+
+The [gate](#the-verifiable-gate), [link handshake](#link-establishment), [published messages](#messages), [registration proof](#identity-and-keys) and [topic identifier](#the-topic-registry) above all depend on the exact bytes hashed or signed. Implementations must construct those bytes identically: otherwise they can disagree about permitted links or topic identifiers, or reject each other's signatures. The following rules define those cryptographic inputs, independently of the format used to transmit messages:
+
+- Variable-length fields are **length-prefixed**, written `LP(x)`: a four-byte big-endian length followed by the bytes.
+- Fields are joined by plain byte **concatenation**, written ‖, with no separator between fields.
+- Integers are **big-endian and fixed width**.
+- Every preimage begins with a length-prefixed **domain tag** naming what is hashed or signed, so a signature valid in one role cannot be replayed into another.
+
+For example, `pubsub/register/v1` distinguishes a registration proof from a handshake signed under `pubsub/link/v1`, even though both use the node's identity key. This separation by purpose is **domain separation**.
+
+A node identity is an Ed25519 public key,[^ed25519] and wherever it enters a preimage it is consumed raw, never in a display form.
 
 ### Versioning
 
