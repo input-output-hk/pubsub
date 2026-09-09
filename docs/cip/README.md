@@ -272,12 +272,14 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 **Only one of these has to be identical across nodes.** An acceptor verifies pairwise eligibility on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
-*B* MUST therefore be the value [Table 2](#table-2) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself, stated under [the relay link and the pick count](#the-relay-link-and-the-pick-count) and [the serving cap](#the-serving-cap). The table is published by this document rather than the chain, and only the topic gaining or losing members can move a row.
+In the table-based proposal, implementations include the agreed bucket table in the node software; [Table 2](#table-2) gives the candidate values. Each node MUST use the topic's registered population at the epoch's [snapshot](#term-snapshot) to look up *B* locally, and all nodes on that topic MUST use the same table and value. Nodes do not fetch the table from this document or GitHub at runtime. Whether to obtain *B* from an on-chain record instead remains open.
+
+The pick count *k* and admission budget *C* are configured profile values, described under [the relay link and the pick count](#the-relay-link-and-the-pick-count) and [the serving cap](#the-serving-cap). Choosing *B* must account for those values: narrowing the eligible pool affects both the peers a node selects and the requests it receives through symmetric links.
 
 <div align="center">
 <a name="table-2" id="table-2"></a>
 
-| Registered nodes on the topic | *B* | Mask bits | Recommended *k* |
+| Registered nodes on the topic | *B* | Mask bits | Candidate *k* |
 | ---: | ---: | :--: | ---: |
 | 2 – 40 | 1 | 0 — gate off | 10 |
 | 41 – 80 | 2 | 1 | 10 |
@@ -294,9 +296,9 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 </div>
 
-The mask-bits column gives the number of low hash bits that must be zero for a pair to be eligible.
+For the evaluated hash baseline, the mask-bits column gives the number of low hash bits that must be zero for a pair to be eligible.
 
-Each row's *B* was chosen from three model-based ceilings at the row's **lowest** population: a coverage ceiling, below which the [coverage law](#the-coverage-law) still meets the failure target; a pool ceiling, above which the gate would leave some node no eligible peer at all; and the headroom ceiling ⌊(*N*<sub>T</sub> − 1)/2*k*⌋, which holds *r* ≥ 2. The ceilings are the table's provenance and not a second way to obtain *B*: they were applied once, when the table was built, and a node reads *B* from the table without evaluating any of them. That is what keeps the failure target *δ* and the adversarial fraction *μ* out of a node's derivation and off the chain; a deployment that changes either rebuilds and republishes the table. [Sizing derivations](#sizing-derivations) states each ceiling, derives each row and prices what a row gives up, and the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/) evaluates them at any topic size.
+The table values are provisional. [Sizing derivations](#sizing-derivations) explains the coverage, eligible-pool and headroom constraints used to propose them. The values and population boundaries need checking with the pick count, admission budget, failure target, adversarial participation and downtime assumptions together. A fixed pool-to-pick ratio alone does not establish coverage. Nodes perform the lookup above; these derivations are used to prepare and validate the table before deployment.
 
 #### Selection
 
@@ -701,7 +703,7 @@ Table 4 collects protocol parameters; Table 5 collects deployment assumptions us
 | <a name="param-t-epoch" id="param-t-epoch"></a>*T*<sub>epoch</sub> | How long a topology stands before another opportunity to reconnect | **Open.** Carried in the [parameter output](#the-parameter-output); bounded below by the beacon interval and above by the [churn budget](#churn-budget) |
 | <a name="param-cutoff" id="param-cutoff"></a>n/a | The [registration cutoff](#term-snapshot): the chain position each epoch is derived from | **Fixed by rule:** strictly before *η*<sub>e</sub> is determined |
 | <a name="param-eta" id="param-eta"></a>*η*<sub>e</sub> | The epoch's randomness | **Open source**, fixed requirements |
-| <a name="param-b" id="param-b"></a>*B* | How narrowly a node's permitted peers are drawn from a topic | **Selected:** from [Table 2](#table-2), by the topic's registered population |
+| <a name="param-b" id="param-b"></a>*B* | How narrowly a node's permitted peers are drawn from a topic | **Candidate:** local lookup in a table included in node software, by the topic's registered population; [Table 2](#table-2) gives provisional values. An on-chain source remains open |
 | <a name="param-r" id="param-r"></a>*r* | Peers left eligible per link a node opens | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts |
 | <a name="param-k" id="param-k"></a>*k* | Links a node opens per topic | **Candidate:** 10; deployment configuration must state its population and downtime profile. A universal minimum-count solver and error allowance remain open |
 | <a name="param-c" id="param-c"></a>*C* | Links a node accepts per topic per kind | **Provisional recipe:** ⌈*L* + 3.5√*L*⌉ at *k* = 9 or 10; gives 24 at *N* = 20,000, *B* = 512 and *μ* = 0.2. The measured reference used 23 at *B* = 500 |
@@ -1068,6 +1070,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 #### Remaining design choices
 
 - **Gate construction:** choose the shared, peer-verifiable eligibility mechanism. The public hash gate is the evaluated baseline; a private alternative needs its own key and verification rules and topology analysis.
+- **Bucket-count source:** choose between the proposed table included in node software and an on-chain value, with every node on a topic using the same value for an epoch. Table values and their derivation also need review.
 - **Parameter authority:** choose who may change the epoch length from the arrangements in [Authority over the parameter output](#authority-over-the-parameter-output).
 - **Per-topic profiles:** decide whether topics need different failure and downtime assumptions, with an agreed bucket table for each profile. Different targets need not require different epoch lengths; different schedules would also require compatible beacon and snapshot timing.
 - **Timing assumptions:** decide whether partial synchrony is acceptable and what guarantees it would enable beyond the current reachability analysis.
@@ -1349,12 +1352,12 @@ Past the pool floor the gate stops being a defence rather than merely narrowing 
 
 #### Admission parameter bands
 
-**Each row's floor is where the ceilings change their answer.** A row's population floor is the
-smallest population at which the smallest of the three ceilings first reaches that power of two,
-evaluated at *μ* = 0.2, *δ* = 10⁻⁴ and *k* = 10. At every floor, the row's *B* equals that
-smallest ceiling exactly. This records the baseline model's bucket steps; it does not validate
-coverage throughout a row under a finite cap. The population range and admissions budget must
-be evaluated together before deployment.
+**Candidate row boundaries.** The baseline recipe places a row's population floor at the
+smallest population where all three ceilings permit that power of two, evaluated at
+*μ* = 0.2, *δ* = 10⁻⁴ and *k* = 10. The candidate table and its boundaries remain subject to
+review; this recipe does not establish that every displayed row meets the target. The
+population range, pick count and admissions budget must be evaluated together, including
+cap refusals and downtime, before deployment.
 
 **What a row gives up.** A row holds one *B* across a range in which the ceiling keeps rising, so
 a topic near the top of a row runs a narrower divisor than the ceiling would allow. An adversarial
