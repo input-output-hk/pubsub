@@ -52,6 +52,7 @@ The beacon, deployment parameters and several interoperability rules remain open
     - [Identity and keys](#identity-and-keys)
     - [The node registry](#the-node-registry)
     - [The topic registry](#the-topic-registry)
+      - [Topic identifier derivation](#topic-identifier-derivation)
     - [The parameter output](#the-parameter-output)
     - [Authority over the parameter output](#authority-over-the-parameter-output)
     - [The randomness beacon](#the-randomness-beacon)
@@ -536,27 +537,11 @@ A topic entry moves through three operations of its own, and the third is *annou
 
 **Step 1. Creation.** Creates the entry and brings the topic into existence.
 
-1. A transaction MUST create at most one new topic in this deployment. Its identifier MUST be derived from the transaction's first ordinary spending input as specified below. The validator MUST check both the creation count and the derived identifier.
+1. A transaction MUST create at most one new topic in this deployment. Its identifier MUST be derived from the transaction's first ordinary spending input as specified under [Topic identifier derivation](#topic-identifier-derivation). The validator MUST check both the creation count and the derived identifier.
 2. The retention window MUST be at least one epoch, for the reason [Dissemination, recovery and retention](#dissemination-recovery-and-retention) gives.
 3. The entry MAY carry an empty publisher set.
 
-**Topic identifier.** Order the ordinary spending inputs lexicographically by their raw 32-byte transaction identifiers, then by unsigned output index. Select the first in that order, regardless of the transaction's serialised input order. Reference inputs and collateral inputs MUST NOT be used. For the selected output reference (*tx_id*, *index*), compute
-
-$$T = \mathrm{BLAKE2b}_{256}\bigl(\mathrm{LP}(\texttt{pubsub/topic/v1}) \,\|\, tx\_id \,\|\, \mathrm{uint32be}(index)\bigr).$$
-
-The tag uses the four-byte length prefix from [Canonical encoding](#canonical-encoding-and-domain-separation). The transaction identifier is its 32 raw bytes, without a length prefix or byte reversal; the output index is a four-byte unsigned big-endian integer. BLAKE2b is configured for a 32-byte digest.[^hashes] The spent output reference is known before submission and can be consumed only once on a ledger branch, so the derivation avoids a dependency on the creating transaction's own hash. The one-topic restriction prevents two creations in that deployment from sharing the seed. Registration of a node in the same transaction remains allowed.
-
-Test vector (*tx_id* is 31 zero bytes followed by `01`, *index* = 0):
-
-```text
-tag bytes: 7075627375622f746f7069632f7631
-preimage (concatenate these three lines):
-  0000000f7075627375622f746f7069632f7631
-  0000000000000000000000000000000000000000000000000000000000000001
-  00000000
-topic_id:
-  852f36c8c08fd0013031bbb81b7bd5ac397393cd784556adf54c506cad41d37a
-```
+The topic identifier is derived from an input spent by the creation transaction. This makes the identifier known before submission, allowing the same transaction to create the topic and register its first node.
 
 **Step 2. Changing the authorised publishers.** Replaces the publisher set.
 
@@ -583,6 +568,26 @@ Two consequences follow.
 
 - **A node entry may outlive a topic it lists.** A listed topic that has ended is simply excluded from that node's derivation, and a node left with no live topic takes part in no topology until it updates its entry, which the announcement gives it an epoch's notice to do.
 - **Retention is unaffected.** Messages already forwarded stay in caches for the retention window, so a subscriber can still recover from a topic that has just ended.
+
+##### Topic identifier derivation
+
+Order the ordinary spending inputs lexicographically by their raw 32-byte transaction identifiers, then by unsigned output index. Select the first in that order, regardless of the transaction's serialised input order. Reference inputs and collateral inputs MUST NOT be used. For the selected output reference (*tx_id*, *index*), compute
+
+$$T = \mathrm{BLAKE2b}_{256}\bigl(\mathrm{LP}(\texttt{pubsub/topic/v1}) \,\|\, tx\_id \,\|\, \mathrm{uint32be}(index)\bigr).$$
+
+The tag uses the four-byte length prefix from [Canonical encoding](#canonical-encoding-and-domain-separation). The transaction identifier is its 32 raw bytes, without a length prefix or byte reversal; the output index is a four-byte unsigned big-endian integer. BLAKE2b is configured for a 32-byte digest.[^hashes] The spent output reference is known before submission and can be consumed only once on a ledger branch, so the derivation avoids a dependency on the creating transaction's own hash. The one-topic restriction prevents two creations in that deployment from sharing the seed. Registration of a node in the same transaction remains allowed.
+
+Test vector (*tx_id* is 31 zero bytes followed by `01`, *index* = 0):
+
+```text
+tag bytes: 7075627375622f746f7069632f7631
+preimage (concatenate these three lines):
+  0000000f7075627375622f746f7069632f7631
+  0000000000000000000000000000000000000000000000000000000000000001
+  00000000
+topic_id:
+  852f36c8c08fd0013031bbb81b7bd5ac397393cd784556adf54c506cad41d37a
+```
 
 #### The parameter output
 
@@ -656,7 +661,7 @@ A node entry moves through four operations, and every epoch is derived from a sn
 
 **Step 1. Registration.** Creates a node entry and locks the [deposit](#term-deposit).
 
-1. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry. A topic entry created in the same transaction satisfies that, and a validator MUST accept it: the transaction's own outputs are visible to it, and the topic identifier uses the [first ordinary spending input](#the-topic-registry) under the specified ordering, so it is known before submission. An operator can therefore bring up a new topic and the first node on it atomically, and never needs to do the reverse, since creating a topic takes no registered identity.
+1. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry. A topic entry created in the same transaction satisfies that, and a validator MUST accept it: the transaction's own outputs are visible to it, and the topic identifier uses the [first ordinary spending input](#topic-identifier-derivation) under the specified ordering, so it is known before submission. An operator can therefore bring up a new topic and the first node on it atomically, and never needs to do the reverse, since creating a topic takes no registered identity.
 2. The transaction MUST lock the deposit, which stays locked for as long as the entry stands.
 3. An identity MUST NOT hold more than one entry. The identity key is the entry's key, so a second entry for it is not a second identity but a malformed registry.
 4. The entry participates in dissemination from the first epoch whose snapshot contains it, never from the moment it lands on chain.
@@ -740,7 +745,7 @@ The Rationale introduces the performance metrics alongside the results; [Table 3
 
 ### Canonical encoding and domain separation
 
-The [gate](#the-verifiable-gate), [link handshake](#link-establishment), [published messages](#messages), [registration proof](#identity-and-keys) and [topic identifier](#the-topic-registry) above all depend on the exact bytes hashed or signed. Implementations must construct those bytes identically: otherwise they can disagree about permitted links or topic identifiers, or reject each other's signatures. The following rules define those cryptographic inputs, independently of the format used to transmit messages:
+The [gate](#the-verifiable-gate), [link handshake](#link-establishment), [published messages](#messages), [registration proof](#identity-and-keys) and [topic identifier](#topic-identifier-derivation) above all depend on the exact bytes hashed or signed. Implementations must construct those bytes identically: otherwise they can disagree about permitted links or topic identifiers, or reject each other's signatures. The following rules define those cryptographic inputs, independently of the format used to transmit messages:
 
 - Variable-length fields are **length-prefixed**, written `LP(x)`: a four-byte big-endian length followed by the bytes.
 - Fields are joined by plain byte **concatenation**, written ‖, with no separator between fields.
