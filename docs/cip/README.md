@@ -465,13 +465,13 @@ Stage 1 is specified under [Identity and keys](#identity-and-keys) and stage 5 u
 
 This section fixes the three key roles the protocol distinguishes, the constraints the rest of the Specification places on an identity, and the registration proof that binds one. It does not fix whether an identity is anchored to a credential that already carries a trust relationship; that question is posed in the [Open Questions](#open-questions), and the requirement any anchoring would have to meet is stated below.
 
-**The three key roles.** Three keys with distinct roles appear in the protocol, and an implementation MUST keep them distinct.
+**The three key roles.** The protocol distinguishes three roles for keys and credentials:
 
-- The **operator credential** authorises registry transactions. It is a payment credential in the ordinary Cardano sense, held wherever the operator holds keys, and is never used by the running node.
-- The **node identity key** signs link-establishment messages, and is the identity the topology is derived over. The private key is held by the node process.
-- The **publisher key** signs messages on a topic and is authorised by that topic's registry entry.
+- The **operator credential** authorises changes to the node's registry entry. It is a payment credential in the ordinary Cardano sense, held wherever the operator holds keys, and is never used by the running node.
+- The **node identity key** identifies the node when deriving the topology and signs its link-establishment messages. The private key is held by the node process.
+- The **publisher key** signs published messages.
 
-A publisher key MAY coincide with a node identity key, and a single publisher key MAY be authorised on several topics, but the roles do not imply one another: authorisation to publish does not admit a key to the node registry, and registration does not authorise publication.
+The same key MAY serve as both a node identity key and a publisher key. A publisher key MAY be authorised on several topics. These roles grant different permissions: permission to publish does not register a node, and node registration alone does not authorise publication on a restricted topic. An open topic allows any registered node to publish.
 
 **Requirements for identity anchoring.** The protocol relies on two properties:
 
