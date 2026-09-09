@@ -471,10 +471,10 @@ The protocol reads the five services of [Table 1](#table-1). This section specif
 
 **Which registry holds what.** The two registries divide by who may write an entry, not by what it is about.
 
-- **A node entry is written by its operator.** It holds what is that node's own to declare: its identity key, its deposit, its endpoints, and the topics it takes part in.
+- **A node entry is written by the PubSub node operator:** the person or organisation responsible for registering and managing that node. The entry holds the node's identity key, its deposit, its endpoints, and the topics it takes part in.
 - **A topic entry is written by the topic's owner.** It holds what is the topic's own to declare: that it exists, which keys may publish on it, and how long messages are retained.
 
-Subscribing is a node's decision, so it sits on the node entry. Authorising a publisher is the owner's, so it sits on the topic entry. [Figure 4](#figure-4) puts the two in the order an operator meets them.
+Subscribing is a node's decision, so it sits on the node entry. Authorising a publisher is the owner's, so it sits on the topic entry. [Figure 4](#figure-4) puts the two in the order a PubSub node operator meets them.
 
 <div align="center">
 <a name="figure-4" id="figure-4"></a>
@@ -493,7 +493,7 @@ This section fixes the three key roles the protocol distinguishes, the constrain
 
 **The three key roles.** The protocol distinguishes three roles for keys and credentials:
 
-- The **operator credential** authorises changes to the node's registry entry. It is a payment credential in the ordinary Cardano sense, held wherever the operator holds keys, and is never used by the running node.
+- The **PubSub node operator credential** authorises registration, updates, retirement and deposit claims for the node's registry entry. It is a Cardano payment credential (a key hash or script hash), managed by the PubSub node operator and never used by the running node. The person or organisation managing a PubSub node need not operate a stake pool or act as a dRep; this credential does not establish either of those identities.
 - The **node identity key** identifies the node when deriving the topology and signs its link-establishment messages. The private key is held by the node process.
 - The **publisher key** signs published messages.
 
@@ -506,11 +506,15 @@ The same key MAY serve as both a node identity key and a publisher key. A publis
 
 Any future anchoring to an existing credential MUST preserve the raw Ed25519-key identity and snapshot-based eligibility requirements.
 
-**Proof of possession.** A registration transaction MUST carry a signature by the node identity key, in the notation [Canonical encoding](#canonical-encoding-and-domain-separation) fixes, over
+**Registration authorisation and proof of possession.** A registration transaction MUST be authorised by the PubSub node operator credential recorded in the entry and carry a signature by the node identity key, in the notation [Canonical encoding](#canonical-encoding-and-domain-separation) fixes, over
 
 $$\mathrm{LP}(\texttt{pubsub/register/v1}) \,\|\, \mathrm{LP}(id) \,\|\, \mathrm{LP}(op)$$
 
-where *id* is the node identity key and *op* the operator credential. Without it an operator can lock a deposit against a public key it does not hold, and because an identity may hold at most one entry, squatting a key that is known in advance would block its legitimate holder from registering at all. Any anchoring mechanism added later needs its own proof of possession for the same reason.
+where *id* is the node identity key and *op* is the PubSub node operator's payment credential, stored in the entry's `operator` field. This signature proves that the node key holder approved binding the node identity to that credential. Without it, someone could lock a deposit against a node identity key they do not hold, and because an identity may hold at most one entry, squatting a key that is known in advance would block its legitimate holder from registering at all.
+
+When *op* is a key hash, the on-chain registration rules MUST require a valid signature of the registration transaction by the corresponding key. When *op* is a script hash, they MUST require that the corresponding script's authorisation conditions are satisfied for that registration. Including *op* in the node-signed bytes does not establish this authorisation: without checking authorisation under that credential, someone could register their own node naming another person's credential in the `operator` field.
+
+Any future anchoring to a stake pool operator (SPO), dRep or other existing identity MUST specify its own proof of possession or authorisation for the credential it uses, in addition to these registration checks.
 
 **Display encoding.** A node identity is displayed as Bech32[^bech32] under the human-readable prefix `pubsub`. The encoding is for display and interchange only: every preimage in this proposal consumes the raw key bytes, never a display form.
 
@@ -518,11 +522,11 @@ where *id* is the node identity key and *op* the operator credential. Without it
 
 One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
-Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each operator spends only its own output, so no registry operation waits on another party's transaction. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
+Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each PubSub node operator spends only its own output, so no registry operation waits on another party's transaction. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
 
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree.
 
-The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is neither pledge nor stake: it is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
+The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is neither pledge nor stake: it is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. It is returned to the PubSub node operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
 
 The deposit remains locked until both the configured withdrawal delay has elapsed and the last epoch requiring the node's participation has ended.
 
@@ -600,7 +604,7 @@ One output per deployment, created when the registries are deployed. It does two
 
 **It identifies the deployment.** It names the script hashes that constitute this deployment's node and topic registries, so every other on-chain object a node reads is reached from here. Two deployments — a test network and a production one, or successive revisions of this proposal — are distinct parameter outputs and never share a topology.
 
-A node is configured with the script hash of the parameter output itself: one value, supplied rather than discovered, that settles which deployment the process has joined. It is this layer's counterpart to the genesis hash a **Cardano** node is given, and not that same value. The script hash and the deployment's declared assumptions are what an operator supplies out of band; every other object the protocol reads is reached from the chain.
+A node is configured with the script hash of the parameter output itself: one value, supplied rather than discovered, that settles which deployment the process has joined. It is this layer's counterpart to the genesis hash a **Cardano** node is given, and not that same value. The script hash and the deployment's declared assumptions are what a PubSub node operator supplies out of band; every other object the protocol reads is reached from the chain.
 
 **Exactly one parameter output MUST exist per deployment, and the validator MUST enforce that.** A one-shot minting policy is the RECOMMENDED mechanism: the policy permits a single mint, the validator requires the resulting token to be present in the output, and a node takes the output holding that token. Without an enforced singleton, anyone could pay to create a second output at the same script carrying a plausible datum, and nothing in this proposal would say which one a node should read.
 
@@ -653,12 +657,12 @@ Turning a registered identity into an address that can be dialled is specified h
 
 1. **Authenticated to the node identity key**, so that an address is usable only where the identity the topology is derived over vouches for it.
 2. **Resolvable by every node that derives a link** to the one being addressed, since a dialler learns who its peers are from the registry rather than from whoever told it about them.
-3. **Refreshable within an epoch**, because an operator whose address changes mid-epoch would otherwise be unreachable until the next cutoff for no gain.
+3. **Refreshable within an epoch**, because a PubSub node whose address changes mid-epoch would otherwise be unreachable until the next cutoff for no gain.
 4. **Failing closed:** an address that cannot be resolved MUST be treated exactly as silence, since a node that cannot be reached is indistinguishable from one that is registered and not forwarding — the [adversary](#the-adversary-this-proposal-defends-against) the analysis already assumes.
 
 Recording the endpoint in the node's registry entry is the RECOMMENDED mechanism, and it is the one this proposal specifies. It meets all four by construction, and it removes the bootstrap problem rather than relocating it: the chain is the entry point, so there are no seed nodes to advertise, attack, or keep online. Its cost is that every participant's address is public and permanent, which for stake pool operators inverts the practice of keeping block-producing infrastructure unadvertised. A deployment unwilling to pay that cost MAY leave the endpoint list empty and resolve addresses off-chain instead. Signed address records are the candidate: because identity is rooted in the registry rather than in the layer that distributes addresses, such a record is self-authenticating, so that layer can withhold an address but cannot forge one. What it does not supply is an entry point, and that gap, along with the choice between the two mechanisms, is among the questions [Path to Active](#acceptance-criteria) leaves open.
 
-One participant needs no address at all. An authorised [publisher](#identity-and-keys) key need not belong to a registered node, so it has no position in the topology, no deposit and no endpoint; a node run by the same operator injects the messages it signs. Because [the signature is end to end](#messages), that injecting node is trusted for availability only, never for authenticity or integrity. Only a topic that names its publisher keys allows this, since an open one reserves publishing to registered nodes.
+One participant needs no address at all. An authorised [publisher](#identity-and-keys) key need not belong to a registered node, so it has no position in the topology, no deposit and no endpoint; a PubSub node run by the publisher key holder injects the messages it signs. Because [the signature is end to end](#messages), that injecting node is trusted for availability only, never for authenticity or integrity. Only a topic that names its publisher keys allows this, since an open one reserves publishing to registered nodes.
 
 #### Lifecycle and the registration cutoff
 
@@ -666,23 +670,24 @@ A node entry moves through four operations, and every epoch is derived from a sn
 
 **Step 1. Registration.** Creates a node entry and locks the [deposit](#term-deposit).
 
-1. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry. A topic entry created in the same transaction satisfies that, and a validator MUST accept it: the transaction's own outputs are visible to it, and the topic identifier uses the [first ordinary spending input](#topic-identifier-derivation) under the specified ordering, so it is known before submission. An operator can therefore bring up a new topic and the first node on it atomically, and never needs to do the reverse, since creating a topic takes no registered identity.
-2. The transaction MUST lock the deposit, which stays locked for as long as the entry stands.
-3. An identity MUST NOT hold more than one entry. The identity key is the entry's key, so a second entry for it is not a second identity but a malformed registry.
-4. The entry participates in dissemination from the first epoch whose snapshot contains it, never from the moment it lands on chain.
+1. The on-chain registration rules MUST enforce both PubSub node operator authorisation and the node identity's proof of possession, as specified under [Identity and keys](#identity-and-keys).
+2. The entry MUST list at least one topic, and every topic it lists MUST have an active entry in the topic registry. A topic entry created in the same transaction satisfies that, and a validator MUST accept it: the transaction's own outputs are visible to it, and the topic identifier uses the [first ordinary spending input](#topic-identifier-derivation) under the specified ordering, so it is known before submission. A PubSub node operator can therefore bring up a new topic and the first node on it atomically, and never needs to do the reverse, since creating a topic takes no registered identity.
+3. The transaction MUST lock the deposit, which stays locked for as long as the entry stands.
+4. An identity MUST NOT hold more than one entry. The identity key is the entry's key, so a second entry for it is not a second identity but a malformed registry.
+5. The entry participates in dissemination from the first epoch whose snapshot contains it, never from the moment it lands on chain.
 
 **Step 2. Update.** Replaces the topic-interest set, the endpoint, or both.
 
-1. Only the operator credential named in the entry MAY update it.
+1. Only the PubSub node operator credential named in the entry MAY update it.
 2. Every newly listed topic MUST have an active entry in the topic registry, and the set MUST remain non-empty.
 3. A changed topic set takes effect at the next registration cutoff, because the topic set is an input the topology is derived from.
 4. A changed endpoint list takes effect at the chain tip, because reachability is not such an input, and it MAY be emptied by a node resolving its address off-chain instead.
 
-That asymmetry is deliberate: an operator changing endpoints submits one transaction and remains reachable, while an operator changing topics waits for the next epoch. A node whose address changed mid-epoch would otherwise be unreachable until the next cutoff for no gain.
+That asymmetry is deliberate: a PubSub node operator can restore reachability by updating endpoints in one transaction, while topic changes take effect at the next registration cutoff. A node whose address changed mid-epoch would otherwise be unreachable until the next cutoff for no gain.
 
 **Step 3. Retirement.** Marks an entry withdrawing and starts the withdrawal delay.
 
-1. Only the operator credential MAY retire the entry.
+1. Only the PubSub node operator credential MAY retire the entry.
 2. Retirement does not change an already-fixed snapshot. The node MUST continue serving each epoch whose agreed snapshot still includes it as an active participant.
 3. An epoch whose snapshot records the entry as withdrawing MUST exclude the node from topology derivation.
 
@@ -779,7 +784,7 @@ Three things version independently, because they change for unrelated reasons an
 
 **On-chain schemas** version with the validators that enforce them. An entry's shape is fixed by the validator guarding it, and the [parameter output](#the-parameter-output) names both registries by script hash, so a reader always reaches an entry through the hash that determines how to read it. There is no version field in a datum. Changing a schema means new validators, and so a new parameter output: the `registries` pair is immutable, and no redeemer rewrites it.
 
-A deployment therefore migrates by standing up a second one. It publishes the new parameter output and announces the epoch at which nodes cut over. Nothing switches the old validators off, and nothing can: a script on chain goes on accepting whatever its own rules allow, and anyone may keep writing entries to it. What ends the old deployment is that nodes stop reading it, since a node derives from the parameter output it is configured with and from the registries that output names. Its entries stay spendable in the meantime, so operators can retire them and take their deposits back once the [claim conditions](#deposit-claim) are met. The two deployments never share a topology, for the reason [the parameter output](#the-parameter-output) gives, so a node runs in one or the other and never in both.
+A deployment therefore migrates by standing up a second one. It publishes the new parameter output and announces the epoch at which nodes cut over. Nothing switches the old validators off, and nothing can: a script on chain goes on accepting whatever its own rules allow, and anyone may keep writing entries to it. What ends the old deployment is that nodes stop reading it, since a node derives from the parameter output it is configured with and from the registries that output names. Its entries stay spendable in the meantime, so PubSub node operators can retire them and take their deposits back once the [claim conditions](#deposit-claim) are met. The two deployments never share a topology, for the reason [the parameter output](#the-parameter-output) gives, so a node runs in one or the other and never in both.
 
 **Signature preimages** carry their version in the domain tag, as `pubsub/message/v1` and `pubsub/link/v2`. Any change to what a preimage covers, or to how it is encoded, MUST increment that suffix. Because the tag is inside the signed bytes, a signature made under one version can never verify under another, so incompatible implementations fail closed instead of accepting each other's messages under the wrong interpretation. The gate's domain tags version by the same rule, and a change there changes which links are legal, so it MUST take effect at an epoch boundary and never within one.
 
@@ -1088,7 +1093,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 
 1. **Adversarial participation.** The comparisons assume an adversarial fraction and explore sensitivity to it; they do not derive it from registration cost. A deployment needs to justify both its fraction and coordinated identity budget, including concentration and identity reuse. See [Limits of this evidence](#limits-of-this-evidence).
 2. **Delivery targets.** The reference target is 10⁻⁴ bad topologies per epoch, not a measured application deadline. [Subscriber guarantees](#what-a-subscriber-is-guaranteed) distinguish individual and network-wide risk. Required deadlines, retention and detection policy remain to be agreed for each scenario.
-3. **Availability.** Independent downtime is modelled as a shift in the adversarial fraction. Operator departure rates, outage duration and correlated failures have not been established. [Epoch sizing](#how-long-an-epoch-may-be) is therefore conditional, and no epoch length is selected.
+3. **Availability.** Independent downtime is modelled as a shift in the adversarial fraction. PubSub node operator departure rates, outage duration and correlated failures have not been established. [Epoch sizing](#how-long-an-epoch-may-be) is therefore conditional, and no epoch length is selected.
 4. **Topic populations.** The main comparisons use 4,000 and 20,000 nodes; the CPS's wallet-mediated scenarios may involve tens. Actual memberships and overlap between topics need validation with the intended participants before those comparisons can size a deployment.
 5. **Small topics.** [Small-topic rules](#small-topics) reduce or disable the gate, but evidence does not yet establish their coverage at tens of participants. The [measurement programme](#what-remains-to-be-measured) is needed to decide whether the same mechanism suffices.
 6. **Participation costs and incentives.** The [node registry](#the-node-registry) specifies a refundable deposit and withdrawal delay, but not their final values. Non-delivery is not attributable under this protocol. Any participation reward or deposit decay would require an additional verifiable-evidence mechanism; identity anchoring and identities per anchor also remain open.
@@ -1111,18 +1116,18 @@ This draft is not yet implementation-ready. Activation requires observable deliv
 
 - [ ] Complete the interoperability specification: gate construction and any associated keys or proofs, beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings (including handshake recipient and deployment binding), and recovery exchanges implementing the delivery and gap-notification contract.
 - [ ] Specify recovery after topic termination: how former peers are contacted and how message acceptance, including revocation checks, uses registry state after the topic's entry is removed.
-- [ ] Resolve the on-chain rules and schemas, including validators for the topic-creation rule, registration uniqueness, publisher authorisation, credential encodings and deployment parameter authority.
+- [ ] Resolve the on-chain rules and schemas, including validators for the topic-creation rule, registration authorisation and uniqueness, publisher authorisation, credential encodings and deployment parameter authority.
 - [ ] Publish a deployment profile stating adversarial participation, identity cost, failure target, expected downtime, epoch length, retention and resource limits. Reconcile its bucket table, pick count and cap with the coverage estimate, with a stated allowance for model error and a justified treatment of downtime under flooding.
 - [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs.
 - [ ] Specify behaviour during a chain halt, fork or unavailable service, including which operations may continue from existing state and which guarantees are suspended.
 - [ ] Document the gated derivation and validate the candidate *B* = 512, *k* = 10, *C* = 24 profile, band boundaries and small-topic behaviour. Exercise rotation, recovery and realistic transport behaviour in addition to fixed-topology simulations.
 - [ ] State the relationship to CIP-0137, including whether the proposals are alternatives or can interoperate, with input from its authors.
 - [ ] Release two interoperating implementations and publish conformance results covering the completed specification.
-- [ ] Agree a numerical adoption threshold with the intended operators and demonstrate that it has been reached. The draft does not yet fix that threshold.
+- [ ] Agree a numerical adoption threshold with the intended PubSub node operators and demonstrate that it has been reached. The draft does not yet fix that threshold.
 
 ### Implementation Plan
 
-The selected symmetric design and existing experiments provide the starting point. First resolve the protocol and schema questions, then publish the deployment profile and formal gated derivation. Run the validation programme in [What remains to be measured](#what-remains-to-be-measured), followed by transport, rotation and recovery tests. Use common conformance vectors and cross-implementation tests before an operator pilot.
+The selected symmetric design and existing experiments provide the starting point. First resolve the protocol and schema questions, then publish the deployment profile and formal gated derivation. Run the validation programme in [What remains to be measured](#what-remains-to-be-measured), followed by transport, rotation and recovery tests. Use common conformance vectors and cross-implementation tests before a pilot with PubSub node operators.
 
 Implementors and delivery commitments remain to be recorded in the preamble. No Cardano hard fork is proposed.
 
@@ -1298,6 +1303,7 @@ The text introduces these terms where they are needed. This table collects their
 | <a name="term-epoch" id="term-epoch"></a>**epoch** | One dissemination period: the interval for which a drawn topology stands, indexed *e*. Its length is a parameter of this proposal. | The Cardano **ledger epoch** of five days. The two are independent; this proposal does not require them to coincide, and the dissemination epoch is expected to be far shorter. |
 | <a name="term-snapshot" id="term-snapshot"></a>**snapshot**, **registration cutoff** | Both registries and the parameter output as they stand at one fixed chain position. That position is each epoch's **registration cutoff**, which falls *before* the epoch and strictly before the epoch's randomness is determined. The epoch's topology is derived from the snapshot, never from the chain tip. | The Cardano **stake distribution snapshot**. The PubSub cutoff need not coincide with a ledger epoch boundary; it must precede the randomness used to draw the topology. |
 | <a name="term-node" id="term-node"></a>**node** | A process that has registered in the node registry and participates in dissemination. | A **Cardano node**, block-producing or otherwise. A pub/sub node runs alongside one and reads from it; it does not validate blocks. |
+| <a name="term-node-operator" id="term-node-operator"></a>**PubSub node operator** | The person or organisation responsible for registering and managing a PubSub node. The node entry's `operator` field records the payment credential authorising that management. | A **stake pool operator (SPO)**. One person or organisation may perform both roles, but PubSub node registration neither requires nor establishes an SPO identity. |
 | <a name="term-relay" id="term-relay"></a>**relay** | A role, not a class of machine: any node forwarding another party's message on a topic it subscribes to. Every subscriber relays. | An **SPO relay node**, which is a distinct, privileged piece of infrastructure. There is no relay tier here, and no node is designated to carry traffic for others. |
 | <a name="term-registry" id="term-registry"></a>**registry**, **registration** | The protocol's own two on-chain registries, holding participating nodes and topics. | **Stake pool registration**, **dRep registration**, or the entries these create. Registering here neither requires nor implies either. |
 | <a name="term-deposit" id="term-deposit"></a>**deposit** | Ada locked by a registration entry for as long as it stands, making identities costly to mass-produce. Returned after retirement once both the withdrawal delay and the last required participation epoch have ended, at the boundary set by the [claim rule](#deposit-claim). | **Pledge**, delegated **stake**, or a governance deposit. It is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. |
@@ -1497,7 +1503,7 @@ parameters_redeemer =
 
 node_registration =
   [ node_id       : node_key       ; identity public key; also the entry's key
-  , operator      : credential     ; may update, retire and claim this entry
+  , operator      : credential     ; PubSub node operator; may update, retire and claim
   , topics        : [+ topic_id]   ; authoritative topic interests, non-empty
   , endpoints     : [* endpoint]   ; ordered, most preferred first; MAY be empty
   , deposit       : coin           ; locked while the entry stands
