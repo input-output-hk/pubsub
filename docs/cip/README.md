@@ -336,7 +336,9 @@ C_\text{candidate}=\left\lceil L+3.5\sqrt{L}\right\rceil.$$
 
 Here *L* estimates fresh incoming admissions, and $\widetilde m$ approximates the crossing probability. Size against the entire declared adversarial population, *A* = ⌈*μN*<sub>T</sub>⌉, with every adversarial identity dialling every eligible peer. A smaller coordinated budget requires a separately justified threat model. The ceiling rounds upward to an integer; 3.5 is an empirical coefficient for these pick counts, not a function established for arbitrary *k*.[^synthesis] Small topics use the [gate-off rule](#small-topics) instead.
 
-At *N* = 20,000, *μ* = 0.2 and *k* = 10, the recipe gives *C* = 25 for *B* = 500 and *C* = 24 for the proposed *B* = 512. The existing experiment used *B* = 500, *C* = 23, a tighter budget corresponding to a coefficient of about 3.18. Its predictions are 5.1 × 10⁻⁶ at baseline and 1.25 × 10⁻⁵ under wholesale flooding; neither is a direct tail measurement. Keep that measured configuration distinct from the candidate profile.
+At *N* = 20,000, *μ* = 0.2 and *k* = 10, the recipe gives *C* = 25 for *B* = 500 and *C* = 24 for the proposed *B* = 512. The existing experiment used *B* = 500, *C* = 23, a tighter budget corresponding to a coefficient of about 3.18.
+
+For this reference configuration, the model estimates the probability that an epoch's topology fails to connect all honest participants on the topic. This probability is approximately 5.1 × 10⁻⁶ when adversarial nodes select peers normally but withhold messages, and 1.25 × 10⁻⁵ when all 4,000 adversarial identities request links to every peer the gate permits. These are model predictions, not measured failure rates or proven bounds. Keep this reference configuration distinct from the candidate profile.
 
 This recipe proposes a budget to evaluate; it does not certify coverage. The cap's effect is estimated under [Including admission refusals](#including-admission-refusals), and the candidate *B* = 512, *C* = 24 profile still needs simulation and an explicit model-error allowance. A larger cap reduces admission refusals but increases the maximum number of links a node serves: *k* = 10 and *C* = 24 permit at most 34 links, compared with the reference cell's 33.
 
@@ -348,7 +350,7 @@ Everything specified so far is sized for a topic with thousands of members, wher
 
 ### Link establishment
 
-Links are opened by a signed handshake. The dialler sends a **Request** naming the topic and, by the message's kind, the link kind. The acceptor replies **Accepted**, replies **Rejected** if it is at its serving cap, or silently drops the request. Either end MAY send **Terminated** to tear down an established link, and MUST send one for each link it holds when shutting down.
+Links are opened by a signed handshake. The dialler sends a **Request** naming the topic and, by the message's kind, the link kind. The acceptor evaluates it using the [request checks](#link-request-checks) below, which determine whether it replies **Accepted**, replies **Rejected**, or silently drops the request. Either end MAY send **Terminated** to tear down an established link, and MUST send one for each link it holds when shutting down.
 
 <div align="center">
 <a name="figure-3" id="figure-3"></a>
@@ -366,6 +368,8 @@ $$\mathrm{LP}(\texttt{pubsub/link/v1}) \,\|\, \mathrm{LP}(id) \,\|\, \texttt{act
 where *id* is the emitter's identity key, `action` and `kind` are one byte each, *T* is the topic identifier and *e* is the eight-byte epoch index.
 
 An acceptor takes the peer's identity from this preimage, never from the connection the message arrived over. That is what lets the transport be left open. This proposal fixes the byte strings every implementation must agree on, and not the framing or session layer that carries them.
+
+<a name="link-request-checks" id="link-request-checks"></a>
 
 An acceptor evaluates a Request in the order numbered in [Figure 3](#figure-3), and the order is normative because it determines what a refusal reveals:
 
@@ -396,19 +400,21 @@ Each message additionally carries the hash of the publisher's previous message o
 message =
   [ topic      : topic_id
   , publisher  : publisher_key
-  , sequence   : uint .size 8
   , parent     : bytes .size 32   ; hash of the previous message; zero if first
+  , sequence   : uint .size 8
   , timestamp  : uint .size 8     ; publisher wall clock, milliseconds
   , payload    : bytes            ; opaque to the protocol
   , signature  : bytes .size 64
   ]
 ```
 
-The signature is over
+Implementations MUST construct the signature input in exactly the field order shown below, using the byte encodings defined under [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation). The publisher MUST sign these bytes, and recipients MUST verify the signature against the same bytes.
 
 $$\mathrm{LP}(\texttt{pubsub/message/v1}) \,\|\, \mathrm{LP}(\text{topic}) \,\|\, \mathrm{LP}(\text{publisher}) \,\|\, \text{parent} \,\|\, \text{sequence} \,\|\, \text{timestamp} \,\|\, \mathrm{LP}(\text{payload})$$
 
-and is produced once by the publisher. Relays forward the message unchanged and never re-sign it, so authenticity is end to end and independent of the path. The **message hash** is the SHA-256 of that same preimage, excluding the signature, so that a malleable signature cannot produce a second identity for one message.
+Here `sequence` and `timestamp` are eight-byte unsigned big-endian integers, and `parent` is the raw 32-byte hash. The topic identifier and publisher key are their raw 32 bytes, length-prefixed as shown. The [message encoding test vector](message-encoding-vector.md) gives example field values, the exact signature-input bytes and the resulting message hash.
+
+The publisher produces the signature once. Relays forward the message unchanged and never re-sign it, so authenticity is end to end and independent of the path. Implementations MUST compute the **message hash** as the SHA-256 of that same preimage, excluding the signature, so that a malleable signature cannot produce a second identity for one message.
 
 A recipient MUST make these checks, in this order, before acting on a message.
 
