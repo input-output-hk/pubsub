@@ -571,7 +571,7 @@ Announcing termination before the cutoff lets nodes end a topic at the same epoc
 Two consequences follow.
 
 - **A node entry may outlive a topic it lists.** A listed topic that has ended is simply excluded from that node's derivation, and a node left with no live topic takes part in no topology until it updates its entry, which the announcement gives it an epoch's notice to do.
-- **Retention is unaffected.** Messages already forwarded stay in caches for the retention window, so a subscriber can still recover from a topic that has just ended.
+- **Retention and recovery.** Messages already forwarded remain cached for the retention window. Recovery after topic termination requires rules for contacting former peers and validating messages against the topic's authorisation state; these rules remain to be specified as an [activation requirement](#acceptance-criteria).
 
 ##### Topic identifier derivation
 
@@ -1096,6 +1096,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 This draft is not yet implementation-ready. Activation requires observable deliverables in the following areas:
 
 - [ ] Complete the interoperability specification: gate construction and any associated keys or proofs, beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings (including handshake recipient and deployment binding), and recovery exchanges implementing the delivery and gap-notification contract.
+- [ ] Specify recovery after topic termination: how former peers are contacted and how message acceptance, including revocation checks, uses registry state after the topic's entry is removed.
 - [ ] Resolve the on-chain rules and schemas, including validators for the topic-creation rule, registration uniqueness, publisher authorisation, credential encodings and deployment parameter authority.
 - [ ] Publish a deployment profile stating adversarial participation, identity cost, failure target, expected downtime, epoch length, retention and resource limits. Reconcile its bucket table, pick count and cap with the coverage estimate, with a stated allowance for model error and a justified treatment of downtime under flooding.
 - [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs.
