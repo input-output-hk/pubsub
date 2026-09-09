@@ -580,13 +580,13 @@ Two consequences follow.
 
 ##### Topic identifier derivation
 
-Order the ordinary spending inputs lexicographically by their raw 32-byte transaction identifiers, then by unsigned output index. Select the first in that order, regardless of the transaction's serialised input order. Reference inputs and collateral inputs MUST NOT be used. For the selected output reference (*tx_id*, *index*), compute
+Order the ordinary spending inputs lexicographically by their raw 32-byte transaction identifiers, then by unsigned output index. Select the first in that order, regardless of the transaction's serialised input order. Reference inputs and collateral inputs MUST NOT be used. For the selected output reference (*tx*<sub>id</sub>, *index*), compute
 
-$$T = \mathrm{BLAKE2b}_{256}\bigl(\mathrm{LP}(\texttt{pubsub/topic/v1}) \,\|\, tx\_id \,\|\, \mathrm{uint32be}(index)\bigr).$$
+$$T = \mathrm{BLAKE2b}_{256}\bigl(\mathrm{LP}(\texttt{pubsub/topic/v1}) \,\|\, \mathrm{tx}_{\mathrm{id}} \,\|\, \mathrm{uint32be}(index)\bigr).$$
 
 The tag uses the four-byte length prefix from [Canonical encoding](#canonical-encoding-and-domain-separation). The transaction identifier is its 32 raw bytes, without a length prefix or byte reversal; the output index is a four-byte unsigned big-endian integer. BLAKE2b is configured for a 32-byte digest.[^hashes] The spent output reference is known before submission and can be consumed only once on a ledger branch, so the derivation avoids a dependency on the creating transaction's own hash. The one-topic restriction prevents two creations in that deployment from sharing the seed. Registration of a node in the same transaction remains allowed.
 
-Test vector (*tx_id* is 31 zero bytes followed by `01`, *index* = 0):
+Test vector (*tx*<sub>id</sub> is 31 zero bytes followed by `01`, *index* = 0):
 
 ```text
 tag bytes: 7075627375622f746f7069632f7631
