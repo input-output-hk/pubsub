@@ -400,7 +400,9 @@ A dialler that is rejected does not retry that peer within the epoch, and its re
 > [!NOTE]
 > A [link](#term-link) is logical. It is identified by a peer and a topic within an epoch, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. Every count in this proposal is a count of links, which [What a node pays](#what-the-symmetric-relay-link-gives) shows is an upper bound on transport connections.
 
-Nodes tear down every link at the end of an epoch and derive afresh. An implementation MAY overlap the two, holding the outgoing epoch's links while establishing the incoming epoch's, and this is RECOMMENDED for topics carrying time-critical traffic. It MUST NOT forward messages over links derived for an epoch that has ended.
+Nodes derive fresh links for each epoch and tear down the outgoing epoch's links at its end. They MUST NOT forward messages over links derived for an epoch that has ended.
+
+The handover procedure, including whether next-epoch links may be established before the boundary, remains to be specified as an [activation requirement](#acceptance-criteria). Uninterrupted forwarding during rotation is not yet guaranteed.
 
 ### Messages
 
