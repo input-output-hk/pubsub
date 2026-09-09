@@ -435,7 +435,7 @@ The publisher produces the signature once. Relays forward the message unchanged 
 A recipient MUST make these checks, in this order, before acting on a message.
 
 1. **Topic.** The topic is registered.
-2. **Authorisation.** The publisher key is authorised on it, or the topic is open.
+2. **Authorisation.** The publisher key is permitted by the topic's [publication policy](#the-topic-registry) in the epoch's snapshot.
 3. **Revocation.** The key has not been revoked.
 4. **Signature.** The signature verifies.
 
@@ -538,29 +538,38 @@ The [claim rule](#deposit-claim) combines these two release conditions. The dela
 
 #### The topic registry
 
-One entry per topic. It binds a topic identifier to the set of keys authorised to publish on it, to the owner permitted to change that set, and to the topic's retention window. An empty publisher set means the topic is open: any registered node may publish to it.
+One entry per topic. It binds a topic identifier to its **publication policy**, to the owner permitted to change that policy, and to the topic's retention window. The policy explicitly chooses one of two modes:
+
+- **Open:** any registered node may publish to the topic.
+- **Restricted:** only the listed publisher keys may publish. An empty list authorises nobody.
+
+Removing the last publisher from a restricted policy MUST leave the topic restricted. Opening it requires the owner to select the open policy explicitly. A restricted topic with no authorised publishers remains a live topic; it has not been ended.
 
 The topic registry is global and read by every node, because whether a topic exists and who may publish on it are facts about the network rather than about any node.
 
-A topic entry moves through three operations of its own, and the third is *announced* rather than immediate.
+The following operations create the topic, change its publication policy, or announce its end.
 
 **Step 1. Creation.** Creates the entry and brings the topic into existence.
 
 1. A transaction MUST create at most one new topic in this deployment. Its identifier MUST be derived from the transaction's first ordinary spending input as specified under [Topic identifier derivation](#topic-identifier-derivation). The validator MUST check both the creation count and the derived identifier.
 2. The retention window MUST be at least one epoch, for the reason [Dissemination, recovery and retention](#dissemination-recovery-and-retention) gives.
-3. The entry MAY carry an empty publisher set.
+3. The entry MUST specify an open or restricted publication policy. A restricted policy MAY have an empty publisher list.
 
 The topic identifier is derived from an input spent by the creation transaction. This makes the identifier known before submission, allowing the same transaction to create the topic and register its first node.
 
-**Step 2. Changing the authorised publishers.** Replaces the publisher set.
+**Step 2. Changing the publication policy.** Changes between open and restricted publication, or replaces a restricted policy's publisher list.
 
-1. Only the owner credential named in the entry MAY change the set. That credential MUST NOT be a publisher key: the authority to revoke has to sit outside the set it revokes from.
-2. A key is **granted** authority from the first epoch whose snapshot contains it, in the same way a node's topic interests are, so a grant is predictable and every node in the epoch agrees on it.
-3. A **revocation** takes effect at the chain tip, once it is deep enough that a rollback will not restore it; a deployment SHOULD require the same confirmation depth it uses for any other consequential registry read.
+1. Only the owner credential named in the entry MAY change the policy. That credential MUST NOT be a publisher key: the authority to revoke has to be separate from the authority to publish.
+2. A key is **granted** authority from the first epoch whose snapshot authorises it under the new policy, in the same way a node's topic interests are, so a grant is predictable and every node in the epoch agrees on it.
+3. Removing a key from a restricted list, or changing the policy so that a previously authorised key is no longer permitted, is a **revocation**. It takes effect at the chain tip, once it is deep enough that a rollback will not restore it; a deployment SHOULD require the same confirmation depth it uses for any other consequential registry read.
 4. Once a revocation takes effect, a recipient MUST reject every newly received message from that key on the topic, including older messages returned during recovery. A valid signature does not establish when a message was signed: a compromised key can sign new content with an earlier timestamp. This rule changes whether a message is accepted; it does not invalidate its cryptographic signature or retract messages already delivered to an application.[^retroactive]
-5. An owner replacing a publisher key in the ordinary course SHOULD grant the successor, publish under it, and remove the predecessor only once a retention window has elapsed, since removal prevents recipients from accepting the predecessor's still-cached messages while that key is revoked.
+5. For a restricted topic, an owner replacing a publisher key in the ordinary course SHOULD grant the successor, publish under it, and remove the predecessor only once a retention window has elapsed, since removal prevents recipients from accepting the predecessor's still-cached messages while that key is revoked.
 
-Grants wait for a common snapshot; revocations are checked against recent confirmed chain state so a compromised key can be removed sooner. Nodes at different chain positions can temporarily disagree about acceptance. This protocol does not require consensus on delivery history.
+These timing rules apply per publisher when changing between open and restricted policies too. Permissions retained by the new policy continue; newly granted permissions wait for a common snapshot, and revoked permissions cease once the change is confirmed. An open policy permits registered nodes, while a restricted list may also name publisher keys that do not belong to registered nodes, so either direction of policy change can both grant and revoke permissions.
+
+For example, removing the only key from a restricted list stops acceptance of messages from that key once the removal is confirmed. It does not grant publication rights to anyone else. Switching that topic to open publication later grants registered nodes permission only from the first epoch whose snapshot contains the open policy.
+
+Revocations are checked against recent confirmed chain state so a compromised key can be removed sooner. Nodes at different chain positions can temporarily disagree about acceptance. This protocol does not require consensus on delivery history.
 
 **Step 3. Ending the topic.** A topic ends at an epoch boundary, announced in advance.
 
@@ -1524,22 +1533,27 @@ node_redeemer =
 ; Datum of one topic-registry entry. One entry per topic.
 
 topic_registration =
-  [ topic_id      : topic_id
-  , owner         : credential     ; may change publishers, or end the topic
-  , publishers    : [* publisher_key]  ; empty = open to every registered node
-  , retention     : uint           ; epochs; at least 1 (see Retention below)
-  , state         : topic_state
+  [ topic_id           : topic_id
+  , owner              : credential     ; may change publication policy, or end the topic
+  , publication_policy : publication_policy
+  , retention          : uint           ; epochs; at least 1 (see Retention below)
+  , state              : topic_state
   ]
+
+; The first element selects the mode. Only restricted policies carry a list.
+publication_policy =
+    [ 0 ]                                ; open to registered nodes
+  / [ 1, publishers : [* publisher_key] ]  ; restricted; empty authorises nobody
 
 topic_state =
     [ 0 ]                          ; live
   / [ 1, ends_at : epoch_no ]      ; ending, effective at that epoch
 
 topic_redeemer =
-    [ 0, publishers : [* publisher_key] ]  ; set the authorised publishers
-  / [ 1, ends_at : epoch_no ]              ; announce the end, or move it later
-  / [ 2 ]                                  ; cancel a pending end
-  / [ 3 ]                                  ; remove the entry, once ended
+    [ 0, publication_policy : publication_policy ]  ; set the publication policy
+  / [ 1, ends_at : epoch_no ]                        ; announce the end, or move it later
+  / [ 2 ]                                           ; cancel a pending end
+  / [ 3 ]                                           ; remove the entry, once ended
 
 ; --- shared ------------------------------------------------------------------
 

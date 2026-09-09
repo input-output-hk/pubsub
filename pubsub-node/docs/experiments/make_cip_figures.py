@@ -226,7 +226,7 @@ def fig_architecture() -> str:
     band(38, 96, 1, "Shared inputs: registries and parameters on chain; beacon source open")
     bw = 170
     services = [("Node registry", "membership at the cutoff", None),
-                ("Topic registry", "publisher keys", None),
+                ("Topic registry", "publication policy", None),
                 ("Parameter output", "epoch length", None),
                 ("Randomness beacon", "randomness  η", "5 4")]
     for x, (head, lab, dash) in zip(cols, services):
@@ -273,7 +273,7 @@ def fig_architecture() -> str:
     return frame(W, H, b, "The protocol at a glance",
                  "Three numbered bands read downward. Band 1 holds the four services the protocol "
                  "reads: a node registry, a topic registry, a parameter output and a per-epoch "
-                 "randomness beacon, contributing membership, publisher keys, the epoch length "
+                 "randomness beacon, contributing membership, publication policy, the epoch length "
                  "and the epoch randomness respectively. Every "
                  "node turns those public inputs into its registered peers on a topic, "
                  "applies the verifiable gate, picks from the survivors with its own "
