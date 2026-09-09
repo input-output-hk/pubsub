@@ -201,8 +201,8 @@ def fig_architecture() -> str:
     normatively within a page or two of this figure, so repeating them here
     only competes with the Specification for the reader's attention. What the
     figure keeps is what running prose cannot show at a glance: the three
-    inputs, the order they are consumed in, and where the public derivation
-    stops and the node's private draw begins.
+    inputs, the order they are consumed in, and where eligibility is verified
+    and the node's private draw begins.
     """
     W, H = 860, 492
     b = []
@@ -238,14 +238,14 @@ def fig_architecture() -> str:
     b.append(text(42, 152, "shared inputs \u25b2", 9.5, "#6f6d66", weight="600"))
     b.append(text(42, 166, "in every node \u25bc", 9.5, "#6f6d66", weight="600"))
 
-    band(178, 118, 2, "In every node: public eligibility, then a private pick")
+    band(178, 118, 2, "In every node: verifiable eligibility, then a private pick")
     stages = [("Registered peers", verifiable), ("Verifiable gate", verifiable),
               ("Pick", private), ("Link set", INK_SOFT)]
     for x, (head, col) in zip(cols, stages):
         box(x, 220, 158, 38, head, col, col if col != INK_SOFT else INK)
     for x0 in (218, 412, 606):
         b.append(arrow(x0 + 2, 239, x0 + 34, 239, RULE, 1.6))
-    b.append(text(60, 282, "Public inputs determine eligible pairs", 10, verifiable,
+    b.append(text(60, 282, "Both peers verify their eligibility", 10, verifiable,
                   weight="600"))
     b.append(text(304, 282, "→", 10, "#6f6d66"))
     b.append(text(324, 282, "the node's own draw, and not required to be checkable",
@@ -278,8 +278,8 @@ def fig_architecture() -> str:
                  "node turns those public inputs into its registered peers on a topic, "
                  "applies the verifiable gate, picks from the survivors with its own "
                  "private randomness, and holds the resulting links for the epoch; the "
-                 "steps up to the gate are recomputable from the shared public inputs and "
-                 "the pick is not. Messages then travel over those links from publisher "
+                 "gate gives a shared decision verifiable by both endpoints, while the "
+                 "pick uses private randomness. Messages then travel over those links from publisher "
                  "through any number of relays to subscribers, signed once end to end. The beacon "
                  "is drawn dashed because it may be provided off the chain; address resolution, "
                  "which feeds the dial rather than the derivation, is read once a peer has been "
@@ -574,12 +574,12 @@ def fig_derivation() -> str:
 
     rows = [
         (76, "Registered peers", f"N_{{T}} \u2212 1 = {n} other peers \u00b7 public"),
-        (150, "Eligible peers", f"{len(eligible)} illustrated; \u2248 (N_{{T}} \u2212 1)/B in expectation \u00b7 public"),
+        (150, "Eligible peers", f"{len(eligible)} illustrated; \u2248 (N_{{T}} \u2212 1)/B in expectation"),
         (224, "Picks", f"k = {rf} of the {len(eligible)}, headroom r = {n / (buckets * rf):g} \u00b7 private"),
     ]
-    # the first transition is the public gate, the second the node's own draw; r is
+    # the first transition is the peer-verifiable gate, the second the node's own draw; r is
     # the pool-to-pick ratio, so it sits on the row rather than on the operation
-    steps = [f"gate, B = {buckets} (public)", "private random selection"]
+    steps = [f"verifiable gate, B = {buckets}", "private random selection"]
     for k, (y, head, count) in enumerate(rows):
         col = private if k == 2 else (verifiable if k == 1 else INK_SOFT)
         b.append(circle(48, y - 8, 11, INK))
@@ -610,8 +610,10 @@ def fig_derivation() -> str:
                  "registered on the topic at the epoch's registration cutoff. The second "
                  "marks those for which the verifiable gate holds, roughly one in B of "
                  "them. The third marks the k the node actually picks from that eligible "
-                 "set, drawn with its own randomness. The first two rows are publicly "
-                 "recomputable; the third is the node's own draw and is private.",
+                 "set, drawn with its own randomness. The first row is public; pairwise "
+                 "eligibility in the second must be verifiable by both endpoints. The "
+                 "evaluated hash baseline also makes the second row public. The third "
+                 "is the node's own draw and is private.",
                  conditions="schematic \u00b7 not a deployment configuration \u00b7 the bucket-count table gives B = 1 at this size")
 
 

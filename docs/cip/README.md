@@ -161,7 +161,7 @@ The protocol has two parts. Shared services record which nodes participate in ea
 For each topic, a node periodically chooses other nodes, its **peers**, to exchange messages with. It keeps that selection for a [dissemination epoch](#term-epoch), then chooses again. The process has four steps:
 
 1. **Read the shared records.** Find the nodes registered for the topic, the keys permitted to publish on it, and the shared settings. Every node reads the same agreed version of these records, so they start from the same information. In this proposal, that version is fixed by a position in the Cardano chain.
-2. **Choose which peers to contact.** For each other registered node on the topic, apply the **gate**: a public rule that decides whether these two nodes are allowed to open a link on this topic during this epoch. The rule uses both nodes' registered identity keys, the topic and the epoch's shared random value. From the peers that pass, choose a limited number using the node's own private randomness.
+2. **Choose which peers to contact.** For each other registered node on the topic, apply the **gate**: an agreed rule that decides whether these two nodes are allowed to open a link on this topic during this epoch. Both endpoints must be able to verify that decision. From the peers that pass, choose a limited number using the node's own private randomness.
 3. **Ask the selected peers to connect.** Send each peer a signed request to open a [link](#term-link), a channel for exchanging messages on this topic. The peer checks the request and the gate rule. It also limits the additional links it accepts beyond its own selections, so a permitted connection can still be refused for lack of capacity. An accepted link carries messages in both directions.
 4. **Publish, forward and recover messages.** Publishers sign their messages. A receiving node checks that a message is valid and its publisher is allowed to publish on the topic before delivering it to the subscribed application or forwarding it to connected peers. Each publisher numbers its messages on a topic. A gap in those numbers reveals a missing message, which the node tries to recover from copies its peers have temporarily stored.
 
@@ -195,7 +195,7 @@ Figure 1 shows the three shared records used in step 1: the node registry, topic
 
 Table 1 separates what each service must provide from how this proposal provides it. Other providers can be assessed against those requirements. The proposed registries and parameter record still depend on Cardano; choosing an external randomness source does not remove that dependency. Behaviour during a chain halt, fork or unavailable service remains an [open question](#open-questions).
 
-Because nodes start from a shared registry, they do not depend on peers to recommend whom to contact. Anyone can check whether a link between two registered nodes is allowed for that topic and epoch. This limits an attacker's choice of connections, but it cannot prove that a node chose its peers randomly or forwarded messages.
+Because nodes start from a shared registry, they do not depend on peers to recommend whom to contact. Both endpoints must be able to verify whether their link is allowed for that topic and epoch. The evaluated hash-based gate also makes eligibility publicly recomputable; this is a property of that baseline, not a requirement to publish every node's eligible peers. The gate limits an attacker's choice of connections, but it cannot prove that a node chose its peers randomly or forwarded messages.
 
 ### Epochs
 
@@ -207,7 +207,7 @@ Epoch length must allow topology formation and a fresh beacon value, while remai
 
 ### Topology derivation
 
-Eligibility is a pure function of the epoch's snapshot, *η*<sub>e</sub> and the node's identity. Nodes with the same inputs agree on eligible pairs without exchanging messages. Selecting actual peers from that set additionally uses private randomness.
+Nodes start from the epoch's snapshot and randomness, *η*<sub>e</sub>, and apply an agreed gate to determine which peers they may contact. The gate gives one shared eligibility decision for each pair, verifiable by both endpoints. Selecting actual peers from the eligible set additionally uses private randomness. The public hash construction below is the evaluated baseline; the final gate construction remains open.
 
 <div align="center">
 <a name="figure-2" id="figure-2"></a>
@@ -226,7 +226,7 @@ The three rows are the same peers, marked three times over.
 
 The figure uses a schematic example: 32 peers, eight shown as eligible and four selected. These illustrate the three sets, not a deployment configuration; Table 2 switches the gate off at this population. [Selection headroom](#term-r) measures how much choice the node has: the expected number of eligible peers in row 2 for each peer it plans to pick in row 3. It does not guarantee the size of any individual node's eligible set.
 
-Rows 1 and 2 are publicly recomputable. Row 3 is private and cannot be checked for uniform selection or participation. The full acceptance procedure, including signature, epoch, membership, gate and capacity checks, is specified under [Link establishment](#link-establishment).
+Row 1 is public. Each endpoint must be able to verify its pairwise eligibility in row 2; the evaluated hash baseline additionally lets anyone recompute that row. Row 3 is private and cannot be checked for uniform selection or participation. The full acceptance procedure, including signature, epoch, membership, gate and capacity checks, is specified under [Link establishment](#link-establishment).
 
 #### The registered peers on a topic
 
@@ -234,13 +234,19 @@ Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *
 
 #### The verifiable gate
 
-The gate is the step from row 1 to row 2 of [Figure 2](#figure-2): it narrows the candidates to those a node is permitted to link with in this epoch. For a pair (*a*, *b*) on topic *T* under randomness *η*, with an operation label *d* (the **domain tag**) and [bucket count](#term-b) *B*:
+The gate is the step from row 1 to row 2 of [Figure 2](#figure-2): it narrows the candidates to those a node is permitted to link with in this epoch.
+
+The gate MUST give one shared decision for each unordered pair of registered nodes on a topic in an epoch. Both endpoints MUST be able to verify that decision using the agreed epoch inputs and any additional inputs or evidence required by the chosen construction. The choice of which endpoint initiates a link MUST NOT give the pair a second chance to pass. Public enumeration of every node's eligible peers is not required.
+
+The analysis assumes each pair is eligible with probability 1/*B*, with membership fixed before the epoch randomness is known. A replacement construction must justify the eligible-pool distribution and dependencies used by that analysis; matching the pass rate alone is insufficient.
+
+**Evaluated hash baseline.** The current evidence uses a public hash-based gate. Its calculation below fixes the baseline's byte inputs; it does not select hashing as the final eligibility mechanism. For a pair (*a*, *b*) on topic *T* under randomness *η*, with an operation label *d* (the **domain tag**) and [bucket count](#term-b) *B*:
 
 $$\mathrm{gate}_d(a, b, T, \eta, B) \iff \mathrm{trunc}_{64}\big(\mathrm{SHA\text{-}256}(P)\big) \bmod B = 0$$
 
 A pair passes when its digest lands in bucket zero, so one pair in *B* is admitted. Every value of *B* in [Table 2](#table-2) is a power of two, which makes that reduction a mask on the low bits rather than a division, and the pass rate exactly 1/*B*.
 
-To compute the gate, both nodes build the same byte string *P*, the input to the hash, also called its **preimage**. [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation) defines the shared rules for constructing hash and signature inputs. For this gate:
+To compute this baseline gate, both nodes build the same byte string *P*, the input to the hash, also called its **preimage**. [Canonical encoding and domain separation](#canonical-encoding-and-domain-separation) defines the shared rules for constructing hash and signature inputs. For this gate:
 
 $$P = \mathrm{LP}(d) \,\|\, \mathrm{LP}(\eta) \,\|\, \mathrm{LP}(T) \,\|\, \mathrm{LP}(a) \,\|\, \mathrm{LP}(b)$$
 
@@ -250,9 +256,11 @@ The sorted-pair gate gives one eligibility draw per relationship. The [companion
 
 The relay link's domain tag is `pubsub/gate/relay/v1`. A link kind added later carries its own tag, so that its draw is independent of this one.
 
-The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. Since SHA-256[^hashes] is modelled as a random oracle over inputs no participant controls after the cutoff, roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
+The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. In this baseline, SHA-256[^hashes] is modelled as a random oracle over the fixed identities and the epoch randomness, so roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 For a chosen victim, each adversarial identity passes the gate with probability 1/*B*. Obtaining one eligible hostile identity therefore costs about *B* deposits in expectation, provided identities are fixed before the randomness is known. The [serving cap](#the-serving-cap) separately limits peer-initiated admissions.
+
+A private gate construction remains open. Any proposal must specify its key registration, eligibility verification and proof exchange, and assess grinding, computation cost and the resulting topology. No VRF-based or other private construction has been selected or validated by the evidence cited here.
 
 #### The bucket count
 
@@ -262,7 +270,7 @@ $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
 Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers, *r* is how many of them it has for each pick it must make. At *r* = 1 the expected pool size equals the pick count; individual pools can be larger or smaller. The rules below require expected headroom of at least two where the gate is on.
 
-**Only one of these has to be identical across nodes.** An acceptor recomputes the gate on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
+**Only one of these has to be identical across nodes.** An acceptor verifies pairwise eligibility on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
 *B* MUST therefore be the value [Table 2](#table-2) below gives for the topic's registered population, read from the epoch's [snapshot](#term-snapshot); *k* and *C* follow rules each node applies for itself, stated under [the relay link and the pick count](#the-relay-link-and-the-pick-count) and [the serving cap](#the-serving-cap). The table is published by this document rather than the chain, and only the topic gaining or losing members can move a row.
 
@@ -378,10 +386,10 @@ An acceptor evaluates a Request in the order numbered in [Figure 3](#figure-3), 
 3. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
 4. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
 5. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
-6. **Gate.** The gate MUST hold for the pair, recomputed by the acceptor from public data on the pair sorted by identity bytes; the requester's role does not enter.
+6. **Gate.** The acceptor MUST verify that the gate holds for the pair under the agreed construction. The evaluated hash baseline recomputes it from public data with identities sorted by their raw bytes; any replacement must specify its verification inputs and any additional evidence exchanged.
 7. **Cap.** If the request answers a selection the acceptor has itself made — a *crossing* — it is completed regardless of the budget. Otherwise it is an admission, and the acceptor refuses it once *C* admissions have been granted for that kind on *T* in this epoch.
 
-A failure at 1, 2, 3, 4 or 6 is dropped without reply. These are conditions an honest dialler never meets, since it reads the same registry and computes the same gate, so a reply would inform only a peer that is probing. A failure at 7 is answered with **Rejected**, because capacity is a normal and honest outcome that the dialler should distinguish from unreachability.
+A failure at 1, 2, 3, 4 or 6 is dropped without reply. These checks establish whether the request is valid for the local epoch before the node reveals its admission capacity. A failure at 7 is answered with **Rejected**, because capacity is a normal and honest outcome that the dialler should distinguish from unreachability.
 
 A dialler that is rejected does not retry that peer within the epoch, and its realised degree may therefore fall short of *k*. The provisional cap recipe aims to make these refusals rare; the deployment profile must validate that expectation. The next epoch redraws the topology regardless.
 
@@ -481,7 +489,7 @@ The same key MAY serve as both a node identity key and a publisher key. A publis
 
 **Requirements for identity anchoring.** The protocol relies on two properties:
 
-1. **Identity is the raw Ed25519 public key.** Peers use that key to verify handshake signatures, and the [gate preimage](#the-verifiable-gate) consumes its raw bytes. A hash of the key is not a substitute.
+1. **Identity is the raw Ed25519 public key.** Peers use that key to verify handshake signatures, and the [hash-baseline gate preimage](#the-verifiable-gate) consumes its raw bytes. A hash of the key is not a substitute.
 2. **Participation eligibility is snapshottable.** Anything that gates participation MUST be evaluable at a fixed chain position, identically by every node. Topology derivation uses the [registration-cutoff snapshot](#term-snapshot), rather than the chain tip.
 
 Any future anchoring to an existing credential MUST preserve the raw Ed25519-key identity and snapshot-based eligibility requirements.
@@ -775,7 +783,7 @@ Three things are outside this model, for different reasons.
 
 The analysis also assumes the adversarial share is fixed before the topology is drawn and independent of it. An adversary that corrupts *chosen* nodes after the draw is stronger, and against it the cost of stranding a victim turns on that victim's own links rather than the network-wide fraction.
 
-That cost depends on what the adversary knows. The gate is public, so which links are *permitted* can be recomputed by anyone; which of them a node opened is its own private draw. An adversary holding only the public half must corrupt a victim's whole eligible set rather than its realised neighbours: at the bucket count this proposal specifies, forty identities against sixteen, since the gate leaves about four times the pick count eligible. These are different knowledge assumptions; neither is a measured guarantee against adaptive corruption.[^eclipse]
+That cost depends on what the adversary knows. Under the evaluated public hash baseline, which links are *permitted* can be recomputed by anyone; which of them a node opened is its own private draw. An adversary holding only the public half must corrupt a victim's whole eligible set rather than its realised neighbours: at the bucket count this proposal specifies, forty identities against sixteen, since the gate leaves about four times the pick count eligible. These are different knowledge assumptions; neither is a measured guarantee against adaptive corruption.[^eclipse]
 
 [Churn](#term-churn), honest nodes dropping offline and returning, is not a separate threat model: a node offline for an epoch holds its allotted links and forwards nothing, indistinguishable to every other node from a silent adversary. Independent honest downtime with per-epoch probability [*p*](#param-p) therefore enters the coverage analysis as a shift in the adversarial fraction, from μ to μ + *p*(1−μ), and the same results apply at the shifted value; the shift has been checked against simulation, by marking nodes down and re-measuring coverage.[^churn] What a single independent *p* cannot represent is correlated downtime, such as upgrade waves or region outages.
 
@@ -783,7 +791,7 @@ That cost depends on what the adversary knows. The gate is public, so which link
 
 The symmetric relay link was selected for three reasons.
 
-1. **One eligibility draw per pair.** Sorting the keys gives each identity one chance to become eligible for a given peer. Drawing each direction separately gives approximately twice the reach at equal bucket count.
+1. **One eligibility draw per pair.** Both endpoints share one decision; the evaluated hash baseline achieves this by sorting the keys. Drawing each direction separately gives approximately twice the reach at equal bucket count.
 2. **Either endpoint can provide an honest connection.** A node can avoid isolation through its own selections or through an honest peer selecting it. In the ungated approximation, the isolation probability includes both factors, *μ*<sup>*k*</sup>e<sup>−*k*(1−*μ*)</sup>.
 3. **One link kind serves publication and relaying.** This reduces connection state and requires one gate and admission budget per topic.
 
@@ -1059,6 +1067,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 
 #### Remaining design choices
 
+- **Gate construction:** choose the shared, peer-verifiable eligibility mechanism. The public hash gate is the evaluated baseline; a private alternative needs its own key and verification rules and topology analysis.
 - **Parameter authority:** choose who may change the epoch length from the arrangements in [Authority over the parameter output](#authority-over-the-parameter-output).
 - **Per-topic profiles:** decide whether topics need different failure and downtime assumptions, with an agreed bucket table for each profile. Different targets need not require different epoch lengths; different schedules would also require compatible beacon and snapshot timing.
 - **Timing assumptions:** decide whether partial synchrony is acceptable and what guarantees it would enable beyond the current reachability analysis.
@@ -1069,7 +1078,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 
 This draft is not yet implementation-ready. Activation requires observable deliverables in the following areas:
 
-- [ ] Complete the interoperability specification: beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings (including handshake recipient and deployment binding), and recovery exchanges implementing the delivery and gap-notification contract.
+- [ ] Complete the interoperability specification: gate construction and any associated keys or proofs, beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings (including handshake recipient and deployment binding), and recovery exchanges implementing the delivery and gap-notification contract.
 - [ ] Resolve the on-chain rules and schemas, including validators for the topic-creation rule, registration uniqueness, publisher authorisation, credential encodings and deployment parameter authority.
 - [ ] Publish a deployment profile stating adversarial participation, identity cost, failure target, expected downtime, epoch length, retention and resource limits. Reconcile its bucket table, pick count and cap with the coverage estimate, with a stated allowance for model error and a justified treatment of downtime under flooding.
 - [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs.
@@ -1279,7 +1288,7 @@ The text introduces these terms where they are needed. This table collects their
 
 ### Sizing derivations
 
-These derivations explain the candidate bucket table and the coverage estimates used to assess a deployment profile. The baseline estimate assumes admissions are not refused; the next subsection adds the empirical cap correction. Neither is a proved full-reachability bound. A node reads the agreed bucket table and its configured pick count and cap; it need not evaluate these expressions at runtime.
+These derivations explain the candidate bucket table and the coverage estimates used to assess a deployment profile under the evaluated hash gate. Applying them to another gate construction requires justifying the same distributional assumptions. The baseline estimate assumes admissions are not refused; the next subsection adds the empirical cap correction. Neither is a proved full-reachability bound. A node reads the agreed bucket table and its configured pick count and cap; it need not evaluate these expressions at runtime.
 
 #### The coverage law
 

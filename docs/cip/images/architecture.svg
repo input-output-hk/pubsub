@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 492" width="860" height="492" role="img" aria-labelledby="t d">
 <title id="t">The protocol at a glance</title>
-<desc id="d">Three numbered bands read downward. Band 1 holds the four services the protocol reads: a node registry, a topic registry, a parameter output and a per-epoch randomness beacon, contributing membership, publisher keys, the epoch length and the epoch randomness respectively. Every node turns those public inputs into its registered peers on a topic, applies the verifiable gate, picks from the survivors with its own private randomness, and holds the resulting links for the epoch; the steps up to the gate are recomputable from the shared public inputs and the pick is not. Messages then travel over those links from publisher through any number of relays to subscribers, signed once end to end. The beacon is drawn dashed because it may be provided off the chain; address resolution, which feeds the dial rather than the derivation, is read once a peer has been drawn.</desc>
+<desc id="d">Three numbered bands read downward. Band 1 holds the four services the protocol reads: a node registry, a topic registry, a parameter output and a per-epoch randomness beacon, contributing membership, publisher keys, the epoch length and the epoch randomness respectively. Every node turns those public inputs into its registered peers on a topic, applies the verifiable gate, picks from the survivors with its own private randomness, and holds the resulting links for the epoch; the gate gives a shared decision verifiable by both endpoints, while the pick uses private randomness. Messages then travel over those links from publisher through any number of relays to subscribers, signed once end to end. The beacon is drawn dashed because it may be provided off the chain; address resolution, which feeds the dial rather than the derivation, is read once a peer has been drawn.</desc>
 <rect width="860" height="492" rx="8" fill="#fcfcfb"/>
 <rect x="38.0" y="38.0" width="784.0" height="96.0" rx="8" fill="#fcfcfb" stroke="#e2e0d8" stroke-width="1.2"/>
 <circle cx="66.0" cy="57.0" r="11.0" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
@@ -31,7 +31,7 @@
 <rect x="38.0" y="178.0" width="784.0" height="118.0" rx="8" fill="#fcfcfb" stroke="#e2e0d8" stroke-width="1.2"/>
 <circle cx="66.0" cy="197.0" r="11.0" fill="#1a1a19" stroke="#1a1a19" stroke-width="0"/>
 <text x="66.0" y="201.0" font-size="11.5" fill="#fcfcfb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="700">2</text>
-<text x="84.0" y="202.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">In every node: public eligibility, then a private pick</text>
+<text x="84.0" y="202.0" font-size="12.5" fill="#1a1a19" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">In every node: verifiable eligibility, then a private pick</text>
 <rect x="60.0" y="220.0" width="158.0" height="38.0" rx="6" fill="#fcfcfb" stroke="#4a3aa7" stroke-width="1.4"/>
 <text x="139.0" y="243.0" font-size="11.5" fill="#4a3aa7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle" font-weight="600">Registered peers</text>
 <rect x="254.0" y="220.0" width="158.0" height="38.0" rx="6" fill="#fcfcfb" stroke="#4a3aa7" stroke-width="1.4"/>
@@ -46,7 +46,7 @@
 <polygon points="446.0,239.0 439.0,242.5 439.0,235.5" fill="#b9b6ab"/>
 <line x1="608.0" y1="239.0" x2="633.0" y2="239.0" stroke="#b9b6ab" stroke-width="1.6" stroke-linecap="round"/>
 <polygon points="640.0,239.0 633.0,242.5 633.0,235.5" fill="#b9b6ab"/>
-<text x="60.0" y="282.0" font-size="10" fill="#4a3aa7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Public inputs determine eligible pairs</text>
+<text x="60.0" y="282.0" font-size="10" fill="#4a3aa7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-weight="600">Both peers verify their eligibility</text>
 <text x="304.0" y="282.0" font-size="10" fill="#6f6d66" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">→</text>
 <text x="324.0" y="282.0" font-size="10" fill="#1e8f5e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">the node's own draw, and not required to be checkable</text>
 <line x1="430.0" y1="296.0" x2="430.0" y2="325.0" stroke="#b9b6ab" stroke-width="1.6" stroke-linecap="round"/>
