@@ -407,6 +407,8 @@ Each publisher numbers its messages separately for each topic. The combination o
 
 Nodes also compute a hash of each message's signed fields to recognise copies they have already received. Two validly signed messages with the same topic, publisher and sequence number but different signed content are evidence of conflicting publications, called **equivocation**. They are not duplicates. The [Rationale](#two-classes-of-fault-with-different-guarantees) distinguishes this evidence from an invalid signature or an absence of messages.
 
+This evidence could support penalties for equivocating publishers under a future incentive model. This proposal does not define those penalties, the assets or privileges they could affect, or how they would be enforced.
+
 Each message additionally carries the hash of the publisher's previous message on the topic, which chains a publisher's messages so that a recovered range can be checked to be the range that was published rather than a plausible substitute, and a publisher timestamp, which is signed but carries no consensus meaning and MUST NOT be relied on for ordering.
 
 ```cddl
