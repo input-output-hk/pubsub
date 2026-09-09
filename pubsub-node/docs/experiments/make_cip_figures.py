@@ -487,11 +487,11 @@ def fig_handshake() -> str:
     """The handshake as a sequence: one request, an ordered evaluation, one reply.
 
     A structural diagram like fig_architecture, so its content is literal.
-    The seven checks are numbered to match the Specification's list, because
+    The six checks are numbered to match the Specification's list, because
     the order is normative: it decides what a refusal reveals to a prober.
     What the figure carries that the list cannot is the shape of the exchange
-    -- that five of the seven exits are silent, and only the last two ever put
-    a message back on the wire.
+    -- four checks fail silently, an existing link is accepted again, and
+    the admission check decides whether a new link is accepted or rejected.
     """
     W, H = 860, 470
     b = []
@@ -506,17 +506,16 @@ def fig_handshake() -> str:
         b.append(line(x, 70, x, H - 22, GRID, 1.2, dash="4 5"))
 
     b.append(arrow(DX + 2, 102, AX - 4, 102, INK, 1.6))
-    b.append(text((DX + AX) / 2, 94, "Request   topic T, link kind, epoch e, signed",
+    b.append(text((DX + AX) / 2, 94, "Request   topic T, epoch e, signed",
                   10.5, INK_SOFT, "middle"))
 
-    rows = [("Kind", "dropped, no reply", quiet),
-            ("Signature", "dropped, no reply", quiet),
+    rows = [("Signature", "dropped, no reply", quiet),
             ("Epoch", "dropped, no reply", quiet),
             ("Membership", "dropped, no reply", quiet),
             ("Already held", "Accepted again, idempotent", ok),
             ("Gate", "dropped, no reply", quiet),
             ("Cap", "crossing always completes", ok)]
-    b.append(rect(410, 122, 400, 228, SURFACE, RULE, 1.4, rx=8))
+    b.append(rect(410, 122, 400, 202, SURFACE, RULE, 1.4, rx=8))
     b.append(text(430, 142, "Evaluated in this order", 11, INK, weight="600"))
     for i, (name, exit_, col) in enumerate(rows):
         y = 168 + i * 26
@@ -537,9 +536,9 @@ def fig_handshake() -> str:
 
     return frame(W, H, b, "Establishing one link",
                  "A sequence diagram in two lanes. The dialler sends one signed Request "
-                 "to the acceptor. The acceptor evaluates seven checks in a fixed order: "
-                 "kind, signature, epoch, membership, already held, gate, cap. Failing "
-                 "the first four or the gate is dropped without a reply. An already held "
+                 "to the acceptor. The acceptor evaluates six checks in a fixed order: "
+                 "signature, epoch, membership, already held, gate, cap. Failing "
+                 "the first three or the gate is dropped without a reply. An already held "
                  "link is accepted again. At the cap a crossing still completes. The "
                  "acceptor replies Accepted, or Rejected once its admissions budget is "
                  "spent.")

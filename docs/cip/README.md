@@ -254,9 +254,9 @@ Here `LP` adds a length prefix and ‖ joins byte strings; *T* is the raw 32-byt
 
 The sorted-pair gate gives one eligibility draw per relationship. The [companion](design-comparison.md#the-either-direction-rule) compares it with admitting a pair when either directional draw passes.
 
-The relay link's domain tag is `pubsub/gate/relay/v1`. A link kind added later carries its own tag, so that its draw is independent of this one.
+The evaluated hash gate uses the domain tag `pubsub/gate/relay/v1`.
 
-The **eligible set** *S*<sub>d</sub>(*a*, *T*) is the registered peers for which the gate holds. In this baseline, SHA-256[^hashes] is modelled as a random oracle over the fixed identities and the epoch randomness, so roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
+The **eligible set** *S*(*a*, *T*) is the registered peers for which the gate holds. In this baseline, SHA-256[^hashes] is modelled as a random oracle over the fixed identities and the epoch randomness, so roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 For a chosen victim, each adversarial identity passes the gate with probability 1/*B*. Obtaining one eligible hostile identity therefore costs about *B* deposits in expectation, provided identities are fixed before the randomness is known. The [serving cap](#the-serving-cap) separately limits peer-initiated admissions.
 
@@ -264,7 +264,7 @@ A private gate construction remains open. Any proposal must specify its key regi
 
 #### The bucket count
 
-Everything above argues for a large bucket count: the wider the division, the more an attacker pays for a chosen victim. What stops *B* from growing without limit is the draw itself. If the gate leaves a node barely as many eligible peers as it must open links to, the node has no choice left and the topology stops being a random graph. The [selection headroom](#term-r) is the ratio that measures this — row 2 against row 3 of [Figure 2](#figure-2) — for a link kind with pick count *k*:
+Everything above argues for a large bucket count: the wider the division, the more an attacker pays for a chosen victim. What stops *B* from growing without limit is the draw itself. If the gate leaves a node barely as many eligible peers as it must open links to, the node has no choice left and the topology stops being a random graph. The [selection headroom](#term-r) is the ratio that measures this — row 2 against row 3 of [Figure 2](#figure-2) — for a node with pick count *k*:
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
@@ -302,20 +302,20 @@ The table values are provisional. [Sizing derivations](#sizing-derivations) expl
 
 #### Selection
 
-For each topic and link kind, a node selects *k* distinct eligible peers uniformly at random — row 3 of [Figure 2](#figure-2) — and requests a link to each. If fewer than *k* peers are eligible, it requests links to all of them. Some requests may fail or be refused; selecting a peer does not guarantee that a link will be established. The randomness used for this pick MUST be private to the node and unpredictable to others; it is not derived from [*η*<sub>e</sub>](#param-eta), and two nodes with identical registry entries must not make identical picks.
+For each topic, a node selects *k* distinct eligible peers uniformly at random — row 3 of [Figure 2](#figure-2) — and requests a link to each. If fewer than *k* peers are eligible, it requests links to all of them. Some requests may fail or be refused; selecting a peer does not guarantee that a link will be established. The randomness used for this pick MUST be private to the node and unpredictable to others; it is not derived from [*η*<sub>e</sub>](#param-eta), and two nodes with identical registry entries must not make identical picks.
 
 #### The relay link and the pick count
 
-**Each topic uses one symmetric relay link kind.** A link is established once per pair and carries both local publications and relayed messages in both directions. Every subscriber acts as a [relay](#term-relay) by forwarding messages for its topics; this is a role, not an SPO relay node. No separate relay tier or publication-seeding link is required. The gate tag and sorted-key rule are defined under [The verifiable gate](#the-verifiable-gate).
+**Each topic uses bidirectional links that carry both locally published messages and messages forwarded from other peers.** A link is established once per pair. Every subscriber acts as a [relay](#term-relay) by forwarding messages for its topics; this is a role, not an SPO relay node. No separate relay tier or publication-seeding link is required. The gate tag and sorted-key rule are defined under [The verifiable gate](#the-verifiable-gate).
 
 With at most *k* selections and *C* peer-initiated admissions, a node holds at most *k* + *C* links per topic. This design is called M4 in the analysis and [companion comparison](design-comparison.md).
 
 <div align="center">
 <a name="table-3" id="table-3"></a>
 
-| Link kind | Direction | Picks per node, *k* | Links per node, mean / ceiling |
-| :--: | :--: | ---: | ---: |
-| relay | symmetric | 10 | 17.5 / 33 |
+| Direction | Picks per node, *k* | Links per node, mean / ceiling |
+| :--: | ---: | ---: |
+| symmetric | 10 | 17.5 / 33 |
 
 <em>Table 3: Measured reference at N = 20,000, B = 500 and C = 23</em>
 
@@ -331,7 +331,7 @@ A universal rule for the smallest *k* meeting *δ* remains open: the existing es
 
 #### The serving cap
 
-The gate bounds who may dial a node; the [serving cap](#term-cap) *C* bounds how many of them it will serve. It is an **admissions budget**: a node MUST refuse a peer-initiated request for a link it did not itself select, once *C* such admissions have been granted for that topic and link kind in the current epoch. A request that answers the node's own pending selection — a *crossing*, where both ends picked each other — is not an admission, and MUST be completed whatever the state of the budget.
+The gate bounds who may dial a node; the [serving cap](#term-cap) *C* bounds how many of them it will serve. It is an **admissions budget**: a node MUST refuse a peer-initiated request for a link it did not itself select, once *C* such admissions have been granted for that topic in the current epoch. A request that answers the node's own pending selection — a *crossing*, where both ends picked each other — is not an admission, and MUST be completed whatever the state of the budget.
 
 A node's own selections do not consume its admission budget, so earlier incoming requests cannot exhaust the budget reserved for them.
 
@@ -360,7 +360,7 @@ Everything specified so far is sized for a topic with thousands of members, wher
 
 ### Link establishment
 
-Links are opened by a signed handshake. The dialler sends a **Request** naming the topic and, by the message's kind, the link kind. The acceptor evaluates it using the [request checks](#link-request-checks) below, which determine whether it replies **Accepted**, replies **Rejected**, or silently drops the request. Either end MAY send **Terminated** to tear down an established link, and MUST send one for each link it holds when shutting down.
+Links are opened by a signed handshake. The dialler sends a **Request** naming the topic. The acceptor evaluates it using the [request checks](#link-request-checks) below, which determine whether it replies **Accepted**, replies **Rejected**, or silently drops the request. Either end MAY send **Terminated** to tear down an established link, and MUST send one for each link it holds when shutting down.
 
 <div align="center">
 <a name="figure-3" id="figure-3"></a>
@@ -373,9 +373,9 @@ Links are opened by a signed handshake. The dialler sends a **Request** naming t
 
 Every handshake message is signed by the emitter's node identity key over
 
-$$\mathrm{LP}(\texttt{pubsub/link/v1}) \,\|\, \mathrm{LP}(id) \,\|\, \texttt{action} \,\|\, \mathrm{LP}(T) \,\|\, \texttt{kind} \,\|\, e$$
+$$\mathrm{LP}(\texttt{pubsub/link/v2}) \,\|\, \mathrm{LP}(id) \,\|\, \texttt{action} \,\|\, \mathrm{LP}(T) \,\|\, e$$
 
-where *id* is the emitter's identity key, `action` and `kind` are one byte each, *T* is the topic identifier and *e* is the eight-byte epoch index.
+where *id* is the emitter's identity key, `action` is one byte, *T* is the topic identifier and *e* is the eight-byte epoch index.
 
 An acceptor takes the peer's identity from this preimage, never from the connection the message arrived over. That is what lets the transport be left open. This proposal fixes the byte strings every implementation must agree on, and not the framing or session layer that carries them.
 
@@ -383,20 +383,19 @@ An acceptor takes the peer's identity from this preimage, never from the connect
 
 An acceptor evaluates a Request in the order numbered in [Figure 3](#figure-3), and the order is normative because it determines what a refusal reveals:
 
-1. **Kind.** A request for a link kind the node does not operate is dropped.
-2. **Signature.** The signature MUST verify against the emitter's key, and the emitter MUST NOT be the acceptor itself.
-3. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
-4. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
-5. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
-6. **Gate.** The acceptor MUST verify that the gate holds for the pair under the agreed construction. The evaluated hash baseline recomputes it from public data with identities sorted by their raw bytes; any replacement must specify its verification inputs and any additional evidence exchanged.
-7. **Cap.** If the request answers a selection the acceptor has itself made — a *crossing* — it is completed regardless of the budget. Otherwise it is an admission, and the acceptor refuses it once *C* admissions have been granted for that kind on *T* in this epoch.
+1. **Signature.** The signature MUST verify against the emitter's key, and the emitter MUST NOT be the acceptor itself.
+2. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
+3. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
+4. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
+5. **Gate.** The acceptor MUST verify that the gate holds for the pair under the agreed construction. The evaluated hash baseline recomputes it from public data with identities sorted by their raw bytes; any replacement must specify its verification inputs and any additional evidence exchanged.
+6. **Cap.** If the request answers a selection the acceptor has itself made — a *crossing* — it is completed regardless of the budget. Otherwise it is an admission, and the acceptor refuses it once *C* admissions have been granted on *T* in this epoch.
 
-A failure at 1, 2, 3, 4 or 6 is dropped without reply. These checks establish whether the request is valid for the local epoch before the node reveals its admission capacity. A failure at 7 is answered with **Rejected**, because capacity is a normal and honest outcome that the dialler should distinguish from unreachability.
+A failure at 1, 2, 3 or 5 is dropped without reply. These checks establish whether the request is valid for the local epoch before the node reveals its admission capacity. A failure at 6 is answered with **Rejected**, because capacity is a normal and honest outcome that the dialler should distinguish from unreachability.
 
 A dialler that is rejected does not retry that peer within the epoch, and its realised degree may therefore fall short of *k*. The provisional cap recipe aims to make these refusals rare; the deployment profile must validate that expectation. The next epoch redraws the topology regardless.
 
 > [!NOTE]
-> A [link](#term-link) is logical. It is identified by a peer, a topic and a link kind, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. Every count in this proposal is a count of links, which [What a node pays](#what-the-symmetric-relay-link-gives) shows is an upper bound on transport connections.
+> A [link](#term-link) is logical. It is identified by a peer and a topic within an epoch, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. Every count in this proposal is a count of links, which [What a node pays](#what-the-symmetric-relay-link-gives) shows is an upper bound on transport connections.
 
 Nodes tear down every link at the end of an epoch and derive afresh. An implementation MAY overlap the two, holding the outgoing epoch's links while establishing the incoming epoch's, and this is RECOMMENDED for topics carrying time-critical traffic. It MUST NOT forward messages over links derived for an epoch that has ended.
 
@@ -706,7 +705,7 @@ Table 4 collects protocol parameters; Table 5 collects deployment assumptions us
 | <a name="param-b" id="param-b"></a>*B* | How narrowly a node's permitted peers are drawn from a topic | **Candidate:** local lookup in a table included in node software, by the topic's registered population; [Table 2](#table-2) gives provisional values. An on-chain source remains open |
 | <a name="param-r" id="param-r"></a>*r* | Expected eligible peers per peer a node plans to select | **Floor fixed:** ≥ 2, and not the binding constraint at the candidate pick counts |
 | <a name="param-k" id="param-k"></a>*k* | Peers a node selects to contact per topic | **Candidate:** 10; deployment configuration must state its population and downtime profile. A universal minimum-count solver and error allowance remain open |
-| <a name="param-c" id="param-c"></a>*C* | Links a node accepts per topic per kind | **Provisional recipe:** ⌈*L* + 3.5√*L*⌉ at *k* = 9 or 10; gives 24 at *N* = 20,000, *B* = 512 and *μ* = 0.2. The measured reference used 23 at *B* = 500 |
+| <a name="param-c" id="param-c"></a>*C* | Peer-initiated admissions per topic and epoch | **Provisional recipe:** ⌈*L* + 3.5√*L*⌉ at *k* = 9 or 10; gives 24 at *N* = 20,000, *B* = 512 and *μ* = 0.2. The measured reference used 23 at *B* = 500 |
 | <a name="param-retention" id="param-retention"></a>retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic |
 | <a name="param-deposit" id="param-deposit"></a>deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery |
 | <a name="param-withdrawal-delay" id="param-withdrawal-delay"></a>withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open |
@@ -742,7 +741,7 @@ The [gate](#the-verifiable-gate), [link handshake](#link-establishment), [publis
 - Integers are **big-endian and fixed width**.
 - Every preimage begins with a length-prefixed **domain tag** naming what is hashed or signed, so a signature valid in one role cannot be replayed into another.
 
-For example, `pubsub/register/v1` distinguishes a registration proof from a handshake signed under `pubsub/link/v1`, even though both use the node's identity key. This separation by purpose is **domain separation**.
+For example, `pubsub/register/v1` distinguishes a registration proof from a handshake signed under `pubsub/link/v2`, even though both use the node's identity key. This separation by purpose is **domain separation**.
 
 A node identity is an Ed25519 public key,[^ed25519] and wherever it enters a preimage it is consumed raw, never in a display form.
 
@@ -754,11 +753,11 @@ Three things version independently, because they change for unrelated reasons an
 
 A deployment therefore migrates by standing up a second one. It publishes the new parameter output and announces the epoch at which nodes cut over. Nothing switches the old validators off, and nothing can: a script on chain goes on accepting whatever its own rules allow, and anyone may keep writing entries to it. What ends the old deployment is that nodes stop reading it, since a node derives from the parameter output it is configured with and from the registries that output names. Its entries stay spendable in the meantime, so operators can retire them and take their deposits back after the [withdrawal delay](#param-withdrawal-delay). The two deployments never share a topology, for the reason [the parameter output](#the-parameter-output) gives, so a node runs in one or the other and never in both.
 
-**Signature preimages** carry their version in the domain tag, as `pubsub/message/v1` and `pubsub/link/v1`. Any change to what a preimage covers, or to how it is encoded, MUST increment that suffix. Because the tag is inside the signed bytes, a signature made under one version can never verify under another, so incompatible implementations fail closed instead of accepting each other's messages under the wrong interpretation. The gate's domain tags version by the same rule, and a change there changes which links are legal, so it MUST take effect at an epoch boundary and never within one.
+**Signature preimages** carry their version in the domain tag, as `pubsub/message/v1` and `pubsub/link/v2`. Any change to what a preimage covers, or to how it is encoded, MUST increment that suffix. Because the tag is inside the signed bytes, a signature made under one version can never verify under another, so incompatible implementations fail closed instead of accepting each other's messages under the wrong interpretation. The gate's domain tags version by the same rule, and a change there changes which links are legal, so it MUST take effect at an epoch boundary and never within one.
 
 **The protocol as a whole** is versioned by this CIP. A change that alters what a conforming node computes, rather than what it encodes, is a new revision of this document. Because every node in an epoch must derive the same topology, such a change cannot be rolled out gradually: it takes effect at an announced epoch, and nodes MUST agree on which epoch that is before it arrives.
 
-Within these rules, the changes this proposal anticipates are additive. Adding a link kind adds its gate domain tag and its own sizing rules. Fixing the beacon source supplies *η* without altering how it is consumed. New link kinds, new payload conventions and per-topic policy all extend the registries rather than reinterpreting them.
+Future changes to the gate construction, beacon source or per-topic policy must follow these versioning and activation rules. The specification defines one bidirectional link role for both publication and forwarding.
 
 ## Rationale: How does this CIP achieve its goals?
 
@@ -1272,17 +1271,17 @@ The text introduces these terms where they are needed. This table collects their
 | <a name="term-relay" id="term-relay"></a>**relay** | A role, not a class of machine: any node forwarding another party's message on a topic it subscribes to. Every subscriber relays. | An **SPO relay node**, which is a distinct, privileged piece of infrastructure. There is no relay tier here, and no node is designated to carry traffic for others. |
 | <a name="term-registry" id="term-registry"></a>**registry**, **registration** | The protocol's own two on-chain registries, holding participating nodes and topics. | **Stake pool registration**, **dRep registration**, or the entries these create. Registering here neither requires nor implies either. |
 | <a name="term-deposit" id="term-deposit"></a>**deposit** | Ada locked by a registration entry for as long as it stands, making identities costly to mass-produce. Returned after retirement, once the withdrawal delay has elapsed. | **Pledge**, delegated **stake**, or a governance deposit. It is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. |
-| <a name="term-link" id="term-link"></a>**link** | A logical channel identified by a peer, a topic and a link kind, held for the whole epoch. Not a transport connection: many links MAY share one, and doing so is RECOMMENDED; see [Link establishment](#link-establishment). | |
+| <a name="term-link" id="term-link"></a>**link** | A bidirectional logical channel identified by a peer and a topic within an epoch. Not a transport connection: many links MAY share one, and doing so is RECOMMENDED; see [Link establishment](#link-establishment). | |
 | <a name="term-topic" id="term-topic"></a>**topic** | A named stream of publisher-signed messages. Its registry entry states who may publish and how long messages are retained. | |
 | <a name="term-message" id="term-message"></a>**message** | An application payload published to a topic, signed end to end by its publisher. | A **transaction**, or a Cardano network-protocol message. Messages are never written to the chain. |
 | <a name="term-muting" id="term-muting"></a>**muted**, of a subscriber | Isolated on a topic because it has no usable honest link in that epoch. A new epoch gives it another draw; repeated isolation remains possible. | The directional designs distinguish inability to receive from inability to publish. In the symmetric design, isolation prevents both. |
 | <a name="term-churn" id="term-churn"></a>**churn** | Registered nodes going offline and returning within an epoch's fixed membership. Measured as *p*, the share absent across an epoch. | **Membership turnover.** Which nodes are registered is fixed at the epoch's [registration cutoff](#term-snapshot), so a node that goes offline is still in the snapshot and still holds the links drawn to it. Churn here is a liveness property, not a change in who participates. |
 | <a name="term-beacon" id="term-beacon"></a>**beacon** | The source of the per-epoch randomness *η*, treated here as an interface with stated requirements. | The ledger's **epoch nonce** specifically. That nonce is one candidate source among others; the choice is open. |
-| <a name="term-pick-count" id="term-pick-count"></a>**pick count**, *k* | How many peers one node picks to link to, per topic and per link kind. Written *RF* in the measurement write-ups and the [companion](design-comparison.md), which label the relay case that way. | A **replication factor**, which in this project means how many replication servers hold a topic and belongs to the deferred storage layer. Nor the relay-tier extension's fanout, which that proposal also writes *k*: there is no relay tier here, and nothing is replicated to *k* places. |
+| <a name="term-pick-count" id="term-pick-count"></a>**pick count**, *k* | How many peers one node picks to link to, per topic. Written *RF* in the measurement write-ups and the [companion](design-comparison.md), which label the relay case that way. | A **replication factor**, which in this project means how many replication servers hold a topic and belongs to the deferred storage layer. Nor the relay-tier extension's fanout, which that proposal also writes *k*: there is no relay tier here, and nothing is replicated to *k* places. |
 | <a name="term-eligible" id="term-eligible"></a>**eligible peers** | The registered peers a given node may link to in a given epoch, being those its gate admits. Roughly one in *B* of the topic, and so far larger than the number of links it opens: it picks those from this set privately. | |
 | <a name="term-b" id="term-b"></a>**bucket count**, *B* | How narrow the verifiable gate is. Roughly one candidate in *B* survives it for a given node and epoch. | |
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | The expected number of eligible peers per peer a node plans to select. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
-| <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic for one link kind that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
+| <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
 | <a name="term-coverage-law" id="term-coverage-law"></a>**coverage law** | An analytical estimate of topology failure probability. The baseline estimates isolation and omits admission refusals and larger disconnected components; the empirical cap correction and limits are given under [Sizing derivations](#sizing-derivations). **Gated** means the estimate includes the bucket count *B*. | The coverage *figures* under [Evidence](#how-the-evidence-was-obtained), which are measurements the law is checked against. |
 
 <em>Table 13: The protocol's vocabulary</em>
@@ -1344,7 +1343,7 @@ Thus *C* affects *ρ*<sub>C</sub>, which affects the predicted failure probabili
 
 - ***B*<sub>target</sub>**, the largest *B* at which the [gated coverage law](#the-coverage-law) meets the failure target *δ*.
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
-- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio itself is general and is applied per link kind; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
+- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio is applied to the node's eligible pool and pick count; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
 
 Only the first requires evaluating the [coverage law](#the-coverage-law); the other two are arithmetic. All three can be walked interactively in the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/), a companion web page that plots the bounds against topic size with the network size, the attacker's identity count, *μ*, *p* and the pick count as controls. It shows which of the three is binding at any point, and marks where the curves stop being backed by measurement.
 
