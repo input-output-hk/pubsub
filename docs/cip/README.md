@@ -230,7 +230,7 @@ Row 1 is public. Each endpoint must be able to verify its pairwise eligibility i
 
 #### The registered peers on a topic
 
-Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *T* — row 1 of [Figure 2](#figure-2). For a node *a* among them, the peers it might link to on *T* are the other *N*<sub>T</sub> − 1, and that is the full membership rather than a sample of it: there is no view, and therefore nothing to bias. Being registered on the topic says only that a link between the two would be legitimate; it does not mean the link exists, nor that the gate below admits it.
+Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *T* — row 1 of [Figure 2](#figure-2). For a node *a* among them, the potential peers are the other *N*<sub>T</sub> − 1 members. The node starts from the complete list of registered members of the topic. It does not depend on another peer to supply a sample of that list. Registration alone does not establish a link or mean that the gate below permits one.
 
 #### The verifiable gate
 
