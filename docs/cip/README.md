@@ -403,7 +403,9 @@ Nodes tear down every link at the end of an epoch and derive afresh. An implemen
 
 ### Messages
 
-A message is identified by the triple (topic, publisher, sequence number), and that triple is what makes loss detectable and recovery precise. Sequence numbers are per (topic, publisher), begin at zero, and increase by one for each message that publisher publishes on that topic. A publisher MUST NOT reuse a sequence number; doing so is equivocation, and is detectable by any node holding both messages. The [Rationale](#two-classes-of-fault-with-different-guarantees) distinguishes this evidence from an invalid signature or an absence of messages.
+Each publisher numbers its messages separately for each topic. The combination of topic, publisher and sequence number — the identifying triple — lets a node identify missing messages and request them from peers. Sequence numbers begin at zero and increase by one for each new message that publisher publishes on the topic. A publisher MUST NOT publish different signed content under the same sequence number on the same topic.
+
+Nodes also compute a hash of each message's signed fields to recognise copies they have already received. Two validly signed messages with the same topic, publisher and sequence number but different signed content are evidence of conflicting publications, called **equivocation**. They are not duplicates. The [Rationale](#two-classes-of-fault-with-different-guarantees) distinguishes this evidence from an invalid signature or an absence of messages.
 
 Each message additionally carries the hash of the publisher's previous message on the topic, which chains a publisher's messages so that a recovered range can be checked to be the range that was published rather than a plausible substitute, and a publisher timestamp, which is signed but carries no consensus meaning and MUST NOT be relied on for ordering.
 
@@ -425,7 +427,7 @@ $$\mathrm{LP}(\texttt{pubsub/message/v1}) \,\|\, \mathrm{LP}(\text{topic}) \,\|\
 
 Here `sequence` and `timestamp` are eight-byte unsigned big-endian integers, and `parent` is the raw 32-byte hash. The topic identifier and publisher key are their raw 32 bytes, length-prefixed as shown. The [message encoding test vector](message-encoding-vector.md) gives example field values, the exact signature-input bytes and the resulting message hash.
 
-The publisher produces the signature once. Relays forward the message unchanged and never re-sign it, so authenticity is end to end and independent of the path. Implementations MUST compute the **message hash** as the SHA-256 of that same preimage, excluding the signature, so that a malleable signature cannot produce a second identity for one message.
+The publisher produces the signature once. Relays forward the message unchanged and never re-sign it, so authenticity is end to end and independent of the path. Implementations MUST compute the **message hash** as the SHA-256 of that same preimage, excluding the signature. Changes to signature bytes alone therefore do not change the message hash.
 
 A recipient MUST make these checks, in this order, before acting on a message.
 
@@ -442,7 +444,7 @@ The order is normative for the same reason it is on a handshake: an unverified m
 
 **Forwarding.** On receiving a message that verifies and is not a duplicate, a node delivers it to its local application if it subscribes to the topic, and forwards it on its links for that topic, excluding the link it arrived on. Publishing is the same path with no arrival link to exclude.
 
-**Duplicate suppression.** A node keeps the message hashes it has seen and drops a message whose hash it already holds. Suppression is by content hash rather than by the identifying triple, deliberately: two different messages bearing the same triple are equivocation, and both must propagate so that any node holding both can recognise it. Two is also the ceiling: a node MUST NOT forward more than two distinct payloads bearing one triple, the pair being proof enough, and MUST drop further ones, since anything beyond the pair is amplification under a key that is compromised or equivocating.
+**Duplicate suppression.** A node keeps the message hashes it has seen and drops a message whose hash it already holds. Suppression is by content hash rather than by the identifying triple, deliberately: two different messages bearing the same triple are equivocation, and both must propagate so that any node holding both can recognise it. Two is also the ceiling: a node MUST NOT forward more than two messages with distinct signed content for one triple, the pair being proof enough, and MUST drop further ones, since anything beyond the pair is amplification under a key that is compromised or equivocating.
 
 **Gap detection.** A node tracks received sequence numbers and missing ranges per (topic, publisher). A later message reveals any missing positions before it. The node MUST notify the application when a gap is detected and when recovered messages change or close that gap. This detects loss between messages, but not missing messages after the last one received: a silent publisher produces no later sequence number to expose the loss. The [Rationale](#what-the-protocol-guarantees-instead) discusses that limit.
 
