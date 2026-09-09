@@ -331,12 +331,14 @@ A universal rule for the smallest *k* meeting *δ* remains open: the existing es
 
 #### The serving cap
 
-The gate bounds who may dial a node; the [serving cap](#term-cap) *C* bounds how many of them it will serve. It is an **admissions budget**: a node MUST refuse a peer-initiated request for a link it did not itself select, once *C* such admissions have been granted for that topic in the current epoch. A request that answers the node's own pending selection — a *crossing*, where both ends picked each other — is not an admission, and MUST be completed whatever the state of the budget.
+The gate determines which peers may request a link. The [serving cap](#term-cap) *C* limits the total number of new peer-initiated links a node accepts during an epoch, excluding peers it selected itself. It is an **admissions budget**: a node MUST refuse a peer-initiated request for a link it did not itself select, once *C* such admissions have been granted for that topic in the current epoch. A request that answers the node's own pending selection — a *crossing*, where both ends picked each other — is not an admission, and MUST be completed whatever the state of the budget.
 
-A node's own selections do not consume its admission budget, so earlier incoming requests cannot exhaust the budget reserved for them.
+A node's own selections do not consume its admission budget. Admitting other peers cannot make it refuse a request from a peer it selected itself.
 
-- **A node MUST count an admission as it grants it.** It MUST NOT arrive at the figure by counting its links at the end of an epoch, because a symmetric handshake leaves no record of which side dialled.
-- **The budget runs for one epoch, and is NOT restored when a link is severed.** Restoring it would mean knowing which side dialled, which is the same thing the handshake erased.
+- **A node MUST count an admission as it grants it.** It MUST NOT calculate the admission count from only the links still open.
+- **The budget runs for one epoch, and is NOT restored when a link is severed.** Closing a link does not undo the admission already granted.
+
+For example, with *C* = 23, accepting the 23rd such link exhausts the budget until the next epoch, even if some of those links have already closed.
 
 **Provisional sizing recipe.** The budget must leave room for honest arrivals as well as adversarial ones. For the studied large-topic regime at *k* = 9 or 10, use the empirical candidate
 
@@ -1281,7 +1283,7 @@ The text introduces these terms where they are needed. This table collects their
 | <a name="term-eligible" id="term-eligible"></a>**eligible peers** | The registered peers a given node may link to in a given epoch, being those its gate admits. Roughly one in *B* of the topic, and so far larger than the number of links it opens: it picks those from this set privately. | |
 | <a name="term-b" id="term-b"></a>**bucket count**, *B* | How narrow the verifiable gate is. Roughly one candidate in *B* survives it for a given node and epoch. | |
 | <a name="term-r" id="term-r"></a>**selection headroom**, *r* | The expected number of eligible peers per peer a node plans to select. Its floor is what keeps the draw random. A property of the gate rather than of the coverage target. | |
-| <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | How many links a node will admit on one topic that it did not itself select. An admissions budget: a commitment to serve, never a limit on what the node may open, and refusing beyond it is normal behaviour rather than a fault. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
+| <a name="term-cap" id="term-cap"></a>**serving cap**, *C* | The total number of new peer-initiated links a node may accept per topic and epoch, excluding peers it selected itself. Closing a link does not restore the budget; refusing further admissions when it is exhausted is normal behaviour. | Not a bound on a node's total degree; a node's own picks are never charged against it. |
 | <a name="term-coverage-law" id="term-coverage-law"></a>**coverage law** | An analytical estimate of topology failure probability. The baseline estimates isolation and omits admission refusals and larger disconnected components; the empirical cap correction and limits are given under [Sizing derivations](#sizing-derivations). **Gated** means the estimate includes the bucket count *B*. | The coverage *figures* under [Evidence](#how-the-evidence-was-obtained), which are measurements the law is checked against. |
 
 <em>Table 13: The protocol's vocabulary</em>
