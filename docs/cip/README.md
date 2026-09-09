@@ -524,12 +524,13 @@ The topic-interest set is authoritative. A node's effective subscriptions are th
 
 The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is neither pledge nor stake: it is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. It is returned to the operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
 
-The withdrawal delay keeps the deposit locked while an identity remains in a standing topology.
+The deposit remains locked until both the configured withdrawal delay has elapsed and the last epoch requiring the node's participation has ended.
 
-- **The delay MUST be at least one epoch.** A retiring entry can remain in the current epoch's snapshot, and must remain bonded until that epoch ends.
+- **The delay MUST be at least one epoch**, measured from the on-chain retirement.
+- **The deposit MUST remain locked through every epoch whose already-fixed snapshot still requires the node to participate.** This can include an epoch that has not yet started when the node retires.
 - The delay also limits how quickly capital can be reused for new identities. Its adequacy against repeated registration depends on the cutoff and retirement schedule.
 
-Its value beyond that floor is open.
+The [claim rule](#deposit-claim) combines these two release conditions. The delay beyond its one-epoch floor remains open, as does whether the deposit must additionally remain locked through message retention.
 
 #### The topic registry
 
@@ -682,15 +683,27 @@ That asymmetry is deliberate: an operator changing endpoints submits one transac
 **Step 3. Retirement.** Marks an entry withdrawing and starts the withdrawal delay.
 
 1. Only the operator credential MAY retire the entry.
-2. The entry remains in every snapshot already taken, so the node MUST continue to serve the links derived for the epoch in progress.
-3. The entry MUST NOT appear in the snapshot of any later epoch.
+2. Retirement does not change an already-fixed snapshot. The node MUST continue serving each epoch whose agreed snapshot still includes it as an active participant.
+3. An epoch whose snapshot records the entry as withdrawing MUST exclude the node from topology derivation.
+
+For example, a node retiring during epoch 10 remains a participant in epoch 11 if that epoch's snapshot was already fixed with the node active. Retirement cannot remove it from that snapshot.
 
 Retirement is the orderly path. A node that simply stops responding leaves its entry standing and is treated by everyone else as a registered node that happens not to be forwarding, which is indistinguishable from the adversary the [Rationale](#the-adversary-this-proposal-defends-against) analyses.
+
+<a name="deposit-claim" id="deposit-claim"></a>
 
 **Step 4. Claim.** Takes the deposit back.
 
 1. The claim MUST NOT succeed before the epoch recorded in the entry as `claimable_from`.
-2. That epoch MUST be at least one epoch after the retirement, for the reasons given under [The node registry](#the-node-registry).
+2. `claimable_from` MUST identify the first epoch whose start is at or after both the withdrawal-delay expiry and the end of the last epoch requiring participation under an already-fixed snapshot. The retirement validator MUST enforce this calculation when the entry becomes withdrawing.
+
+Expressing both conditions as times gives the release threshold
+
+$$t_\text{min} = \max\!\left(t_\text{retire} + D,\ t_\text{last-end}\right),$$
+
+where *t*<sub>retire</sub> is the time of the on-chain retirement, *D* is the configured withdrawal delay expressed as a duration, and *t*<sub>last-end</sub> is the end of the last epoch requiring participation. `claimable_from` is the first epoch whose start is at or after *t*<sub>min</sub>, using the agreed epoch schedule. If no epoch requires the node's participation, only the withdrawal-delay condition applies.
+
+In the example above, the deposit cannot be claimed before epoch 12 begins. A withdrawal delay expiring later moves the claim to the first epoch starting at or after that later time. Message retention adds no further lock under this rule; whether it should do so remains open.
 
 **Step 5. The snapshot and the registration cutoff.** Each epoch is derived from a *snapshot* of both registries and of the parameter output, taken at that epoch's **registration cutoff**.
 
@@ -723,7 +736,7 @@ Table 4 collects protocol parameters; Table 5 collects deployment assumptions us
 | <a name="param-c" id="param-c"></a>*C* | Peer-initiated admissions per topic and epoch | **Provisional recipe:** ⌈*L* + 3.5√*L*⌉ at *k* = 9 or 10; gives 24 at *N* = 20,000, *B* = 512 and *μ* = 0.2. The measured reference used 23 at *B* = 500 |
 | <a name="param-retention" id="param-retention"></a>retention | How long a node caches messages, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1 epoch. Value open, per topic |
 | <a name="param-deposit" id="param-deposit"></a>deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery |
-| <a name="param-withdrawal-delay" id="param-withdrawal-delay"></a>withdrawal delay | How long a retired entry waits before its deposit may be claimed, and so how fast identities can rotate | **Floor fixed:** ≥ 1 epoch. Value open |
+| <a name="param-withdrawal-delay" id="param-withdrawal-delay"></a>withdrawal delay | Minimum waiting time after on-chain retirement, limiting how quickly capital can fund new identities | **Floor fixed:** ≥ 1 epoch. Value open; release also waits for the last required participation epoch to end, under the [claim rule](#deposit-claim) |
 
 <em>Table 4: The protocol's parameters</em>
 
@@ -766,7 +779,7 @@ Three things version independently, because they change for unrelated reasons an
 
 **On-chain schemas** version with the validators that enforce them. An entry's shape is fixed by the validator guarding it, and the [parameter output](#the-parameter-output) names both registries by script hash, so a reader always reaches an entry through the hash that determines how to read it. There is no version field in a datum. Changing a schema means new validators, and so a new parameter output: the `registries` pair is immutable, and no redeemer rewrites it.
 
-A deployment therefore migrates by standing up a second one. It publishes the new parameter output and announces the epoch at which nodes cut over. Nothing switches the old validators off, and nothing can: a script on chain goes on accepting whatever its own rules allow, and anyone may keep writing entries to it. What ends the old deployment is that nodes stop reading it, since a node derives from the parameter output it is configured with and from the registries that output names. Its entries stay spendable in the meantime, so operators can retire them and take their deposits back after the [withdrawal delay](#param-withdrawal-delay). The two deployments never share a topology, for the reason [the parameter output](#the-parameter-output) gives, so a node runs in one or the other and never in both.
+A deployment therefore migrates by standing up a second one. It publishes the new parameter output and announces the epoch at which nodes cut over. Nothing switches the old validators off, and nothing can: a script on chain goes on accepting whatever its own rules allow, and anyone may keep writing entries to it. What ends the old deployment is that nodes stop reading it, since a node derives from the parameter output it is configured with and from the registries that output names. Its entries stay spendable in the meantime, so operators can retire them and take their deposits back once the [claim conditions](#deposit-claim) are met. The two deployments never share a topology, for the reason [the parameter output](#the-parameter-output) gives, so a node runs in one or the other and never in both.
 
 **Signature preimages** carry their version in the domain tag, as `pubsub/message/v1` and `pubsub/link/v2`. Any change to what a preimage covers, or to how it is encoded, MUST increment that suffix. Because the tag is inside the signed bytes, a signature made under one version can never verify under another, so incompatible implementations fail closed instead of accepting each other's messages under the wrong interpretation. The gate's domain tags version by the same rule, and a change there changes which links are legal, so it MUST take effect at an epoch boundary and never within one.
 
@@ -1087,6 +1100,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 - **Bucket-count source:** choose between the proposed table included in node software and an on-chain value, with every node on a topic using the same value for an epoch. Table values and their derivation also need review.
 - **Parameter authority:** choose who may change the epoch length from the arrangements in [Authority over the parameter output](#authority-over-the-parameter-output).
 - **Per-topic profiles:** decide whether topics need different failure and downtime assumptions, with an agreed bucket table for each profile. Different targets need not require different epoch lengths; different schedules would also require compatible beacon and snapshot timing.
+- **Withdrawal and retention:** decide whether the deposit must remain locked through message retention in addition to satisfying the withdrawal-delay and participation-epoch conditions in the [claim rule](#deposit-claim).
 - **Timing assumptions:** decide whether partial synchrony is acceptable and what guarantees it would enable beyond the current reachability analysis.
 
 ## Path to Active
@@ -1286,7 +1300,7 @@ The text introduces these terms where they are needed. This table collects their
 | <a name="term-node" id="term-node"></a>**node** | A process that has registered in the node registry and participates in dissemination. | A **Cardano node**, block-producing or otherwise. A pub/sub node runs alongside one and reads from it; it does not validate blocks. |
 | <a name="term-relay" id="term-relay"></a>**relay** | A role, not a class of machine: any node forwarding another party's message on a topic it subscribes to. Every subscriber relays. | An **SPO relay node**, which is a distinct, privileged piece of infrastructure. There is no relay tier here, and no node is designated to carry traffic for others. |
 | <a name="term-registry" id="term-registry"></a>**registry**, **registration** | The protocol's own two on-chain registries, holding participating nodes and topics. | **Stake pool registration**, **dRep registration**, or the entries these create. Registering here neither requires nor implies either. |
-| <a name="term-deposit" id="term-deposit"></a>**deposit** | Ada locked by a registration entry for as long as it stands, making identities costly to mass-produce. Returned after retirement, once the withdrawal delay has elapsed. | **Pledge**, delegated **stake**, or a governance deposit. It is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. |
+| <a name="term-deposit" id="term-deposit"></a>**deposit** | Ada locked by a registration entry for as long as it stands, making identities costly to mass-produce. Returned after retirement once both the withdrawal delay and the last required participation epoch have ended, at the boundary set by the [claim rule](#deposit-claim). | **Pledge**, delegated **stake**, or a governance deposit. It is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. |
 | <a name="term-link" id="term-link"></a>**link** | A bidirectional logical channel identified by a peer and a topic within an epoch. Not a transport connection: many links MAY share one, and doing so is RECOMMENDED; see [Link establishment](#link-establishment). | |
 | <a name="term-topic" id="term-topic"></a>**topic** | A named stream of publisher-signed messages. Its registry entry states who may publish and how long messages are retained. | |
 | <a name="term-message" id="term-message"></a>**message** | An application payload published to a topic, signed end to end by its publisher. | A **transaction**, or a Cardano network-protocol message. Messages are never written to the chain. |
@@ -1492,7 +1506,7 @@ node_registration =
 
 node_state =
     [ 0 ]                          ; active
-  / [ 1, claimable_from : epoch_no ]  ; withdrawing, after retirement
+  / [ 1, claimable_from : epoch_no ]  ; withdrawing; first epoch meeting both Claim conditions
 
 ; Redeemer for spending a node-registry entry.
 node_redeemer =
