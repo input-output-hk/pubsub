@@ -31,10 +31,10 @@ Each epoch the protocol derives a dissemination topology for every topic separat
 
 The guarantee is a property of the drawn topology, not of an individual message: a draw is **good** when every honest publisher reaches every honest subscriber, and **bad** when some publisher is cut off for the whole epoch. The criterion is all-or-nothing because an average hides the failure that matters: 99.99 % delivery may be a tolerable trickle of losses or one publisher silenced completely. The central quantity is the probability that a draw is bad, written *p*<sub>bad</sub>.
 
-Two observations bound what a bad draw costs.
+Two observations help interpret a bad draw.
 
-- **A bad draw is a bad *topology*, not necessarily a failed delivery.** A draw counts as bad when one publisher *could* be silenced, whether or not that node published, so *p*<sub>bad</sub> is an upper bound on observed failure. The margin is a property of the design: nil under M4, where a cut-off node is missed whoever publishes, and total under M2, whose failures are almost entirely publishers who cannot be heard.
-- **When delivery does fall short, it falls short by one subscriber**, or by every subscriber at once where the publisher itself was cut off; nothing measured lies between. The second mode is the second term of the coverage laws, what M3's seeding links and M5's outbound links exist to make rare, and the one that scales with nothing: one node's isolation costs the whole topic that epoch.
+- **A bad draw need not cause a failed publication.** In the simulated forwarding model, a topology can fail the every-publisher criterion even if the publisher that cannot reach everyone sends no message. The probability of a bad topology therefore bounds topology-induced delivery failure, not losses or delays from a real transport.
+- **Failure severity varies.** The [recorded failures](../../pubsub-node/docs/experiments/cells.json) usually miss one subscriber, or all subscribers when the publisher is isolated. Some sampled failures miss two or three subscribers. These observations do not bound the loss a bad topology can cause.
 
 **Everything below is a way of estimating *p*<sub>bad</sub>, a cost paid to lower it, or a condition under which it rises.**
 

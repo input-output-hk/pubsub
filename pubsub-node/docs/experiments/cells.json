@@ -1111,7 +1111,7 @@
     ]
   },
   "severity": {
-    "note": "How many honest subscribers a failing draw actually misses, folded from the mu sweep's missed_hist. A failing draw is bimodal: it misses one subscriber, or it misses every subscriber because the publisher itself was cut off. Nothing measured lies between 3 and H-1. Source: docs/experiments/mu-sweep.md.",
+    "note": "How many honest subscribers a failing draw actually misses, folded from the mu sweep's missed_hist. These failures usually miss one subscriber, or every subscriber because the publisher was isolated; some miss two or three subscribers. These observations do not bound losses outside the samples. Source: docs/experiments/mu-sweep.md.",
     "cells": [
       {
         "model": "M1",
