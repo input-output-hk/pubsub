@@ -178,7 +178,7 @@ At the next epoch, nodes choose peers again using fresh randomness. They ask the
 
 </div>
 
-Figure 1 shows the three shared records used in step 1: the node registry, topic registry and parameter output. The randomness beacon supplies the common random value used in step 2. Its dashed box marks a source that may be off-chain; the three records are stored on Cardano in the implementation specified here. Each node also uses its identity key and private randomness, which are not shown as separate inputs. After selecting a peer, the node uses address resolution to find the network address to contact in step 3. Table 1 lists these services; [Services](#services) specifies their requirements and proposed providers in detail.
+The top band of Figure 1 shows the three shared records used in step 1: the node registry, topic registry and parameter output. The randomness beacon supplies the common random value used in step 2. Its dashed box marks a source that may be off-chain; the three records are stored on Cardano in the implementation specified here. Each node also uses its identity key and private randomness, which are not shown as separate inputs. After selecting a peer, the node uses address resolution to find the network address to contact in step 3. Table 1 lists these services; [Services](#services) specifies their requirements and proposed providers in detail.
 
 <div align="center">
 <a name="table-1" id="table-1"></a>
@@ -331,9 +331,9 @@ The ceiling is exact rather than typical: the [serving cap](#the-serving-cap) bo
 
 **Sizing status.** A deployment MUST publish the integer pick count *k* and admission budget *C* its nodes are configured to use, together with the population range, adversarial assumptions and honest downtime they are intended to cover. The coverage estimate must account for both counts at the agreed bucket count *B*. The uncapped isolation formula alone does not size a capped protocol.
 
-The candidate pick count is *k* = 10. The [Rationale](#what-can-be-turned-and-what-it-costs) compares it with *k* = 9 at the measured reference. Independent honest downtime enters the coverage estimate through *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*). The [appendix](#the-coverage-law) distinguishes the baseline estimate from the cap correction and their limitations.
+The candidate pick count is *k* = 10. The [Rationale](#what-can-be-turned-and-what-it-costs) compares it with *k* = 9 at the measured reference. Independent honest downtime enters the coverage estimate through *μ*<sub>eff</sub> = *μ* + *p*(1 − *μ*), where [*μ*](#param-mu) is the assumed adversarial fraction and [*p*](#param-p) the fraction of honest nodes unavailable during the epoch. The [appendix](#the-coverage-law) distinguishes the baseline estimate from the cap correction and their limitations.
 
-A universal rule for the smallest *k* meeting *δ* remains open: the existing estimates do not establish an error allowance for every population, cap and downtime profile. Validating a deployment profile, including that allowance, is an [activation requirement](#acceptance-criteria). Nodes can agree on eligible pairs without using a common numerical solver.
+A universal rule for the smallest *k* meeting the failure target [*δ*](#param-delta) remains open: the existing estimates do not establish an error allowance for every population, cap and downtime profile. Validating a deployment profile, including that allowance, is an [activation requirement](#acceptance-criteria). Nodes must agree on the bucket count, gate rule and epoch inputs; they do not need a shared numerical sizing solver.
 
 #### The serving cap
 
@@ -403,7 +403,7 @@ A failure at 1, 2, 3 or 5 is dropped without reply. These checks establish wheth
 A dialler that is rejected does not retry that peer within the epoch, and its realised degree may therefore fall short of *k*. The provisional cap recipe aims to make these refusals rare; the deployment profile must validate that expectation. The next epoch redraws the topology regardless.
 
 > [!NOTE]
-> A [link](#term-link) is logical. It is identified by a peer and a topic within an epoch, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. Every count in this proposal is a count of links, which [What a node pays](#what-the-symmetric-relay-link-gives) shows is an upper bound on transport connections.
+> A [link](#term-link) is logical. It is identified by a peer and a topic within an epoch, and an implementation MAY carry any number of links to the same peer over a single transport connection; doing so is RECOMMENDED. Every count in this proposal is a count of links, which [What the symmetric relay link gives](#what-the-symmetric-relay-link-gives) shows is an upper bound on transport connections.
 
 Nodes derive fresh links for each epoch and tear down the outgoing epoch's links at its end. They MUST NOT forward messages over links derived for an epoch that has ended.
 
@@ -851,7 +851,7 @@ The symmetric relay link was selected for three reasons.
 2. **Either endpoint can provide an honest connection.** A node can avoid isolation through its own selections or through an honest peer selecting it. In the ungated approximation, the isolation probability includes both factors, *μ*<sup>*k*</sup>e<sup>−*k*(1−*μ*)</sup>.
 3. **One link kind serves publication and relaying.** This reduces connection state and requires one gate and admission budget per topic.
 
-The main trade-off is traffic: M3's separate publication links use less bandwidth, while M4 uses fewer standing links and offers more downtime margin at the compared configurations. The [companion](design-comparison.md) contains the mechanisms and full comparison.
+The main trade-off is traffic: M3, the alternative design with separate publication links ([Table 9](#table-9)), uses less bandwidth, while M4 uses fewer standing links and offers more downtime margin at the compared configurations. The [companion](design-comparison.md) contains the mechanisms and full comparison.
 
 **Reference results.** At *N* = 20,000 and *μ* = 0.2, the experiment used *k* = 10, *B* = 500 and *C* = 23. Table 6 combines measured costs with predicted failure probability and downtime tolerance. The proposed bucket table instead gives *B* = 512; that configuration still needs a rerun.
 
@@ -957,7 +957,7 @@ The five evaluated designs differ in which endpoint selects a link and which mes
 
 </div>
 
-The ungated comparison identifies M3 as the bandwidth alternative to M4. The subsequent comparison includes the gate and admission budget, and normalises the attacker's reach per identity rather than the numerical bucket count.
+The ungated comparison identifies M3 as the bandwidth alternative to M4. The subsequent comparison includes the gate and admission budget and uses expected eligible reach per identity as its comparison metric, rather than the numerical bucket count.
 
 <div align="center">
 <a name="table-10" id="table-10"></a>
@@ -973,7 +973,7 @@ The ungated comparison identifies M3 as the bandwidth alternative to M4. The sub
 
 </div>
 
-At the attack surface of the M4 reference configuration, the evaluated M3 model predicts a best failure probability of 1.8 × 10⁻³, above the 10⁻⁴ target. In a separate comparison where failures were frequent enough to count, at attack surface 32, M3 failed 17 of 400 runs and M4 failed none of 400. The zero count is not a measurement of a zero failure probability.[^synthesis]
+At the expected eligible reach of the M4 reference configuration, the evaluated M3 model predicts a best failure probability of 1.8 × 10⁻³, above the 10⁻⁴ target. In a separate comparison where failures were frequent enough to count, at an expected eligible reach of 32 peers per identity, M3 failed 17 of 400 runs and M4 failed none of 400. The zero count is not a measurement of a zero failure probability.[^synthesis]
 
 This supports selecting M4 within the evaluated family and assumptions. It does not establish superiority over all gossip protocols or deployments. The [companion](design-comparison.md#the-two-candidates-under-the-admission-rules) preserves the alternative mechanisms, parameter searches and full cost comparison.
 
@@ -1057,7 +1057,7 @@ The simulator formed topologies in two dial rounds across the 200 runs at each o
 
 For the dropout model *p* = 1 − e<sup>−λ*T*</sup>, setting *p* to the predicted downtime budget gives *T* = −ln(1 − *p*<sub>max</sub>)/*λ*. This models accumulated departures, not a general steady-state availability process with returns. The population's departure rate *λ* has not been measured.
 
-**Example using the ungated comparison.** Table 12 uses *k* = 9 and its predicted 7.43 % downtime budget. It illustrates how a candidate epoch length translates into a required mean departure interval; it is not a deployment recommendation.
+**Example using the ungated comparison.** Table 12 uses *k* = 9 and its predicted 7.43 % downtime budget, read from [Table 4 of the companion](design-comparison.md#table-4). It illustrates how a candidate epoch length translates into a required mean departure interval; it is not a deployment recommendation.
 
 <div align="center">
 <a name="table-12" id="table-12"></a>
@@ -1095,7 +1095,7 @@ The laws are trusted across that span because the dominant failure there is a si
 
 **Rotation is argued, not measured.** The instrument never advances the epoch: a run holds the topology derived at its genesis randomness from the first message to the last. Every figure describing a *sequence* of epochs is therefore arithmetic rather than observation: [Table 11](#table-11)'s second row is its first row squared, and the independence that licenses the squaring is a property the [beacon requirements](#the-randomness-beacon) are chosen to secure and that no measurement here exercises.
 
-**The main operating-point comparisons use thousands of participants; some use cases involve tens.** The main comparisons run at *N* = 4,000 and *N* = 20,000, and auxiliary finite-size work also uses 1,000 and 2,000. Three of the four scenarios in the [CPS](../cps/README.md) reach their audience through wallet backends and may put tens of nodes directly on a topic. There is reason to expect the design differs there in kind rather than degree: the coverage laws are asymptotic in *N*, the gate cannot divide a population finer than the population itself, and the connection advantage separating the two candidates weakens as topics shrink ([What a node pays](#what-the-symmetric-relay-link-gives)). A topic of fifty is outside this analysis rather than a small instance of it.
+**The main operating-point comparisons use thousands of participants; some use cases involve tens.** The main comparisons run at *N* = 4,000 and *N* = 20,000, and auxiliary finite-size work also uses 1,000 and 2,000. Three of the four scenarios in the [CPS](../cps/README.md) reach their audience through wallet backends and may put tens of nodes directly on a topic. There is reason to expect the design differs there in kind rather than degree: the coverage laws are asymptotic in *N*, the gate cannot divide a population finer than the population itself, and the connection advantage separating the two candidates weakens as topics shrink ([What the symmetric relay link gives](#what-the-symmetric-relay-link-gives)). A topic of fifty is outside this analysis rather than a small instance of it.
 
 **Correlated failure is out of scope.** Downtime is modelled as independent across nodes and epochs; region outages and upgrade waves violate both, in the direction that weakens the guarantee, and are not quantified here.
 
@@ -1255,7 +1255,7 @@ A Rust node implements the rules this Specification states, and is the code the
 [Evidence](#how-the-evidence-was-obtained) measures: the experiment driver builds populations of
 its state machine and disseminates real messages over them, so what the measurements run is this
 code rather than a model of it. It covers the second and third bands of [Figure 1](#figure-1):
-what a node derives, and what then travels over the links it holds. The first band is stubbed:
+what a node derives, and what then travels over the links it holds. The first band, the shared inputs, is stubbed:
 signing is a mock scheme and both registries are held in memory, so the node decides the
 protocol's rules and not the byte strings this document fixes. The correspondence, rule by rule
 and pinned to one commit, is kept with the node:
