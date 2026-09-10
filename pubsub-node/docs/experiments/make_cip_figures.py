@@ -1241,8 +1241,8 @@ def fig_gate_tradeoff(g) -> str:
                  "bucket counts and predicted at the rest. The largest bucket count "
                  "retaining headroom is best on both. Historical: measured on the directional "
                  "M2 design at pick count 16 in experiments E10 and E12; the selected symmetric "
-                 "design at pick count 10 is sized by the bucket-count rule, whose coverage "
-                 "ceiling binds before headroom does.",
+                 "design at pick count 10 uses a separate candidate bucket table and requires "
+                 "validation against its coverage law.",
                  conditions="historical · M2 · E10 and E12 · N = 4 000 · μ = 0.2 · pick count 16")
 
 

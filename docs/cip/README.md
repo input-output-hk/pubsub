@@ -289,15 +289,17 @@ The pick count *k* and admission budget *C* are configured profile values, descr
 | 321 – 640 | 16 | 4 | 10 |
 | 641 – 1,293 | 32 | 5 | 10 |
 | 1,294 – 2,703 | 64 | 6 | 10 |
-| 2,704 – 5,641 | 128 | 7 | 10 |
-| 5,642 – 11,750 | 256 | 8 | 10 |
-| 11,751 and above | 512 | 9 | 10 |
+| 2,704 – 5,666 | 128 | 7 | 10 |
+| 5,667 – 11,880 | 256 | 8 | 10 |
+| 11,881 and above | 512 | 9 | 10 |
 
-<em>Table 2: The bucket count, by topic population</em>
+<em>Table 2: Candidate bucket counts by topic population, for 10 picks, 20% adversarial nodes and a failure target of 10⁻⁴</em>
 
 </div>
 
 For the evaluated hash baseline, the mask-bits column gives the number of low hash bits that must be zero for a pair to be eligible.
+
+The baseline calculation rounds the adversarial population to the nearest whole node and assumes no honest downtime or admission refusals.
 
 The table values are provisional. [Sizing derivations](#sizing-derivations) explains the coverage, eligible-pool and headroom constraints used to propose them. The values and population boundaries need checking with the pick count, admission budget, failure target, adversarial participation and downtime assumptions together. A fixed pool-to-pick ratio alone does not establish coverage. Nodes perform the lookup above; these derivations are used to prepare and validate the table before deployment.
 
@@ -1405,7 +1407,7 @@ Thus *C* affects *ρ*<sub>C</sub>, which affects the predicted failure probabili
 #### The three ceilings
 
 - ***B*<sub>target</sub>**, the largest *B* at which the [gated coverage law](#the-coverage-law) meets the failure target *δ*.
-- ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
+- ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, using the nominal honest population *H* = (1 − *μ*)*N*<sub>T</sub> for this arithmetic ceiling. The coverage calculation separately uses the rounded integer populations stated below. This keeps the candidate pool large enough to draw from at all.
 - ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. This is a provisional constraint; its numerical threshold has not been validated for the proposed symmetric profile.[^floor]
 
 Only the first requires evaluating the [coverage law](#the-coverage-law); the other two are arithmetic. All three can be walked interactively in the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/), a companion web page that plots the bounds against topic size with the network size, the attacker's identity count, *μ*, *p* and the pick count as controls. It shows which of the three is binding at any point, and marks where the curves stop being backed by measurement.
@@ -1416,10 +1418,17 @@ Past the pool floor the gate stops being a defence rather than merely narrowing 
 
 **Candidate row boundaries.** The baseline recipe places a row's population floor at the
 smallest population where all three ceilings permit that power of two, evaluated at
-*μ* = 0.2, *δ* = 10⁻⁴ and *k* = 10. The candidate table and its boundaries remain subject to
-review; this recipe does not establish that every displayed row meets the target. The
-population range, pick count and admissions budget must be evaluated together, including
-cap refusals and downtime, before deployment.
+*μ* = 0.2, *δ* = 10⁻⁴ and *k* = 10. For this table, the integer adversarial count is
+*S* = ⌊*N*<sub>T</sub>/5 + 1/2⌋, rounding to the nearest whole node; *H* = *N*<sub>T</sub> − *S*.
+Integer rounding can produce small increases in the estimate as the population grows, so
+checking only each row's floor is insufficient.
+
+The [bucket-table checker](../../pubsub-node/docs/experiments/check_cip_bucket_table.py)
+evaluates every integer population from 2 through 20,000 against the baseline estimate and
+the two arithmetic ceilings. All pass under the stated assumptions. This covers every
+closed row and part of the open last row; it makes no claim for all larger populations.
+The population range, pick count and admissions budget still need validation together,
+including cap refusals and downtime, before deployment.
 
 **What a row gives up.** A row holds one *B* across a range in which the ceiling keeps rising, so
 a topic near the top of a row runs a narrower divisor than the ceiling would allow. An adversarial
@@ -1436,8 +1445,8 @@ population at which the ceiling reaches twice the row's *B*.
 | 640 | 31 | 16 | 1.94× |
 | 1,293 | 63 | 32 | 1.97× |
 | 2,703 | 127 | 64 | 1.98× |
-| 5,641 | 255 | 128 | 1.99× |
-| 11,750 | 511 | 256 | 2.00× |
+| 5,666 | 255 | 128 | 1.99× |
+| 11,880 | 511 | 256 | 2.00× |
 
 <a name="table-14" id="table-14"></a>
 
@@ -1445,15 +1454,16 @@ population at which the ceiling reaches twice the row's *B*.
 
 At the populations this proposal is sized for the loss is much smaller, because those sit low in
 their rows rather than at the top: **1.10×** at three thousand nodes, the delivery-critical
-population; **1.45×** at four thousand; **1.65×** at twenty thousand.
+population; **1.44×** at four thousand; **1.63×** at twenty thousand.
 
 > [!WARNING]
-> **The last row is open, and its loss is not bounded.** Above 11,751 nodes the table holds
-> *B* = 512 however large the topic becomes, while the ceiling keeps rising: the loss reaches
-> 2.00× at 24,438 nodes, 3.19× at forty thousand and 7.62× at a hundred thousand. The claim that
-> no row gives up more than a factor of two holds for the closed rows only. A deployment expecting
-> to exceed roughly twenty-five thousand nodes on one topic needs a further row, and this proposal
-> does not provide one because nothing has been measured above twenty thousand.
+> **The open last row has no twofold loss limit.** From 11,881 nodes the table holds
+> *B* = 512 however large the topic becomes. Under the baseline sizing calculation, the ceiling
+> reaches 1,024 at 24,969 nodes: exactly twice the row's value. The calculated loss is 3.09×
+> at forty thousand and 7.05× at a hundred thousand. These are model extrapolations beyond
+> the table check's population range, not measurements. The twofold limit holds for the closed
+> rows only. A deployment expecting to exceed roughly twenty-five thousand nodes on one topic
+> needs a further row and validation of its profile; this proposal does not add that row.
 
 #### Below the gate
 
@@ -1468,21 +1478,23 @@ Completeness is not automatic: at a pick count sized for large topics, a topic o
 
 #### What remains to be measured
 
-The proposed band boundaries below twenty thousand nodes have not been
-validated, and the rows are listed here in the order it is worth measuring them.
+The baseline arithmetic has been checked through twenty thousand nodes. Simulation of
+the candidate band boundaries and validation with admission limits and downtime remain
+outstanding. The rows are listed here in the order it is worth measuring them.
 
-1. **The last row's floor.** Confirm *B* = 512 meets the failure target at 11,751 nodes. The only
-   published anchor for the failure-target ceiling is at twenty thousand nodes, which does not
-   certify a smaller population. This is one of the table's unverified coverage claims.
+1. **The corrected row floors.** Validate *B* = 256 from 5,667 nodes and *B* = 512 from 11,881
+   nodes with the candidate admission budgets and downtime assumptions. Check populations
+   around each boundary too. The baseline estimates pass there with very little margin;
+   they do not certify full coverage or absorb the omitted effects.
 2. **The last row at twenty thousand.** Re-run the measured configuration at *B* = 512 rather than
    500, using the candidate *C* = 24 and including wholesale flooding. Keep a *C* = 23
    comparison cell to separate the gate change from the cap change. It leaves 39.1 expected eligible peers
    against 40.0, which is the safe direction for an attacker's reach and the marginally unsafe
    one for coverage. Until this lands, the figures quoted elsewhere in this proposal are at 500
    and the table specifies 512.
-3. **The delivery-critical row**, 2,704 – 5,641. Measure coverage at three thousand nodes at
+3. **The delivery-critical row**, 2,704 – 5,666. Measure coverage at three thousand nodes at
    *B* = 128, and re-run the existing four-thousand-node cell at *B* = 128 against its own ceiling
-   of 185.
+   of 184.
 4. **The tight rows**, 41 – 1,293. The cited experiments do not cover three-digit populations, and
    these are the rows where the gate leaves the least headroom. Measure at each floor.
 5. **The first row.** Confirm completeness at eleven nodes and below, and measure realised degree
