@@ -474,7 +474,7 @@ If the recovery attempt cannot obtain a missing range, the node MUST report that
 
 **Retention.** Nodes cache messages they accept for forwarding, including locally published messages and messages accepted during catch-up or recovery. The same cache supports duplicate suppression, equivocation detection and recovery. The chain stores no message content, and this proposal defines no archival nodes.
 
-The retention setting, *R*, is the number of complete dissemination epochs following the epoch of a message's first local acceptance. It is a per-topic parameter in the topic registry, **MUST be at least one** and **SHOULD be at least two**. Its value beyond that floor remains open.
+The retention setting, *R*, is an integer count of complete dissemination epochs following the epoch of a message's first local acceptance. It is a per-topic parameter in the topic registry, **MUST be at least one** and **SHOULD be at least two**. Its value beyond that floor remains open.
 
 A node records the epoch *e*<sub>first</sub> when it first accepts a message after all normal checks. It MUST retain the cached copy for the remainder of that epoch and throughout epochs *e*<sub>first</sub> + 1 through *e*<sub>first</sub> + *R*. The copy becomes eligible for eviction when epoch *e*<sub>first</sub> + *R* + 1 begins. Receiving a duplicate MUST NOT change the recorded first-acceptance epoch or extend that expiry. The publisher's timestamp MUST NOT determine cache expiry. A node first accepting the message during recovery starts its own retention window, so different nodes may have different expiry epochs for the same message.
 
@@ -547,9 +547,9 @@ The topic-interest set is authoritative. A node's effective subscriptions are th
 
 The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is neither pledge nor stake: it is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. It is returned to the PubSub node operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. Whether deposits could instead decay is an [open design choice](#deposit-decay).
 
-The deposit remains locked until both the configured withdrawal delay has elapsed and the last epoch requiring the node's participation has ended.
+The withdrawal delay, *D*, is an integer count of complete dissemination epochs. The deposit remains locked until both this delay has elapsed and the last epoch requiring the node's participation has ended.
 
-- **The delay MUST be at least one epoch**, measured from the on-chain retirement.
+- **The delay MUST be at least one complete dissemination epoch.** Counting starts at the first epoch boundary at or after the on-chain retirement; any remainder of the retirement epoch is additional waiting time.
 - **The deposit MUST remain locked through every epoch whose already-fixed snapshot still requires the node to participate.** This can include an epoch that has not yet started when the node retires.
 - The delay also limits how quickly capital can be reused for new identities. Its adequacy against repeated registration depends on the cutoff and retirement schedule.
 
@@ -722,13 +722,13 @@ Retirement is the orderly path. A node that simply stops responding leaves its e
 1. The claim MUST NOT succeed before the epoch recorded in the entry as `claimable_from`.
 2. `claimable_from` MUST identify the first epoch whose start is at or after both the withdrawal-delay expiry and the end of the last epoch requiring participation under an already-fixed snapshot. The retirement validator MUST enforce this calculation when the entry becomes withdrawing.
 
-Expressing both conditions as times gives the release threshold
+Let *e*<sub>wait</sub> be the first epoch whose start is at or after the on-chain retirement, and *e*<sub>last</sub> the last epoch requiring participation under an already-fixed snapshot. The configured withdrawal delay *D* counts the complete epochs from *e*<sub>wait</sub> through *e*<sub>wait</sub> + *D* − 1. The first claimable epoch is
 
-$$t_\text{min} = \max\!\left(t_\text{retire} + D,\ t_\text{last-end}\right),$$
+$$e_\text{claim} = \max\!\left(e_\text{wait} + D,\ e_\text{last} + 1\right).$$
 
-where *t*<sub>retire</sub> is the time of the on-chain retirement, *D* is the configured withdrawal delay expressed as a duration, and *t*<sub>last-end</sub> is the end of the last epoch requiring participation. `claimable_from` is the first epoch whose start is at or after *t*<sub>min</sub>, using the agreed epoch schedule. If no epoch requires the node's participation, only the withdrawal-delay condition applies.
+The entry records *e*<sub>claim</sub> as `claimable_from`, an epoch number rather than a duration. If no epoch requires the node's participation, `claimable_from` is *e*<sub>wait</sub> + *D*. Epoch boundaries follow the agreed schedule: a change to epoch length changes the elapsed waiting time, not the number of epochs counted or the recorded `claimable_from`.
 
-In the example above, the deposit cannot be claimed before epoch 12 begins. A withdrawal delay expiring later moves the claim to the first epoch starting at or after that later time. Message retention adds no further lock under this rule; whether it should do so remains open.
+In the example above, retirement partway through epoch 10 gives *e*<sub>wait</sub> = 11. With *D* = 1 and participation required through epoch 11, the deposit becomes claimable at the start of epoch 12; with *D* = 2, it waits until epoch 13. If retirement occurs exactly at the start of epoch 10, that complete epoch counts towards the delay. Message retention adds no further lock under this rule; whether it should do so remains open.
 
 **Step 5. The snapshot and the registration cutoff.** Each epoch is derived from a *snapshot* of both registries and of the parameter output, taken at that epoch's **registration cutoff**.
 
@@ -759,9 +759,9 @@ Table 4 collects protocol parameters; Table 5 collects deployment assumptions us
 | <a name="param-r" id="param-r"></a>*r* | Expected eligible peers per peer a node plans to select | **Provisional:** ≥ 2 in the candidate sizing rules; binds for some smaller-topic ranges and is not a validated coverage threshold |
 | <a name="param-k" id="param-k"></a>*k* | Peers a node selects to contact per topic | **Candidate:** 10; deployment configuration must state its population and downtime profile. A universal minimum-count solver and error allowance remain open |
 | <a name="param-c" id="param-c"></a>*C* | Peer-initiated admissions per topic and epoch | **Provisional recipe:** ⌈*L* + 3.5√*L*⌉ at *k* = 9 or 10; gives 24 at *N* = 20,000, *B* = 512 and *μ* = 0.2. The measured reference used 23 at *B* = 500 |
-| <a name="param-retention" id="param-retention"></a>retention, *R* | Complete epochs a cached message must survive after its first-acceptance epoch, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1; 2 recommended. Value open, per topic; also includes the remainder of the first-acceptance epoch |
+| <a name="param-retention" id="param-retention"></a>retention, *R* | Integer count of complete dissemination epochs a cached message must survive after its first-acceptance epoch, for dedup, equivocation and recovery | **Floor fixed:** ≥ 1; 2 recommended. Value open, per topic; also includes the remainder of the first-acceptance epoch |
 | <a name="param-deposit" id="param-deposit"></a>deposit | The cost of one registered identity, and so the Sybil surface | **Open.** Not forfeitable for non-delivery |
-| <a name="param-withdrawal-delay" id="param-withdrawal-delay"></a>withdrawal delay | Minimum waiting time after on-chain retirement, limiting how quickly capital can fund new identities | **Floor fixed:** ≥ 1 epoch. Value open; release also waits for the last required participation epoch to end, under the [claim rule](#deposit-claim) |
+| <a name="param-withdrawal-delay" id="param-withdrawal-delay"></a>withdrawal delay, *D* | Integer count of complete dissemination epochs to wait from the first epoch boundary at or after on-chain retirement | **Floor fixed:** ≥ 1. Value open; release also waits for the last required participation epoch to end, under the [claim rule](#deposit-claim) |
 
 <em>Table 4: The protocol's parameters</em>
 
@@ -1577,7 +1577,7 @@ topic_registration =
   [ topic_id           : topic_id
   , owner              : credential     ; may change publication policy, or end the topic
   , publication_policy : publication_policy
-  , retention          : uint           ; full epochs after first acceptance epoch; >= 1
+  , retention          : uint           ; count of complete dissemination epochs after first acceptance epoch; >= 1
   , state              : topic_state
   ]
 
