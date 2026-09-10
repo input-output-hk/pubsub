@@ -386,9 +386,9 @@ In E19 at *N* = 4,000, *k* = 16, *B* = 50, *C* = 16 and 800 adversarial identiti
 
 ### Directional admission anchors
 
-The admission parameters were first measured on a directional design, model M2, and the CIP's rules for the symmetric link supersede those anchors. They are kept here because the ratio they establish carries across designs even where the value does not.
+These historical M2 measurements illustrate how an admission limit can reject honest connection requests. They do not establish numerical cap or headroom thresholds for M4. The CIP specifies M4's [admission semantics and provisional sizing recipe](README.md#the-serving-cap); the chosen profile still needs validation.
 
-**The serving cap's failure mode is not the one it looks like.** Raising the cap hands an attacker *more* slots on each victim, yet it is what preserves coverage: the harm is honest links starved of capacity rather than slots lost to the adversary, the share of honest nodes losing at least one dial to a full acceptor falling from 30.6 % at a cap of 20 to 0.36 % at 32 under a fifth-of-the-network attacker, so a cap sized only to deny the attacker denies the honest population first.[^gate] These anchors are directional and superseded under a symmetric kind, where the budget is sized against fresh honest arrival instead; the Specification states the rule for each.
+In the M2 flooding experiment at *N* = 4,000, *B* = 50 and 20 % adversarial identities, raising the cap from 20 to 32 reduced the share of honest nodes losing at least one request to a full acceptor from 30.6 % to 0.36 %. More adversarial links were admitted too: the coverage benefit came from refusing fewer honest requests.[^gate]
 
 ## Method notes
 
