@@ -367,7 +367,7 @@ The topology is redrawn from fresh public randomness, so the epoch cannot be sho
 
 ## Where the laws lose accuracy
 
-**The laws carry a small systematic error, and it differs by design.** Pooled across the corpus the measurements sit about 2 % above the laws, two effects of opposite sign nearly cancelling: M3's law optimistic at low pick counts, M2's pessimistic on small populations.[^finiten] At the operating points that changes no conclusion; it does bound how finely two designs can be told apart, and some of the margins separating the two candidates are of that order.
+**Model error varies by design and configuration.** Pooled across the ungated comparisons, the measurements sit about 2 % above the laws, two effects of opposite sign nearly cancelling: M3's law optimistic at low pick counts, M2's pessimistic on small populations.[^finiten] This average is not an error bound for the proposed gated configuration. Some candidate bucket-table entries lie very close to the failure target, so deployment validation needs to establish an allowance for model error and confirm that the chosen parameters still meet the target, as the [CIP's sizing limits](README.md#including-admission-refusals) explain.
 
 ## Alternatives to the specified rules
 
