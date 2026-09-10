@@ -348,9 +348,11 @@ Links are not repaired within an epoch, so the longer one runs the more of the p
 
 </div>
 
-Short epochs are undemanding: an hourly epoch asks only that a node stay up for between half a day and two days, which every design clears easily. The requirement becomes severe only if the epoch is long, and nothing in this proposal requires it to be: the design pressure runs the other way, because shorter epochs provide more frequent opportunities to reconnect.
+Shorter epochs provide more frequent opportunities to reconnect. The table gives the mean departure intervals required by the dropout model, not measured participant availability.
 
-The topology is redrawn from fresh public randomness, so the epoch cannot be shorter than the interval at which unbiasable randomness is available: a property of the [beacon](README.md#term-beacon), whose design is open. A per-block source would permit epochs of seconds, while reusing the ledger's own per-epoch nonce would force five days and, with it, the demanding right-hand column above. **The beacon design therefore sets the epoch floor, and through it decides whether the churn ceiling binds at all.** Under a per-block or dedicated beacon it does not; under the ledger nonce, M3 at (13, 7) would need a population departing less often than once every seven months, against two months for M4 at RF = 9.
+The interval between fresh, unbiasable randomness values is one constraint on epoch length. The [beacon](README.md#term-beacon) design remains open; a source based on the Cardano ledger epoch nonce would provide fresh values only at the ledger's epoch cadence.
+
+A faster beacon may permit shorter epochs, but epoch length must also accommodate snapshot timing and topology formation. Whether this leaves enough room within the predicted downtime budget depends on the participants' departure rate. These inputs still need validation; choosing a faster beacon alone does not establish a suitable epoch length. See [How long an epoch may be](README.md#how-long-an-epoch-may-be).
 
 ## Sensitivity to the adversarial fraction
 
