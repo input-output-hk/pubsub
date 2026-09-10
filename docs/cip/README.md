@@ -858,7 +858,7 @@ The main trade-off is traffic: M3's separate publication links use less bandwidt
 
 **Reference results.** At *N* = 20,000 and *μ* = 0.2, the experiment used *k* = 10, *B* = 500 and *C* = 23. Table 6 combines measured costs with predicted failure probability and downtime tolerance. The proposed bucket table instead gives *B* = 512; that configuration still needs a rerun.
 
-Here *p*<sub>bad</sub> is the probability that a drawn topology leaves some honest publisher unable to reach every honest subscriber. Deliveries count copies per publication received by an average honest node, including duplicates. Links count logical peer relationships held in either direction. Full-coverage hops measure forwarding depth to the last honest subscriber, not elapsed time. Downtime absorbed is the largest independent honest downtime fraction for which the predicted failure probability still meets *δ*.
+Here *p*<sub>bad</sub> is the probability that a drawn topology leaves some honest publisher unable to reach every honest subscriber. Deliveries count copies per publication received by an average honest node, including duplicates. Links count logical peer relationships held in either direction. Full-coverage hops measure forwarding depth to the last honest subscriber, not elapsed time. Downtime absorbed is the largest independent honest downtime fraction for which the predicted failure probability remains at or below the target used here, *δ* = 10⁻⁴.
 
 <div align="center">
 <a name="table-6" id="table-6"></a>
