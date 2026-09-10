@@ -305,7 +305,9 @@ It bites where the population is small: on a topic drawing from three thousand p
 
 The same laws that give *p*<sub>bad</sub> give the risk borne by one named node, and the churn budget of each design bounds the epoch it sustains. Both are tabulated for every design here; the CIP carries the symmetric link's rows only.
 
-**Repeated isolation.** The dissemination topology is re-derived every epoch from fresh public randomness, so a subscriber draws an independent peer set each epoch. Being surrounded entirely by adversarial peers in one epoch is already improbable; remaining so requires the draw to repeat, and the probability falls geometrically in the number of epochs. The same laws that give *p*<sub>bad</sub> give the risk borne by one named node. At *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2:
+**Repeated isolation.** Each epoch gives a subscriber another opportunity to connect to honest peers. If its isolation probability is *q* in each epoch and successive outcomes are independent, isolation in both of two specified consecutive epochs has probability *q*². Different peer selections can still leave the same subscriber isolated; the same set of peers need not recur.
+
+Table 7 illustrates this at the ungated comparison configurations, *N* = 20,000 and [*μ*](README.md#param-mu) = 0.2:
 
 <div align="center">
 <a name="table-7" id="table-7"></a>
