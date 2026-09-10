@@ -376,14 +376,13 @@ A faster beacon may permit shorter epochs, but epoch length must also accommodat
 
 ### The either-direction rule
 
-The CIP's gate sorts a pair by identity bytes and draws once. The alternative is to draw each direction on its own and admit the pair if either draw passes.
+The evaluated hash baseline sorts a pair by identity bytes and computes one eligibility decision. The comparison predicate evaluates each direction separately: each node selects from its own eligible peers, and a pair is eligible for a link if either direction passes. These experiments inform the eligibility rule; the final cryptographic construction remains [open](README.md#the-verifiable-gate).
 
-- A pair passes with probability 2/*B* − 1/*B*² rather than 1/*B*, assuming independent directional draws. For large *B*, matching the density therefore requires approximately doubling *B*.
-- At equal density the coverage is the same, so the looser rule buys nothing for what it costs.
+- A pair passes with probability 2/*B* − 1/*B*² rather than 1/*B*, assuming independent directional draws. For large *B*, matching the eligible-pair density therefore requires approximately doubling *B*. Equal eligibility density does not establish equal coverage after selection and admission.
 - It breaks a property the design leans on elsewhere: that a node's own picks can never be refused for want of [admissions budget](README.md#the-serving-cap).
 - Where that budget binds, it roughly doubles **honest starvation** — honest dials turned away because the budget is already spent.
 
-The sorted pair is the better of the two everywhere in the operating window.[^symgate]
+The measured differences concern these predicates and the tested configurations.[^symgate]
 
 ### Directional admission anchors
 
