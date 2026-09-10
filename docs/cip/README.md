@@ -269,7 +269,7 @@ A larger bucket count makes eligible peers scarcer for both attackers and honest
 
 $$r = \frac{N_\text{T} - 1}{B \cdot k}$$
 
-Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers, *r* is how many of them it has for each pick it must make. At *r* = 1 the expected pool size equals the pick count; individual pools can be larger or smaller. The rules below require expected headroom of at least two where the gate is on.
+Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers, *r* is how many of them it has for each pick it must make. At *r* = 1 the expected pool size equals the pick count; individual pools can be larger or smaller. The candidate sizing rules below retain expected headroom of at least two where the gate is on, as a provisional constraint.[^floor]
 
 **Only one of these has to be identical across nodes.** An acceptor verifies pairwise eligibility on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
@@ -1306,7 +1306,7 @@ These evaluate the rules this document states, at points other than the ones it 
 
 [^wilson]: The Wilson score interval, used throughout for a proportion estimated from a finite number of draws. It is preferred to the normal approximation here because the failure rates measured are small and the approximation's coverage degrades badly as a proportion approaches zero. Intervals are quoted at 95 % and computed at each sample's own size.
 
-[^floor]: The headroom floor of two is a directional measurement, on M2 at *N* = 4,000 in the regime where the pick count is large. Its *ratio* carries across designs unchanged, since a node's own eligible set is about (*N*<sub>T</sub> − 1)/*B* under either link kind; its *value* has not been measured under a symmetric kind, where the candidate pool enters the failure probability twice rather than once, and E18 is the experiment that would settle it. At the pick counts this proposal specifies the failure target binds and the floor is slack, so its exact value is not in use; it binds only on topics below a few thousand participants.
+[^floor]: The headroom value of two comes from directional experiments. [E18](../../pubsub-node/docs/experiments/gated-symmetric.md) examined symmetric links at a pick count of 16. [Later analysis](../../pubsub-node/docs/experiments/m4-synthesis.md#2-the-gates-cost-at-the-cips-pick-count) at pick counts of 9–10 shows that neither two nor three can be carried over as a general coverage guarantee. Headroom describes available peer choice; meeting the failure target requires evaluating the full parameter profile.
 
 [^gate]: The admission parameters, directional case. Both experiments run model M2 at N = 4,000; M4's symmetric handshake is covered separately.[^symgate] Two experiments over the calibrated bulk point: the coverage cost of the verifiable gate across a ladder of bucket counts, and its value against a slot-flooding attacker over a grid of bucket count, serving cap and attacker size; 10,350 runs in the flooding grid alone. Method, full grids and the sizing rules: [`e10-selection-fidelity.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/e10-selection-fidelity.md) and [`e12-flooding-mitigation.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/e12-flooding-mitigation.md).
 
@@ -1406,7 +1406,7 @@ Thus *C* affects *ρ*<sub>C</sub>, which affects the predicted failure probabili
 
 - ***B*<sub>target</sub>**, the largest *B* at which the [gated coverage law](#the-coverage-law) meets the failure target *δ*.
 - ***B*<sub>pool</sub>** = ⌊(*N*<sub>T</sub> − 1)(1 − *μ*) / ln(*H*/*δ*)⌋, where *H* = (1 − *μ*)*N*<sub>T</sub> is the honest population on the topic. This keeps the candidate pool large enough to draw from at all.
-- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. The ratio is applied to the node's eligible pool and pick count; the [Rationale](#choosing-the-admission-parameters) sets out what does and does not carry.
+- ***B*<sub>headroom</sub>** = ⌊(*N*<sub>T</sub> − 1) / 2*k*⌋, which holds the [selection headroom](#term-r) at *r* ≥ 2. This is a provisional constraint; its numerical threshold has not been validated for the proposed symmetric profile.[^floor]
 
 Only the first requires evaluating the [coverage law](#the-coverage-law); the other two are arithmetic. All three can be walked interactively in the [parameter surface](https://pubsub.cardano-scaling.org/experiments/parameters/), a companion web page that plots the bounds against topic size with the network size, the attacker's identity count, *μ*, *p* and the pick count as controls. It shows which of the three is binding at any point, and marks where the curves stop being backed by measurement.
 
