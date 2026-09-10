@@ -307,7 +307,7 @@ The table values are provisional. [Sizing derivations](#sizing-derivations) expl
 
 #### Selection
 
-For each topic, a node selects *k* distinct eligible peers uniformly at random — row 3 of [Figure 2](#figure-2) — and requests a link to each. If fewer than *k* peers are eligible, it requests links to all of them. Some requests may fail or be refused; selecting a peer does not guarantee that a link will be established. The randomness used for this pick MUST be private to the node and unpredictable to others; it is not derived from [*η*<sub>e</sub>](#param-eta), and two nodes with identical registry entries must not make identical picks.
+For each topic, a node selects *k* distinct eligible peers uniformly at random — row 3 of [Figure 2](#figure-2) — and requests a link to each. If fewer than *k* peers are eligible, it requests links to all of them. Some requests may fail or be refused; selecting a peer does not guarantee that a link will be established. The randomness used for this pick MUST be private to the node, unpredictable to others, and independent of other nodes' selection randomness. It is not derived from [*η*<sub>e</sub>](#param-eta). Independent selections may result in the same set of peers.
 
 #### The relay link and the pick count
 
