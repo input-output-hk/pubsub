@@ -80,7 +80,6 @@ The beacon, deployment parameters and several interoperability rules remain open
       - [Deposit decay](#deposit-decay)
       - [Authority over the parameter output](#authority-over-the-parameter-output)
 - [Path to Active](#path-to-active)
-  - [What still blocks deployment](#what-still-blocks-deployment)
   - [Acceptance Criteria](#acceptance-criteria)
   - [Implementation Plan](#implementation-plan)
 - [References](#references)
@@ -1119,7 +1118,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 3. **Availability.** Independent downtime is modelled as a shift in the adversarial fraction. PubSub node operator departure rates, outage duration and correlated failures have not been established. [Epoch sizing](#how-long-an-epoch-may-be) is therefore conditional, and no epoch length is selected.
 4. **Topic populations.** The main comparisons use 4,000 and 20,000 nodes; the CPS's wallet-mediated scenarios may involve tens. Actual memberships and overlap between topics need validation with the intended participants before those comparisons can size a deployment.
 5. **Small topics.** [Small-topic rules](#small-topics) reduce or disable the gate, but evidence does not yet establish their coverage at tens of participants. The [measurement programme](#what-remains-to-be-measured) is needed to decide whether the same mechanism suffices.
-6. **Participation costs and incentives.** The [node registry](#the-node-registry) specifies a refundable deposit and withdrawal delay, but not their final values. No fee or reward mechanism for message delivery is specified. Non-delivery is not attributable under this protocol. Rewards or [deposit decay](#deposit-decay) conditioned on proven service would require an additional verifiable-evidence mechanism; identity anchoring and identities per anchor also remain open. The [deployment blockers](#what-still-blocks-deployment) distinguish this mechanism choice from the need to sustain participation.
+6. **Participation costs and incentives.** The [node registry](#the-node-registry) specifies a refundable deposit and withdrawal delay, but not their final values. Non-delivery is not attributable under this protocol. Rewards or [deposit decay](#deposit-decay) conditioned on proven service would require an additional verifiable-evidence mechanism; identity anchoring and identities per anchor also remain open.
 7. **Dependency failures.** [Service interfaces](#services) allow alternative providers to be assessed, but define no automatic failover. An external beacon alone does not replace membership, revocation or parameter reads. Nodes cannot participate without the required parameter output; behaviour through a halt or fork, including what can continue from existing state, still needs specification and analysis.
 
 #### Remaining design choices
@@ -1149,21 +1148,9 @@ The current [schema](#registry-schemas) supports the immutable and authorised-cr
 
 ## Path to Active
 
-### What still blocks deployment
-
-The prototype supports experiments, but a secure and economically sustainable deployment has not yet been established. Some remaining work completes the specification and implementation; other work must establish whether the proposed mechanisms can meet the intended security, availability and cost targets.
-
-- **Registry and resistance to multiple identities.** The specified deployment uses Cardano script outputs for its [registries](#services). Registration authorisation, identity uniqueness and lifecycle rules need concrete validators and validation. The security argument also needs an economic model connecting registration cost, withdrawal delay and any identity anchoring to the assumed adversarial share on each topic, including concentration and identity reuse. Recording identities on-chain does not by itself establish that share.
-- **Gate and randomness source.** The [gate construction](#the-verifiable-gate) and [beacon source](#the-randomness-beacon) still need selection and analysis. A candidate must support the required eligibility checks, resistance to bias and grinding, agreement on inputs, and timing after the registration cutoff. Its cadence and availability must fit topology formation and the intended delivery targets. An external beacon would still leave registry and parameter availability to address.
-- **Operating costs and sustained participation.** A deployment needs to identify who operates the nodes and pays for locked capital, chain transactions, bandwidth, verification, storage and recovery. The refundable deposit prices registration; it does not pay for continued service. Fees, rewards, external funding or benefits to participants need a credible model at the intended workloads. If that model relies on rewarding or penalising demonstrated service, defining evidence that supports those decisions is additional research: the current protocol cannot attribute non-delivery.
-- **Evidence for a deployment profile.** Intended topic populations, workloads, delivery deadlines and operator availability need validation. The candidate parameters still require the [measurement programme](#what-remains-to-be-measured), an allowance for model error, and tests of rotation, recovery, small topics and realistic transport. A profile must meet its stated security and delivery targets at a cost its participants can sustain; the existing fixed-topology experiments do not establish that combination.
-- **Interoperability and service failures.** Implementations still need complete wire and recovery rules, agreed epoch and snapshot timing, parameter authority and upgrade rules. Behaviour through chain halts, forks and unavailable services must state which operations can continue and which guarantees no longer hold. The checklist below identifies the concrete specification and implementation deliverables.
-
-These dependencies may require revising the design or narrowing its deployment claims. They are not all resolved by implementing the current draft.
-
 ### Acceptance Criteria
 
-Activation requires observable deliverables in the following areas:
+This draft is not yet implementation-ready. Activation requires observable deliverables in the following areas:
 
 - [ ] Complete the interoperability specification: gate construction and any associated keys or proofs, beacon selection, epoch numbering and boundaries, snapshot confirmation, link retries and handover, wire encodings (including handshake recipient and deployment binding), and recovery exchanges implementing the delivery and gap-notification contract.
 - [ ] Specify and test post-rotation catch-up discovery: requests for the latest cached signed messages from each publisher on a topic, response completeness and pagination, retries, timeouts and resource limits. Exercise recovery after one or more bad topology draws, including a missed final publication, conflicting messages and cache expiry at an epoch boundary.
@@ -1171,8 +1158,7 @@ Activation requires observable deliverables in the following areas:
 - [ ] Specify recovery after topic termination: how former peers are contacted and how message acceptance, including revocation checks, uses registry state after the topic's entry is removed.
 - [ ] Resolve the on-chain rules and schemas, including validators for the topic-creation rule, registration authorisation and uniqueness, publisher authorisation, credential encodings and deployment parameter authority.
 - [ ] Publish a deployment profile stating adversarial participation, identity cost, failure target, expected downtime, epoch length, retention and resource limits. Reconcile its bucket table, pick count and cap with the coverage estimate, with a stated allowance for model error and a justified treatment of downtime under flooding.
-- [ ] Document how node operating costs and continued participation are supported at the intended workloads. Justify the relationship between registration costs and the assumed adversarial participation; specify and validate any fee, reward or participation-evidence mechanism the deployment relies on.
-- [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs.
+- [ ] State how applications establish the intended publisher's topic and key, and where delivery responsibility ends. Validate the intended topic populations and workloads, including verification, recovery and cache costs. Explain how PubSub node operators cover those costs and sustain participation.
 - [ ] Specify behaviour during a chain halt, fork or unavailable service, including which operations may continue from existing state and which guarantees are suspended.
 - [ ] Document the gated derivation and validate the candidate *B* = 512, *k* = 10, *C* = 24 profile, band boundaries and small-topic behaviour. Exercise rotation, recovery and realistic transport behaviour in addition to fixed-topology simulations.
 - [ ] State the relationship to CIP-0137, including whether the proposals are alternatives or can interoperate, with input from its authors.
@@ -1181,13 +1167,11 @@ Activation requires observable deliverables in the following areas:
 
 ### Implementation Plan
 
-The selected symmetric design and existing experiments provide the starting point. First assess the registry, randomness and participation dependencies above with the intended PubSub node operators. Select candidate mechanisms and publish their security assumptions, cost model and deployment profile. Prototype work can continue while these questions are investigated; its results should inform whether the proposed deployment is feasible.
-
-Then complete the protocol and schemas, document the gated derivation and run the validation programme in [What remains to be measured](#what-remains-to-be-measured), followed by transport, rotation and recovery tests. Revisit the profile if those results do not support its targets or costs. Use common conformance vectors and cross-implementation tests before a pilot, and use the pilot to check the participation and operating assumptions.
+The selected symmetric design and existing experiments provide the starting point. First resolve the protocol and schema questions, then publish the deployment profile and formal gated derivation. Run the validation programme in [What remains to be measured](#what-remains-to-be-measured), followed by transport, rotation and recovery tests. Use common conformance vectors and cross-implementation tests before a pilot with PubSub node operators.
 
 Implementors and delivery commitments remain to be recorded in the preamble. No Cardano hard fork is proposed.
 
-Long-term persistence and optional off-chain address discovery remain separate extensions for a deployment using on-chain endpoints and bounded recovery caches. The participation model may use externally funded operators or direct benefits to participants. Native fees and rewards remain optional unless the deployment relies on them; that reliance would make their design and validation activation conditions.
+Long-term persistence and optional off-chain address discovery are separate extensions for a deployment using on-chain endpoints and bounded recovery caches. Native fees and rewards are optional where participation can be sustained without them; any such mechanism a deployment relies on must be specified and validated before activation.
 
 ## References
 
