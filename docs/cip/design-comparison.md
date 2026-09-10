@@ -378,11 +378,11 @@ A faster beacon may permit shorter epochs, but epoch length must also accommodat
 
 The evaluated hash baseline sorts a pair by identity bytes and computes one eligibility decision. The comparison predicate evaluates each direction separately: each node selects from its own eligible peers, and a pair is eligible for a link if either direction passes. These experiments inform the eligibility rule; the final cryptographic construction remains [open](README.md#the-verifiable-gate).
 
-- A pair passes with probability 2/*B* − 1/*B*² rather than 1/*B*, assuming independent directional draws. For large *B*, matching the eligible-pair density therefore requires approximately doubling *B*. Equal eligibility density does not establish equal coverage after selection and admission.
-- It breaks a property the design leans on elsewhere: that a node's own picks can never be refused for want of [admissions budget](README.md#the-serving-cap).
-- Where that budget binds, it roughly doubles **honest starvation** — honest dials turned away because the budget is already spent.
+A pair passes with probability 2/*B* − 1/*B*² rather than 1/*B*, assuming independent directional draws. For large *B*, matching the eligible-pair density therefore requires approximately doubling *B*. Equal eligibility density does not establish equal coverage after selection and admission.
 
-The measured differences concern these predicates and the tested configurations.[^symgate]
+Both predicates use the same [admission budget](README.md#the-serving-cap) and crossing exemption. A node's own selections do not consume its local budget, but a selected peer may refuse a new request when its own budget is exhausted. Crossings remain exempt under both predicates.
+
+In E19 at *N* = 4,000, *k* = 16, *B* = 50, *C* = 16 and 800 adversarial identities, the directional predicate produced fewer mutual selections and more refused honest requests: 5.64 per victim against 3.19 for the unordered pair. Those cells used the same bucket count, giving the predicates different eligible reach; the result does not establish a general doubling of refusals.[^symgate]
 
 ### Directional admission anchors
 
