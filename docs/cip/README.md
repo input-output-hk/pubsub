@@ -221,7 +221,7 @@ Nodes start from the epoch's snapshot and randomness, *η*<sub>e</sub>, and appl
 
 The three rows are the same peers, marked three times over.
 
-- **Row 1** is everyone registered on the topic, taken from the [node registry](#the-node-registry) as it stood at that epoch's [registration cutoff](#term-snapshot), so every node reads the same list.
+- **Row 1** is the other nodes whose [node-registry](#the-node-registry) entries are active and list the topic at that epoch's [registration cutoff](#term-snapshot), so every node reads the same membership.
 - **Row 2** is the smaller set this node may link with; the [bucket count](#term-b) *B* decides how much smaller, and a node looks it up in [Table 2](#table-2) by how many peers the topic has.
 - **Row 3** is the *k* peers the node picks from row 2, using randomness of its own.
 
@@ -231,7 +231,9 @@ Row 1 is public. Each endpoint must be able to verify its pairwise eligibility i
 
 #### The registered peers on a topic
 
-Write *N*<sub>T</sub> for the number of nodes whose snapshot entry lists topic *T* — row 1 of [Figure 2](#figure-2). For a node *a* among them, the potential peers are the other *N*<sub>T</sub> − 1 members. The node starts from the complete list of registered members of the topic. It does not depend on another peer to supply a sample of that list. Registration alone does not establish a link or mean that the gate below permits one.
+Write *N*<sub>T</sub> for the number of nodes whose entries in the epoch's agreed snapshot are active and list topic *T*. Entries marked withdrawing in that snapshot MUST be excluded from both this count and the eligible peer list. A node remains included for any epoch whose fixed snapshot still records it as active. *Active* refers to the registry state; offline nodes with active entries still count.
+
+For a node *a* among them, the potential peers are the other *N*<sub>T</sub> − 1 members, shown in row 1 of [Figure 2](#figure-2). The node starts from this complete list. It does not depend on another peer to supply a sample of that list. Registration alone does not establish a link or mean that the gate below permits one.
 
 #### The verifiable gate
 
@@ -257,7 +259,7 @@ The sorted-pair gate gives one eligibility draw per relationship. The [companion
 
 The evaluated hash gate uses the domain tag `pubsub/gate/relay/v1`.
 
-The **eligible set** *S*(*a*, *T*) is the registered peers for which the gate holds. In this baseline, SHA-256[^hashes] is modelled as a random oracle over the fixed identities and the epoch randomness, so roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
+The **eligible set** *S*(*a*, *T*) is the peers among those *N*<sub>T</sub> − 1 members for which the gate holds. In this baseline, SHA-256[^hashes] is modelled as a random oracle over the fixed identities and the epoch randomness, so roughly (*N*<sub>T</sub> − 1)/*B* of them are eligible, and an adversary holding *A* identities has roughly *A*/*B* of its own eligible for any chosen victim. That division is the gate's purpose: it is what an attacker cannot escape by registering more identities, because each of them lands in a bucket it did not choose.
 
 For a chosen victim, each adversarial identity passes the gate with probability 1/*B*. Obtaining one eligible hostile identity therefore costs about *B* deposits in expectation, provided identities are fixed before the randomness is known. The [serving cap](#the-serving-cap) separately limits peer-initiated admissions.
 
@@ -273,14 +275,14 @@ Since the gate leaves a node roughly (*N*<sub>T</sub> − 1)/*B* eligible peers,
 
 **Only one of these has to be identical across nodes.** An acceptor verifies pairwise eligibility on every dial it receives, so two nodes that disagree about the [bucket count](#term-b) *B* disagree about which links are legal, and refuse each other. Nothing checks a dialler's [pick count](#term-pick-count) *k*, and the [serving cap](#term-cap) *C* is the acceptor's own capacity, so a node that sizes either badly loses coverage or capacity without disagreeing with anyone.
 
-In the table-based proposal, implementations include the agreed bucket table in the node software; [Table 2](#table-2) gives the candidate values. Each node MUST use the topic's registered population at the epoch's [snapshot](#term-snapshot) to look up *B* locally, and all nodes on that topic MUST use the same table and value. Nodes do not fetch the table from this document or GitHub at runtime. Whether to obtain *B* from an on-chain record instead remains open.
+In the table-based proposal, implementations include the agreed bucket table in the node software; [Table 2](#table-2) gives the candidate values. Each node MUST use *N*<sub>T</sub>, counting active entries at the epoch's [snapshot](#term-snapshot) as defined above, to look up *B* locally, and all nodes on that topic MUST use the same table and value. Nodes do not fetch the table from this document or GitHub at runtime. Whether to obtain *B* from an on-chain record instead remains open.
 
 The pick count *k* and admission budget *C* are configured profile values, described under [the relay link and the pick count](#the-relay-link-and-the-pick-count) and [the serving cap](#the-serving-cap). Choosing *B* must account for those values: narrowing the eligible pool affects both the peers a node selects and the requests it receives through symmetric links.
 
 <div align="center">
 <a name="table-2" id="table-2"></a>
 
-| Registered nodes on the topic | *B* | Mask bits | Candidate *k* |
+| Active registrations on the topic | *B* | Mask bits | Candidate *k* |
 | ---: | ---: | :--: | ---: |
 | 2 – 40 | 1 | 0 — gate off | 10 |
 | 41 – 80 | 2 | 1 | 10 |
@@ -390,7 +392,7 @@ An acceptor evaluates a Request in the order numbered in [Figure 3](#figure-3), 
 
 1. **Signature.** The signature MUST verify against the emitter's key, and the emitter MUST NOT be the acceptor itself.
 2. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
-3. **Membership.** The acceptor MUST subscribe to *T*, and the emitter MUST be registered on *T* in this epoch's snapshot.
+3. **Membership.** The acceptor and emitter MUST each have an active registry entry listing *T* in this epoch's snapshot.
 4. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
 5. **Gate.** The acceptor MUST verify that the gate holds for the pair under the agreed construction. The evaluated hash baseline recomputes it from public data with identities sorted by their raw bytes; any replacement must specify its verification inputs and any additional evidence exchanged.
 6. **Cap.** If the request answers a selection the acceptor has itself made — a *crossing* — it is completed regardless of the budget. Otherwise it is an admission, and the acceptor refuses it once *C* admissions have been granted on *T* in this epoch.
@@ -538,7 +540,7 @@ Any future anchoring to a stake pool operator (SPO), dRep or other existing iden
 
 One entry per participating node. It binds a node identity to the topics that node takes part in, to a locked [deposit](#term-deposit), and optionally to a network endpoint at which it can be reached.
 
-Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each PubSub node operator spends only its own output, so no registry operation waits on another party's transaction. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of nodes whose snapshot entry lists *T*](#the-registered-peers-on-a-topic).
+Keeping the subscription on the node entry is what keeps both registries free of contention. A subscriber list on the topic entry would be one output that every node must spend to join or leave. A large topic would then serialise its subscriptions behind a single UTxO, and a validator would have to resolve the ordering. Each PubSub node operator spends only its own output, so no registry operation waits on another party's transaction. The derivation reads the edge from the same side: *N*<sub>T</sub> is [the number of active snapshot entries listing *T*](#the-registered-peers-on-a-topic).
 
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree.
 

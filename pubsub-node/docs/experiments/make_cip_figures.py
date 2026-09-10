@@ -605,8 +605,8 @@ def fig_derivation() -> str:
             b.append(text(xm + 12, y + 40, steps[k], 10, "#6f6d66"))
 
     return frame(W, H, b, "Deriving one node's links for one epoch",
-                 "Three rows of markers over the same peers. The first row is every peer "
-                 "registered on the topic at the epoch's registration cutoff. The second "
+                 "Three rows of markers over the same peers. The first row is every other node "
+                 "whose entry is active and lists the topic at the epoch's registration cutoff. The second "
                  "marks those for which the verifiable gate holds, roughly one in B of "
                  "them. The third marks the k the node actually picks from that eligible "
                  "set, drawn with its own randomness. The first row is public; pairwise "
