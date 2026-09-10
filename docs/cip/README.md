@@ -437,7 +437,7 @@ The publisher produces the signature once. Relays forward the message unchanged 
 A recipient MUST make these checks, in this order, before acting on a message.
 
 1. **Topic.** The topic is registered.
-2. **Authorisation.** The publisher key is permitted by the topic's [publication policy](#the-topic-registry) in the epoch's snapshot.
+2. **Authorisation.** The publisher key is permitted by the topic's [publication policy](#the-topic-registry) in the epoch's snapshot. For an open topic, it matches a node identity key in the node registry at that snapshot; for a restricted topic, it appears in the policy's publisher list.
 3. **Revocation.** The key has not been revoked.
 4. **Signature.** The signature verifies.
 
@@ -511,7 +511,7 @@ This section fixes the three key roles the protocol distinguishes, the constrain
 - The **node identity key** identifies the node when deriving the topology and signs its link-establishment messages. The private key is held by the node process.
 - The **publisher key** signs published messages.
 
-The same key MAY serve as both a node identity key and a publisher key. A publisher key MAY be authorised on several topics. These roles grant different permissions: permission to publish does not register a node, and node registration alone does not authorise publication on a restricted topic. An open topic allows any registered node to publish.
+On an open topic, a registered node publishes using its node identity key as the publisher key. A restricted topic MAY authorise either a node identity key or a separate publisher key, including one that does not belong to a registered node. A publisher key MAY be authorised on several topics. These roles grant different permissions: permission to publish does not register a node, and node registration alone does not authorise publication on a restricted topic.
 
 **Requirements for identity anchoring.** The protocol relies on two properties:
 
@@ -554,8 +554,10 @@ The [claim rule](#deposit-claim) combines these two release conditions. The dela
 
 One entry per topic. It binds a topic identifier to its **publication policy**, to the owner permitted to change that policy, and to the topic's retention window. The policy explicitly chooses one of two modes:
 
-- **Open:** any registered node may publish to the topic.
+- **Open:** any registered node may publish to the topic. The publisher key MUST match a node identity key recorded in the node registry at the epoch's agreed snapshot. The entry need not list this topic in its topic-interest set.
 - **Restricted:** only the listed publisher keys may publish. An empty list authorises nobody.
+
+Recipients check the key that signed the message. Relaying a message through a registered node does not authorise a separate publisher key on an open topic.
 
 Removing the last publisher from a restricted policy MUST leave the topic restricted. Opening it requires the owner to select the open policy explicitly. A restricted topic with no authorised publishers remains a live topic; it has not been ended.
 
@@ -1558,7 +1560,7 @@ topic_registration =
 
 ; The first element selects the mode. Only restricted policies carry a list.
 publication_policy =
-    [ 0 ]                                ; open to registered nodes
+    [ 0 ]                                ; open to registered node identity keys
   / [ 1, publishers : [* publisher_key] ]  ; restricted; empty authorises nobody
 
 topic_state =
