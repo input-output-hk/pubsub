@@ -860,7 +860,7 @@ Here *p*<sub>bad</sub> is the probability that a drawn topology leaves some hone
 <div align="center">
 <a name="table-6" id="table-6"></a>
 
-| Parameters | Predicted *p*<sub>bad</sub> | Measured deliveries per node | Measured links, mean | Maximum links observed | Measured full-coverage hops | Predicted downtime absorbed |
+| Parameters | Predicted *p*<sub>bad</sub> | Measured deliveries per node | Measured links, mean | Maximum links observed | Measured mean full-coverage hops | Predicted downtime absorbed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | *k* = 10, *B* = 500, *C* = 23 | 5.1 × 10⁻⁶ | 13.0 | 17.5 | 33 | 5.0 | 7.57 % |
 

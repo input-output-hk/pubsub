@@ -49,7 +49,7 @@ The gated admission experiments use the reference-node instrument. Their closed 
 
 ## Performance metrics
 
-A design is characterised by four things: how often a draw fails, what it costs to run at that failure rate, how quickly messages arrive, and how much degradation it absorbs before the failure rate changes. Table 2 records the evaluation settings.
+A design is characterised here by four things: how often a draw fails, what it costs to run at that failure rate, how many forwarding hops reach every honest subscriber, and how much honest downtime it tolerates while meeting the failure target. Table 2 records the evaluation settings.
 
 <div align="center">
 <a name="table-2" id="table-2"></a>
@@ -79,7 +79,7 @@ Every design's coverage law can be [evaluated interactively](https://pubsub.card
 | Cost | Transmissions per publication, *m* | Honest-to-honest message copies sent per published message, duplicates included |
 | | Deliveries per node, *c* | Copies of each published message received by an average honest node, duplicates included |
 | | Links per node, *d* and *d̂* | Links held for the whole epoch, mean and maximum, counting a node's own picks and the links others opened to it |
-| Latency | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
+| Forwarding depth | Hops to full coverage, *h*<sub>full</sub> | Forwarding depth at which the last honest subscriber receives |
 | Resilience | Churn budget, *p*<sub>max</sub> | Largest honest downtime fraction for which a deployed configuration still meets *δ* |
 
 <em>Table 3: Performance metrics</em>
@@ -197,7 +197,7 @@ Every design is shown at the configuration this proposal names for it, at *N* = 
 <div align="center">
 <a name="table-4" id="table-4"></a>
 
-| Design | Parameters | *p*<sub>bad</sub> | Deliveries per node | Links, mean | Links, busiest node | Hops (full) | Downtime absorbed |
+| Design | Parameters | *p*<sub>bad</sub> | Deliveries per node | Links, mean | Links, busiest node | Mean full-coverage hops | Downtime absorbed |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | M3 | RF = 13, *s* = 7 | 4.4 × 10⁻⁵ | **10.4** | 38.0 | 64 | 5.5 | 2.17 % |
 | M4 | RF = 9 | 6.1 × 10⁻⁶ | 13.4 | 18.0 | 37 | 5.0 | 7.43 % |
@@ -211,7 +211,7 @@ Every design is shown at the configuration this proposal names for it, at *N* = 
 
 </div>
 
-The first five rows are ungated, at the configurations the coverage models were evaluated at, and they are not equally safe: the *p*<sub>bad</sub> column spans an order of magnitude, so a cost difference between rows at different failure rates is not by itself a verdict. The last row is the gated reference experiment at *B* = 500; the CIP now specifies *B* = 512 and identifies its rerun as outstanding. It is not comparable column-by-column, but given so the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. The cost and latency columns are measured (see the reproduction note); the *p*<sub>bad</sub> column is read off each design's coverage law, for the reason [Limits of this evidence](README.md#limits-of-this-evidence) gives. The busiest-node column is the largest logical-link count any single honest node held: a measured worst case over the sampled graphs *at that row's configuration*, not a bound, and a sample extreme grows with the number of graphs drawn and with the population.[^degrees] Hops are quoted at the mean, where the field spans 4.8 to 5.5; the full depth distributions separate the designs by two orders of magnitude at the tail, for a fraction of a percent of subscribers.[^depth]
+The first five rows are ungated, at the configurations the coverage models were evaluated at, and they are not equally safe: the *p*<sub>bad</sub> column spans an order of magnitude, so a cost difference between rows at different failure rates is not by itself a verdict. The last row is the gated reference experiment at *B* = 500; the CIP now specifies *B* = 512 and identifies its rerun as outstanding. It is not comparable column-by-column, but given so the proposal's own numbers appear beside the field it was chosen from. Bold marks the best value in each column. The cost and hop-count columns are measured (see the reproduction note); the *p*<sub>bad</sub> column is read off each design's coverage law, for the reason [Limits of this evidence](README.md#limits-of-this-evidence) gives. The busiest-node column is the largest logical-link count any single honest node held: a measured worst case over the sampled graphs *at that row's configuration*, not a bound, and a sample extreme grows with the number of graphs drawn and with the population.[^degrees] Hops are quoted at the mean, where the field spans 4.8 to 5.5; the full depth distributions separate the designs by two orders of magnitude at the tail, for a fraction of a percent of subscribers.[^depth]
 
 **M3's split.** The budget of 19 divides between relaying and seeding in several ways, and the published choice of (RF = 12, *s* = 8) is not the best of them. With *s* − 1 seeding links the budget is *RF* + (*s* − 1), so 12 + 7 and 13 + 6 both come to 19, and the split (RF = 13, *s* = 7) holds that same budget and the same 38 links. For 0.8 further deliveries per node it buys a factor of four in downtime tolerance and a halved failure probability, and it is the split every table and figure in this proposal carries; a reader meeting the published split in the earlier literature should expect M3 to look stronger on bandwidth and markedly weaker on the other three axes. The budgets in the last column are read off the laws rather than observed: the churn experiment establishes that the shifted-fraction reduction holds, not the budget values. The measurements sit slightly above their predictions, and the excess pools onto M3 alone, matching a separate finding that M3's law is mildly optimistic wherever its pick count is small;[^finiten] suggestive rather than established, and conservative either way, since it would make M3's budget smaller rather than larger.[^churn]
 
@@ -219,7 +219,7 @@ The first five rows are ungated, at the configurations the coverage models were 
 
 ## The four-way trade-off
 
-A dissemination layer trades bandwidth, connection state, latency and tolerance of degradation against one another; no design in the family is best on all four. The Evidence subsection measures each axis separately, and the figure below puts them side by side.[^axes]
+The figure below compares measured bandwidth, mean logical links and mean forwarding depth with predicted honest downtime tolerance. No design is best on all four at the compared configurations.[^axes]
 
 <div align="center">
 <a name="figure-8" id="figure-8"></a>
@@ -234,7 +234,7 @@ Each contender is drawn at its best parameters rather than its published ones. T
 
 At those parameters M4 beats M5 on every axis, and M1 falls with it; both are drawn muted rather than dropped, each lying wholly inside a contending design. Three remain. The figure carries its own reading key; the size of a shape is not a score.
 
-**M4 is the most even and the only design to reach the outer ring twice. M2 leads speed alone and is innermost elsewhere; M3 leads bandwidth alone.**
+**At these configurations, M4 has the fewest mean logical links and the highest predicted downtime tolerance. M2 has the lowest mean full-coverage hop count; M3 uses the least bandwidth.**
 
 > [!IMPORTANT]
 > The general form governs the parameter choice as much as the design choice: **within this family, efficiency is bought with margin.** A configuration tuned to sit just inside the failure target is, by construction, the one with least room to absorb anything the model did not anticipate. That is a property of the rule used to choose parameters, not of any mechanism, which is why M3's brittleness disappears under a different split of the same budget rather than requiring a different design.
@@ -269,7 +269,9 @@ The ungated comparison motivates evaluating M3 and M4 with gates and admission b
 
 **Predicted downtime tolerance.** At the compared ungated configurations, M3's predicted honest downtime budget is 2.17 % and M4's is 7.43 %. At the gated reference configurations the budgets are 1.58 % and 7.57 % respectively. These estimates depend on the stated configurations and the [downtime assumptions](README.md#limits-of-this-evidence).
 
-**Interpreting the comparison.** The compared configurations retain a cost trade-off: M3 uses less traffic and M4 fewer logical links. The coverage and downtime estimates support selecting M4 within this family and these assumptions. Deployment choices still need to account for their workloads and delivery requirements. Nor do the radar's axes divide into security and performance as cleanly as they look: of the four in [Figure 8](#figure-8), only bandwidth is straightforwardly a performance figure, downtime absorbed is an availability property and time to the last subscriber a liveness bound, so a reader who weights security above optimisation is weighting up three of the four axes the symmetric design already leads.
+**Interpreting the comparison.** The compared configurations retain a cost trade-off: M3 uses less traffic and M4 fewer logical links. The coverage and downtime estimates support selecting M4 within this family and these assumptions. Deployment choices still need to account for their workloads and delivery requirements.
+
+Mean full-coverage hop count measures forwarding depth in the simulations. It does not establish a wall-clock delivery deadline. Establishing elapsed delivery times requires transport measurements.
 
 ## Per-node cost against subscriptions
 
