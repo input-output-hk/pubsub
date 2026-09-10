@@ -875,7 +875,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 <div align="center">
 <a name="table-7" id="table-7"></a>
 
-| Topics a node subscribes to | Ingress | Links |
+| Topics a node subscribes to | Ingress | Mean links |
 | :--: | ---: | ---: |
 | 1 | 107 kbit/s | 18 |
 | 5 | 536 kbit/s | 90 |
@@ -886,7 +886,7 @@ Both measured costs are per topic, and a node that subscribes to several pays fo
 
 </div>
 
-At the stated message rate and size, traffic and logical links grow with subscriptions. Actual transport costs also include framing, connection maintenance, verification and recovery. Multiple links to the same peer may share a transport connection; the [companion](design-comparison.md#per-node-cost-against-subscriptions) estimates that saving for different populations.
+These are mean costs; individual nodes may hold more or fewer links. At the stated message rate and size, traffic and logical links grow with subscriptions. Actual transport costs also include framing, connection maintenance, verification and recovery. Multiple links to the same peer may share a transport connection; the [companion](design-comparison.md#per-node-cost-against-subscriptions) estimates that saving for different populations.
 
 ### How the evidence was obtained
 
