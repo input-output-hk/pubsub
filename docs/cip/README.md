@@ -54,7 +54,6 @@ The beacon, deployment parameters and several interoperability rules remain open
     - [The topic registry](#the-topic-registry)
       - [Topic identifier derivation](#topic-identifier-derivation)
     - [The parameter output](#the-parameter-output)
-    - [Authority over the parameter output](#authority-over-the-parameter-output)
     - [The randomness beacon](#the-randomness-beacon)
     - [Address resolution](#address-resolution)
     - [Lifecycle and the registration cutoff](#lifecycle-and-the-registration-cutoff)
@@ -78,6 +77,8 @@ The beacon, deployment parameters and several interoperability rules remain open
   - [Open Questions](#open-questions)
     - [Responses to CPS questions](#responses-to-cps-questions)
     - [Remaining design choices](#remaining-design-choices)
+      - [Deposit decay](#deposit-decay)
+      - [Authority over the parameter output](#authority-over-the-parameter-output)
 - [Path to Active](#path-to-active)
   - [Acceptance Criteria](#acceptance-criteria)
   - [Implementation Plan](#implementation-plan)
@@ -544,7 +545,7 @@ Keeping the subscription on the node entry is what keeps both registries free of
 
 The topic-interest set is authoritative. A node's effective subscriptions are the topics in its registry entry, never a local configuration file, because every other node derives that node's obligations from the registry and the two must agree.
 
-The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is neither pledge nor stake: it is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. It is returned to the PubSub node operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. The alternative is not forfeiture but **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence — and it is posed, undecided, in the [Open Questions](#open-questions).
+The deposit makes identities costly to mass-produce and is the whole of the protocol's Sybil resistance. It is neither pledge nor stake: it is not delegated, earns nothing, and confers no weight in the protocol beyond the right to hold one identity. It is returned to the PubSub node operator when the entry is retired, after a delay. It MUST NOT be forfeitable for failing to deliver messages: as the [Rationale](#two-classes-of-fault-with-different-guarantees) establishes, the protocol cannot attribute an absence of messages to any node, so a bond conditioned on delivery would be a bond conditioned on something unobservable. Whether deposits could instead decay is an [open design choice](#deposit-decay).
 
 The deposit remains locked until both the configured withdrawal delay has elapsed and the last epoch requiring the node's participation has ended.
 
@@ -639,27 +640,17 @@ A node is configured with the script hash of the parameter output itself: one va
 
 **A node that cannot read the parameter output MUST NOT participate.** If the output is absent, unreachable, or cannot be parsed as this proposal's schema, the node MUST NOT derive a topology for the epoch and MUST NOT open links. It MUST NOT substitute a default, and MUST NOT carry forward a value read in an earlier epoch. A node acting on an epoch length other than the agreed one derives from a different snapshot under different randomness, so its dials are refused by peers that used the agreed one; it would be participating in name only. Declining to participate is also indistinguishable from downtime, which the analysis already accounts for.
 
-**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. Holding it here rather than in configuration is what lets a change be *scheduled*: the rules below announce a new value against a future epoch, and a configuration file has no way to say which epoch a value takes effect from. Whether that is worth an on-chain output at all is posed below.
+**It carries the epoch length.** *T*<sub>epoch</sub> MUST be read from this output. No node may substitute its own value. One that did would derive from a different snapshot under different randomness, and be refused by peers that used the agreed one. Holding it here rather than in configuration is what lets a change be *scheduled*: the rules below announce a new value against a future epoch, and a configuration file has no way to say which epoch a value takes effect from. Whether that is worth an on-chain output at all remains [open](#authority-over-the-parameter-output).
 
 **It does not carry the sizing assumptions.** *μ*, *δ*, *p* and *A* are declared by the deployment. A node reads them from its configuration at startup; an implementation MUST NOT compile them in. [Parameters](#parameters) sets out why they need no on-chain home. Whether they should instead vary per topic is posed in the [Open Questions](#open-questions).
+
+**Authority.** The current [schema](#registry-schemas) supports an immutable output or one controlled by the credential in its `authority` field. The choice of authority and alternative arrangements remain [open](#authority-over-the-parameter-output).
 
 Three rules govern changes.
 
 1. A change MUST be read from the [registration-cutoff snapshot](#term-snapshot), as the registries are, and MUST NOT be read at the chain tip.
 2. A change MUST take effect at an **announced epoch**, recorded as a pending change against the epoch it applies from. Moving it alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
 3. A pending change MUST be announced before the registration cutoff of the epoch it applies from, MAY be moved later or cancelled before that cutoff, and MUST NOT be brought forward — bringing one forward would apply values that some nodes had already derived an epoch without. Once the epoch has arrived the pending value is promoted to current; until it is, a node reading the snapshot MUST use the pending value from that epoch onward and the current one before it.
-
-#### Authority over the parameter output
-
-An output that can be changed is an authority, and this proposal does not settle who holds it. Whoever may spend the parameter output can move the epoch length, and with it how long a subscriber can be cut off and how much churn a topology must absorb. The authority is bounded, since the value is public, every node reads it, and its effect is recomputable and auditable by anyone, but it is real, and it is the one place in this design where a single party changes what every node computes. Five arrangements are available, and the choice is posed in the [Open Questions](#open-questions).
-
-- **No parameter output at all.** The registry script hashes and the epoch length ship in node configuration, named by hash as a genesis file is, and a change is a coordinated restart. No standing authority, at the cost of the scheduling a pending on-chain change provides.
-- **An immutable output.** Created at deployment and never spent; a change is a new deployment that nodes migrate to.
-- **Governance-controlled.** A Cardano governance action moves the value: no privileged party, and the heaviest process for the smallest change.
-- **An authorised credential**, named in the output and held by whoever deployed it. Simplest, and standing central control.
-- **Per topic, set by its owner.** No party sets a length for the whole network and a topic rotates on the schedule its use case wants, at the cost of a beacon value at each topic's cutoff, a snapshot per topic, the same announcement discipline for an owner moving a boundary, and *δ* and *p* restated per topic.
-
-The schema under [Registry schemas](#registry-schemas) admits the second and the fourth; the others need no field.
 
 #### The randomness beacon
 
@@ -1125,7 +1116,7 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 3. **Availability.** Independent downtime is modelled as a shift in the adversarial fraction. PubSub node operator departure rates, outage duration and correlated failures have not been established. [Epoch sizing](#how-long-an-epoch-may-be) is therefore conditional, and no epoch length is selected.
 4. **Topic populations.** The main comparisons use 4,000 and 20,000 nodes; the CPS's wallet-mediated scenarios may involve tens. Actual memberships and overlap between topics need validation with the intended participants before those comparisons can size a deployment.
 5. **Small topics.** [Small-topic rules](#small-topics) reduce or disable the gate, but evidence does not yet establish their coverage at tens of participants. The [measurement programme](#what-remains-to-be-measured) is needed to decide whether the same mechanism suffices.
-6. **Participation costs and incentives.** The [node registry](#the-node-registry) specifies a refundable deposit and withdrawal delay, but not their final values. Non-delivery is not attributable under this protocol. Any participation reward or deposit decay would require an additional verifiable-evidence mechanism; identity anchoring and identities per anchor also remain open.
+6. **Participation costs and incentives.** The [node registry](#the-node-registry) specifies a refundable deposit and withdrawal delay, but not their final values. Non-delivery is not attributable under this protocol. Any participation reward or [deposit decay](#deposit-decay) would require an additional verifiable-evidence mechanism; identity anchoring and identities per anchor also remain open.
 7. **Dependency failures.** [Service interfaces](#services) allow alternative providers to be assessed, but define no automatic failover. An external beacon alone does not replace membership, revocation or parameter reads. Nodes cannot participate without the required parameter output; behaviour through a halt or fork, including what can continue from existing state, still needs specification and analysis.
 
 #### Remaining design choices
@@ -1136,6 +1127,22 @@ These answers follow the order of the [CPS Open Questions](../cps/README.md#open
 - **Per-topic profiles:** decide whether topics need different failure and downtime assumptions, with an agreed bucket table for each profile. Different targets need not require different epoch lengths; different schedules would also require compatible beacon and snapshot timing.
 - **Withdrawal and retention:** decide whether the deposit must remain locked through message retention in addition to satisfying the withdrawal-delay and participation-epoch conditions in the [claim rule](#deposit-claim).
 - **Timing assumptions:** decide whether partial synchrony is acceptable and what guarantees it would enable beyond the current reachability analysis.
+
+##### Deposit decay
+
+One option is **decay**: a deposit that erodes wherever a node supplies no positive evidence of having participated, as Ethereum's inactivity leak treats liveness faults. That reverses what has to be observed — evidence of presence rather than evidence of absence. This remains undecided and would require an additional mechanism for verifiable participation evidence; the current [node registry](#the-node-registry) specifies a refundable deposit.
+
+##### Authority over the parameter output
+
+An output that can be changed is an authority, and this proposal does not settle who holds it. Whoever may spend the parameter output can move the epoch length, and with it how long a subscriber can be cut off and how much churn a topology must absorb. The authority is bounded, since the value is public, every node reads it, and its effect is recomputable and auditable by anyone, but it is real, and it is the one place in this design where a single party changes what every node computes. Five arrangements are under consideration.
+
+- **No parameter output at all.** The registry script hashes and the epoch length ship in node configuration, named by hash as a genesis file is, and a change is a coordinated restart. No standing authority, at the cost of the scheduling a pending on-chain change provides.
+- **An immutable output.** Created at deployment and never spent; a change is a new deployment that nodes migrate to.
+- **Governance-controlled.** A Cardano governance action moves the value: no privileged party, and the heaviest process for the smallest change.
+- **An authorised credential**, named in the output and held by whoever deployed it. Simplest, and standing central control.
+- **Per topic, set by its owner.** No party sets a length for the whole network and a topic rotates on the schedule its use case wants, at the cost of a beacon value at each topic's cutoff, a snapshot per topic, the same announcement discipline for an owner moving a boundary, and *δ* and *p* restated per topic.
+
+The current [schema](#registry-schemas) supports the immutable and authorised-credential arrangements. The remaining alternatives would require revisiting the specified deployment model.
 
 ## Path to Active
 
