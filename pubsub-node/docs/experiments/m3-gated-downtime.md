@@ -38,11 +38,19 @@ safe threshold: the unrounded count and failure estimate govern that.
 Run from the repository root:
 
 ```sh
-python3 -B pubsub-node/docs/experiments/check_cells_against_docs.py
+python3 -B - <<'PY'
+import math
+import sys
+
+sys.path.insert(0, 'pubsub-node/docs/experiments')
+from m4_synthesis_predictions import m3_isolation
+
+for d in (0, 252, 253):
+    p_bad = -math.expm1(-sum(m3_isolation(20000, 13, 769, 4000 + d, 7, 769)))
+    print(f'd={d}, downtime={100 * d / 16000:.5f}%, P(bad)={p_bad:.8e}')
+PY
 ```
 
-The checker recomputes the threshold, reports the adjacent failing count,
-and compares the rounded result with both CIP comparison tables. The
-regression test pins the 252/253 boundary. This supplies calculation
-provenance for the M3 value; it does not establish the correctness of the
-coverage model or validate a deployment.
+This reproduces the table above using the existing model. It supplies
+calculation provenance for the M3 value; it does not establish the
+correctness of the coverage model or validate a deployment.

@@ -162,11 +162,7 @@ class matches it, ~81/run over both classes), admitted 5.997/5.997, Sybil
 occupancy 7.997 = the cap-blind own-pick floor 2.000 + the
 gate-divided admitted route 5.997, crossings refused ≡ 0, max degree
 33 = K + C exact, own-only Sybil ≡ 0 (the pair draw), coverage
-400/400 at the composed law 1.25×10⁻⁵. The same anchor in tabular form:
-
-| N | k | B | C | Flooding identities | Good / runs | Composed P(bad) |
-|---|---|---|---|---|---|---|
-| 20 000 | 10 | 500 | 23 | 4 000 | 400/400 | 1.25×10⁻⁵ |
+400/400 at the composed law 1.25×10⁻⁵.
 
 Attacker accounting at the recommended point, per honest victim: the
 floor K·μ = 2.0 is admission-free (the victim's own picks at ambient

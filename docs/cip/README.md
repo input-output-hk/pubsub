@@ -124,7 +124,7 @@ The beacon, deployment parameters and several interoperability rules remain open
   <summary><h2>Index of tables</h2></summary>
 
 - [Table 1: The services the protocol reads](#table-1)
-- [Table 2: The bucket count, by topic population](#table-2)
+- [Table 2: Candidate bucket counts by topic population, for 10 picks, 20% adversarial nodes and a failure target of 10⁻⁴](#table-2)
 - [Table 3: Measured reference at N = 20,000, B = 500 and C = 23](#table-3)
 - [Table 4: The protocol's parameters](#table-4)
 - [Table 5: The assumptions a deployment chooses](#table-5)
@@ -381,7 +381,7 @@ Links are opened by a signed handshake. The dialler sends a **Request** naming t
 
 **Wire-format status.** The `v2` preimage below is an incomplete draft and MUST NOT be used as a deployment handshake. It authenticates the emitter, topic and epoch, but does not bind the message to its intended recipient or deployment. Forwarding a captured message can therefore preserve its signature while changing where it is processed. Membership, gate and local link-state checks limit which replays can take effect; they do not supply the missing binding.
 
-Completing this format is an [activation requirement](#acceptance-criteria). The replacement must bind every action to the intended recipient and a stable deployment identifier, specify how replies match pending requests and termination matches an established link, and define how delayed or replayed actions are handled within one epoch and after restart. Its domain-tag version must increase under [Versioning](#versioning). Conformance tests must cover cross-recipient, cross-deployment and stale-action replay as well as duplicate requests and crossing selections. The transport and complete handshake state machine remain open.
+Recipient and deployment binding, replay handling and the complete handshake state machine remain [activation requirements](#acceptance-criteria). Their design is separate from this draft preimage and must follow [Versioning](#versioning).
 
 The current draft signs every handshake message with the emitter's node identity key over
 
@@ -652,7 +652,7 @@ A node is configured with the script hash of the parameter output itself: one va
 
 **Epoch-schedule status.** The current [parameter schema](#registry-schemas) records a length and a pending change, but no epoch origin or persistent schedule anchor. It is not sufficient to derive epoch numbers from slots after a length change. Dividing a slot by the latest `t_epoch` would renumber past epochs, while retaining only local history would leave a newly joined node unable to derive the same schedule from the current output.
 
-Completing epoch numbering and boundaries is an [activation requirement](#acceptance-criteria). The finished design must define the start slot of epoch zero and preserve an anchor containing an epoch index, its start slot and the length applying from it, or specify an equivalent verifiable reconstruction procedure. Promoting a change must retain the boundary at which its new length took effect, independently of the promotion transaction's later inclusion slot. The same schedule must determine registration cutoffs, pending-change eligibility and deposit-claim epochs. Boundary, delayed-promotion, successive-change and fresh-node reconstruction tests are required before epoch-length updates can be implemented from this draft.
+Completing epoch numbering and boundaries is an [activation requirement](#acceptance-criteria). The design must let existing and newly joined nodes derive the same epoch schedule, including the origin and effective boundaries of length changes, from agreed verifiable data. The schema below does not yet provide that rule.
 
 Subject to that unfinished schedule definition, three rules govern changes.
 
@@ -1313,7 +1313,7 @@ These evaluate the rules this document states, at points other than the ones it 
 
 [^churn]: Churn tolerance, experiment E13. Forty configurations in three rounds: twenty-five across the five designs with downtime swept from 0 to 12 % of the honest population, then nine at the then-published operating points at 20 to 30 %, then six at the two configurations this proposal names, M3 at (13, 7) and M4 at RF = 9, the latter at 25 to 35 %. About 121,000 draws; each scored against its design's coverage law evaluated at the shifted adversarial fraction, which together span 0.20 to 0.48. Method, full results and the residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md) and [`docs/experiments/churn-proposed-points.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-proposed-points.md).
 
-[^m3budget]: M3 gated downtime is calculated from `m3_isolation(20000, 13, 769, S, 7, 769)` at the shifted adversarial count. The [reproduction note](../../pubsub-node/docs/experiments/m3-gated-downtime.md) records the threshold, rounding and assumptions; `check_cells_against_docs.py` recomputes it and checks both comparison tables. This is a baseline model prediction without admission refusals or wholesale flooding.
+[^m3budget]: M3 gated downtime is calculated from `m3_isolation(20000, 13, 769, S, 7, 769)` at the shifted adversarial count. The [reproduction note](../../pubsub-node/docs/experiments/m3-gated-downtime.md) records the threshold, rounding and assumptions. This is a baseline model prediction without admission refusals or wholesale flooding.
 
 [^seam]: The M3 reach figure covers eligibility through its relay links only. M3 also uses separate links to introduce its own publications, with their own gates and admission limits. M4 carries publication and relay traffic on the same bidirectional links.
 

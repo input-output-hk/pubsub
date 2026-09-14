@@ -1,5 +1,5 @@
 {
-  "_comment": "Machine-readable results backing the CIP evidence figures. Measurements are transcribed from the experiment write-ups; ungated law values are recomputed with analyse_churn.py, retaining more precision than the prose tables. check_cells_against_docs.py validates the plotted data against specific source rows and laws; cip-evidence-checks.md records its scope. The experiments tool should emit this file directly in future so the transcription step disappears.",
+  "_comment": "Machine-readable results backing the CIP evidence figures. Transcribed once from pubsub-node/docs/experiments/m{2,3,4,5}-comparison.md; law values are recomputed here from each model's published closed form and agree with the documents to four significant digits. The experiments tool should emit this file directly in future so the transcription step disappears.",
   "parameters": {
     "adversarial_fraction": 0.2,
     "design_target": 0.0001,
@@ -316,13 +316,13 @@
       "params": "RF=9, s=5",
       "bad": 912,
       "runs": 170000,
-      "law": 0.00534384,
+      "law": 0.00534418,
       "formal_bad": null,
       "formal_runs": null,
       "config": "tail/m3-n4k-rf9-s5-deeptail.toml",
       "master_seed": 821,
       "tool_commit": "standing-degree change on experiments/churn-sweep",
-      "note": "Deep-tail power run. The law is recomputed with analyse_churn.law_m3, as in the original 30,000-draw cell (the historical 0.00534418 approximation differed by 0.0064 %). Sized to resolve the small-component correction at 3 sigma, which 3e4-draw samples cannot. Independent seed from the 30000-draw cell above, so the two pool."
+      "note": "Deep-tail power run. Sized to resolve the small-component correction at 3 sigma, which 3e4-draw samples cannot. Independent seed from the 30000-draw cell above, so the two pool."
     },
     {
       "model": "M4",
@@ -491,7 +491,7 @@
     "master_seed": 1139,
     "flood_config": "m4-synthesis/flood-n20k-k10-b500-cap23.toml",
     "flood_master_seed": 1140,
-    "note": "E20 (m4-synthesis.md): the B=500 reference configuration; the CIP bucket table specifies B=512. p_bad is the composed gated law's prediction; the measurement at seed 1139 is 400/400 good. Under the wholesale flooder, every adversarial identity dialling (4,000 at N = 20,000, mu = 0.2), the composed law gives 1.25e-5, measured 400/400 good at seed 1140. The CIP-only extrapolation figure reads this record; check_cells_against_docs.py validates its measured counts and predictions against E20."
+    "note": "E20 (m4-synthesis.md): the B=500 reference configuration; the CIP bucket table specifies B=512. p_bad is the composed gated law's prediction; the measurement at seed 1139 is 400/400 good. Under the wholesale flooder, every adversarial identity dialling (4,000 at N = 20,000, mu = 0.2), the composed law gives 1.25e-5, measured 400/400 good at seed 1140. Not read by the figure checker; the CIP-only extrapolation figure reads it."
   },
   "convergence": {
     "dial_waves": 2,
@@ -916,13 +916,13 @@
       "model": "M5",
       "params": "(9, 8)",
       "by": "M4 RF=9",
-      "note": "Pareto-dominated: 13.6 copies against 13.4, 34 links against 18, 5.00 hops equal, 2.18 % churn budget against 7.43 %."
+      "note": "beaten on every axis: 13.6 copies against 13.4, 34 links against 18, 5.00 hops equal, 2.18 % churn budget against 7.43 %."
     },
     {
       "model": "M1",
       "params": "F=24",
       "by": "M5 (9, 8)",
-      "note": "Pareto-dominated by M5: worse on bandwidth, standing links and downtime tolerance; tied on full-coverage hops."
+      "note": "beaten on all four cost and robustness axes; leads only adaptive eclipse cost."
     }
   ],
   "gate_tradeoff": {

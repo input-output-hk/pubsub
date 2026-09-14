@@ -157,9 +157,8 @@ The fork is a genuine trade: M3 and M5 land at the same failure probability and 
 
 **M4 merges M5's two link sets into one.** M5's best split, 9 and 8, is one link from symmetric, which suggests its two sets do the same work. Under M4 a node draws *RF* peers and opens one link to each, established once for the pair rather than once per direction; in [Figure 5](#figure-5) the layers differ only by who opened the link, and every arrow points both ways. Every message that verifies is flooded on all the node's links for the topic except the one it arrived on, its own publications included, so there is neither a second link kind nor a second count. The failure left open needs both directional failures at once: every peer the node drew adversarial *and* no honest node having drawn it, since a link an honest picker opens carries traffic both ways. One pick buys both directions, so the budget is *RF* = 9 against M5's 17. [Why the symmetric design](#the-two-candidates-under-the-admission-rules) prices the conjunction and the downtime it buys.
 
-<!-- make_cip_figures.py --check verifies generated SVG freshness and the figure
-     inventory; joining.svg is hand-maintained and its content requires review.
-     check_cells_against_docs.py checks the plotted data against source rows and laws. -->
+<!-- make_cip_figures.py --check checks generated SVG freshness.
+     check_cells_against_docs.py separately checks transcribed data against write-ups. -->
 
 ## Agreement between analysis and simulation
 
@@ -393,8 +392,6 @@ In the M2 flooding experiment at *N* = 4,000, *B* = 125 and 20 % adversarial ide
 
 ## Method notes
 
-The [evidence-check guide](../../pubsub-node/docs/experiments/cip-evidence-checks.md) lists the automated checks, their source mappings and their limits.
-
 [^reproduction]: Reproducing the measurements. Each result is identified by a tool commit, a sweep configuration, and a master seed; those three reproduce the output files byte-for-byte, independently of how many runs execute in parallel. All three are recorded per configuration in [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json), which is also the source the figures in this section are generated from; the configurations themselves are under [`configs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments) and the per-design comparisons, including the statistical conventions, under [`docs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/docs/experiments).
 
 [^sponumbers]: Stake-pool counts read from Blockfrost over epochs 210 to 646: at no epoch were more than 2,696 pools registered at once, and the pools holding 99 % of stake never numbered more than 899.
@@ -423,4 +420,4 @@ The [evidence-check guide](../../pubsub-node/docs/experiments/cip-evidence-check
 
 [^gate]: The admission parameters, directional case. Both experiments run model M2 at N = 4,000; M4's symmetric handshake is covered separately.[^symgate] Two experiments over the calibrated bulk point: the coverage cost of the verifiable gate across a ladder of bucket counts, and its value against a slot-flooding attacker over a grid of bucket count, serving cap and attacker size; 10,350 runs in the flooding grid alone. Method, full grids and the sizing rules: [`e10-selection-fidelity.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/e10-selection-fidelity.md) and [`e12-flooding-mitigation.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/e12-flooding-mitigation.md).
 
-[^m3budget]: M3 gated downtime is calculated from `m3_isolation(20000, 13, 769, S, 7, 769)` at the shifted adversarial count. The [reproduction note](../../pubsub-node/docs/experiments/m3-gated-downtime.md) records the threshold, rounding and assumptions; `check_cells_against_docs.py` recomputes it and checks both comparison tables. This is a baseline model prediction without admission refusals or wholesale flooding.
+[^m3budget]: M3 gated downtime is calculated from `m3_isolation(20000, 13, 769, S, 7, 769)` at the shifted adversarial count. The [reproduction note](../../pubsub-node/docs/experiments/m3-gated-downtime.md) records the threshold, rounding and assumptions. This is a baseline model prediction without admission refusals or wholesale flooding.

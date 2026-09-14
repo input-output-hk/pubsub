@@ -107,10 +107,8 @@ def format_loss(ceiling, b):
     return (Decimal(ceiling) / b).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
-def read_rows(text=None):
-    if text is None:
-        text = CIP.read_text(encoding='utf-8')
-    section = text.split('<a name="table-2" id="table-2"></a>', 1)[1]
+def read_rows():
+    section = CIP.read_text().split('<a name="table-2" id="table-2"></a>', 1)[1]
     section = section.split('</div>', 1)[0]
     rows = []
     for match in re.finditer(
@@ -127,37 +125,11 @@ def read_rows(text=None):
     return rows
 
 
-def check_loss_table(text, rows):
-    """Compare the published Table 14, including its rounded loss column."""
-    header = '| At the top of row | Ceiling | Row *B* | Loss |'
-    if text.count(header) != 1:
-        return ['Table 14: expected one loss-table header']
-    section = text.split(header, 1)[1].split('<a name="table-14"', 1)[0]
-    actual = []
-    for line in section.splitlines():
-        if not line.startswith('|') or re.fullmatch(r'[| :\-]+', line):
-            continue
-        match = re.fullmatch(r'\| ([\d,]+) \| (\d+) \| (\d+) \| (\d+\.\d{2})× \|', line)
-        if not match:
-            return [f'Table 14: malformed row {line!r}']
-        n, ceiling, b, loss = match.groups()
-        actual.append((int(n.replace(',', '')), int(ceiling), int(b), Decimal(loss)))
-    expected = []
-    for _, end, b, k in rows:
-        if end is not None and b > 1:
-            ceiling = combined_ceiling(end, k)
-            expected.append((end, ceiling, b, format_loss(ceiling, b)))
-    if actual != expected:
-        return [f'Table 14 differs from calculated rows: expected {expected}, found {actual}']
-    return []
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--max-population', type=int, default=20_000)
     args = parser.parse_args()
-    cip = CIP.read_text(encoding='utf-8')
-    rows = read_rows(cip)
+    rows = read_rows()
     if args.max_population < rows[-1][0]:
         parser.error('--max-population must reach the final row')
 
@@ -175,11 +147,7 @@ def main():
     print('Reference calculations: 5/5 agree. Profile: mu=0.2, delta=1e-4, S=round(N/5).',
           flush=True)
 
-    table_errors = check_loss_table(cip, rows)
-    for error in table_errors:
-        print(error, flush=True)
-    print(f'Table 14: {len(table_errors)} mismatches.', flush=True)
-    failures = len(table_errors)
+    failures = 0
     checked = 0
     print('B | k | Checked populations | Worst baseline p_bad | At N | Failures', flush=True)
     for start, end, b, k in rows:

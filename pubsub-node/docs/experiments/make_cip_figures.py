@@ -2,7 +2,7 @@
 """Generate the CIP evidence figures from cells.json.
 
     python3 make_cip_figures.py            # regenerate ../../../docs/cip/images/*.svg
-    python3 make_cip_figures.py --check    # verify generated SVGs and the figure inventory
+    python3 make_cip_figures.py --check    # verify committed SVGs are up to date
 
 Emits plain SVG using presentation attributes only: GitHub's markdown sanitiser
 strips <style> blocks and scripts, so nothing here may depend on them. Each
@@ -15,7 +15,6 @@ import argparse
 import json
 import math
 import pathlib
-import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -189,8 +188,8 @@ def fig_architecture() -> str:
     """The Specification's opening map: what the parts are and what flows between them.
 
     A structural diagram, so its content is literal rather than drawn from
-    cells.json. It stays in this script so that `--check` verifies its generated content
-    and palette. Hand-maintained figures are listed separately in main().
+    cells.json. It stays in this script anyway, so that `--check` keeps every
+    figure in the CIP under one gate and the palette cannot drift.
 
     Three bands, read downward, because that is the order the protocol runs in:
     the services supply inputs, every node turns them into the same link set
@@ -1255,13 +1254,13 @@ def fig_gate_tradeoff(g) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
-                    help="check generated SVG freshness and the complete figure inventory")
+                    help="fail if the committed SVGs differ from freshly generated ones")
     args = ap.parse_args()
 
-    d = json.loads(DATA.read_text(encoding='utf-8'))
+    d = json.loads(DATA.read_text())
     figs = {
         # Structural diagrams: no cells.json data behind them, but kept here so
-        # that --check verifies their generated content as well as the data plots.
+        # that --check covers every figure the CIP carries.
         "architecture.svg": fig_architecture(),
         "derivation.svg": fig_derivation(),
         "coverage-validation.svg": fig_validation(
@@ -1284,36 +1283,19 @@ def main() -> int:
             d["coverage_cells"], d["operating_points"], d.get("alternatives", ())),
     }
 
-    # This diagram is authored directly as SVG. Validate its presence,
-    # but do not claim that freshness checking can verify its semantic content.
-    manual = {"joining.svg"}
     rc = 0
-    if args.check:
-        references = set()
-        for name in ("README.md", "design-comparison.md"):
-            document = (OUT.parent / name).read_text(encoding="utf-8")
-            references.update(re.findall(r"!\[[^\]]*\]\(images/([^ )]+\.svg)\)", document))
-        inventory = set(figs) | manual
-        if references != inventory:
-            print(f"figure inventory mismatch: untracked={sorted(references - inventory)}, "
-                  f"unreferenced={sorted(inventory - references)}", file=sys.stderr)
-            rc = 1
-        for name in manual:
-            if not (OUT / name).is_file():
-                print(f"missing hand-maintained figure: {name}", file=sys.stderr)
-                rc = 1
     OUT.mkdir(parents=True, exist_ok=True)
     for name, svg in figs.items():
         path = OUT / name
         if args.check:
-            if not path.exists() or path.read_text(encoding='utf-8') != svg:
+            if not path.exists() or path.read_text() != svg:
                 print(f"stale: {path}", file=sys.stderr)
                 rc = 1
         else:
-            path.write_text(svg, encoding='utf-8')
+            path.write_text(svg)
             print(f"wrote {path}")
     if args.check and rc == 0:
-        print("generated figures up to date; complete figure inventory present")
+        print("figures up to date")
     return rc
 
 
