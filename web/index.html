@@ -885,21 +885,6 @@
 
   /* Footer chrome lives in shared.css — the subpages use the same markup. */
 
-  /* The CIP is written but not yet submitted upstream, so it is named and
-     marked rather than linked. Swap each for an <a> when it has a home. */
-  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
-                            color: var(--text-mute); cursor: default; }
-  .nav-soon { font-size: inherit; }
-  .footer-soon { font-size: 0.9rem; }
-  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
-                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
-                border: 1px solid var(--line-strong); color: var(--text-mute); }
-  h3 .soon-badge { margin-left: 10px; vertical-align: middle; }
-  /* A tile with nowhere to go yet: same shape, no affordance. */
-  .material-tile--soon { cursor: default; }
-  .material-tile--soon:hover { border-color: var(--line); transform: none; }
-  .material-name .soon-badge { margin-left: 9px; vertical-align: middle; }
-
   /* Experiments owns two subpages; the nav says so on hover rather than hiding
      them one click deep. */
   .nav-item { position: relative; display: inline-flex; align-items: center; }
@@ -964,7 +949,7 @@
     </span>
     <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
-    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -1217,16 +1202,15 @@
           </p>
         </div>
         <div class="timeline-entry active">
-          <div class="timeline-marker">Aug 2026</div>
-          <div class="timeline-tag">Phase 2 · <span class="status-active">Being drafted</span></div>
-          <h3>Results published as a CIP<span class="soon-badge">soon</span></h3>
+          <div class="timeline-marker">Sep 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">Draft available</span></div>
+          <h3>Results published as a CIP draft</h3>
           <p>
-            The findings are written up as a <strong>Cardano Improvement Proposal</strong>: a
+            The findings are written up as a <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">draft Cardano Improvement Proposal</a>: a
             specification of the protocol, and a rationale that sets out the adversary it is
             analysed against, what was measured and how, and where the guarantees stop. It
             carries the narrowing from five candidate designs to two, and is explicit about
-            what it does not settle. It is being drafted now, and goes upstream to the CIP
-            repository once the dissemination design is named.
+            what it does not settle. The draft is available for review in the project repository.
           </p>
         </div>
         <div class="timeline-entry ahead">
@@ -1334,14 +1318,15 @@
           <span class="material-note">GitHub</span>
           <span class="material-arrow" aria-hidden="true">›</span>
         </a>
-        <div class="material-tile material-tile--soon" aria-disabled="true">
+        <a class="material-tile" href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">
           <div class="material-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M9 7h7"/><path d="M9 11h7"/></svg>
           </div>
-          <span class="material-name">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
+          <span class="material-name">Cardano Improvement Proposal</span>
           <p class="material-desc">The protocol specified, and the evidence behind it: what was measured, what the guarantees cost, and where they stop.</p>
-          <span class="material-note">Being drafted</span>
-        </div>
+          <span class="material-note">Read the draft</span>
+          <span class="material-arrow" aria-hidden="true">›</span>
+        </a>
       </div>
     </div>
   </section>
@@ -1356,7 +1341,7 @@
         <a href="#research">Programme</a>
         <a href="experiments/">Dissemination models</a>
         <a href="slides/midyear-2026.html">Midyear presentation</a>
-        <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
