@@ -159,15 +159,6 @@
     .node, .edge, .pub-ring, .node-label { transition: none; }
   }
 
-  /* The CIP is written but not yet submitted upstream, so it is named and
-     marked rather than linked. Swap each for an <a> when it has a home. */
-  .nav-soon, .footer-soon { display: inline-flex; align-items: center; gap: 7px;
-                            color: var(--text-mute); cursor: default; }
-  .nav-soon { font-size: inherit; }
-  .footer-soon { font-size: 0.9rem; }
-  .soon-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
-                text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
-                border: 1px solid var(--line-strong); color: var(--text-mute); }
 
   /* Two ways in, given equal weight: neither is the primary. */
   .route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -333,7 +324,7 @@
     </span>
     <a href="../#activity">Activity</a>
     <a href="../#materials">Materials</a>
-    <span class="nav-soon">CIP<span class="soon-badge">soon</span></span>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -548,7 +539,7 @@
         <a href="../#scenarios">Scenarios</a>
         <a href="../#research">Programme</a>
         <a href="./">Dissemination models</a>
-        <span class="footer-soon">Cardano Improvement Proposal<span class="soon-badge">soon</span></span>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
         <a href="../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
