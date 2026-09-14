@@ -2,7 +2,7 @@
 """Generate the CIP evidence figures from cells.json.
 
     python3 make_cip_figures.py            # regenerate ../../../docs/cip/images/*.svg
-    python3 make_cip_figures.py --check    # verify committed SVGs are up to date
+    python3 make_cip_figures.py --check    # verify generated SVGs and the figure inventory
 
 Emits plain SVG using presentation attributes only: GitHub's markdown sanitiser
 strips <style> blocks and scripts, so nothing here may depend on them. Each
@@ -15,6 +15,7 @@ import argparse
 import json
 import math
 import pathlib
+import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -188,8 +189,8 @@ def fig_architecture() -> str:
     """The Specification's opening map: what the parts are and what flows between them.
 
     A structural diagram, so its content is literal rather than drawn from
-    cells.json. It stays in this script anyway, so that `--check` keeps every
-    figure in the CIP under one gate and the palette cannot drift.
+    cells.json. It stays in this script so that `--check` verifies its generated content
+    and palette. Hand-maintained figures are listed separately in main().
 
     Three bands, read downward, because that is the order the protocol runs in:
     the services supply inputs, every node turns them into the same link set
@@ -790,7 +791,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
         b.append(f'<polygon points="{pts}" fill="{col}" fill-opacity="0.07" stroke="{col}" '
                  f'stroke-width="1.4" stroke-linejoin="round"/>')
 
-    b.append(text(38, 30, "dominated on all four axes, drawn for reference:",
+    b.append(text(38, 30, "Pareto-dominated (ties allowed), drawn for reference:",
                   10.5, "#6f6d66"))
     for k, (m, col) in enumerate(MUTED):
         y = 48 + k * 18
@@ -864,7 +865,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "under a third of the way out on churn tolerance; M2 reaches it on speed "
                  "and is innermost on the other three. M5 and M1 are drawn as muted grey "
                  "shapes with a faint fill and a solid outline, M1 nested inside M5: each "
-                 "lies inside a contending design on every axis, which is what being "
+                 "lies inside or on a contending design on every axis, which is what being "
                  "dominated looks like. The churn axis is the only dashed line in the "
                  "figure, marking that it is read off the coverage law rather than "
                  "sampled.",
@@ -1254,13 +1255,13 @@ def fig_gate_tradeoff(g) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true",
-                    help="fail if the committed SVGs differ from freshly generated ones")
+                    help="check generated SVG freshness and the complete figure inventory")
     args = ap.parse_args()
 
-    d = json.loads(DATA.read_text())
+    d = json.loads(DATA.read_text(encoding='utf-8'))
     figs = {
         # Structural diagrams: no cells.json data behind them, but kept here so
-        # that --check covers every figure the CIP carries.
+        # that --check verifies their generated content as well as the data plots.
         "architecture.svg": fig_architecture(),
         "derivation.svg": fig_derivation(),
         "coverage-validation.svg": fig_validation(
@@ -1283,19 +1284,36 @@ def main() -> int:
             d["coverage_cells"], d["operating_points"], d.get("alternatives", ())),
     }
 
+    # This diagram is authored directly as SVG. Validate its presence,
+    # but do not claim that freshness checking can verify its semantic content.
+    manual = {"joining.svg"}
     rc = 0
+    if args.check:
+        references = set()
+        for name in ("README.md", "design-comparison.md"):
+            document = (OUT.parent / name).read_text(encoding="utf-8")
+            references.update(re.findall(r"!\[[^\]]*\]\(images/([^ )]+\.svg)\)", document))
+        inventory = set(figs) | manual
+        if references != inventory:
+            print(f"figure inventory mismatch: untracked={sorted(references - inventory)}, "
+                  f"unreferenced={sorted(inventory - references)}", file=sys.stderr)
+            rc = 1
+        for name in manual:
+            if not (OUT / name).is_file():
+                print(f"missing hand-maintained figure: {name}", file=sys.stderr)
+                rc = 1
     OUT.mkdir(parents=True, exist_ok=True)
     for name, svg in figs.items():
         path = OUT / name
         if args.check:
-            if not path.exists() or path.read_text() != svg:
+            if not path.exists() or path.read_text(encoding='utf-8') != svg:
                 print(f"stale: {path}", file=sys.stderr)
                 rc = 1
         else:
-            path.write_text(svg)
+            path.write_text(svg, encoding='utf-8')
             print(f"wrote {path}")
     if args.check and rc == 0:
-        print("figures up to date")
+        print("generated figures up to date; complete figure inventory present")
     return rc
 
 

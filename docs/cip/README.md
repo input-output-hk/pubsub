@@ -379,20 +379,24 @@ Links are opened by a signed handshake. The dialler sends a **Request** naming t
 
 </div>
 
-Every handshake message is signed by the emitter's node identity key over
+**Wire-format status.** The `v2` preimage below is an incomplete draft and MUST NOT be used as a deployment handshake. It authenticates the emitter, topic and epoch, but does not bind the message to its intended recipient or deployment. Forwarding a captured message can therefore preserve its signature while changing where it is processed. Membership, gate and local link-state checks limit which replays can take effect; they do not supply the missing binding.
+
+Completing this format is an [activation requirement](#acceptance-criteria). The replacement must bind every action to the intended recipient and a stable deployment identifier, specify how replies match pending requests and termination matches an established link, and define how delayed or replayed actions are handled within one epoch and after restart. Its domain-tag version must increase under [Versioning](#versioning). Conformance tests must cover cross-recipient, cross-deployment and stale-action replay as well as duplicate requests and crossing selections. The transport and complete handshake state machine remain open.
+
+The current draft signs every handshake message with the emitter's node identity key over
 
 $$\mathrm{LP}(\texttt{pubsub/link/v2}) \,\|\, \mathrm{LP}(id) \,\|\, \texttt{action} \,\|\, \mathrm{LP}(T) \,\|\, e$$
 
 where *id* is the emitter's identity key, `action` is one byte, *T* is the topic identifier and *e* is the eight-byte epoch index.
 
-An acceptor takes the peer's identity from this preimage, never from the connection the message arrived over. That is what lets the transport be left open. This proposal fixes the byte strings every implementation must agree on, and not the framing or session layer that carries them.
+The peer's identity is authenticated by the signed preimage. A transport-independent handshake must also authenticate the recipient and deployment bindings described above; taking the emitter from signed bytes alone is insufficient. The framing and session layer remain open.
 
 <a name="link-request-checks" id="link-request-checks"></a>
 
 An acceptor evaluates a Request in the order numbered in [Figure 3](#figure-3), and the order is normative because it determines what a refusal reveals:
 
 1. **Signature.** The signature MUST verify against the emitter's key, and the emitter MUST NOT be the acceptor itself.
-2. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index is there to prevent replay, not to select the randomness.
+2. **Epoch.** The epoch index MUST equal the acceptor's current epoch. An acceptor MUST NOT evaluate the gate at an epoch the requester claims, only at its own; the index rejects messages from other epochs; it does not prevent replay within the current epoch or select the randomness.
 3. **Membership.** The acceptor and emitter MUST each have an active registry entry listing *T* in this epoch's snapshot.
 4. **Already held.** If the link already exists, the acceptor re-sends Accepted and stops. Accepting twice is idempotent, which lets a lost reply be repaired by re-dialling.
 5. **Gate.** The acceptor MUST verify that the gate holds for the pair under the agreed construction. The evaluated hash baseline recomputes it from public data with identities sorted by their raw bytes; any replacement must specify its verification inputs and any additional evidence exchanged.
@@ -646,7 +650,11 @@ A node is configured with the script hash of the parameter output itself: one va
 
 **Authority.** The current [schema](#registry-schemas) supports an immutable output or one controlled by the credential in its `authority` field. The choice of authority and alternative arrangements remain [open](#authority-over-the-parameter-output).
 
-Three rules govern changes.
+**Epoch-schedule status.** The current [parameter schema](#registry-schemas) records a length and a pending change, but no epoch origin or persistent schedule anchor. It is not sufficient to derive epoch numbers from slots after a length change. Dividing a slot by the latest `t_epoch` would renumber past epochs, while retaining only local history would leave a newly joined node unable to derive the same schedule from the current output.
+
+Completing epoch numbering and boundaries is an [activation requirement](#acceptance-criteria). The finished design must define the start slot of epoch zero and preserve an anchor containing an epoch index, its start slot and the length applying from it, or specify an equivalent verifiable reconstruction procedure. Promoting a change must retain the boundary at which its new length took effect, independently of the promotion transaction's later inclusion slot. The same schedule must determine registration cutoffs, pending-change eligibility and deposit-claim epochs. Boundary, delayed-promotion, successive-change and fresh-node reconstruction tests are required before epoch-length updates can be implemented from this draft.
+
+Subject to that unfinished schedule definition, three rules govern changes.
 
 1. A change MUST be read from the [registration-cutoff snapshot](#term-snapshot), as the registries are, and MUST NOT be read at the chain tip.
 2. A change MUST take effect at an **announced epoch**, recorded as a pending change against the epoch it applies from. Moving it alters what every node computes, so a change effective at the tip would split the network mid-epoch — the failure the [registration cutoff](#lifecycle-and-the-registration-cutoff) exists to prevent. This is the same rule [Versioning](#versioning) states for any change to what a conforming node computes.
@@ -868,7 +876,7 @@ Here *p*<sub>bad</sub> is the probability that a drawn topology leaves some hone
 
 </div>
 
-The maximum observed is the largest link count held by any honest node over the sampled graphs, not a protocol bound.[^degrees] [Limits of this evidence](#limits-of-this-evidence) explains why failure probabilities and downtime tolerance are predicted rather than directly measured.
+The maximum observed is the largest link count held by any honest node over the sampled graphs. In this capped reference configuration it also reaches the protocol ceiling, *k* + *C* = 33, derived under [The relay link and the pick count](#the-relay-link-and-the-pick-count).[^degrees] [Limits of this evidence](#limits-of-this-evidence) explains why failure probabilities and downtime tolerance are predicted rather than directly measured.
 
 Both measured costs are per topic, and a node that subscribes to several pays for each. For one-kilobyte messages arriving once a second on each topic, at *k* = 9, the pick count the ungated comparison was run at:
 
@@ -925,7 +933,7 @@ $$p_\text{max} = \max \{\, p : p_\text{bad}(\mu + p(1-\mu)) \le \delta \,\}$$
 
 Downtime relates to the drop-out rate and the epoch length by [*p*](#param-p) = 1 − e<sup>−λ·T</sup>, which is why *p*<sub>max</sub> bounds epoch length as well as resilience.
 
-**Agreement and extrapolation.** The initial comparison checks 23 configurations at *N* = 4,000 and 20,000, with 150–30,000 draws per configuration. Figure 5 compares predicted and observed failure rates. Bars show 95 % Wilson intervals; the shaded band illustrates the interval at a common sample size. Hollow marks show additional downtime configurations.[^wilson]
+**Agreement and extrapolation.** Figure 5 compares predicted and observed failure rates at *N* = 4,000 and 20,000. Its 25 baseline datasets comprise the initial 23 cells, with 150–30,000 draws each, and two independent deep-tail reruns: 170,000 draws for M3 and 110,000 for M4. The reruns repeat existing parameter configurations; they are additional samples, not new configurations. Bars show 95 % Wilson intervals; the shaded band illustrates the interval at a common sample size. Hollow marks show additional downtime configurations.[^wilson]
 
 <div align="center">
 <a name="figure-5" id="figure-5"></a>
@@ -966,7 +974,7 @@ The ungated comparison identifies M3 as the bandwidth alternative to M4. The sub
 | --- | ---: | ---: |
 | Parameters | *RF* = 13, *s* = 7, *B* = 769 | *k* = 10, *B* = 500, *C* = 23 |
 | Predicted failure probability | 5.8 × 10⁻⁵ | 5.1 × 10⁻⁶ |
-| Predicted honest downtime absorbed | 1.58 % | 7.57 % |
+| Predicted honest downtime absorbed[^m3budget] | 1.58 % | 7.57 % |
 | Expected peers reachable per identity[^seam] | 52 | 40 |
 
 <em>Table 10: The two candidates under the admission rules</em>
@@ -1305,9 +1313,11 @@ These evaluate the rules this document states, at points other than the ones it 
 
 [^churn]: Churn tolerance, experiment E13. Forty configurations in three rounds: twenty-five across the five designs with downtime swept from 0 to 12 % of the honest population, then nine at the then-published operating points at 20 to 30 %, then six at the two configurations this proposal names, M3 at (13, 7) and M4 at RF = 9, the latter at 25 to 35 %. About 121,000 draws; each scored against its design's coverage law evaluated at the shifted adversarial fraction, which together span 0.20 to 0.48. Method, full results and the residual: [`docs/experiments/churn-tolerance.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-tolerance.md) and [`docs/experiments/churn-proposed-points.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/churn-proposed-points.md).
 
+[^m3budget]: M3 gated downtime is calculated from `m3_isolation(20000, 13, 769, S, 7, 769)` at the shifted adversarial count. The [reproduction note](../../pubsub-node/docs/experiments/m3-gated-downtime.md) records the threshold, rounding and assumptions; `check_cells_against_docs.py` recomputes it and checks both comparison tables. This is a baseline model prediction without admission refusals or wholesale flooding.
+
 [^seam]: The M3 reach figure covers eligibility through its relay links only. M3 also uses separate links to introduce its own publications, with their own gates and admission limits. M4 carries publication and relay traffic on the same bidirectional links.
 
-[^degrees]: Links per node. Counted as the distinct (peer, link kind) pairs a node holds an established link with, in either direction and regardless of the counterparty's class, since an adversary still occupies a connection slot; a symmetric link is counted once. Measured over 200 graphs per operating point (M2: 40). The propagation-digraph degrees the framework reports elsewhere are a different and smaller quantity, omitting links that carry no dissemination traffic, which under M3 is fourteen of its thirty-eight. Method and the one unresolved discrepancy against the earlier figures: [`docs/experiments/standing-degree.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/standing-degree.md).
+[^degrees]: Links per node. Counted as the distinct (peer, link kind) pairs a node holds an established link with, in either direction and regardless of the counterparty's class, since an adversary still occupies a connection slot; a symmetric link is counted once. The ungated measurements use 200 graphs per operating point (M2: 40); the gated reference comes from E20's 400-graph cell. The propagation-digraph degrees the framework reports elsewhere are a different and smaller quantity, omitting the publication-seeding links from the relay propagation graph. At M3's current (RF = 13, s = 7) configuration these account for twelve of its thirty-eight mean standing links; the historical (12, 8) configuration in the linked study has fourteen. Seeding links carry their owner's publications, but do not relay other publishers' traffic. Method and the one unresolved discrepancy against the earlier figures: [`docs/experiments/standing-degree.md`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/standing-degree.md).
 
 [^reproduction]: Reproducing the measurements. Each result is identified by a tool commit, a sweep configuration, and a master seed; those three reproduce the output files byte-for-byte, independently of how many runs execute in parallel. All three are recorded per configuration in [`cells.json`](https://github.com/input-output-hk/pubsub/blob/main/pubsub-node/docs/experiments/cells.json), which is also the source the figures in this section are generated from; the configurations themselves are under [`configs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/configs/experiments) and the per-design comparisons, including the statistical conventions, under [`docs/experiments/`](https://github.com/input-output-hk/pubsub/tree/main/pubsub-node/docs/experiments).
 
@@ -1522,6 +1532,8 @@ getting it wrong costs the node coverage rather than interoperability.
 
 ```cddl
 ; --- parameter output --------------------------------------------------------
+; INCOMPLETE: epoch origin and a persistent schedule anchor remain to be
+; specified under "Epoch-schedule status". This is not a deployable update schema.
 ; One output per deployment. Identifies the deployment and fixes its epoch
 ; length. The assumptions the admission rules were sized at -- mu, delta, p
 ; and A -- are declared in node configuration and are not held here.

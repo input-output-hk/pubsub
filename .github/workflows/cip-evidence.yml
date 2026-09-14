@@ -1,0 +1,49 @@
+name: CIP evidence
+
+on:
+  pull_request:
+    paths:
+      - 'docs/cip/**'
+      - 'pubsub-node/docs/experiments/**'
+      - '.github/workflows/cip-evidence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/cip/**'
+      - 'pubsub-node/docs/experiments/**'
+      - '.github/workflows/cip-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cip-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test evidence checkers
+        run: python3 -B -m unittest discover -s pubsub-node/docs/experiments -p 'test_cip_checks.py'
+      - name: Check transcribed data and model predictions
+        run: python3 -B pubsub-node/docs/experiments/check_cells_against_docs.py
+      - name: Check bucket tables
+        run: python3 -B pubsub-node/docs/experiments/check_cip_bucket_table.py
+      - name: Check generated figures and figure inventory
+        run: python3 -B pubsub-node/docs/experiments/make_cip_figures.py --check
+      - name: Check explicit UTF-8 file handling
+        env:
+          LC_ALL: C
+          PYTHONUTF8: '0'
+          PYTHONCOERCECLOCALE: '0'
+          PYTHONIOENCODING: utf-8
+        run: |
+          python3 -B pubsub-node/docs/experiments/check_cells_against_docs.py
+          python3 -B pubsub-node/docs/experiments/make_cip_figures.py --check
