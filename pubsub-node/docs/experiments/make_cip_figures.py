@@ -790,7 +790,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
         b.append(f'<polygon points="{pts}" fill="{col}" fill-opacity="0.07" stroke="{col}" '
                  f'stroke-width="1.4" stroke-linejoin="round"/>')
 
-    b.append(text(38, 30, "dominated on all four axes, drawn for reference:",
+    b.append(text(38, 30, "Pareto-dominated (ties allowed), drawn for reference:",
                   10.5, "#6f6d66"))
     for k, (m, col) in enumerate(MUTED):
         y = 48 + k * 18
@@ -864,7 +864,7 @@ def fig_tradeoffs(ops, alternatives=()) -> str:
                  "under a third of the way out on churn tolerance; M2 reaches it on speed "
                  "and is innermost on the other three. M5 and M1 are drawn as muted grey "
                  "shapes with a faint fill and a solid outline, M1 nested inside M5: each "
-                 "lies inside a contending design on every axis, which is what being "
+                 "lies inside or on a contending design on every axis, which is what being "
                  "dominated looks like. The churn axis is the only dashed line in the "
                  "figure, marking that it is read off the coverage law rather than "
                  "sampled.",

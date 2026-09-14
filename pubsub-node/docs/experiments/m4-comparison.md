@@ -90,8 +90,8 @@ point the CIP proposes. 200 runs, 200/200 good.
 
 Seven times the downtime tolerance, and an order of magnitude in P(bad),
 for 1.6 further copies per honest node and two further standing links.
-That step is what puts M4 ahead of M5 on every axis rather than trading
-against it.
+At these points M4 improves bandwidth, standing links and predicted downtime
+tolerance over M5, and ties it on mean full-coverage hops.
 
 The churn budget is read off the coverage law at the shifted adversarial
 fraction, in the manner of [churn-tolerance.md](churn-tolerance.md),
