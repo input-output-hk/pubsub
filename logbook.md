@@ -4,6 +4,16 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-09-15 — CIP published; website aligned
+
+The [CIP](docs/cip/README.md), companion CPS and design comparison are now on `main` and available for review ([PR #164](https://github.com/input-output-hk/pubsub/pull/164)). The [correctness pass](https://github.com/input-output-hk/pubsub/pull/197) corrected evidence claims and made the unresolved handshake and epoch-schedule requirements explicit.
+
+The [website](https://pubsub.cardano-scaling.org/) links to the CIP, reflects M4's selection, and distinguishes the research calculators from deployment guidance. Its timeline now records the August design decision, September publication and remaining validation work ([#198](https://github.com/input-output-hk/pubsub/pull/198), [#199](https://github.com/input-output-hk/pubsub/pull/199), [#200](https://github.com/input-output-hk/pubsub/pull/200)).
+
+**Next.** Complete the protocol and registry rules, validate the candidate deployment profile, and exercise transport, rotation and recovery before interoperability testing and an operator pilot.
+
+---
+
 ## 2026-09-01 — Working session: the reader review's design questions — identity scope, chain dependencies, incentives stated plainly
 
 **The review, triaged.** Mauro Jaskelioff's end-to-end review of the CIP split into two tiers: internal-consistency findings, all six of which landed on the CIP branch the same day, and design questions that needed the group. The session worked through the five largest.
