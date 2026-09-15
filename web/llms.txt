@@ -1,15 +1,18 @@
 # Cardano PubSub
 
 > Research and development of a Cardano-anchored publish/subscribe layer for
-> authenticated ecosystem communication: identifiable publishers, verifiable
-> events, on-chain registered topics, and an economic cost to creating publisher
-> identities. A research workstream by Input Output, not a production system.
+> authenticated ecosystem communication: signed messages, on-chain publication
+> permissions and deposit-backed node membership. A research workstream by Input Output, not a production system.
 
-The work is in an empirically-driven architecture phase: five candidate
-dissemination models (M1–M5) are analysed formally and validated experimentally
-against one shared bar — every message of every honest publisher must reach all
-other honest nodes, despite a fraction of silent adversarial nodes. The design is
-being derived from measurement rather than proposed up front.
+The draft CIP selects M4 within the evaluated M1–M5 family: bidirectional links
+with a verifiable eligibility rule and an admissions budget. The historical
+comparisons study reachability under silent adversarial nodes and independent
+honest downtime. The gated reference uses B = 500, k = 10 and C = 23; the draft's
+candidate at 20,000 nodes and 20% adversarial membership uses B = 512, k = 10
+and C = 24 and still needs validation.
+The gate construction, beacon, handshake, epoch schedule and recovery exchanges
+remain activation work. The website's calculators explore model estimates;
+they do not certify deployment profiles or application delivery deadlines.
 
 ## Site
 
@@ -29,4 +32,5 @@ being derived from measurement rather than proposed up front.
 ## Notes
 
 - This is a proof of concept that has not undergone a security audit; it is not for production use.
-- The adversary modelled in the formal analyses is silent (receives and never relays). Active adversaries, resource exhaustion and denial of service are out of scope for the current phase.
+- The baseline adversary is silent (receives and never relays). Additional experiments study wholesale admission flooding; they do not establish protection against general resource exhaustion, adaptive corruption or correlated outages.
+- Deposits price node membership. Applications must establish which topics and publisher keys belong to an intended organisation; publication-rate limits remain open.

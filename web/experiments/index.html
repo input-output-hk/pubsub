@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Experiments — how the dissemination design was derived · Cardano PubSub</title>
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/">
-<meta name="description" content="Five candidate dissemination models, measured against one bar and one adversary. Three are out, two remain — how the comparison was run and where it stands.">
+<meta name="description" content="The M1–M5 research comparisons behind the draft CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cardano PubSub">
 <meta property="og:locale" content="en">
 <meta property="og:title" content="How the design was derived — Cardano PubSub">
-<meta property="og:description" content="Five candidate dissemination models, measured against one bar and one adversary. Three are out, two remain — how the comparison was run and where it stands.">
+<meta property="og:description" content="The M1–M5 research comparisons behind the draft CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
 <meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="How the design was derived — Cardano PubSub">
-<meta name="twitter:description" content="Five candidate dissemination models, measured against one bar and one adversary. Three are out, two remain — how the comparison was run and where it stands.">
+<meta name="twitter:description" content="The M1–M5 research comparisons behind the draft CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
 <meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <link rel="icon" href="../assets/favicon.ico">
@@ -346,12 +346,13 @@
       </nav>
       <h1>How the design was derived</h1>
       <p class="lede">
-        Not proposing a design, deriving one. All five clear the same bar &mdash; every honest
-        publisher reaches every honest node despite silent Byzantine peers. How often an
-        epoch&rsquo;s wiring fails to manage that is <b>P(bad)</b>, and clearing the bar means
-        holding it under a stated <b>failure target</b>. What separates the five is price: the
-        <b>standing links</b> each node holds, and the <b>copies</b> the network carries per
-        message.
+        Five dissemination designs were analysed and measured against the same reachability
+        target: every honest publisher can reach every honest node despite silent Byzantine
+        peers. The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">draft CIP</a>
+        selects M4, with bidirectional links, a verifiable eligibility rule and an admissions
+        budget. These tools preserve the comparisons behind that choice. <b>P(bad)</b> is the
+        probability of a topology that fails the reachability target; it does not establish
+        an application delivery deadline.
       </p>
 
       <div class="route-grid">
@@ -453,7 +454,7 @@
           </svg>
           <span class="route-kind">Derive</span>
           <span class="route-name">Parameter surface</span>
-          <span class="route-go">Size it for your deployment &rarr;</span>
+          <span class="route-go">Explore parameter trade-offs &rarr;</span>
         </a>
       </div>
 
@@ -467,18 +468,19 @@
             every message and never relay one. Formally it is scored as the probability that the honest network stays <span class="term" data-term="connected">strongly connected</span>.
           </p>
           <p>
-            The guarantee has to come from links that are drawn <strong><span class="term" data-term="epoch">once per epoch</span></strong>
-            and then serve every message of every publisher for that whole epoch. The formal
-            analyses call this the <span class="term" data-term="standing"><em>standing</em> structure</span>, and it covers both link kinds:
-            <span class="term" data-term="relaylinks">relay links</span> and <span class="term" data-term="publinks">publishing links</span>. Only a structure that persists across messages
-            can promise <em>every</em> message; per-message randomness cannot. The prototype
-            node works exactly this way: it establishes its links during a <span class="term" data-term="sync">sync phase</span>, and only
-            then accepts messages for propagation.
+            The evaluated models draw links <strong><span class="term" data-term="epoch">once per epoch</span></strong>
+            and use them for every publication during that epoch. The formal analyses call this
+            the <span class="term" data-term="standing"><em>standing</em> structure</span>.
+            M3 has separate <span class="term" data-term="relaylinks">relay links</span> and
+            <span class="term" data-term="publinks">publishing links</span>; M4 uses the same
+            bidirectional links for both. The experiment driver establishes the topology during
+            a <span class="term" data-term="sync">sync phase</span> before propagating messages.
+            Rotation, recovery and real transport timing require separate validation.
           </p>
           <p>
-            <strong>Every model can clear the bar. The question is what it costs.</strong>
-            Each sizing rule grows with the target, so a stricter bound is always reachable by
-            buying more links. The price is charged on two axes that pull against each other:
+            <strong>All five have evaluated configurations that meet the model's target.</strong>
+            More links can reduce isolation risk, but the resulting estimate still depends on
+            the population, adversarial assumptions and model limits. The comparison prices
             the <span class="term" data-term="links">links every node holds</span> whether or not anything is published, and the <span class="term" data-term="copies">copies</span> of each message the network transmits. Giving publishing its own links cuts the copies
             but adds to the links each node must hold.
           </p>
@@ -489,7 +491,8 @@
             links all landed on adversaries, so nobody hears it, or its incoming links did,
             so it hears nobody. Which of the two dominates is a property of the design rather
             than of luck &mdash; under M2 and M3 most failures are publishers that cannot be
-            heard, while under M4 a stranded node is one that cannot receive.
+            heard. Under M4 the links are bidirectional, so an isolated node can neither send
+            to nor receive from the other honest nodes.
           </p>
           <p>
             That distinction decides what a bad graph actually costs. A node stranded as a
@@ -505,25 +508,28 @@
         <summary>Where the comparison stands</summary>
         <div class="explainer-body">
           <p>
-            Three of the five are out: <span class="term" data-term="models">M1, M2 and M5</span> are beaten on every axis at once, so no
-            trade-off brings them back. Of the two left, M4 leads on connections held, on time
-            to the last subscriber and on the <span class="term" data-term="churn">downtime it absorbs</span>; M3 leads on traffic, by
-            22&nbsp;%, and that is the only axis it leads.
+            At the CIP's ungated comparison points, M4 uses less bandwidth, holds fewer
+            logical links and absorbs more predicted downtime than M5, while tying it on
+            mean full-coverage hops. M5 similarly improves three axes over M1 and ties on
+            hops. M2 remains the fastest measured design at 4.8 hops, compared with M4's 5.0;
+            M3 uses the least bandwidth. These are comparisons at specific configurations,
+            not universal rankings.
           </p>
           <p>
-            The measurements lean to M4, and one thing stops us naming it outright: a question
-            about operators rather than about the protocol, namely whether anyone running this
-            layer is limited by the traffic they carry or by the connections they can hold
-            open.
+            The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#what-the-symmetric-relay-link-gives" target="_blank" rel="noopener">draft selects M4</a>
+            within the evaluated family and assumptions. The later gated comparison supports
+            that choice at matched expected eligible reach per identity. M3 remains the
+            bandwidth alternative documented in the companion comparison.
           </p>
           <p>
-            The second reason we used to give has gone. The admission parameters that size the <span class="term" data-term="gate">gate</span> and the <span class="term" data-term="cap">serving cap</span> were measured against M2's wiring, and those results did
-            not carry to M4's <span class="term" data-term="handshake">symmetric handshake</span>. That seam has since been measured on its
-            own. The acceptance cap becomes an admissions budget that bounds only the links a
-            node did not choose; the adversary keeps a share of every node through that node's
-            own picks, which no cap can reach; and the <span class="term" data-term="pool">candidate pool</span> has a floor past which no
-            cap both binds and stays harmless. What is still open there is a <span class="term" data-term="closedform">closed-form model</span>,
-            not coverage.
+            M4's <span class="term" data-term="gate">gate</span> and
+            <span class="term" data-term="cap">admissions budget</span> have their own experiments
+            and reproduced analytical estimates. The measured reference uses B = 500 and
+            C = 23; at 20,000 nodes and 20% adversarial membership, the draft's candidate uses
+            B = 512, k = 10 and C = 24.
+            That candidate still needs simulation and a justified allowance for model error.
+            Formal gated derivation and the remaining interoperability rules are also
+            <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#acceptance-criteria" target="_blank" rel="noopener">activation requirements</a>.
           </p>
         </div>
       </details>
@@ -733,13 +739,13 @@
     m1: {
       tab: 'M1 · Push',
       title: 'Random push gossip',
-      mech: 'Every node, on first receipt, pushes the message to F random peers. There is no standing graph at all; links are drawn fresh for every message.',
-      watch: 'The cascade fans out fast, but each message gambles anew: per-message randomness cannot promise that every message of every publisher gets through, so the good-graph guarantee has to come from a large fanout.',
+      mech: 'Every node forwards to F randomly selected targets. This animation reveals the targets as a single message spreads; the CIP’s evaluated M1 retains its targets for an epoch.',
+      watch: 'The cascade fans out quickly. A larger fanout reduces isolation risk at a bandwidth cost; this single-message demo does not test reachability from every publisher on one fixed topology.',
       knobs: 'Knob: F = 3 (demo) · push targets per receipt',
-      standingTitle: 'No sync phase',
-      standingDesc: 'M1 keeps <strong>no per-epoch links</strong>; nothing is drawn at sync that later messages could reuse. It is the only model whose links form at publish time: every node draws fresh random targets each time a message first reaches it.',
-      pubDesc: 'The <strong>publisher</strong> signs a message for its topic and pushes it out, and in M1 the links really are drawn now, at publish time, fresh for this message.',
-      hopDesc: 'Every newly reached honest node pushes to F fresh random targets, new links drawn on the spot. Copies pushed into silent adversaries are absorbed (red).',
+      standingTitle: 'Demo: targets revealed during propagation',
+      standingDesc: 'This demo omits the sync drawing and reveals targets as the message propagates. The CIP’s evaluated M1 instead draws <strong>standing targets once per epoch</strong> and reuses them for every publication.',
+      pubDesc: 'The <strong>publisher</strong> signs a message and pushes it to its targets. The animation draws those targets at this step.',
+      hopDesc: 'Each newly reached honest node pushes to F random targets, revealed now in the demo. Copies pushed into silent adversaries are absorbed (red).',
       legend: []
     },
     m2: {
@@ -759,7 +765,7 @@
       tab: 'M3 · Pull + publishing links',
       title: 'Pull relaying with publishing links',
       mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications, so the publisher plus its targets form the initial holders.',
-      watch: 'Publishing links remove the muted-publisher failure while relaying stays pull. M3 is the current implementation base of the prototype, not yet the validated final design; the data decides that.',
+      watch: 'Publishing links reduce the risk of a muted publisher while relaying stays pull. M3 is the bandwidth alternative in the comparison; the draft selects M4 within the evaluated family and assumptions.',
       knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
       standingDesc: 'The same <strong>relay links</strong> as M2, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long). Every node holds its own publishing links; only the publisher’s matter for its message, so only those are drawn.',
       hopDesc: 'Every holder forwards along its relay links; the publisher additionally sent its message directly over its publishing links at hop one.',
@@ -773,7 +779,7 @@
       tab: 'M4 · Bidirectional',
       title: 'Bidirectional flooding',
       mech: 'Each node picks RF peers uniformly; every pick becomes a symmetric link, and messages flood along all incident links except the one they arrived on.',
-      watch: 'One link set serves both directions: a node’s own picks are also its inbound links, so a publisher’s own links carry its message out, so there is no ignition failure mode at all. Connectivity holds with high probability already for RF ≥ 2.',
+      watch: 'One bidirectional link set serves both publishing and receiving. An isolated honest node loses both; the required pick count depends on the population, adversarial share and failure target. The demo’s RF = 2 is illustrative.',
       knobs: 'Knob: RF = 2 (demo) · symmetric links per node',
       standingDesc: 'Every node draws <strong>RF picks</strong>, and every pick becomes one <strong>symmetric link</strong>, with no arrows, because the same link carries traffic both ways.',
       hopDesc: 'Every holder floods along its symmetric links, except the one the message arrived on. Adversaries absorb their copies and stay silent.',
@@ -1087,18 +1093,18 @@
     byzantine: ['Silent Byzantine nodes', 'Registered participants that accept their links and receive every message, and forward none of it. Nobody can tell which they are. An honest node that is simply offline behaves identically, which is why downtime is counted the same way.'],
     mu: ['μ — adversarial share', 'The fraction of registered nodes that behave that way. The analysis fixes it before the wiring is drawn.'],
     epoch: ['Epoch', 'The interval one drawn wiring serves. Links are established once, from fresh public randomness, and then carry every message of every publisher until the next redraw.'],
-    standing: ['The standing structure', 'The links that persist for a whole epoch, as opposed to anything chosen per message. The guarantee has to rest on these: per-message randomness cannot promise that <i>every</i> message arrives, because each one would roll its own dice.'],
+    standing: ['The standing structure', 'The links retained for one dissemination epoch. The evaluated models test whether that topology connects every honest publisher to every honest subscriber; transport timing and recovery are separate concerns.'],
     relaylinks: ['Relay links', 'Links a node holds to forward other people’s messages onward. In some designs these are the only kind.'],
     publinks: ['Publishing links', 'Extra links carrying only their owner’s own publications, rather than relaying anyone else’s. Giving publishing its own links cuts the copies the network carries but adds to the links each node must hold.'],
     sync: ['Sync phase', 'The startup window in which a node establishes its links for the epoch. It accepts messages for propagation only once that is done, so the wiring is settled before traffic flows.'],
-    links: ['Standing links', 'Connections a node keeps open for a topic for the whole epoch, whether or not anything is published. One of the two prices a design is charged.'],
+    links: ['Standing links', 'Logical links retained for a topic during an epoch, whether or not anything is published. Several logical links may share a transport connection.'],
     copies: ['Copies per message', 'How many times the network transmits one published message to get it to everyone. The other price. It pulls against standing links: designs that cut one tend to add to the other.'],
-    gate: ['The gate', 'A public lottery on each pair of nodes, computed from a hash. It decides which peers a node is <b>allowed</b> to link to this epoch — not which it picks, which stays private. Nobody can influence their own draw, so an attacker cannot choose whose neighbour it becomes.'],
+    gate: ['The gate', 'An eligibility rule for each pair of nodes. The evaluated public-hash baseline assumes membership is fixed before fresh randomness is known. Nodes privately choose among eligible peers; the final gate construction remains open.'],
     cap: ['Serving cap / admissions budget', 'How many links a node will accept from peers that dialled it. Framed as an admissions budget it bounds only the links a node did <i>not</i> choose, so an attacker who arrives early can never make a node refuse a peer it selected itself.'],
     handshake: ['Symmetric handshake', 'A link established once for the pair and carrying traffic both ways, rather than one drawn per direction. It changes what the gate and the cap do, which is why results measured on a one-way design did not carry over.'],
     pool: ['Candidate pool', 'The set of peers the gate leaves a node eligible to link to. Its floor matters: past a point the pool is small enough to be sometimes empty, and no amount of extra links repairs a pool that was never populated.'],
-    closedform: ['Closed form', 'A formula you can evaluate directly, rather than a number obtained by running simulations. The coverage results have both; the admission parameters so far have measurements without a matching formula.'],
-    churn: ['Downtime absorbed', 'How much of the honest network can be offline before a design stops meeting its target. Downtime and hostility count the same here, because a node that is off looks exactly like one refusing to forward.'],
+    closedform: ['Closed form', 'A formula evaluated directly rather than a measurement from a simulation. The gated estimates have been reproduced against experiments; formal derivation and validation of the candidate deployment profile remain open.'],
+    churn: ['Downtime absorbed', 'A model prediction for the share of honest nodes that can be independently offline while meeting the topology-failure target. Correlated outages and application deadlines are outside that estimate.'],
     models: ['M1 – M5', 'The five candidate dissemination designs the programme measured: push, pull, pull with publishing links, bidirectional, and directed. They differ in how links are drawn and which direction they carry.'],
   };
   var tip = document.getElementById('tip');

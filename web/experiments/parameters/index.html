@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Parameter surface — what your size and your attacker imply · Cardano PubSub</title>
+<title>Parameter surface — exploratory M4 calculations · Cardano PubSub</title>
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/parameters/">
-<meta name="description" content="An attacker buys identities, not a percentage. Fix its budget, move the network size, and see the gate width, the admissions budget and the pick count that follow — and where the design stops meeting its target.">
+<meta name="description" content="Explore baseline M4 isolation estimates, bucket-count ceilings and an illustrative admissions-budget recipe. Research calculations with explicit limits, not a deployment sizing recommendation.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cardano PubSub">
 <meta property="og:locale" content="en">
-<meta property="og:title" content="Parameter surface — what your size and your attacker imply">
-<meta property="og:description" content="An attacker buys identities, not a percentage. Fix its budget, move the network size, and see the parameters that follow.">
+<meta property="og:title" content="Parameter surface — exploratory M4 calculations">
+<meta property="og:description" content="Explore baseline M4 isolation estimates, bucket-count ceilings and an illustrative admissions-budget recipe, with explicit model limits.">
 <meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/parameters/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
@@ -18,8 +18,8 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Parameter surface — what your size and your attacker imply">
-<meta name="twitter:description" content="An attacker buys identities, not a percentage. Fix its budget, move the network size, and see the parameters that follow.">
+<meta name="twitter:title" content="Parameter surface — exploratory M4 calculations">
+<meta name="twitter:description" content="Explore baseline M4 isolation estimates, bucket-count ceilings and an illustrative admissions-budget recipe, with explicit model limits.">
 <meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="color-scheme" content="light dark">
@@ -574,6 +574,7 @@
     </span>
     <a href="../../#activity">Activity</a>
     <a href="../../#materials">Materials</a>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -596,22 +597,18 @@
         <span class="crumb-here" aria-current="page">Parameter surface</span>
       </nav>
       <h1>Parameter surface</h1>
-      <p class="page-sub">Fixing the attacker, not its share</p>
+      <p class="page-sub">Exploratory baseline calculations</p>
       <div class="prose-cols">
-        <p>Every other chart here fixes the adversarial share and varies something else. That hides
-        the relationship a deployment cares about most, because an attacker does not buy a
-        percentage — it buys <span class="term" data-term="deposit">identities</span>, and the
-        share they represent <b>rises as the network shrinks</b>. This page fixes the attacker
-        and moves the network instead, deriving the
-        <span class="term" data-term="B">bucket count</span>,
-        <span class="term" data-term="C">admissions budget</span> and
-        <span class="term" data-term="k">pick count</span> that follow.</p>
-        <p>
-          The three admission parameters are <em>derived</em> here rather than assumed. Each is
-          bound by whichever constraint is tightest at the size you have chosen, and which one that
-          is changes as you move — which is the whole reason the second chart draws all three
-          rather than only the one in force.
-        </p>
+        <p>Explore how topic population, adversarial identities and independent honest downtime
+        affect M4's baseline isolation estimate. The <span class="term" data-term="B">bucket count</span>
+        and <span class="term" data-term="k">pick count</span> are searched against that estimate.
+        The <span class="term" data-term="C">admissions-budget recipe</span> is shown separately:
+        <strong>the plotted failure estimate omits admission refusals and larger disconnected components.</strong></p>
+        <p>The exploratory bucket count can be any integer; it is not the draft's provisional
+        power-of-two table lookup. The cap recipe and a baseline result below the target do
+        not certify a deployment. See the <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#the-bucket-count" target="_blank" rel="noopener">draft bucket table</a>
+        and <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#including-admission-refusals" target="_blank" rel="noopener">sizing limits</a>.
+        The final gate construction and deployment profile remain open.</p>
       </div>
     </div>
   </section>
@@ -671,7 +668,7 @@
         <div class="tab-strip" role="group" aria-label="How the pick count is chosen">
           <span class="strip-label">Pick count</span>
           <span class="seg">
-            <button type="button" class="model-tab" id="k-derive" aria-pressed="true">Derive from the target</button>
+            <button type="button" class="model-tab" id="k-derive" aria-pressed="true">Search baseline model</button>
             <button type="button" class="model-tab" id="k-manual" aria-pressed="false">Set by hand</button>
           </span>
         </div>
@@ -683,7 +680,7 @@
           <div class="ps-verdict" id="verdict"></div>
 
           <figure class="ps-fig">
-            <svg class="ps-chart" id="chart-pbad" viewBox="0 0 720 330" role="img" aria-label="Failure probability against network size"></svg>
+            <svg class="ps-chart" id="chart-pbad" viewBox="0 0 720 330" role="img" aria-label="Baseline isolation estimate against network size, excluding admission refusals"></svg>
             <figcaption id="cap-pbad"></figcaption>
           </figure>
 
@@ -696,7 +693,7 @@
         </div>
 
         <div class="side-card">
-          <h3>What follows</h3>
+          <h3>Model estimates</h3>
           <div class="ps-out" id="out"></div>
           <div class="ps-hint" id="d-note"></div>
           <div class="ps-hint" id="k-note" style="margin-top:10px"></div>
@@ -716,8 +713,9 @@
         <div class="footer-col-title">Research</div>
         <a href="../../#scenarios">Scenarios</a>
         <a href="../../#research">Programme</a>
-        <a href="./">Dissemination models</a>
+        <a href="../">Dissemination models</a>
         <a href="../../slides/midyear-2026.html">Midyear presentation</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
@@ -953,7 +951,7 @@ function drawPbad(state) {
   {
     let lx = pad.l + 6;
     const key = [
-      ["--m4", 2.4, "", "P(bad) at the derived B, C and k"],
+      ["--m4", 2.4, "", "Baseline P(bad), cap omitted"],
       ["--bad", 1.5, "5 4", "failure target δ"],
     ];
     for (const [tok, w, dash, label] of key) {
@@ -968,8 +966,8 @@ function drawPbad(state) {
 
   if (cross) {
     g.appendChild(svgEl("line", { x1: xs(cross), y1: pad.t, x2: xs(cross), y2: H - pad.b, stroke: css("--bad"), "stroke-width": 1.2, opacity: 0.65 }));
-    const t = svgEl("text", { x: xs(cross) + 6, y: pad.t + 28, fill: css("--bad"), "font-size": 11.5 });
-    t.textContent = "fails below N ≈ " + fmtN(cross); g.appendChild(t);
+    const t = svgEl("text", { x: W - pad.r - 6, y: pad.t + 28, "text-anchor": "end", fill: css("--bad"), "font-size": 11.5 });
+    t.textContent = "last sampled excess at N ≈ " + fmtN(cross); g.appendChild(t);
   }
   // marker at the configured N
   const S0 = state.S, v0 = state.pbad;
@@ -977,9 +975,9 @@ function drawPbad(state) {
   state.crossing = cross;
   document.getElementById("cap-pbad").textContent =
     (state.fixedCount
-      ? "Failure probability as the network shrinks, with the attacker holding a fixed " + fmtN(state.A) + " identities. Smaller is worse here: the same budget buys a larger share of a smaller network."
-      : "Failure probability as the network shrinks at a fixed adversarial share of " + state.mu.toFixed(2) + ".")
-    + " The bucket count and admissions budget are re-derived at every point. The shaded band is below the smallest network this programme has measured.";
+      ? "Baseline isolation estimate for a requested attacker budget of " + fmtN(state.A) + " identities. The calculation caps that count at 90% of each sampled population."
+      : "Baseline isolation estimate at a fixed adversarial share of " + state.mu.toFixed(2) + ".")
+    + " The exploratory bucket count is recalculated at each point; the pick count stays fixed. Admission refusals are omitted. Shading marks populations below 1,000; results above 20,000 are extrapolations too. Being within that range does not validate each configuration.";
 }
 
 function drawBounds(state) {
@@ -1011,7 +1009,7 @@ function drawBounds(state) {
     headroom: { c: css("--m1"), w: 1.4, dash: "4 3", label: "headroom, r ≥ 2" },
     pool: { c: css("--m3"), w: 1.4, dash: "4 3", label: "pool floor" },
     target: { c: css("--m5"), w: 1.4, dash: "4 3", label: "failure target" },
-    chosen: { c: css("--text"), w: 2.6, dash: "", label: "B in force (the smallest)" },
+    chosen: { c: css("--text"), w: 2.6, dash: "", label: "exploratory B" },
   };
   for (const key of ["headroom", "pool", "target", "chosen"]) {
     const s = style[key]; let d = "";
@@ -1032,7 +1030,7 @@ function drawBounds(state) {
     lx += 30 + s.label.length * 5.6;
   }
   document.getElementById("cap-b").textContent =
-    "The three bounds the Specification places on the bucket count, and the one in force at each size — always the smallest. Which bound binds is a property of the pick count, not a constant of the design: at the pick counts these designs use, the failure target binds well before the headroom floor does.";
+    "Three provisional baseline ceilings and their minimum at each sampled size. This explores the sizing derivation rather than applying the CIP bucket table. Headroom is an expected pool-to-pick ratio; its threshold alone does not establish coverage.";
 }
 
 /* ------------------------------------------------------------------ *
@@ -1058,11 +1056,11 @@ function render() {
     const k = deriveK(N, S0, state.delta, state.p, 20);
     state.k = k || 20;
     el("k-note").textContent = k
-      ? "k = " + k + " is the smallest pick count meeting the target here. Note what a smaller k costs: it needs a wider candidate pool to hit the same target, which means a lower bucket count — and the bucket count is the attacker's price per targeted edge. Reliability and attack price both rise with k."
-      : "No pick count up to 20 meets the target here.";
+      ? "k = " + k + " is the first count in the search range 4–20 whose baseline estimate meets the target at its exploratory bucket count. Cap effects and model error are not included; this is not a deployment recommendation."
+      : "No pick count in the search range 4–20 meets the baseline target here.";
     el("c-k").value = state.k; el("v-k").textContent = state.k;
   } else {
-    el("k-note").textContent = "Set by hand. The derived value is what the Specification's rule would choose.";
+    el("k-note").textContent = "Set by hand for this baseline calculation. The draft does not specify a universal minimum-pick solver.";
   }
 
   const r = chooseB(N, state.k, S, state.delta);
@@ -1077,33 +1075,33 @@ function render() {
     (term ? '<span class="term" data-term="' + term + '">' + k + '</span>' : k) +
     '</div><div class="n">' + n + '</div><div class="s">' + s + '</div></div>';
   el("out").innerHTML = [
-    stat("P(bad) per epoch", fmtSci(v), ok ? "inside the target" : "above the target", ok ? "good" : "bad", "pbad"),
-    stat("Adversarial share", muEff.toFixed(3), state.fixedCount ? fmtN(S0) + " identities of " + fmtN(N) + (state.p > 0 ? ", downtime folded in" : "") : "as set", muEff > 0.35 ? "warn" : "", "mu"),
-    stat("Bucket count B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? (r.binding === "target" ? "no gate width meets the target here" : "topic too small to bucket") : "bound by the " + r.binding, r.off ? "warn" : "", "B"),
-    stat("Admissions budget C", String(cap.C), "fresh load " + cap.L.toFixed(1) + ", headroom c = 3.5", "", "C"),
-    stat("Pick count k", String(state.k), state.deriveK ? "derived" : "set by hand", "", "k"),
-    stat("Standing links", d.toFixed(1), "mean; ceiling " + (state.k + cap.C) + " exact", "", "links"),
+    stat("Baseline P(bad)", fmtSci(v), ok ? "below target; cap omitted" : "above target; cap omitted", ok ? "good" : "bad", "pbad"),
+    stat("Effective silent share", muEff.toFixed(3), fmtN(S0) + " adversarial identities" + (state.p > 0 ? "; downtime folded in" : ""), muEff > 0.35 ? "warn" : "", "mu"),
+    stat("Exploratory B", r.off ? "1 — gate off" : fmtN(r.B), r.off ? (r.binding === "target" ? "baseline target missed" : "baseline ceilings below 2") : "bound by the " + r.binding, r.off ? "warn" : "", "B"),
+    stat("Cap recipe C", String(cap.C), "c = 3.5; not included in P(bad)", "", "C"),
+    stat("Pick count k", String(state.k), state.deriveK ? "baseline search" : "set by hand", "", "k"),
+    stat("Mean links (uncapped)", d.toFixed(1), "if cap applied: ceiling " + (state.k + cap.C), "", "links"),
     stat("Attack surface", r.off ? fmtN(N - 1) : Math.round(surface).toLocaleString("en-US"), "victims one identity may reach", "", "surface"),
-    stat("Price of a targeted edge", r.off ? "1 deposit" : fmtN(r.B) + " deposits", r.off ? "no gate: name any victim" : "≈ " + fmtN(Math.round(r.B * state.D)) + " ₳ at this deposit", "", "price"),
+    stat("Cost of pair eligibility", r.off ? "1 deposit" : fmtN(r.B) + " deposits", r.off ? "eligibility only; admission may fail" : "≈ " + fmtN(Math.round(r.B * state.D)) + " ₳ at this deposit", "", "price"),
   ].join("");
 
-  el("d-note").textContent = "An attacker with " + fmtN(state.A) + " identities has committed " +
-    fmtN(state.A * state.D) + " ₳. One hostile link beside a chosen node costs about " +
-    (r.off ? "one deposit" : fmtN(r.B) + " deposits") + " in expectation.";
+  el("d-note").textContent = "The calculation uses " + fmtN(S0) + " adversarial identities at this population" +
+    (state.fixedCount && S0 < state.A ? " (capped at 90% of N)" : "") + ". At the illustrative deposit of " +
+    fmtN(state.D) + " ₳, those identities lock " + fmtN(S0 * state.D) + " ₳. Eligibility does not guarantee admission; the draft has not selected a deposit amount.";
 
   drawPbad(state);
   drawBounds(state);
   markTerms(el("out"));
 
   const crossTxt = state.crossing
-    ? "Against this attacker the design stops meeting its target below about " + fmtN(state.crossing) + " participants"
-    : "Against this attacker the design meets its target across the whole range plotted";
+    ? "The last sampled population above the baseline failure target is approximately " + fmtN(state.crossing)
+    : "The baseline estimate is below the target at every sampled population";
   el("verdict").innerHTML = "<strong>" + crossTxt + ".</strong> " +
     (r.off
       ? (r.binding === "target"
-          ? "At this size no gate width meets the target against this attacker, so the gate is off: every registered peer is eligible and the admissions budget is the only bound left. The attacker simply holds too much of the network for the topology to be repaired by narrowing who may link to whom."
-          : "At this size the gate is off: every registered peer is eligible, and the admissions budget is the only bound left. A budget of at least N−1 restores the position, which is to say the topic should run as a full mesh.")
-      : "At the configured size the bucket count is bound by the <strong>" + r.binding + "</strong>, giving a gate " + fmtN(r.B) + " buckets wide, an admissions budget of " + cap.C + ", and a degree ceiling of " + (state.k + cap.C) + " that holds whatever order requests arrive in.");
+          ? "No gate width meets the baseline target at this pick count. The display falls back to B = 1; that is not a passing configuration."
+          : "The exploratory gate is off. A budget of at least N−1 removes admission refusals, but a complete topology also requires selecting every other node. The displayed recipe does not implement that small-topic rule.")
+      : "At this size the <strong>" + r.binding + "</strong> ceiling sets exploratory B = " + fmtN(r.B) + ". The separate cap recipe gives C = " + cap.C + "; its effect on coverage is not calculated here.");
 }
 
 /* ---- controls ---- */
@@ -1197,27 +1195,27 @@ seg("k-derive", "k-manual",
  * ------------------------------------------------------------------ */
 const GLOSSARY = {
   how: ['Tooltips', 'Hover with a mouse, tap on touch, or tab to a term and it opens. Escape or a tap elsewhere closes it.'],
-  gate: ['The gate', 'A public lottery on each pair of nodes, computed from a hash. It decides which peers a node is <b>allowed</b> to link to this epoch — not which it picks, which stays private. Nobody can influence their own draw, so an attacker cannot choose whose neighbour it becomes.'],
+  gate: ["Evaluated gate baseline", "An eligibility rule for each pair of nodes. This model uses the public-hash baseline with membership fixed before fresh randomness is known. Eligible peers are privately selected; the final gate construction remains open."],
   N: ['N — network size', 'Registered participants on this one topic. It is not the whole network, and a node pays these costs again for every topic it subscribes to.'],
   A: ['A — attacker identities', 'How many registered identities the attacker holds. This is the honest way to describe an attacker, because identities cost a deposit: the attacker picks a spend, not a percentage. Its share of the network then depends on how big the network is.'],
-  mu: ['μ — adversarial share', 'The fraction of registered nodes that accept their links, receive everything and forward nothing. Nobody can tell which they are. A perfectly honest node that is simply offline counts exactly the same way.'],
+  mu: ["μ — adversarial share", "The fraction of registered nodes treated as silent adversaries. Independent honest downtime is folded into an effective silent share for the baseline estimate; equivalence under admission flooding is not established."],
   delta: ['δ — failure target', 'The per-epoch chance of a bad draw the deployment is prepared to live with. P(bad) has to stay under it. 10⁻⁴ means about one bad epoch in ten thousand.'],
-  pbad: ['P(bad)', 'The chance that one epoch draws a topology in which at least one honest node is cut off — either it hears nothing, or what it publishes fails to reach everyone.'],
+  pbad: ["Baseline P(bad)", "A Poisson estimate based on isolated honest nodes in one epoch. It omits admission refusals and larger disconnected components, and is not a bound on application delivery failure."],
   B: ['B — bucket count', 'How narrow the gate is. Roughly one peer in B passes it for any given node, so a node may link to about (N−1)/B of the topic. A larger B is a narrower gate: fewer peers to choose from, and a higher price for an attacker aiming at somebody specific.'],
   C: ['C — admissions budget', 'How many links a node will accept from peers that dialled it, per topic per epoch. A node’s own picks are never charged against it, so an attacker who floods early can never make a node refuse a peer it chose itself. Refusing past C is normal behaviour, not a fault.'],
-  k: ['k — pick count', 'How many peers a node links to on this topic. Every extra link is another independent chance that an honest peer connects it to the rest of the network — worth roughly a factor of seven here — and is paid for in bandwidth and open connections.'],
+  k: ["k — pick count", "How many eligible peers a node selects on this topic, or all eligible peers if fewer are available. Requests may fail or be refused. The total logical-link count also includes links initiated by other nodes."],
   surface: ['Attack surface', 'How many different victims one registered identity is allowed to sit beside. It is the attacker’s opportunity per deposit, which makes it the fair yardstick for comparing designs: it is measured in the attacker’s own budget unit, before any design-specific machinery applies.'],
-  price: ['Price of a targeted edge', 'What it costs to get one hostile link beside a node chosen in advance. With no gate, one deposit — you simply dial them. With a gate, that identity has to win the lottery for that particular victim, so it costs about B deposits in expectation. Broad flooding is diluted; aimed attacks are repriced.'],
-  downtime: ['Honest downtime', 'The share of honest nodes offline during an epoch. To everyone else an offline node looks exactly like a hostile one — it holds its links and forwards nothing — so downtime consumes the same budget an attacker does, and the parameters have to survive both together.'],
-  links: ['Standing links', 'Connections a node holds open for this topic for the whole epoch, carrying every message. The ceiling is exact rather than typical: a node cannot exceed its own picks plus its admissions budget, whatever order requests arrive in.'],
+  price: ["Cost of pair eligibility", "Under the public-hash model, obtaining an identity eligible for a chosen victim costs about B deposits in expectation, with membership fixed before the randomness. Eligibility does not guarantee an accepted connection."],
+  downtime: ["Honest downtime", "The share of honest nodes independently offline during an epoch, folded into the effective adversarial fraction for the baseline calculation. Correlated outages and admission-flood effects require separate analysis."],
+  links: ["Logical links", "Links for one topic; several may share a transport connection. The displayed mean ignores the cap. Applying an admissions budget C would bound the total by k+C, without guaranteeing that every selected peer connects."],
   deposit: ['Deposit', 'Ada locked for as long as a registered identity stands. It is the whole of the resistance to fake identities: it makes them cost money, which is why an attacker buys a fixed number of them rather than a fixed share of the network.'],
-  binding: ['Which bound binds', 'Three separate limits apply to the gate width, and the one in force is simply the smallest of them. Which of the three that is changes with the pick count and the network size — so a rule that only ever checks one of them can pick a gate that misses the target.'],
+  binding: ["Smallest baseline ceiling", "The explorer takes the minimum of the baseline target, pool and headroom ceilings. This is not the draft bucket-table lookup and does not account for admission refusals or model error."],
   poolfloor: ['Pool floor', 'A gate can be too narrow. Past a point the set of peers a node may pick from is so small that it is sometimes empty, and no amount of fanout repairs a pool that was never populated.'],
-  headroom: ['Selection headroom (r)', 'How many peers the gate leaves eligible for each link a node has to open. Below two, a node has no real choice left and the topology stops being a random draw. It says when the maths applies — not how reliable the result is.'],
+  headroom: ["Selection headroom (r)", "Expected eligible peers per planned pick. Individual pools can be larger or smaller. The floor of two is a provisional sizing constraint, not a validated boundary for random selection or coverage."],
   target: ['The failure-target bound', 'The widest gate whose failure probability still meets δ. At the pick counts these designs use it is usually this bound that binds, well before the headroom floor does.'],
-  measured: ['The measured range', 'Every simulation in this programme ran between one thousand and twenty thousand participants. Below that the curve is the law alone, and the law has not been checked there.'],
-  crossing: ['Crossing point', 'The network size below which this configuration stops meeting its target against this attacker. Smaller is worse here: the same bought identities are a larger share of a smaller network.'],
-  epoch: ['Epoch', 'The interval that one drawn topology serves. Links are drawn once from fresh public randomness and then carry every message until the next redraw.'],
+  measured: ["Evidence range", "The principal comparisons use 4,000 and 20,000 participants; auxiliary finite-size work includes 1,000 and 2,000. A population inside that range does not establish evidence for every gate, cap or downtime setting."],
+  crossing: ["Sampled target crossing", "The largest sampled population where the baseline estimate exceeds the target. The sweep is discrete and uses a fixed pick count with a recalculated bucket count; it does not certify a boundary for deployment."],
+  epoch: ["Dissemination epoch", "The period for which a topology is retained, distinct from a Cardano ledger epoch. Eligibility uses shared randomness; peer selection uses private randomness. The epoch schedule and handover remain unfinished."],
 };
 
 /* One floating box, by delegation, so cards rebuilt on every render need no wiring. */
