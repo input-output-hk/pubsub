@@ -949,7 +949,7 @@
     </span>
     <a href="#activity">Activity</a>
     <a href="#materials">Materials</a>
-    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -1188,40 +1188,50 @@
             being set aside in favour of an on-chain, list-based design.
           </p>
         </div>
-        <div class="timeline-entry active">
+        <div class="timeline-entry done">
           <div class="timeline-marker">Jul 2026</div>
-          <div class="timeline-tag">Phase 2 · <span class="status-active">Active</span></div>
-          <h3>Empirically-driven architecture</h3>
+          <div class="timeline-tag">Phase 2 · <span class="status-done">Models evaluated</span></div>
+          <h3>Dissemination models &amp; simulation</h3>
           <p>
-            <a href="#experiments">Five candidate dissemination models</a>, from simple push to hybrid designs, analysed
-            formally and measured empirically against a silent Byzantine adversary, so the
-            final design is the one the data supports, not the one intuition favours. A Rust
-            prototype node implements topics, subscriptions, publishing, and fan-out forwarding,
-            backed by a deterministic simulation framework for controlled experiments.
+            <a href="#experiments">Five candidate dissemination models</a>, from simple push to
+            hybrid designs, analysed and compared against a silent Byzantine adversary.
+            A Rust prototype implements topics, subscriptions and publishing, backed by
+            a deterministic simulation framework for controlled experiments.
+          </p>
+        </div>
+        <div class="timeline-entry done">
+          <div class="timeline-marker">Aug 2026</div>
+          <div class="timeline-tag">Phase 2 · <span class="status-done">Design selected</span></div>
+          <h3>M4 selected for dissemination</h3>
+          <p>
+            The team selected M4 within the evaluated family: one set of bidirectional
+            links serves both publishing and relaying. The decision builds on the
+            <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/design-comparison.md" target="_blank" rel="noopener">measured trade-offs</a>
+            in traffic, logical links and resilience. M3 remains the documented bandwidth alternative.
           </p>
         </div>
         <div class="timeline-entry active">
           <div class="timeline-marker">Sep 2026</div>
-          <div class="timeline-tag">Phase 2 · <span class="status-active">Draft available</span></div>
-          <h3>Results published as a CIP draft</h3>
+          <div class="timeline-tag">Phase 2 · <span class="status-active">Available for review</span></div>
+          <h3>CIP published</h3>
           <p>
-            The findings are written up as a <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">draft Cardano Improvement Proposal</a>: a
-            specification of the protocol, and a rationale that sets out the adversary it is
-            analysed against, what was measured and how, and where the guarantees stop.
-            The draft selects M4: bidirectional links with a verifiable eligibility rule and
-            an admissions budget. It is available for review; the gate construction, beacon,
-            handshake, epoch schedule, recovery exchanges and deployment profile still need completion and validation.
+            The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">Cardano Improvement Proposal</a>
+            is published in the project repository with its specification, supporting
+            evidence and design comparison. It sets out M4's eligibility and admission
+            rules, the limits of the evidence, and the requirements for activation.
           </p>
         </div>
         <div class="timeline-entry ahead">
-          <div class="timeline-marker">Ahead</div>
+          <div class="timeline-marker">Next</div>
           <div class="timeline-tag"><span class="status-ahead">Planned</span></div>
-          <h3>Hardening &amp; ecosystem integration</h3>
+          <h3>Protocol completion &amp; validation</h3>
           <p>
-            The scope beyond the CIP is still taking shape; candidates include a
-            fee-and-incentive model that rewards honest participation, real network transport
-            in the prototype node, a public testnet, and, on the research side, decentralised
-            peer sampling at scales where the on-chain list no longer suffices.
+            Complete the gate, beacon, handshake, epoch and recovery rules, together with
+            the on-chain schemas. Publish and validate the deployment profile, including
+            small topics, rotation and real transport behaviour. The
+            <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#implementation-plan" target="_blank" rel="noopener">implementation plan</a>
+            then calls for interoperating implementations and conformance tests before
+            an operator pilot.
           </p>
         </div>
       </div>
@@ -1324,7 +1334,7 @@
           </div>
           <span class="material-name">Cardano Improvement Proposal</span>
           <p class="material-desc">The protocol specified, and the evidence behind it: what was measured, what the guarantees cost, and where they stop.</p>
-          <span class="material-note">Read the draft</span>
+          <span class="material-note">Read the CIP</span>
           <span class="material-arrow" aria-hidden="true">›</span>
         </a>
       </div>
@@ -1341,7 +1351,7 @@
         <a href="#research">Programme</a>
         <a href="experiments/">Dissemination models</a>
         <a href="slides/midyear-2026.html">Midyear presentation</a>
-        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>

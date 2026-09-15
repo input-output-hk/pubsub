@@ -574,7 +574,7 @@
     </span>
     <a href="../../#activity">Activity</a>
     <a href="../../#materials">Materials</a>
-    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -604,9 +604,9 @@
         and <span class="term" data-term="k">pick count</span> are searched against that estimate.
         The <span class="term" data-term="C">admissions-budget recipe</span> is shown separately:
         <strong>the plotted failure estimate omits admission refusals and larger disconnected components.</strong></p>
-        <p>The exploratory bucket count can be any integer; it is not the draft's provisional
+        <p>The exploratory bucket count can be any integer; it is not the CIP's provisional
         power-of-two table lookup. The cap recipe and a baseline result below the target do
-        not certify a deployment. See the <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#the-bucket-count" target="_blank" rel="noopener">draft bucket table</a>
+        not certify a deployment. See the <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#the-bucket-count" target="_blank" rel="noopener">CIP bucket table</a>
         and <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#including-admission-refusals" target="_blank" rel="noopener">sizing limits</a>.
         The final gate construction and deployment profile remain open.</p>
       </div>
@@ -715,7 +715,7 @@
         <a href="../../#research">Programme</a>
         <a href="../">Dissemination models</a>
         <a href="../../slides/midyear-2026.html">Midyear presentation</a>
-        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
@@ -1060,7 +1060,7 @@ function render() {
       : "No pick count in the search range 4–20 meets the baseline target here.";
     el("c-k").value = state.k; el("v-k").textContent = state.k;
   } else {
-    el("k-note").textContent = "Set by hand for this baseline calculation. The draft does not specify a universal minimum-pick solver.";
+    el("k-note").textContent = "Set by hand for this baseline calculation. The CIP does not specify a universal minimum-pick solver.";
   }
 
   const r = chooseB(N, state.k, S, state.delta);
@@ -1087,7 +1087,7 @@ function render() {
 
   el("d-note").textContent = "The calculation uses " + fmtN(S0) + " adversarial identities at this population" +
     (state.fixedCount && S0 < state.A ? " (capped at 90% of N)" : "") + ". At the illustrative deposit of " +
-    fmtN(state.D) + " ₳, those identities lock " + fmtN(S0 * state.D) + " ₳. Eligibility does not guarantee admission; the draft has not selected a deposit amount.";
+    fmtN(state.D) + " ₳, those identities lock " + fmtN(S0 * state.D) + " ₳. Eligibility does not guarantee admission; the CIP has not selected a deposit amount.";
 
   drawPbad(state);
   drawBounds(state);
@@ -1209,7 +1209,7 @@ const GLOSSARY = {
   downtime: ["Honest downtime", "The share of honest nodes independently offline during an epoch, folded into the effective adversarial fraction for the baseline calculation. Correlated outages and admission-flood effects require separate analysis."],
   links: ["Logical links", "Links for one topic; several may share a transport connection. The displayed mean ignores the cap. Applying an admissions budget C would bound the total by k+C, without guaranteeing that every selected peer connects."],
   deposit: ['Deposit', 'Ada locked for as long as a registered identity stands. It is the whole of the resistance to fake identities: it makes them cost money, which is why an attacker buys a fixed number of them rather than a fixed share of the network.'],
-  binding: ["Smallest baseline ceiling", "The explorer takes the minimum of the baseline target, pool and headroom ceilings. This is not the draft bucket-table lookup and does not account for admission refusals or model error."],
+  binding: ["Smallest baseline ceiling", "The explorer takes the minimum of the baseline target, pool and headroom ceilings. This is not the CIP bucket-table lookup and does not account for admission refusals or model error."],
   poolfloor: ['Pool floor', 'A gate can be too narrow. Past a point the set of peers a node may pick from is so small that it is sometimes empty, and no amount of fanout repairs a pool that was never populated.'],
   headroom: ["Selection headroom (r)", "Expected eligible peers per planned pick. Individual pools can be larger or smaller. The floor of two is a provisional sizing constraint, not a validated boundary for random selection or coverage."],
   target: ['The failure-target bound', 'The widest gate whose failure probability still meets δ. At the pick counts these designs use it is usually this bound that binds, well before the headroom floor does.'],
