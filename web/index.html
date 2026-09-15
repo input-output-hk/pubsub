@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cardano PubSub — A verifiable communication layer for Cardano</title>
-<meta name="description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain registered topics.">
+<meta name="description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: signed messages, on-chain publication permissions and deposit-backed node membership.">
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/">
 <link rel="icon" href="assets/favicon.ico">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -18,7 +18,7 @@
 <meta property="og:site_name" content="Cardano PubSub">
 <meta property="og:locale" content="en">
 <meta property="og:title" content="Cardano PubSub — a verifiable communication layer for Cardano">
-<meta property="og:description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain registered topics.">
+<meta property="og:description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: signed messages, on-chain publication permissions and deposit-backed node membership.">
 <meta property="og:url" content="https://pubsub.cardano-scaling.org/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
@@ -27,7 +27,7 @@
 <meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Cardano PubSub — a verifiable communication layer for Cardano">
-<meta name="twitter:description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain registered topics.">
+<meta name="twitter:description" content="A Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: signed messages, on-chain publication permissions and deposit-backed node membership.">
 <meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,7 +61,7 @@
       "@type": "ResearchProject",
       "name": "Cardano PubSub",
       "url": "https://pubsub.cardano-scaling.org/",
-      "description": "Research into a Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: identifiable publishers, verifiable events, on-chain registered topics, and an economic cost to creating publisher identities.",
+      "description": "Research into a Cardano-anchored publish/subscribe layer for authenticated ecosystem communication: signed messages, on-chain publication permissions and deposit-backed node membership.",
       "parentOrganization": { "@id": "https://pubsub.cardano-scaling.org/#org" },
       "codeRepository": "https://github.com/input-output-hk/pubsub"
     }
@@ -971,8 +971,7 @@
         <h1>A verifiable communication layer for the <span class="accent">Cardano</span> ecosystem</h1>
         <p class="hero-lede">
           A Cardano-anchored <strong>pub</strong>lish/<strong>sub</strong>scribe layer for authenticated ecosystem communication:
-          identifiable publishers, verifiable events, on-chain registered topics, and an
-          economic cost to creating publisher identities.
+          signed messages, on-chain publication permissions and deposit-backed node membership.
         </p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="slides/midyear-2026.html">Midyear presentation</a>
@@ -1100,7 +1099,7 @@
     <div class="container">
       <header class="section-head">
         <div class="section-kind">Why it matters</div>
-        <h2>Critical communication deserves the same guarantees as transactions</h2>
+        <h2>Critical communication needs authenticated messages and resilient delivery</h2>
       </header>
       <div class="card-rail-wrap">
         <div class="card-rail" tabindex="0" role="group" aria-label="Use cases, scrollable">
@@ -1121,7 +1120,7 @@
             </svg>
             <div class="card-kicker">Stake pools</div>
             <h3>SPO to delegator</h3>
-            <p>Stake pool operators announce pool changes, incidents and fee updates to their delegators, through a topic that provably belongs to the pool.</p>
+            <p>Signed pool changes, incidents and fee updates for delegators. Applications must establish which topic and publisher keys belong to the intended pool.</p>
           </div>
           <div class="card">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1139,7 +1138,7 @@
             </svg>
             <div class="card-kicker">Applications</div>
             <h3>dApp to user</h3>
-            <p>dApps announce critical alerts and per-user notifications under on-chain identities, with spam resisted by real stake.</p>
+            <p>Signed application alerts on topics with on-chain publication permissions. Applications handle per-user delivery; publication-rate limits remain open.</p>
           </div>
           <a class="card card-submit" href="https://github.com/input-output-hk/pubsub/discussions/new?category=ideas" target="_blank" rel="noopener">
             <svg class="card-bg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1208,9 +1207,10 @@
           <p>
             The findings are written up as a <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">draft Cardano Improvement Proposal</a>: a
             specification of the protocol, and a rationale that sets out the adversary it is
-            analysed against, what was measured and how, and where the guarantees stop. It
-            carries the narrowing from five candidate designs to two, and is explicit about
-            what it does not settle. The draft is available for review in the project repository.
+            analysed against, what was measured and how, and where the guarantees stop.
+            The draft selects M4: bidirectional links with a verifiable eligibility rule and
+            an admissions budget. It is available for review; the gate construction, beacon,
+            handshake, epoch schedule, recovery exchanges and deployment profile still need completion and validation.
           </p>
         </div>
         <div class="timeline-entry ahead">

@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Compare designs — what each one costs · Cardano PubSub</title>
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/compare-designs/">
-<meta name="description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta name="description" content="Explore the ungated M1–M5 model estimates at different populations, adversarial shares and pick counts. Historical comparison points, with costs and predicted reliability margins.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cardano PubSub">
 <meta property="og:locale" content="en">
 <meta property="og:title" content="Compare designs — what each one costs">
-<meta property="og:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta property="og:description" content="Explore the ungated M1–M5 model estimates at different populations, adversarial shares and pick counts. Historical comparison points, with costs and predicted reliability margins.">
 <meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/compare-designs/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Compare designs — what each one costs">
-<meta name="twitter:description" content="The closed-form laws, live. Move the adversarial share, the network size and each design's own parameters, and see what it costs to stay above the failure target.">
+<meta name="twitter:description" content="Explore the ungated M1–M5 model estimates at different populations, adversarial shares and pick counts. Historical comparison points, with costs and predicted reliability margins.">
 <meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="color-scheme" content="light dark">
@@ -514,6 +514,7 @@
     </span>
     <a href="../../#activity">Activity</a>
     <a href="../../#materials">Materials</a>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -537,9 +538,11 @@
       </nav>
       <h1>Compare designs</h1>
       <p class="lede">
-        The five models all clear the same bar, so what separates them is what they
-        cost and what they withstand. This page sets them side by side: every figure is a
-        closed form from the M1–M5 analyses, evaluated live at the environment you set.
+        Explore analytical estimates for the five <strong>ungated</strong> dissemination
+        models. The default preset uses the CIP's ungated comparison points, including
+        M4 at nine picks. It omits the gate and admissions budget of the
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">selected draft design</a>.
+        Values are model estimates at the settings shown; the CIP separately records measurements and their limits.
       </p>
     </div>
   </section>
@@ -642,8 +645,9 @@
         <div class="footer-col-title">Research</div>
         <a href="../../#scenarios">Scenarios</a>
         <a href="../../#research">Programme</a>
-        <a href="./">Dissemination models</a>
+        <a href="../">Dissemination models</a>
         <a href="../../slides/midyear-2026.html">Midyear presentation</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Progress</div>
@@ -1111,7 +1115,7 @@ if (typeof document !== 'undefined') (() => {
 
   /* ---- operating-point presets ----------------------------------------------
      "As published" is read straight out of MM.models[*].defaults, so the two can
-     never drift apart. "Recommended" is the CIP's current advice: M3 moves one
+     never drift apart. "Ungated comparison" reproduces the CIP comparison: M3 moves one
      unit of the same 19-link budget from initiation to pull (RF=13, s=7) and M4
      spends one more peer (RF=9). M1, M2 and M5 are the same in both. */
   const REF_ENV = { N: 20000, mu: 0.2, delta: 1e-4 };
@@ -1121,7 +1125,7 @@ if (typeof document !== 'undefined') (() => {
   // Quoted in the preset note; derived from the laws so the prose cannot go stale.
   const churnAt = (id, p) => (100 * MM.compute(id, REF_ENV, p).churn).toFixed(2) + ' %';
   const PRESETS = {
-    recommended: { label: 'Recommended', params: RECOMMENDED },
+    recommended: { label: 'Ungated comparison', params: RECOMMENDED },
     published: { label: 'As published', params: PUBLISHED },
   };
   const DEFAULT_PRESET = 'recommended';
@@ -1319,7 +1323,7 @@ if (typeof document !== 'undefined') (() => {
     $('#g-mu').value = REF_ENV.mu; $('#g-N').value = REF_ENV.N; $('#g-delta').value = '1e-4';
     applyPreset(DEFAULT_PRESET);
   });
-  $('#btn-reset').dataset.tip = 'Back to the recommended parameters at N = 20 000, μ = 0.20, δ = 10⁻⁴.';
+  $('#btn-reset').dataset.tip = 'Back to the ungated comparison points at N = 20 000, μ = 0.20, δ = 10⁻⁴.';
 
   // The delta control: a listbox in front of the native select, which stays the
   // value everything else reads and writes.
@@ -1569,7 +1573,7 @@ if (typeof document !== 'undefined') (() => {
     $('#o-mu').textContent = `${state.env.mu.toFixed(3)} · ${(100 * state.env.mu).toFixed(1)} %`;
     $('#o-N').textContent = fmtInt(state.env.N);
 
-    // Whether the sliders still sit on the proposed point; the drawer caption
+    // Whether the sliders still sit on an ungated comparison preset; the drawer caption
     // reports it, and nothing else does now the switch is gone.
     const preset = matchPreset();
 
