@@ -1,8 +1,10 @@
 # Cardano PubSub
 
-A native publish/subscribe communication layer for the Cardano ecosystem: nodes subscribe to topics and receive every message honest publishers send on them, under an adversary model with silent Byzantine participants.
+Research and development of a publish/subscribe communication layer for the Cardano ecosystem: signed messages, on-chain publication permissions and deposit-backed node membership.
 
-The project is currently in **Phase 2 — empirically-driven architecture** ([#46](https://github.com/input-output-hk/pubsub/issues/46)): candidate dissemination topologies (the [*M models*](formal_spec/hybrid_dissemination/models/README.md)) are analysed formally and validated experimentally. The [draft Cardano Improvement Proposal](docs/cip/README.md) is available for review, with the protocol specification, supporting evidence and open activation requirements.
+The project is currently in **Phase 2 — empirically-driven architecture** ([#46](https://github.com/input-output-hk/pubsub/issues/46)). The [Cardano Improvement Proposal (CIP)](docs/cip/README.md) is available for review and selects **M4** within the evaluated [model family](formal_spec/hybrid_dissemination/models/README.md): bidirectional links with a verifiable eligibility rule and an admissions budget. It records the supporting evidence, its limits, and the protocol completion and validation work required for activation.
+
+Review is planned through **October 2026**, with **CIP approval targeted for October–November 2026**. See the [project timeline](https://pubsub.cardano-scaling.org/#research) for the milestones and subsequent implementation work.
 
 > **Important Disclaimer & Acceptance of Risk**
 >
@@ -12,9 +14,10 @@ The project is currently in **Phase 2 — empirically-driven architecture** ([#4
 
 | Path | What it holds |
 |------|---------------|
-| [`web/`](web/) | Public [GitHub Pages site](https://pubsub.cardano-scaling.org/): workstream overview and progress presentations |
+| [`web/`](web/) | Public [GitHub Pages site](https://pubsub.cardano-scaling.org/): project overview, research tools, timeline and presentations |
 | [`docs/`](docs/) | Design documents: technical reviews, gap analyses, design synthesis, extension proposals |
-| [`docs/cip/`](docs/cip/) | Draft Cardano Improvement Proposal: protocol specification and design comparison |
+| [`docs/cip/`](docs/cip/) | CIP: protocol specification, evidence, design comparison and activation requirements |
+| [`docs/cps/`](docs/cps/) | Companion problem statement: communication needs, stakeholders and required outcomes |
 | [`formal_spec/`](formal_spec/) | Formal models (Quint, PRISM): peer sampling, hybrid dissemination (the [M models](formal_spec/hybrid_dissemination/models/README.md)), topic registry |
 | [`pubsub-node/`](pubsub-node/) | Rust prototype of the PubSub node — see its [README](pubsub-node/README.md) for the spec-driven workflow |
 | [`logbook.md`](logbook.md) | Running log of technical decisions and progress, most recent first |
@@ -22,8 +25,9 @@ The project is currently in **Phase 2 — empirically-driven architecture** ([#4
 
 ## Following progress
 
-- **[Website](https://pubsub.cardano-scaling.org/)** — public overview and the latest progress presentation.
-- **[Logbook](logbook.md)** — decision-level progress notes, updated weekly.
+- **[CIP](docs/cip/README.md)** — selected design, supporting evidence and remaining implementation work.
+- **[Website](https://pubsub.cardano-scaling.org/)** — public overview, research tools and project timeline.
+- **[Logbook](logbook.md)** — decision-level progress notes.
 - **[Biweekly reports](biweekly-reports/)** — periodic summaries.
 - **[Phase 2 issue (#46)](https://github.com/input-output-hk/pubsub/issues/46)** — goals, outcomes, and the three work tracks: formal analysis ([#76](https://github.com/input-output-hk/pubsub/issues/76)), prototype & experiments ([#79](https://github.com/input-output-hk/pubsub/issues/79)), design proposal ([#91](https://github.com/input-output-hk/pubsub/issues/91)).
 
@@ -40,7 +44,7 @@ Protocol design background lives in [`docs/`](docs/) and [`formal_spec/`](formal
 
 ## Website & documentation
 
-The [public site](https://pubsub.cardano-scaling.org/) is deployed from [`web/`](web/) on every merge to `main`. The earlier MkDocs documentation (product vision, use cases, architecture, economics) is retired and preserved on the [`archive/mkdocs-site`](https://github.com/input-output-hk/pubsub/tree/archive/mkdocs-site/site) branch.
+The [public site](https://pubsub.cardano-scaling.org/) is deployed from [`web/`](web/) through the [Deploy Site workflow](.github/workflows/docs.yml). The earlier MkDocs documentation (product vision, use cases, architecture, economics) is retired and preserved on the [`archive/mkdocs-site`](https://github.com/input-output-hk/pubsub/tree/archive/mkdocs-site/site) branch.
 
 ## Contributing & security
 
