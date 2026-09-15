@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Experiments — how the dissemination design was derived · Cardano PubSub</title>
 <link rel="canonical" href="https://pubsub.cardano-scaling.org/experiments/">
-<meta name="description" content="The M1–M5 research comparisons behind the draft CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
+<meta name="description" content="The M1–M5 research comparisons behind the CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cardano PubSub">
 <meta property="og:locale" content="en">
 <meta property="og:title" content="How the design was derived — Cardano PubSub">
-<meta property="og:description" content="The M1–M5 research comparisons behind the draft CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
+<meta property="og:description" content="The M1–M5 research comparisons behind the CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
 <meta property="og:url" content="https://pubsub.cardano-scaling.org/experiments/">
 <meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta property="og:image:type" content="image/png">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="How the design was derived — Cardano PubSub">
-<meta name="twitter:description" content="The M1–M5 research comparisons behind the draft CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
+<meta name="twitter:description" content="The M1–M5 research comparisons behind the CIP’s selection of M4, with the measured trade-offs and remaining validation work.">
 <meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
 <meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
 <link rel="icon" href="../assets/favicon.ico">
@@ -324,7 +324,7 @@
     </span>
     <a href="../#activity">Activity</a>
     <a href="../#materials">Materials</a>
-    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
+    <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
   </div>
   <div class="navbar-icons">
     <a class="nav-icon-btn" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
@@ -348,7 +348,7 @@
       <p class="lede">
         Five dissemination designs were analysed and measured against the same reachability
         target: every honest publisher can reach every honest node despite silent Byzantine
-        peers. The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">draft CIP</a>
+        peers. The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
         selects M4, with bidirectional links, a verifiable eligibility rule and an admissions
         budget. These tools preserve the comparisons behind that choice. <b>P(bad)</b> is the
         probability of a topology that fails the reachability target; it does not establish
@@ -516,7 +516,7 @@
             not universal rankings.
           </p>
           <p>
-            The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#what-the-symmetric-relay-link-gives" target="_blank" rel="noopener">draft selects M4</a>
+            The <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md#what-the-symmetric-relay-link-gives" target="_blank" rel="noopener">CIP selects M4</a>
             within the evaluated family and assumptions. The later gated comparison supports
             that choice at matched expected eligible reach per identity. M3 remains the
             bandwidth alternative documented in the companion comparison.
@@ -525,7 +525,7 @@
             M4's <span class="term" data-term="gate">gate</span> and
             <span class="term" data-term="cap">admissions budget</span> have their own experiments
             and reproduced analytical estimates. The measured reference uses B = 500 and
-            C = 23; at 20,000 nodes and 20% adversarial membership, the draft's candidate uses
+            C = 23; at 20,000 nodes and 20% adversarial membership, the CIP's candidate uses
             B = 512, k = 10 and C = 24.
             That candidate still needs simulation and a justified allowance for model error.
             Formal gated derivation and the remaining interoperability rules are also
@@ -545,7 +545,7 @@
         <a href="../#scenarios">Scenarios</a>
         <a href="../#research">Programme</a>
         <a href="./">Dissemination models</a>
-        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP draft</a>
+        <a href="https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md" target="_blank" rel="noopener">CIP</a>
         <a href="../slides/midyear-2026.html">Midyear presentation</a>
       </div>
       <div class="footer-col">
@@ -765,7 +765,7 @@
       tab: 'M3 · Pull + publishing links',
       title: 'Pull relaying with publishing links',
       mech: 'M2’s per-epoch pull, plus s−1 publishing links per node that carry only the node’s own publications, so the publisher plus its targets form the initial holders.',
-      watch: 'Publishing links reduce the risk of a muted publisher while relaying stays pull. M3 is the bandwidth alternative in the comparison; the draft selects M4 within the evaluated family and assumptions.',
+      watch: 'Publishing links reduce the risk of a muted publisher while relaying stays pull. M3 is the bandwidth alternative in the comparison; the CIP selects M4 within the evaluated family and assumptions.',
       knobs: 'Knobs: RF = 3, s−1 = 2 (demo) · relay forwarders per node, publishing links per node',
       standingDesc: 'The same <strong>relay links</strong> as M2, plus the publisher’s <strong>s−1 publishing links</strong> (red, dashed-long). Every node holds its own publishing links; only the publisher’s matter for its message, so only those are drawn.',
       hopDesc: 'Every holder forwards along its relay links; the publisher additionally sent its message directly over its publishing links at hop one.',

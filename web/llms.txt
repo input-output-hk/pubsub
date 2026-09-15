@@ -4,10 +4,10 @@
 > authenticated ecosystem communication: signed messages, on-chain publication
 > permissions and deposit-backed node membership. A research workstream by Input Output, not a production system.
 
-The draft CIP selects M4 within the evaluated M1–M5 family: bidirectional links
+The CIP selects M4 within the evaluated M1–M5 family: bidirectional links
 with a verifiable eligibility rule and an admissions budget. The historical
 comparisons study reachability under silent adversarial nodes and independent
-honest downtime. The gated reference uses B = 500, k = 10 and C = 23; the draft's
+honest downtime. The gated reference uses B = 500, k = 10 and C = 23; the CIP's
 candidate at 20,000 nodes and 20% adversarial membership uses B = 512, k = 10
 and C = 24 and still needs validation.
 The gate construction, beacon, handshake, epoch schedule and recovery exchanges
@@ -23,7 +23,7 @@ they do not certify deployment profiles or application delivery deadlines.
 ## Repository
 
 - [Source](https://github.com/input-output-hk/pubsub): Rust prototype node, deterministic experiments framework, formal models, and analysis.
-- [Draft CIP](https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md): protocol specification, supporting evidence, design comparison and open activation requirements; available for review.
+- [CIP](https://github.com/input-output-hk/pubsub/blob/main/docs/cip/README.md): protocol specification, supporting evidence, design comparison and open activation requirements; available for review.
 - [Logbook](https://github.com/input-output-hk/pubsub/blob/main/logbook.md): running record of technical decisions, most recent first.
 - [Biweekly reports](https://github.com/input-output-hk/pubsub/tree/main/biweekly-reports): fortnightly progress summaries against project goals.
 - [Formal models](https://github.com/input-output-hk/pubsub/tree/main/formal_spec): Quint and PRISM models plus the per-model property analyses.
