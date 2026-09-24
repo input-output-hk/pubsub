@@ -4,6 +4,14 @@ Technical decisions and progress. Most recent first.
 
 ---
 
+## 2026-09-16 — CPS and CIP submitted to the CIP repository
+
+The proposal is now in front of the CIP editors: [CPS #1270](https://github.com/cardano-foundation/CIPs/pull/1270) states the problem and [CIP #1271](https://github.com/cardano-foundation/CIPs/pull/1271) proposes the protocol as its solution. Both are labelled `State: Triage` under `Category: Network`, with the CIP-0137 and related network reviewers tagged and confirmation scheduled for the next CIP meeting. The documents reached `main` first ([PR #164](https://github.com/input-output-hk/pubsub/pull/164)), after a restructure around the single selected design ([PR #195](https://github.com/input-output-hk/pubsub/pull/195)) and a correctness pass against their own evidence ([PR #197](https://github.com/input-output-hk/pubsub/pull/197)). The design epic ([#91](https://github.com/input-output-hk/pubsub/issues/91)) is closed.
+
+**Next.** Work the review through October, with approval targeted for October to November. Feedback is invited on the relationship to CIP-0137 and on the deployment parameter profile, including the small-topic case. The completion and validation work in *Path to Active* is unchanged: the gate, beacon, handshake, epoch and recovery rules, then the deployment profile, rotation and transport behaviour.
+
+---
+
 ## 2026-09-15 — CIP published; website aligned
 
 The [CIP](docs/cip/README.md), companion CPS and design comparison are now on `main` and available for review ([PR #164](https://github.com/input-output-hk/pubsub/pull/164)). The [correctness pass](https://github.com/input-output-hk/pubsub/pull/197) corrected evidence claims and made the unresolved handshake and epoch-schedule requirements explicit.
