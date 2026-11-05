@@ -167,6 +167,7 @@
   .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
   .title-slide .split-row { width: 100%; }
   .title-team { margin-top: 3em; }
+  .title-team + .title-team { margin-top: 1.6em; }
   .title-team-label {
     font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.9em;
@@ -404,7 +405,7 @@
   ol.agenda > li {
     counter-increment: agenda;
     display: grid;
-    grid-template-columns: 2.2em minmax(0, 1fr) auto;
+    grid-template-columns: 2.2em minmax(0, 1fr);
     align-items: baseline;
     gap: 0 0.6em;
     padding: 0.45em 0;
@@ -418,7 +419,6 @@
   }
   ol.agenda .agenda-title { font-size: 1.08em; font-weight: 600; }
   ol.agenda .agenda-subs { grid-column: 2; font-size: 0.82em; color: var(--text-mute); margin-top: 0.15em; }
-  ol.agenda .agenda-min { grid-column: 3; grid-row: 1; font-family: var(--font-mono); font-size: 0.72em; color: var(--text-faint); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -453,6 +453,15 @@
             <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff"><div><span>William Wolff</span><span class="team-role">Lead · Technical Architect</span></div></div>
             <div class="title-team-member"><img src="https://github.com/mjaskelioff.png" alt="Mauro Jaskelioff"><div><span>Mauro Jaskelioff</span><span class="team-role">Role TBD</span></div></div>
             <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
+          </div>
+        </div>
+        <div class="title-team">
+          <div class="title-team-label">Team</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><div><span>Denis Firsov</span><span class="team-role">Senior Formal Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><div><span>Jesus Diaz Vico</span><span class="team-role">Applied Cryptography Lead</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><div><span>Dana Alibrandi</span><span class="team-role">Product Manager</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><div><span>Sandro Coretti-Drayton</span><span class="team-role">Senior Research Fellow</span></div></div>
           </div>
         </div>
       </div>
@@ -517,12 +526,12 @@
     <div class="slide-kicker">Agenda</div>
     <h2>Today</h2>
     <ol class="agenda">
-      <li><span class="agenda-title">Starting point</span><span class="agenda-min">4.5 min</span><span class="agenda-subs">What we delivered · what we were given · the sparse product input</span></li>
-      <li><span class="agenda-title">Research and reframe</span><span class="agenda-min">5.5 min</span><span class="agenda-subs">Review of the proposed architecture · SecureCyclon findings · deriving the design from evidence</span></li>
-      <li><span class="agenda-title">Formalization</span><span class="agenda-min">5 min</span><span class="agenda-subs">Formalizing the problem · five candidate models and their laws</span></li>
-      <li><span class="agenda-title">Reference implementation</span><span class="agenda-min">8 min</span><span class="agenda-subs">Rust node and simulation framework · AI tooling · experiments and cross-validation</span></li>
-      <li><span class="agenda-title">CIP and open questions</span><span class="agenda-min">8 min</span><span class="agenda-subs">Choosing M4 from both tracks · the CIP and CPS · gaps and open questions</span></li>
-      <li><span class="agenda-title">How we worked</span><span class="agenda-min">1 min</span><span class="agenda-subs">One lesson each · close</span></li>
+      <li><span class="agenda-title">Starting point</span><span class="agenda-subs">What we delivered · what we were given · the sparse product input</span></li>
+      <li><span class="agenda-title">Research and reframe</span><span class="agenda-subs">Review of the proposed architecture · SecureCyclon findings · deriving the design from evidence</span></li>
+      <li><span class="agenda-title">Formalization</span><span class="agenda-subs">Formalizing the problem · five candidate models and their laws</span></li>
+      <li><span class="agenda-title">Reference implementation</span><span class="agenda-subs">Rust node and simulation framework · AI tooling · experiments and cross-validation</span></li>
+      <li><span class="agenda-title">CIP and open questions</span><span class="agenda-subs">Choosing M4 from both tracks · the CIP and CPS · gaps and open questions</span></li>
+      <li><span class="agenda-title">How we worked</span><span class="agenda-subs">One lesson each · close</span></li>
     </ol>
   </section>
 
