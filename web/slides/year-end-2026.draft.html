@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano PubSub — From Research to CIP · November 2026</title>
+<meta name="description" content="End-of-year presentation on Cardano PubSub: from the research we were given to an evidence-backed design, a reference implementation and CIP-0201.">
+<!-- Draft deck: the .draft.html suffix keeps it out of the site deploy; drop the
+     suffix (and this noindex) to publish. -->
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/slides/year-end-2026.html">
+<link rel="icon" href="../assets/favicon.ico">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="../assets/icon-512.png">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+
+<!-- Link previews: Slack, Discord, Telegram, LinkedIn, X and search engines. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="Cardano PubSub — From Research to CIP, November 2026">
+<meta property="og:description" content="End-of-year presentation on Cardano PubSub: from the research we were given to an evidence-backed design, a reference implementation and CIP-0201.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/slides/year-end-2026.html">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cardano PubSub — From Research to CIP, November 2026">
+<meta name="twitter:description" content="End-of-year presentation on Cardano PubSub: from the research we were given to an evidence-backed design, a reference implementation and CIP-0201.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  html, body { height: 100%; }
+  /* Sized for screen-share: scale with both width and height so wide screens
+     get larger type instead of whitespace, without overflowing short windows. */
+  body { overflow: hidden; font-size: clamp(16px, min(1.55vw, 2.75vh), 27px); background: var(--bg); }
+
+  .deck { height: 100%; position: relative; z-index: 1; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    /* Bottom padding clears the fixed chrome bar (~46px) with room to spare, so
+       content never crowds the footer on short windows. */
+    padding:
+      clamp(44px, 7vh, 84px)
+      clamp(32px, 7vw, 110px)
+      clamp(72px, 9vh, 112px);
+  }
+  .slide.active { display: flex; }
+
+  .slide-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 0.9em;
+  }
+  .slide h2 {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+    max-width: 22ch;
+  }
+  .slide p.lede { font-size: 1.15em; color: var(--text-mute); max-width: 62ch; line-height: 1.55; }
+
+  ul.points { list-style: none; display: grid; gap: 0.75em; max-width: 66ch; }
+  ul.points li {
+    font-size: 1.08em;
+    line-height: 1.5;
+    padding-left: 1.2em;
+    position: relative;
+    color: var(--text);
+  }
+  ul.points li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0.62em;
+    width: 0.45em; height: 0.45em;
+    border-radius: 2px;
+    background: var(--iog-infared);
+  }
+  ul.points li strong { font-weight: 600; }
+  ul.points li .mute { color: var(--text-mute); }
+
+  .takeaway {
+    margin-top: 1.6em;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text);
+    border-left: 4px solid var(--iog-infared);
+    padding: 0.35em 0 0.35em 0.9em;
+    max-width: 56ch;
+    line-height: 1.45;
+  }
+
+  /* Text-heavy slides sitting beside a fixed-size illustration: tighten the prose
+     rhythm so the column fits short windows without shrinking the visual. */
+  .slide.dense .slide-kicker { margin-bottom: 0.6em; }
+  .slide.dense h2 { font-size: 2.1em; margin-bottom: 0.5em; }
+  .slide.dense p.lede { font-size: 1em; line-height: 1.45; }
+  .slide.dense ul.points { gap: 0.5em; }
+  .slide.dense ul.points li { font-size: 0.95em; line-height: 1.4; }
+  .slide.dense p.lede + ul.points { margin-top: 1em; }
+  .slide.dense .takeaway { margin-top: 1em; font-size: 1em; }
+
+  /* Closing slide */
+  .slide.close-slide { align-items: center; text-align: center; }
+  .slide.close-slide .title-logo { margin-bottom: 2.2em; }
+  .slide.close-slide h2 { font-size: 3.4em; max-width: none; margin-bottom: 0.35em; }
+  .slide.close-slide h2 .accent { color: var(--iog-infared); }
+  .close-sub { font-size: 1.25em; color: var(--text-mute); }
+  .close-links {
+    margin-top: 2.4em;
+    display: flex;
+    justify-content: center;
+    gap: 1em 2.4em;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+  }
+  .close-links a {
+    color: var(--text-mute);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 2px;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .close-links a:hover { color: var(--iog-infared); border-color: var(--iog-infared); }
+  .close-links-label {
+    margin-top: 3em;
+    font-family: var(--font-mono);
+    font-size: 0.68em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  /* Title slide */
+  .slide.title-slide { align-items: flex-start; }
+  .title-logo { height: clamp(40px, 7vh, 68px); width: auto; margin-bottom: 3em; }
+  .slide.title-slide h1 {
+    font-family: var(--font-display);
+    font-size: 3.4em;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 0.4em;
+  }
+  .slide.title-slide h1 .accent { color: var(--iog-infared); }
+  .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
+  .title-slide .split-row { width: 100%; }
+  .title-team { margin-top: 3em; }
+  .title-team + .title-team { margin-top: 1.6em; }
+  .title-team-label {
+    font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.9em;
+  }
+  .title-team-row { display: grid; grid-template-columns: repeat(3, max-content); gap: 1em 1.8em; }
+  .title-team-member { display: flex; align-items: center; gap: 0.6em; }
+  .title-team-member img {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid var(--line, rgba(128,128,128,0.35));
+  }
+  .title-team-member span { display: block; font-size: 0.82em; color: var(--text-mute); white-space: nowrap; }
+  .title-team-member .team-role { font-size: 0.66em; color: var(--text-faint); margin-top: 0.1em; }
+  .hero-visual { justify-self: center; }
+  .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
+
+  /* Before / After slides */
+  .ba-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 64px);
+    align-items: start;
+    width: 100%;
+  }
+  .ba-col { min-width: 0; }
+  .ba-col.before { opacity: 0.55; }
+  .ba-col.after { color: var(--text); }
+  .ba-arrow { color: var(--iog-infared); justify-self: center; align-self: center; }
+  .ba-arrow svg { width: clamp(64px, 7vw, 130px); height: auto; display: block; }
+  .ba-label {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+  }
+  .ba-col.before .ba-label { color: var(--text); }
+  .ba-col.after .ba-label { color: var(--good); }
+  .ba-grid + .takeaway { max-width: none; white-space: nowrap; }
+  .ba-col ul { list-style: none; display: grid; gap: 0.65em; }
+  .ba-col li { font-size: 1.04em; line-height: 1.45; padding-left: 1.1em; position: relative; }
+  .ba-col.after li { font-weight: 500; }
+  .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
+  .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
+
+  /* Split layout with trailing visual */
+  .split-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(24px, 3vw, 48px);
+  }
+  .actor-graph { justify-self: center; }
+  .actor-graph svg { width: clamp(340px, 40vw, 720px); max-height: 76vh; height: auto; display: block; }
+  .split-row.timeline-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .timeline-visual { justify-self: center; }
+  .timeline-visual svg { width: clamp(380px, 46vw, 820px); max-height: 70vh; height: auto; display: block; }
+
+  /* Candidate-topology table (phase 2 approach slide) */
+  .split-row.method-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .model-visual { min-width: 0; }
+  .model-table { width: 100%; border-collapse: collapse; }
+  .model-table th {
+    font-family: var(--font-mono);
+    font-size: 0.66em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    text-align: left;
+    padding: 0 0.9em 0.7em 0;
+  }
+  .model-table td {
+    padding: 0.6em 0.9em 0.6em 0;
+    border-top: 1px solid var(--line-strong);
+    font-size: 0.92em;
+    line-height: 1.45;
+    vertical-align: baseline;
+  }
+  .model-table th:last-child, .model-table td:last-child { padding-right: 0; }
+  .model-table .model-id { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); white-space: nowrap; }
+
+  /* About slide */
+  .about-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(28px, 5vw, 80px);
+  }
+  .about-figure { justify-self: center; text-align: center; }
+  .about-avatar {
+    width: clamp(150px, 24vh, 260px);
+    height: auto;
+    border-radius: 50%;
+    border: 3px solid var(--iog-infared);
+  }
+  .about-name {
+    margin-top: 1.1em;
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .about-name strong { color: var(--text); font-weight: 600; }
+
+  /* Corner buttons (GitHub · theme · close) */
+  .corner-btn {
+    position: fixed;
+    top: 20px;
+    z-index: 50;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .corner-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .corner-btn svg { width: 16px; height: 16px; display: block; }
+  .btn-close { right: 20px; }
+  .btn-github { right: 116px; }
+  .theme-toggle { right: 68px; }
+
+  /* Slide chrome */
+  .chrome {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px clamp(28px, 7vw, 110px);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 30;
+  }
+  .chrome .chrome-logo { height: 18px; width: auto; opacity: 0.9; }
+  .progress {
+    position: fixed;
+    left: 0; top: 0;
+    height: 3px;
+    background: var(--iog-infared);
+    transition: width .25s ease;
+    z-index: 60;
+  }
+  .nav-hint { position: fixed; right: 20px; bottom: 52px; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.08em; }
+
+  /* Mobile / narrow screens: stack each slide vertically — text first, visual
+     below — and let the slide scroll instead of hiding content. */
+  @media (max-width: 900px) {
+    .slide {
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 76px 22px 96px;
+    }
+    .slide h2 { font-size: 1.9em; }
+    .slide.title-slide h1 { font-size: 2.5em; }
+    .title-logo { height: auto; width: min(64vw, 250px); margin-bottom: 1.6em; }
+    .title-team { margin-top: 2em; }
+    .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
+
+    .split-row,
+    .split-row.timeline-row,
+    .split-row.method-row,
+    .about-row {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      gap: 2.2em;
+    }
+    .model-visual { overflow-x: auto; }
+    .hero-visual, .actor-graph, .timeline-visual { justify-self: center; width: 100%; }
+    .hero-visual svg, .actor-graph svg, .timeline-visual svg {
+      width: min(100%, 460px);
+      max-height: none;
+      margin: 0 auto;
+    }
+    .about-figure { justify-self: center; }
+    .about-avatar { width: clamp(120px, 40vw, 200px); }
+
+    .ba-grid { grid-template-columns: minmax(0, 1fr); gap: 1.6em; }
+    .ba-arrow svg { transform: rotate(90deg); width: 44px; margin: 0 auto; }
+    .ba-grid + .takeaway { white-space: normal; }
+
+    .nav-hint { display: none; }
+  }
+
+  /* Print: all slides sequentially */
+  @media print {
+    body { overflow: visible; font-size: 13px; }
+    .deck { height: auto; }
+    .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; background: var(--bg); }
+    .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint { display: none !important; }
+  }
+
+
+  /* Placeholder slides: a dashed frame holds the talking points until the
+     speaker replaces it with the slide's real content or visual. */
+  .speaker-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 3px 10px;
+    margin-bottom: 1.2em;
+  }
+  .placeholder {
+    border: 2px dashed var(--line-strong);
+    border-radius: 14px;
+    padding: 1.1em 1.4em;
+    max-width: 70ch;
+  }
+  .placeholder-label {
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 0.8em;
+  }
+  .placeholder ul.points li { font-size: 0.98em; color: var(--text-mute); }
+
+  /* Agenda slide */
+  ol.agenda { list-style: none; display: grid; gap: 0.55em; max-width: 64ch; counter-reset: agenda; }
+  ol.agenda > li {
+    counter-increment: agenda;
+    display: grid;
+    grid-template-columns: 2.2em minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0 0.6em;
+    padding: 0.45em 0;
+    border-top: 1px solid var(--line-strong);
+  }
+  ol.agenda > li::before {
+    content: counter(agenda);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--iog-infared);
+  }
+  ol.agenda .agenda-title { font-size: 1.08em; font-weight: 600; }
+  ol.agenda .agenda-subs { grid-column: 2; font-size: 0.82em; color: var(--text-mute); margin-top: 0.15em; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" aria-label="Toggle color theme">
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+
+<a class="corner-btn btn-close" href="../" aria-label="Back to the Cardano PubSub site">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</a>
+<a class="corner-btn btn-github" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+</a>
+
+<div class="deck">
+
+  <!-- 1 · Title -->
+  <section class="slide title-slide">
+    <div class="split-row">
+      <div>
+        <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+        <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+        <div class="slide-kicker">Research &amp; Development · November 2026</div>
+        <h1>Cardano <span class="accent">PubSub</span></h1>
+        <p class="title-sub">From the research we were given to an evidence-backed design,
+          a reference implementation and CIP-0201.</p>
+        <div class="title-team">
+          <div class="title-team-label">Presented by</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff"><div><span>William Wolff</span><span class="team-role">Lead · Technical Architect</span></div></div>
+            <div class="title-team-member"><img src="https://github.com/mjaskelioff.png" alt="Mauro Jaskelioff"><div><span>Mauro Jaskelioff</span><span class="team-role">Role TBD</span></div></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
+          </div>
+        </div>
+        <div class="title-team">
+          <div class="title-team-label">Team</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><div><span>Denis Firsov</span><span class="team-role">Senior Formal Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><div><span>Jesus Diaz Vico</span><span class="team-role">Applied Cryptography Lead</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><div><span>Dana Alibrandi</span><span class="team-role">Product Manager</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><div><span>Sandro Coretti-Drayton</span><span class="team-role">Senior Research Fellow</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <text x="4" y="14" text-anchor="start" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">PUBLISHERS</text>
+          <text x="436" y="14" text-anchor="end" font-size="10" letter-spacing="2" font-weight="600" fill="var(--text-faint)">SUBSCRIBERS</text>
+
+          <!-- flows in, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M43,52 C110,52 130,166 163,170" stroke="var(--info)"/>
+            <path d="M43,145 C105,145 130,178 163,180" stroke="var(--warn)"/>
+            <path d="M43,239 C105,239 130,194 163,192" stroke="var(--warn)"/>
+            <path d="M43,332 C110,332 130,206 163,202" stroke="var(--good)"/>
+          </g>
+          <!-- flows out, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M281,172 C330,168 350,82 397,82" stroke="var(--info)"/>
+            <path d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
+            <path d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
+          </g>
+          <!-- publisher nodes, colored by the topic they publish to -->
+          <g>
+            <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="145" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="239" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="332" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- subscriber nodes, colored by the topic they subscribe to -->
+          <g>
+            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="82" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="192" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- PubSub hub -->
+          <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+
+          <!-- topic color legend -->
+          <g font-size="10" letter-spacing="1" fill="var(--text-faint)">
+            <circle cx="112" cy="388" r="4.5" fill="var(--info-soft)" stroke="var(--info)"/>
+            <text x="123" y="392">TOPIC 1</text>
+            <circle cx="197" cy="388" r="4.5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <text x="208" y="392">TOPIC 2</text>
+            <circle cx="282" cy="388" r="4.5" fill="var(--good-soft)" stroke="var(--good)"/>
+            <text x="293" y="392">TOPIC 3</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Agenda -->
+  <section class="slide">
+    <div class="slide-kicker">Agenda</div>
+    <h2>Today</h2>
+    <ol class="agenda">
+      <li><span class="agenda-title">Starting point</span><span class="agenda-subs">What we delivered · what we were given · the sparse product input</span></li>
+      <li><span class="agenda-title">Research and reframe</span><span class="agenda-subs">Review of the proposed architecture · SecureCyclon findings · deriving the design from evidence</span></li>
+      <li><span class="agenda-title">Formalization</span><span class="agenda-subs">Formalizing the problem · five candidate models and their laws</span></li>
+      <li><span class="agenda-title">Reference implementation</span><span class="agenda-subs">Rust node and simulation framework · AI tooling · experiments and cross-validation</span></li>
+      <li><span class="agenda-title">CIP and open questions</span><span class="agenda-subs">Choosing M4 from both tracks · the CIP and CPS · gaps and open questions</span></li>
+      <li><span class="agenda-title">How we worked</span><span class="agenda-subs">One lesson each · close</span></li>
+    </ol>
+  </section>
+
+  <!-- 3 · What we delivered -->
+  <section class="slide">
+    <div class="slide-kicker">1 · Starting point</div>
+    <h2>What we delivered</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>CPS-0038 (problem statement) and CIP-0201 (protocol), submitted 16 Sep 2026</li>
+          <li>Numbers assigned by the CIP editors on 29 Sep; review under way</li>
+          <li>The arc of this talk, and credit to the wider group</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4 · What we were given -->
+  <section class="slide">
+    <div class="slide-kicker">1 · Starting point</div>
+    <h2>What we were given</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>SecureCyclon: Dependable Peer Sampling (ICDCS 2023)</li>
+          <li>AUEB's three-layer architecture (D1/D2): peer sampling, navigation, dissemination</li>
+          <li>Product documentation: five use cases and requirements</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5 · The sparse product input -->
+  <section class="slide">
+    <div class="slide-kicker">1 · Starting point</div>
+    <h2>The sparse product input</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Little product steering after the initial use cases</li>
+          <li>We narrowed the scope ourselves (28 Apr): IOG alerts → SPOs, SPOs → delegators, dReps → delegators, dApps → users</li>
+          <li>Which meant more of our own initial research</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 6 · Reviewing the proposed architecture -->
+  <section class="slide">
+    <div class="slide-kicker">2 · Research and reframe</div>
+    <h2>Reviewing the proposed architecture</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>March technical review and AUEB gap analysis</li>
+          <li>Missing: incentives, anti-spam, a stated security model</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 7 · SecureCyclon findings -->
+  <section class="slide">
+    <div class="slide-kicker">2 · Research and reframe</div>
+    <h2>SecureCyclon findings</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>A silent adversary biases views without a single protocol violation</li>
+          <li>None of the nine defences fire</li>
+          <li>Peer sampling set aside for an on-chain registry</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8 · Deriving the design from evidence -->
+  <section class="slide">
+    <div class="slide-kicker">2 · Research and reframe</div>
+    <h2>Deriving the design from evidence</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>One bar: a good graph, where every honest publisher reaches every honest node</li>
+          <li>Phase 2 starts in July</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 9 · Formalizing the problem -->
+  <section class="slide">
+    <div class="slide-kicker">3 · Formalization</div>
+    <h2>Formalizing the problem</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Silent Byzantine fraction μ, epoch failure probability p_bad, target δ</li>
+          <li>Churn folded in as a shift in μ</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 10 · Five candidate models and their laws -->
+  <section class="slide">
+    <div class="slide-kicker">3 · Formalization</div>
+    <h2>Five candidate models and their laws</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>M1 push · M2 pull · M3 pull + publishing links · M4 bidirectional · M5 directed</li>
+          <li>Closed forms for coverage, messages, hops, degrees, eclipse cost, re-provisioning, transmission loss</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 11 · Rust node and simulation framework -->
+  <section class="slide">
+    <div class="slide-kicker">4 · Reference implementation</div>
+    <h2>Rust node and simulation framework</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Topics, signed envelopes, registries, event loop, a strategy per model</li>
+          <li>Deterministic multicore simulation running the real node logic</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 12 · AI tooling -->
+  <section class="slide">
+    <div class="slide-kicker">4 · Reference implementation</div>
+    <h2>AI tooling</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Spec Kit: specify → plan → tasks → implement, under a project constitution</li>
+          <li>16 feature specs, ADRs and analysis ledgers</li>
+          <li>Claude as an independent second reviewer; where humans had to check</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 13 · Experiments and cross-validation -->
+  <section class="slide">
+    <div class="slide-kicker">4 · Reference implementation</div>
+    <h2>Experiments and cross-validation</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Two independent instruments: mathematical model and prototype</li>
+          <li>38 of 40 downtime predictions inside their 95 % interval</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 14 · Choosing M4 -->
+  <section class="slide">
+    <div class="slide-kicker">5 · CIP and open questions</div>
+    <h2>Choosing M4</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Formal laws and experiments both informed the choice</li>
+          <li>Symmetric links; M3 kept as the bandwidth alternative</li>
+          <li>Gating: bucket count B and admission cap C</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 15 · The CIP and CPS -->
+  <section class="slide">
+    <div class="slide-kicker">5 · CIP and open questions</div>
+    <h2>The CIP and CPS</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>What CIP-0201 specifies: epochs, topology, links, messages, registries, parameters</li>
+          <li>What CPS-0038 states, and where review stands</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 16 · Gaps and open questions -->
+  <section class="slide">
+    <div class="slide-kicker">5 · CIP and open questions</div>
+    <h2>Gaps and open questions</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Tail probabilities extrapolated; rotation argued, not measured</li>
+          <li>Small topics, correlated failure, μ chosen not derived</li>
+          <li>Open design choices and reviewer feedback</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 17 · How we worked -->
+  <section class="slide">
+    <div class="slide-kicker">6 · How we worked</div>
+    <h2>How we worked</h2>
+    <div><span class="speaker-tag">Speaker: TBD</span></div>
+    <div class="placeholder">
+      <div class="placeholder-label">Placeholder · talking points</div>
+      <ul class="points">
+          <li>Weekly sessions and brainstorms; public logbook and biweekly reports</li>
+          <li>One lesson from each of us</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 18 · Thank you -->
+  <section class="slide close-slide">
+    <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+    <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+    <div class="slide-kicker">Cardano PubSub · November 2026</div>
+    <h2>Thank <span class="accent">you</span></h2>
+    <p class="close-sub">Questions welcome.</p>
+    <div class="close-links-label">Further information</div>
+    <div class="close-links">
+      <a href="https://pubsub.cardano-scaling.org/" target="_blank" rel="noopener">pubsub.cardano-scaling.org</a>
+      <a href="https://github.com/cardano-foundation/CIPs/pull/1271" target="_blank" rel="noopener">CIP-0201</a>
+      <a href="https://github.com/cardano-foundation/CIPs/pull/1270" target="_blank" rel="noopener">CPS-0038</a>
+      <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">github.com/input-output-hk/pubsub</a>
+    </div>
+  </section>
+
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="chrome">
+  <span>Cardano PubSub · November 2026</span>
+  <span id="counter">1 / 18</span>
+</div>
+<div class="nav-hint">← → to navigate · esc to close</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    // Presentation defaults to the bright theme; the toggle overrides per browser.
+    var stored = null;
+    try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+    if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    document.querySelector('.theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var counter = document.getElementById('counter');
+    var progress = document.getElementById('progress');
+    var current = 0;
+
+    function show(i) {
+      current = Math.max(0, Math.min(slides.length - 1, i));
+      slides.forEach(function (s, idx) { s.classList.toggle('active', idx === current); });
+      counter.textContent = (current + 1) + ' / ' + slides.length;
+      progress.style.width = ((current + 1) / slides.length * 100) + '%';
+      if (history.replaceState) history.replaceState(null, '', '#' + (current + 1));
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); show(0); }
+      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+      else if (e.key === 'Escape') { e.preventDefault(); window.location.href = '../'; }
+    });
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.theme-toggle') || e.target.closest('a')) return;
+      show(current + 1);
+    });
+
+    var touchStartX = null, touchStartY = null;
+    document.addEventListener('touchstart', function (e) {
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (touchStartX === null) return;
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      touchStartX = touchStartY = null;
+      // Horizontal swipes navigate; vertical ones are left to scroll the slide.
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) show(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
+
+    var fromHash = parseInt(location.hash.slice(1), 10);
+    show(isNaN(fromHash) ? 0 : fromHash - 1);
+  })();
+</script>
+
+</body>
+</html>
