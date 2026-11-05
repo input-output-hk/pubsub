@@ -1,0 +1,11 @@
+{
+  "name": "cardano-pubsub-web",
+  "private": true,
+  "description": "Local preview for the site in web/ (no dependencies)",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "web": "node scripts/serve-web.mjs /",
+    "slides": "node scripts/serve-web.mjs /slides/year-end-2026.draft.html"
+  }
+}

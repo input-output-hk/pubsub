@@ -44,7 +44,7 @@ Protocol design background lives in [`docs/`](docs/) and [`formal_spec/`](formal
 
 ## Website & documentation
 
-The [public site](https://pubsub.cardano-scaling.org/) is deployed from [`web/`](web/) through the [Deploy Site workflow](.github/workflows/docs.yml). The earlier MkDocs documentation (product vision, use cases, architecture, economics) is retired and preserved on the [`archive/mkdocs-site`](https://github.com/input-output-hk/pubsub/tree/archive/mkdocs-site/site) branch.
+The [public site](https://pubsub.cardano-scaling.org/) is deployed from [`web/`](web/) through the [Deploy Site workflow](.github/workflows/docs.yml). Pages named `*.draft.html` stay in the repository but are left out of the deploy. To preview the site locally with live reload, drafts included, run `npm run web`, or `npm run slides` for the year-end deck. Both need Node 18 or later and no install. The earlier MkDocs documentation (product vision, use cases, architecture, economics) is retired and preserved on the [`archive/mkdocs-site`](https://github.com/input-output-hk/pubsub/tree/archive/mkdocs-site/site) branch.
 
 ## Contributing & security
 
