@@ -181,6 +181,10 @@
   .title-team-member span { display: block; font-size: 0.82em; color: var(--text-mute); white-space: nowrap; }
   .title-team-member .team-role { font-size: 0.66em; color: var(--text-faint); margin-top: 0.1em; }
   .title-team-member .formal-role { max-width: 22ch; white-space: normal; }
+  .title-team-wide { font-size: 0.88em; }
+  .title-team-wide .title-team-row { grid-template-columns: repeat(4, max-content); gap: 1em 1.5em; }
+  .title-team-wide .title-team-member img { width: 34px; height: 34px; }
+  .title-slide .hero-visual { align-self: start; margin-top: 4vh; }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
 
@@ -374,7 +378,8 @@
     .slide.title-slide h1 { font-size: 2.5em; }
     .title-logo { height: auto; width: min(64vw, 250px); margin-bottom: 1.6em; }
     .title-team { margin-top: 2em; }
-    .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
+    .title-team-row, .title-team-wide .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
+    .title-slide .hero-visual { align-self: center; margin-top: 0; }
 
     .split-row,
     .split-row.timeline-row,
@@ -561,7 +566,7 @@
             <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
           </div>
         </div>
-        <div class="title-team">
+        <div class="title-team title-team-wide">
           <div class="title-team-label">Team</div>
           <div class="title-team-row">
             <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><div><span>Denis Firsov</span><span class="team-role">Senior Formal Engineer</span></div></div>
