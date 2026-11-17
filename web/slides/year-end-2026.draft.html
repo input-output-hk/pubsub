@@ -180,6 +180,7 @@
   }
   .title-team-member span { display: block; font-size: 0.82em; color: var(--text-mute); white-space: nowrap; }
   .title-team-member .team-role { font-size: 0.66em; color: var(--text-faint); margin-top: 0.1em; }
+  .title-team-member .formal-role { max-width: 22ch; white-space: normal; }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
 
@@ -249,6 +250,45 @@
   }
   .model-table th:last-child, .model-table td:last-child { padding-right: 0; }
   .model-table .model-id { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); white-space: nowrap; }
+
+  /* Formalization: keep the definitions and coverage laws as editable text. */
+  .formal-problem ul.points { max-width: 76ch; }
+  .formal-problem .takeaway { max-width: none; }
+  .formal-law {
+    font-size: 1.08em;
+    line-height: 1.5;
+  }
+  .formal-example {
+    display: block;
+    margin-top: 0.5em;
+    font-size: 0.8em;
+    font-weight: 400;
+    color: var(--text-mute);
+  }
+  .formal-note {
+    margin-top: 1em;
+    font-size: 0.88em;
+    line-height: 1.5;
+    color: var(--text-mute);
+    max-width: 86ch;
+  }
+  .formal-models h2 { max-width: none; }
+  .formal-models .formal-law { margin-bottom: 0.8em; }
+  .coverage-table { min-width: 58rem; }
+  .coverage-table td { font-size: 0.9em; padding-top: 0.55em; padding-bottom: 0.55em; }
+  .coverage-table tbody th {
+    font-size: 0.9em;
+    letter-spacing: 0;
+    text-transform: none;
+    vertical-align: baseline;
+    border-top: 1px solid var(--line-strong);
+    padding: 0.55em 1em 0.55em 0;
+  }
+  .coverage-table .law {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    white-space: nowrap;
+  }
 
   /* About slide */
   .about-row {
@@ -451,7 +491,7 @@
           <div class="title-team-label">Presented by</div>
           <div class="title-team-row">
             <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff"><div><span>William Wolff</span><span class="team-role">Lead · Technical Architect</span></div></div>
-            <div class="title-team-member"><img src="https://github.com/mjaskelioff.png" alt="Mauro Jaskelioff"><div><span>Mauro Jaskelioff</span><span class="team-role">Role TBD</span></div></div>
+            <div class="title-team-member"><img src="https://github.com/mjaskelioff.png" alt="Mauro Jaskelioff"><div><span>Mauro Jaskelioff</span><span class="team-role formal-role">Senior Formal Methods Engineer</span></div></div>
             <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
           </div>
         </div>
@@ -624,31 +664,71 @@
   </section>
 
   <!-- 9 · Formalizing the problem -->
-  <section class="slide">
+  <!-- Sources: formal_spec/hybrid_dissemination/models/README.md;
+       docs/cip/design-comparison.md (What is measured; independent downtime). -->
+  <section class="slide formal-problem">
     <div class="slide-kicker">3 · Formalization</div>
     <h2>Formalizing the problem</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Silent Byzantine fraction μ, epoch failure probability p_bad, target δ</li>
-          <li>Churn folded in as a shift in μ</li>
-      </ul>
+    <div><span class="speaker-tag">Speaker: Mauro Jaskelioff</span></div>
+    <ul class="points">
+      <li><strong>Population</strong>: <var>N</var> registered nodes; <var>H</var> = (1−μ)<var>N</var> honest.  The adversarial fraction μ receives but never relays.</li>
+      <li><strong>Epoch</strong>: a protocol period indicating how long a sampled dissemination topology is held.</li>
+      <li><strong>Good topology</strong>: every honest publisher can reach every other honest node.</li>
+    </ul>
+    <div class="takeaway">
+      <div class="formal-law"><var>p</var><sub>bad</sub> = Pr[bad epoch topology] ≤ δ</div>
+      <span class="formal-example">Reference inputs: <var>N</var> = 20,000 · μ = 0.2 · δ = 10<sup>−4</sup> per epoch</span>
     </div>
+    <p class="formal-note">Independent honest downtime <var>p</var>, without repair, enters the coverage estimate as
+      μ<sub>eff</sub> = μ + <var>p</var>(1−μ).  This measures topology risk over an epoch, rather than average delivery.</p>
   </section>
 
   <!-- 10 · Five candidate models and their laws -->
-  <section class="slide">
+  <!-- Sources: formal_spec/hybrid_dissemination/models/m{1,2,3,4,5}/properties/full_coverage.md.
+       Notation here: k = relay picks (F or RF in the analyses), t = s−1 seed picks;
+       a and b = M5's k_in and k_out.  These are the ungated leading approximations. -->
+  <section class="slide dense formal-models">
     <div class="slide-kicker">3 · Formalization</div>
     <h2>Five candidate models and their laws</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>M1 push · M2 pull · M3 pull + publishing links · M4 bidirectional · M5 directed</li>
-          <li>Closed forms for coverage, messages, hops, degrees, eclipse cost, re-provisioning, transmission loss</li>
-      </ul>
+    <div><span class="speaker-tag">Speaker: Mauro Jaskelioff</span></div>
+    <p class="formal-law"><var>p</var><sub>bad</sub> ≈ 1 − e<sup>−<var>E</var></sup>,
+      with <var>E</var> the expected number of isolation defects</p>
+    <div class="model-visual">
+      <table class="model-table coverage-table" aria-label="Five ungated dissemination models and their leading coverage laws">
+        <thead>
+          <tr><th scope="col">Model</th><th scope="col">Mechanism and chosen links</th><th scope="col">Leading <var>E</var> / <var>H</var></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" class="model-id">M1</th>
+            <td>Push to <var>k</var> targets</td>
+            <td class="law">e<sup>−k(1−μ)</sup> + μ<sup>k</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M2</th>
+            <td>Receive from <var>k</var> forwarders</td>
+            <td class="law">μ<sup>k</sup> + e<sup>−k(1−μ)</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M3</th>
+            <td><var>k</var> pull + <var>t</var> publication-only seeding links</td>
+            <td class="law">μ<sup>k</sup> + μ<sup>t</sup> e<sup>−k(1−μ)</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M4</th>
+            <td><var>k</var> peers, bidirectional links</td>
+            <td class="law">μ<sup>k</sup> e<sup>−k(1−μ)</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M5</th>
+            <td><var>a</var> inbound + <var>b</var> outbound links</td>
+            <td class="law">μ<sup>a</sup> e<sup>−b(1−μ)</sup> + μ<sup>b</sup> e<sup>−a(1−μ)</sup></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+    <p class="formal-note">Leading approximations near the connectivity threshold.  These baseline models have no hash gate or admission cap.</p>
+    <p class="formal-note">Also analyzed: transmissions, hop depth, standing links, robustness, eclipse cost, and transmission loss.</p>
   </section>
 
   <!-- 11 · Rust node and simulation framework -->
