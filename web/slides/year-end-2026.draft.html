@@ -459,6 +459,71 @@
   }
   ol.agenda .agenda-title { font-size: 1.08em; font-weight: 600; }
   ol.agenda .agenda-subs { grid-column: 2; font-size: 0.82em; color: var(--text-mute); margin-top: 0.15em; }
+  .tool-label {
+    text-align: center; font-family: var(--font-mono);
+    font-size: 1.3em; font-weight: 600; color: var(--text-mute); margin: 0.2em 0 1.8em;
+  }
+  .tool-tradeoffs {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5em; margin: 2.5em auto 0; width: min(100%, 38em);
+  }
+  .tool-benefits, .tool-friction {
+    display: flex; flex-direction: column; align-items: center; gap: 0.65em;
+  }
+  .tool-benefits .visual-tag {
+    border-color: var(--good); background: var(--good-soft); color: var(--good);
+  }
+  .tool-friction .visual-tag {
+    border-color: var(--warn); background: var(--warn-soft); color: var(--warn);
+  }
+  @media (max-width: 540px) {
+    .tool-tradeoffs { grid-template-columns: 1fr; gap: 1em; }
+  }
+  /* Visual alternatives to the section 4 placeholders. */
+  .visual-slide h2 { max-width: none; }
+  .comparison-slide h2 { margin-bottom: 1.4em; }
+  .comparison-slide .visual-tags { margin-top: 2.5em; }
+  .visual-stack { display: grid; gap: 0.7em; margin-top: 0.5em; }
+  .visual-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 1em; flex-wrap: wrap;
+  }
+  .visual-box {
+    flex: 1; min-width: 150px; padding: 1.2em 0.8em;
+    border: 1px solid var(--line-strong); border-radius: 20px;
+    background: var(--bg-soft); text-align: center;
+  }
+  .visual-box strong {
+    display: block; font-size: 1.45em; font-weight: 600;
+  }
+  .visual-box small {
+    display: block; margin-top: 0.45em;
+    font-size: 0.75em; color: var(--text-mute);
+  }
+  .visual-core {
+    width: 55%; margin: auto;
+    border: 2px solid var(--iog-infared);
+  }
+  .visual-arrow {
+    text-align: center; font-size: 1.8em;
+    color: var(--iog-infared);
+  }
+  .visual-tags {
+    display: flex; justify-content: center; flex-wrap: wrap;
+    gap: 0.7em; margin-top: 1.5em;
+  }
+  .visual-tag {
+    padding: 0.65em 1.1em; border-radius: 99px;
+    border: 1px solid var(--line-strong);
+    font-size: 1em; color: var(--text-mute);
+  }
+  @media (max-width: 900px) {
+    .visual-core { width: 90%; }
+    .visual-box strong { font-size: 1.2em; }
+    .visual-flow { flex-direction: column; }
+    .visual-flow .visual-box { width: 100%; }
+    .visual-flow .visual-arrow { transform: rotate(90deg); }
+  }
 </style>
 </head>
 <body>
@@ -731,46 +796,99 @@
     <p class="formal-note">Also analyzed: transmissions, hop depth, standing links, robustness, eclipse cost, and transmission loss.</p>
   </section>
 
-  <!-- 11 · Rust node and simulation framework -->
-  <section class="slide">
-    <div class="slide-kicker">4 · Reference implementation</div>
-    <h2>Rust node and simulation framework</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Topics, signed envelopes, registries, event loop, a strategy per model</li>
-          <li>Deterministic multicore simulation running the real node logic</li>
-      </ul>
+  <!-- Visual alternative: shared protocol core.
+       Speaker: Explain that handshakes, connection management and admission
+       rules made the abstract designs operational. Both execution paths use
+       the same pure transitions; the simulator does not exercise the async
+       runtime or real transport. The software is a foundation for future work. -->
+  <section class="slide visual-slide">
+    <div class="slide-kicker">4 · Reference implementation · Visual draft</div>
+    <h2>One core. Two ways to run it.</h2>
+    <div class="visual-stack">
+      <div class="visual-box visual-core">
+        <strong>Protocol core</strong>
+        <small>Pure state transitions · Rust</small>
+        <small>Modular strategies</small>
+      </div>
+      <div class="visual-row" aria-hidden="true">
+        <span class="visual-arrow">↙</span>
+        <span class="visual-arrow">↘</span>
+      </div>
+      <div class="visual-row">
+        <div class="visual-box">
+          <strong>Prototype node</strong>
+          <small>Async execution</small>
+        </div>
+        <div class="visual-box">
+          <strong>Simulator</strong>
+          <small>Deterministic · Multicore</small>
+        </div>
+      </div>
+    </div>
+    <div class="visual-tags">
+      <span class="visual-tag">Signed messages</span>
+      <span class="visual-tag">Registries</span>
+      <span class="visual-tag">Connection lifecycle</span>
     </div>
   </section>
 
-  <!-- 12 · AI tooling -->
-  <section class="slide">
-    <div class="slide-kicker">4 · Reference implementation</div>
-    <h2>AI tooling</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Spec Kit: specify → plan → tasks → implement, under a project constitution</li>
-          <li>16 feature specs, ADRs and analysis ledgers</li>
-          <li>Claude as an independent second reviewer; where humans had to check</li>
-      </ul>
+  <!-- Visual alternative: structured AI development.
+       Speaker: Describe the acceleration you experienced using Spec Kit and
+       Claude. Shared principles and explicit artifacts supported review.
+       Stabilizing the core first made distributing work easier.
+       Experiment design and analysis benefited too; reports needed careful
+       human editing. Avoid presenting speed or quality gains as measured. -->
+  <section class="slide visual-slide">
+    <div class="slide-kicker">4 · Reference implementation · Visual draft</div>
+    <h2>AI, with structure.</h2>
+    <div class="tool-label">Spec Kit + Claude</div>
+    <div class="visual-row visual-flow">
+      <div class="visual-box"><strong>Specify</strong></div>
+      <span class="visual-arrow" aria-hidden="true">→</span>
+      <div class="visual-box"><strong>Plan</strong></div>
+      <span class="visual-arrow" aria-hidden="true">→</span>
+      <div class="visual-box"><strong>Tasks</strong></div>
+      <span class="visual-arrow" aria-hidden="true">→</span>
+      <div class="visual-box"><strong>Implement</strong></div>
+    </div>
+    <div class="tool-tradeoffs">
+      <div class="tool-benefits">
+        <span class="visual-tag">Speed / Quality</span>
+        <span class="visual-tag">Interactive reviews</span>
+        <span class="visual-tag">ADRs + Documentation</span>
+      </div>
+      <div class="tool-friction">
+        <span class="visual-tag">Reports for humans</span>
+        <span class="visual-tag">Overlapping specs</span>
+        <span class="visual-tag">Maybe too many docs</span>
+      </div>
     </div>
   </section>
 
-  <!-- 13 · Experiments and cross-validation -->
-  <section class="slide">
-    <div class="slide-kicker">4 · Reference implementation</div>
-    <h2>Experiments and cross-validation</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Two independent instruments: mathematical model and prototype</li>
-          <li>38 of 40 downtime predictions inside their 95 % interval</li>
-      </ul>
+  <!-- Visual alternative: analysis and execution check one another.
+       Speaker: Modular selection, acceptance and forwarding strategies let
+       us compare five models and combine gating, caps and downtime.
+       Predictions and measurements were compared; discrepancies prompted
+       investigation, including the simulator's global arrival-order bug.
+       Rare-event guarantees still depend on analytical extrapolation. -->
+  <section class="slide visual-slide comparison-slide">
+    <div class="slide-kicker">4 · Reference implementation · Visual draft</div>
+    <h2>Predict. Execute. Compare.</h2>
+    <div class="visual-row visual-flow">
+      <div class="visual-box">
+        <strong>Mathematics</strong>
+        <small>Predictions</small>
+      </div>
+      <span class="visual-arrow" aria-label="Checks in both directions">⇄</span>
+      <div class="visual-box">
+        <strong>Protocol execution</strong>
+        <small>Measurements</small>
+      </div>
+    </div>
+    <div class="visual-tags">
+      <span class="visual-tag">Parameter balance</span>
+      <span class="visual-tag">Isolation limits</span>
+      <span class="visual-tag">Model trade-offs</span>
     </div>
   </section>
 
