@@ -726,7 +726,7 @@
         </svg>
       </div>
     </div>
-    <div class="outcome-footer">CIP-0201 + CPS-0038 · Submitted 16 Sep · Confirmed by the editors 29 Sep · Proposed, in review</div>
+    <div class="outcome-footer">CIP-0201 + CPS-0038 · Proposed, in review</div>
   </section>
 
   <!-- 4 · What we were given -->
@@ -742,7 +742,7 @@
           <rect x="0" y="20" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="12" y="44" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">AUEB D1 + D2</text><text x="12" y="65" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">three-layer overlay +</text><text x="12" y="81" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">storage + topic registry</text>
           <rect x="0" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="12" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text><text x="12" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">ICDCS 2023</text><text x="12" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">the peer-sampling layer</text>
           <rect x="370" y="20" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="44" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Product docs</text><text x="382" y="65" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">five use cases</text><text x="382" y="81" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">with requirements</text>
-          <rect x="370" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Spyros Voulgaris</text><text x="382" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon co-author</text><text x="382" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">in our sessions from 30 Apr</text>
+          <rect x="370" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Spyros Voulgaris</text><text x="382" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon co-author</text><text x="382" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">in our sessions</text>
           <g font-size="11" font-weight="600" letter-spacing="1.5" text-anchor="middle">
             <rect x="185" y="20" width="150" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
             <text x="260" y="60" fill="var(--text-mute)">DISSEMINATION</text>
@@ -756,7 +756,7 @@
           <text x="260" y="308" text-anchor="middle" font-size="9" letter-spacing="1" fill="var(--text-faint)">SECURITY INHERITED UPWARD</text>
         </svg>
     </div>
-    <p class="viz-note wide">The March review reduced the five use cases to one primitive: identifiable parties send verifiable events to subscribers. On 28 Apr we scoped to one-way broadcasts.</p>
+    <p class="viz-note wide">The March review reduced the five use cases to one primitive: identifiable parties send verifiable events to subscribers. In April we scoped to one-way broadcasts.</p>
   </section>
 
   <!-- 5 · Reviewing the proposed architecture -->
@@ -767,7 +767,7 @@
         <h2>Reviewing the proposed architecture</h2>
         <p class="viz-lede">The March technical review and the AUEB gap analysis found critical requirements the architecture did not address.</p>
         <p class="viz-callout">The threat is silencing, not forgery.</p>
-        <p class="viz-note">30 Apr, with Spyros: SecureCyclon gives non-bias (X % malicious nodes yield X % malicious links), which does not stop silencing; he agreed the design did not address it. Gap analysis S-02 (topology is not delivery) and S-04 (no Sybil resistance for gossip participants) say the same. On 5 May we stopped generating ideas and turned to SecureCyclon.</p>
+        <p class="viz-note">With Spyros: SecureCyclon gives non-bias (X % malicious nodes yield X % malicious links), which does not stop silencing; he agreed the design did not address it. Gap analysis S-02 (topology is not delivery) and S-04 (no Sybil resistance for gossip participants) say the same. So we stopped generating ideas and turned to SecureCyclon.</p>
       </div>
       <div class="viz-visual">
         <svg viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three missing pieces: a security model, anti-spam protection and incentives; an arrow leads to testing the riskiest assumption first, SecureCyclon">
@@ -800,7 +800,7 @@
             <path d="M213,228 L220,238 L227,228"/>
           </g>
           <rect x="40" y="250" width="360" height="96" rx="8" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
-          <text x="220" y="280" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">5 MAY</text>
+          <text x="220" y="280" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">NEXT</text>
           <text x="220" y="306" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Test the riskiest assumption first:</text>
           <text x="220" y="328" text-anchor="middle" font-size="13" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text>
         </svg>
@@ -816,7 +816,7 @@
         <h2>SecureCyclon findings</h2>
         <p class="viz-lede">A silent adversary forges nothing and breaks no rule. It only chooses whom it contacts and what it withholds, and against a targeted victim that is enough.</p>
         <p class="viz-callout">No detection fired, in any run.</p>
-        <p class="viz-note">Team simulation of the full protocol, 28 Jun: N = 200, view size 20, 3 seeds, three silent attack combinations (bars span them). Holds for the tested configurations, not every sampler. Earlier, with Spyros Voulgaris (28 May): 15 % malicious nodes reach ~8.9× amplification.</p>
+        <p class="viz-note">Team simulation of the full protocol: N = 200, view size 20, 3 seeds, three silent attack combinations (bars span them). Holds for the tested configurations, not every sampler. Earlier, with Spyros Voulgaris: 15 % malicious nodes reach ~8.9× amplification.</p>
       </div>
       <div class="viz-visual">
         <svg viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Malicious share of the victim's view against the adversary's share of nodes: 10 to 18 percent at 5 percent adversaries, 26 to 35 at 10, 44 to 56 at 15, 72.5 to 80.3 at 20, and 98.6 to 99.3 at 30, far above the network-wide average">
@@ -844,9 +844,9 @@
   <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
     <h2>A deposit implies a list, and a list replaces sampling</h2>
-    <p class="viz-lede wide">Sybil resistance needs a cost per identity. A deposit implies an on-chain list, and once every node is known, a sampling layer adds attack surface without adding security (25 Jun). A known list invites targeted flooding, hence the verifiable gate (8 May, 25 Jun).</p>
+    <p class="viz-lede wide">Sybil resistance needs a cost per identity. A deposit implies an on-chain list, and once every node is known, a sampling layer adds attack surface without adding security. A known list invites targeted flooding, hence the verifiable gate.</p>
     <div class="viz-visual viz-wide">
-      <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from 8 May to 7 July 2026">
+      <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from May to July 2026">
         <g font-size="10.5" font-weight="600" letter-spacing="1.5" text-anchor="middle">
           <text x="120" y="16" font-size="9.5" fill="var(--text-faint)">GIVEN</text>
           <g opacity="0.55">
@@ -871,7 +871,18 @@
         </g>
         <line x1="30" y1="300" x2="490" y2="300" stroke="var(--line-strong)" stroke-width="1.5"/>
         <text x="30" y="250" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">2026</text>
-        <circle cx="50" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="50" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">8 May</text><text x="50" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">bucketed</text><text x="50" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">hash gating</text><circle cx="134" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="134" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">19 May</text><text x="134" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">list-based</text><text x="134" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">design</text><circle cx="218" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/><text x="218" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--iog-infared)">25 Jun</text><text x="218" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">on-chain registry,</text><text x="218" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">rejection sampling</text><circle cx="302" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="302" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">28 Jun</text><text x="302" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">silent-attack</text><text x="302" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">report</text><circle cx="386" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="386" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">30 Jun</text><text x="386" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">phase 2:</text><text x="386" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">experiments</text><circle cx="470" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/><text x="470" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--iog-infared)">7 Jul</text><text x="470" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text><text x="470" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">retired</text>
+        <circle cx="90" cy="300" r="5" fill="var(--card-fill)" stroke="var(--text-mute)" stroke-width="1.6"/>
+        <text x="90" y="284" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-mute)">May</text>
+        <text x="90" y="322" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">list-based design,</text>
+        <text x="90" y="336" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">bucketed gating</text>
+        <circle cx="260" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/>
+        <text x="260" y="284" text-anchor="middle" font-size="11" font-weight="600" fill="var(--iog-infared)">June</text>
+        <text x="260" y="322" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">on-chain registry,</text>
+        <text x="260" y="336" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">silent-attack report</text>
+        <circle cx="430" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/>
+        <text x="430" y="284" text-anchor="middle" font-size="11" font-weight="600" fill="var(--iog-infared)">July</text>
+        <text x="430" y="322" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text>
+        <text x="430" y="336" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">retired</text>
       </svg>
     </div>
   </section>
@@ -1045,7 +1056,7 @@
       <div>
         <h2>Evidence moved us from M3 to M4</h2>
         <p class="viz-lede">One symmetric link per pair: one eligibility draw, either end can supply an honest connection, one link kind for publishing and relaying.</p>
-        <p class="viz-callout">M3 was our base in July. Weighting security first (13 Aug), M4 won on five of six rows; M3 keeps the bandwidth edge. Selected 20 Aug.</p>
+        <p class="viz-callout">M3 was our base in July. Once we weighted security first, M4 won on five of six rows; M3 keeps the bandwidth edge. Selected in August.</p>
         <a class="try-chip" href="../experiments/compare-designs/" target="_blank" rel="noopener">Try it: compare designs ↗</a>
         <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
       </div>
@@ -1070,32 +1081,32 @@
     <div class="why-grid">
       <div class="why-head"><span>What we found</span><span></span><span>What CIP-0201 does about it</span></div>
         <div class="why-row">
-          <div class="why-finding"><span class="why-date">30 Apr</span>The threat is silencing, not forgery</div>
+          <div class="why-finding">The threat is silencing, not forgery</div>
           <div class="why-arrow" aria-hidden="true">→</div>
           <div class="why-mech">Signed messages settle forgery; one bar for the rest: every honest publisher reaches every honest subscriber</div>
         </div>
         <div class="why-row">
-          <div class="why-finding"><span class="why-date">S-04 · 23 Jun</span>Identities must cost something</div>
+          <div class="why-finding">Identities must cost something</div>
           <div class="why-arrow" aria-hidden="true">→</div>
           <div class="why-mech">Refundable deposit and an on-chain node registry</div>
         </div>
         <div class="why-row">
-          <div class="why-finding"><span class="why-date">25 and 28 Jun</span>A full list makes peer sampling unnecessary, and SecureCyclon's silent eclipse avoidable</div>
+          <div class="why-finding">A full list makes peer sampling unnecessary, and SecureCyclon's silent eclipse avoidable</div>
           <div class="why-arrow" aria-hidden="true">→</div>
           <div class="why-mech">Nodes select locally from the registry</div>
         </div>
         <div class="why-row">
-          <div class="why-finding"><span class="why-date">8 May · 25 Jun</span>A known list invites targeted flooding</div>
+          <div class="why-finding">A known list invites targeted flooding</div>
           <div class="why-arrow" aria-hidden="true">→</div>
           <div class="why-mech">A verifiable gate from epoch randomness, plus an admissions budget (ADR 0042)</div>
         </div>
         <div class="why-row">
-          <div class="why-finding"><span class="why-date">11–20 Aug</span>One link serving both directions needs the fewest picks and leaves the most margin</div>
+          <div class="why-finding">One link serving both directions needs the fewest picks and leaves the most margin</div>
           <div class="why-arrow" aria-hidden="true">→</div>
-          <div class="why-mech">The symmetric relay link, gated on the identity-sorted pair (13 Aug)</div>
+          <div class="why-mech">The symmetric relay link, gated on the identity-sorted pair</div>
         </div>
         <div class="why-row">
-          <div class="why-finding"><span class="why-date">13 Aug</span>A bad draw must not last</div>
+          <div class="why-finding">A bad draw must not last</div>
           <div class="why-arrow" aria-hidden="true">→</div>
           <div class="why-mech">Epoch rotation and recovery caches</div>
         </div>
@@ -1147,9 +1158,9 @@
     <div class="slide-kicker">6 · How we worked</div>
     <h2>Lessons learned</h2>
     <div class="lesson-band-label">What worked</div>
-    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>Logbook and ADRs: Mauro joined on 6 Aug and corrected M4's eclipse-cost figure by 11 Aug.</p></div><div class="lesson-card"><h3>Two instruments, checking each other</h3><p>Hand-derived laws against a simulator running the real node code (2 Jul, 13 Aug).</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Framed as a technical report with its gaps visible (11 Aug).</p></div></div>
+    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>Logbook and ADRs: Mauro joined in August and corrected M4's eclipse-cost figure within a week.</p></div><div class="lesson-card"><h3>Two instruments, checking each other</h3><p>Hand-derived laws against a simulator running the real node code.</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Framed as a technical report with its gaps visible.</p></div></div>
     <div class="lesson-band-label">What we'd do differently</div>
-    <div class="lesson-band four"><div class="lesson-card alt"><h3>Question the foundation sooner</h3><p>“Is full gossip overkill at SPO scale?” was in the 14 Apr notes; peer sampling went on 25 Jun, once the on-chain list, a prototype shortcut, proved to be the design.</p><span class="lesson-trail">14 Apr → 25 Jun</span></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 became the base from comparisons without gate or cap; with them, M4 won.</p><span class="lesson-trail">7, 15 Jul → 20 Aug</span></div><div class="lesson-card alt"><h3>Size for the real audience earlier</h3><p>We sized at N = 20,000; chain data showed ~2,700 pools ever registered, ~900 holding 99 % of stake, and wallet topics may hold tens.</p><span class="lesson-trail">28 Apr → 1 Sep</span></div><div class="lesson-card alt"><h3>Treat chain failure as a requirement</h3><p>Alerts matter most when the chain is degraded; behaviour through a halt or fork is still unspecified.</p><span class="lesson-trail">2 Jul → 13 Aug → open</span></div></div>
+    <div class="lesson-band four"><div class="lesson-card alt"><h3>Question the foundation sooner</h3><p>“Is full gossip overkill at SPO scale?” was in our April notes; peer sampling went in June, once the on-chain list, a prototype shortcut, proved to be the design.</p><span class="lesson-trail">Apr → Jun</span></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 became the base from comparisons without gate or cap; with them, M4 won.</p><span class="lesson-trail">Jul → Aug</span></div><div class="lesson-card alt"><h3>Size for the real audience earlier</h3><p>We sized at N = 20,000; chain data showed ~2,700 pools ever registered, ~900 holding 99 % of stake, and wallet topics may hold tens.</p><span class="lesson-trail">Apr → Sep</span></div><div class="lesson-card alt"><h3>Treat chain failure as a requirement</h3><p>Alerts matter most when the chain is degraded; behaviour through a halt or fork is still unspecified.</p><span class="lesson-trail">Jul → open</span></div></div>
   </section>
 
   <!-- 18 · Thank you -->
