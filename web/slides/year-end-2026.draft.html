@@ -185,6 +185,16 @@
   .title-team-wide .title-team-row { grid-template-columns: repeat(4, max-content); gap: 1em 1.5em; }
   .title-team-wide .title-team-member img { width: 34px; height: 34px; }
   .title-slide .hero-visual { align-self: start; margin-top: 4vh; }
+  /* Outcome slide */
+  .outcome-slide h2 { font-size: 2.1em; max-width: 24ch; }
+  .outcome-steps { list-style: none; display: grid; gap: 0.5em; margin-top: 0.9em; max-width: 54ch; }
+  .outcome-steps li { display: grid; grid-template-columns: 1.7em minmax(0, 1fr); gap: 0.6em; align-items: baseline; font-size: 0.92em; line-height: 1.4; color: var(--text-mute); }
+  .outcome-steps li strong { color: var(--text); font-weight: 600; }
+  .outcome-steps .step-n { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); }
+  .outcome-guarantee { margin-top: 1em; max-width: 54ch; font-size: 0.9em; line-height: 1.5; color: var(--text); border-left: 4px solid var(--iog-infared); padding: 0.3em 0 0.3em 0.9em; }
+  .outcome-visual { justify-self: center; width: 100%; }
+  .outcome-visual svg { width: 100%; max-width: 520px; max-height: 66vh; height: auto; display: block; margin: 0 auto; }
+  .outcome-footer { margin-top: 1em; font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
   .hero-visual { justify-self: center; }
   .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
 
@@ -390,7 +400,7 @@
       gap: 2.2em;
     }
     .model-visual { overflow-x: auto; }
-    .hero-visual, .actor-graph, .timeline-visual { justify-self: center; width: 100%; }
+    .hero-visual, .actor-graph, .timeline-visual, .outcome-visual { justify-self: center; width: 100%; }
     .hero-visual svg, .actor-graph svg, .timeline-visual svg {
       width: min(100%, 460px);
       max-height: none;
@@ -640,34 +650,117 @@
     <div class="slide-kicker">Agenda</div>
     <h2>Today</h2>
     <ol class="agenda">
-      <li><span class="agenda-title">Starting point</span><span class="agenda-subs">What we delivered · what we were given</span></li>
-      <li><span class="agenda-title">Research and reframe</span><span class="agenda-subs">Review of the proposed architecture · SecureCyclon findings · deriving the design from evidence</span></li>
-      <li><span class="agenda-title">Formalization</span><span class="agenda-subs">Formalizing the problem · five candidate models and their laws</span></li>
-      <li><span class="agenda-title">Reference implementation</span><span class="agenda-subs">Rust node and simulation framework · AI tooling · experiments and cross-validation</span></li>
-      <li><span class="agenda-title">CIP and open questions</span><span class="agenda-subs">Evidence moved us to M4 · the CIP and CPS · gaps and open questions</span></li>
+      <li><span class="agenda-title">The outcome</span><span class="agenda-subs">What CIP-0201 does and what it guarantees</span></li>
+      <li><span class="agenda-title">How we got there: replace the foundation</span><span class="agenda-subs">What we were given · reviewing the architecture · SecureCyclon findings · the on-chain registry</span></li>
+      <li><span class="agenda-title">How we got there: make it measurable</span><span class="agenda-subs">Formalizing the problem · five models and their laws · one core, two ways to run it · AI with structure · predict, execute, compare</span></li>
+      <li><span class="agenda-title">How we got there: let the evidence choose</span><span class="agenda-subs">Choosing M4</span></li>
+      <li><span class="agenda-title">What's open</span><span class="agenda-subs">Where review stands · gaps and next steps</span></li>
       <li><span class="agenda-title">How we worked</span><span class="agenda-subs">Lessons learned</span></li>
     </ol>
   </section>
 
-  <!-- 3 · What we delivered -->
-  <section class="slide">
-    <div class="slide-kicker">1 · Starting point</div>
-    <h2>What we delivered</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <p class="slide-message">We tested the foundation we were given, rebuilt the design from evidence, and proposed it as CIP-0201 with CPS-0038.</p>
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Submitted 16 Sep 2026; confirmed by the CIP editors as CPS-0038 and CIP-0201 on 29 Sep; status Proposed, review under way</li>
-          <li>The through-line: evidence changed our minds three times. We set SecureCyclon aside, moved from M3 to M4, and re-scoped the CIP</li>
-          <li>Credit to the wider group</li>
-      </ul>
+  <!-- 3 · The outcome -->
+  <section class="slide outcome-slide">
+    <div class="slide-kicker">1 · The outcome · CIP-0201</div>
+    <div class="split-row">
+      <div>
+        <h2>Trustworthy pub/sub, anchored on Cardano</h2>
+        <div><span class="speaker-tag">Speaker: William Wolff</span></div>
+        <ul class="outcome-steps">
+          <li><span class="step-n">1</span><span><strong>Registered nodes.</strong> Keys on chain, each with a refundable deposit.</span></li>
+          <li><span class="step-n">2</span><span><strong>A verifiable gate.</strong> Public randomness fixes which pairs may connect; each node picks privately from that set.</span></li>
+          <li><span class="step-n">3</span><span><strong>Symmetric links.</strong> One link per pair, both directions: either end can supply an honest path.</span></li>
+          <li><span class="step-n">4</span><span><strong>Signed messages.</strong> Every subscriber verifies, relays and caches for recovery.</span></li>
+        </ul>
+        <p class="outcome-guarantee">At 20,000 nodes, 20 % silent, the models predict some honest publisher is cut off in about 1 of 200,000 epochs (p<sub>bad</sub> 5.1 × 10<sup>−6</sup>), redrawn every epoch. Predicted, not measured.</p>
+      </div>
+      <div class="outcome-visual" aria-hidden="false">
+        <svg viewBox="0 0 460 420" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Registered nodes on a topic, linked by symmetric links that a public gate permits, carrying a signed message from a publisher">
+          <!-- beacon and gate -->
+          <g font-size="9.5" letter-spacing="1.5" fill="var(--text-faint)" font-weight="600">
+            <text x="230" y="14" text-anchor="middle">EPOCH RANDOMNESS → GATE → ELIGIBLE PAIRS</text>
+          </g>
+          <!-- eligible, not picked -->
+          <g stroke="var(--line-strong)" stroke-width="1.2" stroke-dasharray="3 4" fill="none">
+            <line x1="90" y1="95" x2="330" y2="95"/>
+            <line x1="210" y1="62" x2="400" y2="185"/>
+            <line x1="45" y1="185" x2="330" y2="275"/>
+            <line x1="90" y1="275" x2="330" y2="95"/>
+            <line x1="210" y1="62" x2="210" y2="305"/>
+          </g>
+          <!-- selected symmetric links -->
+          <g stroke="var(--text-faint)" stroke-width="1.8" fill="none" stroke-linecap="round">
+            <line x1="90" y1="95" x2="210" y2="62"/>
+            <line x1="90" y1="95" x2="45" y2="185"/>
+            <line x1="90" y1="95" x2="210" y2="185"/>
+            <line x1="210" y1="62" x2="330" y2="95"/>
+            <line x1="330" y1="95" x2="400" y2="185"/>
+            <line x1="400" y1="185" x2="330" y2="275"/>
+            <line x1="330" y1="275" x2="210" y2="305"/>
+            <line x1="210" y1="305" x2="90" y2="275"/>
+            <line x1="90" y1="275" x2="45" y2="185"/>
+            <line x1="45" y1="185" x2="210" y2="185"/>
+            <line x1="210" y1="185" x2="330" y2="275"/>
+            <line x1="210" y1="185" x2="330" y2="95"/>
+          </g>
+          <!-- message path from the publisher -->
+          <g stroke="var(--iog-infared)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-opacity="0.85">
+            <line x1="90" y1="95" x2="210" y2="62"/>
+            <line x1="90" y1="95" x2="45" y2="185"/>
+            <line x1="90" y1="95" x2="210" y2="185"/>
+            <line x1="210" y1="185" x2="330" y2="275"/>
+            <line x1="45" y1="185" x2="90" y2="275"/>
+            <line x1="330" y1="275" x2="210" y2="305"/>
+            <line x1="330" y1="275" x2="400" y2="185"/>
+          </g>
+          <!-- signed message in flight -->
+          <g transform="translate(138,68)">
+            <rect x="0" y="0" width="30" height="20" rx="3" fill="var(--bg)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+            <path d="M1,1 L15,11 L29,1" fill="none" stroke="var(--iog-infared)" stroke-width="1.3"/>
+            <circle cx="27" cy="18" r="5" fill="var(--iog-infared)"/>
+          </g>
+          <!-- nodes -->
+          <g stroke-width="1.6">
+            <circle cx="90" cy="95" r="15" fill="var(--bad-soft)" stroke="var(--iog-infared)"/>
+            <circle cx="210" cy="62" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="330" cy="95" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-dasharray="3 2"/>
+            <circle cx="400" cy="185" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="330" cy="275" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="210" cy="305" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="90" cy="275" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="45" cy="185" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="210" cy="185" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
+          </g>
+          <g font-size="9.5" letter-spacing="1" fill="var(--text-mute)">
+            <text x="90" y="134" text-anchor="middle">PUBLISHER</text>
+            <text x="330" y="74" text-anchor="middle">SILENT</text>
+          </g>
+          <!-- registry -->
+          <g stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="2 3">
+            <line x1="90" y1="286" x2="90" y2="348"/>
+            <line x1="210" y1="316" x2="210" y2="348"/>
+            <line x1="330" y1="286" x2="330" y2="348"/>
+          </g>
+          <rect x="20" y="348" width="420" height="30" rx="8" fill="var(--bg-soft)" stroke="var(--line-strong)"/>
+          <text x="230" y="367" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-mute)">ON-CHAIN REGISTRY · NODE KEYS · DEPOSITS · TOPICS</text>
+          <!-- legend -->
+          <g font-size="9" letter-spacing="0.5" fill="var(--text-faint)">
+            <line x1="22" y1="404" x2="44" y2="404" stroke="var(--text-faint)" stroke-width="1.8"/>
+            <text x="50" y="407">PICKED LINK, BOTH WAYS</text>
+            <line x1="200" y1="404" x2="222" y2="404" stroke="var(--line-strong)" stroke-width="1.2" stroke-dasharray="3 4"/>
+            <text x="228" y="407">ELIGIBLE, NOT PICKED</text>
+            <line x1="360" y1="404" x2="382" y2="404" stroke="var(--iog-infared)" stroke-width="2.4"/>
+            <text x="388" y="407">SIGNED MSG</text>
+          </g>
+        </svg>
+      </div>
     </div>
+    <div class="outcome-footer">CIP-0201 + CPS-0038 · Submitted 16 Sep · Confirmed by the editors 29 Sep · Proposed, in review</div>
   </section>
 
   <!-- 4 · What we were given -->
   <section class="slide">
-    <div class="slide-kicker">1 · Starting point</div>
+    <div class="slide-kicker">2 · Replace the foundation</div>
     <h2>What we were given</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
@@ -684,7 +777,7 @@
 
   <!-- 5 · Reviewing the proposed architecture -->
   <section class="slide">
-    <div class="slide-kicker">2 · Research and reframe</div>
+    <div class="slide-kicker">2 · Replace the foundation</div>
     <h2>Reviewing the proposed architecture</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
@@ -700,7 +793,7 @@
 
   <!-- 6 · SecureCyclon findings -->
   <section class="slide">
-    <div class="slide-kicker">2 · Research and reframe</div>
+    <div class="slide-kicker">2 · Replace the foundation</div>
     <h2>SecureCyclon findings</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
@@ -717,7 +810,7 @@
 
   <!-- 7 · Deriving the design from evidence -->
   <section class="slide">
-    <div class="slide-kicker">2 · Research and reframe</div>
+    <div class="slide-kicker">2 · Replace the foundation</div>
     <h2>Deriving the design from evidence</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
@@ -736,7 +829,7 @@
   <!-- Sources: formal_spec/hybrid_dissemination/models/README.md;
        docs/cip/design-comparison.md (What is measured; independent downtime). -->
   <section class="slide formal-problem">
-    <div class="slide-kicker">3 · Formalization</div>
+    <div class="slide-kicker">3 · Make it measurable</div>
     <h2>Formalizing the problem</h2>
     <div><span class="speaker-tag">Speaker: Mauro Jaskelioff</span></div>
     <ul class="points">
@@ -757,7 +850,7 @@
        Notation here: k = relay picks (F or RF in the analyses), t = s−1 seed picks;
        a and b = M5's k_in and k_out.  These are the ungated leading approximations. -->
   <section class="slide dense formal-models">
-    <div class="slide-kicker">3 · Formalization</div>
+    <div class="slide-kicker">3 · Make it measurable</div>
     <h2>Five candidate models and their laws</h2>
     <div><span class="speaker-tag">Speaker: Mauro Jaskelioff</span></div>
     <p class="formal-law"><var>p</var><sub>bad</sub> ≈ 1 − e<sup>−<var>E</var></sup>,
@@ -806,7 +899,7 @@
        the same pure transitions; the simulator does not exercise the async
        runtime or real transport. The software is a foundation for future work. -->
   <section class="slide visual-slide">
-    <div class="slide-kicker">4 · Reference implementation · Visual draft</div>
+    <div class="slide-kicker">3 · Make it measurable · Visual draft</div>
     <h2>One core. Two ways to run it.</h2>
     <div class="visual-stack">
       <div class="visual-box visual-core">
@@ -843,7 +936,7 @@
        Experiment design and analysis benefited too; reports needed careful
        human editing. Avoid presenting speed or quality gains as measured. -->
   <section class="slide visual-slide">
-    <div class="slide-kicker">4 · Reference implementation · Visual draft</div>
+    <div class="slide-kicker">3 · Make it measurable · Visual draft</div>
     <h2>AI, with structure.</h2>
     <div class="tool-label">Spec Kit + Claude</div>
     <div class="visual-row visual-flow">
@@ -876,7 +969,7 @@
        investigation, including the simulator's global arrival-order bug.
        Rare-event guarantees still depend on analytical extrapolation. -->
   <section class="slide visual-slide comparison-slide">
-    <div class="slide-kicker">4 · Reference implementation · Visual draft</div>
+    <div class="slide-kicker">3 · Make it measurable · Visual draft</div>
     <h2>Predict. Execute. Compare.</h2>
     <div class="visual-row visual-flow">
       <div class="visual-box">
@@ -898,7 +991,7 @@
 
   <!-- 13 · Choosing M4 -->
   <section class="slide">
-    <div class="slide-kicker">5 · CIP and open questions</div>
+    <div class="slide-kicker">4 · Let the evidence choose</div>
     <h2>Choosing M4</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
@@ -914,25 +1007,26 @@
     </div>
   </section>
 
-  <!-- 14 · The CIP and CPS -->
+  <!-- 14 · Where review stands -->
   <section class="slide">
-    <div class="slide-kicker">5 · CIP and open questions</div>
-    <h2>The CIP and CPS</h2>
+    <div class="slide-kicker">5 · What's open</div>
+    <h2>Where review stands</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">Proposed and in review, with the evidence and its limits side by side.</p>
+      <p class="slide-message">Confirmed by the editors and in public review; the hardest questions are about economics and value.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
-          <li>CIP-0201: epochs, topology, verifiable gate, links, signed messages, recovery caches, registries, parameters</li>
-          <li>CPS-0038: the gap, four use cases, six ranked goals, seven open questions</li>
-          <li>Early reviewer questions: what deposit makes μ = 0.2 implausible (we can state the outlay, 4,000 simultaneous deposits at N = 20,000, not yet the threshold), and what this adds over existing publish-only channels</li>
+          <li>CPS-0038 and CIP-0201 confirmed on 29 Sep (Category: Network); status Proposed</li>
+          <li>Reviewers ask what deposit makes μ = 0.2 implausible: we can state the outlay (4,000 simultaneous deposits at N = 20,000), not yet the threshold</li>
+          <li>And what this adds over the publish-only channels operators already run</li>
+          <li>Feedback invited on the relationship to CIP-0137 and on the deployment parameter profile</li>
       </ul>
     </div>
   </section>
 
   <!-- 15 · Gaps and open questions -->
   <section class="slide">
-    <div class="slide-kicker">5 · CIP and open questions</div>
+    <div class="slide-kicker">5 · What's open</div>
     <h2>Gaps and open questions</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
