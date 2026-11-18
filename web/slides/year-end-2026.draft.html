@@ -195,7 +195,32 @@
   .viz-visual { justify-self: center; width: 100%; }
   .viz-visual svg { width: 100%; max-width: 560px; max-height: 66vh; height: auto; display: block; margin: 0 auto; }
   .viz-visual.viz-wide { margin-top: 1.2em; }
-  .viz-visual.viz-wide svg { max-width: 860px; max-height: 58vh; }
+  .viz-visual.viz-wide svg { max-width: 860px; max-height: 52vh; }
+  .viz-note.wide { max-width: 80ch; }
+  .try-chip {
+    display: inline-block; margin-top: 1em; font-family: var(--font-mono); font-size: 0.66em; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--iog-infared); text-decoration: none;
+    border: 1px solid var(--iog-infared); border-radius: 99px; padding: 4px 12px;
+  }
+  .viz-lede .try-chip { margin-left: 0.6em; margin-top: 0; vertical-align: middle; }
+  .try-chip:hover { background: var(--bad-soft); }
+  .why-grid { display: grid; gap: 0.4em; margin-top: 0.9em; max-width: 1100px; }
+  .why-head, .why-row { display: grid; grid-template-columns: minmax(0, 1fr) 2em minmax(0, 1fr); align-items: center; gap: 0.6em; }
+  .why-head span { font-family: var(--font-mono); font-size: 0.64em; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); }
+  .why-finding, .why-mech { border: 1px solid var(--card-stroke-faint); border-radius: 8px; background: var(--card-fill); padding: 0.45em 0.9em; font-size: 0.82em; line-height: 1.35; }
+  .why-finding { color: var(--text); font-weight: 600; }
+  .why-mech { color: var(--text-mute); border-left: 3px solid var(--iog-infared); }
+  .why-date { display: block; font-family: var(--font-mono); font-size: 0.72em; font-weight: 600; letter-spacing: 0.08em; color: var(--iog-infared); margin-bottom: 0.15em; }
+  .why-arrow { text-align: center; color: var(--iog-infared); font-weight: 600; }
+  .lesson-band-label { font-family: var(--font-mono); font-size: 0.66em; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--iog-infared); margin: 1.1em 0 0.6em; }
+  .lesson-band { display: grid; gap: 0.8em; }
+  .lesson-band.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lesson-band.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lesson-card { border: 1px solid var(--card-stroke-faint); border-radius: 8px; background: var(--card-fill); padding: 0.8em 1em; }
+  .lesson-card h3 { font-family: var(--font-display); font-size: 0.95em; font-weight: 600; margin-bottom: 0.35em; }
+  .lesson-card p { font-size: 0.78em; line-height: 1.45; color: var(--text-mute); }
+  .lesson-card.alt { border-top: 3px solid var(--warn); }
+  .lesson-trail { display: block; margin-top: 0.5em; font-family: var(--font-mono); font-size: 0.62em; font-weight: 600; letter-spacing: 0.06em; color: var(--text-faint); }
   /* Outcome slide */
   .outcome-slide h2 { font-size: 2.1em; max-width: 24ch; }
   .outcome-steps { list-style: none; display: grid; gap: 0.5em; margin-top: 0.9em; max-width: 54ch; }
@@ -402,6 +427,9 @@
     .title-team-row, .title-team-wide .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
     .title-slide .hero-visual { align-self: center; margin-top: 0; }
 
+    .why-head, .why-row { grid-template-columns: minmax(0, 1fr); }
+    .why-arrow { display: none; }
+    .lesson-band.three, .lesson-band.four { grid-template-columns: minmax(0, 1fr); }
     .split-row,
     .split-row.timeline-row,
     .split-row.method-row,
@@ -652,7 +680,7 @@
       <li><span class="agenda-title">The outcome</span><span class="agenda-subs">What CIP-0201 does and what it guarantees</span></li>
       <li><span class="agenda-title">How we got there: replace the foundation</span><span class="agenda-subs">What we were given · reviewing the architecture · SecureCyclon findings · the on-chain registry</span></li>
       <li><span class="agenda-title">How we got there: make it measurable</span><span class="agenda-subs">Formalizing the problem · five models and their laws · one core, two ways to run it · AI with structure · predict, execute, compare</span></li>
-      <li><span class="agenda-title">How we got there: let the evidence choose</span><span class="agenda-subs">Choosing M4</span></li>
+      <li><span class="agenda-title">How we got there: let the evidence choose</span><span class="agenda-subs">Choosing M4 · why it looks like this</span></li>
       <li><span class="agenda-title">What's open</span><span class="agenda-subs">Where review stands · gaps and open questions</span></li>
       <li><span class="agenda-title">How we worked</span><span class="agenda-subs">Lessons learned</span></li>
     </ol>
@@ -759,42 +787,31 @@
   <!-- 4 · What we were given -->
   <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
-    <div class="split-row">
-      <div>
-        <h2>What we were given</h2>
-        <p class="viz-lede">AUEB's three-layer architecture (D1/D2), with <strong>SecureCyclon</strong> (ICDCS 2023) as the peer-sampling layer. Every guarantee above it was inherited from it.</p>
-        <p class="viz-note">28 Apr: we prioritised one-way broadcasts and deprioritised the bidirectional multi-sig branch.</p>
-      </div>
-      <div class="viz-visual">
-        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three stacked layers: dissemination, navigation, and peer sampling by SecureCyclon at the bottom, which the other two rest on; below, the four prioritised one-way use cases">
-          <g font-size="12" font-weight="600" letter-spacing="2" text-anchor="middle">
-            <rect x="60" y="20" width="320" height="58" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
-            <text x="220" y="54" fill="var(--text-mute)">DISSEMINATION</text>
-            <rect x="60" y="98" width="320" height="58" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
-            <text x="220" y="132" fill="var(--text-mute)">NAVIGATION</text>
-            <rect x="60" y="176" width="320" height="74" rx="8" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
-            <text x="220" y="207" fill="var(--iog-infared)">PEER SAMPLING</text>
-            <text x="220" y="230" font-size="11" font-weight="500" letter-spacing="1" fill="var(--text)">SecureCyclon</text>
+    <h2>What we were given</h2>
+    <p class="viz-lede wide">Four inputs, and one architecture whose guarantees all rested on its peer-sampling layer.</p>
+    <div class="viz-visual viz-wide">
+        <svg viewBox="0 0 520 330" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Four inputs around the three-layer stack: AUEB deliverables D1 and D2, SecureCyclon, the product documentation, and Spyros Voulgaris; SecureCyclon is the load-bearing bottom layer">
+          <g stroke="var(--card-stroke-soft)" stroke-width="1.2" stroke-dasharray="3 3" fill="none">
+            <path d="M150,62 L185,62"/><path d="M150,250 L185,222"/><path d="M370,62 L335,62"/><path d="M370,250 L335,222"/>
           </g>
-          <g stroke="var(--text-faint)" stroke-width="1.4" fill="none">
-            <path d="M400,236 L400,40"/><path d="M394,48 L400,40 L406,48"/>
+          <rect x="0" y="20" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="12" y="44" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">AUEB D1 + D2</text><text x="12" y="65" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">three-layer overlay, replication</text><text x="12" y="81" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">servers, on-chain topic registry</text>
+          <rect x="0" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="12" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text><text x="12" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">ICDCS 2023</text><text x="12" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">the peer-sampling layer</text>
+          <rect x="370" y="20" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="44" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Product docs</text><text x="382" y="65" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">five use cases</text><text x="382" y="81" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">with requirements</text>
+          <rect x="370" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Spyros Voulgaris</text><text x="382" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon co-author</text><text x="382" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">in our sessions from 30 Apr</text>
+          <g font-size="11" font-weight="600" letter-spacing="1.5" text-anchor="middle">
+            <rect x="185" y="20" width="150" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="260" y="60" fill="var(--text-mute)">DISSEMINATION</text>
+            <rect x="185" y="100" width="150" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="260" y="140" fill="var(--text-mute)">NAVIGATION</text>
+            <rect x="185" y="180" width="150" height="84" rx="8" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
+            <text x="260" y="214" fill="var(--iog-infared)">PEER SAMPLING</text>
+            <text x="260" y="236" font-size="10.5" font-weight="500" letter-spacing="0.5" fill="var(--text)">SecureCyclon</text>
           </g>
-          <text x="414" y="140" font-size="9" letter-spacing="1.5" fill="var(--text-faint)" transform="rotate(90 414 140)" text-anchor="middle">SECURITY INHERITED UPWARD</text>
-          <text x="220" y="272" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)">LOAD-BEARING ASSUMPTION</text>
-          <text x="220" y="316" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">PRIORITISED USE CASES · 28 APR</text>
-          <g font-size="10.5" text-anchor="middle" fill="var(--text)">
-            <rect x="30" y="330" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
-            <text x="122" y="347">IOG alerts → SPOs</text>
-            <rect x="225" y="330" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
-            <text x="317" y="347">SPOs → delegators</text>
-            <rect x="30" y="364" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
-            <text x="122" y="381">dReps → delegators</text>
-            <rect x="225" y="364" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
-            <text x="317" y="381">dApps → users</text>
-          </g>
+          <text x="260" y="290" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)">LOAD-BEARING ASSUMPTION</text>
+          <text x="260" y="308" text-anchor="middle" font-size="9" letter-spacing="1" fill="var(--text-faint)">SECURITY INHERITED UPWARD</text>
         </svg>
-      </div>
     </div>
+    <p class="viz-note wide">The March review reduced the five use cases to one primitive: identifiable parties send verifiable events to subscribers. On 28 Apr we scoped to one-way broadcasts.</p>
   </section>
 
   <!-- 5 · Reviewing the proposed architecture -->
@@ -804,7 +821,8 @@
       <div>
         <h2>Reviewing the proposed architecture</h2>
         <p class="viz-lede">The March technical review and the AUEB gap analysis found critical requirements the architecture did not address.</p>
-        <p class="viz-note">On 5 May we stopped generating ideas and started generating output. The whole stack rested on SecureCyclon, so analysing it came first.</p>
+        <p class="viz-callout">The threat is silencing, not forgery.</p>
+        <p class="viz-note">30 Apr, with Spyros: SecureCyclon gives non-bias (X % malicious nodes yield X % malicious links), which does not stop silencing; he agreed the design did not address it. Gap analysis S-02 (topology is not delivery) and S-04 (no Sybil resistance for gossip participants) say the same. On 5 May we stopped generating ideas and turned to SecureCyclon.</p>
       </div>
       <div class="viz-visual">
         <svg viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three missing pieces: a security model, anti-spam protection and incentives; an arrow leads to testing the riskiest assumption first, SecureCyclon">
@@ -880,8 +898,8 @@
   <!-- 7 · The on-chain registry -->
   <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
-    <h2>The on-chain registry</h2>
-    <p class="viz-lede wide">Deposits already imply an on-chain list of participants, so a separate sampling layer only added attack surface. We replaced it instead of patching it.</p>
+    <h2>A deposit implies a list, and a list replaces sampling</h2>
+    <p class="viz-lede wide">Sybil resistance needs a cost per identity. A deposit implies an on-chain list, and once every node is known, a sampling layer adds attack surface without adding security (25 Jun). A known list invites targeted flooding, hence the verifiable gate (8 May, 25 Jun).</p>
     <div class="viz-visual viz-wide">
       <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from 8 May to 7 July 2026">
         <g font-size="10.5" font-weight="600" letter-spacing="1.5" text-anchor="middle">
@@ -1083,6 +1101,7 @@
         <h2>Evidence moved us from M3 to M4</h2>
         <p class="viz-lede">One symmetric link per pair: one eligibility draw, either end can supply an honest connection, one link kind for publishing and relaying.</p>
         <p class="viz-callout">M3 was our base in July. Weighting security first (13 Aug), M4 won on five of six rows; M3 keeps the bandwidth edge. Selected 20 Aug.</p>
+        <a class="try-chip" href="../experiments/compare-designs/" target="_blank" rel="noopener">Try it: compare designs ↗</a>
         <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
       </div>
       <div class="viz-visual">
@@ -1099,7 +1118,46 @@
     </div>
   </section>
 
-  <!-- 14 · Where review stands -->
+  <!-- 14 · Why it looks like this -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">4 · How we got there</div>
+    <h2>Why it looks like this</h2>
+    <div class="why-grid">
+      <div class="why-head"><span>What we found</span><span></span><span>What CIP-0201 does about it</span></div>
+        <div class="why-row">
+          <div class="why-finding"><span class="why-date">30 Apr</span>The threat is silencing, not forgery</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Signed messages settle forgery; one bar for the rest: every honest publisher reaches every honest subscriber</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding"><span class="why-date">S-04 · 23 Jun</span>Identities must cost something</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Refundable deposit and an on-chain node registry</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding"><span class="why-date">25 and 28 Jun</span>A full list makes peer sampling unnecessary, and SecureCyclon's silent eclipse avoidable</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Nodes select locally from the registry</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding"><span class="why-date">8 May · 25 Jun</span>A known list invites targeted flooding</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">A verifiable gate from epoch randomness, plus an admissions budget (ADR 0042)</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding"><span class="why-date">11–20 Aug</span>One link serving both directions needs the fewest picks and leaves the most margin</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">The symmetric relay link, gated on the identity-sorted pair (13 Aug)</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding"><span class="why-date">13 Aug</span>A bad draw must not last</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Epoch rotation and recovery caches</div>
+        </div>
+    </div>
+  </section>
+
+  <!-- 15 · Where review stands -->
   <section class="slide viz-slide">
     <div class="slide-kicker">5 · What's open</div>
     <h2>Where review stands</h2>
@@ -1125,11 +1183,11 @@
     </div>
   </section>
 
-  <!-- 15 · Gaps and open questions -->
+  <!-- 16 · Gaps and open questions -->
   <section class="slide viz-slide">
     <div class="slide-kicker">5 · What's open</div>
     <h2>Gaps and open questions</h2>
-    <p class="viz-lede wide">What we have not shown is stated as plainly as what we have. Every open item is a Path to Active acceptance criterion in the CIP.</p>
+    <p class="viz-lede wide">What we have not shown is stated as plainly as what we have. Every open item is a Path to Active acceptance criterion in the CIP. <a class="try-chip" href="../experiments/parameters/" target="_blank" rel="noopener">Try it: parameter surface ↗</a></p>
     <div class="viz-visual viz-wide">
       <svg viewBox="0 0 524 300" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Board of established results and open items grouped as evidence, specification and deployment">
         <text x="0" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--good)">ESTABLISHED</text><rect x="0" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Laws match</text><text x="10" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">simulation (ungated)</text><rect x="0" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">M4 selected within</text><text x="10" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">the evaluated family</text><rect x="0" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Signed messages and</text><text x="10" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">registries specified</text><rect x="0" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Admission flooding</text><text x="10" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">bounded (measured)</text><text x="132" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--warn)">OPEN · EVIDENCE</text><rect x="132" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Tail probabilities</text><text x="142" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">extrapolated</text><rect x="132" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Rotation argued, not</text><text x="142" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">simulated</text><rect x="132" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Gated laws not</text><text x="142" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">formally derived</text><rect x="132" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Small topics: gate</text><text x="142" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">off up to 40 nodes</text><rect x="132" y="244" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="263" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Correlated failure</text><text x="142" y="277" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">out of scope</text><text x="264" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--warn)">OPEN · SPEC</text><rect x="264" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Gate, beacon,</text><text x="274" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">handshake, epochs</text><rect x="264" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Recovery and</text><text x="274" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">catch-up exchanges</text><rect x="264" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Behaviour through</text><text x="274" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">chain halt or fork</text><rect x="264" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Relationship to</text><text x="274" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">CIP-0137</text><text x="396" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--warn)">OPEN · DEPLOYMENT</text><rect x="396" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">μ and deposit</text><text x="406" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">economics</text><rect x="396" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Rerun profile B =</text><text x="406" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">512, k = 10, C = 24</text><rect x="396" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Two interoperating</text><text x="406" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">implementations</text><rect x="396" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Operator pilot,</text><text x="406" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">adoption threshold</text>
@@ -1137,24 +1195,19 @@
     </div>
   </section>
 
-  <!-- 16 · How we worked -->
-  <section class="slide viz-slide">
+  <!-- 17 · How we worked -->
+  <!-- Candidate lessons drawn from the logbook, the CIP and the review for the three presenters
+       (William, Mauro, Ezequiel) to confirm, replace or reassign before the talk. -->
+  <section class="slide viz-slide dense">
     <div class="slide-kicker">6 · How we worked</div>
-    <div class="split-row">
-      <div>
-        <h2>Lessons learned</h2>
-        <p class="viz-lede">Weekly sessions and brainstorms, a public logbook, biweekly reports and an ADR for every design decision kept a seven-person team aligned.</p>
-        <p class="viz-note">Draft lessons drawn from the logbook; each presenter to confirm or replace theirs.</p>
-      </div>
-      <div class="viz-visual">
-        <svg viewBox="0 0 512 242" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif" role="img" aria-label="Four lesson cards" class="lesson-cards">
-          <rect x="0" y="0" width="250" height="114" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><rect x="0" y="18" width="4" height="32" rx="2" fill="var(--iog-infared)"/><text x="20" y="40" font-size="16" font-weight="600" fill="var(--text)">Test the foundation first</text><text x="20" y="66" font-size="12.5" fill="var(--text-mute)">We analysed SecureCyclon before</text><text x="20" y="82" font-size="12.5" fill="var(--text-mute)">building on it, and replaced it.</text><rect x="262" y="0" width="250" height="114" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><rect x="262" y="18" width="4" height="32" rx="2" fill="var(--iog-infared)"/><text x="282" y="40" font-size="16" font-weight="600" fill="var(--text)">Specify before you build</text><text x="282" y="66" font-size="12.5" fill="var(--text-mute)">Specs and ADRs let a late joiner</text><text x="282" y="82" font-size="12.5" fill="var(--text-mute)">see why, not only what.</text><rect x="0" y="128" width="250" height="114" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><rect x="0" y="146" width="4" height="32" rx="2" fill="var(--iog-infared)"/><text x="20" y="168" font-size="16" font-weight="600" fill="var(--text)">Check maths against code</text><text x="20" y="194" font-size="12.5" fill="var(--text-mute)">Disagreements prompted</text><text x="20" y="210" font-size="12.5" fill="var(--text-mute)">investigation; some exposed real</text><text x="20" y="226" font-size="12.5" fill="var(--text-mute)">bugs.</text><rect x="262" y="128" width="250" height="114" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><rect x="262" y="146" width="4" height="32" rx="2" fill="var(--iog-infared)"/><text x="282" y="168" font-size="16" font-weight="600" fill="var(--text)">Plain prose first</text><text x="282" y="194" font-size="12.5" fill="var(--text-mute)">Dense data goes in a companion; the</text><text x="282" y="210" font-size="12.5" fill="var(--text-mute)">main text must read on its own.</text>
-        </svg>
-      </div>
-    </div>
+    <h2>Lessons learned</h2>
+    <div class="lesson-band-label">What worked</div>
+    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>Logbook and ADRs: Mauro joined on 6 Aug and corrected M4's eclipse-cost figure by 11 Aug.</p></div><div class="lesson-card"><h3>Two instruments, checking each other</h3><p>Hand-derived laws against a simulator running the real node code (2 Jul, 13 Aug).</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Framed as a technical report with its gaps visible (11 Aug).</p></div></div>
+    <div class="lesson-band-label">What we'd do differently</div>
+    <div class="lesson-band four"><div class="lesson-card alt"><h3>Question the foundation sooner</h3><p>“Is full gossip overkill at SPO scale?” was in the 14 Apr notes; peer sampling went on 25 Jun, once the on-chain list added to unblock the prototype was seen as the design.</p><span class="lesson-trail">14 Apr → 25 Jun</span></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 became the base from comparisons without gate or cap; with them, M4 won.</p><span class="lesson-trail">7, 15 Jul → 20 Aug</span></div><div class="lesson-card alt"><h3>Size for the real audience earlier</h3><p>We sized at N = 20,000; chain data showed ~2,700 pools ever registered, ~900 holding 99 % of stake, and wallet topics may hold tens.</p><span class="lesson-trail">28 Apr → 1 Sep</span></div><div class="lesson-card alt"><h3>Treat chain failure as a requirement</h3><p>Alerts matter most when the chain is degraded; behaviour through a halt or fork is still unspecified.</p><span class="lesson-trail">2 Jul → 13 Aug → open</span></div></div>
   </section>
 
-  <!-- 17 · Thank you -->
+  <!-- 18 · Thank you -->
   <section class="slide close-slide">
     <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
     <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
@@ -1166,6 +1219,7 @@
       <a href="https://pubsub.cardano-scaling.org/" target="_blank" rel="noopener">pubsub.cardano-scaling.org</a>
       <a href="https://github.com/cardano-foundation/CIPs/pull/1271" target="_blank" rel="noopener">CIP-0201</a>
       <a href="https://github.com/cardano-foundation/CIPs/pull/1270" target="_blank" rel="noopener">CPS-0038</a>
+      <a href="https://pubsub.cardano-scaling.org/experiments/" target="_blank" rel="noopener">Experiment tools</a>
       <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">github.com/input-output-hk/pubsub</a>
     </div>
   </section>
