@@ -24,7 +24,7 @@ CIP-0201 is a topic-based pub/sub layer anchored on Cardano, with four mechanism
 - **Symmetric links:** one link per pair carries messages both ways, so either end can supply an honest path.
 - **Signed messages:** every subscriber verifies, relays and caches for recovery.
 
-The guarantee, stated with its conditions: at 20,000 nodes with 20 % silent, at the reference configuration (k = 10, B = 500, C = 23), the models predict some honest publisher is cut off in about 1 of 200,000 epochs (p_bad 5.1 × 10⁻⁶), redrawn every epoch. This is a prediction, not a measurement.
+The guarantee, stated with its conditions: at 20,000 nodes with 20 % silent, at the reference configuration (k = 10, B = 500, C = 23), the models predict that some honest publisher fails to reach every honest subscriber in about 1 of 200,000 epochs (p_bad 5.1 × 10⁻⁶), redrawn every epoch. This is a prediction, not a measurement.
 
 Status: CPS-0038 and CIP-0201 were submitted on 16 Sep, confirmed by the editors on 29 Sep, and are Proposed and in review.
 
@@ -64,7 +64,7 @@ Background for questions: the ungated laws agree with the simulator in 38 of 40 
 | Predicted downtime absorbed (gated) | 1.58 % | 7.57 % | CIP Table 10 |
 | Failed runs at 32 eligible peers | 17 / 400 | 0 / 400 | CIP, Alternatives considered |
 
-M3 keeps the bandwidth edge. Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
+M3 keeps the bandwidth edge: it uses about 22 % less bandwidth (10.4 against 13.4 copies per node). Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
 
 **Why it looks like this.** Each mechanism answers a finding:
 
@@ -81,7 +81,7 @@ M3 keeps the bandwidth edge. Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 
 
 **Where review stands.** Submitted 16 Sep, confirmed 29 Sep, in review with no activity since 29 Sep; the README targets approval for October–November. Reviewers asked how large the deposit must be (we can state the outlay, 4,000 simultaneous deposits to hold μ = 0.2 of 20,000, not yet the threshold) and what the protocol adds over the publish-only channels operators already run. Feedback is invited on the relationship to CIP-0137 and on the deployment parameter profile.
 
-**Gaps.** Every item is a Path to Active acceptance criterion.
+**Gaps.** The CIP states each of these itself, under Limits of this evidence or Path to Active.
 
 - *Evidence:* tail probabilities extrapolated; rotation argued, not simulated; gated laws not formally derived; small topics outside the analysis (the gate is off up to 40 registrations at k = 10); correlated failure out of scope.
 - *Specification:* gate, beacon, handshake and epochs; recovery and catch-up exchanges; behaviour through a chain halt or fork; the relationship to CIP-0137.
