@@ -227,6 +227,24 @@
   .demo-hint { display: inline-block; margin-left: 0.6em; font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
   .demo-frame { margin-top: 0.9em; width: 100%; height: calc(100vh - 15.5em); min-height: 320px; border: 1px solid var(--card-stroke-faint); border-radius: 8px; overflow: hidden; background: var(--card-fill); }
   .demo-frame iframe { display: block; border: 0; width: 133.34%; height: 133.34%; transform: scale(0.75); transform-origin: 0 0; }
+  .guarantee-fine { display: block; margin-top: 0.3em; font-size: 0.82em; font-weight: 400; color: var(--text-mute); }
+  .question-swap { display: grid; grid-template-columns: minmax(0, 1fr) 2.4em minmax(0, 1.4fr); align-items: center; gap: 0.6em; margin-top: 1em; max-width: 1000px; }
+  .q-old { font-size: 1.05em; color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--card-stroke-soft); }
+  .q-new { font-size: 1.15em; font-weight: 600; color: var(--text); border-left: 4px solid var(--iog-infared); padding: 0.3em 0 0.3em 0.9em; }
+  .q-arrow { text-align: center; color: var(--iog-infared); font-size: 1.4em; font-weight: 600; }
+  .need-row { display: flex; gap: 0.8em; flex-wrap: wrap; margin-top: 1.1em; }
+  .need { font-family: var(--font-mono); font-size: 0.72em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--iog-infared); border: 1px solid var(--iog-infared); border-radius: 99px; padding: 5px 14px; }
+  .summary-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2em; margin-top: 1em; }
+  .summary-list { list-style: none; counter-reset: sum; display: grid; gap: 0.6em; }
+  .summary-list li { counter-increment: sum; display: grid; grid-template-columns: 1.8em minmax(0, 1fr); font-size: 0.98em; line-height: 1.4; color: var(--text-mute); }
+  .summary-list li::before { content: counter(sum); font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); }
+  .summary-list li strong { color: var(--text); font-weight: 600; }
+  .summary-col.open { border-left: 1px solid var(--card-stroke-faint); padding-left: 1.6em; }
+  .summary-col.open .lesson-band-label { margin-top: 0; }
+  .summary-qs { list-style: none; display: grid; gap: 0.55em; }
+  .summary-qs li { font-size: 0.92em; line-height: 1.4; color: var(--text); padding-left: 1.1em; position: relative; }
+  .summary-qs li::before { content: '?'; position: absolute; left: 0; font-family: var(--font-mono); font-weight: 700; color: var(--iog-infared); }
+  .summary-slide .close-links { margin-top: 1.4em; justify-content: flex-start; }
   /* Outcome slide */
   .outcome-slide h2 { font-size: 2.1em; max-width: 24ch; }
   .outcome-steps { list-style: none; display: grid; gap: 0.5em; margin-top: 0.9em; max-width: 54ch; }
@@ -434,6 +452,9 @@
     .title-slide .hero-visual { align-self: center; margin-top: 0; }
 
     .why-head, .why-row { grid-template-columns: minmax(0, 1fr); }
+    .question-swap, .summary-grid { grid-template-columns: minmax(0, 1fr); }
+    .q-arrow { display: none; }
+    .summary-col.open { border-left: 0; padding-left: 0; }
     .why-arrow { display: none; }
     .lesson-band.three, .lesson-band.four { grid-template-columns: minmax(0, 1fr); }
     .split-row,
@@ -683,28 +704,40 @@
     <div class="slide-kicker">Agenda</div>
     <h2>Today</h2>
     <ol class="agenda">
-      <li><span class="agenda-title">The outcome</span><span class="agenda-subs">What CIP-0201 does</span></li>
-      <li><span class="agenda-title">Replace the foundation</span><span class="agenda-subs">From SecureCyclon to an on-chain registry</span></li>
-      <li><span class="agenda-title">Make it measurable</span><span class="agenda-subs">Formal models and a reference implementation</span></li>
-      <li><span class="agenda-title">Let the evidence choose</span><span class="agenda-subs">Why M4 · a live comparison</span></li>
-      <li><span class="agenda-title">What's open</span><span class="agenda-subs">Review status and gaps</span></li>
-      <li><span class="agenda-title">How we worked</span><span class="agenda-subs">Lessons learned</span></li>
+      <li><span class="agenda-title">The problem</span></li>
+      <li><span class="agenda-title">The outcome</span></li>
+      <li><span class="agenda-title">Replace the foundation</span></li>
+      <li><span class="agenda-title">Make it measurable</span></li>
+      <li><span class="agenda-title">Let the evidence choose</span></li>
+      <li><span class="agenda-title">What's open</span></li>
+      <li><span class="agenda-title">How we worked</span></li>
     </ol>
   </section>
 
-  <!-- 3 · The outcome -->
+  <!-- 3 · The problem -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">1 · The problem · CPS-0038</div>
+    <h2>Messages that must arrive, off chain</h2>
+    <div class="lesson-band four"><div class="lesson-card"><h3>Protocol teams</h3><p>incident alerts to SPOs</p></div><div class="lesson-card"><h3>Stake pools</h3><p>notices to delegators</p></div><div class="lesson-card"><h3>Governance</h3><p>deadlines to voters</p></div><div class="lesson-card"><h3>dApps</h3><p>alerts to their users</p></div></div>
+    <p class="viz-lede wide">Today these go through chat, mailing lists and backends. Nothing standard proves who sent them, or makes them hard to suppress.</p>
+    <div class="need-row">
+      <span class="need">Authentic</span><span class="need">Unaltered</span><span class="need">Hard to silence</span>
+    </div>
+  </section>
+
+  <!-- 4 · The outcome -->
   <section class="slide outcome-slide">
-    <div class="slide-kicker">1 · The outcome · CIP-0201</div>
+    <div class="slide-kicker">2 · The outcome · CIP-0201</div>
     <div class="split-row">
       <div>
         <h2>Trustworthy pub/sub, anchored on Cardano</h2>
         <ul class="outcome-steps">
-          <li><span class="step-n">1</span><span><strong>Registered nodes.</strong> Keys on chain, each with a refundable deposit.</span></li>
-          <li><span class="step-n">2</span><span><strong>A verifiable gate.</strong> Public randomness fixes which pairs may connect; each node picks privately from that set.</span></li>
-          <li><span class="step-n">3</span><span><strong>Symmetric links.</strong> One link per pair, both directions: either end can supply an honest path.</span></li>
-          <li><span class="step-n">4</span><span><strong>Signed messages.</strong> Every subscriber verifies, relays and caches for recovery.</span></li>
+          <li><span class="step-n">1</span><span><strong>Registered nodes</strong> with a refundable deposit</span></li>
+          <li><span class="step-n">2</span><span><strong>A verifiable gate</strong> on who may connect</span></li>
+          <li><span class="step-n">3</span><span><strong>Symmetric links</strong>, one per pair</span></li>
+          <li><span class="step-n">4</span><span><strong>Signed messages</strong>, relayed by every subscriber</span></li>
         </ul>
-        <p class="outcome-guarantee">At 20,000 nodes, 20 % silent, at the reference configuration (k = 10, B = 500, C = 23), the models predict that some honest publisher fails to reach every honest subscriber in about 1 of 200,000 epochs (p<sub>bad</sub> 5.1 × 10<sup>−6</sup>), redrawn every epoch. Predicted, not measured.</p>
+        <p class="outcome-guarantee">Every honest publisher reaches every honest subscriber, except in about 1 of 200,000 epochs.<span class="guarantee-fine">Predicted at 20,000 nodes with 20 % silent (k = 10, B = 500, C = 23).</span></p>
       </div>
       <div class="outcome-visual" aria-hidden="false">
         <svg viewBox="0 0 460 420" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="A publisher's signed message travels along red links to every honest node on the topic, around a silent node that holds links but forwards nothing. Dashed lines are pairs the gate allowed but nobody picked. All nodes sit on the on-chain registry.">
@@ -732,13 +765,13 @@
     <div class="outcome-footer">CIP-0201 + CPS-0038 · Proposed, in review</div>
   </section>
 
-  <!-- 4 · What we were given -->
+  <!-- 5 · What we were given -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">2 · Replace the foundation</div>
+    <div class="slide-kicker">3 · Replace the foundation</div>
     <h2>What we were given</h2>
-    <p class="viz-lede wide">Four inputs, and one architecture whose guarantees all rested on its peer-sampling layer.</p>
+    <p class="viz-lede wide">A three-layer architecture, a peer sampler, and five use cases.</p>
     <div class="viz-visual viz-wide">
-        <svg viewBox="0 0 520 330" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Four inputs around the three-layer stack: deliverables D1 and D2 from AUEB, the Athens University of Economics and Business, SecureCyclon, the product documentation, and Spyros Voulgaris; SecureCyclon is the load-bearing bottom layer">
+        <svg viewBox="0 0 520 330" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Four inputs around the three-layer stack: deliverables D1 and D2 from AUEB, the Athens University of Economics and Business, SecureCyclon, the product documentation, and Spyros Voulgaris; SecureCyclon is the bottom, peer-sampling layer">
           <g stroke="var(--card-stroke-soft)" stroke-width="1.2" stroke-dasharray="3 3" fill="none">
             <path d="M150,62 L185,62"/><path d="M150,250 L185,222"/><path d="M370,62 L335,62"/><path d="M370,250 L335,222"/>
           </g>
@@ -751,26 +784,26 @@
             <text x="260" y="60" fill="var(--text-mute)">DISSEMINATION</text>
             <rect x="185" y="100" width="150" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
             <text x="260" y="140" fill="var(--text-mute)">NAVIGATION</text>
-            <rect x="185" y="180" width="150" height="84" rx="8" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
-            <text x="260" y="214" fill="var(--iog-infared)">PEER SAMPLING</text>
+            <rect x="185" y="180" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="260" y="214" fill="var(--text-mute)">PEER SAMPLING</text>
             <text x="260" y="236" font-size="10.5" font-weight="500" letter-spacing="0.5" fill="var(--text)">SecureCyclon</text>
           </g>
-          <text x="260" y="290" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)">LOAD-BEARING ASSUMPTION</text>
-          <text x="260" y="308" text-anchor="middle" font-size="9" letter-spacing="1" fill="var(--text-faint)">SECURITY INHERITED UPWARD</text>
+          
+          <text x="260" y="292" text-anchor="middle" font-size="10" letter-spacing="1" fill="var(--text-faint)">SECURITY INHERITED UPWARD</text>
         </svg>
     </div>
-    <p class="viz-note wide">The March review reduced the five use cases to one primitive: identifiable parties send verifiable events to subscribers. In April we scoped to one-way broadcasts.</p>
+    
   </section>
 
-  <!-- 5 · Reviewing the proposed architecture -->
+  <!-- 6 · Reviewing the proposed architecture -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">2 · Replace the foundation</div>
+    <div class="slide-kicker">3 · Replace the foundation</div>
     <div class="split-row">
       <div>
         <h2>Reviewing the proposed architecture</h2>
-        <p class="viz-lede">The March technical review and the AUEB gap analysis found critical requirements the architecture did not address.</p>
+        <p class="viz-lede">Our review and the AUEB gap analysis found three things missing.</p>
         <p class="viz-callout">The threat is silencing, not forgery.</p>
-        <p class="viz-note">With Spyros: SecureCyclon gives non-bias (X % malicious nodes yield X % malicious links), which does not stop silencing; he agreed the design did not address it. Gap analysis S-02 (topology is not delivery) and S-04 (no Sybil resistance for gossip participants) say the same. So we stopped generating ideas and turned to SecureCyclon.</p>
+        
       </div>
       <div class="viz-visual">
         <svg viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three missing pieces: a security model, anti-spam protection and incentives; an arrow leads to testing the riskiest assumption first, SecureCyclon">
@@ -811,15 +844,15 @@
     </div>
   </section>
 
-  <!-- 6 · SecureCyclon findings -->
+  <!-- 7 · SecureCyclon findings -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">2 · Replace the foundation</div>
+    <div class="slide-kicker">3 · Replace the foundation</div>
     <div class="split-row">
       <div>
-        <h2>SecureCyclon findings</h2>
-        <p class="viz-lede">A silent adversary forges nothing and breaks no rule. It only chooses whom it contacts and what it withholds, and against a targeted victim that is enough.</p>
+        <h2>SecureCyclon does not give a uniform view</h2>
+        <p class="viz-lede">A uniform view would hold attackers at roughly their share of the network. A silent adversary, breaking no rule, pushes a chosen victim's view far above it.</p>
         <p class="viz-callout">No detection fired, in any run.</p>
-        <p class="viz-note">Team simulation of the full protocol: N = 200, view size 20, 3 seeds, three silent attack combinations (bars span them). Holds for the tested configurations, not every sampler. Earlier, with Spyros Voulgaris: 15 % malicious nodes reach ~8.9× amplification.</p>
+        <p class="viz-note">Red bars: attackers' share of the victim's view. Dashed line: the network-wide average. Team simulation, 200 nodes, three attack variants.</p>
       </div>
       <div class="viz-visual">
         <svg viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Malicious share of the victim's view against the adversary's share of nodes: 10 to 18 percent at 5 percent adversaries, 26 to 35 at 10, 44 to 56 at 15, 72.5 to 80.3 at 20, and 98.6 to 99.3 at 30, far above the network-wide average">
@@ -843,11 +876,11 @@
     </div>
   </section>
 
-  <!-- 7 · The on-chain registry -->
+  <!-- 8 · The on-chain registry -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">2 · Replace the foundation</div>
+    <div class="slide-kicker">3 · Replace the foundation</div>
     <h2>A deposit implies a list, and a list replaces sampling</h2>
-    <p class="viz-lede wide">Sybil resistance needs a cost per identity. A deposit implies an on-chain list, and once every node is known, a sampling layer adds attack surface without adding security. A known list invites targeted flooding, hence the verifiable gate.</p>
+    <p class="viz-lede wide">A deposit puts every node on chain, so nodes can pick peers uniformly from the registry. A known list invites flooding, hence the verifiable gate.</p>
     <div class="viz-visual viz-wide">
       <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from May to July 2026">
         <g font-size="10.5" font-weight="600" letter-spacing="1.5" text-anchor="middle">
@@ -890,11 +923,31 @@
     </div>
   </section>
 
-  <!-- 8 · Formalizing the problem -->
+  <!-- 9 · The concrete problem -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">3 · Replace the foundation</div>
+    <h2>The question changes</h2>
+    <div class="question-swap">
+      <p class="q-old">Can nodes sample peers uniformly?</p>
+      <span class="q-arrow" aria-hidden="true">→</span>
+      <p class="q-new">Does every honest publisher reach every honest subscriber, even when some peers stay silent?</p>
+    </div>
+    <div class="viz-visual viz-wide">
+      <svg viewBox="0 0 520 250" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Left, a good topology: the publisher's message reaches every honest node around a silent one. Right, a bad topology: two silent neighbours cut one honest node off.">
+        <text x="120" y="12" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--good)">GOOD TOPOLOGY</text>
+        <text x="390" y="12" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--bad)">BAD TOPOLOGY</text>
+        <g transform="translate(0,14)"><line x1="40" y1="70" x2="120" y2="30" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="30" x2="200" y2="70" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="200" y1="70" x2="200" y2="160" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="200" y1="160" x2="120" y2="200" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="200" x2="40" y2="160" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="40" y1="160" x2="40" y2="70" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="40" y1="70" x2="120" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="115" x2="200" y2="160" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="30" x2="120" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="200" x2="120" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><circle cx="40" cy="70" r="13" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2.4"/><circle cx="120" cy="30" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="200" cy="70" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M195,65 L205,75 M205,65 L195,75" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="200" cy="160" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="120" cy="200" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="40" cy="160" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="120" cy="115" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><line x1="310" y1="70" x2="390" y2="30" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="390" y1="30" x2="470" y2="70" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="470" y1="70" x2="470" y2="160" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="470" y1="160" x2="390" y2="200" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="390" y1="200" x2="310" y2="160" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="310" y1="160" x2="310" y2="70" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="310" y1="70" x2="390" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="390" y1="30" x2="390" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="390" y1="200" x2="390" y2="115" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><circle cx="310" cy="70" r="13" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2.4"/><circle cx="390" cy="30" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="470" cy="70" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M465,65 L475,75 M475,65 L465,75" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="470" cy="160" r="11" fill="var(--card-fill)" stroke="var(--warn)" stroke-width="2.2" stroke-dasharray="3 2.5"/><circle cx="390" cy="200" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M385,195 L395,205 M395,195 L385,205" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="310" cy="160" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="390" cy="115" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/></g>
+        <text x="120" y="246" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">every honest node reached</text>
+        <text x="390" y="246" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">one honest node cut off</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 10 · Formalizing the problem -->
   <!-- Sources: formal_spec/hybrid_dissemination/models/README.md;
        docs/cip/design-comparison.md (What is measured; independent downtime). -->
   <section class="slide formal-problem">
-    <div class="slide-kicker">3 · Make it measurable</div>
+    <div class="slide-kicker">4 · Make it measurable</div>
     <h2>Formalizing the problem</h2>
     <ul class="points">
       <li><strong>Population</strong>: <var>N</var> registered nodes; <var>H</var> = (1−μ)<var>N</var> honest.  The adversarial fraction μ receives but never relays.</li>
@@ -909,12 +962,12 @@
       μ<sub>eff</sub> = μ + <var>p</var>(1−μ).  This measures topology risk over an epoch, rather than average delivery.</p>
   </section>
 
-  <!-- 9 · Five candidate models and their laws -->
+  <!-- 11 · Five candidate models and their laws -->
   <!-- Sources: formal_spec/hybrid_dissemination/models/m{1,2,3,4,5}/properties/full_coverage.md.
        Notation here: k = relay picks (F or RF in the analyses), t = s−1 seed picks;
        a and b = M5's k_in and k_out.  These are the ungated leading approximations. -->
   <section class="slide dense formal-models">
-    <div class="slide-kicker">3 · Make it measurable</div>
+    <div class="slide-kicker">4 · Make it measurable</div>
     <h2>Five candidate models and their laws</h2>
     <p class="formal-law"><var>p</var><sub>bad</sub> ≈ 1 − e<sup>−<var>E</var></sup>,
       with <var>E</var> the expected number of isolation defects</p>
@@ -956,13 +1009,23 @@
     <p class="formal-note">Also analyzed: transmissions, hop depth, standing links, robustness, eclipse cost, and transmission loss.</p>
   </section>
 
+  <!-- 12 · Try it: compare the designs -->
+  <section class="slide viz-slide demo-slide">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>Try it: compare the designs</h2>
+    <p class="viz-lede wide">The laws, live: drag the adversarial share and watch each design against the target. <span class="demo-hint">Esc or move the pointer off the tool to return to the slides.</span></p>
+    <div class="demo-frame">
+      <iframe id="demo-compare" src="../experiments/compare-designs/" title="Compare designs: the ungated M1–M5 estimates" loading="lazy"></iframe>
+    </div>
+  </section>
+
   <!-- Visual alternative: shared protocol core.
        Speaker: Explain that handshakes, connection management and admission
        rules made the abstract designs operational. Both execution paths use
        the same pure transitions; the simulator does not exercise the async
        runtime or real transport. The software is a foundation for future work. -->
   <section class="slide visual-slide">
-    <div class="slide-kicker">3 · Make it measurable · Visual draft</div>
+    <div class="slide-kicker">4 · Make it measurable · Visual draft</div>
     <h2>One core. Two ways to run it.</h2>
     <div class="visual-stack">
       <div class="visual-box visual-core">
@@ -999,7 +1062,7 @@
        Experiment design and analysis benefited too; reports needed careful
        human editing. Avoid presenting speed or quality gains as measured. -->
   <section class="slide visual-slide">
-    <div class="slide-kicker">3 · Make it measurable · Visual draft</div>
+    <div class="slide-kicker">4 · Make it measurable · Visual draft</div>
     <h2>AI, with structure.</h2>
     <div class="tool-label">Spec Kit + Claude</div>
     <div class="visual-row visual-flow">
@@ -1032,7 +1095,7 @@
        investigation, including the simulator's global arrival-order bug.
        Rare-event guarantees still depend on analytical extrapolation. -->
   <section class="slide visual-slide comparison-slide">
-    <div class="slide-kicker">3 · Make it measurable · Visual draft</div>
+    <div class="slide-kicker">4 · Make it measurable · Visual draft</div>
     <h2>Predict. Execute. Compare.</h2>
     <div class="visual-row visual-flow">
       <div class="visual-box">
@@ -1054,14 +1117,13 @@
 
   <!-- 13 · Choosing M4 -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">4 · Let the evidence choose</div>
+    <div class="slide-kicker">5 · Let the evidence choose</div>
     <div class="split-row">
       <div>
         <h2>Evidence moved us from M3 to M4</h2>
-        <p class="viz-lede">One symmetric link per pair: one eligibility draw, either end can supply an honest connection, one link kind for publishing and relaying.</p>
-        <p class="viz-callout">M3 was our base in July. Once we weighted security first, M4 won on five of six rows; M3 keeps the bandwidth edge. Selected in August.</p>
-        <a class="try-chip" href="../experiments/compare-designs/" target="_blank" rel="noopener">Try it: compare designs ↗</a>
-        <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
+        <p class="viz-lede">Same reliability target, half the links.</p>
+        <p class="viz-callout">M3 was our base in July. Weighting security first, M4 won on five of six rows.</p>
+                <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
       </div>
       <div class="viz-visual">
         <svg viewBox="0 0 520 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="M3 against M4 on six rows; M4 is better on picks, links, failure probability, downtime absorbed and counted failures; M3 receives fewer copies per node">
@@ -1077,19 +1139,9 @@
     </div>
   </section>
 
-  <!-- 14 · Try it: compare the designs -->
-  <section class="slide viz-slide demo-slide">
-    <div class="slide-kicker">4 · Let the evidence choose</div>
-    <h2>Try it: compare the designs</h2>
-    <p class="viz-lede wide">Drag the adversarial share: M3 drops below the target first. <span class="demo-hint">Esc or move the pointer off the tool to return to the slides.</span></p>
-    <div class="demo-frame">
-      <iframe id="demo-compare" src="../experiments/compare-designs/" title="Compare designs: the ungated M1–M5 estimates" loading="lazy"></iframe>
-    </div>
-  </section>
-
-  <!-- 15 · Why it looks like this -->
+  <!-- 14 · Why it looks like this -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">4 · Let the evidence choose</div>
+    <div class="slide-kicker">5 · Let the evidence choose</div>
     <h2>Why it looks like this</h2>
     <div class="why-grid">
       <div class="why-head"><span>What we found</span><span></span><span>What CIP-0201 does about it</span></div>
@@ -1126,9 +1178,9 @@
     </div>
   </section>
 
-  <!-- 16 · Where review stands -->
+  <!-- 15 · Where review stands -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">5 · What's open</div>
+    <div class="slide-kicker">6 · What's open</div>
     <h2>Where review stands</h2>
     <div class="viz-visual viz-wide">
       <svg viewBox="0 0 520 330" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Review stepper: submitted 16 September, confirmed 29 September, in review now, approval targeted for October to November, then Path to Active; two reviewer questions below">
@@ -1152,9 +1204,9 @@
     </div>
   </section>
 
-  <!-- 17 · Gaps and open questions -->
+  <!-- 16 · Gaps and open questions -->
   <section class="slide viz-slide">
-    <div class="slide-kicker">5 · What's open</div>
+    <div class="slide-kicker">6 · What's open</div>
     <h2>Gaps and open questions</h2>
     <p class="viz-lede wide">What we have not shown is stated as plainly as what we have. The CIP states each of these itself, under Limits of this evidence or Path to Active. <a class="try-chip" href="../experiments/parameters/" target="_blank" rel="noopener">Try it: parameter surface ↗</a></p>
     <div class="viz-visual viz-wide">
@@ -1164,35 +1216,50 @@
     </div>
   </section>
 
-  <!-- 18 · How we worked -->
-  <!-- Candidate lessons drawn from the logbook, the CIP and the review for the three presenters
-       (William, Mauro, Ezequiel) to confirm, replace or reassign before the talk. -->
+  <!-- 17 · How we worked -->
+  <!-- Candidate lessons from the logbook and the 18 Nov review session; the three presenters
+       (William, Mauro, Ezequiel) confirm, replace or reassign before the talk. -->
   <section class="slide viz-slide dense">
-    <div class="slide-kicker">6 · How we worked</div>
+    <div class="slide-kicker">7 · How we worked</div>
     <h2>Lessons learned</h2>
     <div class="lesson-band-label">What worked</div>
-    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>Logbook and ADRs: Mauro joined in August and corrected M4's eclipse-cost figure within a week.</p></div><div class="lesson-card"><h3>Two instruments, checking each other</h3><p>Hand-derived laws against a simulator running the real node code.</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Framed as a technical report with its gaps visible.</p></div></div>
+    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>A late joiner corrected a key figure within a week.</p></div><div class="lesson-card"><h3>Two instruments</h3><p>Hand-derived laws checked against the real node code.</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Gaps listed as requirements, not hidden.</p></div></div>
     <div class="lesson-band-label">What we'd do differently</div>
-    <div class="lesson-band four"><div class="lesson-card alt"><h3>Question the foundation sooner</h3><p>“Is full gossip overkill at SPO scale?” was in our April notes; peer sampling went in June, once the on-chain list, a prototype shortcut, proved to be the design.</p><span class="lesson-trail">Apr → Jun</span></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 became the base from comparisons without gate or cap; with them, M4 won.</p><span class="lesson-trail">Jul → Aug</span></div><div class="lesson-card alt"><h3>Size for the real audience earlier</h3><p>We sized at N = 20,000; chain data showed ~2,700 pools ever registered, ~900 holding 99 % of stake, and wallet topics may hold tens.</p><span class="lesson-trail">Apr → Sep</span></div><div class="lesson-card alt"><h3>Treat chain failure as a requirement</h3><p>Alerts matter most when the chain is degraded; behaviour through a halt or fork is still unspecified.</p><span class="lesson-trail">Jul → open</span></div></div>
+    <div class="lesson-band four"><div class="lesson-card alt"><h3>Agree the scope first</h3><p>About half our time went into bridging what product asked for and what research offered.</p></div><div class="lesson-card alt"><h3>Close the stream when the base fails</h3><p>When SecureCyclon failed, stop, report, and restart with new goals.</p></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 led until the gate and cap were included.</p></div><div class="lesson-card alt"><h3>Is a CIP the right stage?</h3><p>We specify a solution with known gaps and their requirements, not a full stack.</p></div></div>
   </section>
 
-  <!-- 19 · Thank you -->
-  <section class="slide close-slide">
-    <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
-    <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
-    <div class="slide-kicker">Cardano PubSub · November 2026</div>
-    <h2>Thank <span class="accent">you</span></h2>
-    <p class="close-sub">Questions welcome.</p>
-    <div class="close-links-label">Further information</div>
+  <!-- 18 · Summary -->
+  <section class="slide viz-slide summary-slide">
+    <div class="slide-kicker">Summary</div>
+    <h2>What we proposed</h2>
+    <div class="summary-grid">
+      <div class="summary-col">
+        <ol class="summary-list">
+          <li><span><strong>SecureCyclon</strong> does not give a uniform view under a silent adversary</span></li>
+          <li><span><strong>An on-chain registry</strong> with deposits replaces peer sampling</span></li>
+          <li><span><strong>Five designs</strong>, formalised and simulated on the real node code</span></li>
+          <li><span><strong>M4:</strong> a verifiable gate and symmetric links</span></li>
+          <li><span><strong>CPS-0038 and CIP-0201</strong>, in review</span></li>
+        </ol>
+      </div>
+      <div class="summary-col open">
+        <div class="lesson-band-label">Open questions</div>
+        <ul class="summary-qs">
+          <li>What deposit makes a 20 % attacker implausible?</li>
+          <li>Do topics of tens of nodes need a different design?</li>
+          <li>What must keep working when the chain halts or forks?</li>
+          <li>Alternative or complement to CIP-0137?</li>
+          <li>Is a CIP the right stage for a solution with known gaps?</li>
+        </ul>
+      </div>
+    </div>
     <div class="close-links">
       <a href="https://pubsub.cardano-scaling.org/" target="_blank" rel="noopener">pubsub.cardano-scaling.org</a>
       <a href="https://github.com/cardano-foundation/CIPs/pull/1271" target="_blank" rel="noopener">CIP-0201</a>
       <a href="https://github.com/cardano-foundation/CIPs/pull/1270" target="_blank" rel="noopener">CPS-0038</a>
       <a href="https://pubsub.cardano-scaling.org/experiments/" target="_blank" rel="noopener">Experiment tools</a>
-      <a href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener">github.com/input-output-hk/pubsub</a>
     </div>
   </section>
-
 </div>
 
 <div class="progress" id="progress"></div>
