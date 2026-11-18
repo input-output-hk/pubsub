@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Local preview of the site in web/, including *.draft.html pages that the
 // deploy leaves out. Reloads the browser whenever a file under web/ changes.
-// No dependencies: needs only Node 18+.
+// No dependencies: needs only Node 20+ (recursive fs.watch on Linux).
+// Listens on 127.0.0.1 only, so drafts are not exposed to the local network.
 //
 //   npm run slides          # opens the year-end draft deck
 //   npm run web             # opens the site's home page
@@ -37,7 +38,14 @@ const server = createServer(async (req, res) => {
     req.on('close', () => clients.delete(res));
     return;
   }
-  let file = normalize(join(root, decodeURIComponent(url.pathname)));
+  let pathname;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain' }).end('Bad request');
+    return;
+  }
+  let file = normalize(join(root, pathname));
   if (file !== root && !file.startsWith(root + sep)) { res.writeHead(403).end(); return; }
   try {
     if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
@@ -56,7 +64,7 @@ watch(root, { recursive: true }, () => {
   pending = setTimeout(() => clients.forEach((c) => c.write('data: reload\n\n')), 100);
 });
 
-server.listen(port, () => {
+server.listen(port, '127.0.0.1', () => {
   console.log(`Serving web/ at http://localhost:${port}${openPath}`);
   console.log('Edits under web/ reload the page. Ctrl+C to stop.');
 });
