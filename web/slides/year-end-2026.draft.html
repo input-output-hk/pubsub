@@ -435,7 +435,10 @@
     padding: 1.1em 1.4em;
     max-width: 70ch;
   }
-  .slide-message { font-size: 1.15em; font-weight: 600; color: var(--text); margin-bottom: 0.9em; max-width: 46ch; }
+  .slide-message {
+    font-size: 1.1em; font-weight: 600; color: var(--text); line-height: 1.45; max-width: 56ch;
+    border-left: 4px solid var(--iog-infared); padding: 0.35em 0 0.35em 0.9em; margin-bottom: 0.9em;
+  }
   .placeholder-label {
     font-family: var(--font-mono);
     font-size: 0.62em;
@@ -652,11 +655,11 @@
     <h2>What we delivered</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">We tested the foundation we were handed, rebuilt the design from evidence, and shipped it as CIP-0201 and CPS-0038.</p>
+      <p class="slide-message">We tested the foundation we were given, rebuilt the design from evidence, and proposed it as CIP-0201 with CPS-0038.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
-          <li>Submitted 16 Sep 2026; confirmed as CPS-0038 and CIP-0201 on 29 Sep; review under way</li>
-          <li>The through-line: evidence changed our minds three times. We dropped SecureCyclon, moved from M3 to M4, and re-scoped the CIP</li>
+          <li>Submitted 16 Sep 2026; confirmed by the CIP editors as CPS-0038 and CIP-0201 on 29 Sep; status Proposed, review under way</li>
+          <li>The through-line: evidence changed our minds three times. We set SecureCyclon aside, moved from M3 to M4, and re-scoped the CIP</li>
           <li>Credit to the wider group</li>
       </ul>
     </div>
@@ -668,33 +671,18 @@
     <h2>What we were given</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">A three-layer architecture that rested on an untested peer sampler.</p>
+      <p class="slide-message">A three-layer architecture whose security rested on its peer-sampling layer.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
           <li>AUEB's architecture (D1/D2): peer sampling, navigation, dissemination</li>
-          <li>SecureCyclon: Dependable Peer Sampling (ICDCS 2023) as the sampling layer</li>
+          <li>SecureCyclon (ICDCS 2023) as the sampling layer: peer-reviewed, but not yet analysed against a silent adversary or inside this stack</li>
           <li>The problem: trustworthy off-chain messages, authenticated against Cardano identities and resistant to targeted suppression</li>
+          <li>28 Apr: we prioritised one-way broadcasts (IOG alerts → SPOs, SPOs → delegators, dReps → delegators, dApps → users, plus three use cases Phillip Daro confirmed) and deprioritised the bidirectional multi-sig branch</li>
       </ul>
     </div>
   </section>
 
-  <!-- 5 · The sparse product input -->
-  <section class="slide">
-    <div class="slide-kicker">1 · Starting point</div>
-    <h2>The sparse product input</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <p class="slide-message">The brief was thin, so we sharpened it ourselves.</p>
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Little product steering after the initial five use cases</li>
-          <li>28 Apr: narrowed to one-way broadcasts: IOG alerts → SPOs, SPOs → delegators, dReps → delegators, dApps → users</li>
-          <li>Flagship case: an emergency alert to thousands of SPOs</li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- 6 · Reviewing the proposed architecture -->
+  <!-- 5 · Reviewing the proposed architecture -->
   <section class="slide">
     <div class="slide-kicker">2 · Research and reframe</div>
     <h2>Reviewing the proposed architecture</h2>
@@ -710,40 +698,41 @@
     </div>
   </section>
 
-  <!-- 7 · SecureCyclon findings -->
+  <!-- 6 · SecureCyclon findings -->
   <section class="slide">
     <div class="slide-kicker">2 · Research and reframe</div>
     <h2>SecureCyclon findings</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">A silent adversary eclipses a chosen victim, and nothing fires.</p>
+      <p class="slide-message">A silent adversary can eclipse a chosen victim without tripping a single defence.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
           <li>Silent: it forges nothing and breaks no rule; it only chooses whom it contacts and what it withholds</li>
-          <li>At 20 % adversarial nodes the victim's view is ~75–80 % malicious, fully eclipsed in 37–68 % of cycles; at 30 % the eclipse is total</li>
-          <li>None of the nine defences fire; reviewed with Spyros Voulgaris on 28 May</li>
+          <li>28 May, with Spyros Voulgaris: 15 % malicious nodes reach an equilibrium with ~8.9× amplification of adversarial influence</li>
+          <li>Team simulation (N = 200, view size 20, 3 seeds): at 20 % adversarial nodes the victim's view is 73–80 % malicious, at least 80 % malicious in 37–68 % of cycles; at 30 % the eclipse is near-total</li>
+          <li>No detection fired. The result holds for the tested configurations, not for every sampler</li>
       </ul>
     </div>
   </section>
 
-  <!-- 8 · Deriving the design from evidence -->
+  <!-- 7 · Deriving the design from evidence -->
   <section class="slide">
     <div class="slide-kicker">2 · Research and reframe</div>
     <h2>Deriving the design from evidence</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">We replaced the foundation instead of patching it.</p>
+      <p class="slide-message">We simplified the stack instead of patching it.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
-          <li>Deposits already imply an on-chain list, so a sampling layer adds attack surface without adding security</li>
-          <li>19 May list-based design → 25 Jun on-chain registry with rejection sampling → 7 Jul SecureCyclon retired</li>
-          <li>Bucketed hash gating against flooding (8 May) survives into the CIP</li>
-          <li>30 Jun: phase 2 moves from building to experiments</li>
+          <li>Deposits already imply an on-chain list of participants; a separate sampling layer adds attack surface (25 Jun)</li>
+          <li>19 May list-based design → 25 Jun on-chain registry with rejection sampling → 7 Jul SecureCyclon formally retired</li>
+          <li>The silent-attack report (28 Jun) then confirmed the risk we had stepped away from</li>
+          <li>Bucketed hash gating against flooding (8 May) survives into the CIP; 30 Jun: phase 2 moves from building to experiments</li>
       </ul>
     </div>
   </section>
 
-  <!-- 9 · Formalizing the problem -->
+  <!-- 8 · Formalizing the problem -->
   <!-- Sources: formal_spec/hybrid_dissemination/models/README.md;
        docs/cip/design-comparison.md (What is measured; independent downtime). -->
   <section class="slide formal-problem">
@@ -763,7 +752,7 @@
       μ<sub>eff</sub> = μ + <var>p</var>(1−μ).  This measures topology risk over an epoch, rather than average delivery.</p>
   </section>
 
-  <!-- 10 · Five candidate models and their laws -->
+  <!-- 9 · Five candidate models and their laws -->
   <!-- Sources: formal_spec/hybrid_dissemination/models/m{1,2,3,4,5}/properties/full_coverage.md.
        Notation here: k = relay picks (F or RF in the analyses), t = s−1 seed picks;
        a and b = M5's k_in and k_out.  These are the ungated leading approximations. -->
@@ -907,7 +896,7 @@
     </div>
   </section>
 
-  <!-- 14 · Choosing M4 -->
+  <!-- 13 · Choosing M4 -->
   <section class="slide">
     <div class="slide-kicker">5 · CIP and open questions</div>
     <h2>Choosing M4</h2>
@@ -916,31 +905,32 @@
       <p class="slide-message">Evidence moved us from M3 to M4.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
-          <li>One symmetric link: one draw per pair, either end can supply an honest connection, one link kind</li>
-          <li>9 picks against M3's 19; p_bad 5.1 × 10⁻⁶ vs 5.8 × 10⁻⁵; downtime absorbed 7.57 % vs 1.58 %</li>
-          <li>Where failures could be counted: M3 failed 17 of 400, M4 none of 400</li>
-          <li>Price: ~22 % more bandwidth; security weighted first (13 Aug), selected 20 Aug</li>
+          <li>One symmetric link: one eligibility draw per pair, either end can supply an honest connection, one link kind for publishing and relaying</li>
+          <li>Without the gate, M4 meets the 10⁻⁴ target with 9 picks; M3 needs 19 in total</li>
+          <li>With gate and cap (N = 20,000, μ = 0.2) the models predict p_bad 5.1 × 10⁻⁶ for M4 at k = 10 against 5.8 × 10⁻⁵ for M3, and 7.57 % against 1.58 % honest downtime absorbed. Predictions, not measured rates</li>
+          <li>Where failures could be counted (32 eligible peers per identity): M3 failed 17 of 400 runs, M4 none of 400</li>
+          <li>Price: about 22 % more bandwidth than M3 in the ungated comparison. Security weighted first (13 Aug); M4 selected 20 Aug</li>
       </ul>
     </div>
   </section>
 
-  <!-- 15 · The CIP and CPS -->
+  <!-- 14 · The CIP and CPS -->
   <section class="slide">
     <div class="slide-kicker">5 · CIP and open questions</div>
     <h2>The CIP and CPS</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">In review, with the evidence and its limits side by side.</p>
+      <p class="slide-message">Proposed and in review, with the evidence and its limits side by side.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
           <li>CIP-0201: epochs, topology, verifiable gate, links, signed messages, recovery caches, registries, parameters</li>
           <li>CPS-0038: the gap, four use cases, six ranked goals, seven open questions</li>
-          <li>Reviewers ask how large the deposit must be, and what this adds over existing channels</li>
+          <li>Early reviewer questions: what deposit makes μ = 0.2 implausible (we can state the outlay, 4,000 simultaneous deposits at N = 20,000, not yet the threshold), and what this adds over existing publish-only channels</li>
       </ul>
     </div>
   </section>
 
-  <!-- 16 · Gaps and open questions -->
+  <!-- 15 · Gaps and open questions -->
   <section class="slide">
     <div class="slide-kicker">5 · CIP and open questions</div>
     <h2>Gaps and open questions</h2>
@@ -949,30 +939,31 @@
       <p class="slide-message">What we have not shown is stated as plainly as what we have.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
-          <li>Tail probabilities extrapolated; rotation argued, not simulated</li>
-          <li>Small topics (gate off below ~37 nodes), correlated failure, chain halt or fork; μ chosen, not derived</li>
-          <li>Next: deployment profile, B = 512 / k = 10 / C = 24 validation, two implementations, operator pilot</li>
+          <li>Tail probabilities extrapolated; rotation argued, not simulated; the gated laws reproduced in review but not formally derived</li>
+          <li>Small topics: the gate is off up to 40 registrations at k = 10, and a topic of 50 is outside the analysis</li>
+          <li>Correlated failure and behaviour through a chain halt or fork are not covered; μ is chosen, not derived</li>
+          <li>Open: the relationship to CIP-0137, the interoperability spec, a deployment profile and the B = 512 / k = 10 / C = 24 validation, two implementations, an operator pilot</li>
       </ul>
     </div>
   </section>
 
-  <!-- 17 · How we worked -->
+  <!-- 16 · How we worked -->
   <section class="slide">
     <div class="slide-kicker">6 · How we worked</div>
     <h2>How we worked</h2>
     <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
-      <p class="slide-message">Decisions in public kept six people aligned.</p>
+      <p class="slide-message">Decisions in public kept a seven-person team aligned.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
       <ul class="points">
           <li>Weekly sessions and brainstorms; public logbook, biweekly reports and ADRs</li>
           <li>Specification-driven: someone joining late sees why, not only what</li>
-          <li>One lesson from each of us</li>
+          <li>One lesson from each presenter: William, Mauro, Ezequiel</li>
       </ul>
     </div>
   </section>
 
-  <!-- 18 · Thank you -->
+  <!-- 17 · Thank you -->
   <section class="slide close-slide">
     <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
     <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
