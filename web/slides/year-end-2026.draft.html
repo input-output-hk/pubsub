@@ -185,6 +185,17 @@
   .title-team-wide .title-team-row { grid-template-columns: repeat(4, max-content); gap: 1em 1.5em; }
   .title-team-wide .title-team-member img { width: 34px; height: 34px; }
   .title-slide .hero-visual { align-self: start; margin-top: 4vh; }
+  /* Visual slides (Will's sections) */
+  .viz-slide .split-row { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .viz-lede { font-size: 1.05em; color: var(--text-mute); max-width: 44ch; line-height: 1.5; margin-top: 0.9em; }
+  .viz-lede strong { color: var(--text); font-weight: 600; }
+  .viz-lede.wide { max-width: 72ch; }
+  .viz-callout { margin-top: 1.1em; max-width: 44ch; font-weight: 600; color: var(--text); border-left: 4px solid var(--iog-infared); padding: 0.3em 0 0.3em 0.9em; }
+  .viz-note { margin-top: 1.1em; max-width: 48ch; font-size: 0.78em; line-height: 1.5; color: var(--text-faint); }
+  .viz-visual { justify-self: center; width: 100%; }
+  .viz-visual svg { width: 100%; max-width: 560px; max-height: 66vh; height: auto; display: block; margin: 0 auto; }
+  .viz-visual.viz-wide { margin-top: 1.2em; }
+  .viz-visual.viz-wide svg { max-width: 860px; max-height: 58vh; }
   /* Outcome slide */
   .outcome-slide h2 { font-size: 2.1em; max-width: 24ch; }
   .outcome-steps { list-style: none; display: grid; gap: 0.5em; margin-top: 0.9em; max-width: 54ch; }
@@ -400,7 +411,7 @@
       gap: 2.2em;
     }
     .model-visual { overflow-x: auto; }
-    .hero-visual, .actor-graph, .timeline-visual, .outcome-visual { justify-self: center; width: 100%; }
+    .hero-visual, .actor-graph, .timeline-visual, .outcome-visual, .viz-visual { justify-self: center; width: 100%; }
     .hero-visual svg, .actor-graph svg, .timeline-visual svg {
       width: min(100%, 460px);
       max-height: none;
@@ -427,18 +438,6 @@
 
   /* Placeholder slides: a dashed frame holds the talking points until the
      speaker replaces it with the slide's real content or visual. */
-  .speaker-tag {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 0.62em;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    border: 1px solid var(--line-strong);
-    border-radius: 99px;
-    padding: 3px 10px;
-    margin-bottom: 1.2em;
-  }
   .placeholder {
     border: 2px dashed var(--line-strong);
     border-radius: 14px;
@@ -665,14 +664,13 @@
     <div class="split-row">
       <div>
         <h2>Trustworthy pub/sub, anchored on Cardano</h2>
-        <div><span class="speaker-tag">Speaker: William Wolff</span></div>
         <ul class="outcome-steps">
           <li><span class="step-n">1</span><span><strong>Registered nodes.</strong> Keys on chain, each with a refundable deposit.</span></li>
           <li><span class="step-n">2</span><span><strong>A verifiable gate.</strong> Public randomness fixes which pairs may connect; each node picks privately from that set.</span></li>
           <li><span class="step-n">3</span><span><strong>Symmetric links.</strong> One link per pair, both directions: either end can supply an honest path.</span></li>
           <li><span class="step-n">4</span><span><strong>Signed messages.</strong> Every subscriber verifies, relays and caches for recovery.</span></li>
         </ul>
-        <p class="outcome-guarantee">At 20,000 nodes, 20 % silent, the models predict some honest publisher is cut off in about 1 of 200,000 epochs (p<sub>bad</sub> 5.1 × 10<sup>−6</sup>), redrawn every epoch. Predicted, not measured.</p>
+        <p class="outcome-guarantee">At 20,000 nodes, 20 % silent, at the reference configuration (k = 10, B = 500, C = 23), the models predict some honest publisher is cut off in about 1 of 200,000 epochs (p<sub>bad</sub> 5.1 × 10<sup>−6</sup>), redrawn every epoch. Predicted, not measured.</p>
       </div>
       <div class="outcome-visual" aria-hidden="false">
         <svg viewBox="0 0 460 420" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Registered nodes on a topic, linked by symmetric links that a public gate permits, carrying a signed message from a publisher">
@@ -759,69 +757,159 @@
   </section>
 
   <!-- 4 · What we were given -->
-  <section class="slide">
+  <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
-    <h2>What we were given</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <p class="slide-message">A three-layer architecture whose security rested on its peer-sampling layer.</p>
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>AUEB's architecture (D1/D2): peer sampling, navigation, dissemination</li>
-          <li>SecureCyclon (ICDCS 2023) as the sampling layer: peer-reviewed, but not yet analysed against a silent adversary or inside this stack</li>
-          <li>The problem: trustworthy off-chain messages, authenticated against Cardano identities and resistant to targeted suppression</li>
-          <li>28 Apr: we prioritised one-way broadcasts (IOG alerts → SPOs, SPOs → delegators, dReps → delegators, dApps → users, plus three use cases Phillip Daro confirmed) and deprioritised the bidirectional multi-sig branch</li>
-      </ul>
+    <div class="split-row">
+      <div>
+        <h2>What we were given</h2>
+        <p class="viz-lede">AUEB's three-layer architecture (D1/D2), with <strong>SecureCyclon</strong> (ICDCS 2023) as the peer-sampling layer. Every guarantee above it was inherited from it.</p>
+        <p class="viz-note">28 Apr: we prioritised one-way broadcasts and deprioritised the bidirectional multi-sig branch.</p>
+      </div>
+      <div class="viz-visual">
+        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three stacked layers: dissemination, navigation, and peer sampling by SecureCyclon at the bottom, which the other two rest on; below, the four prioritised one-way use cases">
+          <g font-size="12" font-weight="600" letter-spacing="2" text-anchor="middle">
+            <rect x="60" y="20" width="320" height="58" rx="10" fill="var(--bg-soft)" stroke="var(--line-strong)"/>
+            <text x="220" y="54" fill="var(--text-mute)">DISSEMINATION</text>
+            <rect x="60" y="98" width="320" height="58" rx="10" fill="var(--bg-soft)" stroke="var(--line-strong)"/>
+            <text x="220" y="132" fill="var(--text-mute)">NAVIGATION</text>
+            <rect x="60" y="176" width="320" height="74" rx="10" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
+            <text x="220" y="207" fill="var(--iog-infared)">PEER SAMPLING</text>
+            <text x="220" y="230" font-size="11" font-weight="500" letter-spacing="1" fill="var(--text)">SecureCyclon</text>
+          </g>
+          <g stroke="var(--text-faint)" stroke-width="1.4" fill="none">
+            <path d="M400,236 L400,40"/><path d="M394,48 L400,40 L406,48"/>
+          </g>
+          <text x="414" y="140" font-size="9" letter-spacing="1.5" fill="var(--text-faint)" transform="rotate(90 414 140)" text-anchor="middle">SECURITY INHERITED UPWARD</text>
+          <text x="220" y="272" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--iog-infared)">LOAD-BEARING ASSUMPTION</text>
+          <text x="220" y="316" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">PRIORITISED USE CASES · 28 APR</text>
+          <g font-size="10.5" text-anchor="middle" fill="var(--text)">
+            <rect x="30" y="330" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
+            <text x="122" y="347">IOG alerts → SPOs</text>
+            <rect x="225" y="330" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
+            <text x="317" y="347">SPOs → delegators</text>
+            <rect x="30" y="364" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
+            <text x="122" y="381">dReps → delegators</text>
+            <rect x="225" y="364" width="185" height="26" rx="13" fill="none" stroke="var(--info)"/>
+            <text x="317" y="381">dApps → users</text>
+          </g>
+        </svg>
+      </div>
     </div>
   </section>
 
   <!-- 5 · Reviewing the proposed architecture -->
-  <section class="slide">
+  <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
-    <h2>Reviewing the proposed architecture</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <p class="slide-message">We tested the riskiest assumption first.</p>
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>March technical review and AUEB gap analysis: no stated security model, no anti-spam, no incentives</li>
-          <li>5 May: stop generating ideas, start generating output</li>
-          <li>The whole stack rested on SecureCyclon, so analysing it came first</li>
-      </ul>
+    <div class="split-row">
+      <div>
+        <h2>Reviewing the proposed architecture</h2>
+        <p class="viz-lede">The March technical review and the AUEB gap analysis found critical requirements the architecture did not address.</p>
+        <p class="viz-note">On 5 May we stopped generating ideas and started generating output. The whole stack rested on SecureCyclon, so analysing it came first.</p>
+      </div>
+      <div class="viz-visual">
+        <svg viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three missing pieces: a security model, anti-spam protection and incentives; an arrow leads to testing the riskiest assumption first, SecureCyclon">
+          <g text-anchor="middle">
+            <g>
+              <rect x="10" y="20" width="130" height="150" rx="12" fill="var(--bg-soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+              <circle cx="75" cy="62" r="16" fill="none" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <path d="M68,55 L82,69 M82,55 L68,69" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <text x="75" y="110" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">SECURITY</text>
+              <text x="75" y="126" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">MODEL</text>
+              <text x="75" y="150" font-size="9" fill="var(--text-faint)">no honesty assumptions</text>
+            </g>
+            <g>
+              <rect x="155" y="20" width="130" height="150" rx="12" fill="var(--bg-soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+              <circle cx="220" cy="62" r="16" fill="none" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <path d="M213,55 L227,69 M227,55 L213,69" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <text x="220" y="110" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">ANTI-SPAM</text>
+              <text x="220" y="150" font-size="9" fill="var(--text-faint)">no rate limits</text>
+            </g>
+            <g>
+              <rect x="300" y="20" width="130" height="150" rx="12" fill="var(--bg-soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+              <circle cx="365" cy="62" r="16" fill="none" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <path d="M358,55 L372,69 M372,55 L358,69" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <text x="365" y="110" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">INCENTIVES</text>
+              <text x="365" y="150" font-size="9" fill="var(--text-faint)">no reason to forward</text>
+            </g>
+          </g>
+          <g stroke="var(--text-faint)" stroke-width="1.4" fill="none">
+            <path d="M75,176 C75,210 220,200 220,236"/><path d="M220,176 L220,236"/><path d="M365,176 C365,210 220,200 220,236"/>
+            <path d="M213,228 L220,238 L227,228"/>
+          </g>
+          <rect x="40" y="250" width="360" height="96" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
+          <text x="220" y="280" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">5 MAY</text>
+          <text x="220" y="306" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Test the riskiest assumption first:</text>
+          <text x="220" y="328" text-anchor="middle" font-size="13" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text>
+        </svg>
+      </div>
     </div>
   </section>
 
   <!-- 6 · SecureCyclon findings -->
-  <section class="slide">
+  <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
-    <h2>SecureCyclon findings</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <p class="slide-message">A silent adversary can eclipse a chosen victim without tripping a single defence.</p>
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Silent: it forges nothing and breaks no rule; it only chooses whom it contacts and what it withholds</li>
-          <li>28 May, with Spyros Voulgaris: 15 % malicious nodes reach an equilibrium with ~8.9× amplification of adversarial influence</li>
-          <li>Team simulation (N = 200, view size 20, 3 seeds): at 20 % adversarial nodes the victim's view is 73–80 % malicious, at least 80 % malicious in 37–68 % of cycles; at 30 % the eclipse is near-total</li>
-          <li>No detection fired. The result holds for the tested configurations, not for every sampler</li>
-      </ul>
+    <div class="split-row">
+      <div>
+        <h2>SecureCyclon findings</h2>
+        <p class="viz-lede">A silent adversary forges nothing and breaks no rule. It only chooses whom it contacts and what it withholds, and against a targeted victim that is enough.</p>
+        <p class="viz-callout">No detection fired, in any run.</p>
+        <p class="viz-note">Team simulation of the full protocol, 28 Jun: N = 200, view size 20, 3 seeds, three silent attack combinations (bars span them). Holds for the tested configurations, not every sampler. Earlier, with Spyros Voulgaris (28 May): 15 % malicious nodes reach ~8.9× amplification.</p>
+      </div>
+      <div class="viz-visual">
+        <svg viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Malicious share of the victim's view against the adversary's share of nodes: 10 to 18 percent at 5 percent adversaries, 26 to 35 at 10, 44 to 56 at 15, 72.5 to 80.3 at 20, and 98.6 to 99.3 at 30, far above the network-wide average">
+          <text x="70" y="22" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">MALICIOUS SHARE OF THE VICTIM'S VIEW</text>
+          <g stroke="var(--line)" stroke-width="1"><line x1="70" y1="320.0" x2="430" y2="320.0"/><line x1="70" y1="250.0" x2="430" y2="250.0"/><line x1="70" y1="180.0" x2="430" y2="180.0"/><line x1="70" y1="110.0" x2="430" y2="110.0"/><line x1="70" y1="40.0" x2="430" y2="40.0"/></g>
+          <g font-size="9.5" fill="var(--text-faint)"><text x="62" y="323.5" text-anchor="end">0 %</text><text x="62" y="253.5" text-anchor="end">25 %</text><text x="62" y="183.5" text-anchor="end">50 %</text><text x="62" y="113.5" text-anchor="end">75 %</text><text x="62" y="43.5" text-anchor="end">100 %</text></g>
+          <line x1="70" y1="96.0" x2="430" y2="96.0" stroke="var(--text-faint)" stroke-dasharray="2 3"/>
+          <text x="430" y="91.0" text-anchor="end" font-size="9" fill="var(--text-faint)">ECLIPSE THRESHOLD 80 %</text>
+          <polyline points="126.2,305.2 182.5,288.9 238.8,270.7 295.0,250.0 407.5,199.9" fill="none" stroke="var(--text-mute)" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <circle cx="126.2" cy="305.2" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="182.5" cy="288.9" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="238.8" cy="270.7" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="295.0" cy="250.0" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="407.5" cy="199.9" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/>
+          <text x="428" y="306" text-anchor="end" font-size="9" fill="var(--text-mute)">- - NETWORK-WIDE AVERAGE m/(n−m)</text>
+          <g><rect x="114.2" y="269.9" width="24" height="22.1" rx="3" fill="var(--iog-infared)"/><rect x="170.5" y="222.0" width="24" height="24.4" rx="3" fill="var(--iog-infared)"/><rect x="226.8" y="162.6" width="24" height="34.4" rx="3" fill="var(--iog-infared)"/><rect x="283.0" y="95.2" width="24" height="21.8" rx="3" fill="var(--iog-infared)"/><rect x="395.5" y="42.0" width="24" height="3.0" rx="3" fill="var(--iog-infared)"/></g>
+          <g font-size="10" font-weight="600" fill="var(--iog-infared)">
+            <text x="279.0" y="73.2" text-anchor="end">72.5–80.3 %</text>
+            <text x="279.0" y="87.2" text-anchor="end" font-weight="400" font-size="9" fill="var(--text-mute)">≥ 80 % in 37–68 % of cycles</text>
+          </g>
+          <g font-size="10" fill="var(--text-mute)"><text x="126.2" y="340" text-anchor="middle">5 %</text><text x="182.5" y="340" text-anchor="middle">10 %</text><text x="238.8" y="340" text-anchor="middle">15 %</text><text x="295.0" y="340" text-anchor="middle">20 %</text><text x="407.5" y="340" text-anchor="middle">30 %</text></g>
+          <text x="250" y="366" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">ADVERSARIAL SHARE OF NODES</text>
+        </svg>
+      </div>
     </div>
   </section>
 
-  <!-- 7 · Deriving the design from evidence -->
-  <section class="slide">
+  <!-- 7 · The on-chain registry -->
+  <section class="slide viz-slide">
     <div class="slide-kicker">2 · Replace the foundation</div>
-    <h2>Deriving the design from evidence</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
-    <div class="placeholder">
-      <p class="slide-message">We simplified the stack instead of patching it.</p>
-      <div class="placeholder-label">Placeholder · talking points</div>
-      <ul class="points">
-          <li>Deposits already imply an on-chain list of participants; a separate sampling layer adds attack surface (25 Jun)</li>
-          <li>19 May list-based design → 25 Jun on-chain registry with rejection sampling → 7 Jul SecureCyclon formally retired</li>
-          <li>The silent-attack report (28 Jun) then confirmed the risk we had stepped away from</li>
-          <li>Bucketed hash gating against flooding (8 May) survives into the CIP; 30 Jun: phase 2 moves from building to experiments</li>
-      </ul>
+    <h2>The on-chain registry</h2>
+    <p class="viz-lede wide">Deposits already imply an on-chain list of participants, so a separate sampling layer only added attack surface. We replaced it instead of patching it.</p>
+    <div class="viz-visual viz-wide">
+      <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from 8 May to 7 July 2026">
+        <g font-size="10.5" font-weight="600" letter-spacing="1.5" text-anchor="middle">
+          <text x="120" y="16" font-size="9.5" fill="var(--text-faint)">GIVEN</text>
+          <g opacity="0.55">
+            <rect x="30" y="28" width="180" height="44" rx="9" fill="var(--bg-soft)" stroke="var(--line-strong)"/>
+            <text x="120" y="54" fill="var(--text-mute)">DISSEMINATION</text>
+            <rect x="30" y="80" width="180" height="44" rx="9" fill="var(--bg-soft)" stroke="var(--line-strong)"/>
+            <text x="120" y="106" fill="var(--text-mute)">NAVIGATION</text>
+            <rect x="30" y="132" width="180" height="44" rx="9" fill="var(--bg-soft)" stroke="var(--line-strong)" stroke-dasharray="4 3"/>
+            <text x="120" y="158" fill="var(--text-mute)">PEER SAMPLING</text>
+          </g>
+          <line x1="44" y1="154" x2="196" y2="154" stroke="var(--iog-infared)" stroke-width="1.6"/>
+          <text x="400" y="16" font-size="9.5" fill="var(--text-faint)">ADOPTED</text>
+          <rect x="310" y="28" width="180" height="70" rx="9" fill="var(--bg-soft)" stroke="var(--line-strong)"/>
+          <text x="400" y="60" fill="var(--text)">DISSEMINATION</text>
+          <text x="400" y="78" font-size="9" font-weight="400" letter-spacing="0.5" fill="var(--text-mute)">bucketed hash gating</text>
+          <rect x="310" y="106" width="180" height="70" rx="9" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
+          <text x="400" y="138" fill="var(--iog-infared)">ON-CHAIN REGISTRY</text>
+          <text x="400" y="156" font-size="9" font-weight="400" letter-spacing="0.5" fill="var(--text-mute)">deposits · rejection sampling</text>
+        </g>
+        <g stroke="var(--iog-infared)" stroke-width="2" fill="none" stroke-linecap="round">
+          <path d="M228,102 L292,102"/><path d="M282,94 L292,102 L282,110"/>
+        </g>
+        <line x1="30" y1="300" x2="490" y2="300" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="30" y="250" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">2026</text>
+        <circle cx="50" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="50" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">8 May</text><text x="50" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">bucketed</text><text x="50" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">hash gating</text><circle cx="134" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="134" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">19 May</text><text x="134" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">list-based</text><text x="134" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">design</text><circle cx="218" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/><text x="218" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--iog-infared)">25 Jun</text><text x="218" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">on-chain registry,</text><text x="218" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">rejection sampling</text><circle cx="302" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="302" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">28 Jun</text><text x="302" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">silent-attack</text><text x="302" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">report</text><circle cx="386" cy="300" r="4.5" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.6"/><text x="386" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text-mute)">30 Jun</text><text x="386" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">phase 2:</text><text x="386" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">experiments</text><circle cx="470" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/><text x="470" y="284" text-anchor="middle" font-size="10" font-weight="600" fill="var(--iog-infared)">7 Jul</text><text x="470" y="322" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text><text x="470" y="335" text-anchor="middle" font-size="9.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">retired</text>
+      </svg>
     </div>
   </section>
 
@@ -831,7 +919,6 @@
   <section class="slide formal-problem">
     <div class="slide-kicker">3 · Make it measurable</div>
     <h2>Formalizing the problem</h2>
-    <div><span class="speaker-tag">Speaker: Mauro Jaskelioff</span></div>
     <ul class="points">
       <li><strong>Population</strong>: <var>N</var> registered nodes; <var>H</var> = (1−μ)<var>N</var> honest.  The adversarial fraction μ receives but never relays.</li>
       <li><strong>Epoch</strong>: a protocol period indicating how long a sampled dissemination topology is held.</li>
@@ -852,7 +939,6 @@
   <section class="slide dense formal-models">
     <div class="slide-kicker">3 · Make it measurable</div>
     <h2>Five candidate models and their laws</h2>
-    <div><span class="speaker-tag">Speaker: Mauro Jaskelioff</span></div>
     <p class="formal-law"><var>p</var><sub>bad</sub> ≈ 1 − e<sup>−<var>E</var></sup>,
       with <var>E</var> the expected number of isolation defects</p>
     <div class="model-visual">
@@ -993,7 +1079,6 @@
   <section class="slide">
     <div class="slide-kicker">4 · Let the evidence choose</div>
     <h2>Choosing M4</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
       <p class="slide-message">Evidence moved us from M3 to M4.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
@@ -1011,7 +1096,6 @@
   <section class="slide">
     <div class="slide-kicker">5 · What's open</div>
     <h2>Where review stands</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
       <p class="slide-message">Confirmed by the editors and in public review; the hardest questions are about economics and value.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
@@ -1028,7 +1112,6 @@
   <section class="slide">
     <div class="slide-kicker">5 · What's open</div>
     <h2>Gaps and open questions</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
       <p class="slide-message">What we have not shown is stated as plainly as what we have.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
@@ -1045,7 +1128,6 @@
   <section class="slide">
     <div class="slide-kicker">6 · How we worked</div>
     <h2>How we worked</h2>
-    <div><span class="speaker-tag">Speaker: TBD</span></div>
     <div class="placeholder">
       <p class="slide-message">Decisions in public kept a seven-person team aligned.</p>
       <div class="placeholder-label">Placeholder · talking points</div>
