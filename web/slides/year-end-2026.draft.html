@@ -704,83 +704,25 @@
         <p class="outcome-guarantee">At 20,000 nodes, 20 % silent, at the reference configuration (k = 10, B = 500, C = 23), the models predict that some honest publisher fails to reach every honest subscriber in about 1 of 200,000 epochs (p<sub>bad</sub> 5.1 × 10<sup>−6</sup>), redrawn every epoch. Predicted, not measured.</p>
       </div>
       <div class="outcome-visual" aria-hidden="false">
-        <svg viewBox="0 0 460 420" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Registered nodes on a topic, linked by symmetric links that a public gate permits, carrying a signed message from a publisher">
-          <!-- beacon and gate -->
-          <g font-size="10.5" letter-spacing="1.5" fill="var(--text-faint)" font-weight="600">
-            <text x="230" y="14" text-anchor="middle">EPOCH RANDOMNESS → GATE → ELIGIBLE PAIRS</text>
+        <svg viewBox="0 0 460 420" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="A publisher's signed message travels along red links to every honest node on the topic, around a silent node that holds links but forwards nothing. Dashed lines are pairs the gate allowed but nobody picked. All nodes sit on the on-chain registry.">
+          <g stroke="var(--card-stroke-soft)" stroke-width="1.4" stroke-dasharray="4 5" stroke-linecap="round" fill="none"><line x1="142.3" y1="267.7" x2="317.7" y2="267.7"/><line x1="106.0" y1="180.0" x2="230.0" y2="56.0"/></g>
+          <g stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" fill="none"><line x1="230.0" y1="304.0" x2="142.3" y2="267.7"/></g>
+          <g stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" fill="none" stroke-opacity="0.6"><line x1="230.0" y1="56.0" x2="317.7" y2="92.3"/><line x1="317.7" y1="92.3" x2="354.0" y2="180.0"/></g>
+          <g stroke="var(--iog-infared)" stroke-width="2.8" stroke-linecap="round" fill="none"><line x1="142.3" y1="92.3" x2="230.0" y2="56.0"/><line x1="142.3" y1="92.3" x2="106.0" y2="180.0"/><line x1="142.3" y1="92.3" x2="317.7" y2="267.7"/><line x1="317.7" y1="267.7" x2="354.0" y2="180.0"/><line x1="317.7" y1="267.7" x2="230.0" y2="304.0"/><line x1="106.0" y1="180.0" x2="142.3" y2="267.7"/></g>
+          <g transform="translate(162.0,41.5)">
+            <rect x="0" y="0" width="30" height="21" rx="3" fill="var(--card-fill)" stroke="var(--iog-infared)" stroke-width="1.6"/>
+            <path d="M2,2 L15,12 L28,2" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-linejoin="round"/>
           </g>
-          <!-- eligible, not picked -->
-          <g stroke="var(--line-strong)" stroke-width="1.2" stroke-dasharray="3 4" fill="none">
-            <line x1="90" y1="95" x2="330" y2="95"/>
-            <line x1="210" y1="62" x2="400" y2="185"/>
-            <line x1="45" y1="185" x2="330" y2="275"/>
-            <line x1="90" y1="275" x2="330" y2="95"/>
-            <line x1="210" y1="62" x2="210" y2="305"/>
+          <text x="157.0" y="56.0" text-anchor="end" font-size="11" font-weight="600" letter-spacing="1" fill="var(--iog-infared)">SIGNED</text>
+          <g><circle cx="230.0" cy="56.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="230.0" cy="56.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="317.7" cy="92.3" r="12" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M312.7,87.3 L322.7,97.3 M322.7,87.3 L312.7,97.3" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="354.0" cy="180.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="354.0" cy="180.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="317.7" cy="267.7" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="317.7" cy="267.7" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="230.0" cy="304.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="230.0" cy="304.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="142.3" cy="267.7" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="142.3" cy="267.7" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="106.0" cy="180.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="106.0" cy="180.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="142.3" cy="92.3" r="15" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2.4"/></g>
+          <g font-size="11" letter-spacing="1" font-weight="600">
+            <text x="120.3" y="96.3" text-anchor="end" fill="var(--iog-infared)">PUBLISHER</text>
+            <text x="337.7" y="86.3" fill="var(--text-mute)">SILENT</text>
+            <text x="337.7" y="101.3" font-weight="400" font-size="10" letter-spacing="0.3" fill="var(--text-faint)">forwards nothing</text>
           </g>
-          <!-- selected symmetric links -->
-          <g stroke="var(--text-faint)" stroke-width="1.8" fill="none" stroke-linecap="round">
-            <line x1="90" y1="95" x2="210" y2="62"/>
-            <line x1="90" y1="95" x2="45" y2="185"/>
-            <line x1="90" y1="95" x2="210" y2="185"/>
-            <line x1="210" y1="62" x2="330" y2="95"/>
-            <line x1="330" y1="95" x2="400" y2="185"/>
-            <line x1="400" y1="185" x2="330" y2="275"/>
-            <line x1="330" y1="275" x2="210" y2="305"/>
-            <line x1="210" y1="305" x2="90" y2="275"/>
-            <line x1="90" y1="275" x2="45" y2="185"/>
-            <line x1="45" y1="185" x2="210" y2="185"/>
-            <line x1="210" y1="185" x2="330" y2="275"/>
-            <line x1="210" y1="185" x2="330" y2="95"/>
-          </g>
-          <!-- message path from the publisher -->
-          <g stroke="var(--iog-infared)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-opacity="0.85">
-            <line x1="90" y1="95" x2="210" y2="62"/>
-            <line x1="90" y1="95" x2="45" y2="185"/>
-            <line x1="90" y1="95" x2="210" y2="185"/>
-            <line x1="210" y1="185" x2="330" y2="275"/>
-            <line x1="45" y1="185" x2="90" y2="275"/>
-            <line x1="330" y1="275" x2="210" y2="305"/>
-            <line x1="330" y1="275" x2="400" y2="185"/>
-          </g>
-          <!-- signed message in flight -->
-          <g transform="translate(138,68)">
-            <rect x="0" y="0" width="30" height="20" rx="3" fill="var(--bg)" stroke="var(--iog-infared)" stroke-width="1.5"/>
-            <path d="M1,1 L15,11 L29,1" fill="none" stroke="var(--iog-infared)" stroke-width="1.3"/>
-            <circle cx="27" cy="18" r="5" fill="var(--iog-infared)"/>
-          </g>
-          <!-- nodes -->
-          <g stroke-width="1.6">
-            <circle cx="90" cy="95" r="15" fill="var(--bad-soft)" stroke="var(--iog-infared)"/>
-            <circle cx="210" cy="62" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="330" cy="95" r="11" fill="var(--card-fill)" stroke="var(--text-faint)" stroke-dasharray="3 2"/>
-            <circle cx="400" cy="185" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="330" cy="275" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="210" cy="305" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="90" cy="275" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="45" cy="185" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-            <circle cx="210" cy="185" r="11" fill="var(--info-soft)" stroke="var(--info)"/>
-          </g>
-          <g font-size="10.5" letter-spacing="1" fill="var(--text-mute)">
-            <text x="90" y="134" text-anchor="middle">PUBLISHER</text>
-            <text x="330" y="74" text-anchor="middle">SILENT</text>
-          </g>
-          <!-- registry -->
-          <g stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="2 3">
-            <line x1="90" y1="286" x2="90" y2="348"/>
-            <line x1="210" y1="316" x2="210" y2="348"/>
-            <line x1="330" y1="286" x2="330" y2="348"/>
-          </g>
-          <rect x="20" y="348" width="420" height="30" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
-          <text x="230" y="367" text-anchor="middle" font-size="10.5" letter-spacing="1.2" font-weight="600" fill="var(--text-mute)">ON-CHAIN REGISTRY · NODE KEYS · DEPOSITS · TOPICS</text>
-          <!-- legend -->
-          <g font-size="10" letter-spacing="0.3" fill="var(--text-faint)">
-            <line x1="22" y1="404" x2="44" y2="404" stroke="var(--text-faint)" stroke-width="1.8"/>
-            <text x="50" y="407">PICKED LINK, BOTH WAYS</text>
-            <line x1="200" y1="404" x2="222" y2="404" stroke="var(--line-strong)" stroke-width="1.2" stroke-dasharray="3 4"/>
-            <text x="228" y="407">ELIGIBLE, NOT PICKED</text>
-            <line x1="360" y1="404" x2="382" y2="404" stroke="var(--iog-infared)" stroke-width="2.4"/>
-            <text x="388" y="407">SIGNED MSG</text>
-          </g>
+          <rect x="30" y="340" width="400" height="32" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+          <text x="230" y="360.5" text-anchor="middle" font-size="11" letter-spacing="1.2" font-weight="600" fill="var(--text-mute)">ON-CHAIN REGISTRY · KEYS · DEPOSITS · TOPICS</text>
+          <g font-size="11" letter-spacing="0.5" fill="var(--text-faint)"><line x1="20" y1="398" x2="42" y2="398" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"/><text x="49" y="402">PICKED LINK</text><line x1="138" y1="398" x2="160" y2="398" stroke="var(--card-stroke-soft)" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="4 5"/><text x="167" y="402">ELIGIBLE PAIR</text><line x1="274" y1="398" x2="296" y2="398" stroke="var(--iog-infared)" stroke-width="2.8" stroke-linecap="round"/><text x="303" y="402">MESSAGE</text><circle cx="381" cy="398" r="8" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="381" cy="398" r="4.5" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.2"/><text x="396" y="402">REACHED</text></g>
         </svg>
       </div>
     </div>
