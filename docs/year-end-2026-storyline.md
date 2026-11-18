@@ -9,9 +9,9 @@ Outcome first, then how we got there. The audience sees CIP-0201 on slide 3, so 
 1. **The outcome** (slide 3)
 2. **How we got there: replace the foundation** (4–7)
 3. **How we got there: make it measurable** (8–12, Mauro and Ezequiel)
-4. **How we got there: let the evidence choose** (13–14)
-5. **What's open** (15–16)
-6. **How we worked: lessons learned** (17)
+4. **How we got there: let the evidence choose** (13–15, with a live demo of the compare-designs tool on 14)
+5. **What's open** (16–17)
+6. **How we worked: lessons learned** (18)
 
 The through-line is that evidence changed our minds three times: we set SecureCyclon aside, we moved from M3 to M4, and we re-scoped the CIP into a report that states its own limits.
 
@@ -106,7 +106,7 @@ Candidates for the three presenters to confirm or replace.
 
 ## Tools on the website worth showing
 
-- [Compare designs](../web/experiments/compare-designs/): ungated M1–M5 estimates with population, adversarial share and pick count as controls. Linked from slide 13.
-- [Parameter surface](../web/experiments/parameters/): exploratory M4 isolation estimates, bucket-count ceilings and an admissions-budget recipe. Linked from slide 16.
+- [Compare designs](../web/experiments/compare-designs/): ungated M1–M5 estimates with population, adversarial share and pick count as controls. Linked from slide 13 and embedded live on slide 14.
+- [Parameter surface](../web/experiments/parameters/): exploratory M4 isolation estimates, bucket-count ceilings and an admissions-budget recipe. Linked from slide 17.
 - [Model simulator](../web/experiments/models/): watch each model draw its links and a message propagate, at toy scale.
 - [How the design was derived](../web/experiments/): the comparisons behind selecting M4.

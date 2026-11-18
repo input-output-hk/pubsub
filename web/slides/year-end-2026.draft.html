@@ -224,6 +224,9 @@
   .lesson-card p { font-size: 0.78em; line-height: 1.45; color: var(--text-mute); }
   .lesson-card.alt { border-top: 3px solid var(--warn); }
   .lesson-trail { display: block; margin-top: 0.5em; font-family: var(--font-mono); font-size: 0.62em; font-weight: 600; letter-spacing: 0.06em; color: var(--text-faint); }
+  .demo-hint { display: inline-block; margin-left: 0.6em; font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+  .demo-frame { margin-top: 0.9em; width: 100%; height: calc(100vh - 15.5em); min-height: 320px; border: 1px solid var(--card-stroke-faint); border-radius: 8px; overflow: hidden; background: var(--card-fill); }
+  .demo-frame iframe { display: block; border: 0; width: 133.34%; height: 133.34%; transform: scale(0.75); transform-origin: 0 0; }
   /* Outcome slide */
   .outcome-slide h2 { font-size: 2.1em; max-width: 24ch; }
   .outcome-steps { list-style: none; display: grid; gap: 0.5em; margin-top: 0.9em; max-width: 54ch; }
@@ -683,7 +686,7 @@
       <li><span class="agenda-title">The outcome</span><span class="agenda-subs">What CIP-0201 does</span></li>
       <li><span class="agenda-title">Replace the foundation</span><span class="agenda-subs">From SecureCyclon to an on-chain registry</span></li>
       <li><span class="agenda-title">Make it measurable</span><span class="agenda-subs">Formal models and a reference implementation</span></li>
-      <li><span class="agenda-title">Let the evidence choose</span><span class="agenda-subs">Why M4</span></li>
+      <li><span class="agenda-title">Let the evidence choose</span><span class="agenda-subs">Why M4 · a live comparison</span></li>
       <li><span class="agenda-title">What's open</span><span class="agenda-subs">Review status and gaps</span></li>
       <li><span class="agenda-title">How we worked</span><span class="agenda-subs">Lessons learned</span></li>
     </ol>
@@ -1074,7 +1077,17 @@
     </div>
   </section>
 
-  <!-- 14 · Why it looks like this -->
+  <!-- 14 · Try it: compare the designs -->
+  <section class="slide viz-slide demo-slide">
+    <div class="slide-kicker">4 · Let the evidence choose</div>
+    <h2>Try it: compare the designs</h2>
+    <p class="viz-lede wide">Drag the adversarial share: M3 drops below the target first. <span class="demo-hint">Esc or move the pointer off the tool to return to the slides.</span></p>
+    <div class="demo-frame">
+      <iframe id="demo-compare" src="../experiments/compare-designs/" title="Compare designs: the ungated M1–M5 estimates" loading="lazy"></iframe>
+    </div>
+  </section>
+
+  <!-- 15 · Why it looks like this -->
   <section class="slide viz-slide">
     <div class="slide-kicker">4 · Let the evidence choose</div>
     <h2>Why it looks like this</h2>
@@ -1113,7 +1126,7 @@
     </div>
   </section>
 
-  <!-- 15 · Where review stands -->
+  <!-- 16 · Where review stands -->
   <section class="slide viz-slide">
     <div class="slide-kicker">5 · What's open</div>
     <h2>Where review stands</h2>
@@ -1139,7 +1152,7 @@
     </div>
   </section>
 
-  <!-- 16 · Gaps and open questions -->
+  <!-- 17 · Gaps and open questions -->
   <section class="slide viz-slide">
     <div class="slide-kicker">5 · What's open</div>
     <h2>Gaps and open questions</h2>
@@ -1151,7 +1164,7 @@
     </div>
   </section>
 
-  <!-- 17 · How we worked -->
+  <!-- 18 · How we worked -->
   <!-- Candidate lessons drawn from the logbook, the CIP and the review for the three presenters
        (William, Mauro, Ezequiel) to confirm, replace or reassign before the talk. -->
   <section class="slide viz-slide dense">
@@ -1163,7 +1176,7 @@
     <div class="lesson-band four"><div class="lesson-card alt"><h3>Question the foundation sooner</h3><p>“Is full gossip overkill at SPO scale?” was in our April notes; peer sampling went in June, once the on-chain list, a prototype shortcut, proved to be the design.</p><span class="lesson-trail">Apr → Jun</span></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 became the base from comparisons without gate or cap; with them, M4 won.</p><span class="lesson-trail">Jul → Aug</span></div><div class="lesson-card alt"><h3>Size for the real audience earlier</h3><p>We sized at N = 20,000; chain data showed ~2,700 pools ever registered, ~900 holding 99 % of stake, and wallet topics may hold tens.</p><span class="lesson-trail">Apr → Sep</span></div><div class="lesson-card alt"><h3>Treat chain failure as a requirement</h3><p>Alerts matter most when the chain is degraded; behaviour through a halt or fork is still unspecified.</p><span class="lesson-trail">Jul → open</span></div></div>
   </section>
 
-  <!-- 18 · Thank you -->
+  <!-- 19 · Thank you -->
   <section class="slide close-slide">
     <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
     <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
@@ -1246,5 +1259,34 @@
   })();
 </script>
 
+<script>
+  // Live demo: scroll the embedded tool to its controls, follow the deck's theme,
+  // and hand the keyboard back to the deck on Esc or when the pointer leaves.
+  (function () {
+    var frame = document.getElementById('demo-compare');
+    if (!frame) return;
+    var root = document.documentElement;
+    function doc() { try { return frame.contentDocument; } catch (e) { return null; } }
+    function syncTheme() {
+      var d = doc(); if (!d) return;
+      var t = root.getAttribute('data-theme');
+      if (t) d.documentElement.setAttribute('data-theme', t); else d.documentElement.removeAttribute('data-theme');
+    }
+    function giveBack() { if (document.activeElement === frame) frame.blur(); window.focus(); }
+    frame.addEventListener('load', function () {
+      var d = doc(); if (!d) return;
+      syncTheme();
+      // The deck is the navigation here, so the site's own bar is hidden inside the frame.
+      var st = d.createElement('style');
+      st.textContent = '.navbar { display: none !important; } html { scroll-padding-top: 0 !important; scroll-behavior: auto !important; }';
+      d.head.appendChild(st);
+      var rail = d.querySelector('.env-rail');
+      if (rail) frame.contentWindow.scrollTo(0, Math.max(0, rail.getBoundingClientRect().top + frame.contentWindow.scrollY - 12));
+      d.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); giveBack(); } });
+    });
+    frame.addEventListener('mouseleave', giveBack);
+    new MutationObserver(syncTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  })();
+</script>
 </body>
 </html>
