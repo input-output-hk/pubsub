@@ -882,17 +882,18 @@
     <h2>A deposit implies a list, and a list replaces sampling</h2>
     <p class="viz-lede wide">A deposit puts every node on chain, so nodes can pick peers uniformly from the registry. A known list invites flooding, hence the verifiable gate.</p>
     <div class="viz-visual viz-wide">
-      <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from May to July 2026">
+      <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling, with navigation and peer sampling both dropped. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from May to July 2026">
         <g font-size="10.5" font-weight="600" letter-spacing="1.5" text-anchor="middle">
           <text x="120" y="16" font-size="9.5" fill="var(--text-faint)">GIVEN</text>
           <g opacity="0.55">
             <rect x="30" y="28" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
             <text x="120" y="54" fill="var(--text-mute)">DISSEMINATION</text>
-            <rect x="30" y="80" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <rect x="30" y="80" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="4 3"/>
             <text x="120" y="106" fill="var(--text-mute)">NAVIGATION</text>
             <rect x="30" y="132" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="4 3"/>
             <text x="120" y="158" fill="var(--text-mute)">PEER SAMPLING</text>
           </g>
+          <line x1="44" y1="102" x2="196" y2="102" stroke="var(--iog-infared)" stroke-width="1.6"/>
           <line x1="44" y1="154" x2="196" y2="154" stroke="var(--iog-infared)" stroke-width="1.6"/>
           <text x="400" y="16" font-size="9.5" fill="var(--text-faint)">ADOPTED</text>
           <rect x="310" y="28" width="180" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
