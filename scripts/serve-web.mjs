@@ -48,7 +48,14 @@ const server = createServer(async (req, res) => {
   let file = normalize(join(root, pathname));
   if (file !== root && !file.startsWith(root + sep)) { res.writeHead(403).end(); return; }
   try {
-    if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
+    if ((await stat(file)).isDirectory()) {
+      // Relative links inside a directory's index.html need the trailing slash.
+      if (!url.pathname.endsWith('/')) {
+        res.writeHead(301, { Location: url.pathname + '/' + url.search }).end();
+        return;
+      }
+      file = join(file, 'index.html');
+    }
     let body = await readFile(file);
     const type = types[extname(file)] || 'application/octet-stream';
     if (type.startsWith('text/html')) body = body.toString().replace('</body>', reloadSnippet + '</body>');
@@ -59,9 +66,17 @@ const server = createServer(async (req, res) => {
 });
 
 let pending;
-watch(root, { recursive: true }, () => {
+const watcher = watch(root, { recursive: true }, () => {
   clearTimeout(pending);
   pending = setTimeout(() => clients.forEach((c) => c.write('data: reload\n\n')), 100);
+});
+
+watcher.on('error', (err) => console.error(`Live reload stopped: ${err.message}`));
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') console.error(`Port ${port} is in use; set PORT to another port, e.g. PORT=9000 npm run slides`);
+  else console.error(err.message);
+  process.exit(1);
 });
 
 server.listen(port, '127.0.0.1', () => {
