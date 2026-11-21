@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano PubSub — From Research to CIP · November 2026</title>
+<meta name="description" content="End-of-year presentation on Cardano PubSub: from the research we were given to an evidence-backed design, a reference implementation and CIP-0201.">
+<!-- Draft deck: the .draft.html suffix keeps it out of the site deploy; drop the
+     suffix (and this noindex) to publish. -->
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://pubsub.cardano-scaling.org/slides/year-end-2026.html">
+<link rel="icon" href="../assets/favicon.ico">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="../assets/icon-512.png">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+
+<!-- Link previews: Slack, Discord, Telegram, LinkedIn, X and search engines. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardano PubSub">
+<meta property="og:locale" content="en">
+<meta property="og:title" content="Cardano PubSub — From Research to CIP, November 2026">
+<meta property="og:description" content="End-of-year presentation on Cardano PubSub: from the research we were given to an evidence-backed design, a reference implementation and CIP-0201.">
+<meta property="og:url" content="https://pubsub.cardano-scaling.org/slides/year-end-2026.html">
+<meta property="og:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cardano PubSub — From Research to CIP, November 2026">
+<meta name="twitter:description" content="End-of-year presentation on Cardano PubSub: from the research we were given to an evidence-backed design, a reference implementation and CIP-0201.">
+<meta name="twitter:image" content="https://pubsub.cardano-scaling.org/assets/social-card.png">
+<meta name="twitter:image:alt" content="Cardano PubSub — a verifiable communication layer for Cardano, with the Input Output mark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  html, body { height: 100%; }
+  /* Sized for screen-share: scale with both width and height so wide screens
+     get larger type instead of whitespace, without overflowing short windows. */
+  body { overflow: hidden; font-size: clamp(16px, min(1.55vw, 2.75vh), 27px); background: var(--bg); }
+
+  .deck { height: 100%; position: relative; z-index: 1; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    /* Bottom padding clears the fixed chrome bar (~46px) with room to spare, so
+       content never crowds the footer on short windows. */
+    padding:
+      clamp(44px, 7vh, 84px)
+      clamp(32px, 7vw, 110px)
+      clamp(72px, 9vh, 112px);
+  }
+  .slide.active { display: flex; }
+
+  .slide-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--iog-infared);
+    font-weight: 600;
+    margin-bottom: 0.9em;
+  }
+  .slide h2 {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+    max-width: 22ch;
+  }
+  .slide p.lede { font-size: 1.15em; color: var(--text-mute); max-width: 62ch; line-height: 1.55; }
+
+  ul.points { list-style: none; display: grid; gap: 0.75em; max-width: 66ch; }
+  ul.points li {
+    font-size: 1.08em;
+    line-height: 1.5;
+    padding-left: 1.2em;
+    position: relative;
+    color: var(--text);
+  }
+  ul.points li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0.62em;
+    width: 0.45em; height: 0.45em;
+    border-radius: 2px;
+    background: var(--iog-infared);
+  }
+  ul.points li strong { font-weight: 600; }
+  ul.points li .mute { color: var(--text-mute); }
+
+  .takeaway {
+    margin-top: 1.6em;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text);
+    border-left: 4px solid var(--iog-infared);
+    padding: 0.35em 0 0.35em 0.9em;
+    max-width: 56ch;
+    line-height: 1.45;
+  }
+
+  /* Text-heavy slides sitting beside a fixed-size illustration: tighten the prose
+     rhythm so the column fits short windows without shrinking the visual. */
+  .slide.dense .slide-kicker { margin-bottom: 0.6em; }
+  .slide.dense h2 { font-size: 2.1em; margin-bottom: 0.5em; }
+  .slide.dense p.lede { font-size: 1em; line-height: 1.45; }
+  .slide.dense ul.points { gap: 0.5em; }
+  .slide.dense ul.points li { font-size: 0.95em; line-height: 1.4; }
+  .slide.dense p.lede + ul.points { margin-top: 1em; }
+  .slide.dense .takeaway { margin-top: 1em; font-size: 1em; }
+
+  /* Closing slide */
+  .slide.close-slide { align-items: center; text-align: center; }
+  .slide.close-slide .title-logo { margin-bottom: 2.2em; }
+  .slide.close-slide h2 { font-size: 3.4em; max-width: none; margin-bottom: 0.35em; }
+  .slide.close-slide h2 .accent { color: var(--iog-infared); }
+  .close-sub { font-size: 1.25em; color: var(--text-mute); }
+  .close-links {
+    margin-top: 2.4em;
+    display: flex;
+    justify-content: center;
+    gap: 1em 2.4em;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+  }
+  .close-links a {
+    color: var(--text-mute);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 2px;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .close-links a:hover { color: var(--iog-infared); border-color: var(--iog-infared); }
+  .close-links-label {
+    margin-top: 3em;
+    font-family: var(--font-mono);
+    font-size: 0.68em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  /* Title slide */
+  .slide.title-slide { align-items: flex-start; }
+  .title-logo { height: clamp(40px, 7vh, 68px); width: auto; margin-bottom: 3em; }
+  .slide.title-slide h1 {
+    font-family: var(--font-display);
+    font-size: 3.4em;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 0.4em;
+  }
+  .slide.title-slide h1 .accent { color: var(--iog-infared); }
+  .title-sub { font-size: 1.25em; color: var(--text-mute); margin-bottom: 2.2em; max-width: 50ch; }
+  .title-slide .split-row { width: 100%; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .title-team { margin-top: 3em; }
+  .title-team + .title-team { margin-top: 1.6em; }
+  .title-team-label {
+    font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.9em;
+  }
+  .title-team-row { display: grid; grid-template-columns: repeat(3, max-content); gap: 1em 1.8em; }
+  .title-team-member { display: flex; align-items: center; gap: 0.6em; }
+  .title-team-member img {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid var(--line, rgba(128,128,128,0.35));
+  }
+  .title-team-member span { display: block; font-size: 0.82em; color: var(--text-mute); white-space: nowrap; }
+  .title-team-member .team-role { font-size: 0.66em; color: var(--text-faint); margin-top: 0.1em; }
+  .title-team-member .formal-role { max-width: 22ch; white-space: normal; }
+  .title-team-wide { font-size: 0.88em; }
+  .title-team-wide .title-team-row { grid-template-columns: repeat(4, max-content); gap: 1em 1.1em; }
+  .title-team-wide .title-team-member img { width: 34px; height: 34px; }
+  .title-slide .hero-visual { align-self: start; margin-top: 4vh; }
+  .title-slide .hero-visual { width: 100%; }
+  @media (max-width: 1400px) { .title-team-wide { font-size: 0.8em; } .title-team-wide .title-team-row { gap: 1em 0.9em; } }
+  .title-slide .hero-visual svg { width: 100%; max-width: 560px; margin-left: auto; }
+  /* Visual slides (Will's sections) */
+  .viz-slide .split-row { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .viz-lede { font-size: 1.05em; color: var(--text-mute); max-width: 44ch; line-height: 1.5; margin-top: 0.9em; }
+  .viz-lede strong { color: var(--text); font-weight: 600; }
+  .viz-lede.wide { max-width: 72ch; }
+  .viz-callout { margin-top: 1.1em; max-width: 44ch; font-weight: 600; color: var(--text); border-left: 4px solid var(--iog-infared); padding: 0.3em 0 0.3em 0.9em; }
+  .viz-note { margin-top: 1.1em; max-width: 48ch; font-size: 0.78em; line-height: 1.5; color: var(--text-faint); }
+  .viz-visual { justify-self: center; width: 100%; }
+  .viz-visual svg { width: 100%; max-width: 560px; max-height: 66vh; height: auto; display: block; margin: 0 auto; }
+  .viz-visual.viz-wide { margin-top: 1.2em; }
+  .viz-visual.viz-wide svg { max-width: 860px; max-height: 52vh; }
+  .viz-note.wide { max-width: 80ch; }
+  .try-chip {
+    display: inline-block; margin-top: 1em; font-family: var(--font-mono); font-size: 0.66em; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--iog-infared); text-decoration: none;
+    border: 1px solid var(--iog-infared); border-radius: 99px; padding: 4px 12px;
+  }
+  .viz-lede .try-chip { margin-left: 0.6em; margin-top: 0; vertical-align: middle; }
+  .try-chip:hover { background: var(--bad-soft); }
+  .why-grid { display: grid; gap: 0.4em; margin-top: 0.9em; width: 100%; max-width: 1100px; margin-left: auto; margin-right: auto; }
+  .why-head, .why-row { display: grid; grid-template-columns: minmax(0, 1fr) 2em minmax(0, 1fr); align-items: center; gap: 0.6em; }
+  .why-head span { font-family: var(--font-mono); font-size: 0.64em; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); }
+  .why-finding, .why-mech { border: 1px solid var(--card-stroke-faint); border-radius: 8px; background: var(--card-fill); padding: 0.45em 0.9em; font-size: 0.82em; line-height: 1.35; }
+  .why-finding { color: var(--text); font-weight: 600; }
+  .why-mech { color: var(--text-mute); border-left: 3px solid var(--iog-infared); }
+  .why-date { display: block; font-family: var(--font-mono); font-size: 0.72em; font-weight: 600; letter-spacing: 0.08em; color: var(--iog-infared); margin-bottom: 0.15em; }
+  .why-arrow { text-align: center; color: var(--iog-infared); font-weight: 600; }
+  .lesson-band-label { font-family: var(--font-mono); font-size: 0.66em; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--iog-infared); margin: 1.1em 0 0.6em; }
+  .lesson-band { display: grid; gap: 0.8em; }
+  .lesson-band.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lesson-band.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lesson-card { border: 1px solid var(--card-stroke-faint); border-radius: 8px; background: var(--card-fill); padding: 0.8em 1em; }
+  .lesson-card h3 { font-family: var(--font-display); font-size: 0.95em; font-weight: 600; margin-bottom: 0.35em; }
+  .lesson-card p { font-size: 0.78em; line-height: 1.45; color: var(--text-mute); }
+  .lesson-card.alt { border-top: 3px solid var(--warn); }
+  .lesson-trail { display: block; margin-top: 0.5em; font-family: var(--font-mono); font-size: 0.62em; font-weight: 600; letter-spacing: 0.06em; color: var(--text-faint); }
+  .demo-hint { display: inline-block; margin-left: 0.6em; font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+  .demo-frame { margin-top: 0.9em; width: 100%; height: calc(100vh - 15.5em); min-height: 320px; border: 1px solid var(--card-stroke-faint); border-radius: 8px; overflow: hidden; background: var(--card-fill); }
+  .demo-frame iframe { display: block; border: 0; width: 133.34%; height: 133.34%; transform: scale(0.75); transform-origin: 0 0; }
+  .guarantee-fine { display: block; margin-top: 0.3em; font-size: 0.82em; font-weight: 400; color: var(--text-mute); }
+  .question-swap { display: grid; grid-template-columns: minmax(0, 1fr) 2.4em minmax(0, 1.4fr); align-items: center; gap: 0.6em; margin-top: 1em; max-width: 1000px; }
+  .q-old { font-size: 1.05em; color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--card-stroke-soft); }
+  .q-new { font-size: 1.15em; font-weight: 600; color: var(--text); border-left: 4px solid var(--iog-infared); padding: 0.3em 0 0.3em 0.9em; }
+  .q-arrow { text-align: center; color: var(--iog-infared); font-size: 1.4em; font-weight: 600; }
+  .need-row { display: flex; gap: 0.8em; flex-wrap: wrap; margin-top: 1.1em; }
+  .need { font-family: var(--font-mono); font-size: 0.72em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--iog-infared); border: 1px solid var(--iog-infared); border-radius: 99px; padding: 5px 14px; }
+  .summary-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2em; margin-top: 1em; }
+  .summary-list { list-style: none; counter-reset: sum; display: grid; gap: 0.6em; }
+  .summary-list li { counter-increment: sum; display: grid; grid-template-columns: 1.8em minmax(0, 1fr); font-size: 0.98em; line-height: 1.4; color: var(--text-mute); }
+  .summary-list li::before { content: counter(sum); font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); }
+  .summary-list li strong { color: var(--text); font-weight: 600; }
+  .summary-col.open { border-left: 1px solid var(--card-stroke-faint); padding-left: 1.6em; }
+  .summary-col.open .lesson-band-label { margin-top: 0; }
+  .summary-qs { list-style: none; display: grid; gap: 0.55em; }
+  .summary-qs li { font-size: 0.92em; line-height: 1.4; color: var(--text); padding-left: 1.1em; position: relative; }
+  .summary-qs li::before { content: '?'; position: absolute; left: 0; font-family: var(--font-mono); font-weight: 700; color: var(--iog-infared); }
+  .summary-slide .close-links { margin-top: 1.4em; justify-content: flex-start; }
+  .review-steps { flex: 1; display: flex; align-items: center; margin-top: 0; }
+  .viz-visual.viz-wide.review-steps svg { width: 100%; max-width: 1060px; max-height: 52vh; }
+  .lesson-band.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-cards .lesson-card { padding: 0.6em 1em; }
+  .review-tag { display: inline-block; margin-top: 0.4em; font-family: var(--font-mono); font-size: 0.6em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 99px; padding: 2px 9px; }
+  .review-tag.done { color: var(--good); }
+  .review-tag.open { color: var(--warn); }
+  /* Outcome slide */
+  .outcome-slide h2 { font-size: 2.1em; max-width: 24ch; }
+  .outcome-steps { list-style: none; display: grid; gap: 0.5em; margin-top: 0.9em; max-width: 54ch; }
+  .outcome-steps li { display: grid; grid-template-columns: 1.7em minmax(0, 1fr); gap: 0.6em; align-items: baseline; font-size: 0.92em; line-height: 1.4; color: var(--text-mute); }
+  .outcome-steps li strong { color: var(--text); font-weight: 600; }
+  .outcome-steps .step-n { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); }
+  .outcome-guarantee { margin-top: 1em; max-width: 54ch; font-size: 0.9em; line-height: 1.5; color: var(--text); border-left: 4px solid var(--iog-infared); padding: 0.3em 0 0.3em 0.9em; }
+  .outcome-visual { justify-self: center; width: 100%; }
+  .outcome-visual svg { width: 100%; max-width: 520px; max-height: 66vh; height: auto; display: block; margin: 0 auto; }
+  .outcome-footer { margin-top: 1em; font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+  .hero-visual { justify-self: center; }
+  .hero-visual svg { width: clamp(260px, 30vw, 560px); max-height: 70vh; height: auto; display: block; }
+
+  /* Before / After slides */
+  .ba-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 64px);
+    align-items: start;
+    width: 100%;
+  }
+  .ba-col { min-width: 0; }
+  .ba-col.before { opacity: 0.55; }
+  .ba-col.after { color: var(--text); }
+  .ba-arrow { color: var(--iog-infared); justify-self: center; align-self: center; }
+  .ba-arrow svg { width: clamp(64px, 7vw, 130px); height: auto; display: block; }
+  .ba-label {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.7em;
+  }
+  .ba-col.before .ba-label { color: var(--text); }
+  .ba-col.after .ba-label { color: var(--good); }
+  .ba-grid + .takeaway { max-width: none; white-space: nowrap; }
+  .ba-col ul { list-style: none; display: grid; gap: 0.65em; }
+  .ba-col li { font-size: 1.04em; line-height: 1.45; padding-left: 1.1em; position: relative; }
+  .ba-col.after li { font-weight: 500; }
+  .ba-col.before li::before { content: '✕'; position: absolute; left: 0; color: var(--bad); font-size: 0.8em; top: 0.25em; }
+  .ba-col.after li::before { content: '✓'; position: absolute; left: 0; color: var(--good); font-size: 0.85em; top: 0.2em; }
+
+  /* Split layout with trailing visual */
+  .split-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(24px, 3vw, 48px);
+  }
+  .actor-graph { justify-self: center; }
+  .actor-graph svg { width: clamp(340px, 40vw, 720px); max-height: 76vh; height: auto; display: block; }
+  .split-row.timeline-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .timeline-visual { justify-self: center; }
+  .timeline-visual svg { width: clamp(380px, 46vw, 820px); max-height: 70vh; height: auto; display: block; }
+
+  /* Candidate-topology table (phase 2 approach slide) */
+  .split-row.method-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .model-visual { min-width: 0; }
+  .model-table { width: 100%; border-collapse: collapse; }
+  .model-table th {
+    font-family: var(--font-mono);
+    font-size: 0.66em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    text-align: left;
+    padding: 0 0.9em 0.7em 0;
+  }
+  .model-table td {
+    padding: 0.6em 0.9em 0.6em 0;
+    border-top: 1px solid var(--line-strong);
+    font-size: 0.92em;
+    line-height: 1.45;
+    vertical-align: baseline;
+  }
+  .model-table th:last-child, .model-table td:last-child { padding-right: 0; }
+  .model-table .model-id { font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); white-space: nowrap; }
+
+  /* Formalization: keep the definitions and coverage laws as editable text. */
+  .formal-problem ul.points { max-width: 76ch; }
+  .formal-problem .takeaway { max-width: none; }
+  .formal-law {
+    font-size: 1.08em;
+    line-height: 1.5;
+  }
+  .formal-example {
+    display: block;
+    margin-top: 0.5em;
+    font-size: 0.8em;
+    font-weight: 400;
+    color: var(--text-mute);
+  }
+  .formal-note {
+    margin-top: 1em;
+    font-size: 0.88em;
+    line-height: 1.5;
+    color: var(--text-mute);
+    max-width: 86ch;
+  }
+  .formal-models h2 { max-width: none; }
+  .formal-models .formal-law { margin-bottom: 0.8em; }
+  .coverage-table { min-width: 58rem; }
+  .coverage-table td { font-size: 0.9em; padding-top: 0.55em; padding-bottom: 0.55em; }
+  .coverage-table tbody th {
+    font-size: 0.9em;
+    letter-spacing: 0;
+    text-transform: none;
+    vertical-align: baseline;
+    border-top: 1px solid var(--line-strong);
+    padding: 0.55em 1em 0.55em 0;
+  }
+  .coverage-table .law {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    white-space: nowrap;
+  }
+
+  /* About slide */
+  .about-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(28px, 5vw, 80px);
+  }
+  .about-figure { justify-self: center; text-align: center; }
+  .about-avatar {
+    width: clamp(150px, 24vh, 260px);
+    height: auto;
+    border-radius: 50%;
+    border: 3px solid var(--iog-infared);
+  }
+  .about-name {
+    margin-top: 1.1em;
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .about-name strong { color: var(--text); font-weight: 600; }
+
+  /* Corner buttons (GitHub · theme · close) */
+  .corner-btn {
+    position: fixed;
+    top: 20px;
+    z-index: 50;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .corner-btn:hover { border-color: var(--iog-infared); color: var(--iog-infared); }
+  .corner-btn svg { width: 16px; height: 16px; display: block; }
+  .btn-close { right: 20px; }
+  .btn-github { right: 116px; }
+  .theme-toggle { right: 68px; }
+
+  /* Slide chrome */
+  .chrome {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px clamp(28px, 7vw, 110px);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 30;
+  }
+  .chrome .chrome-logo { height: 18px; width: auto; opacity: 0.9; }
+  .progress {
+    position: fixed;
+    left: 0; top: 0;
+    height: 3px;
+    background: var(--iog-infared);
+    transition: width .25s ease;
+    z-index: 60;
+  }
+  .nav-hint { position: fixed; right: 20px; bottom: 52px; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.08em; }
+
+  /* Mobile / narrow screens: stack each slide vertically — text first, visual
+     below — and let the slide scroll instead of hiding content. */
+  @media (max-width: 900px) {
+    .slide {
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 76px 22px 96px;
+    }
+    .slide h2 { font-size: 1.9em; }
+    .slide.title-slide h1 { font-size: 2.5em; }
+    .title-logo { height: auto; width: min(64vw, 250px); margin-bottom: 1.6em; }
+    .title-team { margin-top: 2em; }
+    .title-team-row, .title-team-wide .title-team-row { grid-template-columns: repeat(2, max-content); gap: 0.9em 1.4em; }
+    .title-slide .hero-visual { align-self: center; margin-top: 0; }
+
+    .why-head, .why-row { grid-template-columns: minmax(0, 1fr); }
+    .question-swap, .summary-grid { grid-template-columns: minmax(0, 1fr); }
+    .q-arrow { display: none; }
+    .summary-col.open { border-left: 0; padding-left: 0; }
+    .why-arrow { display: none; }
+    .lesson-band.two, .lesson-band.three, .lesson-band.four { grid-template-columns: minmax(0, 1fr); }
+    .split-row,
+    .split-row.timeline-row,
+    .split-row.method-row,
+    .about-row {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      gap: 2.2em;
+    }
+    .model-visual { overflow-x: auto; }
+    .hero-visual, .actor-graph, .timeline-visual, .outcome-visual, .viz-visual { justify-self: center; width: 100%; }
+    .hero-visual svg, .actor-graph svg, .timeline-visual svg {
+      width: min(100%, 460px);
+      max-height: none;
+      margin: 0 auto;
+    }
+    .about-figure { justify-self: center; }
+    .about-avatar { width: clamp(120px, 40vw, 200px); }
+
+    .ba-grid { grid-template-columns: minmax(0, 1fr); gap: 1.6em; }
+    .ba-arrow svg { transform: rotate(90deg); width: 44px; margin: 0 auto; }
+    .ba-grid + .takeaway { white-space: normal; }
+
+    .nav-hint { display: none; }
+  }
+
+  /* Print: all slides sequentially */
+  @media print {
+    body { overflow: visible; font-size: 13px; }
+    .deck { height: auto; }
+    .slide { position: relative; display: flex !important; min-height: 100vh; page-break-after: always; background: var(--bg); }
+    .chrome, .progress, .theme-toggle, .corner-btn, .nav-hint { display: none !important; }
+  }
+
+
+  /* Placeholder slides: a dashed frame holds the talking points until the
+     speaker replaces it with the slide's real content or visual. */
+  .placeholder {
+    border: 2px dashed var(--line-strong);
+    border-radius: 14px;
+    padding: 1.1em 1.4em;
+    max-width: 70ch;
+  }
+  .slide-message {
+    font-size: 1.1em; font-weight: 600; color: var(--text); line-height: 1.45; max-width: 56ch;
+    border-left: 4px solid var(--iog-infared); padding: 0.35em 0 0.35em 0.9em; margin-bottom: 0.9em;
+  }
+  .placeholder-label {
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 0.8em;
+  }
+  .placeholder ul.points li { font-size: 0.98em; color: var(--text-mute); }
+
+  /* Agenda slide */
+  ol.agenda { list-style: none; display: grid; gap: 0.55em; max-width: 64ch; counter-reset: agenda; }
+  ol.agenda > li {
+    counter-increment: agenda;
+    display: grid;
+    grid-template-columns: 2.2em minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0 0.6em;
+    padding: 0.45em 0;
+    border-top: 1px solid var(--line-strong);
+  }
+  ol.agenda > li::before {
+    content: counter(agenda);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--iog-infared);
+  }
+  ol.agenda .agenda-title { font-size: 1.08em; font-weight: 600; }
+  ol.agenda .agenda-subs { grid-column: 2; font-size: 0.82em; color: var(--text-mute); margin-top: 0.15em; }
+  .tool-label {
+    text-align: center; font-family: var(--font-mono);
+    font-size: 1.3em; font-weight: 600; color: var(--text-mute); margin: 0.2em 0 1.8em;
+  }
+  .tool-tradeoffs {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5em; margin: 2.5em auto 0; width: min(100%, 38em);
+  }
+  .tool-benefits, .tool-friction {
+    display: flex; flex-direction: column; align-items: center; gap: 0.65em;
+  }
+  .tool-benefits .visual-tag {
+    border-color: var(--good); background: var(--good-soft); color: var(--good);
+  }
+  .tool-friction .visual-tag {
+    border-color: var(--warn); background: var(--warn-soft); color: var(--warn);
+  }
+  @media (max-width: 540px) {
+    .tool-tradeoffs { grid-template-columns: 1fr; gap: 1em; }
+  }
+  /* Visual alternatives to the section 4 placeholders. */
+  .visual-slide h2 { max-width: none; }
+  .comparison-slide h2 { margin-bottom: 1.4em; }
+  .comparison-slide .visual-tags { margin-top: 2.5em; }
+  .visual-stack { display: grid; gap: 0.7em; margin-top: 0.5em; }
+  .visual-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 1em; flex-wrap: wrap;
+  }
+  .visual-box {
+    flex: 1; min-width: 150px; padding: 1.2em 0.8em;
+    border: 1px solid var(--line-strong); border-radius: 20px;
+    background: var(--bg-soft); text-align: center;
+  }
+  .visual-box strong {
+    display: block; font-size: 1.45em; font-weight: 600;
+  }
+  .visual-box small {
+    display: block; margin-top: 0.45em;
+    font-size: 0.75em; color: var(--text-mute);
+  }
+  .visual-core {
+    width: 55%; margin: auto;
+    border: 2px solid var(--iog-infared);
+  }
+  .visual-arrow {
+    text-align: center; font-size: 1.8em;
+    color: var(--iog-infared);
+  }
+  .visual-tags {
+    display: flex; justify-content: center; flex-wrap: wrap;
+    gap: 0.7em; margin-top: 1.5em;
+  }
+  .visual-tag {
+    padding: 0.65em 1.1em; border-radius: 99px;
+    border: 1px solid var(--line-strong);
+    font-size: 1em; color: var(--text-mute);
+  }
+  @media (max-width: 900px) {
+    .visual-core { width: 90%; }
+    .visual-box strong { font-size: 1.2em; }
+    .visual-flow { flex-direction: column; }
+    .visual-flow .visual-box { width: 100%; }
+    .visual-flow .visual-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" aria-label="Toggle color theme">
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+
+<a class="corner-btn btn-close" href="../" aria-label="Back to the Cardano PubSub site">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</a>
+<a class="corner-btn btn-github" href="https://github.com/input-output-hk/pubsub" target="_blank" rel="noopener" aria-label="GitHub repository">
+  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+</a>
+
+<div class="deck">
+
+  <!-- 1 · Title -->
+  <section class="slide title-slide">
+    <div class="split-row">
+      <div>
+        <img class="title-logo logo-light" src="../assets/io-logo-pos.png" alt="Input Output">
+        <img class="title-logo logo-dark" src="../assets/io-logo-neg.png" alt="Input Output">
+        <div class="slide-kicker">Research &amp; Development · November 2026</div>
+        <h1>Cardano <span class="accent">PubSub</span></h1>
+        <p class="title-sub">From the research we were given to an evidence-backed design,
+          a reference implementation and CIP-0201.</p>
+        <div class="title-team">
+          <div class="title-team-label">Presented by</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/9065638?v=4" alt="William Wolff"><div><span>William Wolff</span><span class="team-role">Lead · Technical Architect</span></div></div>
+            <div class="title-team-member"><img src="https://github.com/mjaskelioff.png" alt="Mauro Jaskelioff"><div><span>Mauro Jaskelioff</span><span class="team-role formal-role">Senior Formal Methods Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/6744814?v=4" alt="Ezequiel Postan"><div><span>Ezequiel Postan</span><span class="team-role">Senior Prototyping Engineer</span></div></div>
+          </div>
+        </div>
+        <div class="title-team title-team-wide">
+          <div class="title-team-label">Team</div>
+          <div class="title-team-row">
+            <div class="title-team-member"><img src="https://avatars.githubusercontent.com/u/1494152?v=4" alt="Denis Firsov"><div><span>Denis Firsov</span><span class="team-role">Senior Formal Engineer</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U02E9S6PN04-715339e10473-192" alt="Jesus Diaz Vico"><div><span>Jesus Diaz Vico</span><span class="team-role">Applied Cryptography Lead</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-U09HD6MHCEN-57f94aefb2bc-192" alt="Dana Alibrandi"><div><span>Dana Alibrandi</span><span class="team-role">Product Manager</span></div></div>
+            <div class="title-team-member"><img src="https://ca.slack-edge.com/T0N639Z4N-UHHU0R5G9-07c2b0e0e7d2-192" alt="Sandro Coretti-Drayton"><div><span>Sandro Coretti-Drayton</span><span class="team-role">Senior Research Fellow</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 440 400" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <text x="4" y="14" text-anchor="start" font-size="14" letter-spacing="2" font-weight="600" fill="var(--text-faint)">PUBLISHERS</text>
+          <text x="436" y="14" text-anchor="end" font-size="14" letter-spacing="2" font-weight="600" fill="var(--text-faint)">SUBSCRIBERS</text>
+
+          <!-- flows in, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M43,52 C110,52 130,166 163,170" stroke="var(--info)"/>
+            <path d="M43,145 C105,145 130,178 163,180" stroke="var(--warn)"/>
+            <path d="M43,239 C105,239 130,194 163,192" stroke="var(--warn)"/>
+            <path d="M43,332 C110,332 130,206 163,202" stroke="var(--good)"/>
+          </g>
+          <!-- flows out, colored by topic -->
+          <g stroke-opacity="0.45" stroke-width="1.5" fill="none">
+            <path d="M281,172 C330,168 350,82 397,82" stroke="var(--info)"/>
+            <path d="M281,186 C320,186 350,192 397,192" stroke="var(--warn)"/>
+            <path d="M281,200 C330,206 350,302 397,302" stroke="var(--good)"/>
+          </g>
+          <!-- publisher nodes, colored by the topic they publish to -->
+          <g>
+            <circle cx="26" cy="52" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="52" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="26" cy="145" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="145" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="239" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="239" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="26" cy="332" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="26" cy="332" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- subscriber nodes, colored by the topic they subscribe to -->
+          <g>
+            <circle cx="414" cy="82" r="17" fill="none" stroke="var(--info)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="82" r="9" fill="var(--info-soft)" stroke="var(--info)"/>
+            <circle cx="414" cy="192" r="17" fill="none" stroke="var(--warn)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="192" r="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <circle cx="414" cy="302" r="17" fill="none" stroke="var(--good)" stroke-opacity="0.3" stroke-width="2"/>
+            <circle cx="414" cy="302" r="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          </g>
+          <!-- PubSub hub -->
+          <rect x="167" y="158" width="110" height="56" rx="14" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="1.5"/>
+          <text x="222" y="192" text-anchor="middle" font-size="19" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">PubSub</text>
+
+          <!-- topic color legend -->
+          <g font-size="14" letter-spacing="0.5" fill="var(--text-faint)">
+            <circle cx="112" cy="388" r="4.5" fill="var(--info-soft)" stroke="var(--info)"/>
+            <text x="123" y="392">TOPIC 1</text>
+            <circle cx="197" cy="388" r="4.5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+            <text x="208" y="392">TOPIC 2</text>
+            <circle cx="282" cy="388" r="4.5" fill="var(--good-soft)" stroke="var(--good)"/>
+            <text x="293" y="392">TOPIC 3</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Agenda -->
+  <section class="slide">
+    <div class="slide-kicker">Agenda</div>
+    <h2>Today</h2>
+    <ol class="agenda">
+      <li><span class="agenda-title">The problem</span></li>
+      <li><span class="agenda-title">The outcome</span></li>
+      <li><span class="agenda-title">Replace the foundation</span></li>
+      <li><span class="agenda-title">Make it measurable</span></li>
+      <li><span class="agenda-title">Let the evidence choose</span></li>
+      <li><span class="agenda-title">What's open</span></li>
+      <li><span class="agenda-title">How we worked</span></li>
+    </ol>
+  </section>
+
+  <!-- 3 · The problem -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">1 · The problem · CPS-0038</div>
+    <h2>Messages that must arrive, off chain</h2>
+    <div class="lesson-band four"><div class="lesson-card"><h3>Protocol teams</h3><p>incident alerts to SPOs</p></div><div class="lesson-card"><h3>Stake pools</h3><p>notices to delegators</p></div><div class="lesson-card"><h3>Governance</h3><p>deadlines to voters</p></div><div class="lesson-card"><h3>dApps</h3><p>alerts to their users</p></div></div>
+    <p class="viz-lede wide">Today these go through chat, mailing lists and backends. Nothing standard proves who sent them, or makes them hard to suppress.</p>
+    <div class="need-row">
+      <span class="need">Authentic</span><span class="need">Unaltered</span><span class="need">Hard to silence</span>
+    </div>
+  </section>
+
+  <!-- 4 · The outcome -->
+  <section class="slide outcome-slide">
+    <div class="slide-kicker">2 · The outcome · CIP-0201</div>
+    <div class="split-row">
+      <div>
+        <h2>Trustworthy pub/sub, anchored on Cardano</h2>
+        <ul class="outcome-steps">
+          <li><span class="step-n">1</span><span><strong>Registered nodes</strong> with a refundable deposit</span></li>
+          <li><span class="step-n">2</span><span><strong>A verifiable gate</strong> on who may connect</span></li>
+          <li><span class="step-n">3</span><span><strong>Symmetric links</strong>, one per pair</span></li>
+          <li><span class="step-n">4</span><span><strong>Signed messages</strong>, relayed by every subscriber</span></li>
+        </ul>
+        <p class="outcome-guarantee">Predicted: every honest publisher reaches every honest subscriber, except in about 1 of 200,000 epochs.<span class="guarantee-fine">Predicted at 20,000 nodes with 20 % silent (k = 10, B = 500, C = 23).</span></p>
+      </div>
+      <div class="outcome-visual" aria-hidden="false">
+        <svg viewBox="0 0 460 420" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="A publisher's signed message travels along red links to every honest node on the topic, around a silent node that holds links but forwards nothing. Dashed lines are pairs the gate allowed but nobody picked. All nodes sit on the on-chain registry.">
+          <g stroke="var(--card-stroke-soft)" stroke-width="1.4" stroke-dasharray="4 5" stroke-linecap="round" fill="none"><line x1="142.3" y1="267.7" x2="317.7" y2="267.7"/><line x1="106.0" y1="180.0" x2="230.0" y2="56.0"/></g>
+          <g stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" fill="none"><line x1="230.0" y1="304.0" x2="142.3" y2="267.7"/></g>
+          <g stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" fill="none" stroke-opacity="0.6"><line x1="230.0" y1="56.0" x2="317.7" y2="92.3"/><line x1="317.7" y1="92.3" x2="354.0" y2="180.0"/></g>
+          <g stroke="var(--iog-infared)" stroke-width="2.8" stroke-linecap="round" fill="none"><line x1="142.3" y1="92.3" x2="230.0" y2="56.0"/><line x1="142.3" y1="92.3" x2="106.0" y2="180.0"/><line x1="142.3" y1="92.3" x2="317.7" y2="267.7"/><line x1="317.7" y1="267.7" x2="354.0" y2="180.0"/><line x1="317.7" y1="267.7" x2="230.0" y2="304.0"/><line x1="106.0" y1="180.0" x2="142.3" y2="267.7"/></g>
+          <g transform="translate(162.0,41.5)">
+            <rect x="0" y="0" width="30" height="21" rx="3" fill="var(--card-fill)" stroke="var(--iog-infared)" stroke-width="1.6"/>
+            <path d="M2,2 L15,12 L28,2" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-linejoin="round"/>
+          </g>
+          <text x="157.0" y="56.0" text-anchor="end" font-size="11" font-weight="600" letter-spacing="1" fill="var(--iog-infared)">SIGNED</text>
+          <g><circle cx="230.0" cy="56.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="230.0" cy="56.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="317.7" cy="92.3" r="12" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M312.7,87.3 L322.7,97.3 M322.7,87.3 L312.7,97.3" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="354.0" cy="180.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="354.0" cy="180.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="317.7" cy="267.7" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="317.7" cy="267.7" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="230.0" cy="304.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="230.0" cy="304.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="142.3" cy="267.7" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="142.3" cy="267.7" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="106.0" cy="180.0" r="17" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="106.0" cy="180.0" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="142.3" cy="92.3" r="15" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2.4"/></g>
+          <g font-size="11" letter-spacing="1" font-weight="600">
+            <text x="120.3" y="96.3" text-anchor="end" fill="var(--iog-infared)">PUBLISHER</text>
+            <text x="337.7" y="86.3" fill="var(--text-mute)">SILENT</text>
+            <text x="337.7" y="101.3" font-weight="400" font-size="10" letter-spacing="0.3" fill="var(--text-faint)">forwards nothing</text>
+          </g>
+          <rect x="30" y="340" width="400" height="32" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+          <text x="230" y="360.5" text-anchor="middle" font-size="11" letter-spacing="1.2" font-weight="600" fill="var(--text-mute)">ON-CHAIN REGISTRY · KEYS · DEPOSITS · TOPICS</text>
+          <g font-size="11" letter-spacing="0.5" fill="var(--text-faint)"><line x1="20" y1="398" x2="42" y2="398" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"/><text x="49" y="402">PICKED LINK</text><line x1="138" y1="398" x2="160" y2="398" stroke="var(--card-stroke-soft)" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="4 5"/><text x="167" y="402">ELIGIBLE PAIR</text><line x1="274" y1="398" x2="296" y2="398" stroke="var(--iog-infared)" stroke-width="2.8" stroke-linecap="round"/><text x="303" y="402">MESSAGE</text><circle cx="381" cy="398" r="8" fill="none" stroke="var(--iog-infared)" stroke-width="1.4" stroke-opacity="0.55"/><circle cx="381" cy="398" r="4.5" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.2"/><text x="396" y="402">REACHED</text></g>
+        </svg>
+      </div>
+    </div>
+    <div class="outcome-footer">CIP-0201 + CPS-0038 · in review</div>
+  </section>
+
+  <!-- 5 · What we were given -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">3 · Replace the foundation</div>
+    <h2>What we were given</h2>
+    <p class="viz-lede wide">A three-layer architecture, a peer sampler, and five use cases.</p>
+    <div class="viz-visual viz-wide">
+        <svg viewBox="0 0 520 330" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Four inputs around the three-layer stack: deliverables D1 and D2 from AUEB, the Athens University of Economics and Business, SecureCyclon, the product documentation, and Spyros Voulgaris; SecureCyclon is the bottom, peer-sampling layer">
+          <g stroke="var(--card-stroke-soft)" stroke-width="1.2" stroke-dasharray="3 3" fill="none">
+            <path d="M150,62 L185,62"/><path d="M150,250 L185,222"/><path d="M370,62 L335,62"/><path d="M370,250 L335,222"/>
+          </g>
+          <rect x="0" y="12" width="150" height="122" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="12" y="34" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">AUEB D1 + D2</text><text x="12" y="52" font-size="10.5" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Athens University of</text><text x="12" y="66" font-size="10.5" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Economics and Business</text><text x="12" y="92" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">three-layer overlay +</text><text x="12" y="108" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">storage + topic registry</text>
+          <rect x="0" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="12" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text><text x="12" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">ICDCS 2023</text><text x="12" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">the peer-sampling layer</text>
+          <rect x="370" y="12" width="150" height="122" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="44" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Product docs</text><text x="382" y="65" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">five use cases</text><text x="382" y="81" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">with requirements</text>
+          <rect x="370" y="208" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/><text x="382" y="232" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Spyros Voulgaris</text><text x="382" y="253" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon co-author</text><text x="382" y="269" font-size="10.5" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">in our sessions</text>
+          <g font-size="11" font-weight="600" letter-spacing="1.5" text-anchor="middle">
+            <rect x="185" y="20" width="150" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="260" y="60" fill="var(--text-mute)">DISSEMINATION</text>
+            <rect x="185" y="100" width="150" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="260" y="140" fill="var(--text-mute)">NAVIGATION</text>
+            <rect x="185" y="180" width="150" height="84" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="260" y="214" fill="var(--text-mute)">PEER SAMPLING</text>
+            <text x="260" y="236" font-size="10.5" font-weight="500" letter-spacing="0.5" fill="var(--text)">SecureCyclon</text>
+          </g>
+          
+          <text x="260" y="292" text-anchor="middle" font-size="10" letter-spacing="1" fill="var(--text-faint)">SECURITY INHERITED UPWARD</text>
+        </svg>
+    </div>
+    
+  </section>
+
+  <!-- 6 · Reviewing the proposed architecture -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">3 · Replace the foundation</div>
+    <div class="split-row">
+      <div>
+        <h2>Reviewing the proposed architecture</h2>
+        <p class="viz-lede">Our review and the AUEB gap analysis found three things missing.</p>
+        <p class="viz-callout">The threat is silencing, not forgery.</p>
+        
+      </div>
+      <div class="viz-visual">
+        <svg viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Three missing pieces: a security model, anti-spam protection and incentives; an arrow leads to testing the riskiest assumption first, SecureCyclon">
+          <g text-anchor="middle">
+            <g>
+              <rect x="10" y="20" width="130" height="150" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="5 4"/>
+              <circle cx="75" cy="62" r="16" fill="none" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <path d="M68,55 L82,69 M82,55 L68,69" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <text x="75" y="110" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">SECURITY</text>
+              <text x="75" y="126" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">MODEL</text>
+              <text x="75" y="150" font-size="9" fill="var(--text-faint)">no honesty assumptions</text>
+            </g>
+            <g>
+              <rect x="155" y="20" width="130" height="150" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="5 4"/>
+              <circle cx="220" cy="62" r="16" fill="none" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <path d="M213,55 L227,69 M227,55 L213,69" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <text x="220" y="110" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">ANTI-SPAM</text>
+              <text x="220" y="150" font-size="9" fill="var(--text-faint)">no rate limits</text>
+            </g>
+            <g>
+              <rect x="300" y="20" width="130" height="150" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="5 4"/>
+              <circle cx="365" cy="62" r="16" fill="none" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <path d="M358,55 L372,69 M372,55 L358,69" stroke="var(--iog-infared)" stroke-width="1.8"/>
+              <text x="365" y="110" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--text)">INCENTIVES</text>
+              <text x="365" y="150" font-size="9" fill="var(--text-faint)">no reason to forward</text>
+            </g>
+          </g>
+          <g stroke="var(--text-faint)" stroke-width="1.4" fill="none">
+            <path d="M75,176 C75,210 220,200 220,236"/><path d="M220,176 L220,236"/><path d="M365,176 C365,210 220,200 220,236"/>
+            <path d="M213,228 L220,238 L227,228"/>
+          </g>
+          <rect x="40" y="250" width="360" height="96" rx="8" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
+          <text x="220" y="280" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">NEXT</text>
+          <text x="220" y="306" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Test the riskiest assumption first:</text>
+          <text x="220" y="328" text-anchor="middle" font-size="13" font-weight="700" fill="var(--iog-infared)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · SecureCyclon findings -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">3 · Replace the foundation</div>
+    <div class="split-row">
+      <div>
+        <h2>SecureCyclon does not give a uniform view under silent attack</h2>
+        <p class="viz-lede">A uniform view would hold attackers at roughly their share of the network. A silent adversary, breaking no rule, pushes a chosen victim's view far above it.</p>
+        <p class="viz-callout">No detection fired, in any silent run.</p>
+        <p class="viz-note">Red bars: attackers' share of the victim's view. Dashed line: the network-wide average. Team simulation, 200 nodes, three attack variants.</p>
+      </div>
+      <div class="viz-visual">
+        <svg viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Malicious share of the victim's view against the adversary's share of nodes: 10 to 18 percent at 5 percent adversaries, 26 to 35 at 10, 44 to 56 at 15, 72.5 to 80.3 at 20, and 98.6 to 99.3 at 30, far above the network-wide average">
+          <text x="70" y="22" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">MALICIOUS SHARE OF THE VICTIM'S VIEW</text>
+          <g stroke="var(--line)" stroke-width="1"><line x1="70" y1="320.0" x2="430" y2="320.0"/><line x1="70" y1="250.0" x2="430" y2="250.0"/><line x1="70" y1="180.0" x2="430" y2="180.0"/><line x1="70" y1="110.0" x2="430" y2="110.0"/><line x1="70" y1="40.0" x2="430" y2="40.0"/></g>
+          <g font-size="9.5" fill="var(--text-faint)"><text x="62" y="323.5" text-anchor="end">0 %</text><text x="62" y="253.5" text-anchor="end">25 %</text><text x="62" y="183.5" text-anchor="end">50 %</text><text x="62" y="113.5" text-anchor="end">75 %</text><text x="62" y="43.5" text-anchor="end">100 %</text></g>
+          <line x1="70" y1="96.0" x2="430" y2="96.0" stroke="var(--text-faint)" stroke-dasharray="2 3"/>
+          <text x="430" y="91.0" text-anchor="end" font-size="10" fill="var(--text-faint)">ECLIPSE THRESHOLD 80 %</text>
+          <polyline points="126.2,305.2 182.5,288.9 238.8,270.7 295.0,250.0 407.5,199.9" fill="none" stroke="var(--text-mute)" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <circle cx="126.2" cy="305.2" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="182.5" cy="288.9" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="238.8" cy="270.7" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="295.0" cy="250.0" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/><circle cx="407.5" cy="199.9" r="3" fill="var(--bg)" stroke="var(--text-mute)" stroke-width="1.4"/>
+          <text x="428" y="306" text-anchor="end" font-size="10" fill="var(--text-mute)">- - NETWORK-WIDE AVERAGE m/(n−m)</text>
+          <g><rect x="114.2" y="269.9" width="24" height="22.1" rx="3" fill="var(--iog-infared)"/><rect x="170.5" y="222.0" width="24" height="24.4" rx="3" fill="var(--iog-infared)"/><rect x="226.8" y="162.6" width="24" height="34.4" rx="3" fill="var(--iog-infared)"/><rect x="283.0" y="95.2" width="24" height="21.8" rx="3" fill="var(--iog-infared)"/><rect x="395.5" y="42.0" width="24" height="3.0" rx="3" fill="var(--iog-infared)"/></g>
+          <g font-size="10" font-weight="600" fill="var(--iog-infared)">
+            <text x="279.0" y="58" text-anchor="end">72.5–80.3 %</text>
+            <text x="279.0" y="72" text-anchor="end" font-weight="400" font-size="10" fill="var(--text-mute)">≥ 80 % in 37–68 % of cycles</text>
+          </g>
+          <g font-size="10" fill="var(--text-mute)"><text x="126.2" y="340" text-anchor="middle">5 %</text><text x="182.5" y="340" text-anchor="middle">10 %</text><text x="238.8" y="340" text-anchor="middle">15 %</text><text x="295.0" y="340" text-anchor="middle">20 %</text><text x="407.5" y="340" text-anchor="middle">30 %</text></g>
+          <text x="250" y="366" text-anchor="middle" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">ADVERSARIAL SHARE OF NODES</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · The on-chain registry -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">3 · Replace the foundation</div>
+    <h2>A deposit implies a list, and a list replaces sampling</h2>
+    <p class="viz-lede wide">A deposit puts every node on chain, so nodes can pick peers uniformly from the registry. A known list invites flooding, hence the verifiable gate.</p>
+    <div class="viz-visual viz-wide">
+      <svg viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Before: dissemination, navigation and peer sampling, with navigation and peer sampling both dropped. After: dissemination over an on-chain registry with deposits and rejection sampling. Timeline from May to July 2026">
+        <g font-size="10.5" font-weight="600" letter-spacing="1.5" text-anchor="middle">
+          <text x="120" y="16" font-size="9.5" fill="var(--text-faint)">GIVEN</text>
+          <g opacity="0.55">
+            <rect x="30" y="28" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+            <text x="120" y="54" fill="var(--text-mute)">DISSEMINATION</text>
+            <rect x="30" y="80" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="4 3"/>
+            <text x="120" y="106" fill="var(--text-mute)">NAVIGATION</text>
+            <rect x="30" y="132" width="180" height="44" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)" stroke-dasharray="4 3"/>
+            <text x="120" y="158" fill="var(--text-mute)">PEER SAMPLING</text>
+          </g>
+          <line x1="44" y1="102" x2="196" y2="102" stroke="var(--iog-infared)" stroke-width="1.6"/>
+          <line x1="44" y1="154" x2="196" y2="154" stroke="var(--iog-infared)" stroke-width="1.6"/>
+          <text x="400" y="16" font-size="9.5" fill="var(--text-faint)">ADOPTED</text>
+          <rect x="310" y="28" width="180" height="70" rx="8" fill="var(--card-fill)" stroke="var(--card-stroke-faint)"/>
+          <text x="400" y="60" fill="var(--text)">DISSEMINATION</text>
+          <text x="400" y="78" font-size="9" font-weight="400" letter-spacing="0.5" fill="var(--text-mute)">bucketed hash gating</text>
+          <rect x="310" y="106" width="180" height="70" rx="8" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2"/>
+          <text x="400" y="138" fill="var(--iog-infared)">ON-CHAIN REGISTRY</text>
+          <text x="400" y="156" font-size="9" font-weight="400" letter-spacing="0.5" fill="var(--text-mute)">deposits · rejection sampling</text>
+        </g>
+        <g stroke="var(--iog-infared)" stroke-width="2" fill="none" stroke-linecap="round">
+          <path d="M228,102 L292,102"/><path d="M282,94 L292,102 L282,110"/>
+        </g>
+        <line x1="30" y1="300" x2="490" y2="300" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="30" y="250" font-size="9.5" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">2026</text>
+        <circle cx="90" cy="300" r="5" fill="var(--card-fill)" stroke="var(--text-mute)" stroke-width="1.6"/>
+        <text x="90" y="284" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-mute)">May</text>
+        <text x="90" y="322" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">list-based design,</text>
+        <text x="90" y="336" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">bucketed gating</text>
+        <circle cx="260" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/>
+        <text x="260" y="284" text-anchor="middle" font-size="11" font-weight="600" fill="var(--iog-infared)">June</text>
+        <text x="260" y="322" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">on-chain registry,</text>
+        <text x="260" y="336" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">silent-attack report</text>
+        <circle cx="430" cy="300" r="6" fill="var(--iog-infared)" stroke="var(--iog-infared)" stroke-width="1.6"/>
+        <text x="430" y="284" text-anchor="middle" font-size="11" font-weight="600" fill="var(--iog-infared)">July</text>
+        <text x="430" y="322" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">SecureCyclon</text>
+        <text x="430" y="336" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">retired</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 9 · The concrete problem -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">3 · Replace the foundation</div>
+    <h2>The question changes</h2>
+    <div class="question-swap">
+      <p class="q-old">Can nodes sample peers uniformly?</p>
+      <span class="q-arrow" aria-hidden="true">→</span>
+      <p class="q-new">Does every honest publisher reach every honest subscriber, even when some peers stay silent?</p>
+    </div>
+    <div class="viz-visual viz-wide">
+      <svg viewBox="0 0 520 250" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Left, a good topology: the publisher's message reaches every honest node around a silent one. Right, a bad topology: two silent neighbours cut one honest node off.">
+        <text x="120" y="12" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--good)">GOOD TOPOLOGY</text>
+        <text x="390" y="12" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1.5" fill="var(--bad)">BAD TOPOLOGY</text>
+        <g transform="translate(0,14)"><line x1="40" y1="70" x2="120" y2="30" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="30" x2="200" y2="70" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="200" y1="70" x2="200" y2="160" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="200" y1="160" x2="120" y2="200" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="200" x2="40" y2="160" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="40" y1="160" x2="40" y2="70" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="40" y1="70" x2="120" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="115" x2="200" y2="160" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="30" x2="120" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="120" y1="200" x2="120" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><circle cx="40" cy="70" r="13" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2.4"/><circle cx="120" cy="30" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="200" cy="70" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M195,65 L205,75 M205,65 L195,75" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="200" cy="160" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="120" cy="200" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="40" cy="160" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="120" cy="115" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><line x1="310" y1="70" x2="390" y2="30" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="390" y1="30" x2="470" y2="70" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="470" y1="70" x2="470" y2="160" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="470" y1="160" x2="390" y2="200" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="390" y1="200" x2="310" y2="160" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><line x1="310" y1="160" x2="310" y2="70" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="310" y1="70" x2="390" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="390" y1="30" x2="390" y2="115" stroke="var(--iog-infared)" stroke-width="2.6" stroke-linecap="round"/><line x1="390" y1="200" x2="390" y2="115" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6"/><circle cx="310" cy="70" r="13" fill="var(--bad-soft)" stroke="var(--iog-infared)" stroke-width="2.4"/><circle cx="390" cy="30" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="470" cy="70" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M465,65 L475,75 M475,65 L465,75" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="470" cy="160" r="11" fill="var(--card-fill)" stroke="var(--warn)" stroke-width="2.2" stroke-dasharray="3 2.5"/><circle cx="390" cy="200" r="11" fill="var(--bg-soft)" stroke="var(--text-faint)" stroke-width="1.8"/><path d="M385,195 L395,205 M395,195 L385,205" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round"/><circle cx="310" cy="160" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/><circle cx="390" cy="115" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.8"/></g>
+        <text x="120" y="246" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">every honest node reached</text>
+        <text x="390" y="246" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">one honest node cut off</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 10 · Formalizing the problem -->
+  <!-- Sources: formal_spec/hybrid_dissemination/models/README.md;
+       docs/cip/design-comparison.md (What is measured; independent downtime). -->
+  <section class="slide formal-problem">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>Formalizing the problem</h2>
+    <ul class="points">
+      <li><strong>Population</strong>: <var>N</var> registered nodes; <var>H</var> = (1−μ)<var>N</var> honest.  The adversarial fraction μ receives but never relays.</li>
+      <li><strong>Epoch</strong>: a protocol period indicating how long a sampled dissemination topology is held.</li>
+      <li><strong>Good topology</strong>: every honest publisher can reach every other honest node.</li>
+    </ul>
+    <div class="takeaway">
+      <div class="formal-law"><var>p</var><sub>bad</sub> = Pr[bad epoch topology] ≤ δ</div>
+      <span class="formal-example">Reference inputs: <var>N</var> = 20,000 · μ = 0.2 · δ = 10<sup>−4</sup> per epoch</span>
+    </div>
+    <p class="formal-note">Independent honest downtime <var>p</var>, without repair, enters the coverage estimate as
+      μ<sub>eff</sub> = μ + <var>p</var>(1−μ).  This measures topology risk over an epoch, rather than average delivery.</p>
+  </section>
+
+  <!-- 11 · Five candidate models and their laws -->
+  <!-- Sources: formal_spec/hybrid_dissemination/models/m{1,2,3,4,5}/properties/full_coverage.md.
+       Notation here: k = relay picks (F or RF in the analyses), t = s−1 seed picks;
+       a and b = M5's k_in and k_out.  These are the ungated leading approximations. -->
+  <section class="slide dense formal-models">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>Five candidate models and their laws</h2>
+    <p class="formal-law"><var>p</var><sub>bad</sub> ≈ 1 − e<sup>−<var>E</var></sup>,
+      with <var>E</var> the expected number of isolation defects</p>
+    <div class="model-visual">
+      <table class="model-table coverage-table" aria-label="Five ungated dissemination models and their leading coverage laws">
+        <thead>
+          <tr><th scope="col">Model</th><th scope="col">Mechanism and chosen links</th><th scope="col">Leading <var>E</var> / <var>H</var></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" class="model-id">M1</th>
+            <td>Push to <var>k</var> targets</td>
+            <td class="law">e<sup>−k(1−μ)</sup> + μ<sup>k</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M2</th>
+            <td>Receive from <var>k</var> forwarders</td>
+            <td class="law">μ<sup>k</sup> + e<sup>−k(1−μ)</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M3</th>
+            <td><var>k</var> pull + <var>t</var> publication-only seeding links</td>
+            <td class="law">μ<sup>k</sup> + μ<sup>t</sup> e<sup>−k(1−μ)</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M4</th>
+            <td><var>k</var> peers, bidirectional links</td>
+            <td class="law">μ<sup>k</sup> e<sup>−k(1−μ)</sup></td>
+          </tr>
+          <tr>
+            <th scope="row" class="model-id">M5</th>
+            <td><var>a</var> inbound + <var>b</var> outbound links</td>
+            <td class="law">μ<sup>a</sup> e<sup>−b(1−μ)</sup> + μ<sup>b</sup> e<sup>−a(1−μ)</sup></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="formal-note">Leading approximations near the connectivity threshold.  These baseline models have no hash gate or admission cap.</p>
+    <p class="formal-note">Also analyzed: transmissions, hop depth, standing links, robustness, eclipse cost, and transmission loss.</p>
+  </section>
+
+  <!-- 12 · Try it: compare the designs -->
+  <section class="slide viz-slide demo-slide">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>Try it: compare the designs</h2>
+    <p class="viz-lede wide">The laws, live: drag the adversarial share and watch each design against the target. <span class="demo-hint">Move the pointer off the tool to return to the slides.</span></p>
+    <div class="demo-frame">
+      <iframe id="demo-compare" src="../experiments/compare-designs/" title="Compare designs: the ungated M1–M5 estimates" loading="lazy"></iframe>
+    </div>
+  </section>
+
+  <!-- Visual alternative: shared protocol core.
+       Speaker: Explain that handshakes, connection management and admission
+       rules made the abstract designs operational. Both execution paths use
+       the same pure transitions; the simulator does not exercise the async
+       runtime or real transport. The software is a foundation for future work. -->
+  <section class="slide visual-slide">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>One core. Two ways to run it.</h2>
+    <div class="visual-stack">
+      <div class="visual-box visual-core">
+        <strong>Protocol core</strong>
+        <small>Pure state transitions · Rust</small>
+        <small>Modular strategies</small>
+      </div>
+      <div class="visual-row" aria-hidden="true">
+        <span class="visual-arrow">↙</span>
+        <span class="visual-arrow">↘</span>
+      </div>
+      <div class="visual-row">
+        <div class="visual-box">
+          <strong>Prototype node</strong>
+          <small>Async execution</small>
+        </div>
+        <div class="visual-box">
+          <strong>Simulator</strong>
+          <small>Deterministic · Multicore</small>
+        </div>
+      </div>
+    </div>
+    <div class="visual-tags">
+      <span class="visual-tag">Signed messages</span>
+      <span class="visual-tag">Registries</span>
+      <span class="visual-tag">Connection lifecycle</span>
+    </div>
+  </section>
+
+  <!-- Visual alternative: structured AI development.
+       Speaker: Describe the acceleration you experienced using Spec Kit and
+       Claude. Shared principles and explicit artifacts supported review.
+       Stabilizing the core first made distributing work easier.
+       Experiment design and analysis benefited too; reports needed careful
+       human editing. Avoid presenting speed or quality gains as measured. -->
+  <section class="slide visual-slide">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>AI, with structure.</h2>
+    <div class="tool-label">Spec Kit + Claude</div>
+    <div class="visual-row visual-flow">
+      <div class="visual-box"><strong>Specify</strong></div>
+      <span class="visual-arrow" aria-hidden="true">→</span>
+      <div class="visual-box"><strong>Plan</strong></div>
+      <span class="visual-arrow" aria-hidden="true">→</span>
+      <div class="visual-box"><strong>Tasks</strong></div>
+      <span class="visual-arrow" aria-hidden="true">→</span>
+      <div class="visual-box"><strong>Implement</strong></div>
+    </div>
+    <div class="tool-tradeoffs">
+      <div class="tool-benefits">
+        <span class="visual-tag">Speed / Quality</span>
+        <span class="visual-tag">Interactive reviews</span>
+        <span class="visual-tag">ADRs + Documentation</span>
+      </div>
+      <div class="tool-friction">
+        <span class="visual-tag">Reports for humans</span>
+        <span class="visual-tag">Overlapping specs</span>
+        <span class="visual-tag">Maybe too many docs</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Visual alternative: analysis and execution check one another.
+       Speaker: Modular selection, acceptance and forwarding strategies let
+       us compare five models and combine gating, caps and downtime.
+       Predictions and measurements were compared; discrepancies prompted
+       investigation, including the simulator's global arrival-order bug.
+       Rare-event guarantees still depend on analytical extrapolation. -->
+  <section class="slide visual-slide comparison-slide">
+    <div class="slide-kicker">4 · Make it measurable</div>
+    <h2>Predict. Execute. Compare.</h2>
+    <div class="visual-row visual-flow">
+      <div class="visual-box">
+        <strong>Mathematics</strong>
+        <small>Predictions</small>
+      </div>
+      <span class="visual-arrow" aria-label="Checks in both directions">⇄</span>
+      <div class="visual-box">
+        <strong>Protocol execution</strong>
+        <small>Measurements</small>
+      </div>
+    </div>
+    <div class="visual-tags">
+      <span class="visual-tag">Parameter balance</span>
+      <span class="visual-tag">Isolation limits</span>
+      <span class="visual-tag">Model trade-offs</span>
+    </div>
+  </section>
+
+  <!-- 13 · Choosing M4 -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">5 · Let the evidence choose</div>
+    <div class="split-row">
+      <div>
+        <h2>Evidence moved us from M3 to M4</h2>
+        <p class="viz-lede">Same reliability target, half the links.</p>
+        <p class="viz-callout">M3 was our base in July. Weighting security first, M4 won on five of six rows.</p>
+                <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
+      </div>
+      <div class="viz-visual">
+        <svg viewBox="0 0 520 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="M3 against M4 on six rows; M4 is better on picks, links, failure probability, downtime absorbed and counted failures; M3 receives fewer copies per node">
+          <g font-size="11" font-weight="600" letter-spacing="1.5">
+            <rect x="250" y="12" width="12" height="8" rx="2" fill="var(--text-faint)"/><text x="268" y="20" fill="var(--text-mute)">M3</text>
+            <rect x="310" y="12" width="12" height="8" rx="2" fill="var(--iog-infared)"/><text x="328" y="20" fill="var(--text-mute)">M4</text>
+            <text x="372" y="20" fill="var(--text-mute)">✓ BETTER</text>
+          </g>
+          <text x="0" y="20" font-size="11" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">M3 vs M4</text>
+          <text x="0" y="62" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Picks to meet the target</text><text x="0" y="79" font-size="10.5" fill="var(--text-faint)">UNGATED · LOWER IS BETTER</text><rect x="250" y="50" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="60" font-size="11.5" font-weight="400" fill="var(--text-mute)">19</text><rect x="250" y="65" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="75" font-size="11.5" font-weight="700" fill="var(--text-mute)">9  ✓</text><line x1="0" y1="88" x2="520" y2="88" stroke="var(--line)"/><text x="0" y="114" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Mean links held</text><text x="0" y="131" font-size="10.5" fill="var(--text-faint)">UNGATED · LOWER IS BETTER</text><rect x="250" y="102" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="112" font-size="11.5" font-weight="400" fill="var(--text-mute)">38.0</text><rect x="250" y="117" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="127" font-size="11.5" font-weight="700" fill="var(--text-mute)">18.0  ✓</text><line x1="0" y1="140" x2="520" y2="140" stroke="var(--line)"/><text x="0" y="166" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Copies received per node</text><text x="0" y="183" font-size="10.5" fill="var(--text-faint)">UNGATED · BANDWIDTH · LOWER IS BETTER</text><rect x="250" y="154" width="116.4" height="11" rx="2" fill="var(--text-faint)"/><text x="372.4" y="164" font-size="11.5" font-weight="700" fill="var(--text-mute)">10.4  ✓</text><rect x="250" y="169" width="150.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="406.0" y="179" font-size="11.5" font-weight="400" fill="var(--text-mute)">13.4</text><line x1="0" y1="192" x2="520" y2="192" stroke="var(--line)"/><text x="0" y="218" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted p<tspan baseline-shift='sub' font-size='9'>bad</tspan></text><text x="0" y="235" font-size="10.5" fill="var(--text-faint)">GATED REFERENCE · LOWER IS BETTER</text><rect x="250" y="206" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="216" font-size="11.5" font-weight="400" fill="var(--text-mute)">5.8 × 10⁻⁵</text><rect x="250" y="221" width="13.2" height="11" rx="2" fill="var(--iog-infared)"/><text x="269.2" y="231" font-size="11.5" font-weight="700" fill="var(--text-mute)">5.1 × 10⁻⁶  ✓</text><line x1="0" y1="244" x2="520" y2="244" stroke="var(--line)"/><text x="0" y="270" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted downtime absorbed</text><text x="0" y="287" font-size="10.5" fill="var(--text-faint)">GATED REFERENCE · HIGHER IS BETTER</text><rect x="250" y="258" width="31.3" height="11" rx="2" fill="var(--text-faint)"/><text x="287.3" y="268" font-size="11.5" font-weight="400" fill="var(--text-mute)">1.58 %</text><rect x="250" y="273" width="150.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="406.0" y="283" font-size="11.5" font-weight="700" fill="var(--text-mute)">7.57 %  ✓</text><line x1="0" y1="296" x2="520" y2="296" stroke="var(--line)"/><text x="0" y="322" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Failed runs, 32 eligible peers</text><text x="0" y="339" font-size="10.5" fill="var(--text-faint)">MEASURED · LOWER IS BETTER</text><rect x="250" y="310" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="320" font-size="11.5" font-weight="400" fill="var(--text-mute)">17 / 400</text><rect x="250" y="325" width="2.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="258.0" y="335" font-size="11.5" font-weight="700" fill="var(--text-mute)">0 / 400  ✓</text><line x1="0" y1="348" x2="520" y2="348" stroke="var(--line)"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 · Why it looks like this -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">5 · Let the evidence choose</div>
+    <h2>Why it looks like this</h2>
+    <div class="why-grid">
+      <div class="why-head"><span>What we found</span><span></span><span>What CIP-0201 does about it</span></div>
+        <div class="why-row">
+          <div class="why-finding">The threat is silencing, not forgery</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Signed messages settle forgery; one bar for the rest: every honest publisher reaches every honest subscriber</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding">Identities must cost something</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Refundable deposit and an on-chain node registry</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding">A full list makes peer sampling unnecessary, and SecureCyclon's silent eclipse avoidable</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Nodes select locally from the registry</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding">A known list invites targeted flooding</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">A verifiable gate from epoch randomness, plus an admissions budget (ADR 0042)</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding">One link serving both directions needs the fewest picks and leaves the most margin</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">The symmetric relay link, gated on the identity-sorted pair</div>
+        </div>
+        <div class="why-row">
+          <div class="why-finding">A bad draw must not last</div>
+          <div class="why-arrow" aria-hidden="true">→</div>
+          <div class="why-mech">Epoch rotation and recovery caches</div>
+        </div>
+    </div>
+  </section>
+
+  <!-- 15 · Where review stands -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">6 · What's open</div>
+    <h2>Where review stands</h2>
+    <div class="viz-visual viz-wide review-steps">
+      <svg viewBox="0 0 520 150" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Review timeline: submitted 16 September, confirmed 29 September as CPS-0038 and CIP-0201, now responding to review feedback, next a merge as Proposed after we reply and it goes back to the CIP meeting, then Path to Active.">
+        <line x1="50" y1="56" x2="260" y2="56" stroke="var(--good)" stroke-width="2"/>
+        <line x1="260" y1="56" x2="470" y2="56" stroke="var(--card-stroke-soft)" stroke-width="2" stroke-dasharray="4 4"/>
+        <circle cx="50" cy="56" r="8" fill="var(--good)" stroke="var(--good)" stroke-width="2"/><text x="50" y="30" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">16 SEP</text><text x="50" y="90" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Submitted</text><text x="50" y="108" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">CPS and CIP</text><text x="50" y="122" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">opened</text><circle cx="155" cy="56" r="8" fill="var(--good)" stroke="var(--good)" stroke-width="2"/><text x="155" y="30" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">29 SEP</text><text x="155" y="90" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Confirmed</text><text x="155" y="108" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">Numbered CPS-0038</text><text x="155" y="122" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">and CIP-0201</text><circle cx="260" cy="56" r="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="2"/><text x="260" y="30" text-anchor="middle" font-size="11" font-weight="600" fill="var(--info)">NOW</text><text x="260" y="90" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Review open</text><text x="260" y="108" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">Responding to</text><text x="260" y="122" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">review feedback</text><circle cx="365" cy="56" r="8" fill="var(--card-fill)" stroke="var(--card-stroke-soft)" stroke-width="2"/><text x="365" y="30" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-faint)">NEXT</text><text x="365" y="90" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Merge as Proposed</text><text x="365" y="108" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">After we reply,</text><text x="365" y="122" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">back to the</text><text x="365" y="136" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">CIP meeting</text><circle cx="470" cy="56" r="8" fill="var(--card-fill)" stroke="var(--card-stroke-soft)" stroke-width="2"/><text x="470" y="30" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-faint)">THEN</text><text x="470" y="90" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Path to Active</text><text x="470" y="108" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">Spec, profile,</text><text x="470" y="122" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">2 implementations,</text><text x="470" y="136" text-anchor="middle" font-size="11" fill="var(--text-mute)" font-family="Barlow, system-ui, sans-serif">pilot</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 16 · Gaps and open questions -->
+  <section class="slide viz-slide">
+    <div class="slide-kicker">6 · What's open</div>
+    <h2>Gaps and open questions</h2>
+    <p class="viz-lede wide">What we have not shown is stated as plainly as what we have. The CIP states each of these itself, under Limits of this evidence or Path to Active. <a class="try-chip" href="../experiments/parameters/" target="_blank" rel="noopener">Try it: parameter surface ↗</a></p>
+    <div class="viz-visual viz-wide">
+      <svg viewBox="0 0 524 300" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="Board of established results and open items grouped as evidence, specification and deployment">
+        <text x="0" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--good)">ESTABLISHED</text><rect x="0" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Laws match</text><text x="10" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">simulation (ungated)</text><rect x="0" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">M4 selected within</text><text x="10" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">the evaluated family</text><rect x="0" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Message and registry</text><text x="10" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">formats drafted</text><rect x="0" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--good)" stroke-opacity="0.6"/><text x="10" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Admission flooding</text><text x="10" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">measured at N = 4,000</text><text x="132" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--warn)">OPEN · EVIDENCE</text><rect x="132" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Tail probabilities</text><text x="142" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">extrapolated</text><rect x="132" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Rotation argued, not</text><text x="142" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">simulated</text><rect x="132" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Gated laws not</text><text x="142" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">formally derived</text><rect x="132" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Small topics: gate</text><text x="142" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">off up to 40 nodes</text><rect x="132" y="244" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="142" y="263" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Correlated failure</text><text x="142" y="277" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">out of scope</text><text x="264" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--warn)">OPEN · SPEC</text><rect x="264" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Gate, beacon,</text><text x="274" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">handshake, epochs</text><rect x="264" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Recovery and</text><text x="274" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">catch-up exchanges</text><rect x="264" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Behaviour through</text><text x="274" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">chain halt or fork</text><rect x="264" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="274" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Relationship to</text><text x="274" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">CIP-0137</text><text x="396" y="14" font-size="9.5" letter-spacing="1.2" font-weight="600" fill="var(--warn)">OPEN · DEPLOYMENT</text><rect x="396" y="28" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="47" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">μ and deposit</text><text x="406" y="61" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">economics</text><rect x="396" y="82" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="101" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Rerun the profile</text><text x="406" y="115" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">B 512 · k 10 · C 24</text><rect x="396" y="136" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="155" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Two interoperating</text><text x="406" y="169" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">implementations</text><rect x="396" y="190" width="124" height="46" rx="8" fill="var(--card-fill)" stroke="var(--warn)" stroke-opacity="0.6"/><text x="406" y="209" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Operator pilot,</text><text x="406" y="223" font-size="11" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">adoption threshold</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 17 · How we worked -->
+  <!-- Candidate lessons from the logbook and the 18 Nov review session; the three presenters
+       (William, Mauro, Ezequiel) confirm, replace or reassign before the talk. -->
+  <section class="slide viz-slide dense">
+    <div class="slide-kicker">7 · How we worked</div>
+    <h2>Lessons learned</h2>
+    <div class="lesson-band-label">What worked</div>
+    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>A late joiner corrected a key figure within a week.</p></div><div class="lesson-card"><h3>Two instruments</h3><p>Hand-derived laws checked against the node logic.</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Gaps listed as requirements, not hidden.</p></div></div>
+    <div class="lesson-band-label">What we'd do differently</div>
+    <div class="lesson-band four"><div class="lesson-card alt"><h3>Agree the scope first</h3><p>We estimate about half our time went into bridging what product asked for and what research offered.</p></div><div class="lesson-card alt"><h3>Close the stream when the base fails</h3><p>When SecureCyclon failed, stop, report, and restart with new goals.</p></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 led until the gate and cap were included.</p></div><div class="lesson-card alt"><h3>Is a CIP the right stage?</h3><p>We specify a solution with known gaps and their requirements, not a full stack.</p></div></div>
+  </section>
+
+  <!-- 18 · Summary -->
+  <section class="slide viz-slide summary-slide">
+    <div class="slide-kicker">Summary</div>
+    <h2>What we proposed</h2>
+    <div class="summary-grid">
+      <div class="summary-col">
+        <ol class="summary-list">
+          <li><span><strong>SecureCyclon</strong> does not give a uniform view under a silent adversary, in our tests</span></li>
+          <li><span><strong>An on-chain registry</strong> with deposits replaces peer sampling</span></li>
+          <li><span><strong>Five designs</strong>, formalised and simulated on the node logic</span></li>
+          <li><span><strong>M4:</strong> a verifiable gate and symmetric links</span></li>
+          <li><span><strong>CPS-0038 and CIP-0201</strong>, in review</span></li>
+        </ol>
+      </div>
+      <div class="summary-col open">
+        <div class="lesson-band-label">Open questions</div>
+        <ul class="summary-qs">
+          <li>What deposit makes a 20 % attacker implausible?</li>
+          <li>Do topics of tens of nodes need a different design?</li>
+          <li>What must keep working when the chain halts or forks?</li>
+          <li>Alternative or complement to CIP-0137?</li>
+        </ul>
+      </div>
+    </div>
+    <div class="close-links">
+      <a href="https://pubsub.cardano-scaling.org/" target="_blank" rel="noopener">pubsub.cardano-scaling.org</a>
+      <a href="https://github.com/cardano-foundation/CIPs/pull/1271" target="_blank" rel="noopener">CIP-0201</a>
+      <a href="https://github.com/cardano-foundation/CIPs/pull/1270" target="_blank" rel="noopener">CPS-0038</a>
+      <a href="https://pubsub.cardano-scaling.org/experiments/" target="_blank" rel="noopener">Experiment tools</a>
+    </div>
+  </section>
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="chrome">
+  <span>Cardano PubSub · November 2026</span>
+  <span id="counter"></span>
+</div>
+<div class="nav-hint">← → to navigate · esc to close</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    // Presentation defaults to the bright theme; the toggle overrides per browser.
+    var stored = null;
+    try { stored = localStorage.getItem('pubsub-theme'); } catch (e) {}
+    if (stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    document.querySelector('.theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pubsub-theme', next); } catch (e) {}
+    });
+
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var counter = document.getElementById('counter');
+    var progress = document.getElementById('progress');
+    var current = 0;
+
+    function show(i) {
+      current = Math.max(0, Math.min(slides.length - 1, i));
+      slides.forEach(function (s, idx) { s.classList.toggle('active', idx === current); });
+      counter.textContent = (current + 1) + ' / ' + slides.length;
+      progress.style.width = ((current + 1) / slides.length * 100) + '%';
+      if (history.replaceState) history.replaceState(null, '', '#' + (current + 1));
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); show(0); }
+      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+      else if (e.key === 'Escape') {
+        // On the live demo, Esc belongs to the embedded tool, never to leaving the deck.
+        if (slides[current] && slides[current].classList.contains('demo-slide')) return;
+        e.preventDefault(); window.location.href = '../';
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.theme-toggle') || e.target.closest('a')) return;
+      show(current + 1);
+    });
+
+    var touchStartX = null, touchStartY = null;
+    document.addEventListener('touchstart', function (e) {
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (touchStartX === null) return;
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      touchStartX = touchStartY = null;
+      // Horizontal swipes navigate; vertical ones are left to scroll the slide.
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) show(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
+
+    var fromHash = parseInt(location.hash.slice(1), 10);
+    show(isNaN(fromHash) ? 0 : fromHash - 1);
+  })();
+</script>
+
+<script>
+  // Live demo: scroll the embedded tool to its controls, follow the deck's theme,
+  // and hand the keyboard back to the deck on Esc or when the pointer leaves.
+  (function () {
+    var frame = document.getElementById('demo-compare');
+    if (!frame) return;
+    var root = document.documentElement;
+    function doc() { try { return frame.contentDocument; } catch (e) { return null; } }
+    function syncTheme() {
+      var d = doc(); if (!d) return;
+      var t = root.getAttribute('data-theme');
+      if (t) d.documentElement.setAttribute('data-theme', t); else d.documentElement.removeAttribute('data-theme');
+    }
+    function giveBack() { if (document.activeElement === frame) frame.blur(); window.focus(); }
+    frame.addEventListener('load', function () {
+      var d = doc(); if (!d) return;
+      syncTheme();
+      // The deck is the navigation here, so the site's own bar is hidden inside the frame.
+      var st = d.createElement('style');
+      st.textContent = '.navbar { display: none !important; } html { scroll-padding-top: 0 !important; scroll-behavior: auto !important; }';
+      d.head.appendChild(st);
+      var rail = d.querySelector('.env-rail');
+      if (rail) frame.contentWindow.scrollTo(0, Math.max(0, rail.getBoundingClientRect().top + frame.contentWindow.scrollY - 12));
+      d.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        // Let the tool close its own dropdown or tooltip first.
+        var tip = d.getElementById('tip');
+        var popupOpen = d.querySelector('[aria-expanded="true"]') || (tip && tip.offsetParent !== null && getComputedStyle(tip).opacity !== '0');
+        if (popupOpen) return;
+        e.preventDefault(); giveBack();
+      });
+    });
+    frame.addEventListener('mouseleave', giveBack);
+    new MutationObserver(syncTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  })();
+</script>
+</body>
+</html>

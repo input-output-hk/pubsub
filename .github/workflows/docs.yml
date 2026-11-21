@@ -38,6 +38,10 @@ jobs:
         run: python3 scripts/build-activity.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Drafts live in the repo while they are iterated on but are never
+      # published: drop the .draft.html suffix to release a page.
+      - name: Exclude draft pages
+        run: find web -name '*.draft.html' -print -delete
       - uses: actions/upload-pages-artifact@v5
         with:
           path: web
