@@ -111,7 +111,7 @@ Lessons (slide 20), candidates for the three presenters to confirm or replace.
 - *Compare under the real rules.* M3 became the base on 7 and 15 Jul from comparisons without the gate or cap; with them, M4 won on 20 Aug.
 - *Is a CIP the right stage?* We specify a solution with known gaps and their requirements, not a full stack.
 
-**Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated on the node logic; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. Open questions: the deposit that makes a 20 % attacker implausible, small topics, behaviour through a chain halt or fork, and the relationship to CIP-0137.
+**Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated on the node logic; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. It summarises only what we proposed; the open items stay on slide 19.
 
 ## Tools on the website worth showing
 

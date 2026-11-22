@@ -234,17 +234,11 @@
   .q-arrow { text-align: center; color: var(--iog-infared); font-size: 1.4em; font-weight: 600; }
   .need-row { display: flex; gap: 0.8em; flex-wrap: wrap; margin-top: 1.1em; }
   .need { font-family: var(--font-mono); font-size: 0.72em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--iog-infared); border: 1px solid var(--iog-infared); border-radius: 99px; padding: 5px 14px; }
-  .summary-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2em; margin-top: 1em; }
-  .summary-list { list-style: none; counter-reset: sum; display: grid; gap: 0.6em; }
-  .summary-list li { counter-increment: sum; display: grid; grid-template-columns: 1.8em minmax(0, 1fr); font-size: 0.98em; line-height: 1.4; color: var(--text-mute); }
+  .summary-list { list-style: none; counter-reset: sum; display: grid; gap: 0.8em; margin-top: 1.2em; max-width: 44em; }
+  .summary-list li { counter-increment: sum; display: grid; grid-template-columns: 1.8em minmax(0, 1fr); font-size: 1.12em; line-height: 1.4; color: var(--text-mute); }
   .summary-list li::before { content: counter(sum); font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); }
   .summary-list li strong { color: var(--text); font-weight: 600; }
-  .summary-col.open { border-left: 1px solid var(--card-stroke-faint); padding-left: 1.6em; }
-  .summary-col.open .lesson-band-label { margin-top: 0; }
-  .summary-qs { list-style: none; display: grid; gap: 0.55em; }
-  .summary-qs li { font-size: 0.92em; line-height: 1.4; color: var(--text); padding-left: 1.1em; position: relative; }
-  .summary-qs li::before { content: '?'; position: absolute; left: 0; font-family: var(--font-mono); font-weight: 700; color: var(--iog-infared); }
-  .summary-slide .close-links { margin-top: 1.4em; justify-content: flex-start; }
+  .summary-slide .close-links { margin-top: 1.8em; justify-content: flex-start; }
   .review-steps { flex: 1; display: flex; align-items: center; margin-top: 0; }
   .viz-visual.viz-wide.review-steps svg { width: 100%; max-width: 1060px; max-height: 52vh; }
   .lesson-band.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -459,9 +453,8 @@
     .title-slide .hero-visual { align-self: center; margin-top: 0; }
 
     .why-head, .why-row { grid-template-columns: minmax(0, 1fr); }
-    .question-swap, .summary-grid { grid-template-columns: minmax(0, 1fr); }
+    .question-swap { grid-template-columns: minmax(0, 1fr); }
     .q-arrow { display: none; }
-    .summary-col.open { border-left: 0; padding-left: 0; }
     .why-arrow { display: none; }
     .lesson-band.two, .lesson-band.three, .lesson-band.four { grid-template-columns: minmax(0, 1fr); }
     .split-row,
@@ -1227,26 +1220,13 @@
   <section class="slide viz-slide summary-slide">
     <div class="slide-kicker">Summary</div>
     <h2>What we proposed</h2>
-    <div class="summary-grid">
-      <div class="summary-col">
-        <ol class="summary-list">
-          <li><span><strong>SecureCyclon</strong> does not give a uniform view under a silent adversary, in our tests</span></li>
-          <li><span><strong>An on-chain registry</strong> with deposits replaces peer sampling</span></li>
-          <li><span><strong>Five designs</strong>, formalised and simulated on the node logic</span></li>
-          <li><span><strong>M4:</strong> a verifiable gate and symmetric links</span></li>
-          <li><span><strong>CPS-0038 and CIP-0201</strong>, in review</span></li>
-        </ol>
-      </div>
-      <div class="summary-col open">
-        <div class="lesson-band-label">Open questions</div>
-        <ul class="summary-qs">
-          <li>What deposit makes a 20 % attacker implausible?</li>
-          <li>Do topics of tens of nodes need a different design?</li>
-          <li>What must keep working when the chain halts or forks?</li>
-          <li>Alternative or complement to CIP-0137?</li>
-        </ul>
-      </div>
-    </div>
+    <ol class="summary-list">
+      <li><span><strong>SecureCyclon</strong> does not give a uniform view under a silent adversary, in our tests</span></li>
+      <li><span><strong>An on-chain registry</strong> with deposits replaces peer sampling</span></li>
+      <li><span><strong>Five designs</strong>, formalised and simulated on the node logic</span></li>
+      <li><span><strong>M4:</strong> a verifiable gate and symmetric links</span></li>
+      <li><span><strong>CPS-0038 and CIP-0201</strong>, in review</span></li>
+    </ol>
     <div class="close-links">
       <a href="https://pubsub.cardano-scaling.org/" target="_blank" rel="noopener">pubsub.cardano-scaling.org</a>
       <a href="https://github.com/cardano-foundation/CIPs/pull/1271" target="_blank" rel="noopener">CIP-0201</a>
