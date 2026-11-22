@@ -101,7 +101,7 @@ Lessons and open questions (slide 20).
 **What worked**
 
 - *Decisions written down.* The logbook and ADRs let Mauro join on 6 Aug and correct M4's eclipse-cost figure by 11 Aug.
-- *Two instruments, cross-checked.* Hand-derived laws checked against the node logic in the simulator (2 Jul, 13 Aug).
+- *Two instruments, cross-checked.* Hand-derived laws checked against a deterministic simulator running the reference implementation's code, without the async runtime or real transport (2 Jul, 13 Aug).
 
 **What we would reconsider** (framed as open questions)
 
@@ -111,7 +111,7 @@ Lessons and open questions (slide 20).
 
 Comparing designs under the real rules (M3 led until the gate and cap were included) is covered on slide 16 and no longer listed here.
 
-**Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated on the node logic; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. It summarises only what we proposed; the open items stay on slide 19.
+**Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated with our reference implementation; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. It summarises only what we proposed; the open items stay on slide 19.
 
 ## Tools on the website worth showing
 
