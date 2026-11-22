@@ -91,7 +91,7 @@ The slide shows three rows, each tagged with its setup: mean links held (measure
 **Gaps** (slide 19). The CIP states each of these itself, under Limits of this evidence or Path to Active. The slide shows them as short cards in four columns (shown, open evidence, open spec, open deployment), adds that the 20 % adversary is assumed rather than derived, and leaves correlated failure, the beacon and epoch details, the full profile parameters, the two interoperating implementations and the operator pilot out of the slide.
 
 - *Evidence:* tail probabilities extrapolated; rotation argued, not simulated; gated laws not formally derived; small topics outside the analysis (the gate is off up to 40 registrations at k = 10); correlated failure out of scope.
-- *Specification:* gate, beacon, handshake and epochs; recovery and catch-up exchanges; behaviour through a chain halt or fork; the relationship to CIP-0137.
+- *Specification:* the beacon source and the final gate construction (the hash gate is the evaluated baseline; no private construction is selected); handshake recipient and deployment binding, replay handling and the full state machine (the draft signed preimage must not be deployed); epoch numbering and boundaries; recovery and catch-up exchanges; behaviour through a chain halt or fork; the relationship to CIP-0137.
 - *Deployment:* μ and deposit economics; rerun of the candidate profile B = 512, k = 10, C = 24; two interoperating implementations; an operator pilot and adoption threshold.
 
 ## 7 · Lessons learned and summary
