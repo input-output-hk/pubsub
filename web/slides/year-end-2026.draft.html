@@ -223,6 +223,9 @@
   .lesson-card h3 { font-family: var(--font-display); font-size: 0.95em; font-weight: 600; margin-bottom: 0.35em; }
   .lesson-card p { font-size: 0.78em; line-height: 1.45; color: var(--text-mute); }
   .lesson-card.alt { border-top: 3px solid var(--warn); }
+  .lessons-slide .lesson-card { padding: 1em 1.2em; }
+  .lessons-slide .lesson-card h3 { font-size: 1.1em; }
+  .lessons-slide .lesson-card p { font-size: 0.92em; }
   .lesson-trail { display: block; margin-top: 0.5em; font-family: var(--font-mono); font-size: 0.62em; font-weight: 600; letter-spacing: 0.06em; color: var(--text-faint); }
   .demo-hint { display: inline-block; margin-left: 0.6em; font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
   .demo-frame { margin-top: 0.9em; width: 100%; height: calc(100vh - 15.5em); min-height: 320px; border: 1px solid var(--card-stroke-faint); border-radius: 8px; overflow: hidden; background: var(--card-fill); }
@@ -1205,15 +1208,13 @@
   </section>
 
   <!-- 17 · How we worked -->
-  <!-- Candidate lessons from the logbook and the 18 Nov review session; the three presenters
-       (William, Mauro, Ezequiel) confirm, replace or reassign before the talk. -->
-  <section class="slide viz-slide dense">
+  <section class="slide viz-slide lessons-slide">
     <div class="slide-kicker">7 · How we worked</div>
-    <h2>Lessons learned</h2>
+    <h2>Lessons and open questions</h2>
     <div class="lesson-band-label">What worked</div>
-    <div class="lesson-band three"><div class="lesson-card"><h3>Decisions written down</h3><p>A late joiner corrected a key figure within a week.</p></div><div class="lesson-card"><h3>Two instruments</h3><p>Hand-derived laws checked against the node logic.</p></div><div class="lesson-card"><h3>A CIP that states its limits</h3><p>Gaps listed as requirements, not hidden.</p></div></div>
-    <div class="lesson-band-label">What we'd do differently</div>
-    <div class="lesson-band four"><div class="lesson-card alt"><h3>Agree the scope first</h3><p>We estimate about half our time went into bridging what product asked for and what research offered.</p></div><div class="lesson-card alt"><h3>Close the stream when the base fails</h3><p>When SecureCyclon failed, stop, report, and restart with new goals.</p></div><div class="lesson-card alt"><h3>Compare under the real rules</h3><p>M3 led until the gate and cap were included.</p></div><div class="lesson-card alt"><h3>Is a CIP the right stage?</h3><p>We specify a solution with known gaps and their requirements, not a full stack.</p></div></div>
+    <div class="lesson-band two"><div class="lesson-card"><h3>Decisions written down</h3><p>A logbook and decision records in the repo let a newcomer contribute within a week.</p></div><div class="lesson-card"><h3>Two instruments, cross-checked</h3><p>Laws derived by hand, checked against a simulator running the real node logic.</p></div></div>
+    <div class="lesson-band-label">What we would reconsider</div>
+    <div class="lesson-band three"><div class="lesson-card alt"><h3>Define the scope gap early?</h3><p>Product's goal and the research overlapped little; bridging it took close to half our time. Knowing that sooner could mean handing it back or choosing a new approach.</p></div><div class="lesson-card alt"><h3>When to close a work stream?</h3><p>When SecureCyclon didn't hold, we redesigned within the same stream. Should we have stopped and reported back?</p></div><div class="lesson-card alt"><h3>The right stage for a CIP?</h3><p>Ours specifies a solution with known gaps, not one ready to implement end to end.</p></div></div>
   </section>
 
   <!-- 18 · Summary -->

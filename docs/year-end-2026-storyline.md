@@ -12,7 +12,7 @@ The problem first, then the outcome, then how we got there. The audience sees CI
 4. **Make it measurable** (10–15): Mauro's formalization and models (10–11), the live compare-designs demo (12), Ezequiel's implementation slides (13–15)
 5. **Let the evidence choose** (16–17): the M3 vs M4 comparison (16, presented by Ezequiel) and why the protocol looks like this (17)
 6. **What's open** (18–19)
-7. **How we worked: lessons learned** (20), then a summary (21)
+7. **How we worked: lessons and open questions** (20), then a summary (21)
 
 The through-line is that evidence changed our minds three times: we set SecureCyclon aside, we moved from M3 to M4, and we re-scoped the CIP into a report that states its own limits.
 
@@ -96,20 +96,20 @@ The slide shows three rows, each tagged with its setup: mean links held (measure
 
 ## 7 · Lessons learned and summary
 
-Lessons (slide 20), candidates for the three presenters to confirm or replace.
+Lessons and open questions (slide 20).
 
 **What worked**
 
 - *Decisions written down.* The logbook and ADRs let Mauro join on 6 Aug and correct M4's eclipse-cost figure by 11 Aug.
-- *Two instruments.* Hand-derived laws checked against the node logic in the simulator (2 Jul, 13 Aug).
-- *A CIP that states its limits.* Gaps listed as requirements, not hidden (11 Aug).
+- *Two instruments, cross-checked.* Hand-derived laws checked against the node logic in the simulator (2 Jul, 13 Aug).
 
-**What we'd do differently**
+**What we would reconsider** (framed as open questions)
 
-- *Agree the scope first.* We estimate about half our time went into bridging what product asked for and what research offered (raised in the 18 Nov review session).
-- *Close the stream when the base fails.* When SecureCyclon failed, stop, report, and restart with new goals rather than fix it within the same workstream (18 Nov review session).
-- *Compare under the real rules.* M3 became the base on 7 and 15 Jul from comparisons without the gate or cap; with them, M4 won on 20 Aug.
-- *Is a CIP the right stage?* We specify a solution with known gaps and their requirements, not a full stack.
+- *Define the scope gap early?* What product envisioned and what the research offered overlapped little; we estimate close to half our time went into bridging it (18 Nov review session). Defining that gap sooner might have meant handing the problem back or choosing a new approach earlier.
+- *When to close a work stream?* When SecureCyclon didn't hold, we redesigned within the same stream rather than stopping, reporting and restarting with new goals (18 Nov review session).
+- *The right stage for a CIP?* CIP-0201 specifies a solution with known gaps and their requirements, not one ready to implement end to end.
+
+Comparing designs under the real rules (M3 led until the gate and cap were included) is covered on slide 16 and no longer listed here.
 
 **Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated on the node logic; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. It summarises only what we proposed; the open items stay on slide 19.
 
