@@ -116,6 +116,6 @@ Comparing designs under the real rules (M3 led until the gate and cap were inclu
 ## Tools on the website worth showing
 
 - [Compare designs](../web/experiments/compare-designs/): ungated M1–M5 estimates with population, adversarial share and pick count as controls. Embedded live on slide 12.
-- [Parameter surface](../web/experiments/parameters/): exploratory M4 isolation estimates, bucket-count ceilings and an admissions-budget recipe. Linked from slide 19.
+- [Parameter surface](../web/experiments/parameters/): exploratory M4 isolation estimates, bucket-count ceilings and an admissions-budget recipe. Not linked from the deck; useful for questions.
 - [Model simulator](../web/experiments/models/): watch each model draw its links and a message propagate, at toy scale.
 - [How the design was derived](../web/experiments/): the comparisons behind selecting M4.
