@@ -638,6 +638,33 @@
     .visual-flow .visual-box { width: 100%; }
     .visual-flow .visual-arrow { transform: rotate(90deg); }
   }
+  /* Alternative M4 decision slide, retained beside the existing version. */
+  .m4-decision-slide h2 { max-width: none; margin-bottom: 0.5em; }
+  .m4-table caption {
+    text-align: left; padding: 0.7em 0 0.4em;
+    font-size: 0.85em; font-weight: 600; color: var(--text-mute);
+  }
+  .m4-gated-wrap { width: 68%; margin: 0.7em auto 0; }
+  .m4-gated-wrap .m4-table { min-width: 0; }
+  @media (max-width: 900px) {
+    .m4-gated-wrap { width: 100%; }
+  }
+  .m4-table .m4-miss { color: var(--warn); font-weight: 600; }
+  .m4-table-wrap { overflow-x: auto; }
+  .m4-table { width: 100%; min-width: 42rem; border-collapse: collapse; text-align: center; }
+  .m4-table thead th {
+    padding: 0.5em 0.5em; font-size: 0.8em; font-weight: 500;
+    color: var(--text-mute); border-bottom: 1px solid var(--line-strong);
+  }
+  .m4-table tbody th, .m4-table td {
+    padding: 0.45em 0.5em; border-bottom: 1px solid var(--line);
+    font-size: 1.2em; font-variant-numeric: tabular-nums;
+  }
+  .m4-table tbody th { font-family: var(--font-mono); font-size: 1.2em; }
+  .m4-table .m4-best { color: var(--good); font-weight: 700; }
+  .m4-table .m4-selected { background: var(--bg-soft); }
+  .m4-table .m4-selected th { color: var(--iog-infared); }
+  .m4-decision-slide .visual-tags { margin-top: 1.4em; }
 </style>
 </head>
 <body>
@@ -1197,27 +1224,88 @@
     </div>
   </section>
 
-  <!-- 13 · Choosing M4 -->
-  <section class="slide viz-slide">
+  <!-- Choosing M4: costs and gated reliability at the stated configurations.
+       Source: docs/cip/design-comparison.md, Table 4 (ungated rows).
+       Speaker: M3 retains the bandwidth advantage. At these configurations,
+       M4 holds fewer logical links and has more predicted downtime margin.
+       The failure probabilities differ: M3 4.4e-5, M4 6.1e-6; both meet
+       the 1e-4 target. Downtime budgets are predictions under independent
+       downtime, not directly observed limits; hops are not elapsed latency.
+       Symmetry rescues: an honest eligible peer selecting this node can
+       provide connectivity when its own picks all land on adversaries.
+       An eligible pool with no honest peers cannot be rescued this way.
+       The gated table compares equal expected receiving-candidate pools
+       of about 40, using B=500 in both models. Both meet the target at
+       the stated configurations. The two tables use separate configurations.
+       Ungated: N=20,000, mu=0.2; M3 RF=13, s=7; M4 RF=9.
+       Costs and hops are measured; downtime budgets are predictions.
+       Gated: M3 RF=13, s=7, B_relay=B_publisher=500;
+       M4 k=10, B=500, C=23. Source: E20 synthesis section 7,
+       "equal deafen-cost" row (derived M3 prediction).
+       This is equal receiving-pool size, not equal either-direction reach.
+       These probabilities concern network-wide topology failure at fixed
+       adversarial membership, not adaptive eclipse of a chosen victim.
+       Eligibility is not the same as actual links or targeted eclipse cost.
+       These are model predictions; the zero-failure samples do not resolve
+       these rare-event rates. M4's proposed B=512 profile still needs a rerun. -->
+  <section class="slide visual-slide m4-decision-slide" id="m4-table-preview">
     <div class="slide-kicker">5 · Let the evidence choose</div>
-    <div class="split-row">
-      <div>
-        <h2>Evidence moved us from M3 to M4</h2>
-        <p class="viz-lede">Same reliability target, half the links.</p>
-        <p class="viz-callout">M3 was our base in July. Weighting security first, M4 won on five of six rows.</p>
-                <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
-      </div>
-      <div class="viz-visual">
-        <svg viewBox="0 0 520 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="M3 against M4 on six rows; M4 is better on picks, links, failure probability, downtime absorbed and counted failures; M3 receives fewer copies per node">
-          <g font-size="11" font-weight="600" letter-spacing="1.5">
-            <rect x="250" y="12" width="12" height="8" rx="2" fill="var(--text-faint)"/><text x="268" y="20" fill="var(--text-mute)">M3</text>
-            <rect x="310" y="12" width="12" height="8" rx="2" fill="var(--iog-infared)"/><text x="328" y="20" fill="var(--text-mute)">M4</text>
-            <text x="372" y="20" fill="var(--text-mute)">✓ BETTER</text>
-          </g>
-          <text x="0" y="20" font-size="11" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">M3 vs M4</text>
-          <text x="0" y="62" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Picks to meet the target</text><text x="0" y="79" font-size="10.5" fill="var(--text-faint)">UNGATED · LOWER IS BETTER</text><rect x="250" y="50" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="60" font-size="11.5" font-weight="400" fill="var(--text-mute)">19</text><rect x="250" y="65" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="75" font-size="11.5" font-weight="700" fill="var(--text-mute)">9  ✓</text><line x1="0" y1="88" x2="520" y2="88" stroke="var(--line)"/><text x="0" y="114" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Mean links held</text><text x="0" y="131" font-size="10.5" fill="var(--text-faint)">UNGATED · LOWER IS BETTER</text><rect x="250" y="102" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="112" font-size="11.5" font-weight="400" fill="var(--text-mute)">38.0</text><rect x="250" y="117" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="127" font-size="11.5" font-weight="700" fill="var(--text-mute)">18.0  ✓</text><line x1="0" y1="140" x2="520" y2="140" stroke="var(--line)"/><text x="0" y="166" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Copies received per node</text><text x="0" y="183" font-size="10.5" fill="var(--text-faint)">UNGATED · BANDWIDTH · LOWER IS BETTER</text><rect x="250" y="154" width="116.4" height="11" rx="2" fill="var(--text-faint)"/><text x="372.4" y="164" font-size="11.5" font-weight="700" fill="var(--text-mute)">10.4  ✓</text><rect x="250" y="169" width="150.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="406.0" y="179" font-size="11.5" font-weight="400" fill="var(--text-mute)">13.4</text><line x1="0" y1="192" x2="520" y2="192" stroke="var(--line)"/><text x="0" y="218" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted p<tspan baseline-shift='sub' font-size='9'>bad</tspan></text><text x="0" y="235" font-size="10.5" fill="var(--text-faint)">GATED REFERENCE · LOWER IS BETTER</text><rect x="250" y="206" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="216" font-size="11.5" font-weight="400" fill="var(--text-mute)">5.8 × 10⁻⁵</text><rect x="250" y="221" width="13.2" height="11" rx="2" fill="var(--iog-infared)"/><text x="269.2" y="231" font-size="11.5" font-weight="700" fill="var(--text-mute)">5.1 × 10⁻⁶  ✓</text><line x1="0" y1="244" x2="520" y2="244" stroke="var(--line)"/><text x="0" y="270" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted downtime absorbed</text><text x="0" y="287" font-size="10.5" fill="var(--text-faint)">GATED REFERENCE · HIGHER IS BETTER</text><rect x="250" y="258" width="31.3" height="11" rx="2" fill="var(--text-faint)"/><text x="287.3" y="268" font-size="11.5" font-weight="400" fill="var(--text-mute)">1.58 %</text><rect x="250" y="273" width="150.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="406.0" y="283" font-size="11.5" font-weight="700" fill="var(--text-mute)">7.57 %  ✓</text><line x1="0" y1="296" x2="520" y2="296" stroke="var(--line)"/><text x="0" y="322" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Failed runs, 32 eligible peers</text><text x="0" y="339" font-size="10.5" fill="var(--text-faint)">MEASURED · LOWER IS BETTER</text><rect x="250" y="310" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="320" font-size="11.5" font-weight="400" fill="var(--text-mute)">17 / 400</text><rect x="250" y="325" width="2.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="258.0" y="335" font-size="11.5" font-weight="700" fill="var(--text-mute)">0 / 400  ✓</text><line x1="0" y1="348" x2="520" y2="348" stroke="var(--line)"/>
-        </svg>
-      </div>
+    <h2>Why we chose M4</h2>
+    <div class="m4-table-wrap">
+      <table class="m4-table" aria-label="M3 and M4 ungated reference configurations; green bold values mark the better value in each column">
+        <caption>Before gating · cost and downtime margin</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Received copies / node ↓</th>
+            <th scope="col">Mean links ↓</th>
+            <th scope="col">Full-coverage hops ↓</th>
+            <th scope="col">Downtime absorbed ↑<br>(predicted)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">M3</th>
+            <td class="m4-best">10.4</td>
+            <td>38</td>
+            <td>5.5</td>
+            <td>2.17%</td>
+          </tr>
+          <tr class="m4-selected">
+            <th scope="row">M4</th>
+            <td>13.4</td>
+            <td class="m4-best">18</td>
+            <td class="m4-best">5.0</td>
+            <td class="m4-best">7.43%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="m4-table-wrap m4-gated-wrap">
+      <table class="m4-table" aria-label="Gated comparison at equal expected receiving-candidate pool size of approximately 40 peers per node, B equals 500 for both; failure probabilities are predictions at the stated configurations">
+        <caption>With gating · ≈40 eligible sources per node (expected)</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Predicted topology failure ↓</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">M3</th>
+            <td>4.4 × 10<sup>−5</sup></td>
+          </tr>
+          <tr class="m4-selected">
+            <th scope="row">M4</th>
+            <td class="m4-best">5.1 × 10<sup>−6</sup></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="visual-tags">
+      <span class="visual-tag">Fewer links</span>
+      <span class="visual-tag">More downtime margin</span>
+      <span class="visual-tag">Symmetry rescues</span>
     </div>
   </section>
 
