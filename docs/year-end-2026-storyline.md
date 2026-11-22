@@ -12,7 +12,7 @@ The problem first, then the outcome, then how we got there. The audience sees CI
 4. **Make it measurable** (10–15): Mauro's formalization and models (10–11), the live compare-designs demo (12), Ezequiel's implementation slides (13–15)
 5. **Let the evidence choose** (16–17): the M3 vs M4 comparison (16, presented by Ezequiel) and why the protocol looks like this (17)
 6. **What's open** (18–19)
-7. **How we worked: lessons learned** (20), then a summary (21)
+7. **How we worked: lessons and open questions** (20), then a summary (21)
 
 The through-line is that evidence changed our minds three times: we set SecureCyclon aside, we moved from M3 to M4, and we re-scoped the CIP into a report that states its own limits.
 
@@ -71,9 +71,9 @@ Background for questions: the ungated laws agree with the simulator in 38 of 40 
 | Predicted downtime absorbed (gated) | 1.58 % | 7.57 % | CIP Table 10 |
 | Failed runs at 32 eligible peers | 17 / 400 | 0 / 400 | CIP, Alternatives considered |
 
-The slide shows three of these rows (mean links held, predicted p_bad and failed runs) and leaves the rest for questions. M3 keeps the bandwidth edge: it uses about 22 % less bandwidth (10.4 against 13.4 copies per node). Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
+The slide shows three rows, each tagged with its setup: mean links held (measured, ungated), predicted p_bad (gated reference) and failed runs (measured, gated, expected reach 32). The rest is left for questions. M3 keeps the bandwidth edge: it uses about 22 % less bandwidth (10.4 against 13.4 copies per node). Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
 
-**Why it looks like this.** Each mechanism answers a finding:
+**Why it looks like this.** Each mechanism answers a finding. The slide shows each row as a short phrase; the full wording and dates are here:
 
 | Finding | Date | What CIP-0201 does |
 | --- | --- | --- |
@@ -86,36 +86,36 @@ The slide shows three of these rows (mean links held, predicted p_bad and failed
 
 ## 6 · What's open
 
-**Where review stands** (slide 18). Submitted 16 Sep, confirmed 29 Sep, review open: we are responding to review feedback. Next comes a merge as Proposed, after we reply and the editors bring it back to the CIP meeting; then Path to Active. The slide shows only this timeline. Background for questions: reviewers asked whether the problem is real given existing channels and on-chain data, how large the deposit must be (we stated the outlay, 4,000 simultaneous deposits to hold μ = 0.2 of 20,000), whether proof of work or reputation could complement the deposit, and whether this belongs in the node or in tooling, and how it compares with Nostr.
+**Where review stands** (slide 18). Submitted 16 Sep, confirmed 29 Sep as CPS-0038 and CIP-0201 (Network category), review open: we are responding to review feedback. Next comes a merge as Proposed, after we reply and the editors bring it back to the CIP meeting; then Path to Active. The slide shows only the status, in three steps: submitted and numbered; reviews answered, leaving time for more feedback to accumulate; and a merge as Proposed targeted by the end of the year. Background for questions: reviewers asked whether the problem is real given existing channels and on-chain data, how large the deposit must be (we stated the outlay, 4,000 simultaneous deposits to hold μ = 0.2 of 20,000), whether proof of work or reputation could complement the deposit, and whether this belongs in the node or in tooling, and how it compares with Nostr.
 
-**Gaps** (slide 19). The CIP states each of these itself, under Limits of this evidence or Path to Active.
+**Gaps** (slide 19). The CIP states each of these itself, under Limits of this evidence or Path to Active. The slide shows them as short cards in four columns (shown, open evidence, open spec, open deployment), adds that the 20 % adversary is assumed rather than derived, and leaves correlated failure, the beacon and epoch details, the full profile parameters, the two interoperating implementations and the operator pilot out of the slide.
 
 - *Evidence:* tail probabilities extrapolated; rotation argued, not simulated; gated laws not formally derived; small topics outside the analysis (the gate is off up to 40 registrations at k = 10); correlated failure out of scope.
-- *Specification:* gate, beacon, handshake and epochs; recovery and catch-up exchanges; behaviour through a chain halt or fork; the relationship to CIP-0137.
+- *Specification:* the beacon source and the final gate construction (the hash gate is the evaluated baseline; no private construction is selected); handshake recipient and deployment binding, replay handling and the full state machine (the draft signed preimage must not be deployed); epoch numbering and boundaries; recovery and catch-up exchanges; behaviour through a chain halt or fork; the relationship to CIP-0137.
 - *Deployment:* μ and deposit economics; rerun of the candidate profile B = 512, k = 10, C = 24; two interoperating implementations; an operator pilot and adoption threshold.
 
 ## 7 · Lessons learned and summary
 
-Lessons (slide 20), candidates for the three presenters to confirm or replace.
+Lessons and open questions (slide 20).
 
 **What worked**
 
 - *Decisions written down.* The logbook and ADRs let Mauro join on 6 Aug and correct M4's eclipse-cost figure by 11 Aug.
-- *Two instruments.* Hand-derived laws checked against the node logic in the simulator (2 Jul, 13 Aug).
-- *A CIP that states its limits.* Gaps listed as requirements, not hidden (11 Aug).
+- *Two instruments, cross-checked.* Hand-derived laws checked against a deterministic simulator running the reference implementation's code, without the async runtime or real transport (2 Jul, 13 Aug).
 
-**What we'd do differently**
+**What we would reconsider** (framed as open questions)
 
-- *Agree the scope first.* We estimate about half our time went into bridging what product asked for and what research offered (raised in the 18 Nov review session).
-- *Close the stream when the base fails.* When SecureCyclon failed, stop, report, and restart with new goals rather than fix it within the same workstream (18 Nov review session).
-- *Compare under the real rules.* M3 became the base on 7 and 15 Jul from comparisons without the gate or cap; with them, M4 won on 20 Aug.
-- *Is a CIP the right stage?* We specify a solution with known gaps and their requirements, not a full stack.
+- *Define the scope gap early?* What product envisioned and what the research offered overlapped little; we estimate close to half our time went into bridging it (18 Nov review session). Defining that gap sooner might have meant handing the problem back or choosing a new approach earlier.
+- *When to close a work stream?* When SecureCyclon didn't hold, we redesigned within the same stream rather than stopping, reporting and restarting with new goals (18 Nov review session).
+- *The right stage for a CIP?* CIP-0201 specifies a solution with known gaps and their requirements, not one ready to implement end to end.
 
-**Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated on the node logic; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. It summarises only what we proposed; the open items stay on slide 19.
+Comparing designs under the real rules (M3 led until the gate and cap were included) is covered on slide 16 and no longer listed here.
+
+**Summary** (slide 21): SecureCyclon does not give a uniform view under a silent adversary, in our tests; an on-chain registry with deposits replaces peer sampling; five designs, formalised and simulated with our reference implementation; M4 with a verifiable gate and symmetric links; CPS-0038 and CIP-0201 in review. It summarises only what we proposed; the open items stay on slide 19.
 
 ## Tools on the website worth showing
 
 - [Compare designs](../web/experiments/compare-designs/): ungated M1–M5 estimates with population, adversarial share and pick count as controls. Embedded live on slide 12.
-- [Parameter surface](../web/experiments/parameters/): exploratory M4 isolation estimates, bucket-count ceilings and an admissions-budget recipe. Linked from slide 19.
+- [Parameter surface](../web/experiments/parameters/): exploratory M4 isolation estimates, bucket-count ceilings and an admissions-budget recipe. Not linked from the deck; useful for questions.
 - [Model simulator](../web/experiments/models/): watch each model draw its links and a message propagate, at toy scale.
 - [How the design was derived](../web/experiments/): the comparisons behind selecting M4.
