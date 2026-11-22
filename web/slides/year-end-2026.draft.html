@@ -234,17 +234,11 @@
   .q-arrow { text-align: center; color: var(--iog-infared); font-size: 1.4em; font-weight: 600; }
   .need-row { display: flex; gap: 0.8em; flex-wrap: wrap; margin-top: 1.1em; }
   .need { font-family: var(--font-mono); font-size: 0.72em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--iog-infared); border: 1px solid var(--iog-infared); border-radius: 99px; padding: 5px 14px; }
-  .summary-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2em; margin-top: 1em; }
-  .summary-list { list-style: none; counter-reset: sum; display: grid; gap: 0.6em; }
-  .summary-list li { counter-increment: sum; display: grid; grid-template-columns: 1.8em minmax(0, 1fr); font-size: 0.98em; line-height: 1.4; color: var(--text-mute); }
+  .summary-list { list-style: none; counter-reset: sum; display: grid; gap: 0.8em; margin-top: 1.2em; max-width: 44em; }
+  .summary-list li { counter-increment: sum; display: grid; grid-template-columns: 1.8em minmax(0, 1fr); font-size: 1.12em; line-height: 1.4; color: var(--text-mute); }
   .summary-list li::before { content: counter(sum); font-family: var(--font-mono); font-weight: 600; color: var(--iog-infared); }
   .summary-list li strong { color: var(--text); font-weight: 600; }
-  .summary-col.open { border-left: 1px solid var(--card-stroke-faint); padding-left: 1.6em; }
-  .summary-col.open .lesson-band-label { margin-top: 0; }
-  .summary-qs { list-style: none; display: grid; gap: 0.55em; }
-  .summary-qs li { font-size: 0.92em; line-height: 1.4; color: var(--text); padding-left: 1.1em; position: relative; }
-  .summary-qs li::before { content: '?'; position: absolute; left: 0; font-family: var(--font-mono); font-weight: 700; color: var(--iog-infared); }
-  .summary-slide .close-links { margin-top: 1.4em; justify-content: flex-start; }
+  .summary-slide .close-links { margin-top: 1.8em; justify-content: flex-start; }
   .review-steps { flex: 1; display: flex; align-items: center; margin-top: 0; }
   .viz-visual.viz-wide.review-steps svg { width: 100%; max-width: 1060px; max-height: 52vh; }
   .lesson-band.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -459,9 +453,8 @@
     .title-slide .hero-visual { align-self: center; margin-top: 0; }
 
     .why-head, .why-row { grid-template-columns: minmax(0, 1fr); }
-    .question-swap, .summary-grid { grid-template-columns: minmax(0, 1fr); }
+    .question-swap { grid-template-columns: minmax(0, 1fr); }
     .q-arrow { display: none; }
-    .summary-col.open { border-left: 0; padding-left: 0; }
     .why-arrow { display: none; }
     .lesson-band.two, .lesson-band.three, .lesson-band.four { grid-template-columns: minmax(0, 1fr); }
     .split-row,
@@ -1130,18 +1123,17 @@
       <div>
         <h2>Evidence moved us from M3 to M4</h2>
         <p class="viz-lede">Same reliability target, half the links.</p>
-        <p class="viz-callout">M3 was our base in July. Weighting security first, M4 won on five of six rows.</p>
-                <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Ungated rows: M3 (13, 7), M4 k = 9. Gated rows: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Predicted rows are model predictions, not measured rates.</p>
+        <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. p<sub>bad</sub> is a model prediction, not a measured rate.</p>
       </div>
       <div class="viz-visual">
-        <svg viewBox="0 0 520 380" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="M3 against M4 on six rows; M4 is better on picks, links, failure probability, downtime absorbed and counted failures; M3 receives fewer copies per node">
+        <svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="M3 against M4: M4 holds half the links, has a lower predicted failure probability and had no failed runs where M3 had 17 of 400">
           <g font-size="11" font-weight="600" letter-spacing="1.5">
             <rect x="250" y="12" width="12" height="8" rx="2" fill="var(--text-faint)"/><text x="268" y="20" fill="var(--text-mute)">M3</text>
             <rect x="310" y="12" width="12" height="8" rx="2" fill="var(--iog-infared)"/><text x="328" y="20" fill="var(--text-mute)">M4</text>
             <text x="372" y="20" fill="var(--text-mute)">✓ BETTER</text>
           </g>
           <text x="0" y="20" font-size="11" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">M3 vs M4</text>
-          <text x="0" y="62" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Picks to meet the target</text><text x="0" y="79" font-size="10.5" fill="var(--text-faint)">UNGATED · LOWER IS BETTER</text><rect x="250" y="50" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="60" font-size="11.5" font-weight="400" fill="var(--text-mute)">19</text><rect x="250" y="65" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="75" font-size="11.5" font-weight="700" fill="var(--text-mute)">9  ✓</text><line x1="0" y1="88" x2="520" y2="88" stroke="var(--line)"/><text x="0" y="114" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Mean links held</text><text x="0" y="131" font-size="10.5" fill="var(--text-faint)">UNGATED · LOWER IS BETTER</text><rect x="250" y="102" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="112" font-size="11.5" font-weight="400" fill="var(--text-mute)">38.0</text><rect x="250" y="117" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="127" font-size="11.5" font-weight="700" fill="var(--text-mute)">18.0  ✓</text><line x1="0" y1="140" x2="520" y2="140" stroke="var(--line)"/><text x="0" y="166" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Copies received per node</text><text x="0" y="183" font-size="10.5" fill="var(--text-faint)">UNGATED · BANDWIDTH · LOWER IS BETTER</text><rect x="250" y="154" width="116.4" height="11" rx="2" fill="var(--text-faint)"/><text x="372.4" y="164" font-size="11.5" font-weight="700" fill="var(--text-mute)">10.4  ✓</text><rect x="250" y="169" width="150.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="406.0" y="179" font-size="11.5" font-weight="400" fill="var(--text-mute)">13.4</text><line x1="0" y1="192" x2="520" y2="192" stroke="var(--line)"/><text x="0" y="218" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted p<tspan baseline-shift='sub' font-size='9'>bad</tspan></text><text x="0" y="235" font-size="10.5" fill="var(--text-faint)">GATED REFERENCE · LOWER IS BETTER</text><rect x="250" y="206" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="216" font-size="11.5" font-weight="400" fill="var(--text-mute)">5.8 × 10⁻⁵</text><rect x="250" y="221" width="13.2" height="11" rx="2" fill="var(--iog-infared)"/><text x="269.2" y="231" font-size="11.5" font-weight="700" fill="var(--text-mute)">5.1 × 10⁻⁶  ✓</text><line x1="0" y1="244" x2="520" y2="244" stroke="var(--line)"/><text x="0" y="270" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted downtime absorbed</text><text x="0" y="287" font-size="10.5" fill="var(--text-faint)">GATED REFERENCE · HIGHER IS BETTER</text><rect x="250" y="258" width="31.3" height="11" rx="2" fill="var(--text-faint)"/><text x="287.3" y="268" font-size="11.5" font-weight="400" fill="var(--text-mute)">1.58 %</text><rect x="250" y="273" width="150.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="406.0" y="283" font-size="11.5" font-weight="700" fill="var(--text-mute)">7.57 %  ✓</text><line x1="0" y1="296" x2="520" y2="296" stroke="var(--line)"/><text x="0" y="322" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Failed runs, 32 eligible peers</text><text x="0" y="339" font-size="10.5" fill="var(--text-faint)">MEASURED · LOWER IS BETTER</text><rect x="250" y="310" width="150.0" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="320" font-size="11.5" font-weight="400" fill="var(--text-mute)">17 / 400</text><rect x="250" y="325" width="2.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="258.0" y="335" font-size="11.5" font-weight="700" fill="var(--text-mute)">0 / 400  ✓</text><line x1="0" y1="348" x2="520" y2="348" stroke="var(--line)"/>
+          <text x="0" y="62" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Mean links held</text><text x="0" y="79" font-size="10.5" fill="var(--text-faint)">MODEL · LOWER IS BETTER</text><rect x="250" y="50" width="150" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="60" font-size="11.5" font-weight="400" fill="var(--text-mute)">38.0</text><rect x="250" y="65" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="75" font-size="11.5" font-weight="700" fill="var(--text-mute)">18.0  ✓</text><line x1="0" y1="88" x2="520" y2="88" stroke="var(--line)"/><text x="0" y="114" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted p<tspan baseline-shift='sub' font-size='9'>bad</tspan></text><text x="0" y="131" font-size="10.5" fill="var(--text-faint)">PREDICTED · LOWER IS BETTER</text><rect x="250" y="102" width="150" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="112" font-size="11.5" font-weight="400" fill="var(--text-mute)">5.8 × 10⁻⁵</text><rect x="250" y="117" width="13.2" height="11" rx="2" fill="var(--iog-infared)"/><text x="269.2" y="127" font-size="11.5" font-weight="700" fill="var(--text-mute)">5.1 × 10⁻⁶  ✓</text><line x1="0" y1="140" x2="520" y2="140" stroke="var(--line)"/><text x="0" y="166" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Failed runs, 32 eligible peers</text><text x="0" y="183" font-size="10.5" fill="var(--text-faint)">MEASURED · LOWER IS BETTER</text><rect x="250" y="154" width="150" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="164" font-size="11.5" font-weight="400" fill="var(--text-mute)">17 / 400</text><rect x="250" y="169" width="2.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="258.0" y="179" font-size="11.5" font-weight="700" fill="var(--text-mute)">0 / 400  ✓</text><line x1="0" y1="192" x2="520" y2="192" stroke="var(--line)"/>
         </svg>
       </div>
     </div>
@@ -1227,26 +1219,13 @@
   <section class="slide viz-slide summary-slide">
     <div class="slide-kicker">Summary</div>
     <h2>What we proposed</h2>
-    <div class="summary-grid">
-      <div class="summary-col">
-        <ol class="summary-list">
-          <li><span><strong>SecureCyclon</strong> does not give a uniform view under a silent adversary, in our tests</span></li>
-          <li><span><strong>An on-chain registry</strong> with deposits replaces peer sampling</span></li>
-          <li><span><strong>Five designs</strong>, formalised and simulated on the node logic</span></li>
-          <li><span><strong>M4:</strong> a verifiable gate and symmetric links</span></li>
-          <li><span><strong>CPS-0038 and CIP-0201</strong>, in review</span></li>
-        </ol>
-      </div>
-      <div class="summary-col open">
-        <div class="lesson-band-label">Open questions</div>
-        <ul class="summary-qs">
-          <li>What deposit makes a 20 % attacker implausible?</li>
-          <li>Do topics of tens of nodes need a different design?</li>
-          <li>What must keep working when the chain halts or forks?</li>
-          <li>Alternative or complement to CIP-0137?</li>
-        </ul>
-      </div>
-    </div>
+    <ol class="summary-list">
+      <li><span><strong>SecureCyclon</strong> does not give a uniform view under a silent adversary, in our tests</span></li>
+      <li><span><strong>An on-chain registry</strong> with deposits replaces peer sampling</span></li>
+      <li><span><strong>Five designs</strong>, formalised and simulated on the node logic</span></li>
+      <li><span><strong>M4:</strong> a verifiable gate and symmetric links</span></li>
+      <li><span><strong>CPS-0038 and CIP-0201</strong>, in review</span></li>
+    </ol>
     <div class="close-links">
       <a href="https://pubsub.cardano-scaling.org/" target="_blank" rel="noopener">pubsub.cardano-scaling.org</a>
       <a href="https://github.com/cardano-foundation/CIPs/pull/1271" target="_blank" rel="noopener">CIP-0201</a>
