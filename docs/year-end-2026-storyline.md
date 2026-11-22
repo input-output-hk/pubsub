@@ -71,7 +71,7 @@ Background for questions: the ungated laws agree with the simulator in 38 of 40 
 | Predicted downtime absorbed (gated) | 1.58 % | 7.57 % | CIP Table 10 |
 | Failed runs at 32 eligible peers | 17 / 400 | 0 / 400 | CIP, Alternatives considered |
 
-M3 keeps the bandwidth edge: it uses about 22 % less bandwidth (10.4 against 13.4 copies per node). Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
+The slide shows three of these rows (mean links held, predicted p_bad and failed runs) and leaves the rest for questions. M3 keeps the bandwidth edge: it uses about 22 % less bandwidth (10.4 against 13.4 copies per node). Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
 
 **Why it looks like this.** Each mechanism answers a finding:
 
