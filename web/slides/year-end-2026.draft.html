@@ -352,21 +352,55 @@
     max-width: 86ch;
   }
   .formal-models h2 { max-width: none; }
-  .formal-models .formal-law { margin-bottom: 0.8em; }
-  .coverage-table { min-width: 58rem; }
-  .coverage-table td { font-size: 0.9em; padding-top: 0.55em; padding-bottom: 0.55em; }
-  .coverage-table tbody th {
-    font-size: 0.9em;
-    letter-spacing: 0;
-    text-transform: none;
-    vertical-align: baseline;
-    border-top: 1px solid var(--line-strong);
-    padding: 0.55em 1em 0.55em 0;
+  [data-slide-build][hidden], .print-build-title { display: none; }
+  .model-gallery {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: clamp(16px, 2vw, 32px);
+    margin-top: 1em;
   }
-  .coverage-table .law {
-    font-family: var(--font-mono);
-    font-size: 0.82em;
-    white-space: nowrap;
+  .model-example { min-width: 0; }
+  .model-number { font-family: var(--font-mono); font-size: 0.8em; font-weight: 600; color: var(--iog-infared); }
+  .model-example h3 { font-size: 1.08em; font-weight: 600; margin-top: 0.3em; }
+  .model-sketch { display: block; width: 100%; max-width: 210px; height: auto; margin: 0.4em auto; }
+  .model-sketch .peer { fill: var(--info-soft); stroke: var(--info); stroke-width: 2; }
+  .model-sketch .self { fill: var(--bad-soft); stroke: var(--iog-infared); stroke-width: 2.5; }
+  .model-sketch text { fill: var(--iog-infared); font-size: 13px; font-weight: 600; text-anchor: middle; }
+  .model-sketch .relay { fill: none; stroke: var(--iog-infared); stroke-width: 2.5; marker-end: url(#formal-arrow); }
+  .model-sketch .both { marker-start: url(#formal-arrow-back); }
+  .model-sketch .seed { stroke: var(--warn); stroke-dasharray: 5 4; marker-end: url(#formal-seed-arrow); }
+  .model-description { font-size: 0.86em; line-height: 1.45; color: var(--text-mute); }
+  .model-legend { font-size: 0.82em; line-height: 1.5; color: var(--text-mute); margin-top: 1.5em; }
+  .seed-key { white-space: nowrap; }
+  .seed-key::before { content: ''; display: inline-block; width: 1.8em; border-top: 2px dashed var(--warn); margin: 0 0.5em 0 1em; vertical-align: middle; }
+  .analysis-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1em;
+    min-height: 240px;
+    margin-top: 1em;
+  }
+  .flow-group h3 { font-family: var(--font-mono); font-size: 0.75em; letter-spacing: 0.14em; text-transform: uppercase; color: var(--iog-infared); margin-bottom: 1.1em; }
+  .flow-group ul { list-style: none; display: grid; gap: 0.7em; font-size: 1.04em; line-height: 1.4; }
+  .flow-arrow { font-size: 2em; color: var(--iog-infared); text-align: center; }
+  .flow-core { text-align: center; padding: 1.2em 0; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+  .flow-core h3 { font-size: 1.45em; line-height: 1.2; font-weight: 600; }
+  .flow-core p { font-size: 0.84em; color: var(--text-mute); line-height: 1.45; margin-top: 0.7em; }
+  @media (max-width: 900px) {
+    .model-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.6em 1em; }
+    .model-sketch { max-width: 180px; }
+    .analysis-flow { grid-template-columns: minmax(0, 1fr); gap: 0.8em; }
+    .flow-arrow { transform: rotate(90deg); }
+    .flow-core { max-width: 24em; width: 100%; }
+    body:has(.formal-models.active) .chrome { background: var(--bg); gap: 1em; }
+    body:has(.formal-models.active) #counter { white-space: nowrap; }
+  }
+  @media print {
+    .formal-models [data-build-heading] { display: none; }
+    .formal-models [data-slide-build] { display: block !important; break-inside: avoid; }
+    .formal-models [data-slide-build] + [data-slide-build] { margin-top: 2em; }
+    .formal-models .print-build-title { display: block; font-size: 2em; margin-bottom: 0.8em; }
   }
 
   /* About slide */
@@ -602,6 +636,33 @@
     .visual-flow .visual-box { width: 100%; }
     .visual-flow .visual-arrow { transform: rotate(90deg); }
   }
+  /* Alternative M4 decision slide, retained beside the existing version. */
+  .m4-decision-slide h2 { max-width: none; margin-bottom: 0.5em; }
+  .m4-table caption {
+    text-align: left; padding: 0.7em 0 0.4em;
+    font-size: 0.85em; font-weight: 600; color: var(--text-mute);
+  }
+  .m4-gated-wrap { width: 68%; margin: 0.7em auto 0; }
+  .m4-gated-wrap .m4-table { min-width: 0; }
+  @media (max-width: 900px) {
+    .m4-gated-wrap { width: 100%; }
+  }
+  .m4-table .m4-miss { color: var(--warn); font-weight: 600; }
+  .m4-table-wrap { overflow-x: auto; }
+  .m4-table { width: 100%; min-width: 42rem; border-collapse: collapse; text-align: center; }
+  .m4-table thead th {
+    padding: 0.5em 0.5em; font-size: 0.8em; font-weight: 500;
+    color: var(--text-mute); border-bottom: 1px solid var(--line-strong);
+  }
+  .m4-table tbody th, .m4-table td {
+    padding: 0.45em 0.5em; border-bottom: 1px solid var(--line);
+    font-size: 1.2em; font-variant-numeric: tabular-nums;
+  }
+  .m4-table tbody th { font-family: var(--font-mono); font-size: 1.2em; }
+  .m4-table .m4-best { color: var(--good); font-weight: 700; }
+  .m4-table .m4-selected { background: var(--bg-soft); }
+  .m4-table .m4-selected th { color: var(--iog-infared); }
+  .m4-decision-slide .visual-tags { margin-top: 1.4em; }
 </style>
 </head>
 <body>
@@ -968,51 +1029,91 @@
       μ<sub>eff</sub> = μ + <var>p</var>(1−μ).  This measures topology risk over an epoch, rather than average delivery.</p>
   </section>
 
-  <!-- 11 · Five candidate models and their laws -->
-  <!-- Sources: formal_spec/hybrid_dissemination/models/m{1,2,3,4,5}/properties/full_coverage.md.
-       Notation here: k = relay picks (F or RF in the analyses), t = s−1 seed picks;
-       a and b = M5's k_in and k_out.  These are the ungated leading approximations. -->
+  <!-- 11 · Model mechanisms, followed by inputs and analytical predictions.
+       Sources: formal_spec/hybrid_dissemination/models/README.md and each
+       model's README.md and properties/.  Schematics show only the central
+       node's own selections; arrows indicate message flow, not selection. -->
   <section class="slide dense formal-models">
     <div class="slide-kicker">4 · Make it measurable</div>
-    <h2>Five candidate models and their laws</h2>
-    <p class="formal-law"><var>p</var><sub>bad</sub> ≈ 1 − e<sup>−<var>E</var></sup>,
-      with <var>E</var> the expected number of isolation defects</p>
-    <div class="model-visual">
-      <table class="model-table coverage-table" aria-label="Five ungated dissemination models and their leading coverage laws">
-        <thead>
-          <tr><th scope="col">Model</th><th scope="col">Mechanism and chosen links</th><th scope="col">Leading <var>E</var> / <var>H</var></th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row" class="model-id">M1</th>
-            <td>Push to <var>k</var> targets</td>
-            <td class="law">e<sup>−k(1−μ)</sup> + μ<sup>k</sup></td>
-          </tr>
-          <tr>
-            <th scope="row" class="model-id">M2</th>
-            <td>Receive from <var>k</var> forwarders</td>
-            <td class="law">μ<sup>k</sup> + e<sup>−k(1−μ)</sup></td>
-          </tr>
-          <tr>
-            <th scope="row" class="model-id">M3</th>
-            <td><var>k</var> pull + <var>t</var> publication-only seeding links</td>
-            <td class="law">μ<sup>k</sup> + μ<sup>t</sup> e<sup>−k(1−μ)</sup></td>
-          </tr>
-          <tr>
-            <th scope="row" class="model-id">M4</th>
-            <td><var>k</var> peers, bidirectional links</td>
-            <td class="law">μ<sup>k</sup> e<sup>−k(1−μ)</sup></td>
-          </tr>
-          <tr>
-            <th scope="row" class="model-id">M5</th>
-            <td><var>a</var> inbound + <var>b</var> outbound links</td>
-            <td class="law">μ<sup>a</sup> e<sup>−b(1−μ)</sup> + μ<sup>b</sup> e<sup>−a(1−μ)</sup></td>
-          </tr>
-        </tbody>
-      </table>
+    <h2 data-build-heading>Five candidate models</h2>
+    <div data-slide-build data-build-title="Five candidate models">
+      <h3 class="print-build-title">Five candidate models</h3>
+      <div class="model-gallery">
+        <figure class="model-example">
+          <figcaption><span class="model-number">M1</span><h3>Push</h3></figcaption>
+          <svg class="model-sketch" viewBox="0 0 180 160" role="img" aria-label="M1: the central node chooses targets and sends relay traffic to them.">
+            <defs>
+              <marker id="formal-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="var(--iog-infared)"/></marker>
+              <marker id="formal-arrow-back" markerWidth="9" markerHeight="9" refX="1" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M8 0 L0 4.5 L8 9" fill="var(--iog-infared)"/></marker>
+              <marker id="formal-seed-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="var(--warn)"/></marker>
+            </defs>
+            <path class="relay" d="M105 70 L141 44"/><path class="relay" d="M105 90 L141 116"/>
+            <circle class="peer" cx="155" cy="35" r="11"/><circle class="peer" cx="155" cy="125" r="11"/>
+            <circle class="self" cx="90" cy="80" r="18"/><text x="90" y="85">me</text>
+          </svg>
+          <p class="model-description">Choose targets for relay traffic.</p>
+        </figure>
+        <figure class="model-example">
+          <figcaption><span class="model-number">M2</span><h3>Pull</h3></figcaption>
+          <svg class="model-sketch" viewBox="0 0 180 160" role="img" aria-label="M2: the central node chooses forwarders that send relay traffic to it.">
+            <path class="relay" d="M39 44 L71 67"/><path class="relay" d="M39 116 L71 93"/>
+            <circle class="peer" cx="25" cy="35" r="11"/><circle class="peer" cx="25" cy="125" r="11"/>
+            <circle class="self" cx="90" cy="80" r="18"/><text x="90" y="85">me</text>
+          </svg>
+          <p class="model-description">Choose forwarders to receive from.</p>
+        </figure>
+        <figure class="model-example">
+          <figcaption><span class="model-number">M3</span><h3>Pull + seeding</h3></figcaption>
+          <svg class="model-sketch" viewBox="0 0 180 160" role="img" aria-label="M3: a chosen forwarder sends relay traffic in; a dashed outgoing link seeds only the central node's own publications.">
+            <path class="relay" d="M39 80 L67 80"/><path class="relay seed" d="M113 80 L141 80"/>
+            <circle class="peer" cx="25" cy="80" r="11"/><circle class="peer" cx="155" cy="80" r="11"/>
+            <circle class="self" cx="90" cy="80" r="18"/><text x="90" y="85">me</text>
+          </svg>
+          <p class="model-description">Add seed targets for your own publications.</p>
+        </figure>
+        <figure class="model-example">
+          <figcaption><span class="model-number">M4</span><h3>Bidirectional</h3></figcaption>
+          <svg class="model-sketch" viewBox="0 0 180 160" role="img" aria-label="M4: each peer chosen by the central node has one link carrying relay traffic in both directions.">
+            <path class="relay both" d="M39 80 L67 80"/><path class="relay both" d="M113 80 L141 80"/>
+            <circle class="peer" cx="25" cy="80" r="11"/><circle class="peer" cx="155" cy="80" r="11"/>
+            <circle class="self" cx="90" cy="80" r="18"/><text x="90" y="85">me</text>
+          </svg>
+          <p class="model-description">Each chosen link carries traffic both ways.</p>
+        </figure>
+        <figure class="model-example">
+          <figcaption><span class="model-number">M5</span><h3>In + out</h3></figcaption>
+          <svg class="model-sketch" viewBox="0 0 180 160" role="img" aria-label="M5: the central node chooses incoming forwarders and outgoing targets separately; both kinds carry relay traffic.">
+            <path class="relay" d="M39 44 L71 67"/><path class="relay" d="M39 116 L71 93"/>
+            <path class="relay" d="M105 70 L141 44"/><path class="relay" d="M105 90 L141 116"/>
+            <circle class="peer" cx="25" cy="35" r="11"/><circle class="peer" cx="25" cy="125" r="11"/>
+            <circle class="peer" cx="155" cy="35" r="11"/><circle class="peer" cx="155" cy="125" r="11"/>
+            <circle class="self" cx="90" cy="80" r="18"/><text x="90" y="85">me</text>
+          </svg>
+          <p class="model-description">Choose incoming and outgoing links separately.</p>
+        </figure>
+      </div>
+      <p class="model-legend">Links chosen by the central node; arrows show message flow.
+        <span class="seed-key">Own publications only</span></p>
     </div>
-    <p class="formal-note">Leading approximations near the connectivity threshold.  These baseline models have no hash gate or admission cap.</p>
-    <p class="formal-note">Also analyzed: transmissions, hop depth, standing links, robustness, eclipse cost, and transmission loss.</p>
+    <div data-slide-build data-build-title="Inputs and predictions" hidden>
+      <h3 class="print-build-title">Inputs and predictions</h3>
+      <div class="analysis-flow" role="group" aria-label="Network size, adversarial share and peers chosen per node feed closed-form estimates of coverage risk, message traffic and standing links.">
+        <div class="flow-group">
+          <h3>Inputs</h3>
+          <ul><li>Network size <var>N</var></li><li>Adversarial share μ</li><li>Peers chosen per node</li></ul>
+        </div>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <div class="flow-core"><h3>Closed-form<br>estimates</h3><p>For each dissemination model</p></div>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <div class="flow-group">
+          <h3>Predictions</h3>
+          <ul><li>Risk of a bad epoch</li><li>Copies per publication</li><li>Standing links per node</li></ul>
+        </div>
+      </div>
+      <div class="takeaway">Use the failure target δ to size the peer counts.</div>
+      <p class="formal-note">Analytical predictions checked against simulation.  Coverage uses leading approximations; hop depth is measured separately in simulation.</p>
+    </div>
+    <p class="formal-note">Baseline models: no hash gate or admission cap.</p>
   </section>
 
   <!-- 12 · Try it: compare the designs -->
@@ -1055,9 +1156,9 @@
       </div>
     </div>
     <div class="visual-tags">
-      <span class="visual-tag">Signed messages</span>
-      <span class="visual-tag">Registries</span>
+      <span class="visual-tag">On-chain registry</span>
       <span class="visual-tag">Connection lifecycle</span>
+      <span class="visual-tag">Gates + caps</span>
     </div>
   </section>
 
@@ -1115,32 +1216,94 @@
       </div>
     </div>
     <div class="visual-tags">
-      <span class="visual-tag">Parameter balance</span>
-      <span class="visual-tag">Isolation limits</span>
-      <span class="visual-tag">Model trade-offs</span>
+      <span class="visual-tag">Baseline agreement</span>
+      <span class="visual-tag">Gate/cap interactions</span>
+      <span class="visual-tag">Model comparisons</span>
     </div>
   </section>
 
-  <!-- 13 · Choosing M4 -->
-  <section class="slide viz-slide">
+  <!-- Choosing M4: costs and gated reliability at the stated configurations.
+       Source: docs/cip/design-comparison.md, Table 4 (ungated rows).
+       Speaker: M3 retains the bandwidth advantage. At these configurations,
+       M4 holds fewer logical links and has more predicted downtime margin.
+       The failure probabilities differ: M3 4.4e-5, M4 6.1e-6; both meet
+       the 1e-4 target. Downtime budgets are predictions under independent
+       downtime, not directly observed limits; hops are not elapsed latency.
+       Symmetry rescues: an honest eligible peer selecting this node can
+       provide connectivity when its own picks all land on adversaries.
+       An eligible pool with no honest peers cannot be rescued this way.
+       The gated table compares equal expected receiving-candidate pools
+       of about 40, using B=500 in both models. Both meet the target at
+       the stated configurations. The two tables use separate configurations.
+       Ungated: N=20,000, mu=0.2; M3 RF=13, s=7; M4 RF=9.
+       Costs and hops are measured; downtime budgets are predictions.
+       Gated: M3 RF=13, s=7, B_relay=B_publisher=500;
+       M4 k=10, B=500, C=23. Source: E20 synthesis section 7,
+       "equal deafen-cost" row (derived M3 prediction).
+       This is equal receiving-pool size, not equal either-direction reach.
+       These probabilities concern network-wide topology failure at fixed
+       adversarial membership, not adaptive eclipse of a chosen victim.
+       Eligibility is not the same as actual links or targeted eclipse cost.
+       These are model predictions; the zero-failure samples do not resolve
+       these rare-event rates. M4's proposed B=512 profile still needs a rerun. -->
+  <section class="slide visual-slide m4-decision-slide" id="m4-table-preview">
     <div class="slide-kicker">5 · Let the evidence choose</div>
-    <div class="split-row">
-      <div>
-        <h2>Evidence moved us from M3 to M4</h2>
-        <p class="viz-lede">Same reliability target, half the links.</p>
-        <p class="viz-note">N = 20,000, μ = 0.2, target 10⁻⁴. Links: ungated, M3 RF = 13, s = 7; M4 RF = 9. p<sub>bad</sub>: gated, M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23. Failed runs: gated, at an expected reach of 32 eligible peers. p<sub>bad</sub> is a model prediction, not a measured rate.</p>
-      </div>
-      <div class="viz-visual">
-        <svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" role="img" aria-label="M3 against M4: M4 holds half the links, has a lower predicted failure probability and had no failed runs where M3 had 17 of 400">
-          <g font-size="11" font-weight="600" letter-spacing="1.5">
-            <rect x="250" y="12" width="12" height="8" rx="2" fill="var(--text-faint)"/><text x="268" y="20" fill="var(--text-mute)">M3</text>
-            <rect x="310" y="12" width="12" height="8" rx="2" fill="var(--iog-infared)"/><text x="328" y="20" fill="var(--text-mute)">M4</text>
-            <text x="372" y="20" fill="var(--text-mute)">✓ BETTER</text>
-          </g>
-          <text x="0" y="20" font-size="11" letter-spacing="1.5" font-weight="600" fill="var(--text-faint)">M3 vs M4</text>
-          <text x="0" y="62" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Mean links held</text><text x="0" y="79" font-size="10.5" fill="var(--text-faint)">MEASURED · UNGATED · LOWER IS BETTER</text><rect x="250" y="50" width="150" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="60" font-size="11.5" font-weight="400" fill="var(--text-mute)">38.0</text><rect x="250" y="65" width="71.1" height="11" rx="2" fill="var(--iog-infared)"/><text x="327.1" y="75" font-size="11.5" font-weight="700" fill="var(--text-mute)">18.0  ✓</text><line x1="0" y1="88" x2="520" y2="88" stroke="var(--line)"/><text x="0" y="114" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Predicted p<tspan baseline-shift='sub' font-size='9'>bad</tspan></text><text x="0" y="131" font-size="10.5" fill="var(--text-faint)">PREDICTED · GATED · LOWER IS BETTER</text><rect x="250" y="102" width="150" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="112" font-size="11.5" font-weight="400" fill="var(--text-mute)">5.8 × 10⁻⁵</text><rect x="250" y="117" width="13.2" height="11" rx="2" fill="var(--iog-infared)"/><text x="269.2" y="127" font-size="11.5" font-weight="700" fill="var(--text-mute)">5.1 × 10⁻⁶  ✓</text><line x1="0" y1="140" x2="520" y2="140" stroke="var(--line)"/><text x="0" y="166" font-size="13" font-weight="600" fill="var(--text)" font-family="Barlow, system-ui, sans-serif">Failed runs, 32 eligible peers</text><text x="0" y="183" font-size="10.5" fill="var(--text-faint)">MEASURED · GATED · LOWER IS BETTER</text><rect x="250" y="154" width="150" height="11" rx="2" fill="var(--text-faint)"/><text x="406.0" y="164" font-size="11.5" font-weight="400" fill="var(--text-mute)">17 / 400</text><rect x="250" y="169" width="2.0" height="11" rx="2" fill="var(--iog-infared)"/><text x="258.0" y="179" font-size="11.5" font-weight="700" fill="var(--text-mute)">0 / 400  ✓</text><line x1="0" y1="192" x2="520" y2="192" stroke="var(--line)"/>
-        </svg>
-      </div>
+    <h2>Why we chose M4</h2>
+    <div class="m4-table-wrap">
+      <table class="m4-table" aria-label="M3 and M4 ungated reference configurations; green bold values mark the better value in each column">
+        <caption>Before gating · cost and downtime margin</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Received copies / node ↓</th>
+            <th scope="col">Mean links ↓</th>
+            <th scope="col">Mean full-coverage hops ↓</th>
+            <th scope="col">Downtime absorbed ↑<br>(predicted)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">M3</th>
+            <td class="m4-best">10.4</td>
+            <td>38</td>
+            <td>5.5</td>
+            <td>2.17%</td>
+          </tr>
+          <tr class="m4-selected">
+            <th scope="row">M4</th>
+            <td>13.4</td>
+            <td class="m4-best">18</td>
+            <td class="m4-best">5.0</td>
+            <td class="m4-best">7.43%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="m4-table-wrap m4-gated-wrap">
+      <table class="m4-table" aria-label="Gated comparison at equal expected receiving-candidate pool size of approximately 40 peers per node, B equals 500 for both; failure probabilities are predictions at the stated configurations">
+        <caption>With gating · ≈40 eligible sources per node (expected)</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Predicted failure / epoch ↓</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">M3</th>
+            <td>4.4 × 10<sup>−5</sup></td>
+          </tr>
+          <tr class="m4-selected">
+            <th scope="row">M4</th>
+            <td class="m4-best">5.1 × 10<sup>−6</sup></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="visual-tags">
+      <span class="visual-tag">Fewer links</span>
+      <span class="visual-tag">More downtime margin</span>
+      <span class="visual-tag">Symmetry rescues</span>
     </div>
   </section>
 
@@ -1259,21 +1422,47 @@
     var counter = document.getElementById('counter');
     var progress = document.getElementById('progress');
     var current = 0;
+    var currentBuild = 0;
 
-    function show(i) {
+    function buildsFor(i) {
+      return Array.prototype.slice.call(slides[i].querySelectorAll('[data-slide-build]'));
+    }
+
+    function show(i, build) {
       current = Math.max(0, Math.min(slides.length - 1, i));
       slides.forEach(function (s, idx) { s.classList.toggle('active', idx === current); });
-      counter.textContent = (current + 1) + ' / ' + slides.length;
+      var builds = buildsFor(current);
+      currentBuild = Math.max(0, Math.min(builds.length - 1, build || 0));
+      builds.forEach(function (part, idx) { part.hidden = idx !== currentBuild; });
+      var heading = slides[current].querySelector('[data-build-heading]');
+      if (heading && builds.length) heading.textContent = builds[currentBuild].getAttribute('data-build-title');
+      counter.textContent = (current + 1) + ' / ' + slides.length +
+        (builds.length > 1 ? ' · ' + (currentBuild + 1) + ' of ' + builds.length : '');
       progress.style.width = ((current + 1) / slides.length * 100) + '%';
-      if (history.replaceState) history.replaceState(null, '', '#' + (current + 1));
+      if (history.replaceState) history.replaceState(null, '', '#' + (current + 1) +
+        (currentBuild > 0 ? '.' + (currentBuild + 1) : ''));
+      slides[current].scrollTop = 0;
+    }
+
+    function advance() {
+      if (currentBuild + 1 < buildsFor(current).length) show(current, currentBuild + 1);
+      else show(current + 1);
+    }
+
+    function retreat() {
+      if (currentBuild > 0) show(current, currentBuild - 1);
+      else {
+        var previous = Math.max(0, current - 1);
+        show(previous, Math.max(0, buildsFor(previous).length - 1));
+      }
     }
 
     document.addEventListener('keydown', function (e) {
       if (e.altKey || e.ctrlKey || e.metaKey) return;
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
-      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); advance(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); retreat(); }
       else if (e.key === 'Home') { e.preventDefault(); show(0); }
-      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1, buildsFor(slides.length - 1).length - 1); }
       else if (e.key === 'Escape') {
         // On the live demo, Esc belongs to the embedded tool, never to leaving the deck.
         if (slides[current] && slides[current].classList.contains('demo-slide')) return;
@@ -1282,7 +1471,7 @@
     });
     document.addEventListener('click', function (e) {
       if (e.target.closest('.theme-toggle') || e.target.closest('a')) return;
-      show(current + 1);
+      advance();
     });
 
     var touchStartX = null, touchStartY = null;
@@ -1296,11 +1485,13 @@
       var dy = e.changedTouches[0].clientY - touchStartY;
       touchStartX = touchStartY = null;
       // Horizontal swipes navigate; vertical ones are left to scroll the slide.
-      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) show(dx < 0 ? current + 1 : current - 1);
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (dx < 0) advance(); else retreat(); }
     }, { passive: true });
 
-    var fromHash = parseInt(location.hash.slice(1), 10);
-    show(isNaN(fromHash) ? 0 : fromHash - 1);
+    var hashParts = location.hash.slice(1).split('.');
+    var fromHash = parseInt(hashParts[0], 10);
+    var fromBuild = parseInt(hashParts[1], 10);
+    show(isNaN(fromHash) ? 0 : fromHash - 1, isNaN(fromBuild) ? 0 : fromBuild - 1);
   })();
 </script>
 

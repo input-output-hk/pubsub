@@ -62,16 +62,28 @@ Background for questions: the ungated laws agree with the simulator in 38 of 40 
 
 **Evidence moved us from M3 to M4.** M3 was the implementation base in July (7 and 15 Jul), chosen from comparisons without the gate or cap. With them, and with security weighted ahead of efficiency (13 Aug), M4 won and was selected on 20 Aug.
 
+**Before gating — costs and downtime margin.** The slide compares M3 at RF = 13, s = 7 with M4 at RF = 9, at N = 20,000 and μ = 0.2. Both meet the 10⁻⁴ per-epoch topology-failure target. Costs and forwarding depths are measured; downtime tolerance is predicted.
+
 | | M3 | M4 | Source |
 | --- | ---: | ---: | --- |
-| Picks to meet the target (ungated) | 19 | 9 | CIP Table 9 |
-| Mean links held (ungated) | 38.0 | 18.0 | Companion Table 4 |
-| Copies received per node (ungated) | 10.4 | 13.4 | Companion Table 4 |
-| Predicted p_bad (gated reference) | 5.8 × 10⁻⁵ | 5.1 × 10⁻⁶ | CIP Table 10 |
-| Predicted downtime absorbed (gated) | 1.58 % | 7.57 % | CIP Table 10 |
-| Failed runs at 32 eligible peers | 17 / 400 | 0 / 400 | CIP, Alternatives considered |
+| Received copies per publication per honest node | 10.4 | 13.4 | Companion Table 4 |
+| Mean logical links held | 38.0 | 18.0 | Companion Table 4 |
+| Mean full-coverage hops | 5.5 | 5.0 | Companion Table 4 |
+| Predicted independent honest downtime absorbed | 2.17 % | 7.43 % | Companion Table 4 |
 
-The slide shows three rows, each tagged with its setup: mean links held (measured, ungated), predicted p_bad (gated reference) and failed runs (measured, gated, expected reach 32). The rest is left for questions. M3 keeps the bandwidth edge: it uses about 22 % less bandwidth (10.4 against 13.4 copies per node). Gated settings: M3 RF = 13, s = 7, B = 769; M4 k = 10, B = 500, C = 23.
+M3 keeps the bandwidth edge: about 22 % fewer received copies at the same message size and publication rate. M4 holds fewer logical links and has more predicted downtime margin at these configurations. Full-coverage hops measure forwarding depth to the last honest node, not elapsed time or a worst-case bound.
+
+**With gating — equal expected receiving pools.** The second table uses B = 500 for both models, giving approximately 40 eligible sources per node. M3 uses RF = 13, s = 7 and B_relay = B_publisher = 500; M4 uses k = 10, B = 500 and C = 23. These are different configurations from the ungated table above.
+
+| | M3 | M4 | Source |
+| --- | ---: | ---: | --- |
+| Predicted topology failure per epoch | 4.4 × 10⁻⁵ | 5.1 × 10⁻⁶ | [E20 synthesis §7](../pubsub-node/docs/experiments/m4-synthesis.md#7-m3-under-the-same-armor), equal deafen-cost row and M4 reference |
+
+Both meet the target, so the slide omits a pass/fail column. The M3 value is the synthesis's derived B = 500 prediction, rather than the B = 769 reference in CIP Table 10. This comparison holds receiving-pool size equal, not total eligibility across both directions. It concerns network-wide topology failure, not the cost of adaptively eclipsing a chosen victim; the probabilities are predictions, not measured rare-event rates. It does not establish that M3 cannot match M4 with further parameter changes.
+
+**Symmetry rescues.** In M4, an honest eligible peer selecting a node can provide connectivity even when that node's own selections all land on adversaries. M3's relay-source selections do not offer the same reciprocal rescue. Neither design can recover an honest source from an eligible receiving pool containing no honest peers.
+
+**Background, not shown on the slide.** A separate comparison at equal expected either-direction eligible reach of 32 peers per identity observed 17 failed runs out of 400 for M3 and none out of 400 for M4. That uses different configurations and a different normalization from the slide. Zero failures does not establish zero failure probability. See the CIP's Alternatives considered and E20 synthesis §7.
 
 **Why it looks like this.** Each mechanism answers a finding. The slide shows each row as a short phrase; the full wording and dates are here:
 
